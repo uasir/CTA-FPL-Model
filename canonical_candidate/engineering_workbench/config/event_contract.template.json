@@ -1,0 +1,26 @@
+{
+  "contract_version": "0.1.0-template",
+  "provider": "UNCONFIRMED",
+  "coordinate_system": "MUST_BE_CONFIRMED_FROM_SOURCE",
+  "key_columns": ["match_id", "event_id"],
+  "required_columns": ["match_id", "event_id", "period", "timestamp", "team_id", "event_type"],
+  "fields": {
+    "match_id": {"type": "string", "required": true, "nullable": false},
+    "event_id": {"type": "string", "required": true, "nullable": false},
+    "period": {"type": "integer", "required": true, "nullable": false, "min": 1},
+    "timestamp": {"type": "string", "required": true, "nullable": false},
+    "team_id": {"type": "string", "required": true, "nullable": false},
+    "player_id": {"type": "string", "required": false, "nullable": true},
+    "possession_id": {"type": "string", "required": false, "nullable": true},
+    "event_type": {"type": "string", "required": true, "nullable": false},
+    "x": {"type": "number", "required": false, "nullable": true},
+    "y": {"type": "number", "required": false, "nullable": true},
+    "end_x": {"type": "number", "required": false, "nullable": true},
+    "end_y": {"type": "number", "required": false, "nullable": true}
+  },
+  "notes": [
+    "Template only: confirm provider field names and event identity before use.",
+    "Do not assume coordinate bounds or pitch dimensions until source metadata is checked.",
+    "Add source-specific event-type and outcome enumerations after ingestion mapping is frozen."
+  ]
+}

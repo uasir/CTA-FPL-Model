@@ -1,0 +1,22 @@
+{
+  "dataset": "events",
+  "status": "PASS",
+  "row_count": 2,
+  "columns_found": [
+    "end_x",
+    "end_y",
+    "event_id",
+    "event_type",
+    "match_id",
+    "period",
+    "player_id",
+    "possession_id",
+    "team_id",
+    "timestamp",
+    "x",
+    "y"
+  ],
+  "missing_required_columns": [],
+  "errors": [],
+  "warnings": []
+}

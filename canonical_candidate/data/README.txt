@@ -1,0 +1,1 @@
+Place StatsBomb event JSON files in events/ and matching StatsBomb 360 JSON files in three-sixty/. Populate direction_map.csv only with verified match-period-team attack directions. Populate player_id_map.csv and player_minutes.csv from checked sources.

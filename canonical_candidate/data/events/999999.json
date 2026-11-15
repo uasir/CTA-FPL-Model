@@ -1,0 +1,5 @@
+[
+ {"id":"e1","index":1,"period":1,"minute":1,"second":0,"type":{"name":"Pass"},"team":{"name":"Test FC"},"possession_team":{"name":"Test FC"},"possession":1,"player":{"name":"Player A"},"location":[70,30],"pass":{"end_location":[105,35],"recipient":{"name":"Player B"}}},
+ {"id":"e2","index":2,"period":1,"minute":1,"second":2,"type":{"name":"Ball Receipt*"},"team":{"name":"Test FC"},"possession_team":{"name":"Test FC"},"possession":1,"player":{"name":"Player B"},"location":[105,35],"under_pressure":true},
+ {"id":"e3","index":3,"period":1,"minute":1,"second":4,"type":{"name":"Shot"},"team":{"name":"Test FC"},"possession_team":{"name":"Test FC"},"possession":1,"player":{"name":"Player B"},"location":[110,40],"shot":{"outcome":{"name":"Saved"},"statsbomb_xg":0.2}}
+]

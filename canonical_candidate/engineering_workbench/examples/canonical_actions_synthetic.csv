@@ -1,0 +1,5 @@
+match_id,event_id,action_type,outcome,x,y,end_x,end_y
+m_synth,e1,pass,complete,10,20,75,20
+m_synth,e2,shot,goal,75,20,,
+m_synth,e3,shot,saved,75,20,,
+m_synth,e4,pass,incomplete,15,25,80,25

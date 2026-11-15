@@ -1,0 +1,3 @@
+match_id,event_id,period,timestamp,team_id,player_id,possession_id,event_type,x,y,end_x,end_y
+m_synth,e1,1,00:00:01.200,team_a,player_1,pos_1,pass,10,20,75,20
+m_synth,e2,1,00:00:02.400,team_a,player_2,pos_1,shot,75,20,,

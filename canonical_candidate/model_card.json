@@ -1,0 +1,37 @@
+{
+  "name": "CTA-FPL Model",
+  "version": "1.0.2-experimental",
+  "artifact_type": "runnable feature pipeline",
+  "status": "implementation prototype; not validated for FPL points prediction",
+  "frozen_fpl_baseline": "unchanged",
+  "outputs": [
+    "sequences.csv",
+    "player_features.csv",
+    "optional xt_grid.csv",
+    "audit.json"
+  ],
+  "cta_composite": null,
+  "reason_no_composite": "No multi-match calibration, independent reviewer reliability, or out-of-sample validation.",
+  "pilot_match": {
+    "competition_match": "Bayer Leverkusen 2-2 VfB Stuttgart",
+    "date": "2024-04-27",
+    "statsbomb_match_id": 3895320
+  },
+  "coordinate_convention": "StatsBomb possession-oriented coordinates; the possession team attacks toward x=120. Direction defaults to true; false overrides are rejected to prevent double-flipping.",
+  "pilot_audit": {
+    "events": 3771,
+    "frames_360": 3185,
+    "matched_frame_uuids": 3185,
+    "frame_join_rate": 1.0,
+    "event_frame_coverage": 0.8446035534341023
+  },
+  "production_gates": [
+    "harmonised sequence boundaries",
+    "multi-match coverage",
+    "independent human review",
+    "inter-rater reliability",
+    "verified player IDs and minutes",
+    "time-ordered FPL backtest",
+    "forward validation"
+  ]
+}

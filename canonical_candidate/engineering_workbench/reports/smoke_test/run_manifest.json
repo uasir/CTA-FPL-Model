@@ -1,0 +1,27 @@
+{
+  "registry_version": "0.1.0",
+  "python_input": {
+    "path": "examples/python_output.csv",
+    "sha256": "f5cee251eea7c81801f4a3cfc174c37109fcbb2d57a766d2ec8eea66bb235088",
+    "rows": 2
+  },
+  "javascript_input": {
+    "path": "examples/javascript_output.csv",
+    "sha256": "f5cee251eea7c81801f4a3cfc174c37109fcbb2d57a766d2ec8eea66bb235088",
+    "rows": 2
+  },
+  "result": {
+    "status": "PASS",
+    "python_rows": 2,
+    "javascript_rows": 2,
+    "shared_keys": 2,
+    "missing_in_javascript": 0,
+    "extra_in_javascript": 0,
+    "python_duplicate_keys": 0,
+    "javascript_duplicate_keys": 0,
+    "python_null_key_rows": 0,
+    "javascript_null_key_rows": 0,
+    "features_passed": 4,
+    "features_total": 4
+  }
+}

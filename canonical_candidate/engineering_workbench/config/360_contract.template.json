@@ -1,0 +1,23 @@
+{
+  "contract_version": "0.1.0-template",
+  "provider": "UNCONFIRMED",
+  "key_columns": ["match_id", "event_id"],
+  "required_columns": ["match_id", "event_id"],
+  "fields": {
+    "match_id": {"type": "string", "required": true, "nullable": false},
+    "event_id": {"type": "string", "required": true, "nullable": false},
+    "frame_id": {"type": "string", "required": false, "nullable": true},
+    "visible_player_count": {"type": "integer", "required": false, "nullable": true, "min": 0}
+  },
+  "join_contract": {
+    "event_to_frames": "one_to_zero_or_many",
+    "frame_to_event": "many_to_one_or_one_to_one",
+    "orphan_frames_must_be_reported": true,
+    "duplicate_frame_identity_must_be_checked": true
+  },
+  "notes": [
+    "Template only: inspect actual 360 payload shape before use.",
+    "Player coordinates and team/player identifiers must be added from the real source schema.",
+    "Do not treat one event with multiple frames as a duplicate event join."
+  ]
+}

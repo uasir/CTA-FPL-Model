@@ -1,0 +1,24 @@
+{
+  "grid_x": 16,
+  "grid_y": 12,
+  "pitch_length": 120,
+  "pitch_width": 80,
+  "action_type_field": "action_type",
+  "outcome_field": "outcome",
+  "start_x_field": "x",
+  "start_y_field": "y",
+  "end_x_field": "end_x",
+  "end_y_field": "end_y",
+  "shot_actions": ["shot"],
+  "move_actions": ["pass", "carry"],
+  "success_values": ["complete", "successful", "success", "won"],
+  "goal_values": ["goal"],
+  "max_iterations": 10000,
+  "convergence_tolerance": 1e-12,
+  "notes": [
+    "Template only. Confirm coordinate scale, origin, orientation, action taxonomy, and outcome labels from the actual source.",
+    "Normalize each action to the attacking direction before training.",
+    "This unsmoothed empirical grid is a transparent baseline, not a production-calibrated xT model.",
+    "Fit on training matches only; calculate held-out action values without refitting to prevent leakage."
+  ]
+}

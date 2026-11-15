@@ -1,0 +1,11 @@
+{
+  "registry_version": "0.1.0",
+  "key_columns": ["match_id", "event_id"],
+  "features": {
+    "possession_id": {"type": "categorical", "nullable": true, "unit": "not_applicable", "tolerance_class": "exact"},
+    "pressure_count": {"type": "integer", "nullable": false, "unit": "count", "tolerance_class": "exact"},
+    "support_distance_m": {"type": "numeric", "nullable": true, "unit": "metres", "tolerance_class": "default_numeric"},
+    "has_360_frame": {"type": "boolean", "nullable": false, "unit": "not_applicable", "tolerance_class": "exact"}
+  },
+  "tolerances": {"default_numeric": {"rtol": 1e-7, "atol": 1e-9}}
+}

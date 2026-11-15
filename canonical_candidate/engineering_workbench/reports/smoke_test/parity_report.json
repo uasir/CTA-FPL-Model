@@ -1,0 +1,94 @@
+{
+  "summary": {
+    "status": "PASS",
+    "python_rows": 2,
+    "javascript_rows": 2,
+    "shared_keys": 2,
+    "missing_in_javascript": 0,
+    "extra_in_javascript": 0,
+    "python_duplicate_keys": 0,
+    "javascript_duplicate_keys": 0,
+    "python_null_key_rows": 0,
+    "javascript_null_key_rows": 0,
+    "features_passed": 4,
+    "features_total": 4
+  },
+  "row_integrity": {
+    "missing_in_javascript_sample": [],
+    "extra_in_javascript_sample": [],
+    "python_duplicate_sample": [],
+    "javascript_duplicate_sample": [],
+    "python_null_key_sample": [],
+    "javascript_null_key_sample": []
+  },
+  "join_report": {
+    "python": {
+      "rows_with_360": 1,
+      "rows_without_360": 1,
+      "coverage": 0.5
+    },
+    "javascript": {
+      "rows_with_360": 1,
+      "rows_without_360": 1,
+      "coverage": 0.5
+    }
+  },
+  "features": {
+    "possession_id": {
+      "type": "categorical",
+      "python_missing_values": 0,
+      "javascript_missing_values": 0,
+      "compared": 2,
+      "exact_matches": 2,
+      "within_tolerance": 2,
+      "null_mismatches": 0,
+      "nullability_violations": 0,
+      "invalid_values": [],
+      "pass": true
+    },
+    "pressure_count": {
+      "type": "integer",
+      "python_missing_values": 0,
+      "javascript_missing_values": 0,
+      "compared": 2,
+      "exact_matches": 2,
+      "within_tolerance": 2,
+      "null_mismatches": 0,
+      "nullability_violations": 0,
+      "invalid_values": [],
+      "pass": true
+    },
+    "support_distance_m": {
+      "type": "numeric",
+      "python_missing_values": 0,
+      "javascript_missing_values": 0,
+      "compared": 2,
+      "exact_matches": 2,
+      "within_tolerance": 2,
+      "null_mismatches": 0,
+      "nullability_violations": 0,
+      "invalid_values": [],
+      "pass": true,
+      "max_absolute_error": 0.0,
+      "mean_absolute_error": 0.0,
+      "rmse": 0.0,
+      "mean_signed_error": 0.0,
+      "p50_absolute_error": 0.0,
+      "p95_absolute_error": 0.0,
+      "p99_absolute_error": 0.0
+    },
+    "has_360_frame": {
+      "type": "boolean",
+      "python_missing_values": 0,
+      "javascript_missing_values": 0,
+      "compared": 2,
+      "exact_matches": 2,
+      "within_tolerance": 2,
+      "null_mismatches": 0,
+      "nullability_violations": 0,
+      "invalid_values": [],
+      "pass": true
+    }
+  },
+  "mismatch_samples": []
+}
