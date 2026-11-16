@@ -1,0 +1,57 @@
+{
+  "fixture": "StatsBomb Open Data real-pilot subset; exact records copied from the verified source JSON after deterministic selection.",
+  "match_id": "3895320",
+  "source_git_blob_sha1": {
+    "events": "2f4cc3c3f8173e923485db7e0c814980080ecdb4",
+    "three_sixty": "80cd519d37fcea4681e38a3806b69ae9f9af9fa0"
+  },
+  "selection": {
+    "event_index_ranges_inclusive": [
+      [
+        1,
+        40
+      ],
+      [
+        259,
+        274
+      ]
+    ],
+    "event_count": 56,
+    "frame_count": 45
+  },
+  "edge_cases": {
+    "missing_location_event_ids": [
+      "fe1c825d-11b0-48e7-a5e7-5d2d89eef306",
+      "81fa003c-4af5-48a9-acff-c69431bd09d5",
+      "d545f5a2-6d41-413e-ab04-045087dc5b98",
+      "afc6f2de-a7c6-4cc2-924c-392af1ebc681"
+    ],
+    "shot_event_ids": [
+      "dc0ac988-3f23-4b8e-be6f-1342dc6679c3"
+    ],
+    "out_of_bounds_360_samples": [
+      {
+        "event_uuid": "83e61af6-4e50-437d-912b-ef3dcf6c89ce",
+        "location": [
+          29.35088667780272,
+          -0.19811412823801788
+        ]
+      },
+      {
+        "event_uuid": "06cffca2-0013-4738-b375-b60b5f6e565c",
+        "location": [
+          29.35088667780272,
+          -0.19811412823801788
+        ]
+      },
+      {
+        "event_uuid": "df4bda0c-7582-43fe-a87d-1588821a5cf3",
+        "location": [
+          24.10173793119114,
+          -2.3368474294311596
+        ]
+      }
+    ]
+  },
+  "provenance_note": "These are actual event and 360 records from match 3895320, not generated or synthetic rows."
+}

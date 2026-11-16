@@ -5,6 +5,13 @@
 **Predecessors:** StatsBomb event ingestion; event/360 joining; pressure and support feature generation; JavaScript reproduction  
 **Next gate:** 34-match audit, then independent xT/VAEP baselines and CTA incremental evaluation
 
+> For direct parity with the existing CTA-FPL v1.0.2 core, use
+> `CTA_CORE_PARITY_CONTRACT.md` and
+> `config/cta_core_parity_contract.json`. That contract compares possession,
+> player-per-single-match-run, and xT-cell outputs at their actual grains.
+> The event-key examples below apply only to event-level implementations; do
+> not reshape possession or player aggregates into event-keyed rows.
+
 ## 1. Objective
 
 Demonstrate that the Python and JavaScript implementations produce equivalent row-level outputs from the same canonical match inputs. The audit must detect differences in row identity, event/360 joins, feature definitions, null handling, numeric calculations, and aggregation.

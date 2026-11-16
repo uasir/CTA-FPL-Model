@@ -51,8 +51,26 @@ def key_for(row: dict[str, Any], cols: list[str]) -> tuple[str, ...]:
     return tuple(norm_key(row.get(c)) for c in cols)
 
 
-def load_registry(path: Path) -> dict[str, Any]:
-    reg = json.loads(path.read_text(encoding="utf-8"))
+def load_registry(path: Path, table: str | None = None) -> dict[str, Any]:
+    source = json.loads(path.read_text(encoding="utf-8"))
+    if "parity_tables" in source:
+        if not table:
+            raise ValueError("This parity contract requires --table")
+        tables = source["parity_tables"]
+        if table not in tables:
+            raise ValueError(f"Unknown parity table {table!r}; choose one of {sorted(tables)}")
+        selected = tables[table]
+        reg = {
+            "registry_version": source.get("contract_version"),
+            "table": table,
+            "key_columns": selected.get("key_columns"),
+            "features": selected.get("features"),
+            "tolerances": source.get("tolerances", {}),
+        }
+    else:
+        if table:
+            raise ValueError("--table is only valid with a multi-table parity contract")
+        reg = source
     if not isinstance(reg.get("key_columns"), list) or not reg["key_columns"]:
         raise ValueError("Registry must define a non-empty key_columns list")
     if len(set(reg["key_columns"])) != len(reg["key_columns"]):
@@ -167,9 +185,10 @@ def main() -> int:
     ap.add_argument("--python", required=True, type=Path, help="Python output CSV, JSON, or JSONL")
     ap.add_argument("--javascript", required=True, type=Path, help="JavaScript output CSV, JSON, or JSONL")
     ap.add_argument("--registry", type=Path, default=Path("config/feature_registry.json"))
+    ap.add_argument("--table", help="Entity grain to select from a multi-table parity contract")
     ap.add_argument("--out", type=Path, default=Path("reports/parity"))
     args = ap.parse_args()
-    reg = load_registry(args.registry)
+    reg = load_registry(args.registry, args.table)
     p, j = load_rows(args.python), load_rows(args.javascript)
     result = audit(p, j, reg)
     args.out.mkdir(parents=True, exist_ok=True)
@@ -180,7 +199,7 @@ def main() -> int:
     for n,r in result["features"].items(): lines.append(f"| {n} | {r['pass']} | {r['compared']} | {r['within_tolerance']} | {r.get('max_absolute_error','—')} |")
     lines += ["", "## 360 coverage", "", "```json", json.dumps(result["join_report"],indent=2), "```", ""]
     (args.out/"parity_report.md").write_text("\n".join(lines), encoding="utf-8")
-    manifest = {"registry_version":reg.get("registry_version"),"python_input":{"path":str(args.python),"sha256":file_sha(args.python),"rows":len(p)},"javascript_input":{"path":str(args.javascript),"sha256":file_sha(args.javascript),"rows":len(j)},"result":result["summary"]}
+    manifest = {"registry_version":reg.get("registry_version"),"table":reg.get("table"),"python_input":{"path":str(args.python),"sha256":file_sha(args.python),"rows":len(p)},"javascript_input":{"path":str(args.javascript),"sha256":file_sha(args.javascript),"rows":len(j)},"result":result["summary"]}
     (args.out/"run_manifest.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
     print(json.dumps(result["summary"], indent=2))
     return 0 if result["summary"]["status"] == "PASS" else 2

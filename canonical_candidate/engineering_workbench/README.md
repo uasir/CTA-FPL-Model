@@ -27,6 +27,34 @@ PYTHONPATH=src python -m cta_audit.audit \
 
 Exit code 0 means parity passed; exit code 2 means the audit failed. Reports include JSON, Markdown, and input SHA-256 hashes.
 
+## v1.0.2 core parity
+
+Use `config/cta_core_parity_contract.json` for parity with the existing Python
+core. It compares possession rows, one-match player aggregates, and xT grid
+cells separately; it does not remap them to event keys. The contract marks
+unmapped aliases, minutes/per-90 fields, and 360 player identities unsupported.
+
+Run the JavaScript reproduction on the same raw files:
+
+```bash
+node src/js/run_pilot_parity.mjs \
+  --events ../data/events/3895320.json \
+  --three-sixty ../data/three-sixty/3895320.json \
+  --direction-map ../data/direction_map.csv \
+  --out ../outputs/pilot_3895320/parity/javascript
+```
+
+Then run `cta_audit.audit` once for each `--table sequences`, `--table players`,
+and `--table xt_grid`, using the corresponding Python CSV, JavaScript JSON, and
+`config/cta_core_parity_contract.json`. See
+`docs/engineering/CTA_CORE_PARITY_CONTRACT.md` for exact commands and semantics.
+
+Run JavaScript unit tests with:
+
+```bash
+node --test tests/js/*.test.mjs
+```
+
 ## Important boundary
 
 The example files are synthetic smoke-test data, not the pilot match or 34-match dataset. No project-level parity or predictive-performance claim can be made until the actual immutable match inputs and both runtime outputs are supplied.
