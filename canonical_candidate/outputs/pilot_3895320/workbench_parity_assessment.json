@@ -1,0 +1,51 @@
+{
+  "status": "NOT RUN",
+  "entrypoint": "engineering_workbench/src/cta_audit/audit.py (module: cta_audit.audit)",
+  "documented_command": "cd canonical_candidate/engineering_workbench && PYTHONPATH=src python -m cta_audit.audit --python <python_rows.csv> --javascript <javascript_rows.csv> --registry config/feature_registry.json --out reports/parity",
+  "accepted_formats": [
+    "CSV",
+    "JSON array or object with rows",
+    "JSONL/NDJSON"
+  ],
+  "required_comparable_inputs": {
+    "both_runtimes": "Feature tables derived from the same immutable event and 360 snapshot, with declared versions/configuration.",
+    "row_keys": [
+      "match_id",
+      "event_id"
+    ],
+    "registered_features": {
+      "possession_id": {
+        "type": "categorical",
+        "nullable": true,
+        "unit": "not_applicable",
+        "tolerance_class": "exact"
+      },
+      "pressure_count": {
+        "type": "integer",
+        "nullable": false,
+        "unit": "count",
+        "tolerance_class": "exact"
+      },
+      "support_distance_m": {
+        "type": "numeric",
+        "nullable": true,
+        "unit": "metres",
+        "tolerance_class": "default_numeric"
+      },
+      "has_360_frame": {
+        "type": "boolean",
+        "nullable": false,
+        "unit": "not_applicable",
+        "tolerance_class": "exact"
+      }
+    },
+    "types_and_nullability": "Must conform to config/feature_registry.json; nulls, duplicate keys, missing keys, extra keys, and numeric tolerances are checked."
+  },
+  "observed_blockers": [
+    "No JavaScript/TypeScript implementation exists under the imported candidate or its Engineering Workbench; examples/javascript_output.csv is only a synthetic smoke-test output.",
+    "No real pilot JavaScript feature table exists, and the Workbench audit requires both Python and JavaScript tables.",
+    "The current registry keys are match_id,event_id and registers only possession_id, pressure_count, support_distance_m, and has_360_frame. The core CLI emits possession-level sequences and player-level aggregates, not a comparable event-keyed table with that schema.",
+    "event_contract.template.json and 360_contract.template.json declare provider UNCONFIRMED and are explicitly templates; their normalized flat fields do not define a validated mapping from the downloaded nested StatsBomb event and 360 payloads."
+  ],
+  "decision": "Parity was not run; no parity claim is made. Do not substitute the synthetic Workbench example CSVs."
+}

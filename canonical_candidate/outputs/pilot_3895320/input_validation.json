@@ -1,0 +1,166 @@
+{
+  "match_id": "3895320",
+  "sources": {
+    "events": {
+      "path": "data/events/3895320.json",
+      "bytes": 3274132,
+      "git_blob_sha1": "2f4cc3c3f8173e923485db7e0c814980080ecdb4",
+      "top_level_type": "array",
+      "records": 3771,
+      "non_object_records": 0,
+      "unique_nonempty_event_ids": 3771,
+      "duplicate_nonempty_event_ids": 0,
+      "field_missing_counts": {
+        "id": 0,
+        "index": 0,
+        "period": 0,
+        "timestamp": 0,
+        "type.name": 0,
+        "team.name": 0,
+        "possession_team.name": 0,
+        "possession": 0,
+        "player.name": 14,
+        "location": 27
+      },
+      "valid_locations": 3744,
+      "invalid_location_shape_or_type": 0,
+      "locations_out_of_bounds_120x80": 0,
+      "event_type_counts": {
+        "Pass": 1076,
+        "Ball Receipt*": 1027,
+        "Carry": 872,
+        "Pressure": 343,
+        "Ball Recovery": 99,
+        "Duel": 51,
+        "Block": 39,
+        "Goal Keeper": 34,
+        "Foul Committed": 29,
+        "Foul Won": 29,
+        "Miscontrol": 28,
+        "Shot": 25,
+        "Dispossessed": 24,
+        "Dribble": 21,
+        "Clearance": 16,
+        "Interception": 15,
+        "Dribbled Past": 13,
+        "Substitution": 10,
+        "Half Start": 4,
+        "Half End": 4,
+        "Tactical Shift": 4,
+        "Starting XI": 2,
+        "Error": 2,
+        "Bad Behaviour": 2,
+        "Shield": 1,
+        "Injury Stoppage": 1
+      }
+    },
+    "three_sixty": {
+      "path": "data/three-sixty/3895320.json",
+      "bytes": 8412091,
+      "git_blob_sha1": "80cd519d37fcea4681e38a3806b69ae9f9af9fa0",
+      "top_level_type": "array",
+      "records": 3185,
+      "non_object_records": 0,
+      "missing_event_uuid": 0,
+      "duplicate_event_uuid_records": 0,
+      "missing_or_nonlist_freeze_frame": 0,
+      "visible_player_records": 57482,
+      "visible_player_missing_counts": {
+        "location": 0,
+        "teammate": 0,
+        "actor": 0,
+        "keeper": 0,
+        "player.id": 57482,
+        "player.name": 57482
+      },
+      "valid_visible_player_locations": 57482,
+      "invalid_visible_player_location_shape_or_type": 0,
+      "visible_player_locations_out_of_bounds_120x80": 600,
+      "missing_visible_area": 0,
+      "freeze_frame_nonobject_entries": 0,
+      "visible_player_location_bounds_observation": {
+        "nominal_bounds": [
+          0,
+          120,
+          0,
+          80
+        ],
+        "valid_numeric_locations": 57482,
+        "outside_nominal_bounds": 600,
+        "x_range": [
+          -2.6399129719751,
+          121.24346816975064
+        ],
+        "y_range": [
+          -9.054013516555585,
+          89.43104009465435
+        ],
+        "policy": "reported without clipping or treating as a contract failure because the Workbench 360 contract is explicitly unconfirmed"
+      }
+    }
+  },
+  "linkage": {
+    "events_with_ids": 3771,
+    "unique_event_ids": 3771,
+    "frames_with_event_uuid": 3185,
+    "unique_frame_event_uuids": 3185,
+    "matched_frame_uuids": 3185,
+    "unmatched_frame_uuids": 0,
+    "event_ids_with_frame": 3185,
+    "frame_to_event_join_rate": 1.0,
+    "event_coverage": 0.8446035534341023
+  },
+  "maps": {
+    "direction": {
+      "path": "data/direction_map.csv",
+      "header": [
+        "match_id",
+        "period",
+        "team",
+        "attacks_right"
+      ],
+      "expected_header": [
+        "match_id",
+        "period",
+        "team",
+        "attacks_right"
+      ],
+      "header_valid": true,
+      "data_rows": 0
+    },
+    "player_alias": {
+      "path": "data/player_id_map.csv",
+      "header": [
+        "statsbomb_player_name",
+        "fpl_player_name"
+      ],
+      "expected_header": [
+        "statsbomb_player_name",
+        "fpl_player_name"
+      ],
+      "header_valid": true,
+      "data_rows": 0
+    },
+    "minutes": {
+      "path": "data/player_minutes.csv",
+      "header": [
+        "player_name",
+        "minutes"
+      ],
+      "expected_header": [
+        "player_name",
+        "minutes"
+      ],
+      "header_valid": true,
+      "data_rows": 0
+    }
+  },
+  "validation_errors": [],
+  "warnings": [
+    "27 event records omit location; these are retained and may not contribute spatial features.",
+    "The direction CSV has a valid header but zero data rows. The existing core auto-fills four period/team direction keys using the repository-documented StatsBomb possession-oriented x=120 convention; this is recorded in the run manifest, not supplied by the CSV.",
+    "Player alias and minutes CSVs have valid headers but zero data rows; no FPL names or trusted minutes are available.",
+    "StatsBomb 360 visible-player records contain coordinates/role flags but no player IDs or names; entity-level linking is unavailable from this input.",
+    "600 numeric 360 visible-player coordinates fall outside nominal 120x80 pitch bounds (x range -2.640..121.243, y range -9.054..89.431); values were preserved and not clipped because the provider-specific 360 coordinate contract is unconfirmed."
+  ]
+}

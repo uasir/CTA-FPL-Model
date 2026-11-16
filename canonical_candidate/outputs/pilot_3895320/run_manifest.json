@@ -1,0 +1,114 @@
+{
+  "project_input_root": "canonical_candidate/data",
+  "match_id": "3895320",
+  "core_version": "1.0.2-experimental",
+  "retrieved_from": {
+    "events": "https://raw.githubusercontent.com/hudl/open-data/master/data/events/3895320.json",
+    "three_sixty": "https://raw.githubusercontent.com/hudl/open-data/master/data/three-sixty/3895320.json"
+  },
+  "sha_verification": "Git hash-object and independent SHA-1(blob <size> NUL <bytes>) both matched before copying and again after installation.",
+  "inputs": {
+    "events": {
+      "path": "data/events/3895320.json",
+      "bytes": 3274132,
+      "git_blob_sha1": "2f4cc3c3f8173e923485db7e0c814980080ecdb4",
+      "top_level_type": "array",
+      "records": 3771,
+      "non_object_records": 0,
+      "unique_nonempty_event_ids": 3771,
+      "duplicate_nonempty_event_ids": 0,
+      "field_missing_counts": {
+        "id": 0,
+        "index": 0,
+        "period": 0,
+        "timestamp": 0,
+        "type.name": 0,
+        "team.name": 0,
+        "possession_team.name": 0,
+        "possession": 0,
+        "player.name": 14,
+        "location": 27
+      },
+      "valid_locations": 3744,
+      "invalid_location_shape_or_type": 0,
+      "locations_out_of_bounds_120x80": 0,
+      "event_type_counts": {
+        "Pass": 1076,
+        "Ball Receipt*": 1027,
+        "Carry": 872,
+        "Pressure": 343,
+        "Ball Recovery": 99,
+        "Duel": 51,
+        "Block": 39,
+        "Goal Keeper": 34,
+        "Foul Committed": 29,
+        "Foul Won": 29,
+        "Miscontrol": 28,
+        "Shot": 25,
+        "Dispossessed": 24,
+        "Dribble": 21,
+        "Clearance": 16,
+        "Interception": 15,
+        "Dribbled Past": 13,
+        "Substitution": 10,
+        "Half Start": 4,
+        "Half End": 4,
+        "Tactical Shift": 4,
+        "Starting XI": 2,
+        "Error": 2,
+        "Bad Behaviour": 2,
+        "Shield": 1,
+        "Injury Stoppage": 1
+      }
+    },
+    "three_sixty": {
+      "path": "data/three-sixty/3895320.json",
+      "bytes": 8412091,
+      "git_blob_sha1": "80cd519d37fcea4681e38a3806b69ae9f9af9fa0",
+      "top_level_type": "array",
+      "records": 3185,
+      "non_object_records": 0,
+      "missing_event_uuid": 0,
+      "duplicate_event_uuid_records": 0,
+      "missing_or_nonlist_freeze_frame": 0,
+      "visible_player_records": 57482,
+      "visible_player_missing_counts": {
+        "location": 0,
+        "teammate": 0,
+        "actor": 0,
+        "keeper": 0,
+        "player.id": 57482,
+        "player.name": 57482
+      },
+      "valid_visible_player_locations": 57482,
+      "invalid_visible_player_location_shape_or_type": 0,
+      "visible_player_locations_out_of_bounds_120x80": 600
+    }
+  },
+  "cli_command": "cd canonical_candidate && PYTHONDONTWRITEBYTECODE=1 python -B src/cta_engine.py --events-dir outputs/pilot_3895320/input_snapshot/events --three-sixty-dir outputs/pilot_3895320/input_snapshot/three-sixty --direction-map data/direction_map.csv --player-map data/player_id_map.csv --minutes data/player_minutes.csv --output-dir outputs/pilot_3895320",
+  "maps": {
+    "direction": "existing header-only CSV; core generated four true keys using its documented StatsBomb possession-oriented coordinate convention; no map rows were invented.",
+    "player_alias": "existing header-only CSV; zero aliases; no FPL join.",
+    "minutes": "Existing header-only CSV; zero trusted minute rows. The CLI fills its output minutes field with 0.0 for each player when absent; these values are placeholders, and per-90 fields remain blank."
+  },
+  "run": {
+    "exit_code": 0,
+    "audit": "audit.json",
+    "log": "core_cli.log",
+    "output_validation": "output_validation.json",
+    "input_validation": "input_validation.json"
+  },
+  "parity": "not run: no JavaScript implementation, no real-data parity contract, and no comparable real Python/JavaScript event-keyed outputs.",
+  "limitations": [
+    "This is an engineering feature extraction run on one real match, not a validated FPL predictor.",
+    "No calibration, prediction, EV, EO, or CoVar result was computed.",
+    "Existing synthetic 999999 files were excluded by the pilot-only input snapshot."
+  ],
+  "workbench_parity_assessment": {
+    "status": "NOT RUN",
+    "report": "workbench_parity_assessment.md",
+    "machine_readable_report": "workbench_parity_assessment.json",
+    "entrypoint": "PYTHONPATH=src python -m cta_audit.audit --python <python_rows.csv> --javascript <javascript_rows.csv> --registry config/feature_registry.json --out reports/parity",
+    "reason": "No JS implementation or real JS output, no complete StatsBomb input contract, and current core outputs do not match the registry event-keyed contract."
+  }
+}
