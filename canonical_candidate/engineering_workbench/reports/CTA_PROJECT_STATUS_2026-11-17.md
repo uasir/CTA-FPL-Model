@@ -18,6 +18,21 @@ Latest successful run: [GitHub Actions run 44087292634](https://github.com/uasir
 - The tolerance-boundary fix adds only a 1e-12 comparison slack for non-zero absolute tolerances. It does not change feature values or the contract's substantive tolerance.
 - The output artifact is named `cta-independent-multimatch-44087292634`.
 
+## Latest multi-match parity and 360 anomaly diagnosis
+
+The registry-backed parity workflow completed successfully in [run 44090312302](https://github.com/uasir/CTA-FPL-Model/actions/runs/44090312302):
+- Contract version 1.0.0; **34/34 matches PASS**.
+- Registered comparisons: **140,441/140,441 within tolerance** (113,373 sequence, 20,540 player, 6,528 xT-grid feature comparisons).
+- Python core tests, workbench tests, both engines, parity audit, and data-quality audit all passed.
+
+The new cross-match UUID diagnostic scanned the anomalous 360 file against all 34 sampled event files:
+- 3,548 unique frame UUIDs.
+- 4,026 event UUIDs in target match 3837706.
+- Zero UUID overlap with target match and zero overlap with any other match in this 34-match sample.
+- Status: `UNRESOLVED_NO_MATCH_IN_SAMPLE`.
+
+This narrows the diagnosis but does not identify the frame file's true source. Match 3837706's 360 file remains quarantined. Do not normalize IDs, relabel the match, or use those frames as valid coverage.
+
 ## Data-quality findings
 
 Latest successful data-quality report from run 44087292634:
