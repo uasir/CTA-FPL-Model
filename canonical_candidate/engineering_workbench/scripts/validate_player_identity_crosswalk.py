@@ -35,9 +35,17 @@ def validate_rows(rows):
     for key,values in fpl_keys.items():
         if len({(v["competition_id"],v["statsbomb_player_id"]) for v in values})>1:
             errors.append({"error":"fpl_element_maps_to_multiple_statsbomb_identities","key":key})
+    if errors:
+        status="BLOCKED"
+    elif not accepted and not rows:
+        status="EMPTY_NOT_READY"
+    elif not accepted:
+        status="NO_VERIFIED_MAPPINGS"
+    else:
+        status="PASS"
     report={"input_rows":len(rows),"verified_rows_accepted":len(accepted) if not errors else 0,
             "non_verified_rows_excluded":sum(n for s,n in statuses.items() if s in {"pending","ambiguous","rejected"}),
-            "status_counts":dict(statuses),"errors":errors,"status":"PASS" if not errors else "BLOCKED",
+            "status_counts":dict(statuses),"errors":errors,"status":status,"join_ready":status=="PASS",
             "join_policy":"Only fully evidenced verified rows; no fuzzy name matching"}
     return (accepted if not errors else []),report
 def main():
@@ -49,5 +57,5 @@ def main():
     with (args.out_dir/"verified_player_identity_crosswalk.csv").open("w",newline="",encoding="utf-8") as h:
         writer=csv.DictWriter(h,fieldnames=FIELDS); writer.writeheader(); writer.writerows(accepted)
     (args.out_dir/"crosswalk_validation.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
-    print(json.dumps(report,indent=2)); return 0 if report["status"]=="PASS" else 2
+    print(json.dumps(report,indent=2)); return 2 if report["status"]=="BLOCKED" else 0
 if __name__=="__main__": raise SystemExit(main())
