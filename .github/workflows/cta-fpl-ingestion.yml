@@ -1,0 +1,46 @@
+name: CTA official FPL feed ingestion
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 5 * * *"
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/cta-fpl-ingestion.yml
+      - canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py
+      - canonical_candidate/engineering_workbench/tests/test_fpl_ingestion.py
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run FPL ingestion tests
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: python -m pytest -q tests/test_fpl_ingestion.py
+      - name: Fetch official FPL data
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py \
+            --out-dir run_artifacts/fpl_official \
+            --workers 2 \
+            --delay 0.15
+      - name: Upload official FPL snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-fpl-official-\u0024{{ github.run_id }}
+          path: run_artifacts/fpl_official/
+          if-no-files-found: warn
+          retention-days: 30
