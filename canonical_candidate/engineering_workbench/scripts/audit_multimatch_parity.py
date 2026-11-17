@@ -162,7 +162,7 @@ def main():
         py_360 = py_audit.get("statsbomb_360_audit", {})
         js_360 = js_diag.get("statsbomb_360_audit", {})
         frame_fields = [
-            "frames", "frames_with_event_uuid", "unique_event_uuids",
+            "frames", "frames_with_event_uuid", "unique_event_uuids", "unique_match_event_keys",
             "duplicate_frame_event_uuids", "matched_frame_uuids",
             "unmatched_frame_uuids", "frame_to_event_join_rate",
             "event_coverage_with_frame",
