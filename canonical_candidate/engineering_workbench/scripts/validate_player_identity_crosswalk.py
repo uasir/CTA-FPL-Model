@@ -27,13 +27,13 @@ def validate_rows(rows):
         accepted.append({f:(row.get(f) or "").strip() for f in FIELDS})
     sb_keys=defaultdict(list); fpl_keys=defaultdict(list)
     for row in accepted:
-        sb_keys[(row["season"],row["competition_id"],row["statsbomb_player_id"])].append(row)
+        sb_keys[(row["season"],row["statsbomb_player_id"])].append(row)
         fpl_keys[(row["season"],row["fpl_element_id"])].append(row)
     for key,values in sb_keys.items():
         if len({v["fpl_element_id"] for v in values})>1:
             errors.append({"error":"statsbomb_identity_maps_to_multiple_fpl_elements","key":key})
     for key,values in fpl_keys.items():
-        if len({(v["competition_id"],v["statsbomb_player_id"]) for v in values})>1:
+        if len({v["statsbomb_player_id"] for v in values})>1:
             errors.append({"error":"fpl_element_maps_to_multiple_statsbomb_identities","key":key})
     if errors:
         status="BLOCKED"
