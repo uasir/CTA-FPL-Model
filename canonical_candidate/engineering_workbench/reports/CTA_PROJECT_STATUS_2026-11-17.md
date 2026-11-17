@@ -51,7 +51,7 @@ The new cross-match UUID diagnostic scanned the anomalous 360 file against all 3
 - Zero UUID overlap with target match and zero overlap with any other match in this 34-match sample.
 - Status: `UNRESOLVED_NO_MATCH_IN_SAMPLE`.
 
-This narrows the diagnosis but does not identify the frame file's true source. Match 3837706's 360 file remains quarantined. Do not normalize IDs, relabel the match, or use those frames as valid coverage.
+This narrows the diagnosis but does not identify the frame file's true source. GitHub file history also shows the event JSON was last committed on 2023-12-13, while the 360 JSON was last committed on 2026-05-26. Those different publication histories are consistent with a source-version mismatch, but do not prove the 360 file's origin. Match 3837706's 360 file remains quarantined. Do not normalize IDs, relabel the match, or use those frames as valid coverage.
 
 ## Data-quality findings
 
