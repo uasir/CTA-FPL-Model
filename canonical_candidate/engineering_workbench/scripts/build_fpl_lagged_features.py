@@ -123,7 +123,10 @@ def build_dataset(players,fixtures,history,bootstrap):
         "point_in_time_caveat":"The current official API snapshot may include retrospective revisions to earlier gameweek stats. Strict historical backtests require archived pre-deadline snapshots.",
         "fixture_difficulty_status":"CURRENT_SNAPSHOT_ONLY_NOT_POINT_IN_TIME_VERIFIED",
         "deadline_cutoff_policy":"history kickoff_time < bootstrap-static event deadline_time",
-        "player_universe":"only players with a positive season-minute total were fetched for element-summary history"
+        "player_universe":"all rostered players were requested for element-summary history; players without a historical appearance may still have no target rows",
+        "ownership_feature_status":"GLOBAL_SELECTED_SHARE_FROM_HISTORY",
+        "ownership_denominator":"bootstrap-static events[].ranked_count",
+        "ownership_limitation":"global historical ownership only; not rank-tier effective ownership, and current-snapshot revisions remain possible"
     }
     return output,report
 def main():
