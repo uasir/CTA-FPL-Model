@@ -27,7 +27,7 @@ class LaggedFeatureTests(unittest.TestCase):
         self.assertEqual(report["status"],"PASS_STRUCTURAL_ONLY")
         self.assertEqual(report["point_in_time_status"],"NOT_VERIFIED")
     def test_double_gameweek_features_are_same_pre_deadline_snapshot(self):
-        rows,_=build_dataset(self.players,self.fixtures,self.history)
+        rows,_=build_dataset(self.players,self.fixtures,self.history,self.bootstrap)
         gw1=[x for x in rows if x["gameweek"]==1]
         self.assertEqual(len(gw1),2)
         self.assertEqual(gw1[0]["prior_gameweeks_count"],0)
