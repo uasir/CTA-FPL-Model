@@ -13,6 +13,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/validate_player_identity_crosswalk.py
       - canonical_candidate/engineering_workbench/tests/test_player_identity_crosswalk.py
       - canonical_candidate/data/player_identity_crosswalk.csv
+      - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
+      - canonical_candidate/engineering_workbench/tests/test_fpl_lagged_features.py
 
 permissions:
   contents: read
@@ -34,7 +36,7 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         env:
           PYTHONPATH: scripts
-        run: python -m pytest -q tests/test_fpl_ingestion.py tests/test_player_identity_crosswalk.py
+        run: python -m pytest -q tests/test_fpl_ingestion.py tests/test_player_identity_crosswalk.py tests/test_fpl_lagged_features.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -48,6 +50,14 @@ jobs:
             --out-dir run_artifacts/fpl_official \
             --workers 2 \
             --delay 0.15
+      - name: Build leakage-safe lagged FPL dataset
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py \
+            --players run_artifacts/fpl_official/fpl_players.csv \
+            --fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
+            --history run_artifacts/fpl_official/fpl_player_fixture.csv \
+            --out-dir run_artifacts/fpl_official
+
       - name: Upload official FPL snapshot
         if: always()
         uses: actions/upload-artifact@v4
