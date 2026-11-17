@@ -285,3 +285,6 @@ The current bootstrap includes `selected_by_percent` for the 672-player roster, 
 4. Design EO from deadline-aligned top-manager picks; do not substitute current `selected_by_percent` for historical EO.
 5. Resolve an authorized FPL target-data source for an overlapping Wyscout season, or another licensed event/target source. Keep provider IDs separate and verify all player/fixture mappings before joining CTA features.
 6. Once EV, EO, and stable CoVar are available, implement the squad-level objective and evaluate against the user's aggressive top-100k strategy. Keep CoVar the primary risk-control dimension, but measure it against realized out-of-sample rank/points outcomes.
+
+
+CI provenance cross-check: the current `main` tree has identical Git blob SHAs to multi-match commit `2ff12724060a9a411b8fe6aa01b416e1e031e56c` for the Python CTA core, JavaScript core, audit module, parity contract, ID-based enrichment adapter, and core tests. The later CoVar estimator and its tests are additional files and were exercised by FPL workflow run [44095250164](https://github.com/uasir/CTA-FPL-Model/actions/runs/44095250164). Thus the successful multi-match parity result applies to the current main core, while the CoVar tests/results apply to the added FPL risk layer.
