@@ -288,3 +288,21 @@ The current bootstrap includes `selected_by_percent` for the 672-player roster, 
 
 
 CI provenance cross-check: the current `main` tree has identical Git blob SHAs to multi-match commit `2ff12724060a9a411b8fe6aa01b416e1e031e56c` for the Python CTA core, JavaScript core, audit module, parity contract, ID-based enrichment adapter, and core tests. The later CoVar estimator and its tests are additional files and were exercised by FPL workflow run [44095250164](https://github.com/uasir/CTA-FPL-Model/actions/runs/44095250164). Thus the successful multi-match parity result applies to the current main core, while the CoVar tests/results apply to the added FPL risk layer.
+
+## Minutes-baseline evaluation extension — evening continuation
+
+The exploratory evaluator now reports a separate minutes-target baseline suite alongside the existing points baselines. It compares:
+- Previous gameweek minutes (`prior_gw_minutes`) against `target_minutes`.
+- Previous-three-gameweek average minutes against `target_minutes`.
+- Previous-five-gameweek average minutes against `target_minutes`.
+
+Each minutes baseline reports sample size, MAE, RMSE, mean error, per-gameweek Spearman rank correlation, and top-decile overlap. The minutes target is evaluated independently from points; minutes predictions are not converted into points or treated as a trained appearance-probability model.
+
+Regression coverage verifies the minutes target is used, checks exact synthetic MAE values, and respects the required history length. The latest workflow run is [44145697223](https://github.com/uasir/CTA-FPL-Model/actions/runs/44145697223): its test step has passed; the live official FPL fetch and downstream artifact build were still running at the time of this report update.
+
+Code commits:
+- Evaluator and JSON report: `dce53e8f459a81443f3f677d249fedc53e846cbe`.
+- Minutes regression tests: `2b35cbc7aa54029dc282f353a48965dbff89fdfc`.
+- Markdown minutes report output: `5ba0acd5868f6753533cb65d67a7298561a815f9`.
+
+An initial synthetic test correctly exposed a fixture setup issue: five-GW baseline rows had only three prior gameweeks and were therefore excluded. The test fixture was corrected to five prior gameweeks; the current workflow test stage passes. No production forecast claim is made.
