@@ -19,6 +19,8 @@ on:
             - canonical_candidate/engineering_workbench/tests/test_player_feature_enrichment.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_gameweek_aggregation.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_naive_baselines.py
+      - canonical_candidate/engineering_workbench/scripts/estimate_fpl_effective_ownership.py
+      - canonical_candidate/engineering_workbench/tests/test_fpl_effective_ownership.py
       - canonical_candidate/engineering_workbench/scripts/estimate_fpl_covariance.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_covariance.py
       - canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py
@@ -54,7 +56,8 @@ jobs:
             tests/test_player_feature_enrichment.py \
             tests/test_fpl_gameweek_aggregation.py \
             tests/test_fpl_naive_baselines.py \
-            tests/test_fpl_covariance.py
+            tests/test_fpl_covariance.py \
+            tests/test_fpl_effective_ownership.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
