@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
+  audit360,
   completeStatsBombDirections,
   coordinateDiagnostics,
   runCoreEquivalent,
@@ -68,10 +69,37 @@ test("out-of-bounds 360 coordinates are preserved and not used as event location
   assert.deepEqual(frames, before);
 });
 
-test("canonical player rows retain sparse missing values as null rather than zero", () => {
+test("canonical player rows zero-fill unobserved count features", () => {
   const result = runCoreEquivalent(events, frames, "3895320");
-  const player = result.playerRows.find((row) => row.shots === null);
+  const player = result.playerRows.find((row) => row.shots === 0);
   assert.ok(player, "fixture should include a player with no shot Counter key");
   assert.ok(Object.hasOwn(player, "shots"));
-  assert.equal(player.shots, null);
+  assert.equal(player.shots, 0);
+  assert.equal(player.mean_action_xt_gain, null);
+});
+
+test("360 event linkage is scoped to the requested match", () => {
+  const result = audit360(
+    [{ id: "shared-uuid", _match_id: "other-match" }],
+    [{ event_uuid: "shared-uuid" }],
+    "target-match",
+  );
+  assert.equal(result.matched_frame_uuids, 0);
+  assert.equal(result.unmatched_frame_uuids, 1);
+  assert.equal(result.frame_to_event_join_rate, 0);
+});
+
+test("360 duplicate UUIDs are counted within the requested match", () => {
+  const result = audit360(
+    [
+      { id: "shared-uuid", _match_id: "target-match" },
+      { id: "shared-uuid", _match_id: "other-match" },
+    ],
+    [{ event_uuid: "shared-uuid" }, { event_uuid: "shared-uuid" }],
+    "target-match",
+  );
+  assert.equal(result.matched_frame_uuids, 2);
+  assert.equal(result.unique_event_uuids, 1);
+  assert.equal(result.unique_match_event_keys, 1);
+  assert.equal(result.duplicate_frame_event_uuids, 1);
 });
