@@ -1,0 +1,60 @@
+name: CTA pre-deadline FPL effective ownership capture
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Capture even when outside the pre-deadline window (diagnostic only)"
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    - cron: "15 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-fpl-eo-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Capture stratified top-10k manager picks near deadline
+        if: github.event_name != 'workflow_dispatch' || !inputs.force
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/capture_fpl_ranked_manager_picks.py \
+            --out-dir run_artifacts/fpl_eo \
+            --rank-limit 10000 \
+            --sample-size 100 \
+            --workers 2 \
+            --delay 0.15 \
+            --deadline-window-minutes 70
+      - name: Forced diagnostic capture
+        if: github.event_name == 'workflow_dispatch' && inputs.force
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/capture_fpl_ranked_manager_picks.py \
+            --out-dir run_artifacts/fpl_eo \
+            --rank-limit 10000 \
+            --sample-size 5 \
+            --workers 2 \
+            --delay 0.15 \
+            --deadline-window-minutes 70 \
+            --force
+      - name: Upload aggregated EO snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-fpl-eo-${{ github.run_id }}
+          path: run_artifacts/fpl_eo/
+          if-no-files-found: ignore
+          retention-days: 90
