@@ -237,8 +237,8 @@ def main():
     ]
     lines.extend("- " + warning for warning in report["summary"]["warnings"])
     lines.extend(["", "## 360 exceptions", ""])
-    lines.extend("- Missing 360 source: " + (", ".join(missing_360) or "none"))
-    lines.extend("- Zero event-UUID join: " + (", ".join(zero_join_360) or "none"))
+    lines.append("- Missing 360 source: " + (", ".join(missing_360) or "none"))
+    lines.append("- Zero event-UUID join: " + (", ".join(zero_join_360) or "none"))
     lines.extend(["", "## Structural issues", ""])
     lines.extend("- " + issue for issue in structural_issues) if structural_issues else lines.append("- None")
     (args.out / "multimatch_data_quality.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
