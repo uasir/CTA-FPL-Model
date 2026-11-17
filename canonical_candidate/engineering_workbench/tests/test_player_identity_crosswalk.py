@@ -19,6 +19,10 @@ class CrosswalkTests(unittest.TestCase):
         accepted,report=validate_rows([row(evidence_url="")]); self.assertEqual(report["status"],"BLOCKED"); self.assertEqual(accepted,[])
     def test_fuzzy_method_is_blocked(self):
         accepted,report=validate_rows([row(match_method="fuzzy_name")]); self.assertEqual(report["status"],"BLOCKED"); self.assertEqual(accepted,[])
+    def test_same_identity_can_be_reused_across_competitions(self):
+        accepted,report=validate_rows([row(),row(competition_id="43",competition_name="FA Cup")])
+        self.assertEqual(report["status"],"PASS")
+        self.assertEqual(len(accepted),2)
     def test_statsbomb_identity_cannot_map_to_two_fpl_ids(self):
         accepted,report=validate_rows([row(),row(fpl_element_id="46",fpl_player_code="6790")]); self.assertEqual(report["status"],"BLOCKED"); self.assertEqual(accepted,[])
     def test_fpl_element_cannot_map_to_two_statsbomb_ids(self):
