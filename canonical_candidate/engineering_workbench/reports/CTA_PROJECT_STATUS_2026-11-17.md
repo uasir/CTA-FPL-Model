@@ -84,7 +84,7 @@ Added:
 
 Only rows marked `verified` with complete provider IDs, team/season context, a supported verification method, evidence URL/source, verifier, and verification date can be exported for joining. Pending, ambiguous, and rejected rows are excluded. Fuzzy-name matching is explicitly rejected. Duplicate/conflicting one-to-many identity mappings block the export.
 
-The tests and empty-template validation passed in runs 44088979396, 44088999247, and 44089097790. Run [44089097790](https://github.com/uasir/CTA-FPL-Model/actions/runs/44089097790) completed successfully with the corrected combined artifact upload. Its artifact contains the official FPL snapshot and the empty crosswalk report. After inspecting that report, the validator was tightened so an empty crosswalk is explicitly `EMPTY_NOT_READY` rather than misleadingly labelled `PASS`; the new regression test is committed, and a fresh verification run is pending. No player identities have been populated or guessed.
+The tests and empty-template validation passed in [run 44089706370](https://github.com/uasir/CTA-FPL-Model/actions/runs/44089706370). Its combined artifact confirms the crosswalk state is `EMPTY_NOT_READY` with `join_ready: false`, while the 2026/27 FPL ingestion remains PASS with zero minute/points reconciliation mismatches. The artifact is available as `cta-fpl-official-44089706370`. A further guardrail allows the same player mapping to appear across multiple competitions while still rejecting conflicting IDs; its latest verification run is 44089832073 and was in progress at the time of this update. No player identities have been populated or guessed.
 
 ## Training-data season compatibility (verified source inventory)
 
