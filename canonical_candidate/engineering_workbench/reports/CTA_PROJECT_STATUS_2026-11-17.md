@@ -382,3 +382,15 @@ This is now an explicit, machine-readable way to distinguish snapshots captured 
 The FPL workflow has been separated from ordinary code-push CI. Full API ingestion now runs on schedule or manual dispatch, while the new `cta-fpl-ci.yml` runs the engineering test suite on code changes. This prevents every small code commit from launching another 672-player API fetch. The first all-tests CI attempt exposed the workbench package path requirement (`src`); the `PYTHONPATH` was corrected to `scripts:src`, and the follow-up CI run is pending.
 
 Artifact retention is now 90 days, but the repository is public and the artifact window still does not preserve a full season. Private Dropbox storage remains the next storage gate; the connection suggestion has not been accepted/connected yet.
+
+## Deadline-aware top-10k EO capture implementation
+
+Added a separate hourly workflow: [`.github/workflows/cta-fpl-eo-capture.yml`](../.github/workflows/cta-fpl-eo-capture.yml). It runs at minute 15 each hour, but only proceeds when the next FPL deadline is within 70 minutes. It samples 100 managers from stratified rank bands in the overall top 10,000, captures each manager's public target-GW picks and active chip, weights each manager as 100 entries, and feeds the sample into the tested EO estimator.
+
+Privacy/reproducibility choice: the collector calculates EO in memory and stores only aggregated per-player EO percentages plus sample metadata and a hash of sampled entry IDs. It does **not** publish raw manager IDs or individual manager picks in the public repository artifact.
+
+The capture is not yet live-validated. It depends on the public FPL picks endpoint returning each manager's saved picks for the upcoming event before lock. If it does not, the workflow will fail visibly; the fallback will be a predeadline rank-cohort snapshot followed by a separate post-lock picks retrieval. The next real validation point is GW11, whose deadline is 2026-11-21 11:00 UTC. The collector currently covers top 10k only, not top 100k or the whole field.
+
+Engineering CI run [44148615692](https://github.com/uasir/CTA-FPL-Model/actions/runs/44148615692) passed **70 tests plus 3 subtests** after adding the manager sampler and EO aggregation tests. The earlier full FPL workflow run [44147764850](https://github.com/uasir/CTA-FPL-Model/actions/runs/44147764850) remains the latest verified official-data ingestion, with 672/672 summary requests successful and 90-day artifact retention.
+
+Updated source/rights and acquisition decisions: [FPL data-source blocker register](FPL_DATA_SOURCE_BLOCKER_REGISTER_2026-11-17.md).
