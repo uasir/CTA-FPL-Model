@@ -1,0 +1,937 @@
+{
+  "status": "PASS",
+  "scope": "Python v1.0.2 core versus JavaScript reproduction on the verified single StatsBomb Open Data match; no FPL prediction or calibration claim.",
+  "match_id": "3895320",
+  "contract": {
+    "path": "engineering_workbench/config/cta_core_parity_contract.json",
+    "version": "1.0.0",
+    "separate_grains": {
+      "sequences": {
+        "entity": "possession",
+        "granularity": "One row per match, period, possession ID, and possession team.",
+        "key_columns": [
+          "match_id",
+          "period",
+          "possession_id",
+          "team"
+        ]
+      },
+      "players": {
+        "entity": "player",
+        "granularity": "One row per StatsBomb player name across exactly one single-match run; multi-match output aggregation is not comparable under this key.",
+        "key_columns": [
+          "statsbomb_player_name"
+        ]
+      },
+      "xt_grid": {
+        "entity": "xT grid cell",
+        "granularity": "One row per cell of the Python core's match-fitted 16x12 grid.",
+        "key_columns": [
+          "x_cell",
+          "y_cell"
+        ]
+      }
+    },
+    "null_semantics": {
+      "blank_csv_cells": "Treat as null in parity comparison.",
+      "missing_counter_key": "Preserve as null in the JavaScript canonical row when the Python Counter-backed CSV cell is blank.",
+      "null_vs_zero": "Never coerce; null and zero are distinct and must fail parity when they differ.",
+      "unsupported_inputs": "Do not invent player aliases or minutes. Exclude FPL joins and per-90 features from this parity contract."
+    },
+    "tolerances": {
+      "exact": {
+        "rtol": 0,
+        "atol": 0
+      },
+      "binary_float": {
+        "rtol": 1e-07,
+        "atol": 1e-09
+      },
+      "rounded_6dp": {
+        "rtol": 0,
+        "atol": 1e-06
+      },
+      "rounded_8dp": {
+        "rtol": 0,
+        "atol": 1e-08
+      }
+    }
+  },
+  "source_inputs": {
+    "git_blob_sha1": {
+      "events": "2f4cc3c3f8173e923485db7e0c814980080ecdb4",
+      "three_sixty": "80cd519d37fcea4681e38a3806b69ae9f9af9fa0"
+    },
+    "sha256": {
+      "events": "87b2347238c7946d625b1ba2a20042aef2f906dafbd7a65c7624871b13ae2bce",
+      "three_sixty": "8943a00a9bd64da1f5d50187e35830ac434ea01e5fa004d54269e99c77e88142"
+    },
+    "event_count": 3771,
+    "frame_count": 3185,
+    "direction": {
+      "explicit_direction_keys": 0,
+      "generated_direction_keys": 4,
+      "direction_keys_total": 4,
+      "convention": "StatsBomb possession-oriented coordinates; attacks_right=true when no override exists."
+    }
+  },
+  "aggregate": {
+    "features_passed": 40,
+    "features_total": 40,
+    "failures": [],
+    "unmatched_keys_by_table": {
+      "sequences": {
+        "missing_in_javascript": 0,
+        "extra_in_javascript": 0
+      },
+      "players": {
+        "missing_in_javascript": 0,
+        "extra_in_javascript": 0
+      },
+      "xt_grid": {
+        "missing_in_javascript": 0,
+        "extra_in_javascript": 0
+      }
+    },
+    "numeric_non_null_pairs": 962,
+    "max_absolute_error": 4.996003610813204e-16,
+    "mean_absolute_error": 3.923865159797851e-18,
+    "error_policy": "Absolute errors are computed only over non-null numeric feature pairs; per-feature values are also listed."
+  },
+  "tables": {
+    "sequences": {
+      "entity": "possession",
+      "granularity": "One row per match, period, possession ID, and possession team.",
+      "key_columns": [
+        "match_id",
+        "period",
+        "possession_id",
+        "team"
+      ],
+      "status": "PASS",
+      "python_rows": 176,
+      "javascript_rows": 176,
+      "shared_keys": 176,
+      "missing_in_javascript": 0,
+      "extra_in_javascript": 0,
+      "python_duplicate_keys": 0,
+      "javascript_duplicate_keys": 0,
+      "python_null_key_rows": 0,
+      "javascript_null_key_rows": 0,
+      "features_passed": 19,
+      "features_total": 19,
+      "unmatched_key_samples": {
+        "missing_in_javascript_sample": [],
+        "extra_in_javascript_sample": [],
+        "python_duplicate_sample": [],
+        "javascript_duplicate_sample": [],
+        "python_null_key_sample": [],
+        "javascript_null_key_sample": []
+      },
+      "unsupported_features": [
+        "Any event-level feature not emitted by the Python core.",
+        "Human-validated danger or CTA labels."
+      ],
+      "audit_artifacts": {
+        "json": "outputs/pilot_3895320/parity/audit_sequences/parity_report.json",
+        "markdown": "outputs/pilot_3895320/parity/audit_sequences/parity_report.md",
+        "run_manifest": "outputs/pilot_3895320/parity/audit_sequences/run_manifest.json"
+      },
+      "features": {
+        "sequence_id": {
+          "feature": "sequence_id",
+          "type": "identifier",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "event_count": {
+          "feature": "event_count",
+          "type": "integer",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "duration_seconds": {
+          "feature": "duration_seconds",
+          "type": "numeric",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "numeric_pairs": 176
+        },
+        "players": {
+          "feature": "players",
+          "type": "categorical",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "passes": {
+          "feature": "passes",
+          "type": "integer",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "completed_passes": {
+          "feature": "completed_passes",
+          "type": "integer",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "carries": {
+          "feature": "carries",
+          "type": "integer",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "receipts": {
+          "feature": "receipts",
+          "type": "integer",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "pressured_events": {
+          "feature": "pressured_events",
+          "type": "integer",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "pressured_receipts": {
+          "feature": "pressured_receipts",
+          "type": "integer",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "box_entries": {
+          "feature": "box_entries",
+          "type": "integer",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "final_third_entries": {
+          "feature": "final_third_entries",
+          "type": "integer",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "progressive_actions": {
+          "feature": "progressive_actions",
+          "type": "integer",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "shot_count": {
+          "feature": "shot_count",
+          "type": "integer",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "shot_xg_reference_only": {
+          "feature": "shot_xg_reference_only",
+          "type": "numeric",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "numeric_pairs": 176
+        },
+        "mean_action_xt_gain": {
+          "feature": "mean_action_xt_gain",
+          "type": "numeric",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "numeric_pairs": 171
+        },
+        "positive_action_xt_gain_sum": {
+          "feature": "positive_action_xt_gain_sum",
+          "type": "numeric",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "numeric_pairs": 171
+        },
+        "direction_available": {
+          "feature": "direction_available",
+          "type": "boolean",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "sequence_class": {
+          "feature": "sequence_class",
+          "type": "categorical",
+          "pass": true,
+          "compared": 176,
+          "exact_matches": 176,
+          "within_tolerance": 176,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        }
+      }
+    },
+    "players": {
+      "entity": "player",
+      "granularity": "One row per StatsBomb player name across exactly one single-match run; multi-match output aggregation is not comparable under this key.",
+      "key_columns": [
+        "statsbomb_player_name"
+      ],
+      "status": "PASS",
+      "python_rows": 32,
+      "javascript_rows": 32,
+      "shared_keys": 32,
+      "missing_in_javascript": 0,
+      "extra_in_javascript": 0,
+      "python_duplicate_keys": 0,
+      "javascript_duplicate_keys": 0,
+      "python_null_key_rows": 0,
+      "javascript_null_key_rows": 0,
+      "features_passed": 20,
+      "features_total": 20,
+      "unmatched_key_samples": {
+        "missing_in_javascript_sample": [],
+        "extra_in_javascript_sample": [],
+        "python_duplicate_sample": [],
+        "javascript_duplicate_sample": [],
+        "python_null_key_sample": [],
+        "javascript_null_key_sample": []
+      },
+      "unsupported_features": [
+        {
+          "feature": "fpl_player_name",
+          "reason": "No verified player alias rows exist in data/player_id_map.csv."
+        },
+        {
+          "feature": "minutes and all per-90 columns",
+          "reason": "No trusted minutes rows exist; the Python CLI's zero-minute fallback is not a valid comparable input."
+        },
+        {
+          "feature": "360 player identity joins",
+          "reason": "The verified 360 freeze-frame entities have no player IDs or names."
+        }
+      ],
+      "audit_artifacts": {
+        "json": "outputs/pilot_3895320/parity/audit_players/parity_report.json",
+        "markdown": "outputs/pilot_3895320/parity/audit_players/parity_report.md",
+        "run_manifest": "outputs/pilot_3895320/parity/audit_players/run_manifest.json"
+      },
+      "features": {
+        "event_involvements": {
+          "feature": "event_involvements",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "passes": {
+          "feature": "passes",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "completed_passes": {
+          "feature": "completed_passes",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "pressured_events": {
+          "feature": "pressured_events",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "box_entries": {
+          "feature": "box_entries",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "final_third_entries": {
+          "feature": "final_third_entries",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "progressive_actions": {
+          "feature": "progressive_actions",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "action_xt_gain_sum": {
+          "feature": "action_xt_gain_sum",
+          "type": "numeric",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 3,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": 4.996003610813204e-16,
+          "mean_absolute_error": 1.1796119636642288e-16,
+          "numeric_pairs": 32
+        },
+        "action_xt_gain_n": {
+          "feature": "action_xt_gain_n",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "passes_received": {
+          "feature": "passes_received",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "pressured_passes_received": {
+          "feature": "pressured_passes_received",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "receipts": {
+          "feature": "receipts",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "carries": {
+          "feature": "carries",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "sequences_involved": {
+          "feature": "sequences_involved",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "shot_linked_sequences": {
+          "feature": "shot_linked_sequences",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "non_shot_candidate_sequences": {
+          "feature": "non_shot_candidate_sequences",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "shots": {
+          "feature": "shots",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        },
+        "shot_xg_reference_only": {
+          "feature": "shot_xg_reference_only",
+          "type": "numeric",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "numeric_pairs": 12
+        },
+        "mean_action_xt_gain": {
+          "feature": "mean_action_xt_gain",
+          "type": "numeric",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "numeric_pairs": 32
+        },
+        "pressured_receipts": {
+          "feature": "pressured_receipts",
+          "type": "integer",
+          "pass": true,
+          "compared": 32,
+          "exact_matches": 32,
+          "within_tolerance": 32,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": null,
+          "mean_absolute_error": null,
+          "numeric_pairs": 0
+        }
+      }
+    },
+    "xt_grid": {
+      "entity": "xT grid cell",
+      "granularity": "One row per cell of the Python core's match-fitted 16x12 grid.",
+      "key_columns": [
+        "x_cell",
+        "y_cell"
+      ],
+      "status": "PASS",
+      "python_rows": 192,
+      "javascript_rows": 192,
+      "shared_keys": 192,
+      "missing_in_javascript": 0,
+      "extra_in_javascript": 0,
+      "python_duplicate_keys": 0,
+      "javascript_duplicate_keys": 0,
+      "python_null_key_rows": 0,
+      "javascript_null_key_rows": 0,
+      "features_passed": 1,
+      "features_total": 1,
+      "unmatched_key_samples": {
+        "missing_in_javascript_sample": [],
+        "extra_in_javascript_sample": [],
+        "python_duplicate_sample": [],
+        "javascript_duplicate_sample": [],
+        "python_null_key_sample": [],
+        "javascript_null_key_sample": []
+      },
+      "unsupported_features": [
+        "No calibration, predictive performance, FPL points, EV, EO, or CoVar interpretation."
+      ],
+      "audit_artifacts": {
+        "json": "outputs/pilot_3895320/parity/audit_xt_grid/parity_report.json",
+        "markdown": "outputs/pilot_3895320/parity/audit_xt_grid/parity_report.md",
+        "run_manifest": "outputs/pilot_3895320/parity/audit_xt_grid/run_manifest.json"
+      },
+      "features": {
+        "xT": {
+          "feature": "xT",
+          "type": "numeric",
+          "pass": true,
+          "compared": 192,
+          "exact_matches": 192,
+          "within_tolerance": 192,
+          "null_mismatches": 0,
+          "python_missing_values": 0,
+          "javascript_missing_values": 0,
+          "max_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "numeric_pairs": 192
+        }
+      }
+    }
+  },
+  "data_checks": {
+    "event_360_linkage": {
+      "frames": 3185,
+      "frames_with_event_uuid": 3185,
+      "unique_event_uuids": 3185,
+      "duplicate_frame_event_uuids": 0,
+      "matched_frame_uuids": 3185,
+      "unmatched_frame_uuids": 0,
+      "frame_to_event_join_rate": 1,
+      "event_coverage_with_frame": 0.844604
+    },
+    "visible_360_coordinates": {
+      "visible_player_records": 57482,
+      "missing_location": 0,
+      "invalid_location_shape_or_type": 0,
+      "non_object_entries": 0,
+      "numeric_locations": 57482,
+      "out_of_bounds_nominal_120x80": 600,
+      "coordinate_range": {
+        "min_x": -2.6399129719751,
+        "max_x": 121.24346816975064,
+        "min_y": -9.054013516555585,
+        "max_y": 89.43104009465435
+      },
+      "policy": "Coordinates are reported without clipping and are not used as event locations."
+    },
+    "fixture_provenance": {
+      "fixture": "StatsBomb Open Data real-pilot subset; exact records copied from the verified source JSON after deterministic selection.",
+      "match_id": "3895320",
+      "source_git_blob_sha1": {
+        "events": "2f4cc3c3f8173e923485db7e0c814980080ecdb4",
+        "three_sixty": "80cd519d37fcea4681e38a3806b69ae9f9af9fa0"
+      },
+      "selection": {
+        "event_index_ranges_inclusive": [
+          [
+            1,
+            40
+          ],
+          [
+            91,
+            139
+          ],
+          [
+            259,
+            274
+          ]
+        ],
+        "event_count": 105,
+        "frame_count": 89
+      },
+      "edge_cases": {
+        "missing_location_event_ids": [
+          "fe1c825d-11b0-48e7-a5e7-5d2d89eef306",
+          "81fa003c-4af5-48a9-acff-c69431bd09d5",
+          "d545f5a2-6d41-413e-ab04-045087dc5b98",
+          "afc6f2de-a7c6-4cc2-924c-392af1ebc681"
+        ],
+        "shot_event_ids": [
+          "dc0ac988-3f23-4b8e-be6f-1342dc6679c3"
+        ],
+        "pressured_receipt_event_ids": [
+          "faa8d2e7-ec76-4bb8-b6ec-0a8c8e5b405c"
+        ],
+        "out_of_bounds_360_samples": [
+          {
+            "event_uuid": "83e61af6-4e50-437d-912b-ef3dcf6c89ce",
+            "location": [
+              29.35088667780272,
+              -0.19811412823801788
+            ]
+          },
+          {
+            "event_uuid": "06cffca2-0013-4738-b375-b60b5f6e565c",
+            "location": [
+              29.35088667780272,
+              -0.19811412823801788
+            ]
+          },
+          {
+            "event_uuid": "df4bda0c-7582-43fe-a87d-1588821a5cf3",
+            "location": [
+              24.10173793119114,
+              -2.3368474294311596
+            ]
+          }
+        ]
+      },
+      "provenance_note": "These are actual event and 360 records from match 3895320, not generated or synthetic rows."
+    }
+  },
+  "commands": {
+    "python_reference": "cd canonical_candidate && PYTHONDONTWRITEBYTECODE=1 python -B src/cta_engine.py --events-dir outputs/pilot_3895320/input_snapshot/events --three-sixty-dir outputs/pilot_3895320/input_snapshot/three-sixty --direction-map data/direction_map.csv --player-map data/player_id_map.csv --minutes data/player_minutes.csv --output-dir outputs/pilot_3895320/parity/python_reference",
+    "javascript_reference": "cd canonical_candidate/engineering_workbench && node src/js/run_pilot_parity.mjs --events ../data/events/3895320.json --three-sixty ../data/three-sixty/3895320.json --direction-map ../data/direction_map.csv --out ../outputs/pilot_3895320/parity/javascript",
+    "audits": {
+      "sequences": "cd canonical_candidate/engineering_workbench && PYTHONPATH=src python -B -m cta_audit.audit --python ../outputs/pilot_3895320/parity/python_reference/sequences.csv --javascript ../outputs/pilot_3895320/parity/javascript/sequences.json --registry config/cta_core_parity_contract.json --table sequences --out ../outputs/pilot_3895320/parity/audit_sequences",
+      "players": "cd canonical_candidate/engineering_workbench && PYTHONPATH=src python -B -m cta_audit.audit --python ../outputs/pilot_3895320/parity/python_reference/player_features.csv --javascript ../outputs/pilot_3895320/parity/javascript/players.json --registry config/cta_core_parity_contract.json --table players --out ../outputs/pilot_3895320/parity/audit_players",
+      "xt_grid": "cd canonical_candidate/engineering_workbench && PYTHONPATH=src python -B -m cta_audit.audit --python ../outputs/pilot_3895320/parity/python_reference/xt_grid.csv --javascript ../outputs/pilot_3895320/parity/javascript/xt_grid.json --registry config/cta_core_parity_contract.json --table xt_grid --out ../outputs/pilot_3895320/parity/audit_xt_grid"
+    }
+  },
+  "validation": {
+    "core_python_tests": "7 passed",
+    "workbench_python_tests": "20 passed (17 original plus 3 parity regression tests)",
+    "javascript_tests": "5 passed",
+    "full_match_audits": "All three table audits passed; exit code 0.",
+    "runtime_errors_or_warnings": "No runtime errors or warnings observed; core and JavaScript runners exited successfully."
+  },
+  "unsupported_scope": {
+    "sequences": [
+      "Any event-level feature not emitted by the Python core.",
+      "Human-validated danger or CTA labels."
+    ],
+    "players": [
+      {
+        "feature": "fpl_player_name",
+        "reason": "No verified player alias rows exist in data/player_id_map.csv."
+      },
+      {
+        "feature": "minutes and all per-90 columns",
+        "reason": "No trusted minutes rows exist; the Python CLI's zero-minute fallback is not a valid comparable input."
+      },
+      {
+        "feature": "360 player identity joins",
+        "reason": "The verified 360 freeze-frame entities have no player IDs or names."
+      }
+    ],
+    "xt_grid": [
+      "No calibration, predictive performance, FPL points, EV, EO, or CoVar interpretation."
+    ]
+  },
+  "artifacts": {
+    "python_reference": "outputs/pilot_3895320/parity/python_reference/",
+    "javascript_reference": "outputs/pilot_3895320/parity/javascript/",
+    "audit_directories": {
+      "sequences": "outputs/pilot_3895320/parity/audit_sequences/",
+      "players": "outputs/pilot_3895320/parity/audit_players/",
+      "xt_grid": "outputs/pilot_3895320/parity/audit_xt_grid/"
+    },
+    "combined_summary_json": "outputs/pilot_3895320/parity/parity_summary.json",
+    "combined_summary_markdown": "outputs/pilot_3895320/parity/parity_summary.md",
+    "fixture_directory": "engineering_workbench/tests/fixtures/3895320/"
+  },
+  "source_preservation": {
+    "python_core_source_modified": false,
+    "original_pilot_output_files_overwritten": false,
+    "fpl_calibration_prediction_ev_eo_covar_work_started": false
+  }
+}

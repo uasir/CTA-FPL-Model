@@ -89,8 +89,11 @@ Fit the grid on training matches only and score held-out matches with that froze
 
 ## Current validation status
 
-- Unit tests: 17 passing.
+- Original Python core tests: 7 passing.
+- Workbench Python tests: 20 passing (17 original plus 3 parity regression tests).
+- JavaScript core parity tests: 5 passing.
 - Python–JavaScript synthetic parity smoke test: PASS (2 rows; 4 registered features).
 - Synthetic event-contract preflight: PASS (2 rows).
 - Synthetic xT prototype: converged (4 actions; 3 iterations).
-- Real pilot / 34-match validation: NOT RUN; actual source snapshots and project runtime outputs are not present in this workbench.
+- Real-data core parity: PASS on StatsBomb match 3895320 (40/40 supported features; 176 possession rows, 32 player rows, 192 xT cells; no unmatched keys).
+- 34-match validation: NOT RUN.

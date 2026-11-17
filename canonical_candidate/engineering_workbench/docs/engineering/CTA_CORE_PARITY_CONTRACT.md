@@ -71,7 +71,7 @@ From `canonical_candidate/engineering_workbench`:
 
 ```bash
 PYTHONPATH=src python -m cta_audit.audit \
-  --python ../outputs/pilot_3895320/sequences.csv \
+  --python ../outputs/pilot_3895320/parity/python_reference/sequences.csv \
   --javascript ../outputs/pilot_3895320/parity/javascript/sequences.json \
   --registry config/cta_core_parity_contract.json \
   --table sequences \

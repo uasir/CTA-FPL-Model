@@ -1,0 +1,27 @@
+{
+  "statsbomb_360_audit": {
+    "frames": 3185,
+    "frames_with_event_uuid": 3185,
+    "unique_event_uuids": 3185,
+    "duplicate_frame_event_uuids": 0,
+    "matched_frame_uuids": 3185,
+    "unmatched_frame_uuids": 0,
+    "frame_to_event_join_rate": 1,
+    "event_coverage_with_frame": 0.844604
+  },
+  "visible_player_coordinate_diagnostics": {
+    "visible_player_records": 57482,
+    "missing_location": 0,
+    "invalid_location_shape_or_type": 0,
+    "non_object_entries": 0,
+    "numeric_locations": 57482,
+    "out_of_bounds_nominal_120x80": 600,
+    "coordinate_range": {
+      "min_x": -2.6399129719751,
+      "max_x": 121.24346816975064,
+      "min_y": -9.054013516555585,
+      "max_y": 89.43104009465435
+    },
+    "policy": "Coordinates are reported without clipping and are not used as event locations."
+  }
+}

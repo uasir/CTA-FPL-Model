@@ -1,0 +1,38 @@
+{
+  "model": "CTA-FPL feature pipeline",
+  "version": "1.0.2-experimental",
+  "matches_processed": 1,
+  "events_processed": 3771,
+  "sequences_processed": 176,
+  "players_observed": 32,
+  "direction_map_entries": 4,
+  "directional_features_available": true,
+  "cta_composite_score": "not produced; not calibrated",
+  "validation_status": "not validated for FPL prediction",
+  "xt": {
+    "xt_status": "exploratory_fit",
+    "xt_shots": 25,
+    "xt_goals": 4,
+    "xt_usable_moves": 1750,
+    "xt_global_goal_per_shot": 0.16,
+    "xt_grid": "16x12",
+    "xt_prior_pseudo_shots": 5
+  },
+  "limitations": [
+    "non_shot_candidate is a rule-based screening flag, not a human-verified danger label",
+    "space creation and defensive destabilisation are not inferred from event data",
+    "per-90 metrics require trusted player minutes",
+    "FPL joins require manually verified player aliases",
+    "StatsBomb coordinates are possession-oriented; false direction overrides are invalid"
+  ],
+  "statsbomb_360_audit": {
+    "frames": 3185,
+    "frames_with_event_uuid": 3185,
+    "unique_event_uuids": 3185,
+    "duplicate_frame_event_uuids": 0,
+    "matched_frame_uuids": 3185,
+    "unmatched_frame_uuids": 0,
+    "frame_to_event_join_rate": 1.0,
+    "event_coverage_with_frame": 0.844604
+  }
+}

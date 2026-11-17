@@ -98,17 +98,65 @@
     "output_validation": "output_validation.json",
     "input_validation": "input_validation.json"
   },
-  "parity": "not run: no JavaScript implementation, no real-data parity contract, and no comparable real Python/JavaScript event-keyed outputs.",
+  "parity": "PASS for 40 supported Python–JavaScript features on match 3895320; see parity_audit and workbench_parity_assessment.",
   "limitations": [
     "This is an engineering feature extraction run on one real match, not a validated FPL predictor.",
     "No calibration, prediction, EV, EO, or CoVar result was computed.",
     "Existing synthetic 999999 files were excluded by the pilot-only input snapshot."
   ],
   "workbench_parity_assessment": {
-    "status": "NOT RUN",
+    "status": "PASS",
     "report": "workbench_parity_assessment.md",
     "machine_readable_report": "workbench_parity_assessment.json",
-    "entrypoint": "PYTHONPATH=src python -m cta_audit.audit --python <python_rows.csv> --javascript <javascript_rows.csv> --registry config/feature_registry.json --out reports/parity",
-    "reason": "No JS implementation or real JS output, no complete StatsBomb input contract, and current core outputs do not match the registry event-keyed contract."
+    "entrypoint": "PYTHONPATH=src python -B -m cta_audit.audit --python <table.csv> --javascript <table.json> --registry config/cta_core_parity_contract.json --table <sequences|players|xt_grid> --out <report directory>",
+    "reason": "All supported real-data table comparisons passed under the explicit canonical contract."
+  },
+  "parity_audit": {
+    "status": "PASS",
+    "contract": "engineering_workbench/config/cta_core_parity_contract.json",
+    "summary_json": "outputs/pilot_3895320/parity/parity_summary.json",
+    "summary_markdown": "outputs/pilot_3895320/parity/parity_summary.md",
+    "python_reference_directory": "outputs/pilot_3895320/parity/python_reference",
+    "javascript_reference_directory": "outputs/pilot_3895320/parity/javascript",
+    "tables": {
+      "sequences": {
+        "status": "PASS",
+        "python_rows": 176,
+        "javascript_rows": 176,
+        "shared_keys": 176,
+        "missing_in_javascript": 0,
+        "extra_in_javascript": 0,
+        "features_passed": 19,
+        "features_total": 19
+      },
+      "players": {
+        "status": "PASS",
+        "python_rows": 32,
+        "javascript_rows": 32,
+        "shared_keys": 32,
+        "missing_in_javascript": 0,
+        "extra_in_javascript": 0,
+        "features_passed": 20,
+        "features_total": 20
+      },
+      "xt_grid": {
+        "status": "PASS",
+        "python_rows": 192,
+        "javascript_rows": 192,
+        "shared_keys": 192,
+        "missing_in_javascript": 0,
+        "extra_in_javascript": 0,
+        "features_passed": 1,
+        "features_total": 1
+      }
+    },
+    "features_passed": 40,
+    "features_total": 40,
+    "max_absolute_error": 4.996003610813204e-16,
+    "mean_absolute_error": 3.923865159797851e-18,
+    "numeric_non_null_pairs": 962,
+    "failures": [],
+    "python_core_source_modified": false,
+    "original_pilot_outputs_overwritten": false
   }
 }

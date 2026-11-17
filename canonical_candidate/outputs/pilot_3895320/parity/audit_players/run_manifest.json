@@ -1,0 +1,28 @@
+{
+  "registry_version": "1.0.0",
+  "table": "players",
+  "python_input": {
+    "path": "../outputs/pilot_3895320/parity/python_reference/player_features.csv",
+    "sha256": "054305c49f7e922d31066a14263e6e8f031e4fe9bf28832877975721d2e2b416",
+    "rows": 32
+  },
+  "javascript_input": {
+    "path": "../outputs/pilot_3895320/parity/javascript/players.json",
+    "sha256": "fbb9ecccf06af1bfe6d4429202a04d9d1c3d24445395b294d3e6e8a50869a019",
+    "rows": 32
+  },
+  "result": {
+    "status": "PASS",
+    "python_rows": 32,
+    "javascript_rows": 32,
+    "shared_keys": 32,
+    "missing_in_javascript": 0,
+    "extra_in_javascript": 0,
+    "python_duplicate_keys": 0,
+    "javascript_duplicate_keys": 0,
+    "python_null_key_rows": 0,
+    "javascript_null_key_rows": 0,
+    "features_passed": 20,
+    "features_total": 20
+  }
+}

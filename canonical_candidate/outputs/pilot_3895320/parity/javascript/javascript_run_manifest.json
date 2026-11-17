@@ -1,0 +1,38 @@
+{
+  "implementation": "CTA-FPL core parity JavaScript reproduction",
+  "version": "1.0.0",
+  "match_id": "3895320",
+  "input_files": {
+    "events": {
+      "path": "/home/runner/workspace/canonical_candidate/data/events/3895320.json",
+      "bytes": 3274132,
+      "sha256": "87b2347238c7946d625b1ba2a20042aef2f906dafbd7a65c7624871b13ae2bce"
+    },
+    "three_sixty": {
+      "path": "/home/runner/workspace/canonical_candidate/data/three-sixty/3895320.json",
+      "bytes": 8412091,
+      "sha256": "8943a00a9bd64da1f5d50187e35830ac434ea01e5fa004d54269e99c77e88142"
+    }
+  },
+  "direction": {
+    "explicit_direction_keys": 0,
+    "generated_direction_keys": 4,
+    "direction_keys_total": 4,
+    "convention": "StatsBomb possession-oriented coordinates; attacks_right=true when no override exists."
+  },
+  "core_summary": {
+    "events_processed": 3771,
+    "sequences_processed": 176,
+    "players_observed": 32,
+    "xt_grid_cells": 192,
+    "xt": {
+      "xt_status": "exploratory_fit",
+      "xt_shots": 25,
+      "xt_goals": 4,
+      "xt_usable_moves": 1750,
+      "xt_global_goal_per_shot": 0.16,
+      "xt_grid": "16x12",
+      "xt_prior_pseudo_shots": 5
+    }
+  }
+}

@@ -21,6 +21,7 @@ test("fixture is a deterministic subset of the verified real pilot", () => {
   assert.equal(events.length, fixtureManifest.selection.event_count);
   assert.equal(frames.length, fixtureManifest.selection.frame_count);
   assert.ok(fixtureManifest.edge_cases.missing_location_event_ids.length > 0);
+  assert.ok(fixtureManifest.edge_cases.pressured_receipt_event_ids.length > 0);
   assert.ok(fixtureManifest.edge_cases.out_of_bounds_360_samples.length > 0);
 });
 

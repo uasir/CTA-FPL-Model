@@ -552,6 +552,17 @@ export function coordinateDiagnostics(frames) {
     }
   }
   const outOfBounds = visible.filter(([x, y]) => x < 0 || x > PITCH_X || y < 0 || y > PITCH_Y);
+  const coordinateRange = visible.reduce((range, [x, y]) => ({
+    min_x: Math.min(range.min_x, x),
+    max_x: Math.max(range.max_x, x),
+    min_y: Math.min(range.min_y, y),
+    max_y: Math.max(range.max_y, y),
+  }), {
+    min_x: Infinity,
+    max_x: -Infinity,
+    min_y: Infinity,
+    max_y: -Infinity,
+  });
   return {
     visible_player_records: visible.length + missingLocation + invalidShapeOrType + nonObjectEntries,
     missing_location: missingLocation,
@@ -559,14 +570,7 @@ export function coordinateDiagnostics(frames) {
     non_object_entries: nonObjectEntries,
     numeric_locations: visible.length,
     out_of_bounds_nominal_120x80: outOfBounds.length,
-    coordinate_range: visible.length
-      ? {
-        min_x: Math.min(...visible.map(([x]) => x)),
-        max_x: Math.max(...visible.map(([x]) => x)),
-        min_y: Math.min(...visible.map(([, y]) => y)),
-        max_y: Math.max(...visible.map(([, y]) => y)),
-      }
-      : null,
+    coordinate_range: visible.length ? coordinateRange : null,
     policy: "Coordinates are reported without clipping and are not used as event locations.",
   };
 }

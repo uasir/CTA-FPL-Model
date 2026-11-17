@@ -2161,6 +2161,2375 @@
     }
   },
   {
+    "id": "54a99a74-ea93-4445-ba1f-d11c118a7ee5",
+    "index": 91,
+    "period": 1,
+    "timestamp": "00:01:29.259",
+    "minute": 1,
+    "second": 29,
+    "type": {
+      "id": 30,
+      "name": "Pass"
+    },
+    "possession": 6,
+    "possession_team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 23614,
+      "name": "Chris Führich"
+    },
+    "position": {
+      "id": 20,
+      "name": "Left Attacking Midfield"
+    },
+    "location": [
+      86.0,
+      39.8
+    ],
+    "duration": 2.596225,
+    "related_events": [
+      "c98b6867-5a11-47dd-b316-6135ac193ab6"
+    ],
+    "pass": {
+      "length": 25.638252,
+      "angle": 0.05463308,
+      "height": {
+        "id": 1,
+        "name": "Ground Pass"
+      },
+      "end_location": [
+        111.6,
+        41.2
+      ],
+      "outcome": {
+        "id": 9,
+        "name": "Incomplete"
+      },
+      "body_part": {
+        "id": 38,
+        "name": "Left Foot"
+      }
+    }
+  },
+  {
+    "id": "c98b6867-5a11-47dd-b316-6135ac193ab6",
+    "index": 92,
+    "period": 1,
+    "timestamp": "00:01:31.855",
+    "minute": 1,
+    "second": 31,
+    "type": {
+      "id": 2,
+      "name": "Ball Recovery"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 8667,
+      "name": "Lukáš Hrádecký"
+    },
+    "position": {
+      "id": 1,
+      "name": "Goalkeeper"
+    },
+    "location": [
+      8.5,
+      38.9
+    ],
+    "duration": 0.0,
+    "related_events": [
+      "54a99a74-ea93-4445-ba1f-d11c118a7ee5"
+    ]
+  },
+  {
+    "id": "54fb7a56-4def-4f47-93f4-20a08f2a54d1",
+    "index": 93,
+    "period": 1,
+    "timestamp": "00:01:31.855",
+    "minute": 1,
+    "second": 31,
+    "type": {
+      "id": 43,
+      "name": "Carry"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 8667,
+      "name": "Lukáš Hrádecký"
+    },
+    "position": {
+      "id": 1,
+      "name": "Goalkeeper"
+    },
+    "location": [
+      8.5,
+      38.9
+    ],
+    "duration": 15.030096,
+    "related_events": [
+      "481f7737-2f6c-4f97-b372-241d63980092",
+      "c98b6867-5a11-47dd-b316-6135ac193ab6"
+    ],
+    "carry": {
+      "end_location": [
+        8.5,
+        39.3
+      ]
+    }
+  },
+  {
+    "id": "481f7737-2f6c-4f97-b372-241d63980092",
+    "index": 94,
+    "period": 1,
+    "timestamp": "00:01:46.885",
+    "minute": 1,
+    "second": 46,
+    "type": {
+      "id": 30,
+      "name": "Pass"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 8667,
+      "name": "Lukáš Hrádecký"
+    },
+    "position": {
+      "id": 1,
+      "name": "Goalkeeper"
+    },
+    "location": [
+      8.5,
+      39.3
+    ],
+    "duration": 1.937366,
+    "related_events": [
+      "dee82396-14fc-444d-ab61-9bd81040b4b4"
+    ],
+    "pass": {
+      "recipient": {
+        "id": 30606,
+        "name": "Edmond Fayçal Tapsoba"
+      },
+      "length": 19.420094,
+      "angle": -1.2295042,
+      "height": {
+        "id": 1,
+        "name": "Ground Pass"
+      },
+      "end_location": [
+        15.0,
+        21.0
+      ],
+      "body_part": {
+        "id": 40,
+        "name": "Right Foot"
+      }
+    }
+  },
+  {
+    "id": "dee82396-14fc-444d-ab61-9bd81040b4b4",
+    "index": 95,
+    "period": 1,
+    "timestamp": "00:01:48.822",
+    "minute": 1,
+    "second": 48,
+    "type": {
+      "id": 42,
+      "name": "Ball Receipt*"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 30606,
+      "name": "Edmond Fayçal Tapsoba"
+    },
+    "position": {
+      "id": 5,
+      "name": "Left Center Back"
+    },
+    "location": [
+      15.0,
+      21.0
+    ],
+    "related_events": [
+      "481f7737-2f6c-4f97-b372-241d63980092"
+    ]
+  },
+  {
+    "id": "e6d7e8e7-af8a-4c5c-9b73-fdedbf69c26f",
+    "index": 96,
+    "period": 1,
+    "timestamp": "00:01:48.822",
+    "minute": 1,
+    "second": 48,
+    "type": {
+      "id": 43,
+      "name": "Carry"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 30606,
+      "name": "Edmond Fayçal Tapsoba"
+    },
+    "position": {
+      "id": 5,
+      "name": "Left Center Back"
+    },
+    "location": [
+      15.0,
+      21.0
+    ],
+    "duration": 1.558734,
+    "related_events": [
+      "83306a3b-e058-4284-bbfb-93de8b7ea1a5",
+      "dee82396-14fc-444d-ab61-9bd81040b4b4"
+    ],
+    "carry": {
+      "end_location": [
+        14.9,
+        22.6
+      ]
+    }
+  },
+  {
+    "id": "83306a3b-e058-4284-bbfb-93de8b7ea1a5",
+    "index": 97,
+    "period": 1,
+    "timestamp": "00:01:50.381",
+    "minute": 1,
+    "second": 50,
+    "type": {
+      "id": 30,
+      "name": "Pass"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 30606,
+      "name": "Edmond Fayçal Tapsoba"
+    },
+    "position": {
+      "id": 5,
+      "name": "Left Center Back"
+    },
+    "location": [
+      14.9,
+      22.6
+    ],
+    "duration": 1.524272,
+    "related_events": [
+      "ab8aa5b0-6249-47b6-bd74-1ca3b46f1386"
+    ],
+    "pass": {
+      "recipient": {
+        "id": 8667,
+        "name": "Lukáš Hrádecký"
+      },
+      "length": 13.743726,
+      "angle": 2.632374,
+      "height": {
+        "id": 1,
+        "name": "Ground Pass"
+      },
+      "end_location": [
+        2.9,
+        29.3
+      ],
+      "body_part": {
+        "id": 38,
+        "name": "Left Foot"
+      }
+    }
+  },
+  {
+    "id": "ab8aa5b0-6249-47b6-bd74-1ca3b46f1386",
+    "index": 98,
+    "period": 1,
+    "timestamp": "00:01:51.905",
+    "minute": 1,
+    "second": 51,
+    "type": {
+      "id": 42,
+      "name": "Ball Receipt*"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 8667,
+      "name": "Lukáš Hrádecký"
+    },
+    "position": {
+      "id": 1,
+      "name": "Goalkeeper"
+    },
+    "location": [
+      2.9,
+      29.3
+    ],
+    "related_events": [
+      "83306a3b-e058-4284-bbfb-93de8b7ea1a5"
+    ]
+  },
+  {
+    "id": "3dfbaf33-0223-4dd8-8691-1a7e48a00b4f",
+    "index": 99,
+    "period": 1,
+    "timestamp": "00:01:51.905",
+    "minute": 1,
+    "second": 51,
+    "type": {
+      "id": 43,
+      "name": "Carry"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 8667,
+      "name": "Lukáš Hrádecký"
+    },
+    "position": {
+      "id": 1,
+      "name": "Goalkeeper"
+    },
+    "location": [
+      2.9,
+      29.3
+    ],
+    "duration": 1.20421,
+    "under_pressure": true,
+    "related_events": [
+      "222cd00c-0084-41af-a6a9-e3d69f678b4e",
+      "ab8aa5b0-6249-47b6-bd74-1ca3b46f1386",
+      "f89294e8-c874-4c27-81c2-715011b041e1"
+    ],
+    "carry": {
+      "end_location": [
+        7.9,
+        31.4
+      ]
+    }
+  },
+  {
+    "id": "f89294e8-c874-4c27-81c2-715011b041e1",
+    "index": 100,
+    "period": 1,
+    "timestamp": "00:01:52.695",
+    "minute": 1,
+    "second": 52,
+    "type": {
+      "id": 17,
+      "name": "Pressure"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 131243,
+      "name": "Deniz Undav"
+    },
+    "position": {
+      "id": 22,
+      "name": "Right Center Forward"
+    },
+    "location": [
+      110.6,
+      56.4
+    ],
+    "duration": 0.585394,
+    "related_events": [
+      "222cd00c-0084-41af-a6a9-e3d69f678b4e",
+      "3dfbaf33-0223-4dd8-8691-1a7e48a00b4f"
+    ]
+  },
+  {
+    "id": "222cd00c-0084-41af-a6a9-e3d69f678b4e",
+    "index": 101,
+    "period": 1,
+    "timestamp": "00:01:53.110",
+    "minute": 1,
+    "second": 53,
+    "type": {
+      "id": 30,
+      "name": "Pass"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 8667,
+      "name": "Lukáš Hrádecký"
+    },
+    "position": {
+      "id": 1,
+      "name": "Goalkeeper"
+    },
+    "location": [
+      7.9,
+      31.4
+    ],
+    "duration": 2.64549,
+    "under_pressure": true,
+    "related_events": [
+      "44fbdc52-1b42-4152-b5ba-a24cdf5793ad",
+      "f89294e8-c874-4c27-81c2-715011b041e1"
+    ],
+    "pass": {
+      "recipient": {
+        "id": 7044,
+        "name": "Patrik Schick"
+      },
+      "length": 43.060074,
+      "angle": -0.645359,
+      "height": {
+        "id": 3,
+        "name": "High Pass"
+      },
+      "end_location": [
+        42.3,
+        5.5
+      ],
+      "body_part": {
+        "id": 40,
+        "name": "Right Foot"
+      }
+    }
+  },
+  {
+    "id": "44fbdc52-1b42-4152-b5ba-a24cdf5793ad",
+    "index": 102,
+    "period": 1,
+    "timestamp": "00:01:55.755",
+    "minute": 1,
+    "second": 55,
+    "type": {
+      "id": 42,
+      "name": "Ball Receipt*"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 7044,
+      "name": "Patrik Schick"
+    },
+    "position": {
+      "id": 23,
+      "name": "Center Forward"
+    },
+    "location": [
+      42.3,
+      5.5
+    ],
+    "related_events": [
+      "222cd00c-0084-41af-a6a9-e3d69f678b4e"
+    ]
+  },
+  {
+    "id": "7530e44a-dad8-4e86-adbe-a70d793e6117",
+    "index": 103,
+    "period": 1,
+    "timestamp": "00:01:55.755",
+    "minute": 1,
+    "second": 55,
+    "type": {
+      "id": 43,
+      "name": "Carry"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 7044,
+      "name": "Patrik Schick"
+    },
+    "position": {
+      "id": 23,
+      "name": "Center Forward"
+    },
+    "location": [
+      42.3,
+      5.5
+    ],
+    "duration": 0.805416,
+    "under_pressure": true,
+    "related_events": [
+      "44fbdc52-1b42-4152-b5ba-a24cdf5793ad",
+      "5620cfaa-7eb5-43be-b16c-5c1e72cfb3b3",
+      "ae138017-d984-4d1c-847f-cb55951e9e2f"
+    ],
+    "carry": {
+      "end_location": [
+        42.6,
+        4.7
+      ]
+    }
+  },
+  {
+    "id": "ae138017-d984-4d1c-847f-cb55951e9e2f",
+    "index": 104,
+    "period": 1,
+    "timestamp": "00:01:55.771",
+    "minute": 1,
+    "second": 55,
+    "type": {
+      "id": 17,
+      "name": "Pressure"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 8538,
+      "name": "Waldemar Anton"
+    },
+    "position": {
+      "id": 3,
+      "name": "Right Center Back"
+    },
+    "location": [
+      76.4,
+      70.2
+    ],
+    "duration": 0.596947,
+    "related_events": [
+      "7530e44a-dad8-4e86-adbe-a70d793e6117"
+    ]
+  },
+  {
+    "id": "8cceda14-825d-4a45-9e71-a321d09eb24f",
+    "index": 105,
+    "period": 1,
+    "timestamp": "00:01:56.338",
+    "minute": 1,
+    "second": 56,
+    "type": {
+      "id": 17,
+      "name": "Pressure"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 28805,
+      "name": "Jamie Leweling"
+    },
+    "position": {
+      "id": 18,
+      "name": "Right Attacking Midfield"
+    },
+    "location": [
+      79.9,
+      72.0
+    ],
+    "duration": 0.3347,
+    "related_events": [
+      "5620cfaa-7eb5-43be-b16c-5c1e72cfb3b3"
+    ]
+  },
+  {
+    "id": "5620cfaa-7eb5-43be-b16c-5c1e72cfb3b3",
+    "index": 106,
+    "period": 1,
+    "timestamp": "00:01:56.561",
+    "minute": 1,
+    "second": 56,
+    "type": {
+      "id": 30,
+      "name": "Pass"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 7044,
+      "name": "Patrik Schick"
+    },
+    "position": {
+      "id": 23,
+      "name": "Center Forward"
+    },
+    "location": [
+      42.6,
+      4.7
+    ],
+    "duration": 1.764723,
+    "under_pressure": true,
+    "related_events": [
+      "8cceda14-825d-4a45-9e71-a321d09eb24f",
+      "d56064bf-b2d4-4d6f-9ff7-952639af14e7"
+    ],
+    "pass": {
+      "recipient": {
+        "id": 10336,
+        "name": "Alejandro Grimaldo García"
+      },
+      "length": 10.660675,
+      "angle": 2.846542,
+      "height": {
+        "id": 3,
+        "name": "High Pass"
+      },
+      "end_location": [
+        32.4,
+        7.8
+      ],
+      "body_part": {
+        "id": 38,
+        "name": "Left Foot"
+      }
+    }
+  },
+  {
+    "id": "d56064bf-b2d4-4d6f-9ff7-952639af14e7",
+    "index": 107,
+    "period": 1,
+    "timestamp": "00:01:58.325",
+    "minute": 1,
+    "second": 58,
+    "type": {
+      "id": 42,
+      "name": "Ball Receipt*"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 10336,
+      "name": "Alejandro Grimaldo García"
+    },
+    "position": {
+      "id": 8,
+      "name": "Left Wing Back"
+    },
+    "location": [
+      32.4,
+      7.8
+    ],
+    "related_events": [
+      "5620cfaa-7eb5-43be-b16c-5c1e72cfb3b3"
+    ]
+  },
+  {
+    "id": "8f583744-cd46-4cfc-88c2-d91bd45a1c0c",
+    "index": 108,
+    "period": 1,
+    "timestamp": "00:01:58.325",
+    "minute": 1,
+    "second": 58,
+    "type": {
+      "id": 43,
+      "name": "Carry"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 10336,
+      "name": "Alejandro Grimaldo García"
+    },
+    "position": {
+      "id": 8,
+      "name": "Left Wing Back"
+    },
+    "location": [
+      32.4,
+      7.8
+    ],
+    "duration": 0.549438,
+    "related_events": [
+      "cf87ab77-144d-47d8-b1d7-576ed9d91edd",
+      "d56064bf-b2d4-4d6f-9ff7-952639af14e7"
+    ],
+    "carry": {
+      "end_location": [
+        30.3,
+        7.8
+      ]
+    }
+  },
+  {
+    "id": "cf87ab77-144d-47d8-b1d7-576ed9d91edd",
+    "index": 109,
+    "period": 1,
+    "timestamp": "00:01:58.875",
+    "minute": 1,
+    "second": 58,
+    "type": {
+      "id": 30,
+      "name": "Pass"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 10336,
+      "name": "Alejandro Grimaldo García"
+    },
+    "position": {
+      "id": 8,
+      "name": "Left Wing Back"
+    },
+    "location": [
+      30.3,
+      7.8
+    ],
+    "duration": 1.194201,
+    "related_events": [
+      "97ac6c16-f902-41a5-97eb-64d1489d3045"
+    ],
+    "pass": {
+      "recipient": {
+        "id": 30606,
+        "name": "Edmond Fayçal Tapsoba"
+      },
+      "length": 9.213577,
+      "angle": -3.0872982,
+      "height": {
+        "id": 1,
+        "name": "Ground Pass"
+      },
+      "end_location": [
+        21.1,
+        7.3
+      ],
+      "body_part": {
+        "id": 38,
+        "name": "Left Foot"
+      }
+    }
+  },
+  {
+    "id": "97ac6c16-f902-41a5-97eb-64d1489d3045",
+    "index": 110,
+    "period": 1,
+    "timestamp": "00:02:00.069",
+    "minute": 2,
+    "second": 0,
+    "type": {
+      "id": 42,
+      "name": "Ball Receipt*"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 30606,
+      "name": "Edmond Fayçal Tapsoba"
+    },
+    "position": {
+      "id": 5,
+      "name": "Left Center Back"
+    },
+    "location": [
+      21.1,
+      7.3
+    ],
+    "related_events": [
+      "cf87ab77-144d-47d8-b1d7-576ed9d91edd"
+    ]
+  },
+  {
+    "id": "5a808f72-72bf-4a5d-b134-269a288ddbfc",
+    "index": 111,
+    "period": 1,
+    "timestamp": "00:02:00.069",
+    "minute": 2,
+    "second": 0,
+    "type": {
+      "id": 43,
+      "name": "Carry"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 30606,
+      "name": "Edmond Fayçal Tapsoba"
+    },
+    "position": {
+      "id": 5,
+      "name": "Left Center Back"
+    },
+    "location": [
+      21.1,
+      7.3
+    ],
+    "duration": 1.298419,
+    "under_pressure": true,
+    "related_events": [
+      "7cc10eee-6f75-42ea-9ccc-9bf76f9dc07b",
+      "92ce692c-8e95-4281-ba88-9109f9d55406",
+      "97ac6c16-f902-41a5-97eb-64d1489d3045"
+    ],
+    "carry": {
+      "end_location": [
+        24.6,
+        3.6
+      ]
+    }
+  },
+  {
+    "id": "7cc10eee-6f75-42ea-9ccc-9bf76f9dc07b",
+    "index": 112,
+    "period": 1,
+    "timestamp": "00:02:00.836",
+    "minute": 2,
+    "second": 0,
+    "type": {
+      "id": 17,
+      "name": "Pressure"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 131243,
+      "name": "Deniz Undav"
+    },
+    "position": {
+      "id": 22,
+      "name": "Right Center Forward"
+    },
+    "location": [
+      99.0,
+      72.5
+    ],
+    "duration": 0.69713,
+    "related_events": [
+      "5a808f72-72bf-4a5d-b134-269a288ddbfc",
+      "92ce692c-8e95-4281-ba88-9109f9d55406"
+    ]
+  },
+  {
+    "id": "92ce692c-8e95-4281-ba88-9109f9d55406",
+    "index": 113,
+    "period": 1,
+    "timestamp": "00:02:01.367",
+    "minute": 2,
+    "second": 1,
+    "type": {
+      "id": 30,
+      "name": "Pass"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 30606,
+      "name": "Edmond Fayçal Tapsoba"
+    },
+    "position": {
+      "id": 5,
+      "name": "Left Center Back"
+    },
+    "location": [
+      24.6,
+      3.6
+    ],
+    "duration": 1.108599,
+    "under_pressure": true,
+    "related_events": [
+      "3c0930d9-9c4f-44dc-bc0f-088f63f94855",
+      "7cc10eee-6f75-42ea-9ccc-9bf76f9dc07b"
+    ],
+    "pass": {
+      "recipient": {
+        "id": 33401,
+        "name": "Amine Adli"
+      },
+      "length": 24.673872,
+      "angle": 0.34738597,
+      "height": {
+        "id": 1,
+        "name": "Ground Pass"
+      },
+      "end_location": [
+        47.8,
+        12.0
+      ],
+      "body_part": {
+        "id": 38,
+        "name": "Left Foot"
+      }
+    }
+  },
+  {
+    "id": "3c0930d9-9c4f-44dc-bc0f-088f63f94855",
+    "index": 114,
+    "period": 1,
+    "timestamp": "00:02:02.476",
+    "minute": 2,
+    "second": 2,
+    "type": {
+      "id": 42,
+      "name": "Ball Receipt*"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 33401,
+      "name": "Amine Adli"
+    },
+    "position": {
+      "id": 20,
+      "name": "Left Attacking Midfield"
+    },
+    "location": [
+      47.8,
+      12.0
+    ],
+    "related_events": [
+      "92ce692c-8e95-4281-ba88-9109f9d55406"
+    ]
+  },
+  {
+    "id": "00193426-9da4-4d6e-8e66-410581c966e3",
+    "index": 115,
+    "period": 1,
+    "timestamp": "00:02:02.476",
+    "minute": 2,
+    "second": 2,
+    "type": {
+      "id": 43,
+      "name": "Carry"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 33401,
+      "name": "Amine Adli"
+    },
+    "position": {
+      "id": 20,
+      "name": "Left Attacking Midfield"
+    },
+    "location": [
+      47.8,
+      12.0
+    ],
+    "duration": 0.769879,
+    "related_events": [
+      "3c0930d9-9c4f-44dc-bc0f-088f63f94855",
+      "bd1c7c68-4219-48d7-8657-edbde98d8e58"
+    ],
+    "carry": {
+      "end_location": [
+        45.9,
+        12.7
+      ]
+    }
+  },
+  {
+    "id": "bd1c7c68-4219-48d7-8657-edbde98d8e58",
+    "index": 116,
+    "period": 1,
+    "timestamp": "00:02:03.246",
+    "minute": 2,
+    "second": 3,
+    "type": {
+      "id": 30,
+      "name": "Pass"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 33401,
+      "name": "Amine Adli"
+    },
+    "position": {
+      "id": 20,
+      "name": "Left Attacking Midfield"
+    },
+    "location": [
+      45.9,
+      12.7
+    ],
+    "duration": 0.619163,
+    "related_events": [
+      "c813c7ee-7585-4b52-b5ba-b5546b290199"
+    ],
+    "pass": {
+      "recipient": {
+        "id": 10336,
+        "name": "Alejandro Grimaldo García"
+      },
+      "length": 6.090156,
+      "angle": -2.62652,
+      "height": {
+        "id": 1,
+        "name": "Ground Pass"
+      },
+      "end_location": [
+        40.6,
+        9.7
+      ],
+      "body_part": {
+        "id": 38,
+        "name": "Left Foot"
+      }
+    }
+  },
+  {
+    "id": "c813c7ee-7585-4b52-b5ba-b5546b290199",
+    "index": 117,
+    "period": 1,
+    "timestamp": "00:02:03.865",
+    "minute": 2,
+    "second": 3,
+    "type": {
+      "id": 42,
+      "name": "Ball Receipt*"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 10336,
+      "name": "Alejandro Grimaldo García"
+    },
+    "position": {
+      "id": 8,
+      "name": "Left Wing Back"
+    },
+    "location": [
+      40.6,
+      9.7
+    ],
+    "related_events": [
+      "bd1c7c68-4219-48d7-8657-edbde98d8e58"
+    ]
+  },
+  {
+    "id": "70e0f38b-040b-4ae2-91fa-76ede03b0dcc",
+    "index": 118,
+    "period": 1,
+    "timestamp": "00:02:03.865",
+    "minute": 2,
+    "second": 3,
+    "type": {
+      "id": 30,
+      "name": "Pass"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 10336,
+      "name": "Alejandro Grimaldo García"
+    },
+    "position": {
+      "id": 8,
+      "name": "Left Wing Back"
+    },
+    "location": [
+      40.6,
+      9.7
+    ],
+    "duration": 0.330714,
+    "related_events": [
+      "862239f2-b01a-4092-8638-a81e48ffb0b8",
+      "c69d0110-8657-4908-95cd-62e2fe900612"
+    ],
+    "pass": {
+      "recipient": {
+        "id": 7044,
+        "name": "Patrik Schick"
+      },
+      "length": 5.990826,
+      "angle": -0.583373,
+      "height": {
+        "id": 3,
+        "name": "High Pass"
+      },
+      "end_location": [
+        45.6,
+        6.4
+      ],
+      "body_part": {
+        "id": 38,
+        "name": "Left Foot"
+      },
+      "outcome": {
+        "id": 9,
+        "name": "Incomplete"
+      }
+    }
+  },
+  {
+    "id": "862239f2-b01a-4092-8638-a81e48ffb0b8",
+    "index": 119,
+    "period": 1,
+    "timestamp": "00:02:04.196",
+    "minute": 2,
+    "second": 4,
+    "type": {
+      "id": 42,
+      "name": "Ball Receipt*"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 7044,
+      "name": "Patrik Schick"
+    },
+    "position": {
+      "id": 23,
+      "name": "Center Forward"
+    },
+    "location": [
+      56.0,
+      2.1
+    ],
+    "related_events": [
+      "70e0f38b-040b-4ae2-91fa-76ede03b0dcc"
+    ],
+    "ball_receipt": {
+      "outcome": {
+        "id": 9,
+        "name": "Incomplete"
+      }
+    }
+  },
+  {
+    "id": "c69d0110-8657-4908-95cd-62e2fe900612",
+    "index": 120,
+    "period": 1,
+    "timestamp": "00:02:04.196",
+    "minute": 2,
+    "second": 4,
+    "type": {
+      "id": 6,
+      "name": "Block"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 28805,
+      "name": "Jamie Leweling"
+    },
+    "position": {
+      "id": 18,
+      "name": "Right Attacking Midfield"
+    },
+    "location": [
+      74.5,
+      73.7
+    ],
+    "duration": 0.0,
+    "related_events": [
+      "70e0f38b-040b-4ae2-91fa-76ede03b0dcc"
+    ]
+  },
+  {
+    "id": "b7547e58-6e55-45b7-9741-cf707f3930d1",
+    "index": 121,
+    "period": 1,
+    "timestamp": "00:02:06.025",
+    "minute": 2,
+    "second": 6,
+    "type": {
+      "id": 30,
+      "name": "Pass"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 8538,
+      "name": "Waldemar Anton"
+    },
+    "position": {
+      "id": 3,
+      "name": "Right Center Back"
+    },
+    "location": [
+      57.4,
+      68.3
+    ],
+    "duration": 1.436407,
+    "related_events": [
+      "faa8d2e7-ec76-4bb8-b6ec-0a8c8e5b405c"
+    ],
+    "pass": {
+      "recipient": {
+        "id": 45115,
+        "name": "Enzo Millot"
+      },
+      "length": 12.0415945,
+      "angle": -1.0104364,
+      "height": {
+        "id": 3,
+        "name": "High Pass"
+      },
+      "end_location": [
+        63.8,
+        58.1
+      ],
+      "body_part": {
+        "id": 40,
+        "name": "Right Foot"
+      },
+      "type": {
+        "id": 66,
+        "name": "Recovery"
+      }
+    }
+  },
+  {
+    "id": "d53cedea-4c6d-44f6-9469-b26b131eab34",
+    "index": 122,
+    "period": 1,
+    "timestamp": "00:02:07.404",
+    "minute": 2,
+    "second": 7,
+    "type": {
+      "id": 17,
+      "name": "Pressure"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 9195,
+      "name": "Robert Andrich"
+    },
+    "position": {
+      "id": 9,
+      "name": "Right Defensive Midfield"
+    },
+    "location": [
+      52.9,
+      22.4
+    ],
+    "duration": 0.462082,
+    "counterpress": true,
+    "related_events": [
+      "735da385-d1dc-4343-9132-407be3723e5e",
+      "c0959fbe-03e4-48e2-8aee-cb5c53906752",
+      "faa8d2e7-ec76-4bb8-b6ec-0a8c8e5b405c"
+    ]
+  },
+  {
+    "id": "faa8d2e7-ec76-4bb8-b6ec-0a8c8e5b405c",
+    "index": 123,
+    "period": 1,
+    "timestamp": "00:02:07.462",
+    "minute": 2,
+    "second": 7,
+    "type": {
+      "id": 42,
+      "name": "Ball Receipt*"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 45115,
+      "name": "Enzo Millot"
+    },
+    "position": {
+      "id": 11,
+      "name": "Left Defensive Midfield"
+    },
+    "location": [
+      63.8,
+      58.1
+    ],
+    "under_pressure": true,
+    "related_events": [
+      "b7547e58-6e55-45b7-9741-cf707f3930d1",
+      "d53cedea-4c6d-44f6-9469-b26b131eab34"
+    ]
+  },
+  {
+    "id": "c0959fbe-03e4-48e2-8aee-cb5c53906752",
+    "index": 124,
+    "period": 1,
+    "timestamp": "00:02:07.462",
+    "minute": 2,
+    "second": 7,
+    "type": {
+      "id": 43,
+      "name": "Carry"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 45115,
+      "name": "Enzo Millot"
+    },
+    "position": {
+      "id": 11,
+      "name": "Left Defensive Midfield"
+    },
+    "location": [
+      63.8,
+      58.1
+    ],
+    "duration": 0.182069,
+    "under_pressure": true,
+    "related_events": [
+      "735da385-d1dc-4343-9132-407be3723e5e",
+      "d53cedea-4c6d-44f6-9469-b26b131eab34",
+      "faa8d2e7-ec76-4bb8-b6ec-0a8c8e5b405c"
+    ],
+    "carry": {
+      "end_location": [
+        64.0,
+        57.1
+      ]
+    }
+  },
+  {
+    "id": "735da385-d1dc-4343-9132-407be3723e5e",
+    "index": 125,
+    "period": 1,
+    "timestamp": "00:02:07.644",
+    "minute": 2,
+    "second": 7,
+    "type": {
+      "id": 38,
+      "name": "Miscontrol"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 45115,
+      "name": "Enzo Millot"
+    },
+    "position": {
+      "id": 11,
+      "name": "Left Defensive Midfield"
+    },
+    "location": [
+      64.0,
+      57.1
+    ],
+    "duration": 0.0,
+    "under_pressure": true,
+    "related_events": [
+      "d53cedea-4c6d-44f6-9469-b26b131eab34"
+    ]
+  },
+  {
+    "id": "db035b91-20d1-4b80-b62c-eec8449e555d",
+    "index": 126,
+    "period": 1,
+    "timestamp": "00:02:08.186",
+    "minute": 2,
+    "second": 8,
+    "type": {
+      "id": 17,
+      "name": "Pressure"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 45115,
+      "name": "Enzo Millot"
+    },
+    "position": {
+      "id": 11,
+      "name": "Left Defensive Midfield"
+    },
+    "location": [
+      64.0,
+      57.1
+    ],
+    "duration": 1.759552,
+    "related_events": [
+      "82b690ba-02e8-4b9b-9a8a-16d4201c77a9",
+      "9d56440c-6cce-49c6-9177-e788f3e805df"
+    ]
+  },
+  {
+    "id": "9d56440c-6cce-49c6-9177-e788f3e805df",
+    "index": 127,
+    "period": 1,
+    "timestamp": "00:02:08.594",
+    "minute": 2,
+    "second": 8,
+    "type": {
+      "id": 2,
+      "name": "Ball Recovery"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 33401,
+      "name": "Amine Adli"
+    },
+    "position": {
+      "id": 20,
+      "name": "Left Attacking Midfield"
+    },
+    "location": [
+      62.0,
+      23.9
+    ],
+    "duration": 0.0,
+    "under_pressure": true,
+    "related_events": [
+      "db035b91-20d1-4b80-b62c-eec8449e555d"
+    ]
+  },
+  {
+    "id": "82b690ba-02e8-4b9b-9a8a-16d4201c77a9",
+    "index": 128,
+    "period": 1,
+    "timestamp": "00:02:08.594",
+    "minute": 2,
+    "second": 8,
+    "type": {
+      "id": 43,
+      "name": "Carry"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 33401,
+      "name": "Amine Adli"
+    },
+    "position": {
+      "id": 20,
+      "name": "Left Attacking Midfield"
+    },
+    "location": [
+      62.0,
+      23.9
+    ],
+    "duration": 6.026137,
+    "under_pressure": true,
+    "related_events": [
+      "1391dc91-a035-43f7-85ca-4e5af11308a2",
+      "9d56440c-6cce-49c6-9177-e788f3e805df",
+      "db035b91-20d1-4b80-b62c-eec8449e555d",
+      "e03efa00-60d3-422b-ae7e-3dade7e56c04"
+    ],
+    "carry": {
+      "end_location": [
+        98.9,
+        50.4
+      ]
+    }
+  },
+  {
+    "id": "e03efa00-60d3-422b-ae7e-3dade7e56c04",
+    "index": 129,
+    "period": 1,
+    "timestamp": "00:02:13.593",
+    "minute": 2,
+    "second": 13,
+    "type": {
+      "id": 17,
+      "name": "Pressure"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 45115,
+      "name": "Enzo Millot"
+    },
+    "position": {
+      "id": 11,
+      "name": "Left Defensive Midfield"
+    },
+    "location": [
+      28.8,
+      29.3
+    ],
+    "duration": 0.980357,
+    "related_events": [
+      "82b690ba-02e8-4b9b-9a8a-16d4201c77a9"
+    ]
+  },
+  {
+    "id": "1391dc91-a035-43f7-85ca-4e5af11308a2",
+    "index": 130,
+    "period": 1,
+    "timestamp": "00:02:14.620",
+    "minute": 2,
+    "second": 14,
+    "type": {
+      "id": 3,
+      "name": "Dispossessed"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 33401,
+      "name": "Amine Adli"
+    },
+    "position": {
+      "id": 20,
+      "name": "Left Attacking Midfield"
+    },
+    "location": [
+      98.9,
+      50.4
+    ],
+    "duration": 0.0,
+    "under_pressure": true,
+    "related_events": [
+      "3e5cdf4e-931f-44dd-8a10-8bd9f2c924cc"
+    ]
+  },
+  {
+    "id": "3e5cdf4e-931f-44dd-8a10-8bd9f2c924cc",
+    "index": 131,
+    "period": 1,
+    "timestamp": "00:02:14.620",
+    "minute": 2,
+    "second": 14,
+    "type": {
+      "id": 4,
+      "name": "Duel"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 45115,
+      "name": "Enzo Millot"
+    },
+    "position": {
+      "id": 11,
+      "name": "Left Defensive Midfield"
+    },
+    "location": [
+      21.2,
+      29.7
+    ],
+    "duration": 0.0,
+    "under_pressure": true,
+    "related_events": [
+      "1391dc91-a035-43f7-85ca-4e5af11308a2"
+    ],
+    "duel": {
+      "type": {
+        "id": 11,
+        "name": "Tackle"
+      },
+      "outcome": {
+        "id": 4,
+        "name": "Won"
+      }
+    }
+  },
+  {
+    "id": "0c470d03-a92d-45b3-80ea-24b7025f2544",
+    "index": 132,
+    "period": 1,
+    "timestamp": "00:02:14.620",
+    "minute": 2,
+    "second": 14,
+    "type": {
+      "id": 43,
+      "name": "Carry"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 45115,
+      "name": "Enzo Millot"
+    },
+    "position": {
+      "id": 11,
+      "name": "Left Defensive Midfield"
+    },
+    "location": [
+      21.2,
+      29.7
+    ],
+    "duration": 1.808939,
+    "related_events": [
+      "3e5cdf4e-931f-44dd-8a10-8bd9f2c924cc",
+      "9efdafc3-3f30-4bf7-b5d2-3da5ae5572ad"
+    ],
+    "carry": {
+      "end_location": [
+        14.9,
+        29.0
+      ]
+    }
+  },
+  {
+    "id": "9efdafc3-3f30-4bf7-b5d2-3da5ae5572ad",
+    "index": 133,
+    "period": 1,
+    "timestamp": "00:02:16.429",
+    "minute": 2,
+    "second": 16,
+    "type": {
+      "id": 30,
+      "name": "Pass"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 45115,
+      "name": "Enzo Millot"
+    },
+    "position": {
+      "id": 11,
+      "name": "Left Defensive Midfield"
+    },
+    "location": [
+      14.9,
+      29.0
+    ],
+    "duration": 0.589828,
+    "related_events": [
+      "f0747b64-d44f-4f99-a015-a9300f927b5d"
+    ],
+    "pass": {
+      "recipient": {
+        "id": 23614,
+        "name": "Chris Führich"
+      },
+      "length": 13.842326,
+      "angle": -0.52183425,
+      "height": {
+        "id": 1,
+        "name": "Ground Pass"
+      },
+      "end_location": [
+        26.9,
+        22.1
+      ],
+      "body_part": {
+        "id": 38,
+        "name": "Left Foot"
+      }
+    }
+  },
+  {
+    "id": "f0747b64-d44f-4f99-a015-a9300f927b5d",
+    "index": 134,
+    "period": 1,
+    "timestamp": "00:02:17.019",
+    "minute": 2,
+    "second": 17,
+    "type": {
+      "id": 42,
+      "name": "Ball Receipt*"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 23614,
+      "name": "Chris Führich"
+    },
+    "position": {
+      "id": 20,
+      "name": "Left Attacking Midfield"
+    },
+    "location": [
+      26.9,
+      22.1
+    ],
+    "related_events": [
+      "9efdafc3-3f30-4bf7-b5d2-3da5ae5572ad"
+    ]
+  },
+  {
+    "id": "5c3f7a7b-6d4d-4e8b-8c48-fcea12bf0053",
+    "index": 135,
+    "period": 1,
+    "timestamp": "00:02:17.019",
+    "minute": 2,
+    "second": 17,
+    "type": {
+      "id": 43,
+      "name": "Carry"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 23614,
+      "name": "Chris Führich"
+    },
+    "position": {
+      "id": 20,
+      "name": "Left Attacking Midfield"
+    },
+    "location": [
+      26.9,
+      22.1
+    ],
+    "duration": 1.575463,
+    "under_pressure": true,
+    "related_events": [
+      "83fb800c-961d-42a6-a0ee-7bbf0e2f85f0",
+      "f0747b64-d44f-4f99-a015-a9300f927b5d",
+      "fe7d56e9-4fa2-4210-aa1a-76ca47fd9839"
+    ],
+    "carry": {
+      "end_location": [
+        22.4,
+        13.2
+      ]
+    }
+  },
+  {
+    "id": "fe7d56e9-4fa2-4210-aa1a-76ca47fd9839",
+    "index": 136,
+    "period": 1,
+    "timestamp": "00:02:18.205",
+    "minute": 2,
+    "second": 18,
+    "type": {
+      "id": 17,
+      "name": "Pressure"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 27133,
+      "name": "Odilon Kossonou"
+    },
+    "position": {
+      "id": 3,
+      "name": "Right Center Back"
+    },
+    "location": [
+      91.7,
+      65.3
+    ],
+    "duration": 0.389317,
+    "counterpress": true,
+    "related_events": [
+      "5c3f7a7b-6d4d-4e8b-8c48-fcea12bf0053",
+      "83fb800c-961d-42a6-a0ee-7bbf0e2f85f0"
+    ]
+  },
+  {
+    "id": "83fb800c-961d-42a6-a0ee-7bbf0e2f85f0",
+    "index": 137,
+    "period": 1,
+    "timestamp": "00:02:18.594",
+    "minute": 2,
+    "second": 18,
+    "type": {
+      "id": 3,
+      "name": "Dispossessed"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 174,
+      "name": "VfB Stuttgart"
+    },
+    "player": {
+      "id": 23614,
+      "name": "Chris Führich"
+    },
+    "position": {
+      "id": 20,
+      "name": "Left Attacking Midfield"
+    },
+    "location": [
+      22.4,
+      13.2
+    ],
+    "duration": 0.0,
+    "under_pressure": true,
+    "related_events": [
+      "e7cce88e-8aed-48eb-a002-6ecd6836d256",
+      "fe7d56e9-4fa2-4210-aa1a-76ca47fd9839"
+    ]
+  },
+  {
+    "id": "e7cce88e-8aed-48eb-a002-6ecd6836d256",
+    "index": 138,
+    "period": 1,
+    "timestamp": "00:02:18.594",
+    "minute": 2,
+    "second": 18,
+    "type": {
+      "id": 4,
+      "name": "Duel"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 27133,
+      "name": "Odilon Kossonou"
+    },
+    "position": {
+      "id": 3,
+      "name": "Right Center Back"
+    },
+    "location": [
+      97.7,
+      66.9
+    ],
+    "duration": 0.0,
+    "under_pressure": true,
+    "counterpress": true,
+    "related_events": [
+      "83fb800c-961d-42a6-a0ee-7bbf0e2f85f0"
+    ],
+    "duel": {
+      "type": {
+        "id": 11,
+        "name": "Tackle"
+      },
+      "outcome": {
+        "id": 14,
+        "name": "Lost Out"
+      }
+    }
+  },
+  {
+    "id": "79ed6a8a-2e0d-414e-a76b-bdd5c2d037ca",
+    "index": 139,
+    "period": 1,
+    "timestamp": "00:02:21.040",
+    "minute": 2,
+    "second": 21,
+    "type": {
+      "id": 17,
+      "name": "Pressure"
+    },
+    "possession": 7,
+    "possession_team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "play_pattern": {
+      "id": 1,
+      "name": "Regular Play"
+    },
+    "team": {
+      "id": 904,
+      "name": "Bayer Leverkusen"
+    },
+    "player": {
+      "id": 32712,
+      "name": "Jeremie Frimpong"
+    },
+    "position": {
+      "id": 7,
+      "name": "Right Wing Back"
+    },
+    "location": [
+      106.4,
+      73.1
+    ],
+    "duration": 0.740897,
+    "counterpress": true,
+    "related_events": [
+      "2071218f-f30f-41d8-a5a1-e06e185b4bdc"
+    ]
+  },
+  {
     "id": "dd2b2f2a-ad7f-4c58-adaf-c6f50f9d9349",
     "index": 259,
     "period": 1,

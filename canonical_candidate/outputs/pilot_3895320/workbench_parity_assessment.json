@@ -1,51 +1,109 @@
 {
-  "status": "NOT RUN",
+  "status": "PASS",
+  "match_id": "3895320",
   "entrypoint": "engineering_workbench/src/cta_audit/audit.py (module: cta_audit.audit)",
-  "documented_command": "cd canonical_candidate/engineering_workbench && PYTHONPATH=src python -m cta_audit.audit --python <python_rows.csv> --javascript <javascript_rows.csv> --registry config/feature_registry.json --out reports/parity",
-  "accepted_formats": [
-    "CSV",
-    "JSON array or object with rows",
-    "JSONL/NDJSON"
-  ],
-  "required_comparable_inputs": {
-    "both_runtimes": "Feature tables derived from the same immutable event and 360 snapshot, with declared versions/configuration.",
-    "row_keys": [
-      "match_id",
-      "event_id"
-    ],
-    "registered_features": {
-      "possession_id": {
-        "type": "categorical",
-        "nullable": true,
-        "unit": "not_applicable",
-        "tolerance_class": "exact"
-      },
-      "pressure_count": {
-        "type": "integer",
-        "nullable": false,
-        "unit": "count",
-        "tolerance_class": "exact"
-      },
-      "support_distance_m": {
-        "type": "numeric",
-        "nullable": true,
-        "unit": "metres",
-        "tolerance_class": "default_numeric"
-      },
-      "has_360_frame": {
-        "type": "boolean",
-        "nullable": false,
-        "unit": "not_applicable",
-        "tolerance_class": "exact"
+  "contract": "engineering_workbench/config/cta_core_parity_contract.json",
+  "command_pattern": "PYTHONPATH=src python -B -m cta_audit.audit --python <python table> --javascript <javascript table> --registry config/cta_core_parity_contract.json --table <sequences|players|xt_grid> --out <report directory>",
+  "input_git_blob_sha1": {
+    "events": "2f4cc3c3f8173e923485db7e0c814980080ecdb4",
+    "three_sixty": "80cd519d37fcea4681e38a3806b69ae9f9af9fa0"
+  },
+  "tables": {
+    "sequences": {
+      "status": "PASS",
+      "python_rows": 176,
+      "javascript_rows": 176,
+      "shared_keys": 176,
+      "missing_in_javascript": 0,
+      "extra_in_javascript": 0,
+      "features_passed": 19,
+      "features_total": 19,
+      "audit_artifacts": {
+        "json": "outputs/pilot_3895320/parity/audit_sequences/parity_report.json",
+        "markdown": "outputs/pilot_3895320/parity/audit_sequences/parity_report.md",
+        "run_manifest": "outputs/pilot_3895320/parity/audit_sequences/run_manifest.json"
       }
     },
-    "types_and_nullability": "Must conform to config/feature_registry.json; nulls, duplicate keys, missing keys, extra keys, and numeric tolerances are checked."
+    "players": {
+      "status": "PASS",
+      "python_rows": 32,
+      "javascript_rows": 32,
+      "shared_keys": 32,
+      "missing_in_javascript": 0,
+      "extra_in_javascript": 0,
+      "features_passed": 20,
+      "features_total": 20,
+      "audit_artifacts": {
+        "json": "outputs/pilot_3895320/parity/audit_players/parity_report.json",
+        "markdown": "outputs/pilot_3895320/parity/audit_players/parity_report.md",
+        "run_manifest": "outputs/pilot_3895320/parity/audit_players/run_manifest.json"
+      }
+    },
+    "xt_grid": {
+      "status": "PASS",
+      "python_rows": 192,
+      "javascript_rows": 192,
+      "shared_keys": 192,
+      "missing_in_javascript": 0,
+      "extra_in_javascript": 0,
+      "features_passed": 1,
+      "features_total": 1,
+      "audit_artifacts": {
+        "json": "outputs/pilot_3895320/parity/audit_xt_grid/parity_report.json",
+        "markdown": "outputs/pilot_3895320/parity/audit_xt_grid/parity_report.md",
+        "run_manifest": "outputs/pilot_3895320/parity/audit_xt_grid/run_manifest.json"
+      }
+    }
   },
-  "observed_blockers": [
-    "No JavaScript/TypeScript implementation exists under the imported candidate or its Engineering Workbench; examples/javascript_output.csv is only a synthetic smoke-test output.",
-    "No real pilot JavaScript feature table exists, and the Workbench audit requires both Python and JavaScript tables.",
-    "The current registry keys are match_id,event_id and registers only possession_id, pressure_count, support_distance_m, and has_360_frame. The core CLI emits possession-level sequences and player-level aggregates, not a comparable event-keyed table with that schema.",
-    "event_contract.template.json and 360_contract.template.json declare provider UNCONFIRMED and are explicitly templates; their normalized flat fields do not define a validated mapping from the downloaded nested StatsBomb event and 360 payloads."
-  ],
-  "decision": "Parity was not run; no parity claim is made. Do not substitute the synthetic Workbench example CSVs."
+  "summary": {
+    "features_passed": 40,
+    "features_total": 40,
+    "failures": [],
+    "unmatched_keys_by_table": {
+      "sequences": {
+        "missing_in_javascript": 0,
+        "extra_in_javascript": 0
+      },
+      "players": {
+        "missing_in_javascript": 0,
+        "extra_in_javascript": 0
+      },
+      "xt_grid": {
+        "missing_in_javascript": 0,
+        "extra_in_javascript": 0
+      }
+    },
+    "numeric_non_null_pairs": 962,
+    "max_absolute_error": 4.996003610813204e-16,
+    "mean_absolute_error": 3.923865159797851e-18,
+    "error_policy": "Absolute errors are computed only over non-null numeric feature pairs; per-feature values are also listed."
+  },
+  "unsupported_features": {
+    "sequences": [
+      "Any event-level feature not emitted by the Python core.",
+      "Human-validated danger or CTA labels."
+    ],
+    "players": [
+      {
+        "feature": "fpl_player_name",
+        "reason": "No verified player alias rows exist in data/player_id_map.csv."
+      },
+      {
+        "feature": "minutes and all per-90 columns",
+        "reason": "No trusted minutes rows exist; the Python CLI's zero-minute fallback is not a valid comparable input."
+      },
+      {
+        "feature": "360 player identity joins",
+        "reason": "The verified 360 freeze-frame entities have no player IDs or names."
+      }
+    ],
+    "xt_grid": [
+      "No calibration, predictive performance, FPL points, EV, EO, or CoVar interpretation."
+    ]
+  },
+  "decision": "Real-data Python–JavaScript parity passed for every supported feature under the documented entity-specific contract. This is implementation parity only, not calibration or predictive validation.",
+  "reports": {
+    "combined_markdown": "outputs/pilot_3895320/parity/parity_summary.md",
+    "combined_json": "outputs/pilot_3895320/parity/parity_summary.json"
+  }
 }

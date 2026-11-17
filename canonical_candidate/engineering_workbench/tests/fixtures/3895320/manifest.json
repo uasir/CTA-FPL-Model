@@ -12,12 +12,16 @@
         40
       ],
       [
+        91,
+        139
+      ],
+      [
         259,
         274
       ]
     ],
-    "event_count": 56,
-    "frame_count": 45
+    "event_count": 105,
+    "frame_count": 89
   },
   "edge_cases": {
     "missing_location_event_ids": [
@@ -28,6 +32,9 @@
     ],
     "shot_event_ids": [
       "dc0ac988-3f23-4b8e-be6f-1342dc6679c3"
+    ],
+    "pressured_receipt_event_ids": [
+      "faa8d2e7-ec76-4bb8-b6ec-0a8c8e5b405c"
     ],
     "out_of_bounds_360_samples": [
       {
