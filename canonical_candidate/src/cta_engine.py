@@ -119,7 +119,12 @@ def flatten_matches(matches):
     return out
 
 def audit_360(events, three_sixty_dir):
-    event_ids = {str(e.get("id")) for e in events if e.get("id") is not None}
+    """Audit event/360 links using match-scoped (match_id, event_uuid) keys."""
+    event_keys = {
+        (str(e.get("_match_id")), str(e.get("id")))
+        for e in events
+        if e.get("_match_id") is not None and e.get("id") is not None
+    }
     frames = []
     for path in sorted(Path(three_sixty_dir).glob("*.json")):
         with open(path, encoding="utf-8") as f:
@@ -127,19 +132,25 @@ def audit_360(events, three_sixty_dir):
         if isinstance(data, list):
             for frame in data:
                 if isinstance(frame, dict):
-                    frames.append((path.stem, frame))
-    uuids = [str(frame.get("event_uuid")) for _, frame in frames if frame.get("event_uuid") is not None]
-    counts = Counter(uuids)
-    matched = sum(1 for u in uuids if u in event_ids)
+                    frames.append((str(path.stem), frame))
+    frame_keys = [
+        (match_id, str(frame.get("event_uuid")))
+        for match_id, frame in frames
+        if frame.get("event_uuid") is not None
+    ]
+    counts = Counter(frame_keys)
+    matched = sum(1 for key in frame_keys if key in event_keys)
+    matched_event_keys = set(frame_keys) & event_keys
     return {
         "frames": len(frames),
-        "frames_with_event_uuid": len(uuids),
-        "unique_event_uuids": len(counts),
+        "frames_with_event_uuid": len(frame_keys),
+        "unique_event_uuids": len({event_uuid for _, event_uuid in set(frame_keys)}),
+        "unique_match_event_keys": len(set(frame_keys)),
         "duplicate_frame_event_uuids": sum(v - 1 for v in counts.values() if v > 1),
         "matched_frame_uuids": matched,
-        "unmatched_frame_uuids": len(uuids) - matched,
-        "frame_to_event_join_rate": round(matched / len(uuids), 6) if uuids else None,
-        "event_coverage_with_frame": round(len(set(uuids) & event_ids) / len(event_ids), 6) if event_ids else None
+        "unmatched_frame_uuids": len(frame_keys) - matched,
+        "frame_to_event_join_rate": round(matched / len(frame_keys), 6) if frame_keys else None,
+        "event_coverage_with_frame": round(len(matched_event_keys) / len(event_keys), 6) if event_keys else None,
     }
 
 def fit_xt(events, directions, iterations=1000, tolerance=1e-11):
@@ -353,6 +364,61 @@ def write_csv(path, rows):
         writer.writeheader()
         writer.writerows(rows)
 
+PLAYER_COUNT_FIELDS = (
+    "event_involvements", "passes", "completed_passes", "carries", "shots",
+    "receipts", "pressured_events", "pressured_receipts", "box_entries",
+    "final_third_entries", "progressive_actions", "action_xt_gain_sum",
+    "action_xt_gain_n", "passes_received", "pressured_passes_received",
+    "sequences_involved", "shot_linked_sequences", "non_shot_candidate_sequences",
+)
+PLAYER_NUMERIC_DEFAULTS = {"shot_xg_reference_only": 0.0}
+
+
+def build_player_rows(players, minutes=None, aliases=None):
+    """Build a stable player schema; unobserved event counters are true zeros.
+
+    Missing minutes and missing action-xT observations remain blank for per-90
+    and mean-xT metrics because those quantities are not estimable without the
+    corresponding denominator.
+    """
+    minutes = minutes or {}
+    aliases = aliases or {}
+    rows = []
+    per90_metrics = (
+        "sequences_involved", "non_shot_candidate_sequences",
+        "shot_linked_sequences", "box_entries", "final_third_entries",
+        "progressive_actions", "pressured_receipts",
+    )
+    for name, counts in sorted(players.items()):
+        full_counts = {metric: counts.get(metric, 0) for metric in PLAYER_COUNT_FIELDS}
+        full_counts.update({
+            metric: counts.get(metric, default)
+            for metric, default in PLAYER_NUMERIC_DEFAULTS.items()
+        })
+        mins = float(minutes.get(name, 0.0) or 0.0)
+        row = {
+            "statsbomb_player_name": name,
+            "fpl_player_name": aliases.get(name, ""),
+            **full_counts,
+            "minutes": mins,
+        }
+        for metric in per90_metrics:
+            row[metric + "_per90"] = (
+                round(full_counts[metric] * 90 / mins, 4) if mins > 0 else ""
+            )
+        row["action_xt_gain_per90"] = (
+            round(full_counts["action_xt_gain_sum"] * 90 / mins, 4)
+            if mins > 0 and full_counts["action_xt_gain_n"] else ""
+        )
+        row["mean_action_xt_gain"] = (
+            round(full_counts["action_xt_gain_sum"] / full_counts["action_xt_gain_n"], 6)
+            if full_counts["action_xt_gain_n"] else ""
+        )
+        rows.append(row)
+    return rows
+
+
+
 def run(args):
     matches = read_event_files(args.events_dir)
     if not matches:
@@ -363,23 +429,7 @@ def run(args):
     xt_values, xt_audit = fit_xt(events, directions)
     sequences, players = build_features(events, directions, xt_values)
     minutes, aliases = load_minutes(args.minutes), load_player_map(args.player_map)
-    player_rows = []
-    for name, counts in sorted(players.items()):
-        mins = minutes.get(name, 0.0)
-        row = {"statsbomb_player_name": name, "fpl_player_name": aliases.get(name, ""),
-               **dict(counts), "minutes": mins}
-        for metric in ("sequences_involved", "non_shot_candidate_sequences",
-                       "shot_linked_sequences", "box_entries", "final_third_entries",
-                       "progressive_actions", "pressured_receipts"):
-            if metric in counts:
-                row[metric + "_per90"] = round(counts[metric] * 90 / mins, 4) if mins > 0 else ""
-        row["action_xt_gain_per90"] = (
-            round(counts["action_xt_gain_sum"] * 90 / mins, 4)
-            if mins > 0 and counts["action_xt_gain_n"] else "")
-        row["mean_action_xt_gain"] = (
-            round(counts["action_xt_gain_sum"] / counts["action_xt_gain_n"], 6)
-            if counts["action_xt_gain_n"] else "")
-        player_rows.append(row)
+    player_rows = build_player_rows(players, minutes, aliases)
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
     write_csv(out / "sequences.csv", sequence_rows=sequences) if False else write_csv(out / "sequences.csv", sequences)
