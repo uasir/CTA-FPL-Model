@@ -85,6 +85,9 @@ def main():
     lines=["# Exploratory FPL rolling-history baselines","",f"**Status:** {report['status']}","",f"Season: {season}",""]
     for name,result in report["baselines"].items():
         lines += [f"## {name}",f"- Rows: {result['n']}",f"- MAE: {result['mae']}",f"- RMSE: {result['rmse']}",f"- Mean error: {result['mean_error']}",""]
+    lines += ["## Minutes baselines",""]
+    for name,result in report["minutes_baselines"].items():
+        lines += ["## "+name, "- Rows: "+str(result["n"]), "- MAE (minutes): "+str(result["mae"]), "- RMSE (minutes): "+str(result["rmse"]), "- Mean error (minutes): "+str(result["mean_error"]), ""]
     lines += ["## Limitations",""]+["- "+x for x in report["limitations"]]
     (a.out_dir/"fpl_naive_baseline_evaluation.md").write_text("\n".join(lines)+"\n",encoding="utf-8")
     print(json.dumps(report,indent=2));return 0
