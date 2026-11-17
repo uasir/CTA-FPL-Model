@@ -306,3 +306,63 @@ Code commits:
 - Markdown minutes report output: `5ba0acd5868f6753533cb65d67a7298561a815f9`.
 
 An initial synthetic test correctly exposed a fixture setup issue: five-GW baseline rows had only three prior gameweeks and were therefore excluded. The test fixture was corrected to five prior gameweeks; the current workflow test stage passes. No production forecast claim is made.
+## Blocker-resolution continuation — expanded ownership and EO layer
+
+### Full-roster official FPL history
+
+Successful expanded ingestion: [run 44147222576](https://github.com/uasir/CTA-FPL-Model/actions/runs/44147222576), artifact `cta-fpl-official-44147222576`.
+
+- All 672 rostered players were fetched through `element-summary`, not only the 459 with positive minutes.
+- 672/672 summary requests succeeded; 672 players had history records.
+- 6,562 player-fixture rows across 100 completed fixtures and GW1–GW10.
+- Zero summary errors, orphan fixtures, unknown player IDs, minute mismatches, or total-points mismatches.
+- 6,562 player-gameweek rows and 672 player IDs were retained in the expanded dataset.
+- Historical `selected` counts are now preserved with transfers balance/in/out and value.
+- `bootstrap-static.events[].ranked_count` is used as the denominator to calculate historical global ownership percentage.
+- 5,890 player-gameweek rows have a prior-gameweek global ownership percentage. GW1 correctly has no prior-GW ownership feature; later missing rows are players without that history.
+
+These ownership features are not rank-tier effective ownership. The latest current-snapshot dataset remains `point_in_time_status: NOT_VERIFIED`, because the official API may revise past history after the fact.
+
+### Updated exploratory baselines on the full player universe
+
+Adding the previously missing 213 players changed the baseline sample and error metrics. The new figures supersede the earlier 459-player-only baselines:
+
+| Points baseline | Rows | MAE | RMSE |
+|---|---:|---:|---:|
+| Previous GW | 5,890 | 1.330 | 2.725 |
+| Previous 3 GWs | 4,551 | 1.236 | 2.304 |
+| Previous 5 GWs | 3,216 | **1.218** | **2.199** |
+
+| Minutes baseline | Rows | MAE (minutes) | RMSE (minutes) |
+|---|---:|---:|---:|
+| Previous GW | 5,890 | **10.645** | 23.701 |
+| Previous 3 GWs | 4,551 | 12.540 | 24.175 |
+| Previous 5 GWs | 3,216 | 14.082 | 25.414 |
+
+The previous-five-GW average remains the best of these simple points references, while previous-GW minutes is the strongest of the three simple minutes references. These are still exploratory current-snapshot metrics, not validated forecasts.
+
+### Effective ownership adapter
+
+Added `scripts/estimate_fpl_effective_ownership.py` and `tests/test_fpl_effective_ownership.py`. The estimator accepts deadline-locked manager picks and sample weights, then calculates ownership, captaincy, Triple Captain, and EO. It handles normal starting XIs, Bench Boost (all 15 count), and Triple Captain (three exposure units). It requires exactly 15 picks and one captain per sampled manager, and explicitly labels its result `SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS`.
+
+The estimator's tests passed in run [44147222576](https://github.com/uasir/CTA-FPL-Model/actions/runs/44147222576). No live manager-pick source has yet been wired into the project. Current `selected_by_percent` and historical `selected` counts must not be described as EO.
+
+Source research and remaining gates are recorded in [FPL_DATA_SOURCE_BLOCKER_REGISTER_2026-11-17.md](FPL_DATA_SOURCE_BLOCKER_REGISTER_2026-11-17.md). The review found a public EO method page (Fantasy Football Pundit) and historical top-10k EO tables (LiveFPL), but neither has yet been verified as a licensed bulk API. A public FPL snapshot mirror has daily ownership CSVs, but no recognized licence; do not ingest it without permission.
+
+### Point-in-time storage and source-rights decision
+
+The official ingestion workflow's artifact retention has been changed from 30 to 90 days. This is a temporary retention improvement, not a durable season archive. The CTA repository is public, so raw FPL snapshots and manager picks must not be committed there as a storage workaround. A private Dropbox connection was suggested for long-term snapshot storage; it is not connected yet.
+
+The event/target source blocker remains: StatsBomb Open Data's PL seasons do not overlap FPL archive coverage; Wyscout 2017/18 is a licensed event-side candidate but FPL target-data rights remain unresolved; the Opta/PulseLive candidate still has no confirmed licence and no player-match outputs in the inspected tree. No player identity or source has been promoted to production.
+
+### New reproducibility metadata
+
+The ingestion script now classifies each snapshot against the next upcoming FPL deadline (`PRE_DEADLINE_WITHIN_24H`, `PRE_DEADLINE_OVER_24H`, or `NO_FUTURE_DEADLINE`) and records the next deadline ID/time and hours remaining. The lagged-feature report now correctly states that all rostered players are requested and labels the selected-share feature as global ownership, not EO. These metadata corrections are included in the next pipeline run.
+
+### Next steps
+
+1. Verify the next scheduled artifact has 90-day retention and records the snapshot/deadline classification.
+2. Connect private durable storage before claiming a full-season point-in-time archive.
+3. Verify whether the Onside Arena CC BY 4.0 graded-prediction Zenodo record is downloadable with complete player IDs and historical coverage; use it as an external forecast benchmark only after schema and provenance checks.
+4. Wire a deadline-safe rank-tier manager-pick sample into the EO adapter, or obtain a licensed provider feed. Do not use post-GW ranks to define the cohort.
+5. Resolve historical FPL target rights before combining Wyscout or another event provider with FPL labels.
