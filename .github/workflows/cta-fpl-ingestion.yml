@@ -16,7 +16,11 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/scripts/enrich_player_features.py
-      - canonical_candidate/engineering_workbench/tests/test_player_feature_enrichment.py tests/test_fpl_gameweek_aggregation.py tests/test_fpl_naive_baselines.py
+            - canonical_candidate/engineering_workbench/tests/test_player_feature_enrichment.py
+      - canonical_candidate/engineering_workbench/tests/test_fpl_gameweek_aggregation.py
+      - canonical_candidate/engineering_workbench/tests/test_fpl_naive_baselines.py
+      - canonical_candidate/engineering_workbench/scripts/estimate_fpl_covariance.py
+      - canonical_candidate/engineering_workbench/tests/test_fpl_covariance.py
       - canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_gameweek_aggregation.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_naive_baselines.py
@@ -42,7 +46,15 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         env:
           PYTHONPATH: scripts
-        run: python -m pytest -q tests/test_fpl_ingestion.py tests/test_player_identity_crosswalk.py tests/test_fpl_lagged_features.py
+        run: |
+          python -m pytest -q \
+            tests/test_fpl_ingestion.py \
+            tests/test_player_identity_crosswalk.py \
+            tests/test_fpl_lagged_features.py \
+            tests/test_player_feature_enrichment.py \
+            tests/test_fpl_gameweek_aggregation.py \
+            tests/test_fpl_naive_baselines.py \
+            tests/test_fpl_covariance.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -76,6 +88,15 @@ jobs:
           python canonical_candidate/engineering_workbench/scripts/evaluate_fpl_naive_baselines.py \
             --input run_artifacts/fpl_official/fpl_lagged_gameweek.csv \
             --out-dir run_artifacts/fpl_official
+
+      - name: Build exploratory FPL CoVar matrix
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/estimate_fpl_covariance.py \
+            --input run_artifacts/fpl_official/fpl_lagged_gameweek.csv \
+            --players run_artifacts/fpl_official/fpl_players.csv \
+            --out-dir run_artifacts/fpl_official \
+            --shrinkage 0.5 \
+            --window-size 10
 
       - name: Upload official FPL snapshot
         if: always()
