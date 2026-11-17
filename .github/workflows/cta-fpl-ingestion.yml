@@ -53,6 +53,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cta-fpl-official-${{ github.run_id }}
-          path: run_artifacts/fpl_official/\n                run_artifacts/identity_crosswalk/
+          path: |\n            run_artifacts/fpl_official/\n            run_artifacts/identity_crosswalk/
           if-no-files-found: warn
           retention-days: 30
