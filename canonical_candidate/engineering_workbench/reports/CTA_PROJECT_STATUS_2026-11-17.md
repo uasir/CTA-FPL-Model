@@ -171,6 +171,18 @@ Sources:
 
 **Decision:** keep the current parity sample as an engineering benchmark only. Do not assume the Vaastav repository's code MIT license grants rights to its FPL/Understat data. For actual event-derived FPL prediction, obtain a licensed/authorized event feed and FPL targets for an overlapping season, or obtain a historically aligned StatsBomb+FPL dataset with documented provenance and permitted use. Do not fabricate labels, extrapolate current FPL IDs backwards, or join by name alone.
 
+## Historical event-source alternative: Wyscout 2017/18
+
+A new source audit is recorded in [WYSCOUNT_FPL_SOURCE_AUDIT_2026-11-17.md](WYSCOUNT_FPL_SOURCE_AUDIT_2026-11-17.md).
+
+The official Pappalardo–Massucco Wyscout Figshare collection publishes a 2017/18 English Premier League event season: 380 matches, 643,150 events, and 603 players. The Events, Matches, Players, Teams, and Competitions items display CC BY 4.0 licenses. The schema includes provider player/team/match IDs, event times and positions, and match lineups. This is a real season overlap with the 2017/18 FPL archive, unlike the current StatsBomb Open Data sample.
+
+A candidate-only name screen found 303 exact normalized full-name matches among 442 Wyscout player records whose currentTeamId maps to an EPL club. These are not verified identities. The Wyscout mirror's player metadata count (3,603) also differs from the paper's 4,299 total-player count, and the 442 current-team filter is not the published 603-player EPL season count; reconcile the official Figshare files and match-level appearances before ingestion.
+
+The 2017/18 Vaastav FPL archive contains 647 players and all 38 gameweek folders, but its LICENSE says the data belongs to Fantasy Premier League and Understat; the MIT license is for the repository software, not a data-use grant. The historical target-data rights and pre-deadline snapshot vintage remain unresolved. No Wyscout data has been fully ingested and no identity has been promoted to the verified crosswalk.
+
+**Decision:** Wyscout is the strongest historical event-side candidate found so far, but do not integrate it into production until an authorized historical FPL target source is supplied and the Wyscout player/match counts are reconciled. Keep its IDs and features in a separate provider namespace from StatsBomb.
+
 ## Alternative current-season provider candidate: Opta/PulseLive
 
 A separate structural audit is recorded in [OPTA_PULSE_FPL_SOURCE_AUDIT_2026-11-17.md](OPTA_PULSE_FPL_SOURCE_AUDIT_2026-11-17.md).
