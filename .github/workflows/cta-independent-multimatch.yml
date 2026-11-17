@@ -54,6 +54,13 @@ jobs:
             curl --fail --location --retry 3 "https://raw.githubusercontent.com/hudl/open-data/$commit/data/three-sixty/$id.json" -o "/tmp/cta-input/three-sixty/$id.json"
           done
           printf '[]\n' > /tmp/cta-input/js-empty-frames/no_360.json
+      - name: Preserve source inputs for the 360 join anomaly
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p run_artifacts/diagnostics/3837706
+          cp /tmp/cta-input/events/3837706.json run_artifacts/diagnostics/3837706/events.json
+          cp /tmp/cta-input/three-sixty/3837706.json run_artifacts/diagnostics/3837706/three_sixty.json
       - name: Execute Python and JavaScript cores for all matches
         shell: bash
         run: |
