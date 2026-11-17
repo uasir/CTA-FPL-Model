@@ -158,16 +158,18 @@ The tests and empty-template validation passed in [run 44089706370](https://gith
 The open-source provider inventory shows a hard temporal coverage gap:
 - StatsBomb Open Data lists the English Premier League only for **2003/04 (season ID 44)** and **2015/16 (season ID 27)** in its current `competitions.json`.
 - The Vaastav FPL historical archive's season folders begin at **2016/17**; it has no 2015/16 folder.
+- The Vaastav repository's MIT license explicitly says the underlying FPL/Understat data belongs to those providers and is not owned by the repository author; the code license is not a data-use grant.
 - The official FPL API snapshot now ingested by this project is **2026/27**, but StatsBomb Open Data has no 2026/27 Premier League event season.
 
 Therefore there is **no overlapping Premier League season** between the public StatsBomb event data and the FPL historical archive. The existing 34-match sample contains six Premier League matches from 2015/16, but cannot be given gameweek FPL targets from that archive. The 2003/04 StatsBomb season is even further outside FPL archive coverage. A verified player-name crosswalk alone cannot solve this missing season overlap.
 
 Sources:
+- Vaastav FPL archive license/data ownership notice: https://github.com/vaastav/Fantasy-Premier-League/blob/master/LICENSE
 - StatsBomb Open Data competitions index: https://github.com/statsbomb/open-data/blob/master/data/competitions.json
 - StatsBomb Open Data repository and data structure: https://github.com/hudl/open-data
 - FPL historical archive and season structure: https://github.com/vaastav/Fantasy-Premier-League
 
-**Decision:** keep the current parity sample as an engineering benchmark only. For actual event-derived FPL prediction, obtain a licensed/authorized event feed for an FPL-covered season, or obtain a historically aligned StatsBomb+FPL dataset with documented provenance and permitted use. Do not fabricate labels, extrapolate current FPL IDs backwards, or join by name alone.
+**Decision:** keep the current parity sample as an engineering benchmark only. Do not assume the Vaastav repository's code MIT license grants rights to its FPL/Understat data. For actual event-derived FPL prediction, obtain a licensed/authorized event feed and FPL targets for an overlapping season, or obtain a historically aligned StatsBomb+FPL dataset with documented provenance and permitted use. Do not fabricate labels, extrapolate current FPL IDs backwards, or join by name alone.
 
 ## Alternative current-season provider candidate: Opta/PulseLive
 
