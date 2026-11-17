@@ -57,7 +57,7 @@ node --test tests/js/*.test.mjs
 
 ## Important boundary
 
-The example files are synthetic smoke-test data, not the pilot match or 34-match dataset. No project-level parity or predictive-performance claim can be made until the actual immutable match inputs and both runtime outputs are supplied.
+The example files are synthetic smoke-test data, not the pilot match or 34-match dataset. A separate CI workflow now stages SHA-pinned StatsBomb inputs and compares both runtimes over 34 matches. Implementation parity does not establish predictive performance.
 
 ## Raw-data preflight
 
@@ -89,11 +89,9 @@ Fit the grid on training matches only and score held-out matches with that froze
 
 ## Current validation status
 
-- Original Python core tests: 7 passing.
-- Workbench Python tests: 20 passing (17 original plus 3 parity regression tests).
-- JavaScript core parity tests: 5 passing.
-- Python–JavaScript synthetic parity smoke test: PASS (2 rows; 4 registered features).
-- Synthetic event-contract preflight: PASS (2 rows).
-- Synthetic xT prototype: converged (4 actions; 3 iterations).
-- Real-data core parity: PASS on StatsBomb match 3895320 (40/40 supported features; 176 possession rows, 32 player rows, 192 xT cells; no unmatched keys).
-- 34-match validation: NOT RUN.
+- Recovered original Python archive suites: scaffold 3/3, experimental 4/4, v1.0.1 5/5, v1.0.2 7/7, and original Workbench 17/17.
+- Current GitHub main core tests: 7 passing; Workbench Python tests: 20 passing plus 3 subtests; JavaScript core tests: 5 passing.
+- Real-data 34-match Python–JavaScript parity run (2026-11-17): 34/34 matches passed; 1,027 player rows, 5,967 sequence rows, and 6,528 xT cells compared.
+- The initial run included 23 360 files. Twenty-two had complete frame-to-event joins; match 3837706 had 0/3,548 frame UUIDs matched and is excluded from usable 360 inputs in the reconciliation branch. Eleven matches have no 360 source.
+- Reconciliation branch adds SHA/size verification, zero-filled count semantics in both runtimes, match-scoped 360 linkage, JavaScript regression tests, and a separate source-quality audit. Its remote CI rerun is pending.
+- No calibrated CTA composite or FPL points predictor has been validated. Current-season FPL integration remains blocked by missing licensed current-season event coverage, trusted player minutes, and verified player-ID mappings.
