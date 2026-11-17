@@ -12,7 +12,7 @@ from pathlib import Path
 AGG_FIELDS=["minutes","total_points","goals_scored","assists","starts","expected_goals","expected_assists","expected_goal_involvements","clean_sheets","bonus","bps","defensive_contribution"]
 OUTPUT_FIELDS=[
  "season","fpl_element_id","fpl_player_code","fixture_id","gameweek","kickoff_time",
- "team_id_at_fixture","opponent_team_id","was_home","team_difficulty","opponent_difficulty",
+ "team_id_at_fixture","opponent_team_id","was_home","team_difficulty_snapshot","opponent_difficulty_snapshot",
  "prior_gameweeks_count","prior_gw_points","prior_gw_minutes","prior3_gw_points_avg",
  "prior3_gw_minutes_avg","prior3_gw_xg_avg","prior3_gw_xa_avg",
  "prior5_gw_points_avg","prior5_gw_minutes_avg","season_to_date_points",
@@ -60,7 +60,7 @@ def build_dataset(players,fixtures,history):
                     "season":row.get("season",""),"fpl_element_id":element_id,"fpl_player_code":player_code,
                     "fixture_id":row["fixture_id"],"gameweek":gw,"kickoff_time":row.get("kickoff_time",""),
                     "team_id_at_fixture":team_id,"opponent_team_id":row.get("opponent_team_id",""),
-                    "was_home":was_home,"team_difficulty":team_diff,"opponent_difficulty":opp_diff,
+                    "was_home":was_home,"team_difficulty_snapshot":team_diff,"opponent_difficulty_snapshot":opp_diff,
                     "prior_gameweeks_count":len(prior),
                     "prior_gw_points":last["total_points"] if last else "",
                     "prior_gw_minutes":last["minutes"] if last else "",
@@ -89,7 +89,10 @@ def build_dataset(players,fixtures,history):
         "rows":len(output),"unique_players":len({x["fpl_element_id"] for x in output}),
         "unique_fixtures":len({x["fixture_id"] for x in output}),
         "gameweeks":sorted({x["gameweek"] for x in output}),
-        "status":"PASS","leakage_policy":"features for GW n use only complete GW groups < n; current and same-GW fixture outcomes are targets only",
+        "status":"PASS_STRUCTURAL_ONLY","leakage_policy":"No current/same-GW outcomes are used; all fixtures in a gameweek share features from complete earlier gameweeks.",
+        "point_in_time_status":"NOT_VERIFIED",
+        "point_in_time_caveat":"The current official API snapshot may include retrospective revisions to earlier gameweek stats. Strict historical backtests require archived pre-deadline snapshots.",
+        "fixture_difficulty_status":"CURRENT_SNAPSHOT_ONLY_NOT_POINT_IN_TIME_VERIFIED",
         "player_universe":"only players with a positive season-minute total were fetched for element-summary history"
     }
     return output,report

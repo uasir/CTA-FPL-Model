@@ -23,7 +23,8 @@ class LaggedFeatureTests(unittest.TestCase):
         self.assertEqual(gw2["season_to_date_minutes"],135.0)
         self.assertAlmostEqual(gw2["season_to_date_points_per90"],10*90/135)
         self.assertEqual(gw2["target_total_points"],"8")
-        self.assertEqual(report["status"],"PASS")
+        self.assertEqual(report["status"],"PASS_STRUCTURAL_ONLY")
+        self.assertEqual(report["point_in_time_status"],"NOT_VERIFIED")
     def test_double_gameweek_features_are_same_pre_deadline_snapshot(self):
         rows,_=build_dataset(self.players,self.fixtures,self.history)
         gw1=[x for x in rows if x["gameweek"]==1]
@@ -36,7 +37,7 @@ class LaggedFeatureTests(unittest.TestCase):
         gw2=next(x for x in rows if x["fixture_id"]=="13")
         self.assertEqual(gw1["team_id_at_fixture"],1)
         self.assertEqual(gw2["team_id_at_fixture"],1)
-        self.assertEqual(gw2["team_difficulty"],"2")
+        self.assertEqual(gw2["team_difficulty_snapshot"],"2")
     def test_unknown_fixture_blocks_build(self):
         bad=[dict(self.history[0],fixture_id="999")]
         with self.assertRaises(ValueError):
