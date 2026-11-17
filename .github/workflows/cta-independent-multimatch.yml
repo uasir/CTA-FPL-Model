@@ -41,10 +41,10 @@ jobs:
           mkdir -p /tmp/cta-input/events /tmp/cta-input/three-sixty /tmp/cta-input/js-empty-frames
           events=(3920384 3920397 3920410 3922239 3923881 3895052 3895113 3895167 3895232 3895286 3895320 3857286 3857272 3857261 3857293 3869685 3773593 3773656 3773552 3773415 3773497 3773457 3837650 3837706 3837785 3837885 3837947 3838017 3754078 3754335 3754162 3754348 3754075 3754159)
           frames=(3895052 3895113 3895167 3895232 3895286 3895320 3857286 3857272 3857261 3857293 3869685 3773593 3773656 3773552 3773415 3773497 3773457 3837650 3837706 3837785 3837885 3837947 3838017)
-          for id in "\${events[@]}"; do
+          for id in "${events[@]}"; do
             curl --fail --location --retry 3 "https://raw.githubusercontent.com/hudl/open-data/$commit/data/events/$id.json" -o "/tmp/cta-input/events/$id.json"
           done
-          for id in "\${frames[@]}"; do
+          for id in "${frames[@]}"; do
             curl --fail --location --retry 3 "https://raw.githubusercontent.com/hudl/open-data/$commit/data/three-sixty/$id.json" -o "/tmp/cta-input/three-sixty/$id.json"
           done
           printf '[]\n' > /tmp/cta-input/js-empty-frames/no_360.json
