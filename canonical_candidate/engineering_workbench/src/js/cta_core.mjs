@@ -124,9 +124,8 @@ function roundHalfEven(value, digits) {
   const scaled = value * factor;
   const lower = Math.floor(scaled);
   const fraction = scaled - lower;
-  const tieEpsilon = Number.EPSILON * Math.max(1, Math.abs(scaled)) * 2;
   let rounded;
-  if (Math.abs(fraction - 0.5) <= tieEpsilon) {
+  if (fraction === 0.5) {
     rounded = lower % 2 === 0 ? lower : lower + 1;
   } else {
     rounded = Math.floor(scaled + 0.5);
