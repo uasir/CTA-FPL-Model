@@ -3,30 +3,30 @@
     "archive": "CTA_FPL_reconstruction_scaffold_v0_1.zip",
     "sha256": "b96b6e3c3ef04b4e12d5d153f4f381843f4ecc2e48f0ae54d41d4ec14c1d6dc1",
     "entries": 20,
-    "zip_integrity": null
+    "zip_integrity": "PASS (unzip -t verified; SHA-256 matches recovered archive)"
   },
   {
     "archive": "CTA-FPL-Engineering-Workbench.zip",
     "sha256": "b7e62bec4299a63fb06d72e7bc38f54f2726ea68f366a29b4e3f64607f6e4630",
     "entries": 44,
-    "zip_integrity": null
+    "zip_integrity": "PASS (unzip -t verified; SHA-256 matches recovered archive)"
   },
   {
     "archive": "CTA_FPL_Model_v1_0_2_Engineering_Build.zip",
     "sha256": "7c8960ef250472eb2bb57b3d82f4ebec8dec00096482307470aedecb40cf5a73",
     "entries": 15,
-    "zip_integrity": null
+    "zip_integrity": "PASS (unzip -t verified; SHA-256 matches recovered archive)"
   },
   {
     "archive": "CTA_FPL_Model_v1_0_1_Engineering_Fix.zip",
     "sha256": "2c000b3c3f84bf1197303013d0d21e402b01d8ebfbddef3aa6558cfc50ab7553",
     "entries": 21,
-    "zip_integrity": null
+    "zip_integrity": "PASS (unzip -t verified; SHA-256 matches recovered archive)"
   },
   {
     "archive": "CTA_FPL_Model_v1_0_Experimental.zip",
     "sha256": "2d8278b593165b2bad7d55ee50969d166070e8872288a7fc59d07976ae17d749",
     "entries": 11,
-    "zip_integrity": null
+    "zip_integrity": "PASS (unzip -t verified; SHA-256 matches recovered archive)"
   }
 ]
