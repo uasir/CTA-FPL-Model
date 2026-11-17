@@ -14,7 +14,9 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_player_identity_crosswalk.py
       - canonical_candidate/data/player_identity_crosswalk.csv
       - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
-      - canonical_candidate/engineering_workbench/tests/test_fpl_lagged_features.py
+      - canonical_candidate/engineering_workbench/tests/test_fpl_lagged_features.py tests/test_player_feature_enrichment.py
+      - canonical_candidate/engineering_workbench/scripts/enrich_player_features.py
+      - canonical_candidate/engineering_workbench/tests/test_player_feature_enrichment.py
 
 permissions:
   contents: read
