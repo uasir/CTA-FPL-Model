@@ -30,6 +30,16 @@ class FPLIngestionTests(unittest.TestCase):
         self.assertEqual(len(history),1); self.assertEqual(history[0]["fixture_id"],100)
         self.assertEqual(history[0]["minutes"],90); self.assertEqual(report["status"],"PASS")
 
+    def test_bootstrap_minutes_and_points_must_reconcile(self):
+        bad = {10: {"history": [{
+            "fixture": 100, "round": 1, "opponent_team": 2, "was_home": True,
+            "minutes": 89, "total_points": 5
+        }]}}
+        _, _, _, report = build_tables(self.bootstrap, self.fixtures, bad, "2026-27")
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertEqual(report["minutes_reconciliation_mismatches"][0]["delta"], 1)
+        self.assertEqual(report["total_points_reconciliation_mismatches"][0]["delta"], 1)
+
     def test_missing_player_summary_blocks_ingestion(self):
         _,_,_,report=build_tables(self.bootstrap,self.fixtures,{},"2026-27")
         self.assertEqual(report["status"],"BLOCKED")

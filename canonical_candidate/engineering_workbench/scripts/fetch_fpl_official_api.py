@@ -7,6 +7,7 @@ verified alias/ID crosswalk.
 """
 from __future__ import annotations
 import argparse, csv, hashlib, json, time, urllib.error, urllib.request
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -78,6 +79,8 @@ def build_tables(bootstrap: dict[str,Any], fixtures: list[dict[str,Any]], summar
             "team_h_score":f.get("team_h_score"),"team_a_score":f.get("team_a_score"),
             "team_h_difficulty":f.get("team_h_difficulty"),"team_a_difficulty":f.get("team_a_difficulty")
         })
+    history_minutes = Counter()
+    history_points = Counter()
     for p in players:
         element_id = int(p["id"]); summary = summaries.get(element_id)
         if summary is None:
@@ -95,13 +98,42 @@ def build_tables(bootstrap: dict[str,Any], fixtures: list[dict[str,Any]], summar
             }
             for field in MATCH_FIELDS[10:]: row[field] = h.get(field)
             match_rows.append(row)
+            history_minutes[element_id] += int(h.get("minutes") or 0)
+            history_points[element_id] += int(h.get("total_points") or 0)
+
+    minutes_mismatches = []
+    points_mismatches = []
+    for p in players:
+        element_id = int(p["id"])
+        expected_minutes = int(p.get("minutes") or 0)
+        actual_minutes = history_minutes[element_id]
+        if expected_minutes != actual_minutes:
+            minutes_mismatches.append({
+                "fpl_element_id": element_id,
+                "player_name": p.get("web_name", ""),
+                "bootstrap_minutes": expected_minutes,
+                "history_minutes": actual_minutes,
+                "delta": expected_minutes - actual_minutes,
+            })
+        expected_points = int(p.get("total_points") or 0)
+        actual_points = history_points[element_id]
+        if expected_points != actual_points:
+            points_mismatches.append({
+                "fpl_element_id": element_id,
+                "player_name": p.get("web_name", ""),
+                "bootstrap_total_points": expected_points,
+                "history_total_points": actual_points,
+                "delta": expected_points - actual_points,
+            })
     report = {
         "season":season,"players":len(player_rows),"fixtures":len(fixture_rows),"player_fixture_rows":len(match_rows),
         "players_with_positive_minutes":sum(int(p["minutes_season"])>0 for p in player_rows),
         "summaries_missing_for_players_with_minutes":summary_missing,"orphan_fixture_rows":orphan_fixture_rows,
+        "minutes_reconciliation_mismatches":minutes_mismatches,
+        "total_points_reconciliation_mismatches":points_mismatches,
         "unique_player_ids":len(player_id_set),"unique_fixture_ids":len(fixture_id_set),
         "player_fixture_rows_with_unknown_player":sum(int(r["fpl_element_id"]) not in player_id_set for r in match_rows),
-        "status":"PASS" if not summary_missing and not orphan_fixture_rows else "BLOCKED"
+        "status":"PASS" if not summary_missing and not orphan_fixture_rows and not minutes_mismatches and not points_mismatches else "BLOCKED"
     }
     return player_rows,fixture_rows,match_rows,report
 
