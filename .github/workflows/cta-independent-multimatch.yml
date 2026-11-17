@@ -55,8 +55,10 @@ jobs:
           mkdir -p artifacts/python artifacts/javascript
           for event_file in /tmp/cta-input/events/*.json; do
             id="$(basename "$event_file" .json)"
+            mkdir -p "/tmp/cta-input/single-event/$id"
+            cp "$event_file" "/tmp/cta-input/single-event/$id/$id.json"
             python canonical_candidate/src/cta_engine.py \
-              --events-dir /tmp/cta-input/events \
+              --events-dir "/tmp/cta-input/single-event/$id" \
               --three-sixty-dir /tmp/cta-input/three-sixty \
               --output-dir "artifacts/python/$id"
             frame_file="/tmp/cta-input/three-sixty/$id.json"
@@ -69,13 +71,14 @@ jobs:
       - name: Record run metadata
         if: always()
         run: |
+          mkdir -p artifacts
           {
             echo "CTA independent sample run"
             echo "StatsBomb source commit: 4b73468fc5b0f1950f9f66fada70ad3a4f9327cb"
             echo "Selected matches: 34"
             echo "Matches with 360 source: 23"
-            echo "Matches without 360 source: 11 (represented as unavailable in Python; empty frame input used only to satisfy the JS runner interface)"
-            echo "This run executes both cores; feature-level Python/JavaScript parity audit is a separate validation stage."
+            echo "Matches without 360 source: 11 (no 360 file is supplied to Python; an empty placeholder is passed only to the JS runner interface)"
+            echo "This workflow executes both cores; feature-level Python/JavaScript parity audit remains a separate validation stage."
           } > artifacts/RUN_SCOPE.txt
       - name: Upload outputs
         if: always()
