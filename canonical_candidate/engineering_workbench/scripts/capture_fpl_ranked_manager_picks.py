@@ -5,10 +5,11 @@ The cohort is defined from global-league ranks observed before the target
 deadline. This avoids using post-gameweek rank to define the sample.
 """
 from __future__ import annotations
-import argparse,csv,json,math,random,time,urllib.error,urllib.parse,urllib.request
+import argparse,csv,hashlib,json,math,random,time,urllib.error,urllib.parse,urllib.request
 from concurrent.futures import ThreadPoolExecutor,as_completed
 from datetime import datetime,timezone
 from pathlib import Path
+from estimate_fpl_effective_ownership import estimate_effective_ownership
 
 BASE="https://fantasy.premierleague.com/api"
 PAGE_SIZE=50
@@ -149,6 +150,7 @@ def capture(bootstrap,fetch=fetch_json,rank_limit=10000,sample_size=100,seed=202
         "sample_weight_per_manager":float(rank_limit)/sample_size,
         "rank_min":min(x["rank_before_deadline"] for x in managers),
         "rank_max":max(x["rank_before_deadline"] for x in managers),
+        "manager_sample_sha256":hashlib.sha256(",".join(str(x["entry_id"]) for x in sorted(managers,key=lambda x:x["entry_id"])).encode()).hexdigest(),
         "standings_pages_fetched":len(pages),
         "manager_pick_rows":len(rows),
         "status_caveat":"This is a stratified sample, not a census; manager picks may still change until the deadline if the capture is not at the final lock."
@@ -172,11 +174,13 @@ def main():
         seed=args.seed,delay=args.delay,workers=args.workers,
         deadline_window_minutes=args.deadline_window_minutes,force=args.force)
     args.out_dir.mkdir(parents=True,exist_ok=True)
-    (args.out_dir/"fpl_ranked_manager_sample_report.json").write_text(json.dumps(metadata,indent=2),encoding="utf-8")
     if rows:
-        fields=list(rows[0].keys())
-        with (args.out_dir/"fpl_ranked_manager_picks.csv").open("w",newline="",encoding="utf-8") as handle:
-            writer=csv.DictWriter(handle,fieldnames=fields);writer.writeheader();writer.writerows(rows)
+        eo_rows,eo_report=estimate_effective_ownership(rows)
+        metadata.update(eo_report)
+        fields=list(eo_rows[0].keys())
+        with (args.out_dir/"fpl_effective_ownership_sample.csv").open("w",newline="",encoding="utf-8") as handle:
+            writer=csv.DictWriter(handle,fieldnames=fields);writer.writeheader();writer.writerows(eo_rows)
+    (args.out_dir/"fpl_ranked_manager_sample_report.json").write_text(json.dumps(metadata,indent=2),encoding="utf-8")
     print(json.dumps(metadata,indent=2))
     return 0
 
