@@ -17,7 +17,7 @@ OUTPUT_FIELDS=[
  "prior_gameweeks_count","prior_gw_points","prior_gw_minutes","prior3_gw_points_avg",
  "prior3_gw_minutes_avg","prior3_gw_xg_avg","prior3_gw_xa_avg",
  "prior5_gw_points_avg","prior5_gw_minutes_avg","season_to_date_points",
- "season_to_date_minutes","season_to_date_xg","season_to_date_xa","season_to_date_points_per90",
+ "season_to_date_minutes","season_to_date_xg","season_to_date_xa","season_to_date_points_per90","prior_gw_selected_count","prior_gw_selected_pct","prior3_gw_selected_pct_avg","prior5_gw_selected_pct_avg",
  "target_minutes","target_total_points","target_goals","target_assists","target_expected_goals","target_expected_assists"
 ]
 def num(v):
@@ -48,6 +48,7 @@ def build_dataset(players,fixtures,history,bootstrap):
             raise ValueError(f"Unknown fixture {row['fixture_id']} in player history")
         grouped[key][gw].append(row)
     player_meta={str(p["fpl_element_id"]):p for p in players}
+    ranked_counts={int(e["id"]):int(e.get("ranked_count") or 0) for e in bootstrap.get("events",[])}
     output=[]
     for (element_id,player_code),gws in grouped.items():
         player_history=[row for rows in gws.values() for row in rows]
@@ -63,7 +64,16 @@ def build_dataset(players,fixtures,history,bootstrap):
             for row in known: known_by_gw[int(row["gameweek"])].append(row)
             prior=[]
             for prior_gw in sorted(known_by_gw):
-                prior.append({field:sum(num(x.get(field)) for x in known_by_gw[prior_gw]) for field in AGG_FIELDS})
+                gw_rows=known_by_gw[prior_gw]
+                selected_values={str(x.get("selected","")) for x in gw_rows}
+                if len(selected_values)>1:
+                    raise ValueError(f"Historical selected count differs across fixtures for player {element_id} GW{prior_gw}")
+                selected_raw=next(iter(selected_values)) if selected_values else ""
+                selected_count=num(selected_raw) if selected_raw not in ("",None) else ""
+                ranked=ranked_counts.get(prior_gw,0)
+                selected_pct=(float(selected_count)/ranked*100.0) if selected_count!="" and ranked>0 else ""
+                prior.append({**{field:sum(num(x.get(field)) for x in gw_rows) for field in AGG_FIELDS},
+                              "selected_count":selected_count,"selected_pct":selected_pct})
             prior3=prior[-3:];prior5=prior[-5:]
             sum_prior={field:sum(x[field] for x in prior) for field in AGG_FIELDS}
             last=prior[-1] if prior else None
@@ -93,6 +103,10 @@ def build_dataset(players,fixtures,history,bootstrap):
                     "season_to_date_xg":sum_prior["expected_goals"],
                     "season_to_date_xa":sum_prior["expected_assists"],
                     "season_to_date_points_per90":(sum_prior["total_points"]*90/sum_prior["minutes"]) if sum_prior["minutes"]>0 else "",
+                    "prior_gw_selected_count":last["selected_count"] if last else "",
+                    "prior_gw_selected_pct":last["selected_pct"] if last else "",
+                    "prior3_gw_selected_pct_avg":mean([x["selected_pct"] for x in prior3 if x["selected_pct"]!=""]),
+                    "prior5_gw_selected_pct_avg":mean([x["selected_pct"] for x in prior5 if x["selected_pct"]!=""]),
                     "target_minutes":row.get("minutes",""),"target_total_points":row.get("total_points",""),
                     "target_goals":row.get("goals_scored",""),"target_assists":row.get("assists",""),
                     "target_expected_goals":row.get("expected_goals",""),"target_expected_assists":row.get("expected_assists","")
