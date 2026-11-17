@@ -117,11 +117,12 @@ The official API ingestion now feeds `scripts/build_fpl_lagged_features.py`. Suc
 - 4,517 player-fixture rows.
 - 459 players with positive season minutes.
 - 100 completed fixtures across GW1–GW10.
-- Every target row uses only complete earlier gameweeks as features.
+- Every target row uses only earlier-gameweek history whose actual kickoff is strictly before that gameweek's FPL deadline.
+- Postponed fixtures from an earlier gameweek are excluded if they were played after the target deadline.
 - All fixtures in a double gameweek share one pre-deadline feature snapshot.
-- Current-gameweek and same-GW outcomes are target-only, not predictors.
+- Current/future gameweek outcomes are never used as predictors.
 
-The builder now labels its result `PASS_STRUCTURAL_ONLY`. The current API snapshot may include retrospective revisions to prior gameweek statistics; fixture difficulty is also labelled current-snapshot-only until its historical vintage is verified. The report therefore sets `point_in_time_status: NOT_VERIFIED`. Strict historical backtesting requires archived pre-deadline snapshots. This is a structurally lagged dataset, not a fully point-in-time-validated dataset, trained model, or predictive validation. It covers only active player history requested from the API; the full 672-player roster is retained separately in `fpl_players.csv`.
+The builder now labels its result `PASS_STRUCTURAL_ONLY`. It uses the bootstrap `deadline_time` and actual fixture `kickoff_time` as a cutoff, but the current API snapshot may include retrospective revisions to prior gameweek statistics; fixture difficulty is also labelled current-snapshot-only until its historical vintage is verified. The report therefore sets `point_in_time_status: NOT_VERIFIED`. Strict historical backtesting requires archived pre-deadline snapshots. This is a structurally lagged dataset, not a fully point-in-time-validated dataset, trained model, or predictive validation. It covers only active player history requested from the API; the full 672-player roster is retained separately in `fpl_players.csv`.
 
 ## Player identity crosswalk safeguards
 
