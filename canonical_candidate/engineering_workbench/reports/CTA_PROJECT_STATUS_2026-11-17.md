@@ -132,7 +132,15 @@ The new `scripts/aggregate_fpl_gameweek_rows.py` aggregates fixture-level target
 - All features are identical across fixtures for a player in the same GW; double-gameweek aggregation is covered by synthetic tests.
 - The current 2026/27 snapshot has no double-gameweek target rows yet, so the aggregation test is the verification for that case.
 
-An exploratory rolling-history baseline evaluator has been added. It compares last-GW, last-3-GW, and last-5-GW point averages using the gameweek-level target. It is explicitly not a trained model and retains the point-in-time vintage caveat. Run 44092943676 was still processing the live snapshot at the time of this status update.
+An exploratory rolling-history baseline evaluation completed successfully in [run 44092943676](https://github.com/uasir/CTA-FPL-Model/actions/runs/44092943676). Results on the 2026/27 snapshot:
+
+| Baseline | Rows evaluated | MAE | RMSE |
+|---|---:|---:|---:|
+| Previous GW points | 4,058 | 1.930 | 3.283 |
+| Previous 3-GW average | 3,140 | 1.791 | 2.774 |
+| Previous 5-GW average | 2,223 | **1.761** | **2.644** |
+
+The 5-GW average is the strongest of these three simple references on this small sample. Gameweek Spearman correlations vary by week (roughly 0.42–0.57); top-decile overlap is variable. These figures are **exploratory only**, not a validated model benchmark: one season, ten gameweeks, current API snapshot, and no archived pre-deadline vintages. The artifact includes per-gameweek rank and top-decile metrics.
 
 ## Player identity crosswalk safeguards
 
