@@ -7,7 +7,7 @@ precede the target gameweek deadline. Double-gameweek fixtures share one snapsho
 from __future__ import annotations
 import argparse, csv, json
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 AGG_FIELDS=["minutes","total_points","goals_scored","assists","starts","expected_goals","expected_assists","expected_goal_involvements","clean_sheets","bonus","bps","defensive_contribution"]
@@ -32,7 +32,8 @@ def mean(values):
     return sum(values)/len(values) if values else ""
 def parse_time(value):
     if not value: raise ValueError("Missing timestamp in FPL history/deadline data")
-    return datetime.fromisoformat(str(value).replace("Z","+00:00"))
+    parsed=datetime.fromisoformat(str(value).replace("Z","+00:00"))
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
 
 def build_dataset(players,fixtures,history,bootstrap):
     fixture_map={str(x["fixture_id"]):x for x in fixtures}
