@@ -18,7 +18,7 @@ class FPLIngestionTests(unittest.TestCase):
                          "kickoff_time":"2026-08-15T14:00:00Z","minutes":90,"total_points":6,
                          "goals_scored":0,"assists":0,"clean_sheets":1,"goals_conceded":0,"own_goals":0,
                          "penalties_saved":0,"penalties_missed":0,"yellow_cards":0,"red_cards":0,
-                         "saves":3,"bonus":1,"bps":25}]}}
+                         "saves":3,"bonus":1,"bps":25,"selected":500,"transfers_balance":12,"transfers_in":20,"transfers_out":8,"value":50}]}}
 
     def test_season_inference(self):
         self.assertEqual(infer_season(self.bootstrap["events"]),"2026-27")
@@ -28,7 +28,7 @@ class FPLIngestionTests(unittest.TestCase):
         self.assertEqual(len(players),1); self.assertEqual(players[0]["fpl_element_id"],10)
         self.assertEqual(players[0]["fpl_player_code"],90010); self.assertEqual(len(fixtures),1)
         self.assertEqual(len(history),1); self.assertEqual(history[0]["fixture_id"],100)
-        self.assertEqual(history[0]["minutes"],90); self.assertEqual(report["status"],"PASS")
+        self.assertEqual(history[0]["minutes"],90); self.assertEqual(history[0]["selected"],500); self.assertEqual(history[0]["value"],50); self.assertEqual(report["status"],"PASS")
 
     def test_bootstrap_minutes_and_points_must_reconcile(self):
         bad = {10: {"history": [{
