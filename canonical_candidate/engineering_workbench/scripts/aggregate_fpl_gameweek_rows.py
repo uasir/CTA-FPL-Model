@@ -10,7 +10,7 @@ FEATURE_FIELDS=[
  "prior_gameweeks_count","prior_gw_points","prior_gw_minutes","prior3_gw_points_avg",
  "prior3_gw_minutes_avg","prior3_gw_xg_avg","prior3_gw_xa_avg",
  "prior5_gw_points_avg","prior5_gw_minutes_avg","season_to_date_points",
- "season_to_date_minutes","season_to_date_xg","season_to_date_xa","season_to_date_points_per90"
+ "season_to_date_minutes","season_to_date_xg","season_to_date_xa","season_to_date_points_per90","prior_gw_selected_count","prior_gw_selected_pct","prior3_gw_selected_pct_avg","prior5_gw_selected_pct_avg"
 ]
 TARGET_FIELDS=["target_minutes","target_total_points","target_goals","target_assists","target_expected_goals","target_expected_assists"]
 OUTPUT_FIELDS=FEATURE_FIELDS+[
