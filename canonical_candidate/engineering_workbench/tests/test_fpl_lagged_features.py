@@ -33,7 +33,7 @@ class LaggedFeatureTests(unittest.TestCase):
         self.assertEqual(gw1[0]["prior_gameweeks_count"],0)
         self.assertEqual(gw1[1]["prior_gameweeks_count"],0)
     def test_home_away_team_context_uses_fixture(self):
-        rows,_=build_dataset(self.players,self.fixtures,self.history)
+        rows,_=build_dataset(self.players,self.fixtures,self.history,self.bootstrap)
         gw1=next(x for x in rows if x["fixture_id"]=="11")
         gw2=next(x for x in rows if x["fixture_id"]=="13")
         self.assertEqual(gw1["team_id_at_fixture"],1)
@@ -51,6 +51,6 @@ class LaggedFeatureTests(unittest.TestCase):
     def test_unknown_fixture_blocks_build(self):
         bad=[dict(self.history[0],fixture_id="999")]
         with self.assertRaises(ValueError):
-            build_dataset(self.players,self.fixtures,bad)
+            build_dataset(self.players,self.fixtures,bad,self.bootstrap)
 
 if __name__=="__main__":unittest.main()
