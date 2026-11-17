@@ -11,7 +11,7 @@ def audit_quality(manifest: dict, python_root: Path) -> dict:
     expected_ids = [str(item["match_id"]) for item in matches]
     if len(expected_ids) != len(set(expected_ids)):
         raise ValueError("Manifest contains duplicate match IDs")
-    actual_ids = sorted(path.name for path in python_root.iterdir() if path.is_dir())
+    actual_ids = sorted(path.name for path in python_root.iterdir() if path.is_dir()) if python_root.exists() else []
     missing = sorted(set(expected_ids) - set(actual_ids))
     extra = sorted(set(actual_ids) - set(expected_ids))
     results = {}
