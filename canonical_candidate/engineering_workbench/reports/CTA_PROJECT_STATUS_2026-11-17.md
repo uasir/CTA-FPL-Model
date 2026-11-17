@@ -366,3 +366,19 @@ The ingestion script now classifies each snapshot against the next upcoming FPL 
 3. Verify whether the Onside Arena CC BY 4.0 graded-prediction Zenodo record is downloadable with complete player IDs and historical coverage; use it as an external forecast benchmark only after schema and provenance checks.
 4. Wire a deadline-safe rank-tier manager-pick sample into the EO adapter, or obtain a licensed provider feed. Do not use post-GW ranks to define the cohort.
 5. Resolve historical FPL target rights before combining Wyscout or another event provider with FPL labels.
+
+## Verified deadline metadata and ingestion workflow isolation
+
+Run [44147764850](https://github.com/uasir/CTA-FPL-Model/actions/runs/44147764850) completed successfully on the updated ingestion code. Its artifact is `cta-fpl-official-44147764850` (artifact ID `14356903141`), with verified expiry **2027-02-15 18:25:57 UTC**—90-day retention.
+
+Snapshot metadata confirms:
+- Captured `2026-11-17T18:27:22.715472Z`.
+- Next deadline: GW11, `2026-11-21T11:00:00Z`.
+- Snapshot was `PRE_DEADLINE_OVER_24H`, 88.544 hours before the deadline.
+- Bootstrap and fixtures SHA-256 hashes were recorded; all 672 element-summary requests succeeded.
+
+This is now an explicit, machine-readable way to distinguish snapshots captured before or after the next deadline. It does not yet guarantee a snapshot within 24 hours for every deadline; the daily 05:30 UTC schedule will capture that nearer window for the next Saturday deadline.
+
+The FPL workflow has been separated from ordinary code-push CI. Full API ingestion now runs on schedule or manual dispatch, while the new `cta-fpl-ci.yml` runs the engineering test suite on code changes. This prevents every small code commit from launching another 672-player API fetch. The first all-tests CI attempt exposed the workbench package path requirement (`src`); the `PYTHONPATH` was corrected to `scripts:src`, and the follow-up CI run is pending.
+
+Artifact retention is now 90 days, but the repository is public and the artifact window still does not preserve a full season. Private Dropbox storage remains the next storage gate; the connection suggestion has not been accepted/connected yet.
