@@ -174,8 +174,22 @@ def main() -> int:
     write_csv(args.out_dir/"fpl_fixtures.csv",FIXTURE_FIELDS,fixture_rows)
     write_csv(args.out_dir/"fpl_player_fixture.csv",MATCH_FIELDS,match_rows)
     (args.out_dir/"ingestion_report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
+    fetched_at=datetime.now(timezone.utc)
+    future_events=[]
+    for event in bootstrap.get("events",[]):
+        if not event.get("deadline_time"): continue
+        deadline=datetime.fromisoformat(str(event["deadline_time"]).replace("Z","+00:00"))
+        if deadline>fetched_at: future_events.append((deadline,event))
+    next_event=min(future_events,key=lambda x:x[0]) if future_events else None
+    hours_to_deadline=(next_event[0]-fetched_at).total_seconds()/3600 if next_event else None
+    snapshot_timing=("PRE_DEADLINE_WITHIN_24H" if hours_to_deadline is not None and hours_to_deadline<=24
+                     else "PRE_DEADLINE_OVER_24H" if hours_to_deadline is not None else "NO_FUTURE_DEADLINE")
     def digest(obj): return hashlib.sha256(json.dumps(obj,sort_keys=True).encode()).hexdigest()
-    metadata={"source":"Official Fantasy Premier League public API","season":season,"fetched_at_utc":datetime.now(timezone.utc).isoformat(),"bootstrap_url":bootstrap_url,"fixtures_url":fixtures_url,
+    metadata={"source":"Official Fantasy Premier League public API","season":season,"fetched_at_utc":fetched_at.isoformat(),
+              "snapshot_timing":snapshot_timing,
+              "next_deadline_event_id":next_event[1].get("id") if next_event else None,
+              "next_deadline_time_utc":next_event[0].isoformat() if next_event else None,
+              "hours_until_next_deadline":round(hours_to_deadline,3) if hours_to_deadline is not None else None,"bootstrap_url":bootstrap_url,"fixtures_url":fixtures_url,
               "bootstrap_sha256":digest(bootstrap),"fixtures_sha256":digest(fixtures),
               "summary_endpoint":f"{BASE_URL}/element-summary/{{element_id}}/","summary_fetch_count":len(summaries),"summary_fetch_errors":len(errors)}
     (args.out_dir/"source_metadata.json").write_text(json.dumps(metadata,indent=2),encoding="utf-8")
