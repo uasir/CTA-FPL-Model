@@ -33,7 +33,7 @@ jobs:
       - name: Run engineering tests
         working-directory: canonical_candidate/engineering_workbench
         env:
-          PYTHONPATH: scripts
+          PYTHONPATH: scripts:src
         run: python -m pytest -q
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
