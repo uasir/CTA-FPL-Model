@@ -18,6 +18,26 @@ Latest successful run: [GitHub Actions run 44087292634](https://github.com/uasir
 - The tolerance-boundary fix adds only a 1e-12 comparison slack for non-zero absolute tolerances. It does not change feature values or the contract's substantive tolerance.
 - The output artifact is named `cta-independent-multimatch-44087292634`.
 
+## StatsBomb player identity corrected to provider ID
+
+The core previously aggregated player counters by display name. That was unsafe because two distinct StatsBomb players can share a name, and the output discarded the provider's numeric ID needed by the FPL crosswalk.
+
+Updated both Python and JavaScript cores to:
+- Key player feature rows by `statsbomb_player_id`.
+- Retain `statsbomb_player_name` as display metadata, not identity.
+- Attribute pass recipients by recipient ID.
+- Reject named player objects that lack a StatsBomb ID, and reject conflicting names for one ID.
+- Keep FPL names and minutes blank until a verified ID crosswalk and temporally aligned minutes source are supplied.
+
+Parity contract is now **1.1.0** and the core version is **1.0.3-experimental**. The full 34-match run [44091430242](https://github.com/uasir/CTA-FPL-Model/actions/runs/44091430242) passed:
+- 34/34 matches.
+- 113,373 sequence comparisons.
+- 21,567 player comparisons (including the player-name metadata field).
+- 6,528 xT-grid comparisons.
+- **141,468/141,468 total comparisons within tolerance.**
+
+The new ID-based enrichment adapter `scripts/enrich_player_features.py` and synthetic tests are added. It requires a verified crosswalk, matching season and competition, and an official FPL element/code match. It does not use names as join keys and explicitly refuses to use season-total FPL minutes as the denominator for a single-match StatsBomb per-90 calculation. The adapter tests passed in the current FPL workflow test stage; the real join remains not ready because the crosswalk is empty.
+
 ## Latest multi-match parity and 360 anomaly diagnosis
 
 The registry-backed parity workflow completed successfully in [run 44090312302](https://github.com/uasir/CTA-FPL-Model/actions/runs/44090312302):
