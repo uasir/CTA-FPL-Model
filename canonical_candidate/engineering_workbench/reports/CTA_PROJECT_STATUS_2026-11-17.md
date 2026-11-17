@@ -394,3 +394,8 @@ The capture is not yet live-validated. It depends on the public FPL picks endpoi
 Engineering CI run [44148615692](https://github.com/uasir/CTA-FPL-Model/actions/runs/44148615692) passed **70 tests plus 3 subtests** after adding the manager sampler and EO aggregation tests. The earlier full FPL workflow run [44147764850](https://github.com/uasir/CTA-FPL-Model/actions/runs/44147764850) remains the latest verified official-data ingestion, with 672/672 summary requests successful and 90-day artifact retention.
 
 Updated source/rights and acquisition decisions: [FPL data-source blocker register](FPL_DATA_SOURCE_BLOCKER_REGISTER_2026-11-17.md).
+## EO capture CI confirmation
+
+After the hourly top-10k EO collector and its workflow were added, the lightweight CI run [44148843292](https://github.com/uasir/CTA-FPL-Model/actions/runs/44148843292) completed successfully. The all-tests suite and crosswalk validation both passed. The latest test count remains 70 tests plus 3 subtests from [44148615692](https://github.com/uasir/CTA-FPL-Model/actions/runs/44148615692).
+
+The hourly collector is scheduled but has not yet produced a near-deadline sample. It will first be eligible for GW11 near the 2026-11-21 11:00 UTC deadline. The live picks-endpoint response is the remaining technical validation for EO capture.
