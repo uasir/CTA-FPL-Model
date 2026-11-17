@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Build leakage-safe FPL player-fixture rows from official API history.
 
-Every feature for a gameweek is computed only from strictly earlier gameweeks.
-All fixtures in a double gameweek share the same pre-deadline feature state.
+Every feature for a gameweek uses only earlier gameweeks whose actual kickoffs
+precede the target gameweek deadline. Double-gameweek fixtures share one snapshot.
 """
 from __future__ import annotations
 import argparse, csv, json
@@ -57,7 +57,7 @@ def build_dataset(players,fixtures,history,bootstrap):
             for target in current_rows:
                 if parse_time(target.get("kickoff_time"))<cutoff:
                     raise ValueError(f"Target fixture {target['fixture_id']} kicks off before GW{gw} deadline")
-            known=[row for row in player_history if parse_time(row.get("kickoff_time"))<cutoff]
+            known=[row for row in player_history if int(row["gameweek"])<gw and parse_time(row.get("kickoff_time"))<cutoff]
             known_by_gw=defaultdict(list)
             for row in known: known_by_gw[int(row["gameweek"])].append(row)
             prior=[]
