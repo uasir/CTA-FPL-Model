@@ -86,12 +86,28 @@ Only rows marked `verified` with complete provider IDs, team/season context, a s
 
 The tests and empty-template validation passed in runs 44088979396 and 44088999247. The workflow's artifact path was subsequently corrected; run 44089097790 is the verification run for the final workflow YAML and combined artifact upload. It was in progress at the time of this update. No player identities have been populated or guessed yet.
 
+## Training-data season compatibility (verified source inventory)
+
+The open-source provider inventory shows a hard temporal coverage gap:
+- StatsBomb Open Data lists the English Premier League only for **2003/04 (season ID 44)** and **2015/16 (season ID 27)** in its current `competitions.json`.
+- The Vaastav FPL historical archive's season folders begin at **2016/17**; it has no 2015/16 folder.
+- The official FPL API snapshot now ingested by this project is **2026/27**, but StatsBomb Open Data has no 2026/27 Premier League event season.
+
+Therefore there is **no overlapping Premier League season** between the public StatsBomb event data and the FPL historical archive. The existing 34-match sample contains six Premier League matches from 2015/16, but cannot be given gameweek FPL targets from that archive. The 2003/04 StatsBomb season is even further outside FPL archive coverage. A verified player-name crosswalk alone cannot solve this missing season overlap.
+
+Sources:
+- StatsBomb Open Data competitions index: https://github.com/statsbomb/open-data/blob/master/data/competitions.json
+- StatsBomb Open Data repository and data structure: https://github.com/hudl/open-data
+- FPL historical archive and season structure: https://github.com/vaastav/Fantasy-Premier-League
+
+**Decision:** keep the current parity sample as an engineering benchmark only. For actual event-derived FPL prediction, obtain a licensed/authorized event feed for an FPL-covered season, or obtain a historically aligned StatsBomb+FPL dataset with documented provenance and permitted use. Do not fabricate labels, extrapolate current FPL IDs backwards, or join by name alone.
+
 ## Next actions
 
 1. Verify run 44089097790 completes with the corrected combined artifact upload.
-2. Populate the crosswalk only from verified source evidence, never fuzzy-name guesses.
-3. Acquire a StatsBomb Premier League sample whose season aligns with FPL player-fixture targets; the existing 34-match sample remains a parity/engineering test only.
-4. Join match-level StatsBomb features to FPL player-fixture outcomes through the verified season-scoped crosswalk.
+2. Resolve the missing overlapping event-data/FPL season by obtaining an authorized event feed for an FPL-covered season or an aligned historical dataset.
+3. Populate the crosswalk only from verified source evidence, never fuzzy-name guesses.
+4. Join match-level event features to FPL player-fixture outcomes only after season and competition alignment is established.
 5. Only then calculate per-90 features and run time-ordered, out-of-sample FPL points backtests.
 6. Keep xT exploratory until calibrated and independently validated.
 
