@@ -48,7 +48,7 @@
   },
   "null_semantics": {
     "blank_csv_cells": "Treat as null in parity comparison.",
-    "missing_counter_key": "Preserve as null in the JavaScript canonical row when the Python Counter-backed CSV cell is blank.",
+    "missing_counter_key": "Counter-backed player counts and shot_xg_reference_only default to numeric zero; mean action xT and per-90 metrics remain null/blank when their denominators are unavailable.",
     "null_vs_zero": "Never coerce; null and zero are distinct and must fail parity when they differ.",
     "unsupported_inputs": "Do not invent player aliases or minutes. Exclude FPL joins and per-90 features from this parity contract.",
     "player_count_defaults": "Counter-backed player counts and shot_xg_reference_only emit numeric zero when no observations exist. Mean action xT and per-90 metrics remain null/blank when their denominators are unavailable."
@@ -324,7 +324,7 @@
           "tolerance_class": "exact",
           "definition_version": "core-1.0.2-schema-1.1",
           "definition": "Pass events attributed to the event actor.",
-          "aggregation": "Count over the single-match run; null if the Counter key is never created. Missing Counter-backed observations are emitted as numeric zero, not null."
+          "aggregation": "Count over the single-match run; zero if no event is observed."
         },
         "completed_passes": {
           "python_column": "completed_passes",
@@ -335,7 +335,7 @@
           "tolerance_class": "exact",
           "definition_version": "core-1.0.2-schema-1.1",
           "definition": "Passes without a truthy pass.outcome, attributed to the actor.",
-          "aggregation": "Count over the single-match run; null if no actor pass exists. Missing Counter-backed observations are emitted as numeric zero, not null."
+          "aggregation": "Count over the single-match run; zero if no actor pass exists."
         },
         "pressured_events": {
           "python_column": "pressured_events",
@@ -357,7 +357,7 @@
           "tolerance_class": "exact",
           "definition_version": "core-1.0.2-schema-1.1",
           "definition": "Actor pass/carry endpoints in the core's box threshold after direction transform.",
-          "aggregation": "Count over the single-match run; sparse Counter blanks remain null. Missing Counter-backed observations are emitted as numeric zero, not null."
+          "aggregation": "Count over the single-match run; zero when no eligible action is observed."
         },
         "final_third_entries": {
           "python_column": "final_third_entries",
@@ -368,7 +368,7 @@
           "tolerance_class": "exact",
           "definition_version": "core-1.0.2-schema-1.1",
           "definition": "Actor pass/carry endpoints with transformed x >= 80.",
-          "aggregation": "Count over the single-match run; sparse Counter blanks remain null. Missing Counter-backed observations are emitted as numeric zero, not null."
+          "aggregation": "Count over the single-match run; zero when no eligible action is observed."
         },
         "progressive_actions": {
           "python_column": "progressive_actions",
@@ -379,7 +379,7 @@
           "tolerance_class": "exact",
           "definition_version": "core-1.0.2-schema-1.1",
           "definition": "Actor pass/carry actions advancing at least 10 transformed x-units.",
-          "aggregation": "Count over the single-match run; sparse Counter blanks remain null. Missing Counter-backed observations are emitted as numeric zero, not null."
+          "aggregation": "Count over the single-match run; zero when no eligible action is observed."
         },
         "action_xt_gain_sum": {
           "python_column": "action_xt_gain_sum",
@@ -412,7 +412,7 @@
           "tolerance_class": "exact",
           "definition_version": "core-1.0.2-schema-1.1",
           "definition": "Pass recipient counts from the named pass.recipient field.",
-          "aggregation": "Count over the single-match run; null when never named as recipient. Missing Counter-backed observations are emitted as numeric zero, not null."
+          "aggregation": "Count over the single-match run; zero when never named as recipient."
         },
         "pressured_passes_received": {
           "python_column": "pressured_passes_received",
@@ -423,7 +423,7 @@
           "tolerance_class": "exact",
           "definition_version": "core-1.0.2-schema-1.1",
           "definition": "Recipient counts for passes whose event has truthy under_pressure.",
-          "aggregation": "Count over the single-match run; sparse Counter blanks remain null. Missing Counter-backed observations are emitted as numeric zero, not null."
+          "aggregation": "Count over the single-match run; zero when no eligible action is observed."
         },
         "receipts": {
           "python_column": "receipts",
@@ -434,7 +434,7 @@
           "tolerance_class": "exact",
           "definition_version": "core-1.0.2-schema-1.1",
           "definition": "Ball Receipt* or Ball Receipt events attributed to the event actor.",
-          "aggregation": "Count over the single-match run; null when no receipt event exists. Missing Counter-backed observations are emitted as numeric zero, not null."
+          "aggregation": "Count over the single-match run; zero when no receipt event exists."
         },
         "carries": {
           "python_column": "carries",
@@ -445,7 +445,7 @@
           "tolerance_class": "exact",
           "definition_version": "core-1.0.2-schema-1.1",
           "definition": "Carry events attributed to the event actor.",
-          "aggregation": "Count over the single-match run; null when no carry event exists. Missing Counter-backed observations are emitted as numeric zero, not null."
+          "aggregation": "Count over the single-match run; zero when no carry event exists."
         },
         "sequences_involved": {
           "python_column": "sequences_involved",
@@ -489,7 +489,7 @@
           "tolerance_class": "exact",
           "definition_version": "core-1.0.2-schema-1.1",
           "definition": "Shot events attributed to the event actor.",
-          "aggregation": "Count over the single-match run; null when no shot event exists. Missing Counter-backed observations are emitted as numeric zero, not null."
+          "aggregation": "Count over the single-match run; zero when no shot event exists."
         },
         "shot_xg_reference_only": {
           "python_column": "shot_xg_reference_only",
@@ -522,7 +522,7 @@
           "tolerance_class": "exact",
           "definition_version": "core-1.0.2-schema-1.1",
           "definition": "Actor receipt events with truthy under_pressure.",
-          "aggregation": "Count over the single-match run; sparse Counter blanks remain null. Missing Counter-backed observations are emitted as numeric zero, not null."
+          "aggregation": "Count over the single-match run; zero when no eligible action is observed."
         }
       },
       "unsupported_features": [
