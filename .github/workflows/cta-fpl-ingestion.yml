@@ -16,7 +16,9 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/scripts/enrich_player_features.py
-      - canonical_candidate/engineering_workbench/tests/test_player_feature_enrichment.py
+      - canonical_candidate/engineering_workbench/tests/test_player_feature_enrichment.py tests/test_fpl_gameweek_aggregation.py
+      - canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py
+      - canonical_candidate/engineering_workbench/tests/test_fpl_gameweek_aggregation.py
 
 permissions:
   contents: read
@@ -59,6 +61,12 @@ jobs:
             --fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
             --history run_artifacts/fpl_official/fpl_player_fixture.csv \
             --bootstrap run_artifacts/fpl_official/bootstrap-static.json \
+            --out-dir run_artifacts/fpl_official
+
+      - name: Aggregate FPL player-gameweek targets
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py \
+            --input run_artifacts/fpl_official/fpl_lagged_training.csv \
             --out-dir run_artifacts/fpl_official
 
       - name: Upload official FPL snapshot
