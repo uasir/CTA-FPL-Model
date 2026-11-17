@@ -6,6 +6,7 @@ from build_fpl_lagged_features import build_dataset
 class LaggedFeatureTests(unittest.TestCase):
     def setUp(self):
         self.players=[{"fpl_element_id":"1","fpl_player_code":"100","minutes_season":"225"}]
+        self.bootstrap={"events":[{"id":1,"deadline_time":"2026-07-31T17:00:00Z"},{"id":2,"deadline_time":"2026-08-07T17:00:00Z"}]}
         self.fixtures=[
             {"fixture_id":"11","team_h_id":"1","team_a_id":"2","team_h_difficulty":"2","team_a_difficulty":"4"},
             {"fixture_id":"12","team_h_id":"2","team_a_id":"1","team_h_difficulty":"3","team_a_difficulty":"2"},
@@ -17,7 +18,7 @@ class LaggedFeatureTests(unittest.TestCase):
             {"season":"2026-27","fpl_element_id":"1","fpl_player_code":"100","fixture_id":"13","gameweek":"2","kickoff_time":"2026-08-08","was_home":"True","opponent_team_id":"3","minutes":"90","total_points":"8","goals_scored":"1","assists":"0","expected_goals":"0.6","expected_assists":"0.2","starts":"1"},
         ]
     def test_prior_gameweek_aggregate_is_used_not_current_target(self):
-        rows,report=build_dataset(self.players,self.fixtures,self.history)
+        rows,report=build_dataset(self.players,self.fixtures,self.history,self.bootstrap)
         gw2=next(x for x in rows if x["gameweek"]==2)
         self.assertEqual(gw2["season_to_date_points"],10.0)
         self.assertEqual(gw2["season_to_date_minutes"],135.0)
@@ -38,6 +39,15 @@ class LaggedFeatureTests(unittest.TestCase):
         self.assertEqual(gw1["team_id_at_fixture"],1)
         self.assertEqual(gw2["team_id_at_fixture"],1)
         self.assertEqual(gw2["team_difficulty_snapshot"],"2")
+    def test_postponed_prior_gameweek_fixture_after_deadline_is_excluded(self):
+        history=[dict(x) for x in self.history]
+        history[1]["kickoff_time"]="2026-08-20T14:00:00Z"
+        rows,_=build_dataset(self.players,self.fixtures,history,self.bootstrap)
+        gw2=next(x for x in rows if x["gameweek"]==2)
+        self.assertEqual(gw2["season_to_date_points"],6.0)
+        self.assertEqual(gw2["season_to_date_minutes"],90.0)
+        self.assertEqual(gw2["features_as_of_deadline"],"2026-08-07T17:00:00+00:00")
+
     def test_unknown_fixture_blocks_build(self):
         bad=[dict(self.history[0],fixture_id="999")]
         with self.assertRaises(ValueError):

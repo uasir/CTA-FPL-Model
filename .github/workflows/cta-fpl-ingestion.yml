@@ -58,6 +58,7 @@ jobs:
             --players run_artifacts/fpl_official/fpl_players.csv \
             --fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
             --history run_artifacts/fpl_official/fpl_player_fixture.csv \
+            --bootstrap run_artifacts/fpl_official/bootstrap-static.json \
             --out-dir run_artifacts/fpl_official
 
       - name: Upload official FPL snapshot
