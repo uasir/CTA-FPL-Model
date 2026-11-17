@@ -73,16 +73,27 @@ The first complete official API snapshot is available from [run 44087962763](htt
 - Unknown player references: none
 - Independent reconciliation against the same `bootstrap-static` snapshot: **0 minute mismatches and 0 total-points mismatches** across all 459 players with minutes.
 
-The ingestion tests passed in runs 44087933369 and 44087962763. A follow-up commit `a77952fae20d4f3f97ff2f9b20e479a7e242693c` adds automated season-total reconciliation (fixture-history minutes and points versus bootstrap totals), with regression tests. Its verification run is 44088405003 and was in progress when this document was updated. The run 44087962763 artifact is the verified source snapshot; its automated reconciliation fields are not present because it predates that follow-up commit.
+The ingestion tests and live API fetch both passed in run [44088405003](https://github.com/uasir/CTA-FPL-Model/actions/runs/44088405003). Its artifact contains the automated reconciliation fields: zero minute mismatches and zero total-points mismatches. The source snapshot is also retained in the artifact.
+
+## Player identity crosswalk safeguards
+
+Added:
+- `canonical_candidate/data/player_identity_crosswalk.csv` — empty, season-scoped template.
+- `canonical_candidate/engineering_workbench/scripts/validate_player_identity_crosswalk.py` — validator/exporter.
+- `canonical_candidate/engineering_workbench/tests/test_player_identity_crosswalk.py` — regression tests.
+
+Only rows marked `verified` with complete provider IDs, team/season context, a supported verification method, evidence URL/source, verifier, and verification date can be exported for joining. Pending, ambiguous, and rejected rows are excluded. Fuzzy-name matching is explicitly rejected. Duplicate/conflicting one-to-many identity mappings block the export.
+
+The tests and empty-template validation passed in runs 44088979396 and 44088999247. The workflow's artifact path was subsequently corrected; run 44089097790 is the verification run for the final workflow YAML and combined artifact upload. It was in progress at the time of this update. No player identities have been populated or guessed yet.
 
 ## Next actions
 
-1. Confirm one official FPL ingestion run completes and inspect its artifact, row counts, errors, and source hashes.
-2. Verify run 44088405003 passes the newly automated per-fixture history minutes/points reconciliation.
-3. Build a season-scoped identity crosswalk. Keep FPL element IDs, FPL player codes, StatsBomb player IDs, and names as distinct identifiers; require verified aliases plus team/season context.
-4. Choose a training sample whose competition and season align with the FPL targets. The current 34-match sample remains a parity/engineering test only.
-5. Only after trusted player minutes and aligned FPL outcomes exist, calculate per-90 features and run out-of-sample FPL points backtests.
-6. Keep xT marked exploratory until calibrated and independently validated.
+1. Verify run 44089097790 completes with the corrected combined artifact upload.
+2. Populate the crosswalk only from verified source evidence, never fuzzy-name guesses.
+3. Acquire a StatsBomb Premier League sample whose season aligns with FPL player-fixture targets; the existing 34-match sample remains a parity/engineering test only.
+4. Join match-level StatsBomb features to FPL player-fixture outcomes through the verified season-scoped crosswalk.
+5. Only then calculate per-90 features and run time-ordered, out-of-sample FPL points backtests.
+6. Keep xT exploratory until calibrated and independently validated.
 
 ## Engineering guardrails
 
