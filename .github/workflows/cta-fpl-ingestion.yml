@@ -40,7 +40,7 @@ jobs:
         run: |
           python scripts/validate_player_identity_crosswalk.py \
             --input ../data/player_identity_crosswalk.csv \
-            --out-dir ../../../run_artifacts/identity_crosswalk
+            --out-dir ../../run_artifacts/identity_crosswalk
 
       - name: Fetch official FPL data
         run: |
