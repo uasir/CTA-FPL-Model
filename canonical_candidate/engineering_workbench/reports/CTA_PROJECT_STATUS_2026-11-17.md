@@ -212,3 +212,76 @@ This could support a separate Opta/PulseLive provider adapter and leakage-safe l
 - Never treat Python–JavaScript parity as proof of predictive validity.
 - Never treat missing 360 source as zero defensive activity.
 - Preserve all workflow artifacts and input hashes needed to reproduce a result.
+
+
+---
+
+## Evening continuation update — 2026-11-17
+
+This section supersedes the earlier "Next actions" where newer evidence is available.
+
+### Original source recovery and regression checks
+
+All five requested original archives were recovered from the Library, ZIP integrity-checked, extracted, and inspected. Their SHA-256 hashes are recorded here so the exact source inputs can be identified:
+
+| Archive | SHA-256 | Original tests |
+|---|---|---:|
+| `CTA_FPL_reconstruction_scaffold_v0_1.zip` | `b96b6e3c3ef04b4e12d5d153f4f381843f4ecc2e48f0ae54d41d4ec14c1d6dc1` | 3 passed |
+| `CTA-FPL-Engineering-Workbench.zip` | `b7e62bec4299a63fb06d72e7bc38f54f2726ea68f366a29b4e3f64607f6e4630` | 17 passed |
+| `CTA_FPL_Model_v1_0_2_Engineering_Build.zip` | `7c8960ef250472eb2bb57b3d82f4ebec8dec00096482307470aedecb40cf5a73` | 7 passed |
+| `CTA_FPL_Model_v1_0_1_Engineering_Fix.zip` | `2c000b3c3f84bf1197303013d0d21e402b01d8ebfbddef3aa6558cfc50ab7553` | 5 passed |
+| `CTA_FPL_Model_v1_0_Experimental.zip` | `2d8278b593165b2bad7d55ee50969d166070e8872288a7fc59d07976ae17d749` | 4 passed |
+
+All five ZIPs passed `ZipFile.testzip()`. The archived core lineage is Experimental → v1.0.1 fix → v1.0.2 engineering build; v1.0.2 is the latest complete original core archive. The reconstruction scaffold and engineering workbench are separate supporting projects, not replacements for that core. The workbench's 17 tests pass when its `src` directory is placed on `PYTHONPATH`; its initial default invocation failed collection because the package is not installed, not because the tests failed. The five archives therefore contribute 36 passing regression tests in total.
+
+The current GitHub `canonical_candidate` is newer than those archives: it contains the ID-based Python/JavaScript 1.0.3-experimental implementation and parity contract 1.1.0. The latest multi-match CI run validates that newer implementation; the archived originals remain preserved as the recovery baseline. The supplemental `CTA_FPL_INDEPENDENT_WORKSPACE_2026-11-17.zip` was inspected separately and was not promoted over the recovered source lineage.
+
+### Latest 34-match Python–JavaScript validation
+
+Run [44091783751](https://github.com/uasir/CTA-FPL-Model/actions/runs/44091783751) completed successfully. Its artifact is `cta-independent-multimatch-44091783751` (ZIP SHA-256 `7d4c7d4a327fdcbb929f3e761981186f0ceb33aa54c7fb099ff24a202fb0748a`).
+
+- 34/34 matches passed contract 1.1.0.
+- 141,468/141,468 registered comparisons were within tolerance: 113,373 sequence, 21,567 player, and 6,528 xT-grid comparisons.
+- Independent artifact re-check found no missing/extra keys or duplicate keys in any table. Player features and xT values matched exactly. Two sequence `shot_xg_reference_only` values differed by 1e-6, within the registered tolerance.
+- Data-quality totals: 125,719 events, 5,967 sequences, 1,027 player rows, and 6,528 xT cells.
+- The 360 audit remains 22 usable joins, 11 matches with no source, and one quarantined zero-join anomaly (3837706). Parity passing does not make that match's 360 frames valid.
+
+### Official FPL ingestion and CoVar baseline
+
+The next FPL workflow run, [44095250164](https://github.com/uasir/CTA-FPL-Model/actions/runs/44095250164), completed successfully on the commit that introduced the CoVar estimator. The FPL workflow's test stage reported **35 passed**. Its artifact is `cta-fpl-official-44095250164`, artifact ID `14333587219`, ZIP SHA-256 `4a6773d489f02441915661f79c470d06753c8f0a2622d5d99ff3b49bccbec73e`.
+
+Official 2026/27 FPL ingestion:
+- 672 player records, 380 fixtures, 4,517 player-fixture history rows, and 459 player-summary fetches.
+- Zero summary-fetch errors, orphan fixtures, unknown player references, minute reconciliation mismatches, or total-points reconciliation mismatches.
+- The lagged dataset contains 4,517 player-gameweek rows for 459 players across GW1–GW10 and is structurally valid.
+- It remains `PASS_STRUCTURAL_ONLY` with `point_in_time_status: NOT_VERIFIED`: the current API snapshot can contain retrospective revisions. The verified StatsBomb–FPL crosswalk remains `EMPTY_NOT_READY`.
+
+The new `estimate_fpl_covariance.py` creates an exploratory historical-points CoVar matrix using the latest ten completed gameweeks, complete-case players, and 50% diagonal shrinkage:
+- 459 players appeared in the window; 421 had a complete ten-GW panel.
+- One complete-panel player had zero variance and was excluded from the matrix; 38 players with incomplete windows were excluded rather than zero-filled.
+- The matrix contains 420 players and 88,410 upper-triangle estimates (420 diagonal plus 87,990 off-diagonal pairs).
+- Independent reconstruction from the archived player-GW data matched the exported matrix to 8 decimal places (maximum absolute difference 4.45e-9). The 420×420 matrix is exactly symmetric in the exported values, full rank, and positive definite; its minimum eigenvalue is 0.05.
+- The report is correctly labelled `EXPLORATORY_ONLY`, `model_trained: false`, and `point_in_time_status: NOT_VERIFIED`. This is a descriptive covariance layer, not an EV model, EO model, or squad optimizer.
+
+**Important CoVar stability result:** splitting the same ten-GW complete panel into GW1–GW5 and GW6–GW10 produced a covariance-pair Pearson correlation of 0.0017 and Spearman correlation of 0.0113 across 88,410 off-diagonal pairs. Covariance signs agreed only 34.2% of the time; overlap of the top 10% positive and negative pairs between halves was 16.6% and 17.9%. This shows that the matrix is mathematically well-conditioned after shrinkage but its player-pair estimates are not yet statistically stable. Do not use individual pair rankings or this matrix as a production squad-selection signal.
+
+### EV and EO status
+
+The rolling FPL baselines remain exploratory, not trained predictions. On the current ten-GW snapshot, the previous-five-GW average has MAE 1.761 and RMSE 2.644 over 2,223 rows; previous-three-GW average has MAE 1.791 and RMSE 2.774 over 3,140 rows; previous-GW points has MAE 1.930 and RMSE 3.283 over 4,058 rows. These are reference baselines only, with no point-in-time validation.
+
+The current bootstrap includes `selected_by_percent` for the 672-player roster, but this is a current global ownership snapshot, not historical effective ownership (EO) among top-ranked managers. Historical EO still requires deadline-aligned manager-pick snapshots or another authorized source. No EV/EO/CoVar portfolio optimizer is complete.
+
+### Durable-state and source blockers
+
+- The official FPL workflow currently uploads artifacts with `retention-days: 30`. This is not a durable full-season point-in-time archive. A longer-lived, authorized snapshot store is still needed before strict historical backtests can be claimed.
+- Wyscout 2017/18 is the strongest event-side historical candidate found: its official Figshare items display CC BY 4.0 and the EPL season overlaps 2017/18 FPL. However, the historical FPL target archive's data rights and point-in-time vintage remain unresolved; no Wyscout data or candidate name match has been promoted into production.
+- The Replit workspace was not exported in this run. The verified source and execution path is the current GitHub `main` repository and its successful Actions runs; do not assume this proves byte-for-byte identity with the latest Replit workspace.
+
+### Next engineering actions
+
+1. Keep the ten-GW CoVar output exploratory. Add more completed gameweeks and run expanding/rolling-window stability checks before using player-pair covariance.
+2. Develop a forecast-residual covariance layer or a regularized team/fixture factor model, then validate portfolio variance calibration out of sample. Do not mistake positive definiteness from diagonal shrinkage for statistical stability.
+3. Build a time-ordered EV model only after point-in-time FPL snapshots are durably archived. Compare it against the existing rolling baselines.
+4. Design EO from deadline-aligned top-manager picks; do not substitute current `selected_by_percent` for historical EO.
+5. Resolve an authorized FPL target-data source for an overlapping Wyscout season, or another licensed event/target source. Keep provider IDs separate and verify all player/fixture mappings before joining CTA features.
+6. Once EV, EO, and stable CoVar are available, implement the squad-level objective and evaluate against the user's aggressive top-100k strategy. Keep CoVar the primary risk-control dimension, but measure it against realized out-of-sample rank/points outcomes.
