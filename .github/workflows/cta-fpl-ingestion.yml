@@ -25,6 +25,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install pytest
+        run: python -m pip install pytest
       - name: Run FPL ingestion tests
         working-directory: canonical_candidate/engineering_workbench
         env:
