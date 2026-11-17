@@ -17,6 +17,8 @@ on:
       - canonical_candidate/tests/test_engine.py
       - canonical_candidate/engineering_workbench/tests/js/cta_core.test.mjs
       - canonical_candidate/engineering_workbench/tests/test_core_parity.py
+      - canonical_candidate/engineering_workbench/scripts/enrich_player_features.py
+      - canonical_candidate/engineering_workbench/tests/test_player_feature_enrichment.py
       - canonical_candidate/engineering_workbench/scripts/diagnose_360_uuid_ownership.py
       - canonical_candidate/engineering_workbench/tests/test_360_uuid_ownership.py
 
