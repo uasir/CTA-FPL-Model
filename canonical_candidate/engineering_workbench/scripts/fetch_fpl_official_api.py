@@ -16,7 +16,7 @@ from typing import Any
 BASE_URL = "https://fantasy.premierleague.com/api"
 PLAYER_FIELDS = ["season","fpl_element_id","fpl_player_code","first_name","second_name","web_name","team_id","team_name","position","status","minutes_season","total_points_season","now_cost","selected_by_percent","chance_of_playing_next_round"]
 FIXTURE_FIELDS = ["season","fixture_id","gameweek","kickoff_time","team_h_id","team_h_name","team_a_id","team_a_name","finished","finished_provisional","team_h_score","team_a_score","team_h_difficulty","team_a_difficulty"]
-MATCH_FIELDS = ["season","fpl_element_id","fpl_player_code","player_name","fixture_id","gameweek","opponent_team_id","opponent_team_name","was_home","kickoff_time","minutes","total_points","goals_scored","assists","clean_sheets","goals_conceded","own_goals","penalties_saved","penalties_missed","yellow_cards","red_cards","saves","bonus","bps","influence","creativity","threat","ict_index","starts","expected_goals","expected_assists","expected_goal_involvements","expected_goals_conceded"]
+MATCH_FIELDS = ["season","fpl_element_id","fpl_player_code","player_name","fixture_id","gameweek","opponent_team_id","opponent_team_name","was_home","kickoff_time","minutes","total_points","goals_scored","assists","clean_sheets","goals_conceded","own_goals","penalties_saved","penalties_missed","yellow_cards","red_cards","saves","bonus","bps","influence","creativity","threat","ict_index","starts","expected_goals","expected_assists","expected_goal_involvements","expected_goals_conceded","selected","transfers_balance","transfers_in","transfers_out","value"]
 
 def fetch_json(url: str, retries: int = 5, timeout: int = 30) -> Any:
     headers = {"User-Agent":"CTA-FPL-Model/1.0 (research data ingestion)","Accept":"application/json"}
@@ -153,7 +153,7 @@ def main() -> int:
     bootstrap=fetch_json(bootstrap_url); fixtures=fetch_json(fixtures_url)
     season=infer_season(bootstrap.get("events",[])); players=bootstrap.get("elements",[])
     summaries={}; errors=[]
-    targets=[p for p in players if int(p.get("minutes") or 0)>0]
+    targets=players  # Include the full roster so historical ownership is not limited to players with minutes.
     def get_summary(player):
         element_id=int(player["id"]); time.sleep(args.delay)
         return element_id,fetch_json(f"{BASE_URL}/element-summary/{element_id}/")
@@ -166,7 +166,7 @@ def main() -> int:
             except Exception as exc:
                 errors.append({"fpl_element_id":element_id,"error":str(exc)})
     player_rows,fixture_rows,match_rows,report=build_tables(bootstrap,fixtures,summaries,season)
-    report["summary_fetch_errors"]=errors; report["summary_fetch_count"]=len(summaries); report["summary_fetch_expected"]=len(targets)
+    report["summary_fetch_errors"]=errors; report["summary_fetch_count"]=len(summaries); report["summary_fetch_expected"]=len(targets); report["players_with_history_count"]=sum(bool(x.get("history")) for x in summaries.values())
     if errors: report["status"]="BLOCKED"
     (args.out_dir/"bootstrap-static.json").write_text(json.dumps(bootstrap,indent=2),encoding="utf-8")
     (args.out_dir/"fixtures.json").write_text(json.dumps(fixtures,indent=2),encoding="utf-8")
