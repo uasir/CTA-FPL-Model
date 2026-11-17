@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/cta-independent-multimatch.yml
       - canonical_candidate/engineering_workbench/scripts/audit_multimatch_parity.py
+      - canonical_candidate/engineering_workbench/scripts/audit_multimatch_data_quality.py
 
 permissions:
   contents: read
@@ -88,6 +89,16 @@ jobs:
             --python-root run_artifacts/python \
             --javascript-root run_artifacts/javascript \
             --out run_artifacts/parity \
+            --expected-matches 34
+      - name: Audit multi-match data quality and FPL readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python canonical_candidate/engineering_workbench/scripts/audit_multimatch_data_quality.py \
+            --python-root run_artifacts/python \
+            --javascript-root run_artifacts/javascript \
+            --parity-report run_artifacts/parity/multimatch_parity_report.json \
+            --out run_artifacts/data_quality \
             --expected-matches 34
       - name: Record run metadata
         if: always()
