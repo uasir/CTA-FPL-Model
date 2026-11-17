@@ -62,12 +62,23 @@ Added:
 
 The ingestion design fetches official `bootstrap-static`, `fixtures`, and per-player `element-summary` histories. It writes season-scoped player identities, fixtures, player-fixture minutes/points, source hashes, and an integrity report to a workflow artifact. It intentionally does not fuzzy-join StatsBomb identities.
 
-The unit tests passed in run 44087933369. Live ingestion was still running in runs 44087933369 and 44087962763 when this status was written; do not treat the API ingestion as complete until an artifact and PASS report are inspected.
+The first complete official API snapshot is available from [run 44087962763](https://github.com/uasir/CTA-FPL-Model/actions/runs/44087962763):
+- Season: **2026-27**
+- Players: 672; players with positive minutes: 459
+- Fixtures: 380
+- Player-fixture history rows: 4,517 across 100 played fixtures (GW1–GW10)
+- Per-player summary fetches: 459/459; zero fetch errors
+- Missing summaries for players with minutes: none
+- Orphan fixture references: none
+- Unknown player references: none
+- Independent reconciliation against the same `bootstrap-static` snapshot: **0 minute mismatches and 0 total-points mismatches** across all 459 players with minutes.
+
+The ingestion tests passed in runs 44087933369 and 44087962763. A follow-up commit `a77952fae20d4f3f97ff2f9b20e479a7e242693c` adds automated season-total reconciliation (fixture-history minutes and points versus bootstrap totals), with regression tests. Its verification run is 44088405003 and was in progress when this document was updated. The run 44087962763 artifact is the verified source snapshot; its automated reconciliation fields are not present because it predates that follow-up commit.
 
 ## Next actions
 
 1. Confirm one official FPL ingestion run completes and inspect its artifact, row counts, errors, and source hashes.
-2. Add reconciliation of per-fixture history minutes/points against the season totals in `bootstrap-static`.
+2. Verify run 44088405003 passes the newly automated per-fixture history minutes/points reconciliation.
 3. Build a season-scoped identity crosswalk. Keep FPL element IDs, FPL player codes, StatsBomb player IDs, and names as distinct identifiers; require verified aliases plus team/season context.
 4. Choose a training sample whose competition and season align with the FPL targets. The current 34-match sample remains a parity/engineering test only.
 5. Only after trusted player minutes and aligned FPL outcomes exist, calculate per-90 features and run out-of-sample FPL points backtests.
