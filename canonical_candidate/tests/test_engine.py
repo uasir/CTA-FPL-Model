@@ -38,7 +38,8 @@ class CTATests(unittest.TestCase):
         _, players = build_features(ev, {("m1",1,"A"):True}, None)
         self.assertEqual(set(players), {"11","22"})
         self.assertEqual(players["11"]["passes"], 1)
-        self.assertEqual(players["22"]["pressured_receipts"], 0)
+        self.assertEqual(players["22"]["passes_received"], 1)
+        self.assertEqual(players["22"]["statsbomb_player_name"], "Same")
 
     def test_player_name_without_statsbomb_id_is_rejected(self):
         bad = [dict(self.raw[0], player={"name":"P"})]

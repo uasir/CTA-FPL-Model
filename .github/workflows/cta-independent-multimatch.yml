@@ -12,6 +12,7 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_audit.py
       - canonical_candidate/src/cta_engine.py
       - canonical_candidate/engineering_workbench/src/js/cta_core.mjs
+      - canonical_candidate/engineering_workbench/src/js/run_pilot_parity.mjs
       - canonical_candidate/engineering_workbench/config/cta_core_parity_contract.json
       - canonical_candidate/tests/test_engine.py
       - canonical_candidate/engineering_workbench/tests/js/cta_core.test.mjs

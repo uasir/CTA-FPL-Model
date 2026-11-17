@@ -527,7 +527,7 @@
           "python_column": "statsbomb_player_name",
           "javascript_column": "statsbomb_player_name",
           "type": "categorical",
-          "nullable": false,
+          "nullable": true,
           "unit": "player_name",
           "tolerance_class": "exact",
           "definition_version": "core-1.0.3",

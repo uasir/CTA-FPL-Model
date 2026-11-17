@@ -80,6 +80,7 @@ test("player rows are keyed by StatsBomb ID rather than potentially duplicated n
   assert.equal(result.playerRows.length, 2);
   assert.deepEqual(result.playerRows.map((row) => row.statsbomb_player_id), ["11", "22"]);
   assert.ok(result.playerRows.every((row) => row.statsbomb_player_name === "Same"));
+  assert.equal(result.playerRows.find((row) => row.statsbomb_player_id === "22").passes_received, 1);
 });
 
 test("player names without StatsBomb IDs are rejected", () => {

@@ -64,7 +64,7 @@ async function main() {
     }),
     writeJson(path.join(outDir, "javascript_run_manifest.json"), {
       implementation: "CTA-FPL core parity JavaScript reproduction",
-      version: "1.0.0",
+      version: "1.0.3",
       match_id: result.matchId,
       input_files: {
         events: { path: eventPath, bytes: eventBytes.length, sha256: sha256(eventBytes) },

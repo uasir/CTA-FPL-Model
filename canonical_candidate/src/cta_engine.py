@@ -424,7 +424,7 @@ def run(args):
             for i, v in enumerate(xt_values)])
     audit = {
         "model": "CTA-FPL feature pipeline",
-        "version": "1.0.2-experimental",
+        "version": "1.0.3-experimental",
         "matches_processed": len(matches), "events_processed": len(events),
         "sequences_processed": len(sequences), "players_observed": len(players),
         "direction_map_entries": len(directions),
@@ -447,7 +447,7 @@ def run(args):
     print(json.dumps(audit, indent=2))
 
 def main():
-    p = argparse.ArgumentParser(description="CTA–FPL v1.0 experimental feature pipeline")
+    p = argparse.ArgumentParser(description="CTA–FPL v1.0.3 experimental feature pipeline")
     p.add_argument("--events-dir", default="data/events")
     p.add_argument("--three-sixty-dir", default="data/three-sixty")
     p.add_argument("--direction-map", default="data/direction_map.csv")
