@@ -109,9 +109,15 @@ The inspected public repository `imadeddine-belkat/Premier-League-Stats` has 202
 
 Vaastav's historical repository contains useful gameweek targets, but its licence notice says the underlying FPL/Understat data belongs to those providers; the repository's MIT code licence is not a data-use grant. No authorized historical FPL target archive has been confirmed in this audit.
 
-## 5. Projection data is not a historical target archive
+## 5. Licensed external FPL forecast benchmarks
 
-The evmax open-data page publishes expected-points projections under CC BY 4.0, but only a small number of recent gameweeks were available at the time of review. It may be useful as an external forecast benchmark where coverage exists; it does not solve the need for season-aligned historical event features and actual FPL target labels.
+Two promising benchmark sources surfaced:
+
+- **Onside Arena:** its data page describes a CC BY 4.0 FPL graded-predictions CSV with one player-gameweek row, a pre-deadline `captured_at`, the deadline, realized FPL points, Onside's forecast, and FPL's `ep_next` plus simple form/season baselines. Its accuracy page reports a four-season blind-test ledger of 90,150 predictions across 120 gameweeks (2023/24–2026/27). The current data page has since changed its visible download catalogue, so the Zenodo DOI `10.5281/zenodo.22746985`, exact file coverage, ID field, and license metadata must be checked against the actual deposited file before ingestion. This is a strong candidate for an external forecast benchmark and potentially a time-stamped target/benchmark panel; it does not provide event-derived player features or EO.
+- **evmax:** its CC BY 4.0 open FPL dataset freezes pre-deadline expected-points projections and includes realized outcomes, but the visible archive currently covers only a handful of gameweeks. It can be an external benchmark for those rounds, not a substitute for a multi-season training set.
+
+These sources may help us validate our future EV layer against independently frozen forecasts, but neither is yet a verified, full-coverage historical event-feature dataset. Keep their rows separate from CTA's own features and preserve attribution.
+
 
 ## 6. Decisions and gates
 
@@ -133,4 +139,5 @@ The evmax open-data page publishes expected-points projections under CC BY 4.0, 
 - Wyscout event data: official Pappalardo–Massucco Figshare collection (see existing Wyscout source audit in this workbench)
 - Opta/PulseLive candidate: https://github.com/imadeddine-belkat/Premier-League-Stats
 - Vaastav FPL historical archive: https://github.com/vaastav/Fantasy-Premier-League
+- Onside Arena FPL graded predictions and CC BY 4.0: https://onsidearena.com/data and https://onsidearena.com/accuracy; Zenodo DOI: https://doi.org/10.5281/zenodo.22746985
 - evmax projection data and CC BY 4.0 terms: https://evmax.ai/data/
