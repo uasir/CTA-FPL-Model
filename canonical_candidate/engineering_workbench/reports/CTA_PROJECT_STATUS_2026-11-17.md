@@ -110,6 +110,19 @@ The first complete official API snapshot is available from [run 44087962763](htt
 
 The ingestion tests and live API fetch both passed in run [44088405003](https://github.com/uasir/CTA-FPL-Model/actions/runs/44088405003). Its artifact contains the automated reconciliation fields: zero minute mismatches and zero total-points mismatches. The source snapshot is also retained in the artifact.
 
+## FPL-only point-in-time feature dataset
+
+The official API ingestion now feeds `scripts/build_fpl_lagged_features.py`. Successful build: [run 44090651377](https://github.com/uasir/CTA-FPL-Model/actions/runs/44090651377).
+
+- 4,517 player-fixture rows.
+- 459 players with positive season minutes.
+- 100 completed fixtures across GW1–GW10.
+- Every target row uses only complete earlier gameweeks as features.
+- All fixtures in a double gameweek share one pre-deadline feature snapshot.
+- Current-gameweek and same-GW outcomes are target-only, not predictors.
+
+This is a leakage-controlled data construction result, not a trained model or predictive validation. It covers only the active player history requested from the API; the full 672-player roster is retained separately in `fpl_players.csv`.
+
 ## Player identity crosswalk safeguards
 
 Added:
