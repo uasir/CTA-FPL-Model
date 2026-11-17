@@ -6,17 +6,15 @@ Current operating mode: GitHub Actions + recovered source files; no Replit depen
 
 ## Verified Python–JavaScript parity
 
-Latest successful run: [GitHub Actions run 44087292634](https://github.com/uasir/CTA-FPL-Model/actions/runs/44087292634)
+Latest successful run: [GitHub Actions run 44091783751](https://github.com/uasir/CTA-FPL-Model/actions/runs/44091783751)
 
-- Registered parity contract: `1.0.0`
+- Registered parity contract: `1.1.0`
 - Matches: **34/34 PASS**
-- Registered feature comparisons: **140,441/140,441 within tolerance**
+- Registered feature comparisons: **141,468/141,468 within tolerance**
   - Sequences: 113,373
-  - Players: 20,540
+  - Players: 21,567 (includes StatsBomb player-name metadata)
   - xT grid: 6,528
-- Exact matches: 140,439; two six-decimal xG comparisons are within the contract tolerance.
-- The tolerance-boundary fix adds only a 1e-12 comparison slack for non-zero absolute tolerances. It does not change feature values or the contract's substantive tolerance.
-- The output artifact is named `cta-independent-multimatch-44087292634`.
+- The output artifact is named `cta-independent-multimatch-44091783751`.
 
 ## StatsBomb player identity corrected to provider ID
 
@@ -29,7 +27,7 @@ Updated both Python and JavaScript cores to:
 - Reject named player objects that lack a StatsBomb ID, and reject conflicting names for one ID.
 - Keep FPL names and minutes blank until a verified ID crosswalk and temporally aligned minutes source are supplied.
 
-Parity contract is now **1.1.0** and the core version is **1.0.3-experimental**. The full 34-match run [44091430242](https://github.com/uasir/CTA-FPL-Model/actions/runs/44091430242) passed:
+Parity contract is now **1.1.0** and the core version is **1.0.3-experimental**. The latest 34-match run [44091783751](https://github.com/uasir/CTA-FPL-Model/actions/runs/44091783751) passed:
 - 34/34 matches.
 - 113,373 sequence comparisons.
 - 21,567 player comparisons (including the player-name metadata field).
@@ -40,10 +38,10 @@ The new ID-based enrichment adapter `scripts/enrich_player_features.py` and synt
 
 ## Latest multi-match parity and 360 anomaly diagnosis
 
-The registry-backed parity workflow completed successfully in [run 44090312302](https://github.com/uasir/CTA-FPL-Model/actions/runs/44090312302):
-- Contract version 1.0.0; **34/34 matches PASS**.
-- Registered comparisons: **140,441/140,441 within tolerance** (113,373 sequence, 20,540 player, 6,528 xT-grid feature comparisons).
-- Python core tests, workbench tests, both engines, parity audit, and data-quality audit all passed.
+The registry-backed parity workflow completed successfully in [latest run 44091783751](https://github.com/uasir/CTA-FPL-Model/actions/runs/44091783751):
+- Contract version 1.1.0; **34/34 matches PASS**.
+- Registered comparisons: **141,468/141,468 within tolerance** (113,373 sequence, 21,567 player, 6,528 xT-grid feature comparisons).
+- Python core tests, workbench tests, both engines, parity audit, data-quality audit, and the cross-match 360 UUID diagnostic all completed successfully.
 
 The new cross-match UUID diagnostic scanned the anomalous 360 file against all 34 sampled event files:
 - 3,548 unique frame UUIDs.
@@ -55,7 +53,7 @@ This narrows the diagnosis but does not identify the frame file's true source. G
 
 ## Data-quality findings
 
-Latest successful data-quality report from run 44087292634:
+Latest successful data-quality report from run 44091783751:
 
 - 125,719 events
 - 5,967 possession sequences
@@ -112,7 +110,7 @@ The ingestion tests and live API fetch both passed in run [44088405003](https://
 
 ## FPL-only point-in-time feature dataset
 
-The official API ingestion now feeds `scripts/build_fpl_lagged_features.py`. Successful builds: [run 44090651377](https://github.com/uasir/CTA-FPL-Model/actions/runs/44090651377), [run 44091776980](https://github.com/uasir/CTA-FPL-Model/actions/runs/44091776980), and latest [run 44092340162](https://github.com/uasir/CTA-FPL-Model/actions/runs/44092340162). The latest artifact records a UTC source snapshot time and SHA-256 hashes for the official bootstrap and fixtures feeds.
+The official API ingestion now feeds `scripts/build_fpl_lagged_features.py`. Successful builds: [run 44090651377](https://github.com/uasir/CTA-FPL-Model/actions/runs/44090651377), [run 44091776980](https://github.com/uasir/CTA-FPL-Model/actions/runs/44091776980), [run 44092340162](https://github.com/uasir/CTA-FPL-Model/actions/runs/44092340162), and [run 44092523819](https://github.com/uasir/CTA-FPL-Model/actions/runs/44092523819). The latest artifact records a UTC source snapshot time and SHA-256 hashes for the official bootstrap and fixtures feeds.
 
 - 4,517 player-fixture rows.
 - 459 players with positive season minutes.
@@ -124,6 +122,18 @@ The official API ingestion now feeds `scripts/build_fpl_lagged_features.py`. Suc
 
 The builder now labels its result `PASS_STRUCTURAL_ONLY`. The latest run uses bootstrap `deadline_time` and actual fixture `kickoff_time` as a cutoff, excluding postponed prior-GW fixtures that occur after the target deadline. However, the current API snapshot may include retrospective revisions to prior gameweek statistics; fixture difficulty is labelled current-snapshot-only until its historical vintage is verified. The report therefore sets `point_in_time_status: NOT_VERIFIED`. Strict historical backtesting requires archived pre-deadline snapshots. This is a structurally lagged dataset, not a fully point-in-time-validated dataset, trained model, or predictive validation. It covers only active player history requested from the API; the full 672-player roster is retained separately in `fpl_players.csv`.
 
+## FPL player-gameweek targets and exploratory baselines
+
+The new `scripts/aggregate_fpl_gameweek_rows.py` aggregates fixture-level targets into the actual FPL prediction grain: one player-gameweek row, with points and minutes summed across all fixtures in that gameweek. Successful build: [run 44092741441](https://github.com/uasir/CTA-FPL-Model/actions/runs/44092741441).
+
+- 4,517 player-gameweek rows.
+- 459 players.
+- GW1–GW10.
+- All features are identical across fixtures for a player in the same GW; double-gameweek aggregation is covered by synthetic tests.
+- The current 2026/27 snapshot has no double-gameweek target rows yet, so the aggregation test is the verification for that case.
+
+An exploratory rolling-history baseline evaluator has been added. It compares last-GW, last-3-GW, and last-5-GW point averages using the gameweek-level target. It is explicitly not a trained model and retains the point-in-time vintage caveat. Run 44092943676 was still processing the live snapshot at the time of this status update.
+
 ## Player identity crosswalk safeguards
 
 Added:
@@ -133,7 +143,7 @@ Added:
 
 Only rows marked `verified` with complete provider IDs, team/season context, a supported verification method, evidence URL/source, verifier, and verification date can be exported for joining. Pending, ambiguous, and rejected rows are excluded. Fuzzy-name matching is explicitly rejected. Duplicate/conflicting one-to-many identity mappings block the export.
 
-The tests and empty-template validation passed in [run 44089706370](https://github.com/uasir/CTA-FPL-Model/actions/runs/44089706370). The latest cross-competition identity guardrail also passed in [run 44089832073](https://github.com/uasir/CTA-FPL-Model/actions/runs/44089832073). Its combined artifact confirms the crosswalk state is `EMPTY_NOT_READY` with `join_ready: false`, while the 2026/27 FPL ingestion remains PASS with zero minute/points reconciliation mismatches. The latest artifact is available as `cta-fpl-official-44089832073`. No player identities have been populated or guessed.
+The tests and empty-template validation passed in [run 44089706370](https://github.com/uasir/CTA-FPL-Model/actions/runs/44089706370). The latest cross-competition identity guardrail also passed in [run 44089832073](https://github.com/uasir/CTA-FPL-Model/actions/runs/44089832073). Its combined artifact confirms the crosswalk state is `EMPTY_NOT_READY` with `join_ready: false`, while the 2026/27 FPL ingestion remains PASS with zero minute/points reconciliation mismatches. The latest FPL artifact [run 44092741441](https://github.com/uasir/CTA-FPL-Model/actions/runs/44092741441) also confirms `EMPTY_NOT_READY` and `join_ready: false`. No player identities have been populated or guessed.
 
 ## Training-data season compatibility (verified source inventory)
 
@@ -165,11 +175,11 @@ This could support a separate Opta/PulseLive provider adapter and leakage-safe l
 
 ## Next actions
 
-1. Verify the new `EMPTY_NOT_READY` crosswalk state in the next workflow run.
+1. Inspect the completed exploratory baseline report from run 44092943676; treat its metrics as provisional because source vintages are not point-in-time verified.
 2. Resolve the Opta/PulseLive data-rights question before integrating that source.
 3. If cleared, build an isolated Opta/PulseLive adapter using verified numeric player/fixture IDs and leakage-safe lagged team features; do not merge it into the StatsBomb provider.
 4. Otherwise obtain an authorized event feed for an FPL-covered season or another aligned historical dataset.
-5. Populate any crosswalk only from verified source evidence, never fuzzy-name guesses.
+5. Populate the StatsBomb↔FPL crosswalk only from verified source evidence, never fuzzy-name guesses.
 6. Run time-ordered, out-of-sample FPL points backtests only after point-in-time features and aligned outcomes exist.
 7. Keep xT exploratory until calibrated and independently validated.
 
