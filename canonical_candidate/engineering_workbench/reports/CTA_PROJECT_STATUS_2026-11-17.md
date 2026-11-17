@@ -112,7 +112,7 @@ The ingestion tests and live API fetch both passed in run [44088405003](https://
 
 ## FPL-only point-in-time feature dataset
 
-The official API ingestion now feeds `scripts/build_fpl_lagged_features.py`. Successful builds: [run 44090651377](https://github.com/uasir/CTA-FPL-Model/actions/runs/44090651377) and [run 44091776980](https://github.com/uasir/CTA-FPL-Model/actions/runs/44091776980).
+The official API ingestion now feeds `scripts/build_fpl_lagged_features.py`. Successful builds: [run 44090651377](https://github.com/uasir/CTA-FPL-Model/actions/runs/44090651377), [run 44091776980](https://github.com/uasir/CTA-FPL-Model/actions/runs/44091776980), and latest [run 44092340162](https://github.com/uasir/CTA-FPL-Model/actions/runs/44092340162). The latest artifact records a UTC source snapshot time and SHA-256 hashes for the official bootstrap and fixtures feeds.
 
 - 4,517 player-fixture rows.
 - 459 players with positive season minutes.
@@ -122,7 +122,7 @@ The official API ingestion now feeds `scripts/build_fpl_lagged_features.py`. Suc
 - All fixtures in a double gameweek share one pre-deadline feature snapshot.
 - Current/future gameweek outcomes are never used as predictors.
 
-The builder now labels its result `PASS_STRUCTURAL_ONLY`. It uses the bootstrap `deadline_time` and actual fixture `kickoff_time` as a cutoff, but the current API snapshot may include retrospective revisions to prior gameweek statistics; fixture difficulty is also labelled current-snapshot-only until its historical vintage is verified. The report therefore sets `point_in_time_status: NOT_VERIFIED`. Strict historical backtesting requires archived pre-deadline snapshots. This is a structurally lagged dataset, not a fully point-in-time-validated dataset, trained model, or predictive validation. It covers only active player history requested from the API; the full 672-player roster is retained separately in `fpl_players.csv`.
+The builder now labels its result `PASS_STRUCTURAL_ONLY`. The latest run uses bootstrap `deadline_time` and actual fixture `kickoff_time` as a cutoff, excluding postponed prior-GW fixtures that occur after the target deadline. However, the current API snapshot may include retrospective revisions to prior gameweek statistics; fixture difficulty is labelled current-snapshot-only until its historical vintage is verified. The report therefore sets `point_in_time_status: NOT_VERIFIED`. Strict historical backtesting requires archived pre-deadline snapshots. This is a structurally lagged dataset, not a fully point-in-time-validated dataset, trained model, or predictive validation. It covers only active player history requested from the API; the full 672-player roster is retained separately in `fpl_players.csv`.
 
 ## Player identity crosswalk safeguards
 
