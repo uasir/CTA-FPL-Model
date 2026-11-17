@@ -21,6 +21,32 @@ class AuditTests(unittest.TestCase):
   b=ROW.copy(); b["support_distance_m"] += .01
   r=audit([ROW.copy()],[b],REG)
   self.assertEqual(r["summary"]["status"],"FAIL")
+
+ def test_numeric_value_at_absolute_tolerance_boundary_passes(self):
+  reg = dict(REG)
+  reg["tolerances"] = {"rounded_6dp": {"rtol": 0, "atol": 0.000001}}
+  reg["features"] = dict(REG["features"])
+  reg["features"]["support_distance_m"] = {
+   "type": "numeric", "nullable": True, "tolerance_class": "rounded_6dp"
+  }
+  a = ROW.copy(); b = ROW.copy()
+  a["support_distance_m"] = 0.434435
+  b["support_distance_m"] = 0.434434
+  r = audit([a], [b], reg)
+  self.assertEqual(r["summary"]["status"], "PASS")
+
+ def test_numeric_value_beyond_absolute_tolerance_still_fails(self):
+  reg = dict(REG)
+  reg["tolerances"] = {"rounded_6dp": {"rtol": 0, "atol": 0.000001}}
+  reg["features"] = dict(REG["features"])
+  reg["features"]["support_distance_m"] = {
+   "type": "numeric", "nullable": True, "tolerance_class": "rounded_6dp"
+  }
+  a = ROW.copy(); b = ROW.copy()
+  a["support_distance_m"] = 0.4344361
+  b["support_distance_m"] = 0.434435
+  r = audit([a], [b], reg)
+  self.assertEqual(r["summary"]["status"], "FAIL")
  def test_key_mismatch_fails(self):
   b=ROW.copy(); b["event_id"]="e2"
   r=audit([ROW.copy()],[b],REG)
