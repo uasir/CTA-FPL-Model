@@ -41,10 +41,10 @@ jobs:
           mkdir -p /tmp/cta-input/events /tmp/cta-input/three-sixty /tmp/cta-input/js-empty-frames
           events=(3920384 3920397 3920410 3922239 3923881 3895052 3895113 3895167 3895232 3895286 3895320 3857286 3857272 3857261 3857293 3869685 3773593 3773656 3773552 3773415 3773497 3773457 3837650 3837706 3837785 3837885 3837947 3838017 3754078 3754335 3754162 3754348 3754075 3754159)
           frames=(3895052 3895113 3895167 3895232 3895286 3895320 3857286 3857272 3857261 3857293 3869685 3773593 3773656 3773552 3773415 3773497 3773457 3837650 3837706 3837785 3837885 3837947 3838017)
-          for id in "${events[@]}"; do
+          for id in "\${events[@]}"; do
             curl --fail --location --retry 3 "https://raw.githubusercontent.com/hudl/open-data/$commit/data/events/$id.json" -o "/tmp/cta-input/events/$id.json"
           done
-          for id in "${frames[@]}"; do
+          for id in "\${frames[@]}"; do
             curl --fail --location --retry 3 "https://raw.githubusercontent.com/hudl/open-data/$commit/data/three-sixty/$id.json" -o "/tmp/cta-input/three-sixty/$id.json"
           done
           printf '[]\n' > /tmp/cta-input/js-empty-frames/no_360.json
@@ -52,38 +52,55 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p artifacts/python artifacts/javascript
+          rm -rf run_artifacts
+          mkdir -p run_artifacts/python run_artifacts/javascript
           for event_file in /tmp/cta-input/events/*.json; do
             id="$(basename "$event_file" .json)"
-            mkdir -p "/tmp/cta-input/single-event/$id"
-            cp "$event_file" "/tmp/cta-input/single-event/$id/$id.json"
-            python canonical_candidate/src/cta_engine.py \
-              --events-dir "/tmp/cta-input/single-event/$id" \
-              --three-sixty-dir /tmp/cta-input/three-sixty \
-              --output-dir "artifacts/python/$id"
+            event_dir="/tmp/cta-input/single-event/$id"
+            frame_dir="/tmp/cta-input/single-three-sixty/$id"
+            mkdir -p "$event_dir" "$frame_dir"
+            cp "$event_file" "$event_dir/$id.json"
             frame_file="/tmp/cta-input/three-sixty/$id.json"
-            if [[ ! -f "$frame_file" ]]; then frame_file="/tmp/cta-input/js-empty-frames/no_360.json"; fi
+            if [[ -f "$frame_file" ]]; then
+              cp "$frame_file" "$frame_dir/$id.json"
+            else
+              frame_file="/tmp/cta-input/js-empty-frames/no_360.json"
+            fi
+            python canonical_candidate/src/cta_engine.py \
+              --events-dir "$event_dir" \
+              --three-sixty-dir "$frame_dir" \
+              --output-dir "run_artifacts/python/$id"
             node canonical_candidate/engineering_workbench/src/js/run_pilot_parity.mjs \
               --events "$event_file" \
               --three-sixty "$frame_file" \
-              --out "artifacts/javascript/$id"
+              --out "run_artifacts/javascript/$id"
           done
+      - name: Audit Python–JavaScript parity for all matches
+        shell: bash
+        run: |
+          set -euo pipefail
+          python canonical_candidate/engineering_workbench/scripts/audit_multimatch_parity.py \
+            --python-root run_artifacts/python \
+            --javascript-root run_artifacts/javascript \
+            --out run_artifacts/parity \
+            --expected-matches 34
       - name: Record run metadata
         if: always()
         run: |
-          mkdir -p artifacts
+          mkdir -p run_artifacts
           {
             echo "CTA independent sample run"
             echo "StatsBomb source commit: 4b73468fc5b0f1950f9f66fada70ad3a4f9327cb"
             echo "Selected matches: 34"
             echo "Matches with 360 source: 23"
-            echo "Matches without 360 source: 11 (no 360 file is supplied to Python; an empty placeholder is passed only to the JS runner interface)"
-            echo "This workflow executes both cores; feature-level Python/JavaScript parity audit remains a separate validation stage."
-          } > artifacts/RUN_SCOPE.txt
+            echo "Matches without 360 source: 11"
+            echo "Python receives only the current match's 360 file in an isolated directory."
+            echo "Feature parity and 360 linkage audits run after both cores complete."
+          } > run_artifacts/RUN_SCOPE.txt
       - name: Upload outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cta-independent-multimatch-${{ github.run_id }}
-          path: artifacts/
+          path: run_artifacts/
           if-no-files-found: warn
