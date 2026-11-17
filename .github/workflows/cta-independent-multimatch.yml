@@ -9,7 +9,7 @@ on:
       - canonical_candidate/**
       - engineering_state/**
   push:
-    branches: [main]
+    branches: [engineering/reconcile-34match-quality-20261117]
     paths:
       - .github/workflows/cta-independent-multimatch.yml
       - canonical_candidate/**
