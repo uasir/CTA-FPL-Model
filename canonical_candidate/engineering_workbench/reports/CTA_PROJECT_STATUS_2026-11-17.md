@@ -84,7 +84,7 @@ Added:
 
 Only rows marked `verified` with complete provider IDs, team/season context, a supported verification method, evidence URL/source, verifier, and verification date can be exported for joining. Pending, ambiguous, and rejected rows are excluded. Fuzzy-name matching is explicitly rejected. Duplicate/conflicting one-to-many identity mappings block the export.
 
-The tests and empty-template validation passed in runs 44088979396 and 44088999247. The workflow's artifact path was subsequently corrected; run 44089097790 is the verification run for the final workflow YAML and combined artifact upload. It was in progress at the time of this update. No player identities have been populated or guessed yet.
+The tests and empty-template validation passed in runs 44088979396, 44088999247, and 44089097790. Run [44089097790](https://github.com/uasir/CTA-FPL-Model/actions/runs/44089097790) completed successfully with the corrected combined artifact upload. Its artifact contains the official FPL snapshot and the empty crosswalk report. After inspecting that report, the validator was tightened so an empty crosswalk is explicitly `EMPTY_NOT_READY` rather than misleadingly labelled `PASS`; the new regression test is committed, and a fresh verification run is pending. No player identities have been populated or guessed.
 
 ## Training-data season compatibility (verified source inventory)
 
@@ -102,14 +102,27 @@ Sources:
 
 **Decision:** keep the current parity sample as an engineering benchmark only. For actual event-derived FPL prediction, obtain a licensed/authorized event feed for an FPL-covered season, or obtain a historically aligned StatsBomb+FPL dataset with documented provenance and permitted use. Do not fabricate labels, extrapolate current FPL IDs backwards, or join by name alone.
 
+## Alternative current-season provider candidate: Opta/PulseLive
+
+A separate structural audit is recorded in [OPTA_PULSE_FPL_SOURCE_AUDIT_2026-11-17.md](OPTA_PULSE_FPL_SOURCE_AUDIT_2026-11-17.md).
+
+At pinned source commit `f0f3d40f803c69bc7fac48d0748b49175e2d08ce`, the third-party `imadeddine-belkat/Premier-League-Stats` repository's 2026/27 snapshot has:
+- 511/511 PL/PulseLive player IDs numerically shared with FPL `player_code`.
+- 511/511 shared player IDs with matching team IDs.
+- 100/100 PL/PulseLive team-match IDs shared with FPL fixture codes; exactly two team rows per match.
+- Player-season aggregates and team-match event aggregates, but no actual player-match output files in the inspected tree despite the README describing them.
+
+This could support a separate Opta/PulseLive provider adapter and leakage-safe lagged team features, but it does not replace StatsBomb. The repository has no visible LICENSE file and GitHub metadata reports no recognized license despite an MIT badge; underlying PL/PulseLive data rights remain unresolved. Do not make it a production dependency or redistribute it until rights are confirmed.
+
 ## Next actions
 
-1. Verify run 44089097790 completes with the corrected combined artifact upload.
-2. Resolve the missing overlapping event-data/FPL season by obtaining an authorized event feed for an FPL-covered season or an aligned historical dataset.
-3. Populate the crosswalk only from verified source evidence, never fuzzy-name guesses.
-4. Join match-level event features to FPL player-fixture outcomes only after season and competition alignment is established.
-5. Only then calculate per-90 features and run time-ordered, out-of-sample FPL points backtests.
-6. Keep xT exploratory until calibrated and independently validated.
+1. Verify the new `EMPTY_NOT_READY` crosswalk state in the next workflow run.
+2. Resolve the Opta/PulseLive data-rights question before integrating that source.
+3. If cleared, build an isolated Opta/PulseLive adapter using verified numeric player/fixture IDs and leakage-safe lagged team features; do not merge it into the StatsBomb provider.
+4. Otherwise obtain an authorized event feed for an FPL-covered season or another aligned historical dataset.
+5. Populate any crosswalk only from verified source evidence, never fuzzy-name guesses.
+6. Run time-ordered, out-of-sample FPL points backtests only after point-in-time features and aligned outcomes exist.
+7. Keep xT exploratory until calibrated and independently validated.
 
 ## Engineering guardrails
 
