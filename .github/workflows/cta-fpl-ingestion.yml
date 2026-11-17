@@ -4,30 +4,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "30 5 * * *"
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/cta-fpl-ingestion.yml
-      - canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py
-      - canonical_candidate/engineering_workbench/tests/test_fpl_ingestion.py
-      - canonical_candidate/engineering_workbench/scripts/validate_player_identity_crosswalk.py
-      - canonical_candidate/engineering_workbench/tests/test_player_identity_crosswalk.py
-      - canonical_candidate/data/player_identity_crosswalk.csv
-      - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
-      - canonical_candidate/engineering_workbench/tests/test_fpl_lagged_features.py
-      - canonical_candidate/engineering_workbench/scripts/enrich_player_features.py
-      - canonical_candidate/engineering_workbench/tests/test_player_feature_enrichment.py
-      - canonical_candidate/engineering_workbench/tests/test_fpl_gameweek_aggregation.py
-      - canonical_candidate/engineering_workbench/tests/test_fpl_naive_baselines.py
-      - canonical_candidate/engineering_workbench/scripts/estimate_fpl_effective_ownership.py
-      - canonical_candidate/engineering_workbench/tests/test_fpl_effective_ownership.py
-      - canonical_candidate/engineering_workbench/scripts/estimate_fpl_covariance.py
-      - canonical_candidate/engineering_workbench/tests/test_fpl_covariance.py
-      - canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py
-      - canonical_candidate/engineering_workbench/tests/test_fpl_gameweek_aggregation.py
-      - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_naive_baselines.py
-      - canonical_candidate/engineering_workbench/tests/test_fpl_naive_baselines.py
-
 permissions:
   contents: read
 
