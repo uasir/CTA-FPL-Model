@@ -50,8 +50,8 @@ Definitions, units, nullability, source columns, and aggregation semantics are
 recorded per feature in the JSON contract.
 
 - Integer counts, identifiers, booleans, and categories compare exactly.
-- Blank Python CSV cells normalize to null. JavaScript rows include the field
-  with `null` when the corresponding Python Counter-backed value is blank.
+- Counter-backed player counts and reference-only shot xG are emitted as numeric zero in both implementations when no observations exist.
+- Mean action xT and per-90 metrics remain null/blank when their denominators are unavailable.
 - Null is distinct from zero. The audit must fail if one side emits null and
   the other emits zero.
 - Numeric tolerances are explicit: exact, 1e-7 relative / 1e-9 absolute for
