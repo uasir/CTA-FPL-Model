@@ -8,6 +8,8 @@ on:
       - .github/workflows/cta-independent-multimatch.yml
       - canonical_candidate/engineering_workbench/scripts/audit_multimatch_parity.py
       - canonical_candidate/engineering_workbench/scripts/audit_multimatch_data_quality.py
+      - canonical_candidate/engineering_workbench/src/cta_audit/audit.py
+      - canonical_candidate/engineering_workbench/tests/test_audit.py
 
 permissions:
   contents: read
