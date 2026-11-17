@@ -1,0 +1,86 @@
+name: CTA independent 34-match run
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  multi-match:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install test dependency
+        run: python -m pip install pytest
+      - name: Run Python tests
+        working-directory: canonical_candidate
+        env:
+          PYTHONPATH: src
+        run: python -m pytest -q tests
+      - name: Run workbench tests
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: src:.
+        run: python -m pytest -q tests
+      - name: Fetch pinned StatsBomb sample
+        shell: bash
+        run: |
+          set -euo pipefail
+          commit="4b73468fc5b0f1950f9f66fada70ad3a4f9327cb"
+          mkdir -p /tmp/cta-input/events /tmp/cta-input/three-sixty /tmp/cta-input/js-empty-frames
+          events=(3920384 3920397 3920410 3922239 3923881 3895052 3895113 3895167 3895232 3895286 3895320 3857286 3857272 3857261 3857293 3869685 3773593 3773656 3773552 3773415 3773497 3773457 3837650 3837706 3837785 3837885 3837947 3838017 3754078 3754335 3754162 3754348 3754075 3754159)
+          frames=(3895052 3895113 3895167 3895232 3895286 3895320 3857286 3857272 3857261 3857293 3869685 3773593 3773656 3773552 3773415 3773497 3773457 3837650 3837706 3837785 3837885 3837947 3838017)
+          for id in "${events[@]}"; do
+            curl --fail --location --retry 3 "https://raw.githubusercontent.com/hudl/open-data/$commit/data/events/$id.json" -o "/tmp/cta-input/events/$id.json"
+          done
+          for id in "${frames[@]}"; do
+            curl --fail --location --retry 3 "https://raw.githubusercontent.com/hudl/open-data/$commit/data/three-sixty/$id.json" -o "/tmp/cta-input/three-sixty/$id.json"
+          done
+          printf '[]\n' > /tmp/cta-input/js-empty-frames/no_360.json
+      - name: Execute Python and JavaScript cores for all matches
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/python artifacts/javascript
+          for event_file in /tmp/cta-input/events/*.json; do
+            id="$(basename "$event_file" .json)"
+            python canonical_candidate/src/cta_engine.py \
+              --events-dir /tmp/cta-input/events \
+              --three-sixty-dir /tmp/cta-input/three-sixty \
+              --output-dir "artifacts/python/$id"
+            frame_file="/tmp/cta-input/three-sixty/$id.json"
+            if [[ ! -f "$frame_file" ]]; then frame_file="/tmp/cta-input/js-empty-frames/no_360.json"; fi
+            node canonical_candidate/engineering_workbench/src/js/run_pilot_parity.mjs \
+              --events "$event_file" \
+              --three-sixty "$frame_file" \
+              --out "artifacts/javascript/$id"
+          done
+      - name: Record run metadata
+        if: always()
+        run: |
+          {
+            echo "CTA independent sample run"
+            echo "StatsBomb source commit: 4b73468fc5b0f1950f9f66fada70ad3a4f9327cb"
+            echo "Selected matches: 34"
+            echo "Matches with 360 source: 23"
+            echo "Matches without 360 source: 11 (represented as unavailable in Python; empty frame input used only to satisfy the JS runner interface)"
+            echo "This run executes both cores; feature-level Python/JavaScript parity audit is a separate validation stage."
+          } > artifacts/RUN_SCOPE.txt
+      - name: Upload outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-independent-multimatch-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: warn
