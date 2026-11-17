@@ -3,7 +3,7 @@
 **Status:** Engineering specification  
 **Stage:** CTA feature-engineering validation  
 **Predecessors:** StatsBomb event ingestion; event/360 joining; pressure and support feature generation; JavaScript reproduction  
-**Next gate:** 34-match audit, then independent xT/VAEP baselines and CTA incremental evaluation
+**Next gate:** source-integrity and 360-linkage quality gate on the 34-match sample, then independent xT/VAEP baselines and CTA incremental evaluation
 
 > For direct parity with the existing CTA-FPL v1.0.2 core, use
 > `CTA_CORE_PARITY_CONTRACT.md` and
@@ -90,7 +90,7 @@ A feature is not considered covered merely because a similarly named column exis
 
 Identifiers, booleans, categorical labels, event types, period labels, possession IDs, and join-presence flags require exact equality after canonical normalization.
 
-Do not coerce missing values to zero, false, empty strings, or a valid category.
+Do not silently coerce genuinely missing source data to zero, false, empty strings, or a valid category. A feature contract may explicitly define zero for an observed absence of countable events; both runtimes must then emit that zero. Unestimable quantities remain null.
 
 ### 6.3 Numeric comparisons
 
@@ -139,6 +139,8 @@ After the pilot passes, run the same unchanged audit over the agreed 34-match sa
 
 The 34-match report must include per-match results and a pooled result. A pooled pass must not conceal a failed individual match.
 
+The first 34-match Python–JavaScript run completed on 2026-11-17 with 34/34 parity passes. A separate source-quality review found that the pinned 360 file for match `3837706` contains 3,548 frame UUIDs with zero overlap against that match's 4,026 event IDs. The reconciliation branch retains the source hash for provenance, excludes this 360 file from model inputs, and adds a separate quality gate; 11 other matches have no 360 source and 22 have usable 360 sources.
+
 ## 9. Acceptance criteria
 
 The parity gate passes only when all of the following hold:
@@ -173,7 +175,7 @@ Fix the underlying cause in the relevant implementation, then rerun the full aff
 
 1. Complete pilot Python–JavaScript parity.
 2. Freeze the feature registry and audit configuration.
-3. Execute the 34-match audit.
+3. Re-run the 34-match audit with SHA-verified inputs and the separate 360 source-quality gate.
 4. Build independent xT and VAEP baselines on the same time-safe data splits.
 5. Measure CTA incremental value over those baselines.
 6. Only after those gates pass, proceed to FPL feature mapping and FBL integration.
