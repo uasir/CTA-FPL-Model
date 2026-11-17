@@ -67,6 +67,16 @@ function playerOf(event) {
   return nameOf(event.player);
 }
 
+function playerIdentity(value) {
+  if (!isObject(value)) return null;
+  const name = nameOf(value);
+  if (value.id === null || value.id === undefined) {
+    if (name) throw new Error("StatsBomb player has a name but no ID; refusing name-keyed aggregation");
+    return null;
+  }
+  return { id: String(value.id), name };
+}
+
 function teamOf(event) {
   return nameOf(event.team);
 }
@@ -310,9 +320,15 @@ export function buildFeatures(events, directions, xtValues) {
 
   const sequenceRows = [];
   const players = new Map();
-  const playerCounter = (name) => {
-    if (!players.has(name)) players.set(name, {});
-    return players.get(name);
+  const playerCounter = (id, name) => {
+    const key = String(id);
+    if (!players.has(key)) players.set(key, { statsbomb_player_name: name || "" });
+    const counter = players.get(key);
+    if (name && counter.statsbomb_player_name && counter.statsbomb_player_name !== name) {
+      throw new Error(`Conflicting names for StatsBomb player ID ${key}: ${counter.statsbomb_player_name} vs ${name}`);
+    }
+    if (name && !counter.statsbomb_player_name) counter.statsbomb_player_name = name;
+    return counter;
   };
 
   for (const group of possessions.values()) {
@@ -401,10 +417,10 @@ export function buildFeatures(events, directions, xtValues) {
     });
 
     for (const event of sequence) {
-      const actor = playerOf(event);
+      const identity = playerIdentity(event.player);
       const type = eventType(event);
-      if (actor) {
-        const counter = playerCounter(actor);
+      if (identity) {
+        const counter = playerCounter(identity.id, identity.name);
         increment(counter, "event_involvements");
         if (type === "Pass") {
           increment(counter, "passes");
@@ -443,17 +459,22 @@ export function buildFeatures(events, directions, xtValues) {
       }
 
       if (type === "Pass") {
-        const recipient = nameOf(event.pass?.recipient);
-        if (recipient) {
-          const counter = playerCounter(recipient);
+        const recipientIdentity = playerIdentity(event.pass?.recipient);
+        if (recipientIdentity) {
+          const counter = playerCounter(recipientIdentity.id, recipientIdentity.name);
           increment(counter, "passes_received");
           if (event.under_pressure) increment(counter, "pressured_passes_received");
         }
       }
     }
 
-    for (const player of names) {
-      const counter = playerCounter(player);
+    const sequenceIdentities = new Map();
+    for (const event of sequence) {
+      const identity = playerIdentity(event.player);
+      if (identity) sequenceIdentities.set(identity.id, identity.name);
+    }
+    for (const [playerId, playerName] of sequenceIdentities) {
+      const counter = playerCounter(playerId, playerName);
       increment(counter, "sequences_involved");
       increment(counter, "shot_linked_sequences", Number(classification === "shot_linked"));
       increment(counter, "non_shot_candidate_sequences", Number(classification === "non_shot_candidate"));
@@ -479,8 +500,8 @@ export function canonicalSequenceRows(sequenceRows) {
 export function canonicalPlayerRows(players) {
   return [...players.entries()]
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([name, counter]) => {
-      const row = { statsbomb_player_name: name };
+    .map(([playerId, counter]) => {
+      const row = { statsbomb_player_id: String(playerId), statsbomb_player_name: counter.statsbomb_player_name ?? "" };
       for (const feature of PLAYER_FEATURES) {
         if (feature === "mean_action_xt_gain") {
           const count = counter.action_xt_gain_n ?? 0;

@@ -5,10 +5,10 @@ class CTATests(unittest.TestCase):
     def setUp(self):
         self.raw = [
             {"id":"1","type":{"name":"Pass"},"team":{"name":"A"},"possession_team":{"name":"A"},
-             "possession":1,"period":1,"minute":1,"second":0,"player":{"name":"P"},
-             "location":[70,30],"pass":{"end_location":[110,40],"recipient":{"name":"Q"}}},
+             "possession":1,"period":1,"minute":1,"second":0,"player":{"id":1,"name":"P"},
+             "location":[70,30],"pass":{"end_location":[110,40],"recipient":{"id":2,"name":"Q"}}},
             {"id":"2","type":{"name":"Ball Receipt*"},"team":{"name":"A"},"possession_team":{"name":"A"},
-             "possession":1,"period":1,"minute":1,"second":2,"player":{"name":"Q"},"location":[110,40],
+             "possession":1,"period":1,"minute":1,"second":2,"player":{"id":2,"name":"Q"},"location":[110,40],
              "under_pressure":True},
         ]
     def test_statsbomb_direction_defaults_to_attacking_right(self):
@@ -24,8 +24,28 @@ class CTATests(unittest.TestCase):
         seq, players = build_features(ev, {("m1",1,"A"):True}, None)
         self.assertEqual(seq[0]["box_entries"], 1)
         self.assertEqual(seq[0]["sequence_class"], "non_shot_candidate")
-        self.assertEqual(players["P"]["passes"], 1)
-        self.assertEqual(players["Q"]["pressured_receipts"], 1)
+        self.assertEqual(players["1"]["passes"], 1)
+        self.assertEqual(players["2"]["pressured_receipts"], 1)
+    def test_same_name_different_statsbomb_ids_remain_distinct(self):
+        raw = [
+            {"id":"a","type":{"name":"Pass"},"team":{"name":"A"},"possession_team":{"name":"A"},
+             "possession":1,"period":1,"minute":1,"second":0,"player":{"id":11,"name":"Same"},
+             "location":[70,30],"pass":{"end_location":[80,40],"recipient":{"id":22,"name":"Same"}}},
+            {"id":"b","type":{"name":"Ball Receipt*"},"team":{"name":"A"},"possession_team":{"name":"A"},
+             "possession":1,"period":1,"minute":1,"second":2,"player":{"id":22,"name":"Same"},"location":[80,40]},
+        ]
+        ev = flatten_matches([("m1", raw)])
+        _, players = build_features(ev, {("m1",1,"A"):True}, None)
+        self.assertEqual(set(players), {"11","22"})
+        self.assertEqual(players["11"]["passes"], 1)
+        self.assertEqual(players["22"]["pressured_receipts"], 0)
+
+    def test_player_name_without_statsbomb_id_is_rejected(self):
+        bad = [dict(self.raw[0], player={"name":"P"})]
+        ev = flatten_matches([("m1", bad)])
+        with self.assertRaisesRegex(ValueError, "no ID"):
+            build_features(ev, {("m1",1,"A"):True}, None)
+
     def test_spatial_metrics_withheld_without_direction(self):
         ev = flatten_matches([("m1", self.raw)])
         seq, _ = build_features(ev, {}, None)

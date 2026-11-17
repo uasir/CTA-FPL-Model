@@ -17,6 +17,27 @@ def event_type(e):
 def player_of(e):
     return name_of(e.get("player"))
 
+def player_identity(value):
+    if not isinstance(value, dict):
+        return None
+    player_id = value.get("id")
+    player_name = name_of(value)
+    if player_id is None:
+        if player_name:
+            raise ValueError("StatsBomb player has a name but no ID; refusing name-keyed aggregation")
+        return None
+    return str(player_id), player_name
+
+def set_player_name(counter, player_name):
+    if not player_name:
+        return
+    existing = counter.get("statsbomb_player_name")
+    if existing and existing != player_name:
+        raise ValueError(
+            f"Conflicting names for StatsBomb player ID: {existing!r} vs {player_name!r}"
+        )
+    counter["statsbomb_player_name"] = player_name
+
 def team_of(e):
     return name_of(e.get("team"))
 
@@ -283,10 +304,12 @@ def build_features(events, directions, xt_values):
 
         # Actor-based attribution; receiver gets a receipt count from pass recipient field.
         for e in seq:
-            actor = player_of(e)
+            identity = player_identity(e.get("player"))
             typ = event_type(e)
-            if actor:
-                c = players[actor]
+            if identity:
+                player_id, player_name = identity
+                c = players[player_id]
+                set_player_name(c, player_name)
                 c["event_involvements"] += 1
                 if typ == "Pass":
                     c["passes"] += 1
@@ -314,15 +337,25 @@ def build_features(events, directions, xt_values):
                 if typ in {"Ball Receipt*", "Ball Receipt"} and e.get("under_pressure"):
                     c["pressured_receipts"] += 1
             if typ == "Pass":
-                recipient = name_of((e.get("pass") or {}).get("recipient"))
-                if recipient:
-                    players[recipient]["passes_received"] += 1
+                recipient_identity = player_identity((e.get("pass") or {}).get("recipient"))
+                if recipient_identity:
+                    recipient_id, recipient_name = recipient_identity
+                    recipient_counter = players[recipient_id]
+                    set_player_name(recipient_counter, recipient_name)
+                    recipient_counter["passes_received"] += 1
                     if e.get("under_pressure"):
-                        players[recipient]["pressured_passes_received"] += 1
-        for player in names:
-            players[player]["sequences_involved"] += 1
-            players[player]["shot_linked_sequences"] += int(classification == "shot_linked")
-            players[player]["non_shot_candidate_sequences"] += int(classification == "non_shot_candidate")
+                        recipient_counter["pressured_passes_received"] += 1
+        sequence_identities = {}
+        for e in seq:
+            identity = player_identity(e.get("player"))
+            if identity:
+                sequence_identities[identity[0]] = identity[1]
+        for player_id, player_name in sequence_identities.items():
+            counter = players[player_id]
+            set_player_name(counter, player_name)
+            counter["sequences_involved"] += 1
+            counter["shot_linked_sequences"] += int(classification == "shot_linked")
+            counter["non_shot_candidate_sequences"] += int(classification == "non_shot_candidate")
 
     return sequence_rows, players
 
@@ -362,12 +395,13 @@ def run(args):
         events, load_directions(args.direction_map))
     xt_values, xt_audit = fit_xt(events, directions)
     sequences, players = build_features(events, directions, xt_values)
-    minutes, aliases = load_minutes(args.minutes), load_player_map(args.player_map)
     player_rows = []
-    for name, counts in sorted(players.items()):
-        mins = minutes.get(name, 0.0)
-        row = {"statsbomb_player_name": name, "fpl_player_name": aliases.get(name, ""),
-               **dict(counts), "minutes": mins}
+    for statsbomb_player_id, counts in sorted(players.items()):
+        mins = 0.0  # Name-based minutes are intentionally not trusted or applied.
+        player_name = counts.get("statsbomb_player_name", "")
+        metrics = {key: value for key, value in counts.items() if key != "statsbomb_player_name"}
+        row = {"statsbomb_player_id": statsbomb_player_id, "statsbomb_player_name": player_name,
+               "fpl_player_name": "", **metrics, "minutes": ""}
         for metric in ("sequences_involved", "non_shot_candidate_sequences",
                        "shot_linked_sequences", "box_entries", "final_third_entries",
                        "progressive_actions", "pressured_receipts"):
@@ -402,7 +436,7 @@ def run(args):
             "non_shot_candidate is a rule-based screening flag, not a human-verified danger label",
             "space creation and defensive destabilisation are not inferred from event data",
             "per-90 metrics require trusted player minutes",
-            "FPL joins require manually verified player aliases",
+            "FPL joins require a verified StatsBomb player-ID crosswalk; names are display metadata only",
             "StatsBomb coordinates are possession-oriented; false direction overrides are invalid"
         ]
     }

@@ -68,6 +68,28 @@ test("out-of-bounds 360 coordinates are preserved and not used as event location
   assert.deepEqual(frames, before);
 });
 
+test("player rows are keyed by StatsBomb ID rather than potentially duplicated names", () => {
+  const duplicateNameEvents = [
+    { id: "a", type: { name: "Pass" }, team: { name: "A" }, possession_team: { name: "A" },
+      possession: 1, period: 1, minute: 1, second: 0, player: { id: 11, name: "Same" },
+      location: [70, 30], pass: { end_location: [80, 40], recipient: { id: 22, name: "Same" } } },
+    { id: "b", type: { name: "Ball Receipt*" }, team: { name: "A" }, possession_team: { name: "A" },
+      possession: 1, period: 1, minute: 1, second: 2, player: { id: 22, name: "Same" }, location: [80, 40] },
+  ];
+  const result = runCoreEquivalent(duplicateNameEvents, [], "duplicate-name-test");
+  assert.equal(result.playerRows.length, 2);
+  assert.deepEqual(result.playerRows.map((row) => row.statsbomb_player_id), ["11", "22"]);
+  assert.ok(result.playerRows.every((row) => row.statsbomb_player_name === "Same"));
+});
+
+test("player names without StatsBomb IDs are rejected", () => {
+  const invalid = [{
+    id: "missing-id", type: { name: "Ball Receipt*" }, team: { name: "A" }, possession_team: { name: "A" },
+    possession: 1, period: 1, minute: 1, second: 0, player: { name: "No ID" },
+  }];
+  assert.throws(() => runCoreEquivalent(invalid, [], "missing-id-test"), /no ID/);
+});
+
 test("canonical player rows retain sparse missing values as null rather than zero", () => {
   const result = runCoreEquivalent(events, frames, "3895320");
   const player = result.playerRows.find((row) => row.shots === null);

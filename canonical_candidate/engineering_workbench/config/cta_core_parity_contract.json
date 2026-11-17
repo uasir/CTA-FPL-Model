@@ -1,8 +1,8 @@
 {
-  "contract_version": "1.0.0",
+  "contract_version": "1.1.0",
   "source_model": {
     "name": "CTA-FPL feature pipeline",
-    "version": "1.0.2-experimental"
+    "version": "1.0.3-experimental"
   },
   "input_contract": {
     "provider": "StatsBomb Open Data",
@@ -13,7 +13,10 @@
       "event_type_field": "type.name",
       "period_field": "period",
       "possession_field": "possession",
-      "team_fields": ["team.name", "possession_team.name"],
+      "team_fields": [
+        "team.name",
+        "possession_team.name"
+      ],
       "coordinate_field": "location",
       "coordinate_convention": "StatsBomb possession-oriented event coordinates; the team in possession attacks toward x=120",
       "missing_location": "Allowed; spatial calculations requiring a missing endpoint are omitted or remain zero according to the Python core."
@@ -27,7 +30,12 @@
       "out_of_bounds_policy": "Preserve source coordinates; do not clip or use as event locations. The core uses the frames only for event-UUID linkage audit."
     },
     "direction": {
-      "map_columns": ["match_id", "period", "team", "attacks_right"],
+      "map_columns": [
+        "match_id",
+        "period",
+        "team",
+        "attacks_right"
+      ],
       "pilot_map_data_rows": 0,
       "documented_core_behavior": "When a direction override is absent, the Python core fills the StatsBomb possession-oriented direction key with true.",
       "javascript_behavior": "Match the documented Python behavior and report how many keys were explicit versus generated.",
@@ -59,14 +67,19 @@
     },
     "rounded_8dp": {
       "rtol": 0,
-      "atol": 0.00000001
+      "atol": 1e-8
     }
   },
   "parity_tables": {
     "sequences": {
       "entity": "possession",
       "granularity": "One row per match, period, possession ID, and possession team.",
-      "key_columns": ["match_id", "period", "possession_id", "team"],
+      "key_columns": [
+        "match_id",
+        "period",
+        "possession_id",
+        "team"
+      ],
       "features": {
         "sequence_id": {
           "python_column": "sequence_id",
@@ -285,8 +298,10 @@
     },
     "players": {
       "entity": "player",
-      "granularity": "One row per StatsBomb player name across exactly one single-match run; multi-match output aggregation is not comparable under this key.",
-      "key_columns": ["statsbomb_player_name"],
+      "granularity": "One row per StatsBomb player ID across exactly one isolated single-match run.",
+      "key_columns": [
+        "statsbomb_player_id"
+      ],
       "features": {
         "event_involvements": {
           "python_column": "event_involvements",
@@ -507,6 +522,17 @@
           "definition_version": "core-1.0.2",
           "definition": "Actor receipt events with truthy under_pressure.",
           "aggregation": "Count over the single-match run; sparse Counter blanks remain null."
+        },
+        "statsbomb_player_name": {
+          "python_column": "statsbomb_player_name",
+          "javascript_column": "statsbomb_player_name",
+          "type": "categorical",
+          "nullable": false,
+          "unit": "player_name",
+          "tolerance_class": "exact",
+          "definition_version": "core-1.0.3",
+          "definition": "Display name attached to the numeric StatsBomb player ID in the source event; never used as the identity key.",
+          "aggregation": "One display name per StatsBomb player ID within the isolated match run; conflicting names for one ID are rejected."
         }
       },
       "unsupported_features": [
@@ -527,7 +553,10 @@
     "xt_grid": {
       "entity": "xT grid cell",
       "granularity": "One row per cell of the Python core's match-fitted 16x12 grid.",
-      "key_columns": ["x_cell", "y_cell"],
+      "key_columns": [
+        "x_cell",
+        "y_cell"
+      ],
       "features": {
         "xT": {
           "python_column": "xT",

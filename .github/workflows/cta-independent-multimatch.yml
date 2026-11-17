@@ -10,6 +10,11 @@ on:
       - canonical_candidate/engineering_workbench/scripts/audit_multimatch_data_quality.py
       - canonical_candidate/engineering_workbench/src/cta_audit/audit.py
       - canonical_candidate/engineering_workbench/tests/test_audit.py
+      - canonical_candidate/src/cta_engine.py
+      - canonical_candidate/engineering_workbench/src/js/cta_core.mjs
+      - canonical_candidate/engineering_workbench/config/cta_core_parity_contract.json
+      - canonical_candidate/tests/test_engine.py
+      - canonical_candidate/engineering_workbench/tests/js/cta_core.test.mjs
       - canonical_candidate/engineering_workbench/scripts/diagnose_360_uuid_ownership.py
       - canonical_candidate/engineering_workbench/tests/test_360_uuid_ownership.py
 
