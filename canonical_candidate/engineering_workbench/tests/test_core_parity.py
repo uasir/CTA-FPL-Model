@@ -36,7 +36,7 @@ class CoreParityTests(unittest.TestCase):
         player = load_registry(CONTRACT, "players")
         grid = load_registry(CONTRACT, "xt_grid")
         self.assertEqual(sequence["key_columns"], ["match_id", "period", "possession_id", "team"])
-        self.assertEqual(player["key_columns"], ["statsbomb_player_name"])
+        self.assertEqual(player["key_columns"], ["statsbomb_player_id"])
         self.assertEqual(grid["key_columns"], ["x_cell", "y_cell"])
         self.assertIn("minutes and all per-90 columns", " ".join(
             item["feature"] for item in json.loads(CONTRACT.read_text())["parity_tables"]["players"]["unsupported_features"]
@@ -44,7 +44,7 @@ class CoreParityTests(unittest.TestCase):
 
     def test_null_remains_distinct_from_zero_for_sparse_counter_features(self):
         registry = load_registry(CONTRACT, "players")
-        row = {"statsbomb_player_name": "real-fixture-key"}
+        row = {"statsbomb_player_id": "123"}
         row.update({name: None for name in registry["features"]})
         same_null = dict(row)
         passing = audit([row], [same_null], registry)
