@@ -16,7 +16,7 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/scripts/enrich_player_features.py
-            - canonical_candidate/engineering_workbench/tests/test_player_feature_enrichment.py
+      - canonical_candidate/engineering_workbench/tests/test_player_feature_enrichment.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_gameweek_aggregation.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_naive_baselines.py
       - canonical_candidate/engineering_workbench/scripts/estimate_fpl_effective_ownership.py
@@ -110,4 +110,4 @@ jobs:
             run_artifacts/fpl_official/
             run_artifacts/identity_crosswalk/
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: 90
