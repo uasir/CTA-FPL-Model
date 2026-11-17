@@ -2,6 +2,11 @@ name: CTA independent 34-match run
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/cta-independent-multimatch.yml
+      - canonical_candidate/engineering_workbench/scripts/audit_multimatch_parity.py
 
 permissions:
   contents: read
