@@ -399,3 +399,36 @@ Updated source/rights and acquisition decisions: [FPL data-source blocker regist
 After the hourly top-10k EO collector and its workflow were added, the lightweight CI run [44148843292](https://github.com/uasir/CTA-FPL-Model/actions/runs/44148843292) completed successfully. The all-tests suite and crosswalk validation both passed. The latest test count remains 70 tests plus 3 subtests from [44148615692](https://github.com/uasir/CTA-FPL-Model/actions/runs/44148615692).
 
 The hourly collector is scheduled but has not yet produced a near-deadline sample. It will first be eligible for GW11 near the 2026-11-21 11:00 UTC deadline. The live picks-endpoint response is the remaining technical validation for EO capture.
+
+## Dual recommendation architecture decision — 2026-11-17
+
+The user approved the proposed dual recommendation architecture. This is an accepted product/engineering requirement, recorded in GitHub issue [#2](https://github.com/uasir/CTA-FPL-Model/issues/2).
+
+### Product modes
+
+1. **Personal Squad Recommendations** (`personal_squad`): uses an explicit manager squad snapshot and constraints (15 players/IDs, bank, squad value and purchase prices where available, free transfers, chips, formation, XI/bench rules, risk preferences and rank target). It recommends transfers and alternatives, hold/roll decisions, XI, formation, bench order, captain/vice-captain, and whole-squad portfolio decisions. Every recommendation must explain its assumptions and show relevant EV, EO, minutes, fixtures, uncertainty and downside/upside. It must evaluate the effect of a move on the whole squad rather than rank incoming players in isolation.
+
+2. **General FPL Recommendations** (`general_market`): independent of any user's squad. It ranks players and opportunities across positions and categories: overall/value picks, expected points, differentials, captaincy, short/long-term fixture targets, improving/declining prospects, high-upside/high-risk picks, and sell/avoid watchlists. It must not read, infer, or require the personal squad.
+
+### Shared foundation and separation
+
+Both modes consume the same versioned, leakage-safe player/fixture forecast and validated data services. Recommendation logic remains separate. General recommendations must be invariant to personal squad changes; personal recommendations must be sensitive to the supplied squad and constraints. Outputs must disclose forecast horizon, data coverage, model version/confidence and unvalidated inputs. Preserve deterministic Python/JavaScript parity for shared calculations and test both modes independently.
+
+### CoVar policy
+
+CoVar is a portfolio-risk analysis layer, not a squad component and not a mandatory input to general player rankings. It may inform personal portfolio decisions only after stability and out-of-sample validation. The current ten-gameweek historical-points covariance matrix remains exploratory and is not approved for production recommendation decisions. General mode may expose validated covariance context as optional supplementary information, but must remain useful without it.
+
+### Acceptance tests
+
+- General recommendations work without any squad input.
+- General rankings remain identical when the personal squad changes, for the same data snapshot/model version/filters.
+- Personal recommendations use the explicit squad snapshot and change appropriately when relevant squad constraints change.
+- General output is reproducible for identical inputs.
+- Personal output records the squad state and constraints used.
+- EV, EO, minutes, price and fixture inputs are traceable; missing data is surfaced rather than invented.
+- CoVar remains disabled as a decision signal until statistical stability and out-of-sample gates pass.
+- Tests cover squad invariance, squad sensitivity, constraints, reproducibility and Python/JavaScript parity.
+
+### Implementation sequence
+
+Inspect the existing contracts and current repository before coding. Keep the recovered original Python source and current Python/JavaScript engines intact. First define shared forecast interfaces and recommendation input/output contracts; then implement and test `general_market` and `personal_squad` independently. Do not duplicate the forecasting engine or let general rankings inherit the user's squad context.
