@@ -6,10 +6,15 @@ def row(**updates):
     v.update(updates); return v
 class CrosswalkTests(unittest.TestCase):
     def test_verified_evidenced_row_is_accepted(self):
-        accepted,report=validate_rows([row()]); self.assertEqual(report["status"],"PASS"); self.assertEqual(len(accepted),1)
+        accepted,report=validate_rows([row()]); self.assertEqual(report["status"],"PASS"); self.assertTrue(report["join_ready"]); self.assertEqual(len(accepted),1)
     def test_pending_and_ambiguous_are_excluded(self):
         accepted,report=validate_rows([row(verification_status="pending"),row(verification_status="ambiguous")])
-        self.assertEqual(report["status"],"PASS"); self.assertEqual(accepted,[]); self.assertEqual(report["non_verified_rows_excluded"],2)
+        self.assertEqual(report["status"],"NO_VERIFIED_MAPPINGS"); self.assertFalse(report["join_ready"]); self.assertEqual(accepted,[]); self.assertEqual(report["non_verified_rows_excluded"],2)
+    def test_empty_template_is_not_mislabeled_as_ready(self):
+        accepted,report=validate_rows([])
+        self.assertEqual(report["status"],"EMPTY_NOT_READY")
+        self.assertFalse(report["join_ready"])
+        self.assertEqual(accepted,[])
     def test_missing_evidence_is_blocked(self):
         accepted,report=validate_rows([row(evidence_url="")]); self.assertEqual(report["status"],"BLOCKED"); self.assertEqual(accepted,[])
     def test_fuzzy_method_is_blocked(self):
