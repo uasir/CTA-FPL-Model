@@ -1,0 +1,43 @@
+name: CTA FPL engineering CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/cta-fpl-ci.yml
+      - .github/workflows/cta-fpl-ingestion.yml
+      - canonical_candidate/engineering_workbench/scripts/**
+      - canonical_candidate/engineering_workbench/tests/**
+      - canonical_candidate/data/player_identity_crosswalk.csv
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-fpl-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pytest
+        run: python -m pip install pytest
+      - name: Run engineering tests
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: python -m pytest -q
+      - name: Validate verified player identity crosswalk
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/validate_player_identity_crosswalk.py \
+            --input ../data/player_identity_crosswalk.csv \
+            --out-dir ../../run_artifacts/identity_crosswalk
