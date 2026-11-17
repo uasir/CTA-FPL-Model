@@ -29,11 +29,11 @@ def correlation(a,b):
     da=[x-ma for x in a];db=[x-mb for x in b]
     den=math.sqrt(sum(x*x for x in da)*sum(y*y for y in db))
     return sum(x*y for x,y in zip(da,db))/den if den else None
-def metrics(rows,pred_field,min_history):
+def metrics(rows,pred_field,min_history,target_field="target_total_points"):
     selected=[]
     for row in rows:
         if int(row.get("prior_gameweeks_count") or 0)<min_history:continue
-        y=number(row.get("target_total_points"));p=number(row.get(pred_field))
+        y=number(row.get(target_field));p=number(row.get(pred_field))
         if y is not None and p is not None:selected.append((int(row["gameweek"]),p,y))
     if not selected:return {"n":0,"mae":None,"rmse":None,"mean_error":None,"spearman_by_gameweek":{},"top_decile_overlap_by_gameweek":{}}
     errors=[p-y for _,p,y in selected]
@@ -57,8 +57,13 @@ def metrics(rows,pred_field,min_history):
     }
 def evaluate(rows,season=""):
     results={name:metrics(rows,field,min_history) for name,(field,min_history) in BASELINES.items()}
+    minute_baselines={
+      "last_gameweek":metrics(rows,"prior_gw_minutes",1,"target_minutes"),
+      "last3_gameweeks":metrics(rows,"prior3_gw_minutes_avg",3,"target_minutes"),
+      "last5_gameweeks":metrics(rows,"prior5_gw_minutes_avg",5,"target_minutes")
+    }
     report={
-      "season":season,"rows":len(rows),"baselines":results,
+      "season":season,"rows":len(rows),"baselines":results,"minutes_baselines":minute_baselines,
       "status":"EXPLORATORY_ONLY","model_trained":False,
       "point_in_time_status":"NOT_VERIFIED",
       "limitations":[
