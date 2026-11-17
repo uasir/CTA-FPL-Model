@@ -153,7 +153,15 @@ def audit(python_rows: list[dict[str, Any]], js_rows: list[dict[str, Any]], regi
                     x, y = parse_number(a), parse_number(b)
                     err = abs(x-y); errors.append(err); signed.append(y-x)
                     tol = registry.get("tolerances", {}).get(spec.get("tolerance_class", "default_numeric"), {"rtol":1e-7,"atol":1e-9})
-                    ok = math.isclose(x, y, rel_tol=tol["rtol"], abs_tol=tol["atol"])
+                    # Decimal-rounded outputs can land microscopically beyond an
+                    # absolute tolerance after binary-float parsing (for example,
+                    # 0.434435 - 0.434434). Add comparison-only slack when the
+                    # contract defines a non-zero absolute tolerance.
+                    boundary_slack = 1e-12 if tol["atol"] > 0 else 0.0
+                    ok = math.isclose(
+                        x, y, rel_tol=tol["rtol"],
+                        abs_tol=tol["atol"] + boundary_slack,
+                    )
                     if ok: within += 1
                     if x == y: exact += 1
                     if not ok and len(mismatch_samples) < sample_limit:
