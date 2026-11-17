@@ -489,7 +489,7 @@ export function canonicalPlayerRows(players) {
             ? roundHalfEven(counter.action_xt_gain_sum / count, 6)
             : null;
         } else {
-          row[feature] = Object.hasOwn(counter, feature) ? counter[feature] : null;
+          row[feature] = Object.hasOwn(counter, feature) ? counter[feature] : 0;
         }
       }
       return row;
@@ -505,24 +505,32 @@ export function xtGridRows(values) {
   }));
 }
 
-export function audit360(events, frames) {
-  const eventIds = new Set(events.filter((event) => event.id !== null && event.id !== undefined).map((event) => String(event.id)));
+export function audit360(events, frames, matchId) {
+  const scopedMatchId = String(matchId);
+  const eventKeys = new Set(
+    events
+      .filter((event) => event.id !== null && event.id !== undefined
+        && String(event._match_id ?? scopedMatchId) === scopedMatchId)
+      .map((event) => JSON.stringify([scopedMatchId, String(event.id)])),
+  );
   const uuids = frames
     .filter((frame) => isObject(frame) && frame.event_uuid !== null && frame.event_uuid !== undefined)
     .map((frame) => String(frame.event_uuid));
+  const frameKeys = uuids.map((uuid) => JSON.stringify([scopedMatchId, uuid]));
   const counts = new Map();
-  for (const uuid of uuids) counts.set(uuid, (counts.get(uuid) ?? 0) + 1);
-  const matched = uuids.reduce((sum, uuid) => sum + Number(eventIds.has(uuid)), 0);
-  const linkedIds = new Set(uuids.filter((uuid) => eventIds.has(uuid)));
+  for (const key of frameKeys) counts.set(key, (counts.get(key) ?? 0) + 1);
+  const matched = frameKeys.reduce((sum, key) => sum + Number(eventKeys.has(key)), 0);
+  const matchedEventKeys = new Set(frameKeys.filter((key) => eventKeys.has(key)));
   return {
     frames: frames.filter(isObject).length,
     frames_with_event_uuid: uuids.length,
-    unique_event_uuids: counts.size,
+    unique_event_uuids: new Set(uuids).size,
+    unique_match_event_keys: new Set(frameKeys).size,
     duplicate_frame_event_uuids: [...counts.values()].reduce((sum, count) => sum + Math.max(0, count - 1), 0),
     matched_frame_uuids: matched,
-    unmatched_frame_uuids: uuids.length - matched,
-    frame_to_event_join_rate: uuids.length ? roundHalfEven(matched / uuids.length, 6) : null,
-    event_coverage_with_frame: eventIds.size ? roundHalfEven(linkedIds.size / eventIds.size, 6) : null,
+    unmatched_frame_uuids: frameKeys.length - matched,
+    frame_to_event_join_rate: frameKeys.length ? roundHalfEven(matched / frameKeys.length, 6) : null,
+    event_coverage_with_frame: eventKeys.size ? roundHalfEven(matchedEventKeys.size / eventKeys.size, 6) : null,
   };
 }
 
@@ -601,7 +609,7 @@ export function runCoreEquivalent(rawEvents, frames, matchId, directionOverrides
       direction_keys_total: directions.size,
       convention: "StatsBomb possession-oriented coordinates; attacks_right=true when no override exists.",
     },
-    statsbomb360Audit: audit360(events, frames),
+    statsbomb360Audit: audit360(events, frames, matchId),
     coordinateDiagnostics: coordinateDiagnostics(frames),
   };
 }
