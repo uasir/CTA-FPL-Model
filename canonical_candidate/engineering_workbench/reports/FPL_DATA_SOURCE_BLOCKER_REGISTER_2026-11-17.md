@@ -80,11 +80,16 @@ The output is explicitly labelled `SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS`. It does n
 
 ### Next EO data acquisition step
 
-Use either:
-1. an authorized source that supplies rank-tier ownership and captaincy by gameweek; or
-2. a carefully sampled set of public FPL manager picks, where the rank cohort is selected using standings captured **before** the target deadline and the picks are fetched after the deadline.
+A first-party capture workflow is now implemented at `.github/workflows/cta-fpl-eo-capture.yml`, with collector `scripts/capture_fpl_ranked_manager_picks.py`. It runs hourly at minute 15 and only samples when the next deadline is within 70 minutes. It:
+- samples 100 managers across rank strata within the pre-deadline overall top 10,000;
+- captures their public picks and chip state for the target gameweek;
+- weights each sampled manager as 100 entries;
+- calculates EO using the tested estimator;
+- stores only aggregated EO rows and a hash/summary of the sample, not raw manager IDs or individual picks.
 
-Do not define the cohort using post-gameweek ranks; that would introduce lookahead bias. Do not treat a top-10k or top-100k sample as whole-game EO.
+This collector is intentionally separate from the main ingestion workflow and does not use post-gameweek ranks to define the cohort. It has not yet completed a live near-deadline capture; the next useful validation is the GW11 deadline. FPL's picks endpoint must return the future event's saved picks for the sample to work. If it does not, the collector will fail visibly and we will need to capture the cohort pre-deadline and fetch picks after lock through a separate archival handoff.
+
+Do not define the cohort using post-gameweek ranks; that would introduce lookahead bias. Do not treat a top-10k or top-100k sample as whole-game EO. The current collector samples top 10k only; top-100k and broader-field samples remain future work.
 
 ## 4. Player-level event data aligned to FPL
 
