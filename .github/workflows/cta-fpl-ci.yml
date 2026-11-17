@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/cta-fpl-ci.yml
       - .github/workflows/cta-fpl-ingestion.yml
+      - .github/workflows/cta-fpl-eo-capture.yml
       - canonical_candidate/engineering_workbench/scripts/**
       - canonical_candidate/engineering_workbench/tests/**
       - canonical_candidate/data/player_identity_crosswalk.csv
