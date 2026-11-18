@@ -1,0 +1,36 @@
+name: Onside FPL benchmark source audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 12 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Fetch and inspect the CC BY 4.0 graded-predictions ledger
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/inspect_onside_fpl_benchmark.py \
+            --out-dir run_artifacts/onside_benchmark
+
+      - name: Upload immutable source snapshot and audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-onside-benchmark-${{ github.run_id }}
+          path: run_artifacts/onside_benchmark/
+          if-no-files-found: warn
+          retention-days: 90
