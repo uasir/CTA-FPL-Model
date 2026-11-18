@@ -9,7 +9,7 @@ FIELDS = [
     "season", "competition_id", "competition_name", "provider_player_id",
     "provider_player_name", "fpl_element_id", "fpl_player_code",
     "fpl_player_name", "provider_team_id", "provider_team_name",
-    "fpl_team_id", "fpl_team_name", "verification_status", "match_method",
+    "fpl_team_id", "fpl_team_code", "fpl_team_name", "verification_status", "match_method",
     "evidence_source", "evidence_url", "verified_by", "verified_at",
 ]
 REQUIRED = [
@@ -31,13 +31,17 @@ def validate_rows(rows, provider):
             continue
         if status != "verified":
             continue
-        missing = [field for field in REQUIRED if not (row.get(field) or "").strip()]
+        required = REQUIRED + (["fpl_team_code"] if provider == "opta_pulselive" else [])
+        missing = [field for field in required if not (row.get(field) or "").strip()]
         if missing:
             errors.append({"line": line, "error": "missing_verified_fields", "fields": missing})
             continue
         method = (row.get("match_method") or "").strip()
         if method not in METHODS:
             errors.append({"line": line, "error": "unapproved_match_method", "value": method})
+            continue
+        if provider == "opta_pulselive" and (row.get("provider_team_id") or "").strip() != (row.get("fpl_team_code") or "").strip():
+            errors.append({"line": line, "error": "provider_team_id_does_not_match_fpl_team_code"})
             continue
         if not (row.get("evidence_url") or "").strip().startswith(("https://", "http://")):
             errors.append({"line": line, "error": "evidence_url_must_be_http"})
