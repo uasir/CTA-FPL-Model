@@ -590,10 +590,11 @@ def build_panel(
         "join_ready": join_ready,
         "status": (
             "PASS_JOIN_READY" if join_ready
-            else "BLOCKED" if identity_errors or duplicate_history_keys or provider_team_ids_invalid or not provider_matches
-            else "PARTIAL_FIXTURE_OR_IDENTITY_RECONCILIATION" if len(match_map) != len(provider_matches)
+            else "BLOCKED" if identity_errors or duplicate_history_keys or provider_team_ids_invalid
+                or not provider_matches or verified_team_mismatch_rows
+                or verified_history_missing or verified_fpl_player_missing
+            else "PARTIAL_FIXTURE_RECONCILIATION" if len(match_map) != len(provider_matches)
                 or player_match_rows_unmatched_fixture or player_match_rows_ambiguous_fixture
-                or verified_team_mismatch_rows or verified_history_missing or verified_fpl_player_missing
             else "CANDIDATE_REVIEW_READY_NOT_MODEL_JOIN_READY"
         ),
     }
