@@ -115,3 +115,13 @@ def test_personal_squad_stale_snapshot_remains_exploratory():
     payload["forecast_quality"]["data_coverage"]["freshness_status"] = "STALE_OVER_24H"
     result = recommend_personal_squad(payload)
     assert result["recommendation_status"] == "EXPLORATORY_ONLY"
+
+
+
+def test_personal_squad_validated_status_requires_fresh_verified_forecast():
+    payload = request()
+    payload["forecast_quality"]["validation_status"] = "VALIDATED"
+    payload["forecast_quality"]["point_in_time_status"] = "VERIFIED"
+    payload["forecast_quality"]["data_coverage"]["freshness_status"] = "FRESH_WITHIN_24H"
+    result = recommend_personal_squad(payload)
+    assert result["recommendation_status"] == "VALIDATED"
