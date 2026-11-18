@@ -84,16 +84,17 @@ The output is explicitly labelled `SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS`. It does n
 A first-party lock-safe capture workflow is implemented at `.github/workflows/cta-fpl-eo-capture.yml`, with collector `scripts/capture_fpl_ranked_manager_picks.py`.
 
 It is scheduled at minutes 5 and 35 of each hour to begin about 25 minutes before observed :30 and :00 deadlines. The collector accepts a 35-minute pre-deadline window to absorb best-effort scheduler delay; the job timeout is 45 minutes. It:
-- samples 100 managers across rank strata within the pre-deadline overall top 10,000;
+- samples 400 managers across all 200 pre-deadline rank pages in the overall top 10,000 (two managers per 50-rank page);
 - records the rank cohort before the deadline and refuses to proceed if the standings fetch crosses the deadline;
 - waits until 60 seconds after the official deadline;
 - re-fetches official bootstrap data and verifies that the deadline has passed;
 - only then fetches manager picks and chip state for the target gameweek;
-- weights each sampled manager as 100 entries;
-- calculates EO using the tested estimator;
+- weights each sampled manager as 25 entries (total sample weight 10,000);
+- calculates EO using the tested estimator, with approximate 95% Wilson intervals for ownership/starting/captain/chip rates and rank-page-stratified intervals for EO/scoring exposure;
+- includes all 672 official FPL players, including zero-exposure rows;
 - stores only aggregated EO rows and a hash/summary of the sample, not raw manager IDs or individual picks.
 
-The collector's mocked timing/API tests pass. Its first scheduled live job (Actions run 44342865582) completed successfully but returned `SKIPPED_OUTSIDE_DEADLINE_WINDOW`: it started about 4,015.77 minutes before the GW11 deadline (2026-11-21 11:00 UTC). Its 324-byte artifact contains only the skip report; no cohort, picks or EO rows were captured. The new earlier schedule and wider 35-minute pre-deadline window are intended to improve capture reliability. A successful live capture still requires the rank cohort to be frozen before deadline, followed by post-deadline picks after the 60-second lock grace and a fresh bootstrap confirmation. It must never fall back to provisional picks.
+The collector's mocked timing/API tests pass. Its first scheduled live job (Actions run 44342865582) completed successfully but returned `SKIPPED_OUTSIDE_DEADLINE_WINDOW`: it started about 4,015.77 minutes before the GW11 deadline (2026-11-21 11:00 UTC). Its 324-byte artifact contains only the skip report; no cohort, picks or EO rows were captured. The new earlier schedule and 35-minute pre-deadline window improve capture resilience. The GW11 capture is expected to start at 10:35 UTC on 2026-11-21, 25 minutes before the 11:00 UTC deadline. A successful live capture still requires the rank cohort to be frozen before deadline, followed by post-deadline picks after the 60-second lock grace and a fresh bootstrap confirmation. It must never fall back to provisional picks.
 
 Do not define the cohort using post-gameweek ranks; that would introduce lookahead bias. Do not treat a top-10k sample as whole-game EO. The current collector samples top 10k only; top-100k and broader-field samples remain future work.
 
