@@ -314,6 +314,7 @@ def contextual_event_features(event, frame, attacks_right=None):
     identity = _identity(event)
     return {
         "event_id": str(event.get("id") or ""),
+        "possession_id": str(event.get("possession") or ""),
         "event_type": event_type,
         "player_id": identity[0] if identity else "",
         "player_name": identity[1] if identity else "",
@@ -350,6 +351,64 @@ def contextual_event_features(event, frame, attacks_right=None):
         "excluded_out_of_bounds_frame_players": excluded_out_of_bounds,
         **directional,
     }
+
+
+def _possession_receiving_metrics(event_rows):
+    """Deduplicate repeated frame observations using match/possession/team keys."""
+    team_groups = defaultdict(list)
+    player_groups = defaultdict(list)
+    missing_possession_rows = 0
+
+    for row in event_rows:
+        possession_id = str(row.get("possession_id") or "").strip()
+        if not possession_id:
+            possession_id = "event:" + str(row.get("event_id") or "")
+            missing_possession_rows += 1
+        team_key = (row["match_id"], possession_id, row["team_id"])
+        team_groups[team_key].append(row)
+        if row.get("player_id"):
+            player_key = (row["match_id"], possession_id, row["player_id"], row["team_id"])
+            player_groups[player_key].append(row)
+
+    def peak(rows, field):
+        values = [float(row[field] or 0) for row in rows if row.get(field) not in ("", None)]
+        return max(values) if values else 0.0
+
+    team_metrics = {
+        "team_possession_peak_open_receiving_options": 0.0,
+        "team_possession_peak_dangerous_open_receiving_options": 0.0,
+        "team_possession_peak_blocked_receiving_options": 0.0,
+        "team_possessions_with_open_receiving_options": 0,
+        "team_possessions_with_dangerous_open_receiving_options": 0,
+        "team_possessions_with_blocked_receiving_options": 0,
+    }
+    for rows in team_groups.values():
+        open_peak = peak(rows, "open_receiving_options_ahead")
+        dangerous_peak = peak(rows, "dangerous_receiving_options_open")
+        blocked_peak = peak(rows, "blocked_receiving_options_ahead")
+        team_metrics["team_possession_peak_open_receiving_options"] += open_peak
+        team_metrics["team_possession_peak_dangerous_open_receiving_options"] += dangerous_peak
+        team_metrics["team_possession_peak_blocked_receiving_options"] += blocked_peak
+        team_metrics["team_possessions_with_open_receiving_options"] += int(open_peak > 0)
+        team_metrics["team_possessions_with_dangerous_open_receiving_options"] += int(dangerous_peak > 0)
+        team_metrics["team_possessions_with_blocked_receiving_options"] += int(blocked_peak > 0)
+
+    player_metrics = {}
+    for key, rows in player_groups.items():
+        open_peak = peak(rows, "open_receiving_options_ahead")
+        dangerous_peak = peak(rows, "dangerous_receiving_options_open")
+        blocked_peak = peak(rows, "blocked_receiving_options_ahead")
+        player_metrics[(key[0], key[2], key[3])] = {
+            "actor_possession_peak_open_receiving_options": open_peak,
+            "actor_possession_peak_dangerous_open_receiving_options": dangerous_peak,
+            "actor_possession_peak_blocked_receiving_options": blocked_peak,
+            "actor_possessions_with_open_receiving_options": int(open_peak > 0),
+            "actor_possessions_with_dangerous_open_receiving_options": int(dangerous_peak > 0),
+            "actor_possessions_with_blocked_receiving_options": int(blocked_peak > 0),
+        }
+
+    team_metrics = {key: round(value, 6) if isinstance(value, float) else value for key, value in team_metrics.items()}
+    return team_metrics, player_metrics, missing_possession_rows
 
 
 def extract_contextual_threat(
@@ -389,6 +448,7 @@ def extract_contextual_threat(
         if not row["player_id"]:
             missing_player_events += 1
 
+    team_possession_metrics, player_possession_metrics, missing_possession_rows = _possession_receiving_metrics(event_rows)
     grouped = defaultdict(list)
     for row in event_rows:
         if row["player_id"]:
@@ -420,9 +480,20 @@ def extract_contextual_threat(
             "mean_goal_side_opponents_12m": mean_numeric("goal_side_opponents_12m"),
             "mean_teammates_ahead_within_20": mean_numeric("teammates_ahead_within_20"),
             "mean_nearest_opponent_ahead_lane_distance": mean_numeric("nearest_opponent_ahead_lane_distance"),
-            "mean_dangerous_receiving_options_open": mean_numeric("dangerous_receiving_options_open"),
-            "mean_open_receiving_options_ahead": mean_numeric("open_receiving_options_ahead"),
-            "mean_receiving_options_assessed_ahead": mean_numeric("receiving_options_assessed_ahead"),
+            "mean_dangerous_receiving_options_open_per_event_frame": mean_numeric("dangerous_receiving_options_open"),
+            "mean_open_receiving_options_ahead_per_event_frame": mean_numeric("open_receiving_options_ahead"),
+            "mean_receiving_options_assessed_ahead_per_event_frame": mean_numeric("receiving_options_assessed_ahead"),
+            **player_possession_metrics.get(
+                (mid, player_id, team_id),
+                {
+                    "actor_possession_peak_open_receiving_options": 0,
+                    "actor_possession_peak_dangerous_open_receiving_options": 0,
+                    "actor_possession_peak_blocked_receiving_options": 0,
+                    "actor_possessions_with_open_receiving_options": 0,
+                    "actor_possessions_with_dangerous_open_receiving_options": 0,
+                    "actor_possessions_with_blocked_receiving_options": 0,
+                },
+            ),
             "threat_creation_pass_attempts": sum_numeric("threat_creation_pass_attempt"),
             "threat_creation_passes_completed": sum_numeric("threat_creation_pass_completed"),
             "progressive_pass_attempts": sum_numeric("progressive_pass_attempt"),
@@ -475,11 +546,13 @@ def extract_contextual_threat(
         "progressive_pass_attempts": sum(float(r["progressive_pass_attempt"] or 0) for r in event_rows),
         "progressive_pass_completions": sum(float(r["progressive_pass_completed"] or 0) for r in event_rows),
         "progressive_carries": sum(float(r["progressive_carry"] or 0) for r in event_rows),
-        "receiving_options_observed_ahead": sum(float(r["receiving_options_observed_ahead"] or 0) for r in event_rows),
-        "receiving_options_assessed_ahead": sum(float(r["receiving_options_assessed_ahead"] or 0) for r in event_rows),
-        "open_receiving_options_ahead": sum(float(r["open_receiving_options_ahead"] or 0) for r in event_rows),
-        "dangerous_receiving_options_open": sum(float(r["dangerous_receiving_options_open"] or 0) for r in event_rows),
-        "blocked_receiving_options_ahead": sum(float(r["blocked_receiving_options_ahead"] or 0) for r in event_rows),
+        "receiving_options_observed_ahead_event_frame_instances": sum(float(r["receiving_options_observed_ahead"] or 0) for r in event_rows),
+        "receiving_options_assessed_ahead_event_frame_instances": sum(float(r["receiving_options_assessed_ahead"] or 0) for r in event_rows),
+        "open_receiving_options_ahead_event_frame_instances": sum(float(r["open_receiving_options_ahead"] or 0) for r in event_rows),
+        "dangerous_receiving_options_open_event_frame_instances": sum(float(r["dangerous_receiving_options_open"] or 0) for r in event_rows),
+        "blocked_receiving_options_ahead_event_frame_instances": sum(float(r["blocked_receiving_options_ahead"] or 0) for r in event_rows),
+        **team_possession_metrics,
+        "event_rows_missing_possession_id": missing_possession_rows,
         "events_with_assessed_receiving_options": sum(float(r["receiving_options_assessed_ahead"] or 0) > 0 for r in event_rows),
         "events_with_open_receiving_options": sum(float(r["open_receiving_options_ahead"] or 0) > 0 for r in event_rows),
         "events_with_dangerous_open_receiving_options": sum(float(r["dangerous_receiving_options_open"] or 0) > 0 for r in event_rows),
@@ -500,7 +573,11 @@ def extract_contextual_threat(
             "receiving_opportunity": "Visible forward teammates within 35 units, with a visible-defender lane and receiver-pressure assessment; not a full-pitch guarantee.",
             "realisation": "Shots, StatsBomb xG and goals kept as separate outcomes.",
         },
-        "aggregation_policy": "Creation, involvement, receiving opportunity and realisation remain separate; no composite score or sequence double-counting is introduced.",
+        "aggregation_policy": (
+            "Creation, involvement, receiving opportunity and realisation remain separate. "
+            "Receiving-option frame observations are retained for audit, while player-match and team summaries use the maximum simultaneous option count per possession (and per actor-possession), not a sum across repeated events. "
+            "StatsBomb 360 does not expose stable identities for every visible teammate, so receiver-level identity attribution is not attempted."
+        ),
         "status": "PASS_STRUCTURAL_ONLY",
         "prediction_validation": "NOT_EVALUATED",
     }
