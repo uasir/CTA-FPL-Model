@@ -2,15 +2,16 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from build_opta_lagged_team_features import build_crosswalk, build_team_features
+from build_opta_lagged_team_features import build_crosswalk, build_team_features, parse_time
+from zoneinfo import ZoneInfo
 
 
 def test_crosswalk_requires_exact_numeric_id_and_team_match():
     elements = [
-        {"id": 1, "code": 100, "team": 3, "first_name": "Alex", "second_name": "Player"},
-        {"id": 2, "code": 200, "team": 7, "first_name": "Ben", "second_name": "Player"},
+        {"id": 1, "code": 100, "team": 1, "first_name": "Alex", "second_name": "Player"},
+        {"id": 2, "code": 200, "team": 2, "first_name": "Ben", "second_name": "Player"},
     ]
-    teams = [{"id": 3, "name": "Arsenal"}, {"id": 7, "name": "Brentford"}]
+    teams = [{"id": 1, "code": 3, "name": "Arsenal"}, {"id": 2, "code": 7, "name": "Brentford"}]
     provider = [
         {"playerId": 100, "playerName": "A. Player", "team_id": 3,
          "team_name": "Arsenal", "season": "2026-27"},
@@ -26,6 +27,8 @@ def test_crosswalk_requires_exact_numeric_id_and_team_match():
     assert report["fpl_players_without_provider_stats"] == 0
     assert rows[0]["verification_status"] == "verified"
     assert rows[0]["fpl_element_id"] == "1"
+    assert rows[0]["fpl_team_id"] == "1"
+    assert rows[0]["fpl_team_code"] == "3"
     assert rows[1]["verification_status"] == "ambiguous"
     assert rows[2]["verification_status"] == "pending"
 
@@ -33,14 +36,14 @@ def test_crosswalk_requires_exact_numeric_id_and_team_match():
 def test_team_features_exclude_current_and_future_match_rows():
     bootstrap = {
         "elements": [
-            {"id": 1, "code": 100, "team": 3, "first_name": "Alex", "second_name": "Player"},
-            {"id": 2, "code": 200, "team": 7, "first_name": "Ben", "second_name": "Player"},
+            {"id": 1, "code": 100, "team": 1, "first_name": "Alex", "second_name": "Player"},
+            {"id": 2, "code": 200, "team": 2, "first_name": "Ben", "second_name": "Player"},
         ],
-        "teams": [{"id": 3, "name": "Arsenal"}, {"id": 7, "name": "Brentford"}],
+        "teams": [{"id": 1, "code": 3, "name": "Arsenal"}, {"id": 2, "code": 7, "name": "Brentford"}],
     }
     fixtures = [{
         "id": 11, "event": 2, "kickoff_time": "2026-08-15T12:00:00Z",
-        "team_h": 3, "team_a": 7,
+        "team_h": 1, "team_a": 2,
     }]
     provider_rows = [
         {"season": "2026-27", "matchId": 10, "kickoff": "2026-08-01T12:00:00Z",
@@ -53,8 +56,8 @@ def test_team_features_exclude_current_and_future_match_rows():
          "team_id": 7, "expectedGoals": "0.5", "accuratePass": "80"},
     ]
     team_rows, player_rows, report = build_team_features(fixtures, bootstrap, provider_rows)
-    arsenal = next(row for row in team_rows if row["team_id"] == "3")
-    brentford = next(row for row in team_rows if row["team_id"] == "7")
+    arsenal = next(row for row in team_rows if row["team_id"] == "1")
+    brentford = next(row for row in team_rows if row["team_id"] == "2")
     assert arsenal["opta_prior_matches_count"] == 1
     assert arsenal["opta_prior3_expectedGoals_avg"] == 1.0
     assert arsenal["opta_prior3_accuratePass_avg"] == 100.0
@@ -68,13 +71,18 @@ def test_team_features_exclude_current_and_future_match_rows():
 
 def test_postponed_fixture_without_kickoff_emits_blank_features_not_future_data():
     bootstrap = {
-        "elements": [{"id": 1, "code": 100, "team": 3, "first_name": "Alex", "second_name": "Player"}],
-        "teams": [{"id": 3, "name": "Arsenal"}, {"id": 7, "name": "Brentford"}],
+        "elements": [{"id": 1, "code": 100, "team": 1, "first_name": "Alex", "second_name": "Player"}],
+        "teams": [{"id": 1, "code": 3, "name": "Arsenal"}, {"id": 2, "code": 7, "name": "Brentford"}],
     }
-    fixtures = [{"id": 99, "event": None, "kickoff_time": None, "team_h": 3, "team_a": 7}]
+    fixtures = [{"id": 99, "event": None, "kickoff_time": None, "team_h": 1, "team_a": 2}]
     team_rows, player_rows, report = build_team_features(fixtures, bootstrap, [])
     assert len(team_rows) == 2
     assert len(player_rows) == 1
     assert player_rows[0]["kickoff_time"] == ""
     assert player_rows[0]["opta_prior_matches_count"] == 0
     assert report["fixtures_without_kickoff"] == 1
+
+
+def test_naive_provider_kickoff_is_interpreted_as_london_local_time():
+    value = parse_time("2026-08-21 20:00:00", ZoneInfo("Europe/London"))
+    assert value.isoformat() == "2026-08-21T19:00:00+00:00"
