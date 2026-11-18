@@ -35,7 +35,7 @@ def _goal_side(end_location):
 
 def infer_directions(events, match_id, min_non_goal_evidence=2):
     teams_by_period = defaultdict(dict)
-    evidence = defaultdict(lambda: defaultdict(list))
+    evidence = defaultdict(list)
     ignored = Counter()
 
     for event in events:
