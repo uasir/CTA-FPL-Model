@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Fetch and audit the openly licensed Onside FPL graded-predictions ledger.
 
-This is a source-inspection step only. It does not train CTA, merge forecasts,
-or treat the provider's published accuracy claims as independently verified.
+This is a source-inspection and benchmark-reconciliation step only. It does
+not train CTA, merge forecasts, or verify the provider's wider accuracy claims.
 """
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import csv
 import hashlib
 import io
 import json
+import math
 import urllib.request
 from collections import Counter
 from datetime import datetime, timezone
@@ -88,6 +89,38 @@ def as_int(value):
         return None
 
 
+def as_float(value):
+    try:
+        number = float(str(value).strip())
+        return number if math.isfinite(number) else None
+    except (TypeError, ValueError):
+        return None
+
+
+def as_bool(value):
+    return str(value or "").strip().lower() in {"1", "true", "yes", "y"}
+
+
+def score_metrics(rows, prediction_column, actual_column, eligible=None):
+    pairs = []
+    for row in rows:
+        if eligible is not None and not eligible(row):
+            continue
+        prediction = as_float(row.get(prediction_column))
+        actual = as_float(row.get(actual_column))
+        if prediction is not None and actual is not None:
+            pairs.append((prediction, actual))
+    if not pairs:
+        return {"n": 0, "mae": None, "rmse": None, "mean_error": None}
+    errors = [prediction - actual for prediction, actual in pairs]
+    return {
+        "n": len(errors),
+        "mae": sum(abs(e) for e in errors) / len(errors),
+        "rmse": math.sqrt(sum(e * e for e in errors) / len(errors)),
+        "mean_error": sum(errors) / len(errors),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default=URL)
@@ -104,22 +137,14 @@ def main():
 
     captured = choose_column(headers, exact=("captured_at",), contains=("captured", "at"))
     deadline = choose_column(headers, exact=("deadline_utc", "deadline_time"), contains=("deadline",))
-    player = choose_column(
-        headers,
-        exact=("element", "player_code", "player_id", "playerid", "fpl_player_id"),
-    )
+    player = choose_column(headers, exact=("element", "player_code", "player_id", "playerid", "fpl_player_id"))
     gameweek = choose_column(headers, exact=("gameweek", "gw", "event", "event_id"))
-    actual = choose_column(
-        headers,
-        exact=("actual_points", "points_actual", "actual", "total_points"),
-        contains=("actual", "point"),
-    )
-    onside = choose_column(
-        headers,
-        exact=("onside_xp", "onside_predicted_points", "onside_prediction"),
-        contains=("onside",),
-    )
+    actual = choose_column(headers, exact=("actual_points", "points_actual", "actual", "total_points"),
+                           contains=("actual", "point"))
+    onside = choose_column(headers, exact=("onside_xp", "onside_predicted_points", "onside_prediction"),
+                           contains=("onside",))
     ep_next = choose_column(headers, exact=("ep_next", "fpl_ep_next"), contains=("ep", "next"))
+    qualified = choose_column(headers, exact=("minutes_qualified",))
 
     timing = {"checked": 0, "valid": 0, "invalid_or_missing": 0, "invalid_examples": []}
     if captured and deadline:
@@ -133,12 +158,9 @@ def main():
                 timing["invalid_or_missing"] += 1
                 if len(timing["invalid_examples"]) < 10:
                     timing["invalid_examples"].append({
-                        "csv_line": index,
-                        "captured_at": row.get(captured),
+                        "csv_line": index, "captured_at": row.get(captured),
                         "deadline": row.get(deadline),
                     })
-    else:
-        timing["status"] = "NOT_CHECKABLE_MISSING_TIMESTAMP_COLUMNS"
 
     duplicate_key_count = None
     duplicate_key_examples = []
@@ -152,58 +174,40 @@ def main():
         ]
 
     candidate_columns = {
-        "captured_at": captured,
-        "deadline": deadline,
-        "player_key_candidate": player,
-        "gameweek_key_candidate": gameweek,
-        "actual_points_candidate": actual,
-        "onside_forecast_candidate": onside,
-        "official_ep_next_candidate": ep_next,
+        "captured_at": captured, "deadline": deadline,
+        "player_key_candidate": player, "gameweek_key_candidate": gameweek,
+        "actual_points_candidate": actual, "onside_forecast_candidate": onside,
+        "official_ep_next_candidate": ep_next, "minutes_qualified": qualified,
     }
 
-    # Verify the provider's player_id namespace against the live official FPL
-    # bootstrap. Names are metadata only and are never used as join keys.
+    # Verify player_id against official FPL element IDs. Names are metadata only.
+    bootstrap = fetch_json(f"{FPL_API}/bootstrap-static/")
+    official_players = bootstrap.get("elements", [])
+    official_elements = {int(p["id"]) for p in official_players if p.get("id") is not None}
+    official_codes = {int(p["code"]) for p in official_players if p.get("code") is not None}
+    events = {int(e["id"]): bool(e.get("finished")) for e in bootstrap.get("events", [])}
+    dataset_ids = {as_int(row.get(player)) for row in rows} if player else set()
+    dataset_ids.discard(None)
+    element_matches = dataset_ids & official_elements
+    code_matches = dataset_ids & official_codes
     identity = {
-        "status": "NOT_CHECKED",
-        "official_bootstrap_players": 0,
-        "dataset_unique_player_ids": 0,
-        "matched_official_element_ids": 0,
-        "matched_official_player_codes": 0,
-        "unmatched_player_id_examples": [],
+        "status": "ELEMENT_ID_MATCH" if dataset_ids and len(element_matches) == len(dataset_ids)
+                  else "PLAYER_CODE_MATCH" if dataset_ids and len(code_matches) == len(dataset_ids)
+                  else "PARTIAL_OR_UNRESOLVED",
+        "official_bootstrap_players": len(official_players),
+        "dataset_unique_player_ids": len(dataset_ids),
+        "matched_official_element_ids": len(element_matches),
+        "matched_official_player_codes": len(code_matches),
+        "unmatched_player_id_examples": sorted(dataset_ids - official_elements)[:20],
     }
-    official_elements = set()
-    official_codes = set()
-    if player:
-        bootstrap = fetch_json(f"{FPL_API}/bootstrap-static/")
-        official_players = bootstrap.get("elements", [])
-        official_elements = {int(p["id"]) for p in official_players if p.get("id") is not None}
-        official_codes = {int(p["code"]) for p in official_players if p.get("code") is not None}
-        dataset_ids = {as_int(row.get(player)) for row in rows}
-        dataset_ids.discard(None)
-        element_matches = dataset_ids & official_elements
-        code_matches = dataset_ids & official_codes
-        unmatched = sorted(dataset_ids - official_elements)
-        identity = {
-            "status": "ELEMENT_ID_MATCH" if dataset_ids and len(element_matches) == len(dataset_ids)
-                      else "PLAYER_CODE_MATCH" if dataset_ids and len(code_matches) == len(dataset_ids)
-                      else "PARTIAL_OR_UNRESOLVED",
-            "official_bootstrap_players": len(official_players),
-            "dataset_unique_player_ids": len(dataset_ids),
-            "matched_official_element_ids": len(element_matches),
-            "matched_official_player_codes": len(code_matches),
-            "unmatched_player_id_examples": unmatched[:20],
-        }
 
-    # Independently reconcile realized player-gameweek points against the
-    # official FPL event-live endpoint. This does not validate forecast skill.
+    # Reconcile graded actuals to official FPL event-live scores. Blank actuals
+    # are allowed only for gameweeks not yet marked finished by the official API.
     points_check = {
-        "status": "NOT_CHECKED",
-        "rows_checked": 0,
-        "matches": 0,
-        "mismatches": 0,
-        "missing_official_rows": 0,
-        "mismatch_examples": [],
-        "missing_examples": [],
+        "status": "NOT_CHECKED", "rows_checked": 0, "matches": 0,
+        "mismatches": 0, "missing_official_rows": 0, "ungraded_rows": 0,
+        "ungraded_unfinished_rows": 0, "ungraded_finished_rows": 0,
+        "mismatch_examples": [], "missing_examples": [],
     }
     if player and gameweek and actual and identity["status"] == "ELEMENT_ID_MATCH":
         by_gw = {}
@@ -218,14 +222,22 @@ def main():
                 int(item["id"]): as_int(item.get("stats", {}).get("total_points"))
                 for item in live.get("elements", [])
             }
+            finished = events.get(gw, False)
             for pid, expected in gw_rows:
                 observed = official_points.get(pid)
                 points_check["rows_checked"] += 1
-                if observed is None or expected is None:
+                if expected is None:
+                    points_check["ungraded_rows"] += 1
+                    if finished:
+                        points_check["ungraded_finished_rows"] += 1
+                    else:
+                        points_check["ungraded_unfinished_rows"] += 1
+                elif observed is None:
                     points_check["missing_official_rows"] += 1
                     if len(points_check["missing_examples"]) < 10:
                         points_check["missing_examples"].append({
-                            "player_id": pid, "gameweek": gw, "dataset_actual_points": expected
+                            "player_id": pid, "gameweek": gw,
+                            "dataset_actual_points": expected,
                         })
                 elif observed == expected:
                     points_check["matches"] += 1
@@ -241,13 +253,33 @@ def main():
             "PASS" if points_check["rows_checked"] == len(rows)
             and points_check["mismatches"] == 0
             and points_check["missing_official_rows"] == 0
+            and points_check["ungraded_finished_rows"] == 0
             else "MISMATCH_OR_INCOMPLETE"
         )
 
+    benchmark = {"status": "NOT_COMPUTED"}
+    if onside and ep_next and actual:
+        scored = [row for row in rows if as_float(row.get(actual)) is not None]
+        benchmark = {
+            "status": "COMPUTED_EXPLORATORY",
+            "scored_rows": len(scored),
+            "all_scored_rows": {
+                "onside_xp": score_metrics(scored, onside, actual),
+                "official_fpl_ep_next": score_metrics(scored, ep_next, actual),
+            },
+            "minutes_qualified_rows": {
+                "onside_xp": score_metrics(scored, onside, actual,
+                                           lambda row: as_bool(row.get(qualified))),
+                "official_fpl_ep_next": score_metrics(scored, ep_next, actual,
+                                                      lambda row: as_bool(row.get(qualified))),
+            } if qualified else None,
+            "interpretation": "Exploratory comparison on identical provider-ledger rows; not CTA model validation.",
+        }
+
+    schema_pass = len(headers) == 14 and all(candidate_columns.values())
     timing_pass = bool(captured and deadline and timing["checked"] == len(rows)
                        and timing["invalid_or_missing"] == 0)
     key_pass = bool(player and gameweek and duplicate_key_count == 0)
-    schema_pass = len(headers) == 14 and all(candidate_columns.values())
     identity_pass = identity["status"] == "ELEMENT_ID_MATCH"
     points_pass = points_check["status"] == "PASS"
     overall_pass = schema_pass and timing_pass and key_pass and identity_pass and points_pass
@@ -256,15 +288,12 @@ def main():
         "status": "PASS_SOURCE_SCHEMA_TIMING_AND_OFFICIAL_FPL_RECONCILIATION"
                  if overall_pass else "REVIEW_REQUIRED",
         "source_url": args.url,
-        "final_url": args.url,
         "content_type": content_type,
         "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
         "sha256": hashlib.sha256(raw).hexdigest(),
         "bytes": len(raw),
         "license_and_attribution": ATTRIBUTION,
-        "row_count": len(rows),
-        "column_count": len(headers),
-        "headers": headers,
+        "row_count": len(rows), "column_count": len(headers), "headers": headers,
         "candidate_columns": candidate_columns,
         "timestamp_order": timing,
         "player_gameweek_key": {
@@ -274,15 +303,16 @@ def main():
         },
         "official_fpl_identity_reconciliation": identity,
         "official_fpl_actual_points_reconciliation": points_check,
+        "exploratory_forecast_benchmark": benchmark,
         "column_profiles": profile(rows, headers),
         "preview_rows": rows[:3],
         "guardrails": [
-            "This audit does not verify the provider's claimed forecast accuracy.",
+            "This audit does not verify the provider's wider historical accuracy claims.",
             "Do not train on or blend provider predictions into CTA forecasts.",
-            "Join only through a verified official FPL element ID and gameweek.",
+            "Join only through the verified official FPL element ID and gameweek.",
             "Score Onside and official ep_next on identical eligible rows.",
             "Keep provider forecasts as a separate benchmark arm.",
-            "Do not treat this FPL-only benchmark as event-derived CTA validation.",
+            "This FPL-only benchmark is not event-derived CTA validation.",
         ],
     }
 
@@ -292,14 +322,12 @@ def main():
         json.dumps(audit, indent=2, ensure_ascii=False, allow_nan=False), encoding="utf-8"
     )
     print(json.dumps({
-        "status": audit["status"],
-        "rows": len(rows),
-        "columns": headers,
-        "candidate_columns": candidate_columns,
-        "timestamp_order": timing,
+        "status": audit["status"], "rows": len(rows), "columns": headers,
+        "candidate_columns": candidate_columns, "timestamp_order": timing,
         "player_gameweek_key": audit["player_gameweek_key"],
         "official_fpl_identity_reconciliation": identity,
         "official_fpl_actual_points_reconciliation": points_check,
+        "exploratory_forecast_benchmark": benchmark,
         "sha256": audit["sha256"],
     }, indent=2, ensure_ascii=False))
 
