@@ -278,6 +278,13 @@ def build_panel(
             + str(competition_id) + " and season " + str(season_start)
         )
     season_id = int(season_rows[0][0])
+    format_row = connection.execute(
+        "SELECT built_at, licence FROM format_version LIMIT 1"
+    ).fetchone()
+    latest_completed = connection.execute(
+        "SELECT MAX(kickoff_utc) FROM matches WHERE season_id = ? AND status IN ('played', 'awarded')",
+        (season_id,),
+    ).fetchone()
 
     fixture_by_key, fixture_by_id = build_fixture_map(fpl_fixtures)
     candidates, verified, identity_errors = load_identity_maps(
@@ -527,6 +534,9 @@ def build_panel(
         "season": season,
         "competition_id": str(competition_id),
         "11footy_season_id": season_id,
+        "source_built_at": format_row[0] if format_row else None,
+        "source_licence": format_row[1] if format_row else None,
+        "latest_completed_match_kickoff_utc": latest_completed[0] if latest_completed else None,
         "source_match_count": len(provider_matches),
         "provider_matches_with_fixture_match": len(match_map),
         "unique_fpl_fixture_ids_matched": len(fixture_ids_mapped),
