@@ -267,7 +267,7 @@ def build_panel(
     connection, players_connection, fpl_fixtures, fpl_players, fpl_history,
     candidate_rows, crosswalk_rows, season, competition_id,
 ):
-    season_start = int(str(season).split("-")[0])
+    season_start = int(str(season).replace("/", "-").split("-")[0])
     season_rows = connection.execute(
         "SELECT season_id, season FROM seasons WHERE competition_id = ? AND season = ?",
         (int(competition_id), season_start),
@@ -286,7 +286,7 @@ def build_panel(
         (season_id,),
     ).fetchone()
 
-    fixture_by_key, fixture_by_id = build_fixture_map(fpl_fixtures)
+    fixture_by_key, _fixture_by_id = build_fixture_map(fpl_fixtures)
     candidates, verified, identity_errors = load_identity_maps(
         candidate_rows, crosswalk_rows, season, competition_id
     )
@@ -528,6 +528,19 @@ def build_panel(
             as_int(row.get("home_team_id")), as_int(row.get("away_team_id"))
         }
     )
+    join_ready = (
+        bool(verified)
+        and len(panel_rows) > 0
+        and not identity_errors
+        and verified_team_mismatch_rows == 0
+        and verified_history_missing == 0
+        and verified_fpl_player_missing == 0
+        and not duplicate_history_keys
+        and provider_team_ids_invalid == 0
+        and len(match_map) == len(provider_matches)
+        and player_match_rows_unmatched_fixture == 0
+        and player_match_rows_ambiguous_fixture == 0
+    )
     report = {
         "provider": "11footy",
         "source_release": "11footy-2026-11-10",
@@ -566,10 +579,13 @@ def build_panel(
         "candidate_evidence_policy": "Exact match-level minutes, goals, assists and team agreement are corroboration only; no automated candidate is promoted to verified.",
         "feature_scope": "11footy player-match statistics, event counts and tracked-shot xG; not continuous tracking or full event-level CTA.",
         "prediction_validation": "NOT_EVALUATED",
-        "join_ready": bool(verified) and len(panel_rows) > 0 and not identity_errors and verified_team_mismatch_rows == 0,
+        "join_ready": join_ready,
         "status": (
-            "PASS_JOIN_READY" if bool(verified) and len(panel_rows) > 0 and not identity_errors and verified_team_mismatch_rows == 0
-            else "BLOCKED" if identity_errors or duplicate_history_keys or provider_team_ids_invalid or not match_map
+            "PASS_JOIN_READY" if join_ready
+            else "BLOCKED" if identity_errors or duplicate_history_keys or provider_team_ids_invalid or not provider_matches
+            else "PARTIAL_FIXTURE_OR_IDENTITY_RECONCILIATION" if len(match_map) != len(provider_matches)
+                or player_match_rows_unmatched_fixture or player_match_rows_ambiguous_fixture
+                or verified_team_mismatch_rows or verified_history_missing or verified_fpl_player_missing
             else "CANDIDATE_REVIEW_READY_NOT_MODEL_JOIN_READY"
         ),
     }
