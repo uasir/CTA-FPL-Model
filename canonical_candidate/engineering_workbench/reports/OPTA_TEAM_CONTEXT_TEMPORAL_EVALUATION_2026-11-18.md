@@ -30,7 +30,7 @@ Validation: GW7–GW10 (2,679 player-gameweek rows).
 
 The augmented model was worse than the player-form ridge baseline by **+0.028306 MAE** and **+0.006573 RMSE**. It also did not beat the naive last-five-GW MAE. The result does not support adding these Opta team-context features to the points model.
 
-<badge>DO NOT PROMOTE</badge>
+**Decision: DO NOT PROMOTE.**
 
 No feature selection or tuning was performed against the holdout. This is one season, one four-gameweek temporal holdout, and provider historical vintage is not verified. Treat it as a negative exploratory result, not proof that team context can never help.
 
