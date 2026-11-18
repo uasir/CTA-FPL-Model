@@ -30,7 +30,7 @@ CROSSWALK_FIELDS = [
     "season", "competition_id", "competition_name", "provider_player_id",
     "provider_player_name", "fpl_element_id", "fpl_player_code",
     "fpl_player_name", "provider_team_id", "provider_team_name", "fpl_team_id",
-    "fpl_team_name", "verification_status", "match_method", "evidence_source",
+    "fpl_team_code", "fpl_team_name", "verification_status", "match_method", "evidence_source",
     "evidence_url", "verified_by", "verified_at",
 ]
 
