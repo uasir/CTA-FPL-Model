@@ -49,6 +49,40 @@ function validateFilters(filters) {
   return { position, teamId, limit, minPrice, maxPrice, minPoints, eoThreshold };
 }
 
+function validatedEoProvenance(quality, players) {
+  const eoPlayers = players.filter((player) => Object.hasOwn(player, "effective_ownership_pct"));
+  if (!eoPlayers.length) return null;
+  const coverage = quality.data_coverage;
+  const required = [
+    "eo_cohort",
+    "eo_sample_managers",
+    "eo_rank_cohort_captured_at_utc",
+    "eo_deadline_time_utc",
+    "eo_picks_captured_at_utc",
+  ];
+  if (required.some((field) => coverage[field] === undefined || coverage[field] === null || coverage[field] === "")
+    || coverage.eo_picks_lock_verified !== true) {
+    throw new RecommendationContractError("EO fields require verified cohort and post-lock provenance");
+  }
+  if (!Number.isInteger(coverage.eo_sample_managers) || coverage.eo_sample_managers < 1) {
+    throw new RecommendationContractError("EO sample size must be a positive integer");
+  }
+  const rankTime = Date.parse(coverage.eo_rank_cohort_captured_at_utc);
+  const deadline = Date.parse(coverage.eo_deadline_time_utc);
+  const picksTime = Date.parse(coverage.eo_picks_captured_at_utc);
+  if (![rankTime, deadline, picksTime].every(Number.isFinite) || !(rankTime < deadline && deadline < picksTime)) {
+    throw new RecommendationContractError("EO rank cohort must precede deadline and picks must follow deadline");
+  }
+  return {
+    cohort: coverage.eo_cohort,
+    sample_managers: coverage.eo_sample_managers,
+    rank_cohort_captured_at_utc: coverage.eo_rank_cohort_captured_at_utc,
+    deadline_time_utc: coverage.eo_deadline_time_utc,
+    picks_captured_at_utc: coverage.eo_picks_captured_at_utc,
+    picks_lock_verified: true,
+  };
+}
+
 function compareOverall(a, b) {
   return b.expected_points - a.expected_points
     || b.expected_minutes - a.expected_minutes
@@ -66,6 +100,7 @@ export function recommendGeneralMarket(payload) {
   const { position, teamId, limit, minPrice, maxPrice, minPoints, eoThreshold } =
     validateFilters(request.filters ?? {});
   const players = request.player_forecasts;
+  const eoProvenance = validatedEoProvenance(request.forecast_quality, players);
   const filtered = players
     .filter((player) => (position === null || player.position === position)
       && (teamId === null || player.team_id === teamId)
@@ -83,9 +118,9 @@ export function recommendGeneralMarket(payload) {
     Object.hasOwn(player, "effective_ownership_pct"));
   let differentials;
   if (eoThreshold === null) {
-    differentials = { status: "EO_THRESHOLD_NOT_SET", players: [], threshold_pct: null };
+    differentials = { status: "EO_THRESHOLD_NOT_SET", players: [], threshold_pct: null, provenance: eoProvenance };
   } else if (!eoPlayers.length) {
-    differentials = { status: "EO_UNAVAILABLE", players: [], threshold_pct: eoThreshold };
+    differentials = { status: "EO_UNAVAILABLE", players: [], threshold_pct: eoThreshold, provenance: null };
   } else {
     differentials = {
       status: "SAMPLED_EO_AVAILABLE",
@@ -94,6 +129,7 @@ export function recommendGeneralMarket(payload) {
         .sort(compareOverall)
         .slice(0, limit),
       threshold_pct: eoThreshold,
+      provenance: eoProvenance,
     };
   }
 
