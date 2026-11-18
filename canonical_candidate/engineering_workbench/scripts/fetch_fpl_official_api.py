@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 BASE_URL = "https://fantasy.premierleague.com/api"
-PLAYER_FIELDS = ["season","fpl_element_id","fpl_player_code","first_name","second_name","web_name","team_id","team_name","position","status","minutes_season","total_points_season","now_cost","selected_by_percent","chance_of_playing_next_round"]
+PLAYER_FIELDS = ["season","fpl_element_id","fpl_player_code","first_name","second_name","web_name","team_id","team_name","position","status","minutes_season","total_points_season","now_cost","selected_by_percent","chance_of_playing_next_round","ep_next","ep_this","form","points_per_game","expected_goals","expected_assists","expected_goal_involvements","expected_goals_conceded","ict_index","influence","creativity","threat","starts","bonus","bps","clean_sheets","goals_scored","assists","saves","penalties_saved","penalties_missed","yellow_cards","red_cards","own_goals","goals_conceded"]
 FIXTURE_FIELDS = ["season","fixture_id","gameweek","kickoff_time","team_h_id","team_h_name","team_a_id","team_a_name","finished","finished_provisional","team_h_score","team_a_score","team_h_difficulty","team_a_difficulty"]
 MATCH_FIELDS = ["season","fpl_element_id","fpl_player_code","player_name","fixture_id","gameweek","opponent_team_id","opponent_team_name","was_home","kickoff_time","minutes","total_points","goals_scored","assists","clean_sheets","goals_conceded","own_goals","penalties_saved","penalties_missed","yellow_cards","red_cards","saves","bonus","bps","influence","creativity","threat","ict_index","starts","expected_goals","expected_assists","expected_goal_involvements","expected_goals_conceded","selected","transfers_balance","transfers_in","transfers_out","value"]
 
@@ -66,7 +66,22 @@ def build_tables(bootstrap: dict[str,Any], fixtures: list[dict[str,Any]], summar
             "position":positions.get(element_type,""),"status":p.get("status",""),
             "minutes_season":int(p.get("minutes") or 0),"total_points_season":int(p.get("total_points") or 0),
             "now_cost":p.get("now_cost"),"selected_by_percent":p.get("selected_by_percent"),
-            "chance_of_playing_next_round":p.get("chance_of_playing_next_round")
+            "chance_of_playing_next_round":p.get("chance_of_playing_next_round"),
+            # Official FPL expected-points baseline and current-season form fields
+            # are preserved with this snapshot's source timestamp and hash.
+            "ep_next":p.get("ep_next"),"ep_this":p.get("ep_this"),
+            "form":p.get("form"),"points_per_game":p.get("points_per_game"),
+            "expected_goals":p.get("expected_goals"),"expected_assists":p.get("expected_assists"),
+            "expected_goal_involvements":p.get("expected_goal_involvements"),
+            "expected_goals_conceded":p.get("expected_goals_conceded"),
+            "ict_index":p.get("ict_index"),"influence":p.get("influence"),
+            "creativity":p.get("creativity"),"threat":p.get("threat"),
+            "starts":p.get("starts"),"bonus":p.get("bonus"),"bps":p.get("bps"),
+            "clean_sheets":p.get("clean_sheets"),"goals_scored":p.get("goals_scored"),
+            "assists":p.get("assists"),"saves":p.get("saves"),
+            "penalties_saved":p.get("penalties_saved"),"penalties_missed":p.get("penalties_missed"),
+            "yellow_cards":p.get("yellow_cards"),"red_cards":p.get("red_cards"),
+            "own_goals":p.get("own_goals"),"goals_conceded":p.get("goals_conceded")
         })
     for f in fixtures:
         home_id = int(f["team_h"]) if f.get("team_h") is not None else None
@@ -132,6 +147,9 @@ def build_tables(bootstrap: dict[str,Any], fixtures: list[dict[str,Any]], summar
         "minutes_reconciliation_mismatches":minutes_mismatches,
         "total_points_reconciliation_mismatches":points_mismatches,
         "unique_player_ids":len(player_id_set),"unique_fixture_ids":len(fixture_id_set),
+        "official_ep_next_coverage_count":sum(p.get("ep_next") not in (None,"") for p in player_rows),
+        "official_ep_next_missing_ids":[p["fpl_element_id"] for p in player_rows if p.get("ep_next") in (None,"")],
+        "official_ep_this_coverage_count":sum(p.get("ep_this") not in (None,"") for p in player_rows),
         "player_fixture_rows_with_unknown_player":sum(int(r["fpl_element_id"]) not in player_id_set for r in match_rows),
         "status":"PASS" if not summary_missing and not orphan_fixture_rows and not minutes_mismatches and not points_mismatches else "BLOCKED"
     }
