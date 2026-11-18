@@ -221,6 +221,29 @@ def validate_personal_squad_request(
                 f"squad_snapshot[{index}].purchase_price must be positive"
             )
 
+    forecast_by_id = {
+        player["fpl_element_id"]: player for player in payload["player_forecasts"]
+    }
+    position_counts = {"GKP": 0, "DEF": 0, "MID": 0, "FWD": 0}
+    team_counts: dict[int, int] = {}
+    for player in squad:
+        element_id = player["fpl_element_id"]
+        forecast = forecast_by_id.get(element_id)
+        if forecast is None:
+            raise RecommendationContractError(
+                f"Missing forecast for owned FPL element ID {element_id}"
+            )
+        position_counts[forecast["position"]] += 1
+        team_id = forecast["team_id"]
+        team_counts[team_id] = team_counts.get(team_id, 0) + 1
+    expected_positions = {"GKP": 2, "DEF": 5, "MID": 5, "FWD": 3}
+    if position_counts != expected_positions:
+        raise RecommendationContractError(
+            "squad position composition must be 2 GKP, 5 DEF, 5 MID and 3 FWD"
+        )
+    if any(count > 3 for count in team_counts.values()):
+        raise RecommendationContractError("squad cannot contain more than 3 players from one team")
+
     bank = payload["bank"]
     if (isinstance(bank, bool) or not isinstance(bank, (int, float))
             or not math.isfinite(float(bank)) or bank < 0):
