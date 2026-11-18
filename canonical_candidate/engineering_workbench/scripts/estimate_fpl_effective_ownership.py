@@ -188,6 +188,7 @@ def estimate_effective_ownership(rows):
                 float(is_captain),
                 float(is_triple),
                 float(1+int(is_captain)+int(is_triple)),
+                float(is_bench_boost),
                 float(int(is_starter or is_bench_boost)+int(is_captain)+int(is_triple)),
             ]
         if captain_count!=1:
@@ -195,28 +196,40 @@ def estimate_effective_ownership(rows):
         rank=manager_ranks.get((gw,entry))
         stratum=(rank-1)//PAGE_SIZE+1 if rank is not None else "all"
         for player_id in all_players:
-            values=local.get(player_id,[0.0]*6)
-            samples_by_player[player_id][stratum].append(values)
+            values=local.get(player_id,[0.0]*7)
+            samples_by_player[player_id][stratum].append((values,weight))
 
     def interval(player_id,metric_index):
         samples=samples_by_player[player_id]
         if rank_stratified:
             return _stratified_normal_ci(samples,metric_index,rank_limit)
         weighted=[]
-        for values in samples.get("all",[]):
-            weighted.append((values[metric_index],1.0))
+        for values,weight in samples.get("all",[]):
+            weighted.append((values[metric_index],weight))
         return _weighted_normal_ci(weighted)
 
     output=[]
     for player_id in all_players:
         stats=per_player[player_id]
         effective_exposure=stats["owned"]+stats["captained"]+stats["triple_captained"]
-        ci_owned=interval(player_id,0)
-        ci_starting=interval(player_id,1)
-        ci_captain=interval(player_id,2)
-        ci_triple=interval(player_id,3)
+        player_samples=samples_by_player[player_id]
+        ci_owned=_wilson_ci(player_samples,0,rank_stratified)
+        ci_starting=_wilson_ci(player_samples,1,rank_stratified)
+        ci_captain=_wilson_ci(player_samples,2,rank_stratified)
+        ci_triple=_wilson_ci(player_samples,3,rank_stratified)
+        ci_bboost=_wilson_ci(player_samples,5,rank_stratified)
         ci_eo=interval(player_id,4)
-        ci_scoring=interval(player_id,5)
+        ci_scoring=interval(player_id,6)
+        if ci_eo is None or ci_eo[1]-ci_eo[0]<1e-12:
+            ci_eo=(
+                max(0.0,(ci_owned[0] if ci_owned else 0)+(ci_captain[0] if ci_captain else 0)+(ci_triple[0] if ci_triple else 0)),
+                (ci_owned[1] if ci_owned else 0)+(ci_captain[1] if ci_captain else 0)+(ci_triple[1] if ci_triple else 0),
+            )
+        if ci_scoring is None or ci_scoring[1]-ci_scoring[0]<1e-12:
+            ci_scoring=(
+                max(0.0,(ci_starting[0] if ci_starting else 0)+(ci_bboost[0] if ci_bboost else 0)+(ci_captain[0] if ci_captain else 0)+(ci_triple[0] if ci_triple else 0)),
+                (ci_starting[1] if ci_starting else 0)+(ci_bboost[1] if ci_bboost else 0)+(ci_captain[1] if ci_captain else 0)+(ci_triple[1] if ci_triple else 0),
+            )
         output.append({
             "gameweek":next(iter(gameweeks)),
             "fpl_element_id":player_id,
