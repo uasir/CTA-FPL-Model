@@ -1,0 +1,190 @@
+export const RECOMMENDATION_CONTRACT_VERSION = "1.0.0";
+
+const GENERAL_FORBIDDEN_FIELDS = new Set([
+  "squad", "squad_snapshot", "bank", "free_transfers", "chips",
+  "formation", "starting_xi", "bench_order", "manager_rank",
+  "rank_target", "personal_risk_profile", "personal_preferences",
+  "manager_id", "manager_entry_id", "team_id_for_manager",
+]);
+
+const SHARED_REQUIRED_FIELDS = [
+  "forecast_snapshot_id",
+  "model_version",
+  "forecast_horizon_gameweeks",
+  "player_forecasts",
+];
+
+export class RecommendationContractError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "RecommendationContractError";
+  }
+}
+
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function nestedForbiddenFields(value, path = "") {
+  const found = [];
+  if (Array.isArray(value)) {
+    value.forEach((child, index) => {
+      found.push(...nestedForbiddenFields(child, `${path}[${index}]`));
+    });
+  } else if (isRecord(value)) {
+    for (const [key, child] of Object.entries(value)) {
+      const childPath = path ? `${path}.${key}` : key;
+      if (GENERAL_FORBIDDEN_FIELDS.has(key)) found.push(childPath);
+      found.push(...nestedForbiddenFields(child, childPath));
+    }
+  }
+  return found;
+}
+
+function validateShared(payload) {
+  if (!isRecord(payload)) {
+    throw new RecommendationContractError("request must be an object");
+  }
+  const missing = SHARED_REQUIRED_FIELDS.filter(
+    (field) => !Object.hasOwn(payload, field),
+  );
+  if (missing.length) {
+    throw new RecommendationContractError(
+      `Missing shared forecast fields: ${missing.join(", ")}`,
+    );
+  }
+  for (const field of ["forecast_snapshot_id", "model_version"]) {
+    if (typeof payload[field] !== "string" || !payload[field].trim()) {
+      throw new RecommendationContractError(
+        `${field} must be a non-empty string`,
+      );
+    }
+  }
+  const horizon = payload.forecast_horizon_gameweeks;
+  if (!Number.isInteger(horizon) || horizon < 1) {
+    throw new RecommendationContractError(
+      "forecast_horizon_gameweeks must be a positive integer",
+    );
+  }
+  if (!Array.isArray(payload.player_forecasts) || payload.player_forecasts.length === 0) {
+    throw new RecommendationContractError("player_forecasts must be a non-empty list");
+  }
+  const seen = new Set();
+  payload.player_forecasts.forEach((player, index) => {
+    if (!isRecord(player)) {
+      throw new RecommendationContractError(
+        `player_forecasts[${index}] must be an object`,
+      );
+    }
+    const id = player.fpl_element_id;
+    if (id === null || id === undefined || String(id).trim() === "") {
+      throw new RecommendationContractError(
+        `player_forecasts[${index}] is missing fpl_element_id`,
+      );
+    }
+    const key = String(id);
+    if (seen.has(key)) {
+      throw new RecommendationContractError(
+        `Duplicate forecast for FPL element ID ${key}`,
+      );
+    }
+    seen.add(key);
+  });
+}
+
+export function validateGeneralMarketRequest(payload) {
+  validateShared(payload);
+  const forbidden = nestedForbiddenFields(payload).sort();
+  if (forbidden.length) {
+    throw new RecommendationContractError(
+      `general_market must not receive personal fields: ${forbidden.join(", ")}`,
+    );
+  }
+  return {
+    system: "general_market",
+    contract_version: RECOMMENDATION_CONTRACT_VERSION,
+    forecast_snapshot_id: payload.forecast_snapshot_id,
+    model_version: payload.model_version,
+    forecast_horizon_gameweeks: payload.forecast_horizon_gameweeks,
+    player_forecasts: payload.player_forecasts,
+    filters: payload.filters ?? {},
+  };
+}
+
+export function validatePersonalSquadRequest(payload) {
+  validateShared(payload);
+  const required = [
+    "squad_snapshot", "bank", "free_transfers", "personal_risk_profile",
+  ];
+  const missing = required.filter((field) => !Object.hasOwn(payload, field));
+  if (missing.length) {
+    throw new RecommendationContractError(
+      `Missing personal squad fields: ${missing.join(", ")}`,
+    );
+  }
+  const squad = payload.squad_snapshot;
+  if (!Array.isArray(squad) || squad.length !== 15) {
+    throw new RecommendationContractError(
+      "squad_snapshot must contain exactly 15 players",
+    );
+  }
+  const ids = new Set();
+  squad.forEach((player, index) => {
+    if (!isRecord(player)) {
+      throw new RecommendationContractError(
+        `squad_snapshot[${index}] must be an object`,
+      );
+    }
+    const id = player.fpl_element_id;
+    if (id === null || id === undefined || String(id).trim() === "") {
+      throw new RecommendationContractError(
+        `squad_snapshot[${index}] is missing fpl_element_id`,
+      );
+    }
+    const key = String(id);
+    if (ids.has(key)) {
+      throw new RecommendationContractError(`Duplicate squad FPL element ID ${key}`);
+    }
+    ids.add(key);
+    if (typeof player.purchase_price !== "number"
+        || !Number.isFinite(player.purchase_price)
+        || player.purchase_price < 0) {
+      throw new RecommendationContractError(
+        `squad_snapshot[${index}].purchase_price must be a non-negative number`,
+      );
+    }
+  });
+  if (typeof payload.bank !== "number" || !Number.isFinite(payload.bank) || payload.bank < 0) {
+    throw new RecommendationContractError("bank must be a non-negative number");
+  }
+  if (!Number.isInteger(payload.free_transfers) || payload.free_transfers < 0) {
+    throw new RecommendationContractError(
+      "free_transfers must be a non-negative integer",
+    );
+  }
+  const risk = payload.personal_risk_profile;
+  if (!((typeof risk === "string" && risk.trim()) || isRecord(risk))) {
+    throw new RecommendationContractError(
+      "personal_risk_profile must be a non-empty string or object",
+    );
+  }
+  return {
+    system: "personal_squad",
+    contract_version: RECOMMENDATION_CONTRACT_VERSION,
+    forecast_snapshot_id: payload.forecast_snapshot_id,
+    model_version: payload.model_version,
+    forecast_horizon_gameweeks: payload.forecast_horizon_gameweeks,
+    player_forecasts: payload.player_forecasts,
+    squad_snapshot: payload.squad_snapshot,
+    bank: payload.bank,
+    free_transfers: payload.free_transfers,
+    personal_risk_profile: payload.personal_risk_profile,
+    chips: payload.chips ?? [],
+    formation: payload.formation ?? null,
+    starting_xi: payload.starting_xi ?? null,
+    bench_order: payload.bench_order ?? null,
+    manager_rank: payload.manager_rank ?? null,
+    rank_target: payload.rank_target ?? null,
+    personal_preferences: payload.personal_preferences ?? {},
+  };
+}
