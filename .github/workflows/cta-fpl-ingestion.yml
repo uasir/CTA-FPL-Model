@@ -241,7 +241,8 @@ jobs:
                       "matched_player_gameweek_rows", "exact_matches", "mismatches",
                       "exact_match_rate", "mean_absolute_difference", "max_absolute_difference",
                       "fpl_rows_without_onside", "onside_rows_without_fpl",
-                      "unique_fpl_players", "unique_onside_players", "unique_matched_players"
+                      "unique_fpl_players", "unique_onside_players", "unique_matched_players",
+                      "fpl_gameweeks", "onside_gameweeks", "source_license_and_attribution"
                   )
               },
               "publication_policy": "Aggregate metrics and hashes only; provider source files, crosswalk rows, mismatch examples, and player-fixture feature rows are not uploaded."
