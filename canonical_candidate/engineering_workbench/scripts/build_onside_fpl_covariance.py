@@ -108,6 +108,89 @@ def prepare_covariance_inputs(
     return prepared, list(players.values()), metadata
 
 
+
+def rolling_correlation_stability(
+    rows: list[dict[str, Any]], gameweeks: list[int]
+) -> dict[str, Any]:
+    """Compare pairwise player correlations across two adjacent time windows."""
+    midpoint = len(gameweeks) // 2
+    first_gws = gameweeks[:midpoint]
+    second_gws = gameweeks[midpoint:]
+    if len(first_gws) < 2 or len(second_gws) < 2:
+        return {
+            "status": "NOT_ENOUGH_GAMEWEEKS",
+            "first_window": first_gws,
+            "second_window": second_gws,
+            "players": 0,
+            "pairs": 0,
+            "correlation_of_correlations": None,
+            "median_absolute_correlation_change": None,
+            "mean_absolute_correlation_change": None,
+        }
+
+    values: dict[str, dict[int, float]] = defaultdict(dict)
+    for row in rows:
+        values[str(row["fpl_element_id"])][int(row["gameweek"])] = float(row["target_total_points"])
+
+    def corr(x: list[float], y: list[float]) -> float | None:
+        if len(x) != len(y) or len(x) < 2:
+            return None
+        mx, my = sum(x) / len(x), sum(y) / len(y)
+        dx = [v - mx for v in x]
+        dy = [v - my for v in y]
+        xx = sum(v * v for v in dx)
+        yy = sum(v * v for v in dy)
+        if xx <= 0 or yy <= 0:
+            return None
+        return sum(a * b for a, b in zip(dx, dy)) / (xx * yy) ** 0.5
+
+    eligible = []
+    for player_id, player_values in values.items():
+        if not all(gw in player_values for gw in gameweeks):
+            continue
+        first = [player_values[gw] for gw in first_gws]
+        second = [player_values[gw] for gw in second_gws]
+        if corr(first, first) is not None and corr(second, second) is not None:
+            eligible.append((player_id, first, second))
+
+    first_correlations = []
+    second_correlations = []
+    absolute_changes = []
+    for i, (_, first_x, second_x) in enumerate(eligible):
+        for _, first_y, second_y in eligible[i + 1:]:
+            r1 = corr(first_x, first_y)
+            r2 = corr(second_x, second_y)
+            if r1 is None or r2 is None:
+                continue
+            first_correlations.append(r1)
+            second_correlations.append(r2)
+            absolute_changes.append(abs(r1 - r2))
+
+    corr_of_corr = corr(first_correlations, second_correlations)
+    absolute_changes.sort()
+    if absolute_changes:
+        mid = len(absolute_changes) // 2
+        median_change = (
+            absolute_changes[mid] if len(absolute_changes) % 2
+            else (absolute_changes[mid - 1] + absolute_changes[mid]) / 2
+        )
+        mean_change = sum(absolute_changes) / len(absolute_changes)
+    else:
+        median_change = mean_change = None
+
+    return {
+        "status": "EXPLORATORY_STABILITY_DIAGNOSTIC",
+        "first_window": first_gws,
+        "second_window": second_gws,
+        "players": len(eligible),
+        "pairs": len(absolute_changes),
+        "correlation_of_correlations": round(corr_of_corr, 8) if corr_of_corr is not None else None,
+        "median_absolute_correlation_change": round(median_change, 8) if median_change is not None else None,
+        "mean_absolute_correlation_change": round(mean_change, 8) if mean_change is not None else None,
+        "interpretation": "A short-window stability diagnostic only; each half-window has few observations and should not be treated as a formal stationarity test.",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default=SOURCE_URL)
@@ -131,7 +214,11 @@ def main() -> int:
     pairs, summaries, report = estimate_covariance(
         prepared, players, shrinkage=args.shrinkage, window_size=selected_window_size
     )
+    stability = rolling_correlation_stability(
+        prepared, source_meta["selected_completed_gameweeks"]
+    )
     report.update({
+        "rolling_correlation_stability": stability,
         "source_url": args.url,
         "source_sha256": hashlib.sha256(raw).hexdigest(),
         "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -160,6 +247,7 @@ def main() -> int:
         "players_in_window": report["players_in_window"],
         "complete_panel_players": report["complete_panel_players"],
         "covariance_players": report["covariance_players"],
+        "rolling_correlation_stability": stability,
         "excluded_incomplete_players": report["excluded_incomplete_players"],
         "excluded_zero_variance_players": report["excluded_zero_variance_players"],
         "pairwise_estimates_including_diagonal": report["pairwise_estimates_including_diagonal"],

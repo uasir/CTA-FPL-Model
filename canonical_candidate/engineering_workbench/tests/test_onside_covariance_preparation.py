@@ -4,7 +4,7 @@ from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
-from build_onside_fpl_covariance import prepare_covariance_inputs
+from build_onside_fpl_covariance import prepare_covariance_inputs, rolling_correlation_stability
 from estimate_fpl_covariance import estimate_covariance
 
 
@@ -65,6 +65,32 @@ class OnsideCovariancePreparationTests(unittest.TestCase):
         self.assertEqual(report["complete_panel_players"], 2)
         self.assertEqual(report["excluded_incomplete_players"], 1)
         self.assertEqual(report["excluded_player_ids"], ["3"])
+
+
+    def test_rolling_correlation_stability_uses_two_adjacent_windows(self):
+        data = []
+        values = {
+            "1": [1, 2, 3, 4],
+            "2": [2, 4, 5, 8],
+            "3": [5, 2, 4, 1],
+            "4": [1, 3, 2, 6],
+        }
+        for player_id, scores in values.items():
+            for gw, score in enumerate(scores, start=1):
+                data.append({
+                    "season":"2026-27", "fpl_element_id":player_id,
+                    "gameweek":str(gw), "target_total_points":score,
+                })
+        result = rolling_correlation_stability(data, [1, 2, 3, 4])
+        self.assertEqual(result["status"], "EXPLORATORY_STABILITY_DIAGNOSTIC")
+        self.assertEqual(result["first_window"], [1, 2])
+        self.assertEqual(result["second_window"], [3, 4])
+        self.assertEqual(result["players"], 4)
+        self.assertEqual(result["pairs"], 6)
+
+    def test_rolling_stability_requires_two_rounds_per_half(self):
+        result = rolling_correlation_stability([], [1, 2, 3])
+        self.assertEqual(result["status"], "NOT_ENOUGH_GAMEWEEKS")
 
     def test_requires_at_least_two_fully_graded_gameweeks(self):
         data = [
