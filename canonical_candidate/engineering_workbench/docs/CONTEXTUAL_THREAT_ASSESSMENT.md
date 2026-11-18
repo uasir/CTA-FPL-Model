@@ -286,10 +286,21 @@ sets prediction_validation to NOT_EVALUATED.
   rows from 3,021 supported events (85.0% frame coverage), with 31 player-match
   aggregates. All 2,568 rows had known attack direction using the
   ACTION_EXECUTING_TEAM source convention; no global direction map was needed.
-  The pilot recorded 363 threat-creation pass attempts, 125 dangerous receipts
-  and 24 shots. These are sampled-event counts, not full-match totals. The
-  direction and geometry implementation is structurally validated, not points
-  validated.
+  The sample contains 363 threat-creation pass attempts (234 completed), 249
+  progressive pass attempts (157 completed), 76 progressive carries, 125
+  dangerous receipts and 24 shots (3.312 xG, four goals).
+- **Receiving opportunities:** The 2,568 sampled frames contain 7,124
+  event-frame option observations, including 2,645 open and 368 dangerous-open
+  observations. These are repeated observations, not unique opportunities.
+  After deduplicating at team-possession level using the maximum simultaneous
+  options per possession, the pilot records 525 open-option peaks across 188
+  possessions and 124 dangerous-open peaks across 81 possessions. All 200
+  possessions with blocked options are counted using the same peak rule.
+  Possession IDs were available for every usable event row. The player-match
+  layer uses actor-possession peaks rather than summing repeated frames.
+  These are sampled-event measures, not full-match totals.
+- The direction, geometry and possession-deduplication implementation is
+  structurally validated, not points validated.
 - **11footy/FPL:** 100 of 100 completed 2026/27 matches reconcile to official
   FPL fixtures; 4,000 player-match rows are available. Of 490 identity
   candidates, 340 have exact normalized name/team/birth-date evidence, and 68
