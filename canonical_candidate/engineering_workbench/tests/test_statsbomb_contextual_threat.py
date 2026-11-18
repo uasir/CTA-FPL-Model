@@ -177,9 +177,120 @@ def test_direction_map_is_match_period_and_team_scoped(tmp_path):
 
     directions = read_direction_map(direction_file)
 
-    assert directions[("match-1", "1", "1")] is True
-    assert directions[("match-1", "1", "Away")] is False
+    assert directions[("match-1", "1", "1")]["attacks_right"] is True
+    assert directions[("match-1", "1", "Away")]["attacks_right"] is False
 
+
+
+def test_direction_map_provenance_is_attached_to_extracted_events():
+    event = {
+        "id": "event-direction-provenance",
+        "type": {"name": "Pass"},
+        "player": {"id": 10, "name": "Attacker"},
+        "team": {"id": 1, "name": "Home"},
+        "period": 1,
+        "location": [60, 40],
+    }
+    frame = {
+        "event_uuid": "event-direction-provenance",
+        "freeze_frame": [
+            {"teammate": True, "actor": True, "keeper": False, "location": [60, 40]},
+            {"teammate": False, "actor": False, "keeper": False, "location": [70, 50]},
+        ],
+    }
+    directions = {
+        ("match-1", "1", "1"): {
+            "attacks_right": True,
+            "direction_source": "shot_endpoint_outcomes",
+            "confidence_level": "high",
+            "evidence_count": 2,
+        }
+    }
+
+    event_rows, _, report = extract_contextual_threat(
+        [event], [frame], "match-1", direction_map=directions
+    )
+
+    assert event_rows[0]["direction_known"] is True
+    assert event_rows[0]["attack_direction_source"] == "shot_endpoint_outcomes"
+    assert event_rows[0]["attack_direction_confidence"] == "high"
+    assert event_rows[0]["attack_direction_evidence_count"] == 2
+    assert report["direction_map_rows"] == 1
+    assert report["direction_sources"] == ["shot_endpoint_outcomes"]
+
+
+def test_infer_statsbomb_attack_directions_from_goal_and_saved_shots():
+    from infer_statsbomb_attack_directions import infer_directions
+
+    events = [
+        {
+            "id": "goal-a", "period": 1,
+            "type": {"name": "Shot"}, "team": {"id": 1, "name": "Home"},
+            "shot": {"outcome": {"name": "Goal"}, "end_location": [120, 40, 1]},
+        },
+        {
+            "id": "pass-b", "period": 1,
+            "type": {"name": "Pass"}, "team": {"id": 2, "name": "Away"},
+        },
+        {
+            "id": "saved-b1", "period": 2,
+            "type": {"name": "Shot"}, "team": {"id": 2, "name": "Away"},
+            "shot": {"outcome": {"name": "Saved"}, "end_location": [120, 40, 1]},
+        },
+        {
+            "id": "saved-b2", "period": 2,
+            "type": {"name": "Shot"}, "team": {"id": 2, "name": "Away"},
+            "shot": {"outcome": {"name": "Saved"}, "end_location": [118, 39, 1]},
+        },
+        {
+            "id": "pass-a", "period": 2,
+            "type": {"name": "Pass"}, "team": {"id": 1, "name": "Home"},
+        },
+    ]
+
+    rows, report = infer_directions(events, "match-1")
+    by_key = {(row["period"], row["team"]): row for row in rows}
+
+    assert len(rows) == 4
+    assert by_key[("1", "1")]["attacks_right"] == "true"
+    assert by_key[("1", "2")]["attacks_right"] == "false"
+    assert by_key[("2", "2")]["attacks_right"] == "true"
+    assert by_key[("2", "1")]["attacks_right"] == "false"
+    assert report["periods_inferred"] == 2
+    assert report["status"] == "PASS_EVIDENCE_BACKED_DIRECTION_MAP"
+
+
+def test_direction_inference_withholds_weak_or_conflicting_evidence():
+    from infer_statsbomb_attack_directions import infer_directions
+
+    weak = [
+        {
+            "id": "saved", "period": 1, "type": {"name": "Shot"},
+            "team": {"id": 1, "name": "Home"},
+            "shot": {"outcome": {"name": "Saved"}, "end_location": [120, 40]},
+        },
+        {"id": "pass", "period": 1, "type": {"name": "Pass"}, "team": {"id": 2, "name": "Away"}},
+    ]
+    rows, report = infer_directions(weak, "match-1")
+    assert rows == []
+    assert report["period_reports"][0]["status"] == "WITHHELD_INSUFFICIENT_SHOT_ENDPOINT_EVIDENCE"
+
+    conflicting = [
+        {
+            "id": "goal-right", "period": 1, "type": {"name": "Shot"},
+            "team": {"id": 1, "name": "Home"},
+            "shot": {"outcome": {"name": "Goal"}, "end_location": [120, 40]},
+        },
+        {
+            "id": "goal-left", "period": 1, "type": {"name": "Shot"},
+            "team": {"id": 1, "name": "Home"},
+            "shot": {"outcome": {"name": "Goal"}, "end_location": [0, 40]},
+        },
+        {"id": "pass", "period": 1, "type": {"name": "Pass"}, "team": {"id": 2, "name": "Away"}},
+    ]
+    rows, report = infer_directions(conflicting, "match-1")
+    assert rows == []
+    assert report["period_reports"][0]["status"] == "WITHHELD_CONFLICTING_SHOT_ENDPOINTS"
 
 def test_missing_360_frame_is_not_imputed_as_zero_context():
     event = {
