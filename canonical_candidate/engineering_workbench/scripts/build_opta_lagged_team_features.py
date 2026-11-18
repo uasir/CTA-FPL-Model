@@ -214,7 +214,7 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
                 "fpl_player_name": " ".join(x for x in
                     (element.get("first_name", ""), element.get("second_name", "")) if x),
                 "fixture_id": fixture_id, "gameweek": event or "",
-                "kickoff_time": target_kickoff.isoformat(), "team_id": team_id,
+                "kickoff_time": target_kickoff.isoformat() if target_kickoff else "", "team_id": team_id,
                 "side": side, **{k: v for k, v in feature.items()
                                  if k.startswith("opta_") or k == "features_as_of"},
             })
