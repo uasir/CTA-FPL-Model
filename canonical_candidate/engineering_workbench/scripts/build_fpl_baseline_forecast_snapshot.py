@@ -51,9 +51,12 @@ def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,e
 
     fixture_counts={}
     for fixture in fixtures:
-        if finite_number(fixture.get("event"))!=int(target_gw):
+        fixture_gameweek=finite_number(fixture.get("gameweek") or fixture.get("event"))
+        if fixture_gameweek!=int(target_gw):
             continue
-        for field in ("team_h","team_a"):
+        for field in ("team_h_id","team_a_id","team_h","team_a"):
+            if field in ("team_h","team_a") and (fixture.get("team_h_id") or fixture.get("team_a_id")):
+                continue
             team=finite_number(fixture.get(field))
             if team is not None and team>0:
                 team_id=int(team)
