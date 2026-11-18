@@ -109,6 +109,33 @@ identity reconciliation remains a required step, not an assumed join.
   Premier League event coverage. Compare rights, historical depth, event schema,
   360/tracking availability, identity mapping and price before committing.
 
+### Current-season 11footy/FPL player-match integration
+
+The current-season integration adapter now reconciles 11footy Premier League
+matches against official FPL fixtures using exact kickoff date and home/away
+team names. It joins 11footy player-match statistics, event counts and tracked
+shot-level xG to the common season/fixture/player-match structure.
+
+Identity handling is deliberately two-tiered:
+
+- Only validator-accepted, season- and competition-scoped verified crosswalk
+  rows can enter the model-ready player-match panel.
+- Pending 11footy/FPL candidates are checked against official FPL player-fixture
+  history using team, minutes, goals and assists. This is independent
+  corroboration for manual review, not automatic proof and never promotes a
+  candidate to verified.
+- Retired 11footy IDs are resolved through the provider's player-merges table
+  before identity lookup.
+- Fixture, player and source-snapshot provenance are retained. Match-level
+  feature rows and candidate evidence remain inside the workflow runner;
+  only aggregate integration status and source hashes are published.
+
+The adapter preserves 11footy's CC BY-NC 4.0 non-commercial restriction and
+does not treat its player-match summary layer as continuous tracking or a full
+event stream. Its current output is not a validated CTA score and does not
+enter points training until verified mappings and chronological holdout tests
+are available.
+
 ### Wyscout 2017/18 EPL audit result (2026-11-18)
 
 The pinned public Figshare download completed successfully in GitHub Actions.
