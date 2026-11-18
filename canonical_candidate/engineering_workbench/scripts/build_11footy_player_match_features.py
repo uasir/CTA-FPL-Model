@@ -294,7 +294,7 @@ def build_panel(
         str(crosswalk_validation_report.get("status") or "")
         if isinstance(crosswalk_validation_report, dict) else "VALIDATION_REPORT_MISSING"
     )
-    if validation_status in {"BLOCKED", "VALIDATION_REPORT_MISSING"}:
+    if validation_status not in {"PASS", "NO_VERIFIED_MAPPINGS", "EMPTY_NOT_READY"}:
         identity_errors.append({"error": "crosswalk_validation_" + validation_status.lower()})
         verified = {}
     merge_map = _player_merge_map(players_connection)
