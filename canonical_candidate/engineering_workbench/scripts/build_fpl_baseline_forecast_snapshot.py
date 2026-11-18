@@ -160,6 +160,8 @@ def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,e
     if not forecasts:
         raise ValueError("No usable player forecasts were built")
     total=len(players)
+    hours_before_deadline=(deadline-fetched).total_seconds()/3600
+    freshness_status="FRESH_WITHIN_24H" if hours_before_deadline<=24 else "STALE_OVER_24H"
     ep_coverage=len(forecasts)
     minutes_proxy_coverage=ep_coverage-len(no_minutes_history)
     eo_coverage=sum("effective_ownership_pct" in row for row in forecasts)
@@ -173,7 +175,8 @@ def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,e
             "target_deadline_utc":deadline.isoformat(),
             "bootstrap_sha256":source_metadata["bootstrap_sha256"],
             "fixtures_sha256":source_metadata["fixtures_sha256"],
-            "hours_before_deadline":round((deadline-fetched).total_seconds()/3600,3),
+            "hours_before_deadline":round(hours_before_deadline,3),
+            "freshness_status":freshness_status,
             "roster_players":total,
             "target_gameweek_fixtures":sum(fixture_counts.values())//2,
             "teams_with_target_fixtures":len(fixture_counts),
@@ -199,6 +202,7 @@ def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,e
             "The current EO field, when present, is a weighted top-10k sample and not whole-game effective ownership.",
             "Player variance and CoVar are not supplied to this baseline snapshot.",
             "This snapshot covers one upcoming gameweek only.",
+            "Snapshots older than 24 hours before the deadline are explicitly marked stale and should not be treated as current recommendations."
         ],
     }
     identity_payload={
