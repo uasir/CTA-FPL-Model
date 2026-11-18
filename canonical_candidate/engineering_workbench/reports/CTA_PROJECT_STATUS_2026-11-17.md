@@ -432,3 +432,36 @@ CoVar is a portfolio-risk analysis layer, not a squad component and not a mandat
 ### Implementation sequence
 
 Inspect the existing contracts and current repository before coding. Keep the recovered original Python source and current Python/JavaScript engines intact. First define shared forecast interfaces and recommendation input/output contracts; then implement and test `general_market` and `personal_squad` independently. Do not duplicate the forecasting engine or let general rankings inherit the user's squad context.
+
+
+## Dual recommendation architecture — implementation continuation, 2026-11-18
+
+The accepted dual-system architecture now has machine-readable and executable input-boundary contracts.
+
+Added:
+- `config/recommendation_system_contracts.json`: versioned definitions for the shared forecast metadata, independent `general_market` and `personal_squad` inputs, output categories, covariance policy and acceptance tests.
+- `scripts/recommendation_contracts.py`: strict Python request validators for both systems.
+- `tests/test_recommendation_contracts.py`: tests for squad-independent general requests, rejection of personal context (including nested fields), 15-player squad integrity, required personal constraints and duplicate forecast IDs.
+
+Important boundary behavior:
+- `general_market` accepts a shared forecast snapshot and public filters, but rejects squad, bank, transfer, chip, formation, rank-target, manager-identity and personal-preference fields at any nesting level.
+- `personal_squad` requires an explicit 15-player snapshot with unique FPL element IDs and purchase prices, plus bank, free transfers and a risk profile.
+- Both require a forecast snapshot ID, model version, horizon and a non-empty, duplicate-free player forecast list.
+- This is a request-contract layer, not yet either recommendation/scoring engine. It deliberately makes no player rankings or transfer claims while forecast validity is unresolved.
+
+Commits:
+- Contract definition: `eff1129fd9d0a485e138a4cabdd2ecfd4eea2504`.
+- Initial validators: `359957c522e632c17aefcc5522b94fb8457238bc`.
+- Contract tests: `9beb594176b0390cedc13e3a77ba05776fc2df06`.
+- Nested personal-context isolation hardening: `0cf8bd54a21dd54deb1bd553adf741435ed4ace2`.
+- Nested-boundary regression tests: `e9ee98b07b5d389a5c5d7c8ffa4827c8e6c0ac98`.
+
+The CI workflow is configured to run on pushes affecting the engineering scripts/tests. The connector did not expose a check-run result for the final commit at report time; therefore these new tests are **committed but CI-unverified**. Do not mark the implementation gate passed until the workflow run is inspected.
+
+Next engineering steps:
+1. Verify the CI run for the final contract commit and repair any failures.
+2. Define the shared forecast record schema and data-quality status envelope without implying that exploratory baselines are validated forecasts.
+3. Add the equivalent JavaScript boundary validators and cross-language contract fixtures.
+4. Implement general-market ranking independently of personal context; test ranking invariance.
+5. Implement personal squad optimisation as a separate engine; test sensitivity to squad, bank, transfers and risk constraints.
+6. Keep production CoVar disabled until its stability and out-of-sample gates pass.
