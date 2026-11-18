@@ -211,9 +211,9 @@ export function validatePersonalSquadRequest(payload) {
       );
     }
     const id = player.fpl_element_id;
-    if (id === null || id === undefined || String(id).trim() === "") {
+    if (!Number.isInteger(id) || id < 1) {
       throw new RecommendationContractError(
-        `squad_snapshot[${index}] is missing fpl_element_id`,
+        `squad_snapshot[${index}].fpl_element_id must be a positive integer`,
       );
     }
     const key = String(id);
@@ -223,7 +223,7 @@ export function validatePersonalSquadRequest(payload) {
     ids.add(key);
     if (typeof player.purchase_price !== "number"
         || !Number.isFinite(player.purchase_price)
-        || player.purchase_price < 0) {
+        || player.purchase_price <= 0) {
       throw new RecommendationContractError(
         `squad_snapshot[${index}].purchase_price must be a non-negative number`,
       );
