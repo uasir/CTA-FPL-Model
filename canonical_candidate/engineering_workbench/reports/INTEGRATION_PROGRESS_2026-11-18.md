@@ -198,3 +198,19 @@ A full live ingestion and baseline ranking run completed successfully:
 This is the first verified end-to-end FPL data-to-general-market execution. It is **not** a validated CTA prediction: the points baseline is FPL's own `ep_next`, minutes are a proxy, the snapshot is stale, and the historical lagged training report remains `PASS_STRUCTURAL_ONLY` with `point_in_time_status: NOT_VERIFIED`.
 
 The live EO capture remains outstanding for GW11. Its scheduler now checks five minutes before both `:00` and `:30` deadlines, based on the actual FPL deadline calendar, and only fetches picks after the deadline lock.
+
+
+## 8. Live-pool personal-squad scale test
+
+The personal-squad engine was also executed against the same 672-player official forecast pool using a clearly labelled synthetic legal 15-player squad:
+
+- Actions run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254629419
+- Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254629419/artifacts/14405287431
+- Status: `PASS_SYNTHETIC_PERSONAL_SQUAD_SCALE_SMOKE_TEST`.
+- 672 forecast players; 15-player synthetic squad; £61.9m squad cost; £38.1m bank; maximum three players per team.
+- Built a legal 4-3-3, 11-player starting XI, captain, vice-captain and bench.
+- Evaluated 594 legal one-transfer candidates.
+- The smoke test deliberately used a synthetic squad and is **not** a real manager recommendation.
+- Risk profile and CoVar remained unapplied; recommendation status remained exploratory.
+
+The user's current manager-specific squad has not been supplied to this run, so no real personal-squad advice has been generated.
