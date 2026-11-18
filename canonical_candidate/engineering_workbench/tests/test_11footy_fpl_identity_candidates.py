@@ -48,17 +48,25 @@ def test_exact_name_team_and_birth_date_candidates_are_high_confidence_not_verif
     assert report["fpl_player_count"] == 5
     assert report["provider_player_catalogue_count"] == 5
     assert report["exact_normalized_name_and_team_candidates"] == 3
-    assert report["high_confidence_name_team_birth_date_candidates"] == 3
-    assert report["name_team_candidates_missing_birth_date"] == 0
+    assert report["high_confidence_name_team_birth_date_candidates"] == 2
+    assert report["name_team_candidates_missing_birth_date"] == 1
     assert report["unique_name_only_unverified"] == 1
     assert report["unmatched_fpl_players"] == 1
     assert report["candidate_rows_remaining"] == 3
     assert report["verification_status"] == "CANDIDATES_ONLY_NOT_VERIFIED"
     assert len(candidates) == 3
-    assert all(
-        row["verification_status"] == "HIGH_CONFIDENCE_AUTOMATED_CANDIDATE"
-        for row in candidates
-    )
+    assert sum(row["confidence_level"] == "high" for row in candidates) == 2
+    assert sum(row["confidence_level"] == "review_required" for row in candidates) == 1
+    assert all(row["verification_status"] == "pending" for row in candidates)
+    salah = next(row for row in candidates if row["fpl_element_id"] == 100)
+    assert salah["provider_player_id"] == 1
+    assert salah["fpl_player_code"] == 1000
+    assert salah["provider_player_name"] == "Mohamed Salah"
+    assert salah["fpl_player_name"] == "Mohamed Salah"
+    assert salah["confidence_level"] == "high"
+    assert "awaiting independent identity review" in salah["verification_reason"]
+    assert salah["provider_release_url"].startswith("https://")
+    assert salah["fpl_source_url"].startswith("https://")
 
 
 def test_duplicate_provider_identity_is_ambiguous_not_auto_joined():
