@@ -44,7 +44,8 @@ def _tables(connection):
     }
 
 
-def audit_database(connection, source_release: str, source_sha256: str,\n                   players_connection=None, players_sha256: str | None = None):
+def audit_database(connection, source_release: str, source_sha256: str,
+                   players_connection=None, players_sha256: str | None = None):
     tables = _tables(connection)
     missing_tables = sorted(REQUIRED_TABLES - tables)
     if missing_tables:
