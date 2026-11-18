@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Audit exact-name/team candidates between 11footy and the official FPL bootstrap.
-
-This creates candidate counts only. It never silently treats a string match as a
-verified identity crosswalk and never uses fuzzy matching.
-"""
+"""Audit exact-name/team/birth-date candidates between 11footy and official FPL."""
 from __future__ import annotations
 
 import argparse
@@ -85,17 +81,17 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
     columns = {
         row[1] for row in players_connection.execute("PRAGMA table_info(players)")
     }
-    required_columns = {"player_id", "name", "current_team_name"}
+    required_columns = {"player_id", "name", "current_team_name", "birth_date"}
     missing = sorted(required_columns - columns)
     if missing:
         raise ValueError("11footy players table is missing columns: " + ", ".join(missing))
 
     provider_rows = players_connection.execute(
-        "SELECT player_id, name, current_team_name FROM players"
+        "SELECT player_id, name, current_team_name, birth_date FROM players"
     ).fetchall()
     provider_by_name_team = defaultdict(list)
     provider_by_name = defaultdict(list)
-    for player_id, name, team in provider_rows:
+    for player_id, name, team, birth_date in provider_rows:
         norm_name = normalize_text(name)
         if not norm_name:
             continue
@@ -104,6 +100,7 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
             "provider_name": str(name or ""),
             "provider_team": str(team or ""),
             "norm_team": normalize_team(team),
+            "birth_date": str(birth_date or ""),
         }
         provider_by_name[norm_name].append(row)
         if row["norm_team"]:
@@ -130,6 +127,7 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
             "fpl_team": team_name,
             "norm_name": norm_name,
             "norm_team": normalize_team(team_name),
+            "birth_date": str(element.get("birth_date") or ""),
         })
 
     fpl_by_name = defaultdict(list)
@@ -140,6 +138,9 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
             fpl_by_name_team[(row["norm_name"], row["norm_team"])].append(row)
 
     exact_name_team = 0
+    high_confidence_dob_matches = 0
+    missing_birthdate_candidates = 0
+    birthdate_conflicts = 0
     unique_name_only = 0
     team_mismatch = 0
     ambiguous = 0
@@ -152,12 +153,26 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
         same_fpl_name_team = fpl_by_name_team.get(key, [])
 
         if len(same_name_team) == 1 and len(same_fpl_name_team) == 1:
+            provider_player = same_name_team[0]
+            provider_dob = provider_player["birth_date"]
+            fpl_dob = row["birth_date"]
+            if provider_dob and fpl_dob and provider_dob != fpl_dob:
+                birthdate_conflicts += 1
+                continue
             exact_name_team += 1
+            if provider_dob and fpl_dob:
+                high_confidence_dob_matches += 1
+                verification_status = "HIGH_CONFIDENCE_AUTOMATED_CANDIDATE"
+                match_method = "EXACT_NAME_TEAM_AND_BIRTH_DATE"
+            else:
+                missing_birthdate_candidates += 1
+                verification_status = "CANDIDATE_REQUIRES_REVIEW"
+                match_method = "EXACT_NAME_AND_TEAM_BIRTH_DATE_UNAVAILABLE"
             candidate_rows.append({
                 "fpl_element_id": row["fpl_element_id"],
-                "provider_player_id": same_name_team[0]["provider_player_id"],
-                "match_method": "EXACT_NORMALIZED_NAME_AND_TEAM",
-                "verification_status": "CANDIDATE_REQUIRES_REVIEW",
+                "provider_player_id": provider_player["provider_player_id"],
+                "match_method": match_method,
+                "verification_status": verification_status,
             })
         elif len(same_name) == 1 and not same_name_team and not same_name[0]["norm_team"]:
             unique_name_only += 1
@@ -168,7 +183,6 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
         else:
             unmatched += 1
 
-    # Guard against one provider identity being assigned to multiple FPL elements.
     provider_to_fpl = defaultdict(list)
     for row in candidate_rows:
         provider_to_fpl[row["provider_player_id"]].append(row["fpl_element_id"])
@@ -180,8 +194,13 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
         candidate_rows = [
             row for row in candidate_rows if row["provider_player_id"] not in collisions
         ]
-        exact_name_team -= sum(
-            len(provider_to_fpl[provider_id]) for provider_id in collisions
+        exact_name_team -= sum(len(provider_to_fpl[provider_id]) for provider_id in collisions)
+        high_confidence_dob_matches = sum(
+            row["match_method"] == "EXACT_NAME_TEAM_AND_BIRTH_DATE" for row in candidate_rows
+        )
+        missing_birthdate_candidates = sum(
+            row["match_method"] == "EXACT_NAME_AND_TEAM_BIRTH_DATE_UNAVAILABLE"
+            for row in candidate_rows
         )
 
     return {
@@ -190,17 +209,20 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
         "fpl_player_count": len(fpl_rows),
         "provider_player_catalogue_count": len(provider_rows),
         "exact_normalized_name_and_team_candidates": exact_name_team,
+        "high_confidence_name_team_birth_date_candidates": high_confidence_dob_matches,
+        "name_team_candidates_missing_birth_date": missing_birthdate_candidates,
+        "birth_date_conflicts_excluded": birthdate_conflicts,
         "unique_name_only_unverified": unique_name_only,
         "same_name_team_mismatch": team_mismatch,
         "ambiguous_name_or_duplicate_identity": ambiguous,
         "unmatched_fpl_players": unmatched,
         "provider_id_collisions_removed": len(collisions),
         "candidate_rows_remaining": len(candidate_rows),
-        "candidate_crosswalk": candidate_rows,
-        "matching_policy": "Exact normalized full name plus normalized current team only; no fuzzy matching.",
+        "matching_policy": "Exact normalized full name plus normalized current team; when both birth dates exist they must match. No fuzzy matching.",
         "verification_status": "CANDIDATES_ONLY_NOT_VERIFIED",
+        "birth_date_policy": "Birth-date mismatches are excluded; missing birth dates remain review candidates.",
         "prediction_validation": "NOT_EVALUATED",
-    }
+    }, candidate_rows
 
 
 def main():
@@ -216,11 +238,10 @@ def main():
         db_path = _materialize_sqlite(args.players_input, Path(temp))
         connection = sqlite3.connect("file:" + str(db_path.resolve()) + "?mode=ro", uri=True)
         try:
-            report = audit_identity_candidates(connection, bootstrap)
+            report, candidate_rows = audit_identity_candidates(connection, bootstrap)
         finally:
             connection.close()
 
-    candidate_rows = report.pop("candidate_crosswalk")
     (args.out_dir / "identity_candidate_summary.json").write_text(
         json.dumps(report, indent=2, allow_nan=False), encoding="utf-8"
     )
