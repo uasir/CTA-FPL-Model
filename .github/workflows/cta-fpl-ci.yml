@@ -14,6 +14,7 @@ on:
       - canonical_candidate/engineering_workbench/tests/**
       - canonical_candidate/src/**
       - canonical_candidate/tests/**
+      - canonical_candidate/data/11footy_fpl_identity_crosswalk.csv
       - canonical_candidate/data/player_identity_crosswalk.csv
       - canonical_candidate/data/wyscout_fpl_identity_crosswalk.csv
       - canonical_candidate/data/opta_pulselive_fpl_identity_crosswalk.csv
@@ -73,3 +74,10 @@ jobs:
             --provider opta_pulselive \
             --input ../data/opta_pulselive_fpl_identity_crosswalk.csv \
             --out-dir ../../run_artifacts/opta_identity
+      - name: Validate 11footy to FPL identity crosswalk
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/validate_provider_identity_crosswalk.py \
+            --provider 11footy \
+            --input ../data/11footy_fpl_identity_crosswalk.csv \
+            --out-dir ../../run_artifacts/11footy_identity
