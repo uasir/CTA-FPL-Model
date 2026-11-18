@@ -297,7 +297,7 @@ Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44342865582/artifa
 
 The scheduled job itself completed successfully, but the collector returned `SKIPPED_OUTSIDE_DEADLINE_WINDOW`: GW11 deadline was 2026-11-21 11:00 UTC and the run began roughly 4,015.77 minutes beforehand. The 324-byte artifact contains only the skip report; **no manager cohort, picks or EO rows were captured**.
 
-To improve the chance of a real near-deadline run despite GitHub's best-effort scheduler, the EO workflow is now scheduled about 20 minutes before the observed :00/:30 deadline cadence, accepts a 35-minute pre-deadline window, and allows a 45-minute job timeout. The collector's safeguards remain: cohort capture must finish before deadline; picks are requested only after the deadline plus 60 seconds and a fresh official bootstrap confirmation.
+To improve the chance of a real near-deadline run despite GitHub's best-effort scheduler, the EO workflow is now scheduled about 25 minutes before the observed :00/:30 deadline cadence, accepts a 35-minute pre-deadline window, and allows a 45-minute job timeout. The collector's safeguards remain: cohort capture must finish before deadline; picks are requested only after the deadline plus 60 seconds and a fresh official bootstrap confirmation.
 
 ## 10. Exploratory CoVar baseline from Onside actual points
 
