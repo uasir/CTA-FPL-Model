@@ -226,3 +226,56 @@ The personal-squad engine was also executed against the same 672-player official
 - Risk profile and CoVar remained unapplied; recommendation status remained exploratory.
 
 The user's current manager-specific squad has not been supplied to this run, so no real personal-squad advice has been generated.
+
+
+## 7. Standard effective-ownership definition corrected
+
+PR #5 was merged on 2026-11-18 (merge commit `090cb01f5a3bf6668612e589ebad3f28ae5da4cd`).
+
+A review found that the previous estimator counted bench picks as owned only during Bench Boost. This understated standard ownership and EO. The estimator now separates:
+- `owned_by_pct`: all 15 squad selections, including the bench.
+- `starting_pct`: positions 1–11.
+- `effective_ownership_pct`: all 15 squad selections plus one captain extra and one additional Triple Captain extra.
+- `scoring_exposure_pct`: starting XI, Bench Boost bench players, captain extra and Triple Captain extra.
+
+The existing captain and Triple Captain multipliers remain. Bench Boost affects scoring exposure, not squad ownership or standard EO.
+
+CI: https://github.com/uasir/CTA-FPL-Model/actions/runs/44259359716 — success; 165 Python tests and 3 subtests passed. This corrects the metric definition; it does not establish a live rank-tier EO capture.
+
+## 8. FPL data rights and automated collection gate
+
+PR #6 was merged on 2026-11-18 (merge commit `327c7ac717d0fae389fc866c078629c186176d89`).
+
+The official FPL terms prohibit automated systems accessing the Game and extracting information, and reserve intellectual-property rights in Game data. A public API endpoint is not itself a data licence. The Premier League's published guidance directs match-data permissions to Football DataCo.
+
+Accordingly, the following automated jobs now require the repository Actions variable `FPL_DATA_PERMISSION_CONFIRMED=true`:
+- Official FPL ingestion.
+- Pre-deadline ranked-manager EO collection.
+- Onside audit's independent official-FPL API reconciliation.
+
+Do not set this variable until written permission covers the intended collection, private archival, research/model-development and publication scope. Offline engineering and the separate Onside actual-points covariance research job do not call the official FPL API.
+
+Permission gate CI: https://github.com/uasir/CTA-FPL-Model/actions/runs/44259464265 — success.
+
+## 9. Exploratory CoVar baseline from Onside actual points
+
+PR #7 was merged on 2026-11-18 (merge commit `0299f37139d2ef39c1da63de2470e1f2e92e1075`).
+
+A reproducible workflow now uses only the provider's realized `actual_points` field from its CC BY 4.0 graded-predictions ledger. It ignores both Onside and official FPL forecast columns, excludes unfinished/partially graded gameweeks, and never zero-fills missing player-gameweek rows.
+
+Latest successful run:
+- CoVar calculation: https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220
+- Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220/artifacts/14407138593
+- Source SHA-256: `dd51366a5f71d5f0bf26b4265b17188f04774d584c4444172be3f307aaf02a81`.
+
+Results for GW1–GW10:
+- 605 players appear in the ledger.
+- 350 have a complete 10-GW panel.
+- 255 are excluded for incomplete panels; no missing score is filled with zero.
+- 54 complete-panel players have zero variance and are excluded from the covariance matrix.
+- 296 players remain in the covariance matrix, producing 43,956 pairwise estimates including the diagonal.
+- With 50% off-diagonal shrinkage, the resulting matrix is positive definite in this sample; the unshrunk rank upper bound is 9 for 296 players.
+
+This is a useful first real-data CoVar diagnostic, not a stable risk model. Ten rounds are too few for reliable dependence estimates, and the complete-case cohort is selected toward players with repeated appearances in the provider ledger. The provider-stated CC BY 4.0 licence is recorded, but the underlying rights chain for FPL-derived data has not been independently cleared. Do not enable CoVar in `personal_squad`; wait for longer data history, source permission, and time-ordered/out-of-sample validation.
+
+CoVar workflow CI: https://github.com/uasir/CTA-FPL-Model/actions/runs/44259735610 — success.
