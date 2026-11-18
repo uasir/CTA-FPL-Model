@@ -101,8 +101,9 @@ def load_identity_maps(candidate_rows, crosswalk_rows, season, competition_id):
     candidates = defaultdict(list)
     verified = {}
     errors = []
+    crosswalk_season = str(season).replace("-", "/")
     for row in candidate_rows:
-        if str(row.get("season") or "") != "2026/27":
+        if str(row.get("season") or "") != crosswalk_season:
             continue
         provider_id = as_int(row.get("provider_player_id"))
         element_id = as_int(row.get("fpl_element_id"))
@@ -111,7 +112,7 @@ def load_identity_maps(candidate_rows, crosswalk_rows, season, competition_id):
 
     for row in crosswalk_rows:
         if (
-            str(row.get("season") or "") != "2026/27"
+            str(row.get("season") or "") != crosswalk_season
             or str(row.get("competition_id") or "") != str(competition_id)
             or str(row.get("verification_status") or "").lower() != "verified"
         ):
@@ -122,12 +123,11 @@ def load_identity_maps(candidate_rows, crosswalk_rows, season, competition_id):
             errors.append({"error": "verified_crosswalk_missing_numeric_identity"})
             continue
         prior = verified.get(provider_id)
-        if prior and prior != element_id:
+        if prior and as_int(prior.get("fpl_element_id")) != element_id:
             errors.append({"error": "conflicting_verified_provider_identity", "provider_player_id": provider_id})
         else:
-            verified[provider_id] = element_id
+            verified[provider_id] = row
     return candidates, verified, errors
-
 
 def build_fixture_map(fpl_fixtures):
     by_key = defaultdict(list)
@@ -281,12 +281,44 @@ def build_panel(
 
     fixture_by_key, fixture_by_id = build_fixture_map(fpl_fixtures)
     candidates, verified, identity_errors = load_identity_maps(
-        candidate_rows, crosswalk_rows, "2026/27", competition_id
+        candidate_rows, crosswalk_rows, season, competition_id
     )
     merge_map = _player_merge_map(players_connection)
     player_names = _provider_player_names(players_connection)
-    source_rows = _load_player_match_rows(connection, season_id)
 
+    match_query = """
+        SELECT m.match_id, m.kickoff_utc, m.local_date, m.status,
+               ht.name AS home_team_name, at.name AS away_team_name
+        FROM matches m
+        JOIN teams ht ON ht.team_id = m.home_team_id
+        JOIN teams at ON at.team_id = m.away_team_id
+        WHERE m.season_id = ? AND m.status IN ('played', 'awarded')
+        ORDER BY m.kickoff_utc, m.match_id
+    """
+    match_cursor = connection.execute(match_query, (season_id,))
+    match_columns = [item[0] for item in match_cursor.description]
+    provider_matches = [dict(zip(match_columns, row)) for row in match_cursor.fetchall()]
+    match_map = {}
+    match_resolution_status = {}
+    match_status_counts = Counter()
+    for match in provider_matches:
+        match_id = as_int(match["match_id"])
+        key = (
+            _match_date(match),
+            normalize_team(match.get("home_team_name")),
+            normalize_team(match.get("away_team_name")),
+        )
+        matches = fixture_by_key.get(key, [])
+        if len(matches) == 1:
+            match_map[match_id] = matches[0]
+            match_resolution_status[match_id] = "matched"
+        elif len(matches) > 1:
+            match_resolution_status[match_id] = "ambiguous"
+        else:
+            match_resolution_status[match_id] = "unmatched"
+        match_status_counts[match_resolution_status[match_id]] += 1
+
+    source_rows = _load_player_match_rows(connection, season_id)
     history_by_key = {}
     duplicate_history_keys = []
     for row in fpl_history:
@@ -303,27 +335,9 @@ def build_panel(
     }
     evidence_by_provider = {}
     for provider_id, rows in candidates.items():
-        # A provider ID must have at most one candidate FPL element to be corroborated.
         candidate_ids = {as_int(row.get("fpl_element_id")) for row in rows}
         if len(candidate_ids) == 1:
             evidence_by_provider[provider_id] = _candidate_evidence_template(rows[0])
-
-    match_map = {}
-    match_status_counts = Counter()
-    for row in source_rows:
-        key = (
-            _match_date(row),
-            normalize_team(row.get("home_team_name")),
-            normalize_team(row.get("away_team_name")),
-        )
-        matches = fixture_by_key.get(key, [])
-        if len(matches) == 1:
-            match_map[as_int(row.get("match_id"))] = matches[0]
-            match_status_counts["matched"] += 1
-        elif len(matches) > 1:
-            match_status_counts["ambiguous"] += 1
-        else:
-            match_status_counts["unmatched"] += 1
 
     panel_rows = []
     candidate_player_rows = Counter()
@@ -331,6 +345,7 @@ def build_panel(
     candidate_history_rows = Counter()
     candidate_history_missing = Counter()
     candidate_team_matches = Counter()
+    candidate_team_mismatches = Counter()
     candidate_minutes_exact = Counter()
     candidate_goals_exact = Counter()
     candidate_assists_exact = Counter()
@@ -340,26 +355,26 @@ def build_panel(
     player_match_rows_with_fixture = 0
     player_match_rows_unmatched_fixture = 0
     player_match_rows_ambiguous_fixture = 0
-    provider_team_match_errors = 0
+    verified_team_mismatch_rows = 0
     verified_history_missing = 0
+    verified_fpl_player_missing = 0
 
     for source in source_rows:
         provider_id = resolve_player_id(source["player_id"], merge_map)
         match_id = as_int(source["match_id"])
         fixture = match_map.get(match_id)
+        fixture_id = as_int(fixture.get("fixture_id")) if fixture else None
         if fixture:
             player_match_rows_with_fixture += 1
-            fixture_id = as_int(fixture.get("fixture_id"))
+        elif match_resolution_status.get(match_id) == "ambiguous":
+            player_match_rows_ambiguous_fixture += 1
         else:
-            fixture_id = None
-            if match_status_counts["ambiguous"] and match_id not in match_map:
-                player_match_rows_ambiguous_fixture += 1
-            else:
-                player_match_rows_unmatched_fixture += 1
+            player_match_rows_unmatched_fixture += 1
 
         candidate_rows_for_id = candidates.get(provider_id, [])
         candidate = candidate_rows_for_id[0] if len(candidate_rows_for_id) == 1 else None
-        verified_element_id = verified.get(provider_id)
+        verified_mapping = verified.get(provider_id)
+        verified_element_id = as_int(verified_mapping.get("fpl_element_id")) if verified_mapping else None
         candidate_element_id = as_int(candidate.get("fpl_element_id")) if candidate else None
 
         if candidate:
@@ -372,13 +387,15 @@ def build_panel(
                 candidate_history_missing[provider_id] += 1
             else:
                 candidate_history_rows[provider_id] += 1
-                expected_team_id = _history_team_id(history, fixture)
-                provider_team_id = as_int(source.get("team_id"))
-                team_match = expected_team_id == provider_team_id
+                expected_team_name = (
+                    fixture.get("team_h_name") if as_bool(history.get("was_home"))
+                    else fixture.get("team_a_name")
+                )
+                team_match = normalize_team(source.get("player_team_name")) == normalize_team(expected_team_name)
                 if team_match:
                     candidate_team_matches[provider_id] += 1
                 else:
-                    provider_team_match_errors += 1
+                    candidate_team_mismatches[provider_id] += 1
 
                 provider_minutes = as_int(source.get("minutes_played"))
                 fpl_minutes = as_int(history.get("minutes"))
@@ -407,12 +424,25 @@ def build_panel(
         if history is None:
             verified_history_missing += 1
             continue
-        expected_team_id = _history_team_id(history, fixture)
-        provider_team_id = as_int(source.get("team_id"))
-        if expected_team_id != provider_team_id:
-            provider_team_match_errors += 1
+        expected_team_name = (
+            fixture.get("team_h_name") if as_bool(history.get("was_home"))
+            else fixture.get("team_a_name")
+        )
+        if normalize_team(source.get("player_team_name")) != normalize_team(expected_team_name):
+            verified_team_mismatch_rows += 1
             continue
-        fpl_player = fpl_player_by_id.get(verified_element_id, {})
+        fpl_player = fpl_player_by_id.get(verified_element_id)
+        if fpl_player is None:
+            verified_fpl_player_missing += 1
+            continue
+        if str(fpl_player.get("fpl_player_code") or "") != str(verified_mapping.get("fpl_player_code") or ""):
+            identity_errors.append({
+                "error": "verified_crosswalk_fpl_code_mismatch",
+                "provider_player_id": provider_id,
+                "fpl_element_id": verified_element_id,
+            })
+            continue
+
         panel_rows.append({
             "season": season,
             "competition_id": competition_id,
@@ -423,12 +453,15 @@ def build_panel(
             "match_date": _match_date(source),
             "provider_player_id": provider_id,
             "provider_player_name": player_names.get(provider_id, ""),
-            "provider_team_id": provider_team_id,
+            "provider_team_id": as_int(source.get("team_id")),
             "provider_team_name": source.get("player_team_name", ""),
             "fpl_element_id": verified_element_id,
             "fpl_player_code": fpl_player.get("fpl_player_code", ""),
             "fpl_player_name": fpl_player.get("web_name", ""),
-            "fpl_team_id_at_fixture": expected_team_id,
+            "fpl_team_id_at_fixture": (
+                as_int(fixture.get("team_h_id")) if as_bool(history.get("was_home"))
+                else as_int(fixture.get("team_a_id"))
+            ),
             "minutes_played": source.get("minutes_played", ""),
             "goals": source.get("goals", ""),
             "assists": source.get("assists", ""),
@@ -460,6 +493,7 @@ def build_panel(
         evidence["fpl_history_overlap_rows"] = candidate_history_rows[provider_id]
         evidence["fpl_history_missing_rows"] = candidate_history_missing[provider_id]
         evidence["team_match_rows"] = candidate_team_matches[provider_id]
+        evidence["team_mismatch_rows"] = candidate_team_mismatches[provider_id]
         evidence["minutes_exact_rows"] = candidate_minutes_exact[provider_id]
         evidence["goals_exact_rows"] = candidate_goals_exact[provider_id]
         evidence["assists_exact_rows"] = candidate_assists_exact[provider_id]
@@ -480,14 +514,20 @@ def build_panel(
         for row in match_map.values()
         if as_int(row.get("fixture_id")) is not None
     }
+    provider_team_ids_invalid = sum(
+        1 for row in source_rows
+        if as_int(row.get("team_id")) is not None
+        and as_int(row.get("team_id")) not in {
+            as_int(row.get("home_team_id")), as_int(row.get("away_team_id"))
+        }
+    )
     report = {
         "provider": "11footy",
         "source_release": "11footy-2026-11-10",
         "season": season,
         "competition_id": str(competition_id),
         "11footy_season_id": season_id,
-        "source_match_rows": len(source_rows),
-        "provider_match_ids": len({as_int(row["match_id"]) for row in source_rows}),
+        "source_match_count": len(provider_matches),
         "provider_matches_with_fixture_match": len(match_map),
         "unique_fpl_fixture_ids_matched": len(fixture_ids_mapped),
         "fixture_match_status_counts": dict(match_status_counts),
@@ -502,26 +542,28 @@ def build_panel(
             row["statistical_corroboration_level"] == "STRONG_MULTI_MATCH_CONSISTENCY_REVIEW"
             for row in evidence_rows
         ),
+        "candidate_rows_with_any_match_conflict": sum(row["team_mismatch_rows"] > 0 for row in evidence_rows),
         "verified_crosswalk_rows": len(verified),
         "player_match_rows_with_verified_identity": player_match_rows_with_verified,
         "verified_player_match_panel_rows": len(panel_rows),
         "verified_identity_history_missing_rows": verified_history_missing,
-        "provider_team_match_errors": provider_team_match_errors,
+        "verified_team_mismatch_rows": verified_team_mismatch_rows,
+        "verified_fpl_player_missing_rows": verified_fpl_player_missing,
+        "provider_team_ids_not_in_match_teams": provider_team_ids_invalid,
         "duplicate_fpl_player_fixture_keys": len(duplicate_history_keys),
         "identity_errors": identity_errors,
         "identity_policy": "Only verified season/competition-scoped crosswalk rows enter the player-match panel; pending candidates are evidence-only.",
         "candidate_evidence_policy": "Exact match-level minutes, goals, assists and team agreement are corroboration only; no automated candidate is promoted to verified.",
         "feature_scope": "11footy player-match statistics, event counts and tracked-shot xG; not continuous tracking or full event-level CTA.",
         "prediction_validation": "NOT_EVALUATED",
-        "join_ready": bool(verified) and len(panel_rows) > 0 and not identity_errors and provider_team_match_errors == 0,
+        "join_ready": bool(verified) and len(panel_rows) > 0 and not identity_errors and verified_team_mismatch_rows == 0,
         "status": (
-            "PASS_JOIN_READY" if bool(verified) and len(panel_rows) > 0 and not identity_errors and provider_team_match_errors == 0
-            else "CANDIDATE_REVIEW_READY_NOT_MODEL_JOIN_READY" if not identity_errors
-            else "BLOCKED"
+            "PASS_JOIN_READY" if bool(verified) and len(panel_rows) > 0 and not identity_errors and verified_team_mismatch_rows == 0
+            else "BLOCKED" if identity_errors or duplicate_history_keys or provider_team_ids_invalid or not match_map
+            else "CANDIDATE_REVIEW_READY_NOT_MODEL_JOIN_READY"
         ),
     }
     return panel_rows, evidence_rows, report
-
 
 def main():
     parser = argparse.ArgumentParser(description="Build verified-only 11footy/FPL player-match features")
