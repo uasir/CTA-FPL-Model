@@ -70,3 +70,9 @@ The source manifest is included in the aggregate Actions artifact.
 - StatsBomb, Wyscout, and Opta/PulseLive crosswalk validators all passed.
 
 This is a successful technical integration, not predictive validation. The Opta data repository advertises a MIT repository license, but the underlying Premier League/PulseLive data rights remain unverified. The source is not redistributed by this workflow. Team features remain disconnected from model scoring until point-in-time provenance and out-of-sample predictive value are established.
+
+## Historical player-fixture evaluation follow-up
+
+The adapter was integrated into the daily FPL ingestion pipeline and joined all 6,562 FPL lagged player-fixture rows to Opta team context. The paired GW1–6 / GW7–10 holdout is documented in `reports/OPTA_TEAM_CONTEXT_TEMPORAL_EVALUATION_2026-11-18.md` and full run 44353308393.
+
+Adding 11 team-context features worsened the player-form ridge model (MAE 1.201603 → 1.229909; RMSE 2.015697 → 2.022270). The model remains `DO_NOT_PROMOTE`; the Opta sidecar is not connected to recommendation scoring. This negative result is retained rather than selecting features on the holdout.
