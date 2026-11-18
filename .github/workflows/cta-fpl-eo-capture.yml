@@ -15,7 +15,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Do not collect manager standings/picks automatically until written FPL data permission is confirmed.
+  # Set repository variable FPL_DATA_PERMISSION_CONFIRMED=true only after approval.
   capture:
+    if: ${{ vars.FPL_DATA_PERMISSION_CONFIRMED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

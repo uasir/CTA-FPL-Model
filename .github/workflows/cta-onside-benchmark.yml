@@ -11,7 +11,10 @@ permissions:
   contents: read
 
 jobs:
+  # This audit calls official FPL endpoints for independent ID and points reconciliation.
+  # Keep it gated until written permission for automated FPL data access is confirmed.
   audit:
+    if: ${{ vars.FPL_DATA_PERMISSION_CONFIRMED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
