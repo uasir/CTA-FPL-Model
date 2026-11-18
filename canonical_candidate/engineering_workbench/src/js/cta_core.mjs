@@ -632,7 +632,7 @@ export function runCoreEquivalent(rawEvents, frames, matchId, directionOverrides
       direction_keys_total: directions.size,
       convention: "StatsBomb possession-oriented coordinates; attacks_right=true when no override exists.",
     },
-    statsbomb360Audit: audit360(events, frames),
+    statsbomb360Audit: audit360(events, frames, matchId),
     coordinateDiagnostics: coordinateDiagnostics(frames),
   };
 }
