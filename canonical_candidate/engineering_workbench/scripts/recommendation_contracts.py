@@ -98,12 +98,64 @@ def _validate_shared(payload: Mapping[str, Any]) -> None:
             raise RecommendationContractError(
                 f"player_forecasts[{index}] is missing fpl_element_id"
             )
-        key = str(element_id)
+        if isinstance(element_id, bool) or not str(element_id).isdigit() or int(element_id) < 1:
+            raise RecommendationContractError(
+                f"player_forecasts[{index}].fpl_element_id must be a positive integer"
+            )
+        key = str(int(element_id))
         if key in seen:
             raise RecommendationContractError(
                 f"Duplicate forecast for FPL element ID {key}"
             )
         seen.add(key)
+        expected_points = player.get("expected_points")
+        expected_minutes = player.get("expected_minutes")
+        price = player.get("price")
+        team_id = player.get("team_id")
+        position = player.get("position")
+        for field, value in (
+            ("expected_points", expected_points),
+            ("expected_minutes", expected_minutes),
+            ("price", price),
+        ):
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+                raise RecommendationContractError(
+                    f"player_forecasts[{index}].{field} must be a finite number"
+                )
+        if expected_minutes < 0:
+            raise RecommendationContractError(
+                f"player_forecasts[{index}].expected_minutes cannot be negative"
+            )
+        if price <= 0:
+            raise RecommendationContractError(
+                f"player_forecasts[{index}].price must be positive"
+            )
+        if isinstance(team_id, bool) or not isinstance(team_id, int) or team_id < 1:
+            raise RecommendationContractError(
+                f"player_forecasts[{index}].team_id must be a positive integer"
+            )
+        if position not in {"GKP", "DEF", "MID", "FWD"}:
+            raise RecommendationContractError(
+                f"player_forecasts[{index}].position is invalid"
+            )
+        if "effective_ownership_pct" in player:
+            value = player["effective_ownership_pct"]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)) or value < 0:
+                raise RecommendationContractError(
+                    f"player_forecasts[{index}].effective_ownership_pct must be non-negative"
+                )
+        if "points_variance" in player:
+            value = player["points_variance"]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)) or value < 0:
+                raise RecommendationContractError(
+                    f"player_forecasts[{index}].points_variance must be non-negative"
+                )
+        if "availability_probability" in player:
+            value = player["availability_probability"]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)) or not 0 <= value <= 1:
+                raise RecommendationContractError(
+                    f"player_forecasts[{index}].availability_probability must be between 0 and 1"
+                )
 
 
 def validate_general_market_request(
