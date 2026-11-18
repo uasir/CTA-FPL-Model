@@ -284,6 +284,47 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
     return team_output, player_output, report
 
 
+
+def build_historical_player_features(team_rows: list[dict], fpl_lagged_rows: list[dict]):
+    """Attach strictly pre-kickoff team context to historical FPL player-fixture rows."""
+    by_fixture_team = {
+        (str(row["fixture_id"]), str(row["team_id"])): row for row in team_rows
+    }
+    output, missing = [], []
+    for player in fpl_lagged_rows:
+        fixture_id = str(player.get("fixture_id", ""))
+        team_id = str(player.get("team_id_at_fixture", ""))
+        feature = by_fixture_team.get((fixture_id, team_id))
+        if feature is None:
+            missing.append({"fixture_id": fixture_id, "team_id_at_fixture": team_id})
+            continue
+        output.append({
+            "season": player.get("season", ""),
+            "fpl_element_id": player.get("fpl_element_id", ""),
+            "fixture_id": fixture_id,
+            "gameweek": player.get("gameweek", ""),
+            "team_id_at_fixture": team_id,
+            "kickoff_time": player.get("kickoff_time", ""),
+            "features_as_of": feature.get("features_as_of", ""),
+            **{key: value for key, value in feature.items() if key.startswith("opta_")},
+        })
+    keys = [(str(row["fpl_element_id"]), str(row["fixture_id"])) for row in output]
+    if len(keys) != len(set(keys)):
+        raise ValueError("Duplicate historical player-fixture keys in Opta sidecar")
+    if missing:
+        raise ValueError(f"Missing Opta team context for {len(missing)} historical FPL player-fixture rows")
+    report = {
+        "input_fpl_player_fixture_rows": len(fpl_lagged_rows),
+        "historical_player_fixture_rows_with_team_context": len(output),
+        "missing_team_context_rows": len(missing),
+        "point_in_time_status": "NOT_VERIFIED",
+        "status": "PASS_STRUCTURAL_ONLY",
+        "join_key": "(FPL fixture_id, team_id_at_fixture)",
+        "leakage_policy": "Team metrics were computed from same-season provider matches with kickoff strictly earlier than the target fixture; the target matchId is excluded.",
+    }
+    return output, report
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bootstrap", type=Path, required=True)
@@ -291,6 +332,7 @@ def main():
     parser.add_argument("--opta-players", type=Path, required=True)
     parser.add_argument("--opta-team-events", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument("--fpl-lagged-training", type=Path)
     parser.add_argument("--season", default="2026-27")
     parser.add_argument("--source-commit", default=PROVIDER_COMMIT)
     args = parser.parse_args()
@@ -304,6 +346,13 @@ def main():
     team_rows, player_rows, feature_report = build_team_features(
         fixtures, bootstrap, read_csv(args.opta_team_events), args.season,
     )
+    if args.fpl_lagged_training:
+        historical_rows, historical_report = build_historical_player_features(
+            team_rows, read_csv(args.fpl_lagged_training),
+        )
+        write_csv(args.out_dir / "opta_lagged_historical_player_fixture_features.csv",
+                  historical_rows, list(historical_rows[0]) if historical_rows else [])
+        feature_report["historical_player_fixture_join"] = historical_report
     write_csv(args.out_dir / "opta_pulselive_fpl_identity_crosswalk.csv",
               crosswalk, CROSSWALK_FIELDS)
     write_csv(args.out_dir / "opta_lagged_team_fixture_features.csv", team_rows,

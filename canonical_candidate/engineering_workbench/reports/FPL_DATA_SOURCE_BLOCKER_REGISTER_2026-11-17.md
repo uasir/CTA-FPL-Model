@@ -234,3 +234,17 @@ This resolves the **technical ID/fixture mapping** blocker for the provider snap
 4. Do not attach these team features to predictive scoring or strict historical backtests until point-in-time capture and out-of-sample value are demonstrated.
 
 Detailed results and source hashes: `reports/OPTA_PULSELIVE_LIVE_INTEGRATION_2026-11-18.md`.
+
+## 9. Opta team-context predictive value — 2026-11-18
+
+The live adapter now joins 6,562/6,562 historical FPL player-fixture rows to strictly prior team-level Opta context. A paired temporal holdout (train GW1–6; validate GW7–10) tested the player-form ridge model against the same model plus 11 Opta team-context features:
+
+- Player-form ridge: MAE 1.201603; RMSE 2.015697.
+- Player-form + Opta team context: MAE 1.229909; RMSE 2.022270.
+- Adding team context worsened MAE by 0.028306 and RMSE by 0.006573.
+- Naive last-five-GW points baseline MAE: 1.185511.
+- Decision: `DO_NOT_PROMOTE`.
+
+This is a single-season exploratory holdout and provider source-vintage remains `NOT_VERIFIED`; it is not a strict historical backtest. Do not attach these features to EV, ranking, transfer or squad-scoring decisions. Preserve the adapter as a validated structural/research sidecar only.
+
+Full run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44353308393. Detailed report: `reports/OPTA_TEAM_CONTEXT_TEMPORAL_EVALUATION_2026-11-18.md`.
