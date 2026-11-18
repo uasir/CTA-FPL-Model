@@ -151,8 +151,8 @@ export function recommendGeneralMarket(payload) {
     model_version: request.model_version,
     forecast_horizon_gameweeks: request.forecast_horizon_gameweeks,
     forecast_quality: quality,
-    recommendation_status: quality.validation_status !== "VALIDATED"
-      ? "EXPLORATORY_ONLY" : "VALIDATED",
+    recommendation_status: quality.validation_status === "VALIDATED"
+      && quality.point_in_time_status === "VERIFIED" ? "VALIDATED" : "EXPLORATORY_ONLY",
     ranking_basis: "expected_points (EV), expected_points / price (value), and sampled EO only when explicitly supplied",
     covar_used: false,
     coverage: {
