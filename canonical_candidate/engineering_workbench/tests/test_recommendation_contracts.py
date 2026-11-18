@@ -1,0 +1,103 @@
+from __future__ import annotations
+
+import pytest
+
+from recommendation_contracts import (
+    RecommendationContractError,
+    validate_general_market_request,
+    validate_personal_squad_request,
+)
+
+
+def shared():
+    return {
+        "forecast_snapshot_id": "snapshot-2026-11-18T05:00:00Z",
+        "model_version": "unvalidated-baseline-0",
+        "forecast_horizon_gameweeks": 5,
+        "player_forecasts": [
+            {"fpl_element_id": 1, "expected_points": 4.2},
+            {"fpl_element_id": 2, "expected_points": 3.1},
+        ],
+    }
+
+
+def personal():
+    return {
+        **shared(),
+        "squad_snapshot": [
+            {"fpl_element_id": i, "purchase_price": 5.0}
+            for i in range(1, 16)
+        ],
+        "bank": 4.6,
+        "free_transfers": 1,
+        "personal_risk_profile": "aggressive",
+        "chips": [],
+        "formation": "4-3-3",
+    }
+
+
+def test_general_market_is_valid_without_any_squad_context():
+    result = validate_general_market_request(shared())
+    assert result["system"] == "general_market"
+    assert "squad_snapshot" not in result
+    assert result["forecast_snapshot_id"] == shared()["forecast_snapshot_id"]
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "squad", "squad_snapshot", "bank", "free_transfers", "chips",
+        "formation", "starting_xi", "bench_order", "manager_rank",
+        "rank_target", "personal_risk_profile", "personal_preferences",
+    ],
+)
+def test_general_market_rejects_personal_context(field):
+    payload = shared()
+    payload[field] = "must-not-cross-boundary"
+    with pytest.raises(RecommendationContractError, match="must not receive personal fields"):
+        validate_general_market_request(payload)
+
+
+def test_personal_squad_requires_and_preserves_explicit_manager_context():
+    payload = personal()
+    result = validate_personal_squad_request(payload)
+    assert result["system"] == "personal_squad"
+    assert len(result["squad_snapshot"]) == 15
+    assert result["bank"] == 4.6
+    assert result["free_transfers"] == 1
+    assert result["formation"] == "4-3-3"
+
+
+@pytest.mark.parametrize(
+    "mutation, message",
+    [
+        (lambda p: p.update(squad_snapshot=p["squad_snapshot"][:-1]), "exactly 15"),
+        (lambda p: p["squad_snapshot"].__setitem__(1, p["squad_snapshot"][0]), "Duplicate squad"),
+        (lambda p: p.update(bank=-0.1), "bank must be"),
+        (lambda p: p.update(free_transfers=-1), "free_transfers must be"),
+        (lambda p: p.pop("personal_risk_profile"), "Missing personal squad fields"),
+    ],
+)
+def test_personal_squad_rejects_invalid_constraints(mutation, message):
+    payload = personal()
+    mutation(payload)
+    with pytest.raises(RecommendationContractError, match=message):
+        validate_personal_squad_request(payload)
+
+
+def test_both_systems_reject_duplicate_forecast_player_ids():
+    payload = shared()
+    payload["player_forecasts"].append({"fpl_element_id": 1})
+    with pytest.raises(RecommendationContractError, match="Duplicate forecast"):
+        validate_general_market_request(payload)
+    personal_payload = personal()
+    personal_payload["player_forecasts"].append({"fpl_element_id": 1})
+    with pytest.raises(RecommendationContractError, match="Duplicate forecast"):
+        validate_personal_squad_request(personal_payload)
+
+
+def test_personal_squad_requires_purchase_price_per_player():
+    payload = personal()
+    payload["squad_snapshot"][0].pop("purchase_price")
+    with pytest.raises(RecommendationContractError, match="purchase_price"):
+        validate_personal_squad_request(payload)
