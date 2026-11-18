@@ -65,6 +65,11 @@ def _validated_eo_provenance(quality,players):
     picks_time=datetime.fromisoformat(str(coverage["eo_picks_captured_at_utc"]).replace("Z","+00:00"))
     if not rank_time<deadline<picks_time:
         raise RecommendationContractError("EO rank cohort must precede deadline and picks must follow deadline")
+    target_deadline=coverage.get("target_deadline_utc")
+    if target_deadline:
+        target_time=datetime.fromisoformat(str(target_deadline).replace("Z","+00:00"))
+        if target_time!=deadline:
+            raise RecommendationContractError("EO deadline does not match the forecast snapshot deadline")
     return {
         "cohort":coverage["eo_cohort"],
         "sample_managers":sample_size,
