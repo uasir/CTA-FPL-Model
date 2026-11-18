@@ -97,3 +97,16 @@ test("both systems reject duplicate forecast IDs", () => {
   manager.player_forecasts.push({ fpl_element_id: 1 });
   assert.throws(() => validatePersonalSquadRequest(manager), /Duplicate forecast/);
 });
+
+
+test("personal squad rejects non-finite money values", () => {
+  for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+    const bank = personal();
+    bank.bank = bad;
+    assert.throws(() => validatePersonalSquadRequest(bank), /bank must be/);
+
+    const price = personal();
+    price.squad_snapshot[0].purchase_price = bad;
+    assert.throws(() => validatePersonalSquadRequest(price), /purchase_price/);
+  }
+});
