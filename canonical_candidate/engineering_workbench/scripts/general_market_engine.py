@@ -120,7 +120,7 @@ def recommend_general_market(payload):
         "model_version":request["model_version"],
         "forecast_horizon_gameweeks":request["forecast_horizon_gameweeks"],
         "forecast_quality":quality,
-        "recommendation_status":"VALIDATED" if quality["validation_status"]=="VALIDATED" and quality["point_in_time_status"]=="VERIFIED" else "EXPLORATORY_ONLY",
+        "recommendation_status":"VALIDATED" if quality["validation_status"]=="VALIDATED" and quality["point_in_time_status"]=="VERIFIED" and quality["data_coverage"].get("freshness_status")=="FRESH_WITHIN_24H" else "EXPLORATORY_ONLY",
         "ranking_basis":"expected_points (EV), expected_points / price (value), and sampled EO only when explicitly supplied",
         "covar_used":False,
         "coverage":{
