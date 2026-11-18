@@ -78,6 +78,7 @@ jobs:
           python canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py \
             --players run_artifacts/fpl_official/fpl_players.csv \
             --gameweek-rows run_artifacts/fpl_official/fpl_lagged_gameweek.csv \
+            --fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
             --source-metadata run_artifacts/fpl_official/source_metadata.json \
             --out-dir run_artifacts/fpl_official
 
