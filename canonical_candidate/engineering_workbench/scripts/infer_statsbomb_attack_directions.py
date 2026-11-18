@@ -81,7 +81,10 @@ def infer_directions(events, match_id, min_non_goal_evidence=2):
             })
             continue
 
-        team_ids = sorted(teams, key=lambda value: int(value) if value.isdigit() else value)
+        team_ids = sorted(
+            teams,
+            key=lambda value: (0, int(value)) if value.isdigit() else (1, value),
+        )
         team_evidence = {
             team_id: evidence.get((period, team_id), [])
             for team_id in team_ids
