@@ -126,6 +126,7 @@ test("both request types reject invalid forecast quality metadata", () => {
     (p) => { p.forecast_quality.point_in_time_status = "UNKNOWN"; },
     (p) => { p.forecast_quality.data_coverage = []; },
     (p) => { p.forecast_quality.limitations = "not-a-list"; },
+    (p) => { delete p.forecast_quality.limitations; },
   ];
   for (const mutate of mutations) {
     for (const factory of [shared, personal]) {
