@@ -14,6 +14,18 @@ function request() {
   return structuredClone(fixture.general_market);
 }
 
+function addLockedEoProvenance(payload) {
+  Object.assign(payload.forecast_quality.data_coverage, {
+    eo_cohort: "overall top-10k rank-stratified sample",
+    eo_sample_managers: 100,
+    eo_rank_cohort_captured_at_utc: "2026-11-28T10:55:00+00:00",
+    eo_deadline_time_utc: "2026-11-28T11:00:00+00:00",
+    eo_picks_captured_at_utc: "2026-11-28T11:01:00+00:00",
+    eo_picks_lock_verified: true,
+  });
+  return payload;
+}
+
 test("general market runs independently of any personal squad context", () => {
   const result = recommendGeneralMarket(request());
   assert.equal(result.system, "general_market");
@@ -32,7 +44,7 @@ test("public filters constrain rankings deterministically", () => {
 });
 
 test("differentials require explicit EO and a threshold", () => {
-  const payload = request();
+  const payload = addLockedEoProvenance(request());
   payload.player_forecasts[0].effective_ownership_pct = 4.5;
   payload.player_forecasts[1].effective_ownership_pct = 55;
   payload.filters = { differential_eo_max_pct: 10 };
@@ -63,4 +75,14 @@ test("null filters are rejected instead of silently ignored", () => {
   const payload = request();
   payload.filters = null;
   assert.throws(() => recommendGeneralMarket(payload), /filters must be an object/);
+});
+
+
+test("EO values without locked cohort provenance are rejected", () => {
+  const payload = request();
+  payload.player_forecasts[0].effective_ownership_pct = 4.5;
+  assert.throws(
+    () => recommendGeneralMarket(payload),
+    /verified cohort and post-lock provenance/,
+  );
 });
