@@ -228,7 +228,9 @@ def main():
         lock_grace_seconds=args.lock_grace_seconds)
     args.out_dir.mkdir(parents=True,exist_ok=True)
     if rows:
-        eo_rows,eo_report=estimate_effective_ownership(rows)
+        eo_rows,eo_report=estimate_effective_ownership(
+            rows, player_ids=[element.get("id") for element in locked_bootstrap.get("elements",[])],
+        )
         metadata.update(eo_report)
         metadata["status"]="CAPTURED_POST_DEADLINE_PICKS"
         metadata["picks_lock_verified"]=True
