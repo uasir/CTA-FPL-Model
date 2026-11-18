@@ -2,16 +2,6 @@ name: CTA official FPL feed ingestion
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - .github/workflows/cta-fpl-ingestion.yml
-      - canonical_candidate/engineering_workbench/scripts/build_opta_lagged_team_features.py
-      - canonical_candidate/engineering_workbench/scripts/evaluate_opta_team_context.py
-      - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
-      - canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py
-      - canonical_candidate/engineering_workbench/tests/test_fpl_nested_tuned_ridge.py
-      - canonical_candidate/engineering_workbench/scripts/audit_onside_against_fpl_actuals.py
-      - canonical_candidate/engineering_workbench/tests/test_onside_fpl_actuals_cross_audit.py
   push:
     branches: [main]
     paths:
