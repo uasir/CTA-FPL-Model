@@ -15,6 +15,7 @@ GENERAL_FORBIDDEN_FIELDS = frozenset({
     "squad", "squad_snapshot", "bank", "free_transfers", "chips",
     "formation", "starting_xi", "bench_order", "manager_rank",
     "rank_target", "personal_risk_profile", "personal_preferences",
+    "manager_id", "manager_entry_id", "team_id_for_manager",
 })
 
 SHARED_REQUIRED_FIELDS = (
@@ -39,6 +40,21 @@ class RecommendationContractError(ValueError):
 def _require_mapping(payload: Mapping[str, Any], name: str) -> None:
     if not isinstance(payload, Mapping):
         raise RecommendationContractError(f"{name} must be a mapping")
+
+
+def _nested_forbidden_fields(value: Any, path: str = "") -> list[str]:
+    found: list[str] = []
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            key_text = str(key)
+            child_path = f"{path}.{key_text}" if path else key_text
+            if key_text in GENERAL_FORBIDDEN_FIELDS:
+                found.append(child_path)
+            found.extend(_nested_forbidden_fields(child, child_path))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            found.extend(_nested_forbidden_fields(child, f"{path}[{index}]"))
+    return found
 
 
 def _validate_shared(payload: Mapping[str, Any]) -> None:
@@ -82,7 +98,7 @@ def validate_general_market_request(
 ) -> dict[str, Any]:
     """Validate a squad-independent market-ranking request."""
     _require_mapping(payload, "general_market request")
-    forbidden = sorted(GENERAL_FORBIDDEN_FIELDS.intersection(payload))
+    forbidden = sorted(_nested_forbidden_fields(payload))
     if forbidden:
         raise RecommendationContractError(
             "general_market must not receive personal fields: " + ", ".join(forbidden)
