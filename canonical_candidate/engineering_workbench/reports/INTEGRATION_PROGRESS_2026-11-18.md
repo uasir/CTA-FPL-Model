@@ -279,3 +279,18 @@ Results for GW1–GW10:
 This is a useful first real-data CoVar diagnostic, not a stable risk model. Ten rounds are too few for reliable dependence estimates, and the complete-case cohort is selected toward players with repeated appearances in the provider ledger. The provider-stated CC BY 4.0 licence is recorded, but the underlying rights chain for FPL-derived data has not been independently cleared. Do not enable CoVar in `personal_squad`; wait for longer data history, source permission, and time-ordered/out-of-sample validation.
 
 CoVar workflow CI: https://github.com/uasir/CTA-FPL-Model/actions/runs/44259735610 — success.
+
+
+### CoVar stability diagnostic — failed stability screen
+
+PR #8 was merged on 2026-11-18 (merge commit `db7eed7241ef91319630e705edbff64e8dc5e3e6`). The workflow now compares pairwise player correlations across GW1–GW5 and GW6–GW10 for players with non-zero variance in both halves.
+
+Run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44260264105  
+Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44260264105/artifacts/14407094178
+
+On the same 260-player, 33,670-pair comparison:
+- Correlation between the first-half and second-half pairwise correlation vectors: **0.0078**.
+- Median absolute pairwise-correlation change: **0.5004**.
+- Mean absolute pairwise-correlation change: **0.5780**.
+
+This is not a formal stationarity test (each half contains only five gameweeks), but it is a strong warning that the observed pairwise relationships are not stable enough to drive team selection. The covariance matrix being positive definite after shrinkage is a mathematical property, not evidence that its estimates are reliable. CoVar remains disabled in `personal_squad`.
