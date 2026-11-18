@@ -5,7 +5,7 @@
 The data pipeline can now preserve historical **global ownership counts** from FPL's per-player history, and a tested estimator exists for **sampled effective ownership (EO)** from deadline-locked manager picks. These are different measures:
 
 - Global ownership: a player is selected by a share of all ranked FPL entries.
-- Effective ownership: selected starting-lineup exposure plus captain and Triple Captain exposure, measured within a defined rank cohort.
+- Effective ownership: all 15 squad selections plus captain and Triple Captain extras, measured within a defined rank cohort. Starting-XI and scoring exposure are separate measures.
 
 Neither is interchangeable with current `selected_by_percent` in bootstrap-static.
 
@@ -25,9 +25,9 @@ The daily workflow is useful for capturing snapshots before some gameweek deadli
 
 ### Storage decision
 
-The CTA repository is public. Do not commit raw FPL API snapshots or user-specific manager picks into its public Git history as a workaround for artifact expiry.
+The CTA repository is public. Do not commit raw FPL API snapshots or user-specific manager picks into its public Git history as a workaround for artifact expiry. The official FPL terms prohibit automated access/extraction and reserve rights in Game data; written permission is required before automated API collection resumes.
 
-A durable archive needs a private user-controlled storage destination. Dropbox was identified as an available connection option and suggested to the user; it is not connected yet. Until a private destination is connected, workflow artifacts remain the temporary evidence store. No claim of a complete season-long point-in-time archive is allowed.
+A durable archive needs a private user-controlled storage destination, but private storage is not a substitute for data permission. First obtain written permission covering automated collection, private archival, research/model development and publication scope. Then create a private repository or private cloud folder and configure the archive workflow. Until both permission and destination exist, no automated FPL snapshots should be collected and no full-season point-in-time archive is claimed.
 
 ### Backtest policy
 
@@ -62,13 +62,13 @@ It validates that a player's selected count is consistent across all fixtures in
 
 A tested adapter now accepts one row per manager-player pick, including manager ID, rank-sample weight, pick position, captain flag, and active chip. It computes weighted EO as:
 
-`EO% = 100 × (starting selections + captain extras + Triple Captain extras) / sampled manager weight`
+`standard EO% = 100 × (all 15 squad selections + captain extra + Triple Captain extra) / sampled manager weight`
 
 Rules:
-- Normal gameweek: positions 1–11 count as selected starters.
-- Bench Boost: all 15 count as selected starters.
-- Captain adds one extra exposure unit.
-- Triple Captain adds a second extra exposure unit.
+- Ownership counts all 15 picks, whether starting or benched.
+- `starting_pct` separately counts positions 1–11.
+- `scoring_exposure_pct` counts the starting XI, Bench Boost bench players, captain extra and Triple Captain extra.
+- Captain adds one extra unit to standard EO; Triple Captain adds a second extra unit.
 
 The output is explicitly labelled `SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS`. It does not fetch manager picks or choose a rank cohort itself.
 
@@ -93,7 +93,7 @@ It runs at minutes 25 and 55 of each hour to cover the observed :30 and :00 FPL 
 - calculates EO using the tested estimator;
 - stores only aggregated EO rows and a hash/summary of the sample, not raw manager IDs or individual picks.
 
-The collector's mocked timing/API tests and the full engineering CI suite pass. It has **not yet completed a live near-deadline capture**; the next live validation opportunity is the GW11 deadline at 2026-11-21 11:00 UTC. The post-lock picks endpoint must return the locked gameweek selections for the sample to be accepted. If it does not, the workflow will fail visibly; it will not silently fall back to provisional picks.
+The collector's mocked timing/API tests pass, but it has **not completed a live near-deadline capture**. Its automated job is now gated until written permission for automated FPL data collection is obtained. Once permission is received and the repository variable is enabled, the post-lock picks endpoint must return locked gameweek selections for the sample to be accepted; it must never fall back to provisional picks.
 
 Do not define the cohort using post-gameweek ranks; that would introduce lookahead bias. Do not treat a top-10k sample as whole-game EO. The current collector samples top 10k only; top-100k and broader-field samples remain future work.
 
@@ -158,16 +158,20 @@ Interpretation:
 
 The CC BY 4.0 open FPL dataset freezes pre-deadline expected-points projections and includes realized outcomes, but the visible archive covers only a limited number of gameweeks. It can be a secondary benchmark for those rounds, not a substitute for a multi-season training set.
 
-## 6. Decisions and gates
+## 6. Exploratory CoVar baseline from Onside actual points
+
+A separate reproducible workflow uses only the provider-stated CC BY 4.0 ledger's realized `actual_points`; it does not call the official FPL API and ignores all forecast columns. Run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220. Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220/artifacts/14407138593. On GW1–GW10, 605 players appeared, 350 had complete panels, 255 incomplete panels were excluded, 54 zero-variance players were excluded, and 296 players remained in the matrix (43,956 pair estimates including diagonal). This is exploratory only: ten gameweeks are too few, complete-case selection is biased toward repeated appearances, and the underlying FPL data rights chain is not independently cleared. Do not enable CoVar in `personal_squad`.
+
+## 7. Decisions and gates
 
 | Blocker | Current evidence | Gate to clear |
 |---|---|---|
-| Point-in-time FPL vintages | Daily GitHub Actions artifacts; 90-day retention | Private durable storage + deadline-aware snapshots |
+| Point-in-time FPL vintages | Historical snapshots exist, but automated jobs are gated pending written permission | Written FPL permission + private durable storage + deadline-aware snapshots |
 | Global ownership | Official history `selected` + event `ranked_count` | Pipeline run verifies full-roster coverage and values |
-| Rank-tier EO | Tested estimator; no authorized feed wired | Deadline-locked manager-pick sample or licensed provider |
+| Rank-tier EO | Lock-safe collector tested; standard EO formula corrected; no live capture | Written FPL permission + deadline-locked manager-pick sample or licensed provider |
 | Event/FPL season overlap | Wyscout 2017/18 candidate | Reconcile official data and secure FPL target rights |
 | Opta/PulseLive player-match feed | No per-player-match files found in inspected tree | Provider documentation, actual files, and explicit data rights |
-| Historical target rights | Onside 2026/27 benchmark is CC BY 4.0; Vaastav 2017/18 archive rights remain unresolved | Use Onside as a separate current-season benchmark; obtain authorized 2017/18 FPL targets or written permission before Wyscout integration |
+| Historical target rights | Onside provider states CC BY 4.0; Vaastav 2017/18 archive rights and underlying FPL rights remain unresolved | Obtain written permission or another source with a cleared rights chain before FPL target ingestion |
 
 ## Sources reviewed
 
