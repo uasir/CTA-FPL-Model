@@ -82,7 +82,7 @@ def _validate_shared(payload: Mapping[str, Any]) -> None:
         raise RecommendationContractError("forecast_quality.point_in_time_status is invalid")
     if not isinstance(quality.get("data_coverage"), Mapping):
         raise RecommendationContractError("forecast_quality.data_coverage must be a mapping")
-    if not isinstance(quality.get("limitations", []), list):
+    if not isinstance(quality.get("limitations"), list):
         raise RecommendationContractError("forecast_quality.limitations must be a list")
     forecasts = payload["player_forecasts"]
     if not isinstance(forecasts, list) or not forecasts:
