@@ -9,6 +9,7 @@ on:
       - canonical_candidate/engineering_workbench/scripts/evaluate_opta_team_context.py
       - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py
+      - canonical_candidate/engineering_workbench/tests/test_fpl_nested_tuned_ridge.py
   push:
     paths:
       - "canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py"
