@@ -120,15 +120,43 @@ The inspected public repository `imadeddine-belkat/Premier-League-Stats` has 202
 
 Vaastav's historical repository contains useful gameweek targets, but its licence notice says the underlying FPL/Understat data belongs to those providers; the repository's MIT code licence is not a data-use grant. No authorized historical FPL target archive has been confirmed in this audit.
 
-## 5. Licensed external FPL forecast benchmarks
+## 5. Licensed external FPL forecast benchmarks — updated 2026-11-18
 
-Two promising benchmark sources surfaced:
+### Onside Arena: source audit and official FPL reconciliation passed
 
-- **Onside Arena:** its data page describes a CC BY 4.0 FPL graded-predictions CSV with one player-gameweek row, a pre-deadline `captured_at`, the deadline, realized FPL points, Onside's forecast, and FPL's `ep_next` plus simple form/season baselines. Its accuracy page reports a four-season blind-test ledger of 90,150 predictions across 120 gameweeks (2023/24–2026/27). The current data page has since changed its visible download catalogue, so the Zenodo DOI `10.5281/zenodo.22746985`, exact file coverage, ID field, and license metadata must be checked against the actual deposited file before ingestion. This is a strong candidate for an external forecast benchmark and potentially a time-stamped target/benchmark panel; it does not provide event-derived player features or EO.
-- **evmax:** its CC BY 4.0 open FPL dataset freezes pre-deadline expected-points projections and includes realized outcomes, but the visible archive currently covers only a handful of gameweeks. It can be an external benchmark for those rounds, not a substitute for a multi-season training set.
+- Dataset: Fantasy Premier League — Graded Predictions Dataset, 2026/27.
+- CSV: https://onsidearena.com/data/graded-predictions.csv
+- DOI: https://doi.org/10.5281/zenodo.22746985
+- Provider-stated licence: CC BY 4.0; attribute Onside Arena and link to its data page.
+- Audit workflow: `.github/workflows/cta-onside-benchmark.yml`.
+- Audit script: `scripts/inspect_onside_fpl_benchmark.py`.
+- Latest real-source run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44257909685
+- Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44257909685/artifacts/14407050697
+- Source SHA-256: `dd51366a5f71d5f0bf26b4265b17188f04774d584c4444172be3f307aaf02a81`.
 
-These sources may help us validate our future EV layer against independently frozen forecasts, but neither is yet a verified, full-coverage historical event-feature dataset. Keep their rows separate from CTA's own features and preserve attribution.
+Verified:
+- 5,450 rows, 14 columns.
+- All 5,450 `captured_at` values precede their row's `deadline_utc`.
+- All 5,450 deadlines exactly match official FPL event deadlines.
+- 608 unique `player_id` values all match official FPL `element` IDs; none match `player_code`.
+- Zero duplicate player-gameweek keys.
+- 4,954 populated actual-points rows match official FPL event-live totals exactly; zero mismatches.
+- 496 blank actual-points rows belong only to gameweeks still marked unfinished by the official API.
 
+Independently recomputed on the same 4,954 scored rows:
+- All scored rows: Onside MAE 1.681 / RMSE 2.577; provider-supplied frozen FPL `ep_next` MAE 1.600 / RMSE 2.651.
+- Minutes-qualified subset (2,045 rows): Onside MAE 2.515 / RMSE 3.530; FPL `ep_next` MAE 2.685 / RMSE 3.765.
+
+Interpretation:
+- This is a verified, season-current external FPL forecast benchmark with an FPL element-ID key and checked realized points.
+- The historical `fpl_ep_next` values are supplied by Onside. Their exact historical snapshots cannot be independently reconstructed from today's official API.
+- The two eligibility cohorts must be reported separately; do not compare a minutes-qualified metric to an all-player metric.
+- Keep Onside forecasts separate from CTA predictions. Do not train on them or blend them into the model.
+- This dataset has no event-derived CTA features and does not clear the StatsBomb/Wyscout/Opta event-data integration blockers.
+
+### evmax
+
+The CC BY 4.0 open FPL dataset freezes pre-deadline expected-points projections and includes realized outcomes, but the visible archive covers only a limited number of gameweeks. It can be a secondary benchmark for those rounds, not a substitute for a multi-season training set.
 
 ## 6. Decisions and gates
 
@@ -139,7 +167,7 @@ These sources may help us validate our future EV layer against independently fro
 | Rank-tier EO | Tested estimator; no authorized feed wired | Deadline-locked manager-pick sample or licensed provider |
 | Event/FPL season overlap | Wyscout 2017/18 candidate | Reconcile official data and secure FPL target rights |
 | Opta/PulseLive player-match feed | No per-player-match files found in inspected tree | Provider documentation, actual files, and explicit data rights |
-| Historical target rights | No grant established | Written permission or licensed target source |
+| Historical target rights | Onside 2026/27 benchmark is CC BY 4.0; Vaastav 2017/18 archive rights remain unresolved | Use Onside as a separate current-season benchmark; obtain authorized 2017/18 FPL targets or written permission before Wyscout integration |
 
 ## Sources reviewed
 
