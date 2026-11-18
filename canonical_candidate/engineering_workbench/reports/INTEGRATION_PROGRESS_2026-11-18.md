@@ -260,7 +260,7 @@ This is an execution-policy change, not a finding that the data terms grant perm
 - StatsBomb, Wyscout and Opta/PulseLive validators all executed; Wyscout and Opta/PulseLive remain `EMPTY_NOT_READY` with `join_ready: false`.
 - The CI test run produced no workflow artifacts; it validates the merged code and contracts, not a new live FPL ingestion or EO capture.
 
-The Actions connector available in this engineering session exposes run inspection and rerun operations but no workflow-dispatch operation. Therefore, no manual dispatch is claimed here. The workflows remain scheduled: official ingestion daily at 05:30 UTC, EO checks at minutes 10 and 40 each hour with a 25-minute pre-deadline window and 30-minute timeout, and Onside audit Sundays at 12:17 UTC. The scheduled ingestion and both live-pool parity checks are verified in run 44324401400; a successful deadline-locked EO capture remains outstanding.
+The Actions connector available in this engineering session exposes run inspection and rerun operations but no workflow-dispatch operation. Therefore, no manual dispatch is claimed here. The workflows remain scheduled: official ingestion daily at 05:30 UTC, EO checks at minutes 5 and 35 each hour with a 35-minute pre-deadline window and 45-minute timeout, and Onside audit Sundays at 12:17 UTC. The scheduled ingestion and both live-pool parity checks are verified in run 44324401400; a successful deadline-locked EO capture remains outstanding.
 
 ### Live official FPL ingestion and Python–JavaScript parity — verified 2026-11-18
 
