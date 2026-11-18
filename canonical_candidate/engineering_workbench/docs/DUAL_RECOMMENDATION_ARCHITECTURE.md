@@ -143,7 +143,7 @@ Do not rebuild the existing engine, replace recovered source lineage, fabricate 
 - Multi-season, point-in-time historical training data and out-of-sample predictive validation remain incomplete.
 - Multi-transfer optimisation, chip effects, multiweek planning and CoVar utility validation remain future work.
 
-Latest full CI verification, including both engine adapters and quality gates: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254878351 — **37 JavaScript tests and 153 Python tests passed, plus 3 subtests**. The crosswalk validator still reports `EMPTY_NOT_READY`; no verified StatsBomb↔FPL identity rows exist.
+Latest full CI verification, including both engine adapters, the JSON numeric-parity comparator and quality gates: https://github.com/uasir/CTA-FPL-Model/actions/runs/44255497865 — **37 JavaScript tests and 155 Python tests passed, plus 3 subtests**. The crosswalk validator still reports `EMPTY_NOT_READY`; no verified StatsBomb↔FPL identity rows exist.
 
 
 The live FPL-to-general-market smoke test also passed on 2026-11-18 using all 672 official FPL player forecasts: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254087867. The source snapshot was more than 24 hours before deadline, so the output correctly remained exploratory.
