@@ -3,10 +3,10 @@ name: CTA pre-deadline FPL effective ownership capture
 on:
   workflow_dispatch:
   schedule:
-    # Start about 20 minutes before the observed :00/:30 deadline cadence.
-    # The 25-minute window absorbs best-effort scheduler delay while still freezing
+    # Start about 25 minutes before the observed :00/:30 deadline cadence.
+    # The 35-minute window absorbs best-effort scheduler delay while still freezing
     # the rank cohort before lock; picks are fetched only after the 60-second grace.
-    - cron: "10,40 * * * *"
+    - cron: "5,35 * * * *"
 
 permissions:
   contents: read
@@ -18,7 +18,7 @@ concurrency:
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout CTA-FPL-Model
         uses: actions/checkout@v4
@@ -34,7 +34,7 @@ jobs:
             --sample-size 100 \
             --workers 2 \
             --delay 0.15 \
-            --deadline-window-minutes 25 \
+            --deadline-window-minutes 35 \
             --lock-grace-seconds 60
       - name: Upload verified post-lock EO snapshot
         if: always()
