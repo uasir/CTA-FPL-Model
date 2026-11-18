@@ -1,0 +1,113 @@
+# Contextual threat assessment — StatsBomb 360 research sidecar
+
+## Objective
+
+Develop match-derived predictors of FPL points that add information beyond conventional
+shot xG and xA. The initial research direction is to measure the context in which
+players act: defensive pressure, available space, goal-side defensive coverage,
+passing/carrying lanes, supporting teammates, and the danger created or removed by
+actions.
+
+This is a feature-research programme, not a validated points model. No contextual
+feature in this document is connected to either recommendation engine.
+
+## Data sources and realistic coverage
+
+### StatsBomb Open Data
+
+StatsBomb Open Data provides match metadata, lineups, event JSON and selected
+StatsBomb 360 freeze frames. The 360 frames contain visible player locations,
+teammate/opponent flags, actor flags and goalkeeper flags, joined to events by
+event_uuid. It is a valuable source for developing spatial-context features, but
+it is not continuous optical tracking.
+
+The currently published competition index lists only the 2015/16 and 2003/04
+men's Premier League seasons. 360 availability is narrower still and must be
+checked match by match. Consequently, this source can support historical method
+development and cross-competition experiments; it cannot alone supply a
+current-season Premier League training panel.
+
+Source: https://github.com/hudl/open-data
+Attribution is required when publishing analysis based on StatsBomb Open Data.
+The source terms and the exact permitted use must be retained with every dataset
+manifest. CTA stores no new bulk StatsBomb source files in this feature PR.
+
+### Other sources
+
+- Opta/PulseLive: current CTA integration currently has team-match aggregates and
+  player-season aggregates, not verified player-level event rows. Keep this
+  adapter separate; its data rights and point-in-time vintage remain unresolved.
+- Wyscout: a separate event-data provider and identity namespace. Do not treat
+  Wyscout player IDs as StatsBomb IDs or merge provider data without a verified
+  crosswalk and source-specific terms.
+- Paid StatsBomb, Opta or Wyscout feeds may be required for consistent current
+  Premier League event coverage. Compare rights, historical depth, event schema,
+  360/tracking availability, identity mapping and price before committing.
+
+## First feature family: 360 spatial context
+
+The new script scripts/extract_statsbomb_contextual_threat.py emits two outputs:
+
+1. contextual_threat_events.csv: one row per supported event with a usable
+   linked 360 frame.
+2. contextual_threat_player_match.csv: player-match aggregates over those
+   sampled 360-linked events only.
+
+Initial components include:
+
+- Number of visible opponents and teammates.
+- Opponents within 5 and 10 pitch units of the actor.
+- Nearest opponent and goalkeeper distance.
+- Opponents occupying a 5-unit corridor between actor and goal.
+- Goal-side opponents within a 12-unit lateral band.
+- Teammates ahead within 20 units.
+- Nearest opponent ahead in an 8-unit lateral lane.
+- Event-level under-pressure indicator and action type.
+
+Coordinates are retained in StatsBomb's 120 × 80 frame. Out-of-bounds visible
+players are excluded from geometric calculations and counted in diagnostics.
+Duplicate event-frame UUIDs are reported; only the first frame is used.
+
+## Interpretation safeguards
+
+- A missing 360 frame is missing information, never zero pressure or zero opponents.
+- Player-match aggregates explicitly say 360_sampled_events_only_not_full_match_totals.
+- Freeze frames are snapshots around selected events, not full-match tracking.
+- These spatial features are not xG, xA, xT or a calibrated probability of scoring.
+- A high number of nearby defenders can mean pressure, but can also mean a
+  crowded attacking zone; interpretation depends on event type and location.
+- A shot's freeze frame is post-action context only if the provider's event/frame
+  timing confirms it. Do not use it as a pre-shot prediction feature without
+  checking temporal semantics.
+- This PR deliberately does not create a single opaque "threat score".
+  Preserve interpretable components until they have been tested against
+  independent labels and future FPL outcomes.
+- StatsBomb player IDs are not FPL element IDs. Only a separately verified,
+  season- and competition-scoped identity crosswalk may join them.
+- A single match, one competition, or sampled 360 events cannot establish
+  out-of-sample FPL predictive value.
+
+## Validation roadmap
+
+1. Validate event-frame joins and geometric calculations on real 360 fixtures.
+2. Compare spatial features with event-level xT, shot xG, xA, progressive actions,
+   box entries and FPL points, while keeping post-action values out of predictors.
+3. Establish a multi-match player-match panel with trusted minutes and verified
+   player identity mapping.
+4. Build player-role and position-specific rolling features using only matches
+   completed before each FPL deadline.
+5. Evaluate rolling-origin temporal holdouts and compare:
+   - minutes / start-probability baseline;
+   - recent FPL points and role baseline;
+   - xG/xA and conventional underlying-stat baseline;
+   - xT / progressive threat baseline;
+   - contextual 360 feature augmentation.
+6. Report MAE, RMSE, calibration, minutes error, coverage and performance by
+   position and player role. Promote only when gains are stable across multiple
+   held-out periods and do not depend on a single competition or season.
+
+## Current status
+
+PASS_STRUCTURAL_ONLY means the extractor completed its data and geometry checks.
+It does not mean the feature predicts points. The extractor's report therefore
+sets prediction_validation to NOT_EVALUATED.
