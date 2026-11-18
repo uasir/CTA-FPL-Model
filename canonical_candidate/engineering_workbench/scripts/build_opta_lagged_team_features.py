@@ -157,8 +157,13 @@ def build_crosswalk(elements: list[dict], teams: list[dict], provider_players: l
 
 
 def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: list[dict],
-                        season: str = "2026-27", max_history: int = 3):
+                        season: str = "2026-27", max_history: int = 3,
+                        as_of_time: datetime | None = None):
     """Produce fixture-team and FPL player-fixture rows using strictly prior team matches."""
+    as_of_time = as_of_time or datetime.now(timezone.utc)
+    if as_of_time.tzinfo is None:
+        as_of_time = as_of_time.replace(tzinfo=timezone.utc)
+    as_of_time = as_of_time.astimezone(timezone.utc)
     elements = bootstrap.get("elements", [])
     teams = {str(t["id"]): t.get("name", "") for t in bootstrap.get("teams", [])}
     team_codes = {str(t["id"]): str(t.get("code", "")) for t in bootstrap.get("teams", [])}
@@ -216,6 +221,14 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
                 )
             team_output.append(row)
 
+        # Current bootstrap team assignments are only valid for prospective fixtures.
+        # Never project today's roster backwards onto historical fixtures.
+        forecast_fixture = (
+            target_kickoff is not None and target_kickoff > as_of_time
+            and not fixture.get("finished", False)
+        )
+        if not forecast_fixture:
+            continue
         team_for_side = {team_id: side for side, team_id in sides}
         for element in elements:
             team_id = str(element.get("team", ""))
@@ -247,7 +260,7 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
     provider_match_ids = set(match_teams) - {""}
     malformed_match_ids = sorted(mid for mid, ids in match_teams.items() if mid and len(ids) != 2)
     report = {
-        "season": season, "fixtures": len(fixtures),
+        "season": season, "as_of_time": as_of_time.isoformat(), "fixtures": len(fixtures),
         "fixtures_without_kickoff": sum(not bool(f.get("kickoff_time")) for f in fixtures),
         "team_fixture_rows": len(team_output), "player_fixture_rows": len(player_output),
         "provider_team_match_rows": len(source), "provider_unique_match_ids": len(provider_match_ids),
@@ -263,6 +276,7 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
         "max_prior_matches": max_history,
         "same_or_future_rows_excluded": excluded_same_or_future,
         "leakage_policy": "Only same-season provider team rows with kickoff strictly earlier than target fixture kickoff are used; current fixture matchId is excluded.",
+        "player_projection_policy": "Current bootstrap roster is emitted only for unfinished fixtures strictly after as_of_time; no current roster is projected backwards onto completed fixtures.",
         "point_in_time_status": "NOT_VERIFIED",
         "point_in_time_caveat": "Provider snapshot vintage must be archived at each deadline before strict historical backtests are claimed.",
         "status": "PASS_STRUCTURAL_ONLY",
