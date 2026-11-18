@@ -1,0 +1,125 @@
+{
+  "contract_version": "1.0.0",
+  "architecture": "dual_recommender_shared_forecast_layer",
+  "shared_foundation": {
+    "required_forecast_metadata": [
+      "forecast_snapshot_id",
+      "model_version",
+      "forecast_horizon_gameweeks"
+    ],
+    "shared_player_fields": [
+      "fpl_element_id",
+      "expected_points",
+      "expected_minutes",
+      "price",
+      "position",
+      "team_id"
+    ],
+    "optional_player_fields": [
+      "effective_ownership",
+      "points_variance",
+      "availability_probability",
+      "fixture_features"
+    ],
+    "data_policy": [
+      "Forecasts must be traceable to a snapshot and model version.",
+      "Missing values remain missing and are surfaced; they are not silently imputed by recommendation code.",
+      "Exploratory covariance is not a production decision signal.",
+      "Forecast validity and point-in-time status travel with every recommendation response."
+    ]
+  },
+  "systems": {
+    "general_market": {
+      "purpose": "Rank players and market opportunities independently of any manager squad.",
+      "required_inputs": [
+        "forecast_snapshot_id",
+        "model_version",
+        "forecast_horizon_gameweeks",
+        "player_forecasts"
+      ],
+      "forbidden_inputs": [
+        "squad",
+        "squad_snapshot",
+        "bank",
+        "free_transfers",
+        "chips",
+        "formation",
+        "starting_xi",
+        "bench_order",
+        "manager_rank",
+        "rank_target",
+        "personal_risk_profile",
+        "personal_preferences"
+      ],
+      "output_categories": [
+        "overall",
+        "by_position",
+        "value",
+        "expected_points",
+        "differentials",
+        "captaincy",
+        "fixture_targets",
+        "high_upside",
+        "high_risk",
+        "sell_or_avoid"
+      ],
+      "invariance": "For identical forecast snapshot, model version, horizon and public filters, output is identical regardless of any manager squad or personal constraints."
+    },
+    "personal_squad": {
+      "purpose": "Optimise decisions for one explicitly supplied manager squad and constraints.",
+      "required_inputs": [
+        "forecast_snapshot_id",
+        "model_version",
+        "forecast_horizon_gameweeks",
+        "player_forecasts",
+        "squad_snapshot",
+        "bank",
+        "free_transfers",
+        "personal_risk_profile"
+      ],
+      "squad_snapshot": {
+        "player_count": 15,
+        "unique_key": "fpl_element_id",
+        "required_player_fields": [
+          "fpl_element_id",
+          "purchase_price"
+        ]
+      },
+      "additional_context": [
+        "chips",
+        "formation",
+        "starting_xi",
+        "bench_order",
+        "manager_rank",
+        "rank_target",
+        "personal_preferences"
+      ],
+      "output_categories": [
+        "transfers",
+        "hold_or_roll",
+        "starting_xi",
+        "formation",
+        "bench_order",
+        "captain",
+        "vice_captain",
+        "portfolio_risk"
+      ],
+      "portfolio_policy": "Evaluate moves against the whole squad and constraints, not incoming-player rank in isolation."
+    }
+  },
+  "portfolio_risk": {
+    "covariance_policy": "Exploratory CoVar is excluded from production decisions until stability and out-of-sample validation gates pass.",
+    "scope": "CoVar may inform personal portfolio decisions after validation; it is not a required component of general player rankings."
+  },
+  "acceptance_tests": [
+    "General mode validates and runs without any squad input.",
+    "General mode rejects all personal squad and manager-specific fields.",
+    "General rankings are invariant to personal squad changes.",
+    "Personal mode requires exactly 15 distinct FPL element IDs.",
+    "Personal mode requires explicit bank, free-transfer count and risk profile.",
+    "Personal mode records the squad snapshot and constraints used.",
+    "Both modes record forecast snapshot, model version and horizon.",
+    "Missing or unvalidated forecast fields are surfaced, not invented.",
+    "Exploratory covariance is not used as a production decision signal."
+  ]
+}
