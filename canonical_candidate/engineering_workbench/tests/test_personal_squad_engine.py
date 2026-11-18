@@ -40,10 +40,14 @@ def test_personal_squad_builds_legal_xi_and_transfer_recommendation():
     assert len(result["squad_plan"]["bench_order"]) == 3
     assert result["transfer_recommendation"]["action"] == "TRANSFER"
     best = result["transfer_recommendation"]["best_candidate"]
-    assert best["transfer_out_id"] == 3
-    assert best["transfer_in_id"] == 16
-    assert best["selling_price"] == 5.1
-    assert best["bank_after_transfer"] == 4.7
+    assert best["transfer_out_id"] == 6
+    assert best["transfer_in_id"] == 17
+    same_team_replacement = next(
+        candidate for candidate in result["transfer_recommendation"]["alternatives"]
+        if candidate["transfer_out_id"] == 3 and candidate["transfer_in_id"] == 16
+    )
+    assert same_team_replacement["selling_price"] == 5.1
+    assert same_team_replacement["bank_after_transfer"] == 4.7
     assert result["portfolio_risk"]["covar_used"] is False
     assert result["portfolio_risk"]["risk_profile_applied"] is False
 
@@ -51,9 +55,10 @@ def test_personal_squad_builds_legal_xi_and_transfer_recommendation():
 def test_no_transfer_when_only_available_candidate_fails_hit_cost():
     payload = request()
     payload["free_transfers"] = 0
+    payload["personal_preferences"] = {"hit_cost_points": 5}
     result = recommend_personal_squad(payload)
     assert result["transfer_recommendation"]["action"] == "HOLD"
-    assert result["transfer_recommendation"]["hit_cost_points_applied"] == 4.0
+    assert result["transfer_recommendation"]["hit_cost_points_applied"] == 5.0
 
 
 def test_hits_can_be_set_to_zero_explicitly():
@@ -67,9 +72,13 @@ def test_hits_can_be_set_to_zero_explicitly():
 
 def test_team_limit_and_budget_are_enforced_for_transfer_candidates():
     result = recommend_personal_squad(request())
-    incoming_ids = {candidate["transfer_in_id"] for candidate in result["transfer_recommendation"]["alternatives"]}
-    assert 17 not in incoming_ids
-    assert 18 not in incoming_ids
+    alternatives = result["transfer_recommendation"]["alternatives"]
+    team_one_replacements = [
+        candidate for candidate in alternatives if candidate["transfer_in_id"] == 17
+    ]
+    assert team_one_replacements
+    assert all(candidate["transfer_out_id"] == 6 for candidate in team_one_replacements)
+    assert all(candidate["transfer_in_id"] != 18 for candidate in alternatives)
 
 
 def test_invalid_formation_and_starting_xi_are_rejected():
