@@ -610,6 +610,7 @@ def main():
     parser.add_argument("--crosswalk", type=Path, required=True)
     parser.add_argument("--crosswalk-validation", type=Path, required=True)
     parser.add_argument("--season", required=True)
+    parser.add_argument("--release", default="11footy-2026-11-10")
     parser.add_argument("--competition-id", default="1")
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
@@ -641,6 +642,7 @@ def main():
             connection.close()
             players_connection.close()
 
+    report["source_release"] = args.release
     report["attribution"] = "11footy; CC BY-NC 4.0; non-commercial use only."
     report["source_hashes"] = {
         "11footy_match_database_sha256": sha256(args.database),
