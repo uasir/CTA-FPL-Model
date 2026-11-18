@@ -83,7 +83,7 @@ The output is explicitly labelled `SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS`. It does n
 
 A first-party lock-safe capture workflow is implemented at `.github/workflows/cta-fpl-eo-capture.yml`, with collector `scripts/capture_fpl_ranked_manager_picks.py`.
 
-It is scheduled at minutes 10 and 40 of each hour to begin about 20 minutes before observed :30 and :00 deadlines. The collector accepts a 25-minute pre-deadline window to absorb best-effort scheduler delay; the job timeout is 30 minutes. It:
+It is scheduled at minutes 5 and 35 of each hour to begin about 25 minutes before observed :30 and :00 deadlines. The collector accepts a 35-minute pre-deadline window to absorb best-effort scheduler delay; the job timeout is 45 minutes. It:
 - samples 100 managers across rank strata within the pre-deadline overall top 10,000;
 - records the rank cohort before the deadline and refuses to proceed if the standings fetch crosses the deadline;
 - waits until 60 seconds after the official deadline;
