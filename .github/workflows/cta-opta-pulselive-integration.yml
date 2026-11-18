@@ -2,6 +2,12 @@ name: CTA Opta/PulseLive to FPL integration
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/cta-opta-pulselive-integration.yml
+      - canonical_candidate/engineering_workbench/scripts/build_opta_lagged_team_features.py
+      - canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py
+      - canonical_candidate/data/opta_pulselive_fpl_identity_crosswalk.csv
   schedule:
     - cron: "10 6 * * *"
 
@@ -42,6 +48,35 @@ jobs:
           curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 \
             https://raw.githubusercontent.com/imadeddine-belkat/Premier-League-Stats/f0f3d40f803c69bc7fac48d0748b49175e2d08ce/pl_stats/_merged/events/2026-27_events_stats.csv \
             -o run_artifacts/opta_fpl/source/opta_team_events.csv
+      - name: Record pinned source snapshot hashes
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          root = Path("run_artifacts/opta_fpl/source")
+          files = {
+              "official_fpl_bootstrap": "bootstrap-static.json",
+              "official_fpl_fixtures": "fixtures.json",
+              "opta_pulselive_players": "opta_players.csv",
+              "opta_pulselive_team_events": "opta_team_events.csv",
+          }
+          manifest = {
+              "captured_at_utc": datetime.now(timezone.utc).isoformat(),
+              "opta_source_commit": "f0f3d40f803c69bc7fac48d0748b49175e2d08ce",
+              "files": {
+                  name: {
+                      "path": filename,
+                      "bytes": (root / filename).stat().st_size,
+                      "sha256": hashlib.sha256((root / filename).read_bytes()).hexdigest(),
+                  } for name, filename in files.items()
+              },
+          }
+          (Path("run_artifacts/opta_fpl/output") / "source_manifest.json").write_text(
+              json.dumps(manifest, indent=2)
+          )
+          print(json.dumps(manifest, indent=2))
+          PY
       - name: Build numeric identity crosswalk and strictly lagged team features
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -93,8 +128,10 @@ jobs:
           validation = json.loads((root / "crosswalk_validation/crosswalk_validation.json").read_text())
           identity = report["identity"]
           features = report["team_features"]
+          source_manifest = json.loads((root / "source_manifest.json").read_text())
           safe = {
               "source_commit": identity["source_commit"],
+              "source_manifest": source_manifest,
               "identity": {
                   key: identity[key] for key in (
                       "season", "fpl_unique_codes", "provider_unique_player_ids",
