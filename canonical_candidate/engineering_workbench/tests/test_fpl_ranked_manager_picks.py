@@ -24,6 +24,14 @@ class RankedManagerSampleTests(unittest.TestCase):
         self.assertEqual(sum(x["page_standings"]==2 for x in managers),2)
         self.assertTrue(all(1<=x["rank_before_deadline"]<=100 for x in managers))
 
+    def test_select_managers_rejects_incomplete_rank_page(self):
+        payloads={
+            1:{"standings":{"results":[{"entry":101+i,"rank":1+i} for i in range(49)]}},
+            2:{"standings":{"results":[{"entry":201+i,"rank":51+i} for i in range(50)]}},
+        }
+        with self.assertRaisesRegex(ValueError,"incomplete"):
+            select_managers(payloads,4,100,5)
+
     def test_normalizes_picks_and_chip_state(self):
         managers=[{"entry_id":7,"rank_before_deadline":7,"sample_weight":100.0}]
         picks=[{"element":i,"position":i,"is_captain":i==1,"is_vice_captain":i==2} for i in range(1,16)]
