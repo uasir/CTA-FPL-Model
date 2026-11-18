@@ -9,7 +9,7 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_11footy_premier_league_data_audit.py
       - canonical_candidate/engineering_workbench/docs/CONTEXTUAL_THREAT_ASSESSMENT.md
   push:
-    branches: [main]
+    branches: [main, "feat/**"]
     paths:
       - .github/workflows/cta-11footy-match-data-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_11footy_premier_league_data.py
