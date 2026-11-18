@@ -241,10 +241,13 @@ def main():
         "provider": report["provider"],
         "release": report["source_release"],
         "status": report["status"],
-        "seasons": len(report["season_coverage"]),
+        "seasons": report["season_coverage"],
+        "match_event_rows": sum(int(row["rows"] or 0) for row in report["match_event_layers_and_kinds"]),
         "player_match_rows": report["player_match_statistics"]["rows"],
+        "player_match_event_count_rows": report["player_match_event_counts"]["rows"],
         "player_catalogue": report["player_catalogue"],
         "shot_layers": report["shot_layers"],
+        "lineups": report["lineups"],
         "prediction_validation": report["prediction_validation"],
     }, indent=2))
     return 0
