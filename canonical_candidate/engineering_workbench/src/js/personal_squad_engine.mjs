@@ -124,9 +124,9 @@ function transferCandidates(request, forecasts) {
   if (preferences === null || typeof preferences !== "object" || Array.isArray(preferences)) {
     throw new RecommendationContractError("personal_preferences must be an object");
   }
-  const hitCost = preferences.hit_cost_points ?? 4;
-  const minGain = preferences.min_transfer_gain_points ?? 0;
-  const maxAlternatives = preferences.max_transfer_alternatives ?? 5;
+  const hitCost = Object.hasOwn(preferences, "hit_cost_points") ? preferences.hit_cost_points : 4;
+  const minGain = Object.hasOwn(preferences, "min_transfer_gain_points") ? preferences.min_transfer_gain_points : 0;
+  const maxAlternatives = Object.hasOwn(preferences, "max_transfer_alternatives") ? preferences.max_transfer_alternatives : 5;
   for (const [name, value] of [["hit_cost_points", hitCost], ["min_transfer_gain_points", minGain]]) {
     if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
       throw new RecommendationContractError("personal_preferences." + name + " must be a non-negative finite number");
@@ -149,7 +149,7 @@ function transferCandidates(request, forecasts) {
       if (ownedIds.has(inId) || incoming.position !== outForecast.position) continue;
       if ((teamAfter.get(incoming.team_id) ?? 0) >= 3) continue;
       if (incoming.price > available + 1e-9) continue;
-      const delta = incoming.expected_points - outForecast.expected_points;
+        const delta = incoming.expected_points - outForecast.expected_points;
       const net = delta - appliedHitCost;
       candidates.push({
         transfer_out_id: outId,
@@ -209,7 +209,7 @@ export function recommendPersonalSquad(payload) {
   if (benchValue !== null) {
     if (!Array.isArray(benchValue) || benchValue.length !== 3
       || benchValue.some((id) => !Number.isInteger(id) || id < 1)) {
-      throw new RecommendationContractError("bench_order must contain exactly three outfield player IDs");
+      throw new RecommendationContractError("bench_order must contain exactly three positive integer outfield player IDs");
     }
     const available = new Set(outfieldBench.map((player) => player.fpl_element_id));
     if (new Set(benchValue).size !== 3 || benchValue.some((id) => !available.has(id))) {
