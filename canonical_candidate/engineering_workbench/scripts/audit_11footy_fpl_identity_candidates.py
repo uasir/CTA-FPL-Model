@@ -79,7 +79,7 @@ def _materialize_sqlite(source: Path, temp_dir: Path):
     return target
 
 
-def audit_identity_candidates(players_connection, fpl_bootstrap):
+def audit_identity_candidates(players_connection, fpl_bootstrap, season="2026/27", source_release="11footy-2026-11-10"):
     tables = {
         row[0] for row in players_connection.execute(
             "SELECT name FROM sqlite_master WHERE type='table'"
@@ -181,10 +181,10 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
                 verification_status = "CANDIDATE_REQUIRES_REVIEW"
                 match_method = "EXACT_NAME_AND_TEAM_BIRTH_DATE_UNAVAILABLE"
             candidate_rows.append({
-                "season": "2026/27",
+                "season": str(season),
                 "competition_id": "1",
                 "competition_name": "Premier League",
-                "source_release": "11footy-2026-11-10",
+                "source_release": str(source_release),
                 "fpl_element_id": row["fpl_element_id"],
                 "fpl_player_code": row["fpl_code"],
                 "fpl_team_id": row["fpl_team_id"],
@@ -245,6 +245,10 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
 
     return {
         "provider": "11footy",
+        "source_release": str(source_release),
+        "season": str(season),
+        "competition_id": "1",
+        "competition_name": "Premier League",
         "comparison_source": "Official FPL bootstrap-static",
         "fpl_player_count": len(fpl_rows),
         "provider_player_catalogue_count": len(provider_rows),
@@ -271,6 +275,8 @@ def main():
     parser = argparse.ArgumentParser(description="Audit 11footy-to-FPL current-player identity candidates")
     parser.add_argument("--players-input", type=Path, required=True)
     parser.add_argument("--fpl-bootstrap", type=Path, required=True)
+    parser.add_argument("--season", default="2026/27")
+    parser.add_argument("--release", default="11footy-2026-11-10")
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
 
@@ -280,7 +286,9 @@ def main():
         db_path = _materialize_sqlite(args.players_input, Path(temp))
         connection = sqlite3.connect("file:" + str(db_path.resolve()) + "?mode=ro", uri=True)
         try:
-            report, candidate_rows = audit_identity_candidates(connection, bootstrap)
+            report, candidate_rows = audit_identity_candidates(
+                connection, bootstrap, season=args.season, source_release=args.release
+            )
         finally:
             connection.close()
 
