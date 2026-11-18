@@ -100,7 +100,9 @@ def _transfer_candidates(request,forecasts):
     for player_id in owned_ids:
         team=forecast_by_id[player_id]["team_id"]
         team_counts[team]=team_counts.get(team,0)+1
-    preferences=request.get("personal_preferences") or {}
+    preferences=request.get("personal_preferences", {})
+    if preferences is None:
+        preferences={}
     if not isinstance(preferences,dict):
         raise RecommendationContractError("personal_preferences must be an object")
     hit_cost=preferences.get("hit_cost_points",4.0)
@@ -162,7 +164,9 @@ def recommend_personal_squad(payload):
     squad=request["squad_snapshot"]
     owned_ids={int(p["fpl_element_id"]) for p in squad}
     owned=[forecast_by_id[player_id] for player_id in owned_ids]
-    preferences=request.get("personal_preferences") or {}
+    preferences=request.get("personal_preferences", {})
+    if preferences is None:
+        preferences={}
     if not isinstance(preferences,dict):
         raise RecommendationContractError("personal_preferences must be an object")
     formation_value=request.get("formation") if request.get("formation") is not None else preferences.get("formation")
