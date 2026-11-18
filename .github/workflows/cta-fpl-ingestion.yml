@@ -10,6 +10,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_nested_tuned_ridge.py
+      - canonical_candidate/engineering_workbench/scripts/audit_onside_against_fpl_actuals.py
+      - canonical_candidate/engineering_workbench/tests/test_onside_fpl_actuals_cross_audit.py
   push:
     paths:
       - "canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py"
@@ -30,6 +32,7 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/build_opta_lagged_team_features.py"
       - "canonical_candidate/engineering_workbench/scripts/evaluate_opta_team_context.py"
       - "canonical_candidate/engineering_workbench/scripts/train_fpl_nested_tuned_ridge.py"
+      - "canonical_candidate/engineering_workbench/scripts/audit_onside_against_fpl_actuals.py"
   schedule:
     - cron: "30 5 * * *"
 permissions:
@@ -78,7 +81,8 @@ jobs:
             tests/test_opta_lagged_team_features.py \
             tests/test_opta_team_context_evaluation.py \
             tests/test_provider_identity_crosswalk.py \
-            tests/test_fpl_nested_tuned_ridge.py
+            tests/test_fpl_nested_tuned_ridge.py \
+            tests/test_onside_fpl_actuals_cross_audit.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -111,6 +115,9 @@ jobs:
           curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 \
             https://raw.githubusercontent.com/imadeddine-belkat/Premier-League-Stats/f0f3d40f803c69bc7fac48d0748b49175e2d08ce/pl_stats/_merged/events/2026-27_events_stats.csv \
             -o run_artifacts/opta_fpl/source/opta_team_events.csv
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 \
+            https://onsidearena.com/data/graded-predictions.csv \
+            -o run_artifacts/opta_fpl/source/onside_graded_predictions.csv
       - name: Build Opta identity and historical team-context sidecars
         run: |
           python canonical_candidate/engineering_workbench/scripts/build_opta_lagged_team_features.py \
@@ -132,6 +139,12 @@ jobs:
           python canonical_candidate/engineering_workbench/scripts/evaluate_opta_team_context.py \
             --fpl-training run_artifacts/fpl_official/fpl_lagged_training.csv \
             --opta-features run_artifacts/opta_fpl/output/opta_lagged_historical_player_fixture_features.csv \
+            --out-dir run_artifacts/opta_fpl/output
+      - name: Cross-audit Onside actual points against official FPL history
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/audit_onside_against_fpl_actuals.py \
+            --fpl-training run_artifacts/fpl_official/fpl_lagged_training.csv \
+            --onside-csv run_artifacts/opta_fpl/source/onside_graded_predictions.csv \
             --out-dir run_artifacts/opta_fpl/output
       - name: Enforce Opta identity, fixture, and historical join integrity
         run: |
@@ -179,6 +192,7 @@ jobs:
                   } for name, filename in {
                       "opta_players": "opta_players.csv",
                       "opta_team_events": "opta_team_events.csv",
+                      "onside_graded_predictions": "onside_graded_predictions.csv",
                   }.items()
               },
           }
@@ -220,7 +234,17 @@ jobs:
                   "decision": evaluation["decision"],
                   "point_in_time_status": evaluation["point_in_time_status"],
               },
-              "publication_policy": "Aggregate metrics and hashes only; provider source files, crosswalk rows, and player-fixture feature rows are not uploaded."
+              "onside_fpl_actuals_cross_audit": {
+                  key: json.loads((output / "onside_fpl_actuals_cross_audit.json").read_text())[key]
+                  for key in (
+                      "status", "fpl_player_gameweek_rows", "onside_player_gameweek_rows",
+                      "matched_player_gameweek_rows", "exact_matches", "mismatches",
+                      "exact_match_rate", "mean_absolute_difference", "max_absolute_difference",
+                      "fpl_rows_without_onside", "onside_rows_without_fpl",
+                      "unique_fpl_players", "unique_onside_players", "unique_matched_players"
+                  )
+              },
+              "publication_policy": "Aggregate metrics and hashes only; provider source files, crosswalk rows, mismatch examples, and player-fixture feature rows are not uploaded."
           }
           Path("run_artifacts/fpl_official/opta_team_context_evaluation.json").write_text(json.dumps(safe, indent=2))
           print(json.dumps(safe, indent=2))
