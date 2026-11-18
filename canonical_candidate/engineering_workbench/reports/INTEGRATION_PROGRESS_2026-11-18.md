@@ -84,8 +84,8 @@ These are project calculations from the downloaded ledger, not an endorsement of
 - Official FPL API ingestion works for all 672 rostered players and 380 fixtures; the latest verified full fetch was run 44147764850.
 - Historical lagged feature outputs are structurally complete but are not point-in-time verified.
 - Effective-ownership collection is implemented but still needs a live near-deadline capture and validation.
-- The StatsBomb/FPL crosswalk is empty; no verified player joins exist.
-- Licensed, season-aligned event features and target labels remain unresolved.
+- StatsBomb/FPL crosswalk remains empty because the available StatsBomb EPL seasons do not overlap the FPL historical target seasons. Wyscout 2017/18 now has a verified partial 256-player FPL identity crosswalk (see section 13).
+- Wyscout 2017/18 event data is season-aligned and provider-stated CC BY 4.0, with 256 identity joins verified; historical FPL target-data rights and point-in-time vintages remain unresolved, so no predictive event model is promoted.
 - 90-day GitHub artifacts are not durable full-season storage. A private persistent archive is still required.
 
 No full FPL predictive integration or production recommendation engine is claimed complete.
@@ -257,7 +257,7 @@ This is an execution-policy change, not a finding that the data terms grant perm
 - Main CI: https://github.com/uasir/CTA-FPL-Model/actions/runs/44288397079 — **success** on commit `68df00ae83eb6eb7129fbe7ac7834a5751e73794`.
 - JavaScript contract tests: **37 passed, 0 failed**.
 - Python engineering tests: **172 passed**, plus 3 subtests.
-- StatsBomb, Wyscout and Opta/PulseLive validators all executed; Wyscout and Opta/PulseLive remain `EMPTY_NOT_READY` with `join_ready: false`.
+- At the PR #9 CI snapshot, StatsBomb, Wyscout and Opta/PulseLive validators all executed; the Wyscout crosswalk was then empty. A subsequent match-level reconciliation has populated 256 verified Wyscout→FPL rows; Opta/PulseLive remains `EMPTY_NOT_READY`.
 - The CI test run produced no workflow artifacts; it validates the merged code and contracts, not a new live FPL ingestion or EO capture.
 
 The Actions connector available in this engineering session exposes run inspection and rerun operations but no workflow-dispatch operation. Therefore, no manual dispatch is claimed here. The workflows remain scheduled: official ingestion daily at 05:30 UTC, EO checks at minutes 5 and 35 each hour with a 35-minute pre-deadline window and 45-minute timeout, and Onside audit Sundays at 12:17 UTC. The scheduled ingestion and both live-pool parity checks are verified in run 44324401400; a successful deadline-locked EO capture remains outstanding.
@@ -353,3 +353,20 @@ The five original recovery archives are present locally, pass ZIP integrity chec
 The 2026-11-17 independent workspace and 2026-11-15 candidate bundle are additional working snapshots, not replacements for those five originals. Their ZIP hashes are respectively `c482a282466e36d6eaa8f42f724e0103a29390954b2342d64a855714b6abb7c4` and `ad4334228574ccfcc4bdfb6d3d4f7160a680837d58b92147d63b88ecda8b6305`; both also pass ZIP integrity checks.
 
 The v1.0.2 source and Workbench are separate components. The later independent workspace contains additional experimental changes, including match-scoped 360 UUID auditing. The current repository's v1.0.3 engine is not byte-identical to that later local snapshot. Preserve all archives unchanged; port improvements selectively with tests rather than replacing the canonical engine wholesale.
+
+## 13. Wyscout 2017/18 to FPL identity bridge — verified partial join (2026-11-18)
+
+The Wyscout provider adapter now has a 256-row verified identity crosswalk in `canonical_candidate/data/wyscout_fpl_identity_crosswalk.csv`. It was built from 10 Wyscout GW38 matchday rosters (match IDs 2500089–2500098, 13 May 2018) and the 2017/18 FPL player list.
+
+- 251 exact normalized full-name + match-roster club matches.
+- 5 exact official alias matches (`FPL web_name` = Wyscout `shortName`), with unique provider player and mapped club.
+- 20/20 FPL club IDs mapped one-to-one to Wyscout team IDs; each club has 9–16 independent exact full-name votes and unanimous agreement.
+- 256 unique FPL element IDs and 256 unique Wyscout player IDs; no duplicates.
+- 245 mapped players have positive FPL season minutes.
+- Coverage: 39.6% of 647 total FPL player rows; 47.6% of 515 positive-minute players.
+
+Pinned sources: Wyscout processed mirror commit `ebc4c54c1093c420a81ce442c69e4186fab33bb4`; FPL archive commit `d7b05b51d137bfefef4b692386d18c610975b9b9`. The crosswalk uses Wyscout competition ID `364` and carries a match-file evidence URL per player. The full methodology and team mapping are recorded in `reports/WYSCOUNT_FPL_SOURCE_AUDIT_2026-11-17.md`.
+
+This is a verified **partial identity join**, not full 380-match coverage. The 10 final-round rosters expose only 360 distinct Wyscout player records; 391 FPL rows remain unmapped. The earlier global `currentTeamId` screen is not used as season-team evidence. No fuzzy name matching is used.
+
+The identity bridge does not resolve FPL historical target-data rights or retrospective point-in-time revisions. It enables event-side identity joins for the verified subset; it does not by itself make a leakage-safe training dataset or production prediction model.
