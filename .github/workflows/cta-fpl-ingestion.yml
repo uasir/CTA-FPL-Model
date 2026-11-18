@@ -8,6 +8,8 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py"
       - "canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py"
       - "canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py"
+      - "canonical_candidate/engineering_workbench/scripts/general_market_engine.py"
+      - "canonical_candidate/engineering_workbench/scripts/run_fpl_general_market_baseline.py"
   schedule:
     - cron: "30 5 * * *"
 permissions:
@@ -44,7 +46,8 @@ jobs:
             tests/test_fpl_naive_baselines.py \
             tests/test_fpl_covariance.py \
             tests/test_fpl_effective_ownership.py \
-            tests/test_fpl_baseline_forecast_snapshot.py
+            tests/test_fpl_baseline_forecast_snapshot.py \
+            tests/test_fpl_general_market_baseline.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -80,6 +83,12 @@ jobs:
             --gameweek-rows run_artifacts/fpl_official/fpl_lagged_gameweek.csv \
             --fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
             --source-metadata run_artifacts/fpl_official/source_metadata.json \
+            --out-dir run_artifacts/fpl_official
+
+      - name: Run general-market engine on official FPL baseline
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/run_fpl_general_market_baseline.py \
+            --snapshot run_artifacts/fpl_official/fpl_baseline_forecast_snapshot.json \
             --out-dir run_artifacts/fpl_official
 
       - name: Evaluate exploratory FPL rolling-history baselines
