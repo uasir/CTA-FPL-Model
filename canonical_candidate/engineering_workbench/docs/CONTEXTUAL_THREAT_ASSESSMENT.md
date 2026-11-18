@@ -32,6 +32,44 @@ Attribution is required when publishing analysis based on StatsBomb Open Data.
 The source terms and the exact permitted use must be retained with every dataset
 manifest. CTA stores no new bulk StatsBomb source files in this feature PR.
 
+### Openplay historical event dataset
+
+Openplay is currently the strongest candidate for the historical Premier League
+event panel: its published snapshot contains 41.6 million events across 26,536
+matches, with Premier League coverage from 2014/15 through 2025/26 (4,556 of
+4,560 matches have event data). It includes event-level passes, shots, tackles,
+interceptions and more with pitch coordinates, xG on every shot, plus separate
+player-match statistics, lineups and shot tables. Coordinates use a 0–100
+attacking-direction convention. The dataset is CC BY 4.0 and requires credit to
+"openplay (Noah Bair)".
+
+Source: https://github.com/nlbair/openplay
+
+This aligns well with the historical FPL outcome archive from 2016/17 onward.
+Before use, ingest its coverage, known-gaps and data-issues tables; handle
+repeated event IDs with the provider's event_id_sub field; and preserve the
+expanded-minutes convention. The 2026/27 season is not included, so it cannot
+replace a current-season feed.
+
+### 11footy current-season match dataset
+
+11footy publishes a Premier League SQLite/CSV snapshot rebuilt after rounds.
+The pinned 11footy-2026-11-10 Premier League release includes lineups,
+player-match statistics, player-match event counts, tracked shots with xG and
+match-level event layers. It is useful for current-season player-match and
+shot-context monitoring, but its README describes summary/play-by-play event
+layers rather than a full StatsBomb-style every-pass action stream. It has no
+360 or continuous tracking data.
+
+Source: https://github.com/fm-devlab/11footy-dataset
+Release: https://github.com/fm-devlab/11footy-dataset/releases/tag/11footy-2026-11-10
+
+The dataset is CC BY-NC 4.0: non-commercial use only, with credit to 11footy.
+Its README does not identify every upstream source for the event/statistics
+layers, so reconcile its outputs against official FPL actuals and other feeds.
+The release is a snapshot, not a live API. A verified FPL-to-11footy player
+crosswalk is still required.
+
 ### Wyscout public event dataset
 
 The Pappalardo–Massucco Soccer Match Event Dataset contains event logs from
