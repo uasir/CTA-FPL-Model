@@ -1,0 +1,45 @@
+name: Exploratory FPL CoVar from Onside actual-points ledger
+
+on:
+  push:
+    branches: [work/onside-covariance-baseline]
+    paths:
+      - ".github/workflows/cta-onside-covariance.yml"
+      - "canonical_candidate/engineering_workbench/scripts/build_onside_fpl_covariance.py"
+      - "canonical_candidate/engineering_workbench/scripts/estimate_fpl_covariance.py"
+  workflow_dispatch:
+  schedule:
+    - cron: "20 12 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-onside-covariance
+  cancel-in-progress: false
+
+jobs:
+  covariance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build covariance from provider-stated CC BY 4.0 actual points only
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/build_onside_fpl_covariance.py \
+            --out-dir run_artifacts/onside_covariance \
+            --window-size 10 \
+            --shrinkage 0.5
+      - name: Upload exploratory CoVar research artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-onside-covariance-${{ github.run_id }}
+          path: run_artifacts/onside_covariance/
+          if-no-files-found: ignore
+          retention-days: 90
