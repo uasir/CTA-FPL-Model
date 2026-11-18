@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 from run_fpl_general_market_baseline import run
+from compare_fpl_general_market_outputs import compare
 
 
 FIXTURE = json.loads(
@@ -25,3 +26,15 @@ def test_runs_general_market_on_shared_official_baseline_contract():
     assert len(report["top_overall"]) == 10
     assert len(report["captaincy_shortlist"]) == 5
     assert "squad_snapshot" not in result
+
+
+
+def test_live_parity_comparator_reports_exact_match_and_first_difference():
+    snapshot = copy.deepcopy(FIXTURE["general_market"])
+    python_result, _ = run(snapshot)
+    assert compare(python_result, copy.deepcopy(python_result))["status"] == "PASS_PYTHON_JAVASCRIPT_PARITY"
+    changed = copy.deepcopy(python_result)
+    changed["categories"]["overall"][0]["expected_points"] += 0.1
+    report = compare(python_result, changed)
+    assert report["status"] == "FAIL_PYTHON_JAVASCRIPT_PARITY"
+    assert report["first_difference"]["path"].endswith("expected_points")
