@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 REQUIRED_TABLES = {
-    "format_version", "competitions", "seasons", "matches", "teams", "players",
+    "format_version", "competitions", "seasons", "matches", "teams",
     "match_events", "shots", "match_players", "player_match_statistics",
     "player_match_event_counts", "match_team_statistics",
 }
