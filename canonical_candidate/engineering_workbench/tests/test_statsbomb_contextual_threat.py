@@ -222,6 +222,17 @@ def test_creation_reception_and_realisation_remain_separate_player_dimensions():
     assert by_player["11"]["threat_realisation_goals"] == 1
     assert report["events_with_known_attack_direction"] == 3
     assert report["direction_coverage"] == 1.0
+    assert report["threat_creation_pass_attempts"] == 1
+    assert report["threat_creation_pass_completions"] == 1
+    assert report["receiving_options_observed_ahead"] == 1
+    assert report["receiving_options_assessed_ahead"] == 1
+    assert report["open_receiving_options_ahead"] == 1
+    assert report["dangerous_receiving_options_open"] == 1
+    assert report["events_with_dangerous_open_receiving_options"] == 1
+    assert report["threat_involvement_dangerous_receipts"] == 1
+    assert report["threat_realisation_shots"] == 1
+    assert report["threat_realisation_xg"] == 0.2
+    assert report["threat_realisation_goals"] == 1
     assert report["aggregation_policy"].startswith("Creation, involvement, receiving opportunity")
 
 
