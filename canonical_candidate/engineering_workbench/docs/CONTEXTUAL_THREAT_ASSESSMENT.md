@@ -32,6 +32,26 @@ Attribution is required when publishing analysis based on StatsBomb Open Data.
 The source terms and the exact permitted use must be retained with every dataset
 manifest. CTA stores no new bulk StatsBomb source files in this feature PR.
 
+### Wyscout public event dataset
+
+The Pappalardo–Massucco Soccer Match Event Dataset contains event logs from
+seven competitions, including the full 2017/18 Premier League season. Its event
+records include event/subevent type, tags, event time, match ID, player ID,
+team ID, and origin/destination positions on a 0–100 attacking-team-oriented
+pitch. The Events file is 73.74 MB and is available under CC BY 4.0; cite the
+dataset paper when using it.
+
+Source: https://figshare.com/articles/dataset/Events/7770599
+Collection: https://figshare.com/collections/Soccer_match_event_dataset/4415000
+
+This is a stronger immediate bridge to FPL historical outcomes than the
+StatsBomb EPL subset: 2017/18 is within the historical FPL archive's coverage.
+It does not include StatsBomb-style 360 freeze frames or continuous player
+tracking. CTA should use it for event-derived player-match features, then join
+to FPL gameweek outcomes only through a verified season-specific player
+crosswalk. The existing Wyscout-to-FPL crosswalk is currently header-only, so
+identity reconciliation remains a required step, not an assumed join.
+
 ### Other sources
 
 - Opta/PulseLive: current CTA integration currently has team-match aggregates and
