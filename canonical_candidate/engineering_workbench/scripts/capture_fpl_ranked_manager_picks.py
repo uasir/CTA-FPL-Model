@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Capture a stratified pre-deadline sample of public FPL manager picks.
+"""Capture a stratified pre-deadline manager cohort and their post-lock picks.
 
-The cohort is defined from global-league ranks observed before the target
-deadline. This avoids using post-gameweek rank to define the sample.
+The rank cohort is sampled before the deadline. The script then waits until
+after the deadline before requesting picks, so last-minute captain, transfer,
+and chip changes are included in the EO snapshot.
 """
 from __future__ import annotations
-import argparse,csv,hashlib,json,math,random,time,urllib.error,urllib.parse,urllib.request
+import argparse,csv,hashlib,json,math,random,time,urllib.error,urllib.request
 from concurrent.futures import ThreadPoolExecutor,as_completed
 from datetime import datetime,timezone
 from pathlib import Path
@@ -48,6 +49,8 @@ def choose_pages(rank_limit,sample_size,seed):
         last_page=math.ceil(last_rank/PAGE_SIZE)
         if first_page>pages: break
         chosen.append(rng.randint(first_page,min(last_page,pages)))
+    if len(chosen)!=sample_size:
+        raise ValueError(f"Could not construct {sample_size} rank strata")
     return chosen
 
 
@@ -86,8 +89,11 @@ def normalize_picks(managers,pick_payloads,gameweek):
         picks=payload.get("picks") or []
         if len(picks)!=15:
             raise ValueError(f"Manager {entry} GW{gameweek} returned {len(picks)} picks, expected 15")
+        rows_for_manager=[]
         for pick in picks:
-            rows.append({
+            if not all(key in pick for key in ("element","position","is_captain")):
+                raise ValueError(f"Manager {entry} pick is missing required fields")
+            rows_for_manager.append({
                 "gameweek":int(gameweek),
                 "entry_id":entry,
                 "rank_before_deadline":manager["rank_before_deadline"],
@@ -98,26 +104,34 @@ def normalize_picks(managers,pick_payloads,gameweek):
                 "is_vice_captain":bool(pick.get("is_vice_captain")),
                 "active_chip":payload.get("active_chip") or "",
             })
+        rows.extend(rows_for_manager)
     return rows
 
 
+def parse_deadline(event):
+    return datetime.fromisoformat(str(event["deadline_time"]).replace("Z","+00:00"))
+
+
 def capture(bootstrap,fetch=fetch_json,rank_limit=10000,sample_size=100,seed=20261117,
-            delay=0.15,workers=2,deadline_window_minutes=70,force=False):
-    now=datetime.now(timezone.utc)
+            delay=0.15,workers=2,deadline_window_minutes=7,lock_grace_seconds=60,
+            now_fn=lambda:datetime.now(timezone.utc),sleep_fn=time.sleep):
+    now=now_fn()
     upcoming=[]
     for event in bootstrap.get("events",[]):
         if not event.get("deadline_time"): continue
-        deadline=datetime.fromisoformat(str(event["deadline_time"]).replace("Z","+00:00"))
+        deadline=parse_deadline(event)
         if deadline>now: upcoming.append((deadline,event))
     if not upcoming:
         return [],{"status":"SKIPPED_NO_FUTURE_DEADLINE"}
     deadline,event=min(upcoming,key=lambda x:x[0])
     minutes=(deadline-now).total_seconds()/60
-    if not force and not (0<minutes<=deadline_window_minutes):
+    if not (0<minutes<=deadline_window_minutes):
         return [],{"status":"SKIPPED_OUTSIDE_DEADLINE_WINDOW","gameweek":event["id"],
                    "deadline_time_utc":deadline.isoformat(),"minutes_until_deadline":round(minutes,2)}
     if sample_size<1 or rank_limit<sample_size or sample_size>math.ceil(rank_limit/PAGE_SIZE):
         raise ValueError("sample_size must be positive and no larger than the number of rank pages")
+
+    # Stage 1: freeze the rank-defined cohort before the deadline.
     pages=choose_pages(rank_limit,sample_size,seed)
     page_payloads={}
     def get_page(page):
@@ -128,6 +142,24 @@ def capture(bootstrap,fetch=fetch_json,rank_limit=10000,sample_size=100,seed=202
         for future in as_completed(futures):
             page,payload=future.result();page_payloads[page]=payload
     managers=select_managers(page_payloads,sample_size,rank_limit,seed)
+    cohort_captured_at=now_fn()
+
+    # Stage 2: wait for the deadline to pass, plus a short API-lock grace period.
+    lock_time=deadline.timestamp()+lock_grace_seconds
+    wait_seconds=max(0,lock_time-now_fn().timestamp())
+    if wait_seconds:
+        sleep_fn(wait_seconds)
+    picks_captured_at=now_fn()
+    if picks_captured_at.timestamp()<lock_time:
+        raise RuntimeError("Clock has not passed the deadline lock grace period; refusing provisional picks")
+
+    # Confirm against a fresh official bootstrap response that the target deadline passed.
+    locked_bootstrap=fetch(f"{BASE}/bootstrap-static/",delay=delay)
+    matching=[x for x in locked_bootstrap.get("events",[]) if int(x.get("id",-1))==int(event["id"])]
+    if not matching or parse_deadline(matching[0]).timestamp()>picks_captured_at.timestamp()-lock_grace_seconds:
+        raise RuntimeError("Official FPL event deadline is not confirmed passed; refusing to label picks as locked")
+
+    # Stage 3: request the sampled managers' picks only after lock.
     pick_payloads={}
     def get_picks(manager):
         url=f"{BASE}/entry/{manager['entry_id']}/event/{event['id']}/picks/"
@@ -138,12 +170,16 @@ def capture(bootstrap,fetch=fetch_json,rank_limit=10000,sample_size=100,seed=202
             entry,payload=future.result();pick_payloads[entry]=payload
     rows=normalize_picks(managers,pick_payloads,event["id"])
     metadata={
-        "status":"CAPTURED_PRE_DEADLINE_MANAGER_SAMPLE",
+        "status":"CAPTURED_POST_DEADLINE_PICKS",
+        "picks_lock_verified":True,
         "gameweek":int(event["id"]),
         "deadline_time_utc":deadline.isoformat(),
-        "captured_at_utc":now.isoformat(),
-        "minutes_until_deadline":round(minutes,2),
-        "cohort":"overall global league rank before target gameweek deadline",
+        "rank_cohort_captured_at_utc":cohort_captured_at.isoformat(),
+        "picks_captured_at_utc":picks_captured_at.isoformat(),
+        "minutes_until_deadline_at_cohort_capture":round((deadline-cohort_captured_at).total_seconds()/60,2),
+        "seconds_after_deadline_at_picks_capture":round((picks_captured_at-deadline).total_seconds(),2),
+        "lock_grace_seconds":lock_grace_seconds,
+        "cohort":"overall global league rank observed before target gameweek deadline",
         "rank_limit":rank_limit,
         "sample_size_requested":sample_size,
         "sample_size_captured":len(managers),
@@ -153,7 +189,7 @@ def capture(bootstrap,fetch=fetch_json,rank_limit=10000,sample_size=100,seed=202
         "manager_sample_sha256":hashlib.sha256(",".join(str(x["entry_id"]) for x in sorted(managers,key=lambda x:x["entry_id"])).encode()).hexdigest(),
         "standings_pages_fetched":len(pages),
         "manager_pick_rows":len(rows),
-        "status_caveat":"This is a stratified sample, not a census; manager picks may still change until the deadline if the capture is not at the final lock."
+        "status_caveat":"The manager cohort is stratified by pre-deadline rank; picks are fetched only after the deadline and lock grace period. This is a weighted sample, not a whole-game census."
     }
     return rows,metadata
 
@@ -166,17 +202,20 @@ def main():
     parser.add_argument("--seed",type=int,default=20261117)
     parser.add_argument("--workers",type=int,default=2)
     parser.add_argument("--delay",type=float,default=0.15)
-    parser.add_argument("--deadline-window-minutes",type=int,default=70)
-    parser.add_argument("--force",action="store_true")
+    parser.add_argument("--deadline-window-minutes",type=int,default=7)
+    parser.add_argument("--lock-grace-seconds",type=int,default=60)
     args=parser.parse_args()
     bootstrap=fetch_json(f"{BASE}/bootstrap-static/",delay=args.delay)
     rows,metadata=capture(bootstrap,rank_limit=args.rank_limit,sample_size=args.sample_size,
         seed=args.seed,delay=args.delay,workers=args.workers,
-        deadline_window_minutes=args.deadline_window_minutes,force=args.force)
+        deadline_window_minutes=args.deadline_window_minutes,
+        lock_grace_seconds=args.lock_grace_seconds)
     args.out_dir.mkdir(parents=True,exist_ok=True)
     if rows:
         eo_rows,eo_report=estimate_effective_ownership(rows)
         metadata.update(eo_report)
+        metadata["status"]="CAPTURED_POST_DEADLINE_PICKS"
+        metadata["picks_lock_verified"]=True
         fields=list(eo_rows[0].keys())
         with (args.out_dir/"fpl_effective_ownership_sample.csv").open("w",newline="",encoding="utf-8") as handle:
             writer=csv.DictWriter(handle,fieldnames=fields);writer.writeheader();writer.writerows(eo_rows)
