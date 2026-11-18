@@ -3,7 +3,9 @@ from pathlib import Path
 from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from build_opta_lagged_team_features import build_crosswalk, build_team_features, parse_time
+from build_opta_lagged_team_features import (
+    build_crosswalk, build_team_features, build_historical_player_features, parse_time,
+)
 from zoneinfo import ZoneInfo
 
 
@@ -88,3 +90,35 @@ def test_postponed_fixture_without_kickoff_emits_blank_features_not_future_data(
 def test_naive_provider_kickoff_is_interpreted_as_london_local_time():
     value = parse_time("2026-08-21 20:00:00", ZoneInfo("Europe/London"))
     assert value.isoformat() == "2026-08-21T19:00:00+00:00"
+
+
+def test_historical_player_fixture_sidecar_uses_team_at_fixture_and_no_target_fields():
+    team_rows = [
+        {"fixture_id": "101", "team_id": "1", "features_as_of": "2026-08-01T12:00:00+00:00",
+         "opta_prior_matches_count": 0, "opta_prior3_expectedGoals_avg": ""},
+        {"fixture_id": "102", "team_id": "2", "features_as_of": "2026-08-08T12:00:00+00:00",
+         "opta_prior_matches_count": 1, "opta_prior3_expectedGoals_avg": 0.8},
+    ]
+    fpl_rows = [
+        {"season": "2026-27", "fpl_element_id": "10", "fixture_id": "101",
+         "gameweek": "1", "team_id_at_fixture": "1", "kickoff_time": "2026-08-01T12:00:00Z",
+         "target_total_points": "6"},
+        {"season": "2026-27", "fpl_element_id": "20", "fixture_id": "102",
+         "gameweek": "2", "team_id_at_fixture": "2", "kickoff_time": "2026-08-08T12:00:00Z",
+         "target_total_points": "4"},
+    ]
+    rows, report = build_historical_player_features(team_rows, fpl_rows)
+    assert len(rows) == 2
+    assert rows[1]["opta_prior3_expectedGoals_avg"] == 0.8
+    assert rows[1]["team_id_at_fixture"] == "2"
+    assert "target_total_points" not in rows[1]
+    assert report["historical_player_fixture_rows_with_team_context"] == 2
+    assert report["status"] == "PASS_STRUCTURAL_ONLY"
+
+
+def test_historical_player_fixture_sidecar_rejects_unmatched_team_fixture():
+    with pytest.raises(ValueError, match="Missing Opta team context"):
+        build_historical_player_features(
+            [{"fixture_id": "101", "team_id": "1"}],
+            [{"fixture_id": "101", "team_id_at_fixture": "2", "fpl_element_id": "10"}],
+        )
