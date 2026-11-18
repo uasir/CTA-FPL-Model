@@ -44,7 +44,6 @@ jobs:
           python scripts/extract_statsbomb_contextual_threat.py \
             --events-dir ../data/events \
             --three-sixty-dir ../data/three-sixty \
-            --direction-map ../data/direction_map.csv \
             --match-id 3895320 \
             --out-dir ../../run_artifacts/statsbomb_contextual_threat
 
@@ -95,6 +94,9 @@ jobs:
               "event_context_rows": report["event_context_rows"],
               "player_match_rows": report["player_match_rows"],
               "direction_map_rows": report["direction_map_rows"],
+              "coordinate_orientation": report["coordinate_orientation"],
+              "direction_sources": report["direction_sources"],
+              "direction_confidence_counts": report["direction_confidence_counts"],
               "events_with_known_attack_direction": report["events_with_known_attack_direction"],
               "events_missing_attack_direction": report["events_missing_attack_direction"],
               "threat_dimensions": match["threat_dimensions"],
@@ -116,7 +118,8 @@ jobs:
               "publication_policy": "Aggregate-only artifact; raw provider data and player-level feature rows are not uploaded.",
               "limitations": [
                   "StatsBomb 360 is sampled context, not continuous tracking.",
-                  "Directional and receiving-lane metrics are withheld unless an explicit match-period-team direction is supplied; the repository map currently has no verified rows.",
+                  "StatsBomb event and 360 coordinates use action-executing-team orientation: +x points toward the opponent goal of the team executing the event.",
+                  "No global home/away direction map is needed for event-relative attacking features; cross-team spatial comparisons require a separate transform to a common match frame.",
                   "This pilot is one Bundesliga match and does not establish FPL predictive value.",
                   "No StatsBomb-to-FPL identity crosswalk is applied."
               ]
