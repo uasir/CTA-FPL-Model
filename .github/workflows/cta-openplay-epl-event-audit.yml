@@ -1,0 +1,56 @@
+name: CTA Openplay EPL event-data audit
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/cta-openplay-epl-event-audit.yml
+      - canonical_candidate/engineering_workbench/scripts/audit_openplay_epl_event_data.py
+      - canonical_candidate/engineering_workbench/tests/test_openplay_epl_event_data_audit.py
+  push:
+    branches: [main, "feat/**"]
+    paths:
+      - .github/workflows/cta-openplay-epl-event-audit.yml
+      - canonical_candidate/engineering_workbench/scripts/audit_openplay_epl_event_data.py
+      - canonical_candidate/engineering_workbench/tests/test_openplay_epl_event_data_audit.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-openplay-epl-event-data-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OPENPLAY_REPO: nlbair/openplay
+      OPENPLAY_DATA_TAG: data-v0.1.0
+    steps:
+      - name: Check out CTA-FPL-Model
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pinned Openplay reader
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "git+https://github.com/nlbair/openplay-py@1cd14ec8d9bdcdec5152ab361d2b520ba6c68008"
+
+      - name: Audit 2024/25 Premier League events, shots, lineups and coverage
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/audit_openplay_epl_event_data.py --competition eng --season 2024/25 --out-dir run_artifacts/openplay_epl_audit
+
+      - name: Upload aggregate-only Openplay audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-openplay-epl-event-data-audit
+          path: run_artifacts/openplay_epl_audit/openplay_epl_event_data_audit.json
+          if-no-files-found: error
+          retention-days: 90
