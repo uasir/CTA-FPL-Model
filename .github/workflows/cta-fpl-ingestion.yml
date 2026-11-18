@@ -11,6 +11,7 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/general_market_engine.py"
       - "canonical_candidate/engineering_workbench/scripts/run_fpl_general_market_baseline.py"
       - "canonical_candidate/engineering_workbench/scripts/personal_squad_engine.py"
+      - "canonical_candidate/engineering_workbench/scripts/train_fpl_exploratory_ridge.py"
       - "canonical_candidate/engineering_workbench/scripts/run_fpl_personal_squad_scale_smoke_test.py"
       - "canonical_candidate/engineering_workbench/scripts/compare_fpl_general_market_outputs.py"
       - "canonical_candidate/engineering_workbench/src/js/general_market_engine.mjs"
@@ -57,7 +58,8 @@ jobs:
             tests/test_fpl_effective_ownership.py \
             tests/test_fpl_baseline_forecast_snapshot.py \
             tests/test_fpl_general_market_baseline.py \
-            tests/test_fpl_personal_squad_scale_smoke_test.py
+            tests/test_fpl_personal_squad_scale_smoke_test.py \
+            tests/test_fpl_exploratory_ridge.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -123,6 +125,12 @@ jobs:
         run: |
           python canonical_candidate/engineering_workbench/scripts/evaluate_fpl_naive_baselines.py \
             --input run_artifacts/fpl_official/fpl_lagged_gameweek.csv \
+            --out-dir run_artifacts/fpl_official
+
+      - name: Train and time-holdout exploratory FPL ridge baseline
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/train_fpl_exploratory_ridge.py \
+            --input run_artifacts/fpl_official/fpl_lagged_training.csv \
             --out-dir run_artifacts/fpl_official
 
       - name: Build exploratory FPL CoVar matrix
