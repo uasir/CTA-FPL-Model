@@ -59,7 +59,7 @@
         "data_coverage",
         "limitations"
       ],
-      "policy": "Always disclose source coverage and limitations; do not label exploratory or non-point-in-time data as validated."
+      "policy": "Always disclose source coverage and limitations; do not label exploratory, non-point-in-time, or stale-over-24-hours pre-deadline data as validated. A validated recommendation requires validation_status=VALIDATED, point_in_time_status=VERIFIED and data_coverage.freshness_status=FRESH_WITHIN_24H."
     },
     "player_record_rules": {
       "fpl_element_id": "Positive integer FPL element ID; unique within one forecast snapshot.",
