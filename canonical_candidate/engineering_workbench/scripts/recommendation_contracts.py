@@ -23,6 +23,7 @@ SHARED_REQUIRED_FIELDS = (
     "forecast_snapshot_id",
     "model_version",
     "forecast_horizon_gameweeks",
+    "forecast_quality",
     "player_forecasts",
 )
 
@@ -72,6 +73,17 @@ def _validate_shared(payload: Mapping[str, Any]) -> None:
         raise RecommendationContractError(
             "forecast_horizon_gameweeks must be a positive integer"
         )
+    quality = payload["forecast_quality"]
+    if not isinstance(quality, Mapping):
+        raise RecommendationContractError("forecast_quality must be a mapping")
+    if quality.get("validation_status") not in {"EXPLORATORY_ONLY", "VALIDATED", "UNAVAILABLE"}:
+        raise RecommendationContractError("forecast_quality.validation_status is invalid")
+    if quality.get("point_in_time_status") not in {"VERIFIED", "NOT_VERIFIED", "NOT_APPLICABLE"}:
+        raise RecommendationContractError("forecast_quality.point_in_time_status is invalid")
+    if not isinstance(quality.get("data_coverage"), Mapping):
+        raise RecommendationContractError("forecast_quality.data_coverage must be a mapping")
+    if not isinstance(quality.get("limitations", []), list):
+        raise RecommendationContractError("forecast_quality.limitations must be a list")
     forecasts = payload["player_forecasts"]
     if not isinstance(forecasts, list) or not forecasts:
         raise RecommendationContractError("player_forecasts must be a non-empty list")
@@ -111,6 +123,7 @@ def validate_general_market_request(
         "forecast_snapshot_id": payload["forecast_snapshot_id"],
         "model_version": payload["model_version"],
         "forecast_horizon_gameweeks": payload["forecast_horizon_gameweeks"],
+        "forecast_quality": payload["forecast_quality"],
         "player_forecasts": payload["player_forecasts"],
         "filters": payload.get("filters", {}),
     }
