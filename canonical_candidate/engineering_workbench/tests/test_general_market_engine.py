@@ -121,6 +121,8 @@ def test_eo_values_without_lock_provenance_are_rejected():
 def test_eo_deadline_must_match_forecast_target_deadline():
     payload = add_locked_eo_provenance(request())
     payload["player_forecasts"][0]["effective_ownership_pct"] = 4.5
+    payload["forecast_quality"]["data_coverage"]["eo_rank_cohort_captured_at_utc"] = "2026-11-29T10:55:00+00:00"
     payload["forecast_quality"]["data_coverage"]["eo_deadline_time_utc"] = "2026-11-29T11:00:00+00:00"
+    payload["forecast_quality"]["data_coverage"]["eo_picks_captured_at_utc"] = "2026-11-29T11:01:00+00:00"
     with pytest.raises(RecommendationContractError, match="does not match the forecast snapshot deadline"):
         recommend_general_market(payload)
