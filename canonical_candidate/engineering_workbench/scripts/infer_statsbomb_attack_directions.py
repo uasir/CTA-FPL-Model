@@ -33,10 +33,37 @@ def _goal_side(end_location):
     return None
 
 
-def infer_directions(events, match_id, min_non_goal_evidence=2):
+def _keeper_goal_side(location):
+    if not isinstance(location, (list, tuple)) or len(location) < 2:
+        return None
+    try:
+        x = float(location[0])
+    except (TypeError, ValueError):
+        return None
+    if x <= 30.0:
+        return False
+    if x >= 90.0:
+        return True
+    return None
+
+
+def infer_directions(
+    events,
+    match_id,
+    frames=None,
+    min_non_goal_evidence=2,
+    min_keeper_evidence=5,
+    keeper_consistency=0.8,
+):
     teams_by_period = defaultdict(dict)
-    evidence = defaultdict(list)
+    shot_evidence = defaultdict(list)
+    keeper_evidence = defaultdict(list)
     ignored = Counter()
+    frame_by_uuid = {
+        str(frame.get("event_uuid")): frame
+        for frame in (frames or [])
+        if isinstance(frame, dict) and frame.get("event_uuid")
+    }
 
     for event in events:
         if not isinstance(event, dict):
@@ -46,8 +73,35 @@ def infer_directions(events, match_id, min_non_goal_evidence=2):
             continue
         team = event.get("team") or {}
         team_id = team.get("id")
-        if team_id is not None:
-            teams_by_period[str(period)][str(team_id)] = str(team.get("name") or "")
+        if team_id is None:
+            continue
+        period_key = str(period)
+        team_key = str(team_id)
+        teams_by_period[period_key][team_key] = str(team.get("name") or "")
+        event_id = str(event.get("id") or "")
+
+        frame = frame_by_uuid.get(event_id)
+        if frame:
+            freeze_frame = frame.get("freeze_frame")
+            if isinstance(freeze_frame, list):
+                opponent_keepers = [
+                    item for item in freeze_frame
+                    if isinstance(item, dict)
+                    and item.get("keeper") is True
+                    and item.get("teammate") is False
+                ]
+                if len(opponent_keepers) == 1:
+                    keeper = opponent_keepers[0]
+                    side = _keeper_goal_side(keeper.get("location"))
+                    if side is not None:
+                        keeper_evidence[(period_key, team_key)].append({
+                            "attacks_right": side,
+                            "event_id": event_id,
+                            "keeper_x": float(keeper["location"][0]),
+                        })
+                elif len(opponent_keepers) > 1:
+                    ignored["multiple_opponent_keepers_in_frame"] += 1
+
         if (event.get("type") or {}).get("name") != "Shot":
             continue
         shot = event.get("shot") or {}
@@ -55,19 +109,14 @@ def infer_directions(events, match_id, min_non_goal_evidence=2):
         if outcome not in QUALIFYING_OUTCOMES:
             ignored["non_qualifying_outcome"] += 1
             continue
-        team_id = team.get("id")
-        if team_id is None:
-            ignored["shot_missing_team_id"] += 1
-            continue
         side = _goal_side(shot.get("end_location"))
         if side is None:
             ignored["endpoint_not_at_goal_line"] += 1
             continue
-        evidence[(str(period), str(team_id))].append({
+        shot_evidence[(period_key, team_key)].append({
             "attacks_right": side,
             "outcome": outcome,
-            "event_id": str(event.get("id") or ""),
-            "team_name": str(team.get("name") or ""),
+            "event_id": event_id,
         })
 
     direction_rows = []
@@ -85,102 +134,139 @@ def infer_directions(events, match_id, min_non_goal_evidence=2):
             teams,
             key=lambda value: (0, int(value)) if value.isdigit() else (1, value),
         )
-        team_evidence = {
-            team_id: evidence.get((period, team_id), [])
-            for team_id in team_ids
-        }
-        all_evidence = [item for values in team_evidence.values() for item in values]
-        if not all_evidence:
-            period_reports.append({
-                "period": int(period),
-                "status": "WITHHELD_NO_GOAL_LINE_SHOT_EVIDENCE",
-                "team_count": 2,
-                "evidence_count": 0,
-            })
-            continue
-
-        team_directions = {}
+        direct_directions = {}
+        direct_sources = {}
+        direct_confidence = {}
+        direct_evidence = {}
         conflicts = []
-        for team_id, rows in team_evidence.items():
-            sides = {row["attacks_right"] for row in rows}
-            if len(sides) > 1:
-                conflicts.append(team_id)
-            elif rows:
-                team_directions[team_id] = next(iter(sides))
+
+        for team_id in team_ids:
+            shots = shot_evidence.get((period, team_id), [])
+            keepers = keeper_evidence.get((period, team_id), [])
+            shot_sides = {row["attacks_right"] for row in shots}
+            keeper_counts = Counter(row["attacks_right"] for row in keepers)
+            shot_direction = None
+            keeper_direction = None
+            goal_count = sum(row["outcome"] == "Goal" for row in shots)
+
+            if len(shot_sides) > 1:
+                conflicts.append({"team_id": team_id, "source": "shot_endpoint_outcomes"})
+                continue
+            if shots and (goal_count > 0 or len(shots) >= min_non_goal_evidence):
+                shot_direction = next(iter(shot_sides))
+
+            if len(keepers) >= min_keeper_evidence:
+                side, count = keeper_counts.most_common(1)[0]
+                if count / len(keepers) >= keeper_consistency:
+                    keeper_direction = side
+                else:
+                    conflicts.append({"team_id": team_id, "source": "keeper_position"})
+                    continue
+
+            if (
+                shot_direction is not None
+                and keeper_direction is not None
+                and shot_direction != keeper_direction
+            ):
+                conflicts.append({"team_id": team_id, "source": "shot_keeper_disagreement"})
+                continue
+
+            chosen = keeper_direction if keeper_direction is not None else shot_direction
+            if chosen is None:
+                continue
+            direct_directions[team_id] = chosen
+            if keeper_direction is not None and shot_direction is not None:
+                direct_sources[team_id] = "combined_keeper_and_shot_evidence"
+            elif keeper_direction is not None:
+                direct_sources[team_id] = "opponent_goalkeeper_position"
+            else:
+                direct_sources[team_id] = "shot_endpoint_outcomes"
+            direct_confidence[team_id] = "high"
+            direct_evidence[team_id] = shots + keepers
 
         if conflicts:
             period_reports.append({
                 "period": int(period),
-                "status": "WITHHELD_CONFLICTING_SHOT_ENDPOINTS",
-                "conflicting_team_ids": conflicts,
-                "evidence_count": len(all_evidence),
+                "status": "WITHHELD_CONFLICTING_DIRECTION_EVIDENCE",
+                "conflicts": conflicts,
+                "shot_endpoint_evidence_count": sum(len(shot_evidence.get((period, t), [])) for t in team_ids),
+                "keeper_position_evidence_count": sum(len(keeper_evidence.get((period, t), [])) for t in team_ids),
+            })
+            continue
+        if not direct_directions:
+            period_reports.append({
+                "period": int(period),
+                "status": "WITHHELD_INSUFFICIENT_DIRECTION_EVIDENCE",
+                "shot_endpoint_evidence_count": sum(len(shot_evidence.get((period, t), [])) for t in team_ids),
+                "keeper_position_evidence_count": sum(len(keeper_evidence.get((period, t), [])) for t in team_ids),
             })
             continue
 
-        # The two teams must attack opposite goals in a period. If both have
-        # direct evidence it must agree with that rule; if only one does, the
-        # opponent direction is inferred from the two-team pitch geometry.
-        if len(team_directions) == 2:
-            values = list(team_directions.values())
+        if len(direct_directions) == 2:
+            values = list(direct_directions.values())
             if values[0] == values[1]:
                 period_reports.append({
                     "period": int(period),
                     "status": "WITHHELD_TEAMS_NOT_ATTACKING_OPPOSITE_GOALS",
-                    "evidence_count": len(all_evidence),
+                    "evidence_count": sum(len(direct_evidence.get(t, [])) for t in team_ids),
                 })
                 continue
-        elif len(team_directions) == 1:
-            known_team = next(iter(team_directions))
+        elif len(direct_directions) == 1:
+            known_team = next(iter(direct_directions))
             other_team = next(team_id for team_id in team_ids if team_id != known_team)
-            team_directions[other_team] = not team_directions[known_team]
-        else:
-            continue
+            direct_directions[other_team] = not direct_directions[known_team]
+            direct_sources[other_team] = "opponent_opposite_goal_inference"
+            direct_confidence[other_team] = direct_confidence[known_team]
+            direct_evidence[other_team] = []
 
-        goal_evidence_count = sum(row["outcome"] == "Goal" for row in all_evidence)
-        non_goal_evidence_count = len(all_evidence) - goal_evidence_count
-        if goal_evidence_count == 0 and len(all_evidence) < min_non_goal_evidence:
-            period_reports.append({
-                "period": int(period),
-                "status": "WITHHELD_INSUFFICIENT_SHOT_ENDPOINT_EVIDENCE",
-                "evidence_count": len(all_evidence),
-                "goal_evidence_count": 0,
-            })
-            continue
-
-        confidence = "high" if goal_evidence_count > 0 or len(all_evidence) >= min_non_goal_evidence else "medium"
         for team_id in team_ids:
-            rows = team_evidence[team_id]
-            direct = bool(rows)
+            rows = direct_evidence.get(team_id, [])
+            shots = shot_evidence.get((period, team_id), [])
+            keepers = keeper_evidence.get((period, team_id), [])
             direction_rows.append({
                 "match_id": str(match_id),
                 "period": period,
                 "team": team_id,
                 "team_name": teams[team_id],
-                "attacks_right": str(team_directions[team_id]).lower(),
-                "direction_source": "shot_endpoint_outcomes" if direct else "opponent_opposite_goal_inference",
+                "attacks_right": str(direct_directions[team_id]).lower(),
+                "direction_source": direct_sources[team_id],
                 "evidence_count": len(rows),
-                "evidence_event_ids": ";".join(row["event_id"] for row in rows if row["event_id"]),
-                "confidence_level": confidence,
-                "goal_evidence_count_period": goal_evidence_count,
-                "non_goal_evidence_count_period": non_goal_evidence_count,
+                "evidence_event_ids": ";".join(sorted({row["event_id"] for row in rows if row.get("event_id")})),
+                "confidence_level": direct_confidence[team_id],
+                "goal_evidence_count_period": sum(
+                    row["outcome"] == "Goal"
+                    for t in team_ids for row in shot_evidence.get((period, t), [])
+                ),
+                "shot_endpoint_evidence_count_team": len(shots),
+                "keeper_position_evidence_count_team": len(keepers),
+                "keeper_position_consistency_team": (
+                    round(max(Counter(row["attacks_right"] for row in keepers).values()) / len(keepers), 4)
+                    if keepers else ""
+                ),
             })
+
         period_reports.append({
             "period": int(period),
             "status": "INFERRED",
             "team_count": 2,
-            "evidence_count": len(all_evidence),
-            "goal_evidence_count": goal_evidence_count,
-            "confidence_level": confidence,
+            "shot_endpoint_evidence_count": sum(len(shot_evidence.get((period, t), [])) for t in team_ids),
+            "keeper_position_evidence_count": sum(len(keeper_evidence.get((period, t), [])) for t in team_ids),
             "mapped_team_count": 2,
+            "confidence_level": "high",
         })
 
     report = {
         "provider": "StatsBomb Open Data",
         "match_id": str(match_id),
-        "method": "Goal-line x-coordinate from Goal/Saved/Post shot outcomes; opponent direction inferred as opposite only when two-team period geometry and evidence agree.",
+        "method": "Cross-check opponent goalkeeper position in 360 freeze frames against Goal/Saved/Post shot goal-line endpoints; infer the opponent's opposite direction only in a two-team period when direct evidence is consistent.",
         "goal_line_tolerance_pitch_units": GOAL_LINE_TOLERANCE,
-        "minimum_non_goal_evidence": min_non_goal_evidence,
+        "keeper_goal_side_thresholds": {"left_x_max": 30.0, "right_x_min": 90.0},
+        "minimum_non_goal_shot_evidence": min_non_goal_evidence,
+        "minimum_keeper_position_evidence": min_keeper_evidence,
+        "keeper_consistency_threshold": keeper_consistency,
         "direction_map_rows": len(direction_rows),
+        "keeper_position_evidence_events": sum(len(rows) for rows in keeper_evidence.values()),
+        "shot_endpoint_evidence_events": sum(len(rows) for rows in shot_evidence.values()),
         "periods_inferred": sum(row["status"] == "INFERRED" for row in period_reports),
         "periods_withheld": sum(row["status"] != "INFERRED" for row in period_reports),
         "period_reports": period_reports,
@@ -194,13 +280,21 @@ def infer_directions(events, match_id, min_non_goal_evidence=2):
 def main():
     parser = argparse.ArgumentParser(description="Infer StatsBomb attack directions from shot endpoint evidence")
     parser.add_argument("--events", type=Path, required=True)
+    parser.add_argument("--three-sixty", type=Path, help="Optional StatsBomb 360 freeze-frame file for goalkeeper-position evidence")
     parser.add_argument("--match-id", required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--min-non-goal-evidence", type=int, default=2)
     args = parser.parse_args()
 
     events = json.loads(args.events.read_text(encoding="utf-8"))
-    rows, report = infer_directions(events, args.match_id, args.min_non_goal_evidence)
+    frames = (
+        json.loads(args.three_sixty.read_text(encoding="utf-8"))
+        if args.three_sixty and args.three_sixty.exists() else None
+    )
+    rows, report = infer_directions(
+        events, args.match_id, frames=frames,
+        min_non_goal_evidence=args.min_non_goal_evidence,
+    )
     args.out_dir.mkdir(parents=True, exist_ok=True)
     fields = [
         "match_id", "period", "team", "team_name", "attacks_right",
