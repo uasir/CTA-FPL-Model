@@ -2,14 +2,10 @@ name: CTA pre-deadline FPL effective ownership capture
 
 on:
   workflow_dispatch:
-    inputs:
-      force:
-        description: "Capture even when outside the pre-deadline window (diagnostic only)"
-        required: false
-        type: boolean
-        default: false
   schedule:
-    - cron: "15 * * * *"
+    # Poll every five minutes so a pre-deadline rank cohort can be captured
+    # shortly before lock; the job then waits and fetches picks after lock.
+    - cron: "*/5 * * * *"
 
 permissions:
   contents: read
@@ -29,8 +25,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Capture stratified top-10k manager picks near deadline
-        if: github.event_name != 'workflow_dispatch' || !inputs.force
+      - name: Capture pre-deadline rank cohort and post-lock manager picks
         run: |
           python canonical_candidate/engineering_workbench/scripts/capture_fpl_ranked_manager_picks.py \
             --out-dir run_artifacts/fpl_eo \
@@ -38,19 +33,9 @@ jobs:
             --sample-size 100 \
             --workers 2 \
             --delay 0.15 \
-            --deadline-window-minutes 70
-      - name: Forced diagnostic capture
-        if: github.event_name == 'workflow_dispatch' && inputs.force
-        run: |
-          python canonical_candidate/engineering_workbench/scripts/capture_fpl_ranked_manager_picks.py \
-            --out-dir run_artifacts/fpl_eo \
-            --rank-limit 10000 \
-            --sample-size 5 \
-            --workers 2 \
-            --delay 0.15 \
-            --deadline-window-minutes 70 \
-            --force
-      - name: Upload aggregated EO snapshot
+            --deadline-window-minutes 7 \
+            --lock-grace-seconds 60
+      - name: Upload verified post-lock EO snapshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
