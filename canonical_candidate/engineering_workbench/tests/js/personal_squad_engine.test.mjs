@@ -73,3 +73,13 @@ test("team limit allows a replacement only when outgoing player frees the same t
     (candidate) => candidate.transfer_in_id !== 18,
   ));
 });
+
+
+test("personal squad remains exploratory with a stale forecast snapshot", () => {
+  const payload = request();
+  payload.forecast_quality.validation_status = "VALIDATED";
+  payload.forecast_quality.point_in_time_status = "VERIFIED";
+  payload.forecast_quality.data_coverage.freshness_status = "STALE_OVER_24H";
+  const result = recommendPersonalSquad(payload);
+  assert.equal(result.recommendation_status, "EXPLORATORY_ONLY");
+});
