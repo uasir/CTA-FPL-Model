@@ -353,3 +353,32 @@ The five original recovery archives are present locally, pass ZIP integrity chec
 The 2026-11-17 independent workspace and 2026-11-15 candidate bundle are additional working snapshots, not replacements for those five originals. Their ZIP hashes are respectively `c482a282466e36d6eaa8f42f724e0103a29390954b2342d64a855714b6abb7c4` and `ad4334228574ccfcc4bdfb6d3d4f7160a680837d58b92147d63b88ecda8b6305`; both also pass ZIP integrity checks.
 
 The v1.0.2 source and Workbench are separate components. The later independent workspace contains additional experimental changes, including match-scoped 360 UUID auditing. The current repository's v1.0.3 engine is not byte-identical to that later local snapshot. Preserve all archives unchanged; port improvements selectively with tests rather than replacing the canonical engine wholesale.
+
+## 12. Independent 34-match StatsBomb benchmark — verified 2026-11-18
+
+Run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44348748561  
+Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44348748561/artifacts/14448165628  
+Artifact SHA-256: `faf4c6d3f854fbac45b0abd65fcf0531ec4bb5b6507551a437a8f02d9d89e6e1`  
+Pinned StatsBomb Open Data commit: `4b73468fc5b0f1950f9f66fada70ad3a4f9327cb`.
+
+**Execution and parity**
+- 34/34 matches completed successfully; 125,719 events, 5,967 possession sequences, 1,027 player rows, and 6,528 xT-grid cells.
+- Sequence comparisons: 113,373; player comparisons: 21,567; xT-grid comparisons: 6,528.
+- Exact matches: 113,371/113,373 sequence features, 21,567/21,567 player features, and 6,528/6,528 xT cells. The two sequence differences are both `shot_xg_reference_only` and remain within the contract's six-decimal tolerance (maximum absolute difference approximately `0.000001`).
+- Overall Python–JavaScript parity status: `PASS`; no row-key or row-count mismatches.
+- The multi-match data-quality audit has no structural issues.
+
+**360 source quality**
+- 23 of the 34 matches have a 360 source; 22 have a usable event-UUID join.
+- 11 matches have no 360 source; missing 360 must not be interpreted as zero pressure or zero visible-player coverage.
+- Match `3837706` has 3,548 frames but a 0.0 join rate. A scan of the 34 sampled event files found no alternate match hit; status remains `UNRESOLVED_NO_MATCH_IN_SAMPLE`. Keep the file quarantined; do not force a match assignment.
+- The match-scoped UUID correction in PR #12 prevents same-UUID collisions across different match files from being counted as valid joins.
+
+**FPL readiness remains blocked**
+- FPL-name coverage: 0/1,027 player rows.
+- Trusted positive-minutes coverage: 0/1,027; no per-90 rows can be populated.
+- The StatsBomb benchmark is 2015/16 and does not overlap the FPL historical target seasons used by the project. It is an engineering/parity benchmark, not an FPL training dataset.
+- All 34 match audits state `not validated for FPL prediction`; xT is exploratory only.
+- Data-quality result: `PASS` for structure and parity, but `fpl_readiness: BLOCKED`.
+
+Next data work remains provider/season alignment: verify Wyscout 2017/18 or Opta/PulseLive 2026/27 player-to-FPL numeric identities and trusted minutes. Do not populate FPL names from normalized-name guesses.
