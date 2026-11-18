@@ -3,7 +3,7 @@ name: CTA FPL engineering CI
 on:
   workflow_dispatch:
   push:
-    branches: [main, "work/**"]
+    branches: [main, "work/**", "fix/**", "docs/**"]
     paths:
       - .github/workflows/cta-fpl-ci.yml
       - .github/workflows/cta-fpl-ingestion.yml
@@ -11,6 +11,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/**
       - canonical_candidate/engineering_workbench/src/js/**
       - canonical_candidate/engineering_workbench/tests/**
+      - canonical_candidate/src/**
+      - canonical_candidate/tests/**
       - canonical_candidate/data/player_identity_crosswalk.csv
       - canonical_candidate/data/wyscout_fpl_identity_crosswalk.csv
       - canonical_candidate/data/opta_pulselive_fpl_identity_crosswalk.csv
@@ -40,6 +42,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Run canonical Python feature-core tests
+        working-directory: canonical_candidate
+        run: python -m unittest discover -s tests -v
       - name: Install pytest
         run: python -m pip install pytest
       - name: Run engineering tests
