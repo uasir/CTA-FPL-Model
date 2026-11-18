@@ -11,7 +11,7 @@ This document is the durable project handoff for continuing work in one primary 
 
 ## 1. Master operating prompt
 
-Continue engineering the user's existing CTA-FPL-Model project from its recovered original source lineage. Treat the GitHub repository and its CI artifacts as the current shared execution record; reconcile against Replit before claiming that Replit is synchronized.
+Continue engineering the user's existing CTA-FPL-Model project from its recovered original source lineage. Treat the GitHub repository and its CI artifacts as the current shared execution record.
 
 Follow these non-negotiable instructions:
 
@@ -46,19 +46,22 @@ Current-turn materialization and checks:
 - Original source tests rerun in this Python session: scaffold 3 passed; Engineering Workbench 17 passed (with `PYTHONPATH=src`); v1.0.2 Engineering Build 7 passed; v1.0.1 Engineering Fix 5 passed; v1.0 Experimental 4 passed. **36 original tests passed.** No original archive was modified.
 - `CTA_FPL_Candidate_v1_0_2_plus_Workbench_2026-11-15.zip`: SHA-256 `ad4334228574ccfcc4bdfb6d3d4f7160a680837d58b92147d63b88ecda8b6305`, 70 ZIP entries, integrity passed; original core tests 7 passed and Workbench tests 17 passed.
 - `CTA_FPL_INDEPENDENT_WORKSPACE_2026-11-17.zip`: SHA-256 `c482a282466e36d6eaa8f42f724e0103a29390954b2342d64a855714b6abb7c4`, 118 ZIP entries, integrity passed; provisional patched copy tests 11 core passed and 23 Workbench passed plus 3 subtests.
-- The 17 November independent workspace is explicitly **provisional and not a Replit export**. It contains a synthetic smoke input (match ID 999999); do not treat that as real multi-match evidence or overwrite Replit with it.
+- The 17 November independent workspace is explicitly **provisional**. It contains a synthetic smoke input (match ID 999999); do not treat that as real multi-match evidence.
 - The original archives are now available to Python in the current runtime at the paths above.
 
-## 3. Repository, Replit and execution record
+## 3. Repository and execution record
 
 - GitHub repository: https://github.com/uasir/CTA-FPL-Model
-- PR #3, provider-specific identity crosswalks, was merged on 2026-11-18. Merge commit: `4183f389f23c2da88e8067928428f84900d7960f`.
-- PR #4, Onside FPL benchmark source audit and this continuity brief, was merged on 2026-11-18. Merge commit: `264f2792514d5927cc051d9fad36a6f03a2d3a24`. A later documentation-only continuity update was pushed directly to `main`.
-- Latest main CI after both merges: run [44257955121](https://github.com/uasir/CTA-FPL-Model/actions/runs/44257955121), conclusion success; 37 JavaScript tests, 164 Python tests and 3 subtests passed. All three provider crosswalk validators correctly report `EMPTY_NOT_READY`.
-- The earlier PR branch CI [44256906777](https://github.com/uasir/CTA-FPL-Model/actions/runs/44256906777) passed with 37 JavaScript tests, 164 Python tests and 3 subtests. The new crosswalk validators ran; both new provider templates correctly remained empty/not ready.
-- Replit app: [CTA-FPL-Model](https://replit.com/@uasieg1/CTA-FPL-Model), replId `bb60190a-50a0-46bf-9253-a4c3e09302d9`.
-- Replit Agent inspection requests on 18 November returned `phase=paused` with empty responses. The latest Replit source and whether its earlier multi-match update completed are therefore unverified. Do not claim the Replit workspace is synchronized with GitHub main.
-- GitHub Actions is the currently verified cloud execution route. It can download pinned public source files and run Python/Node jobs even when the local container cannot reach the network.
+- PR #3, provider-specific identity crosswalks, merged 2026-11-18: `4183f389f23c2da88e8067928428f84900d7960f`.
+- PR #4, Onside source audit and continuity brief, merged 2026-11-18: `264f2792514d5927cc051d9fad36a6f03a2d3a24`.
+- PR #5, standard EO definition correction, merged 2026-11-18: `090cb01f5a3bf6668612e589ebad3f28ae5da4cd`.
+- PR #6, written-permission gate for automated FPL API access, merged 2026-11-18: `327c7ac717d0fae389fc866c078629c186176d89`.
+- PR #7, exploratory CoVar workflow from Onside actual points, merged 2026-11-18: `0299f37139d2ef39c1da63de2470e1f2e92e1075`.
+- EO correction CI: [44259359716](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259359716), success; 165 Python tests and 3 subtests passed.
+- Permission-gate CI: [44259464265](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259464265), success.
+- CoVar workflow: [44259763220](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220), success; artifact [14407138593](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220/artifacts/14407138593).
+- CoVar branch CI: [44259735610](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259735610), success.
+- GitHub Actions is the verified cloud execution route for Python/Node tests and licensed-source research jobs.
 
 ## 4. Verified engineering milestones
 
@@ -99,14 +102,14 @@ The official FPL workflow has fetched the 2026/27 roster and fixtures:
 - Python and JavaScript implementations exist for both `general_market` and `personal_squad`.
 - `general_market` has been run against the full 672-player official FPL pool. Its Python and JavaScript outputs were exactly numerically equal across the player pool and output categories. The latest forecast snapshot was stale relative to the target deadline and correctly labelled exploratory.
 - `personal_squad` passed a 672-player scale smoke test using a **synthetic** legal 15-player squad; it evaluated 2,914 legal one-transfer candidates and built a legal 4-3-3. This was not the user's actual squad or a real manager recommendation.
-- CoVar and player-variance risk application remain disabled in `personal_squad` pending validation. Do not claim CoVar optimisation is complete.
+- A real exploratory CoVar matrix has now been generated from 10 completed 2026/27 gameweeks (Onside actuals only): 350 complete-panel players, 296 non-zero-variance players, 43,956 pair estimates. It remains too short and selected to enable; CoVar stays disabled in `personal_squad` pending longer-window and out-of-sample validation.
 - The user's manager-specific squad has not been supplied to this engineering run.
 
 ### Effective ownership
 
-- A lock-safe top-10k weighted manager-pick EO collector is implemented and its mocked timing/API tests pass.
-- It samples ranks before the deadline and only fetches picks after official deadline lock verification.
-- No live near-deadline capture has yet been verified. Global ownership from FPL history is not EO. Do not use `selected_by_percent` as EO.
+- A lock-safe top-10k weighted manager-pick EO collector is implemented and its mocked timing tests pass.
+- Standard EO now counts all 15 squad picks plus captain and Triple Captain extras. Starting percentage and scoring exposure are separate outputs.
+- No live near-deadline capture has been verified. Automated FPL collection is gated pending written permission. Global ownership from FPL history is not rank-tier EO. Do not use `selected_by_percent` as EO.
 
 ## 5. Player identity and provider policy
 
@@ -157,24 +160,23 @@ Exploratory comparison on the same 4,954 scored rows:
 
 ## 7. Current blockers
 
-1. **CTA event features aligned to FPL outcomes:** no cleared event-and-target source pair with documented overlapping season, rights, and point-in-time provenance. Wyscout 2017/18 is promising but target-data rights/vintage remain unresolved. Opta/PulseLive rights are unresolved.
-2. **Historical FPL point-in-time snapshots:** the current lagged dataset is structurally safe but not vintage-verified. A private durable archive is required; do not place manager-specific data or private snapshots in the public repo.
+1. **CTA event features aligned to FPL outcomes:** Wyscout 2017/18 event data is provider-published CC BY 4.0, but FPL target-data rights and point-in-time vintages remain unresolved. Opta/PulseLive rights are unresolved.
+2. **Historical FPL point-in-time snapshots:** the current lagged dataset is structurally safe but not vintage-verified. Automated FPL API jobs are gated until written permission is obtained. A private durable archive is still required; do not place manager-specific data or private snapshots in the public repo.
 3. **Verified player crosswalks:** StatsBomb, Wyscout and Opta/PulseLive crosswalks remain empty. No name-only or fuzzy joins.
-4. **EO live validation:** collector logic is tested, but no live post-deadline capture has been accepted.
+4. **EO live validation:** corrected standard EO logic and lock-safe collector are tested, but no live post-deadline capture has been accepted; automated capture awaits written permission.
 5. **360 anomaly:** match `3837706` remains quarantined pending source provenance.
-6. **Personal-squad risk/CoVar:** CoVar estimation and risk application are not validated; keep disabled in the personal-squad engine.
-7. **Replit reconciliation:** Agent returned empty responses; latest Replit workspace and whether it contains the GitHub changes are unknown.
+6. **Personal-squad risk/CoVar:** a 10-GW exploratory covariance panel exists, but it is too short and selection-biased for production risk use; keep disabled in the personal-squad engine.
+7. **Data rights:** written permission for automated FPL API collection, private archival and research/model use is not yet obtained. Do not enable the gated workflows.
 
 ## 8. Immediate next actions
 
-1. Complete PR #4 review/CI and merge the Onside source-audit workflow if checks remain green.
-2. Add a durable benchmark report and reproducible comparator from the audited artifact. Recompute MAE/RMSE and rank metrics on identical cohorts; keep all-player and minutes-qualified results separate.
-3. Reconcile the official FPL deadline-time snapshot with Onside's frozen `fpl_ep_next` values where independent source vintages are available. Do not assume a current bootstrap can reproduce past forecasts.
-4. Pursue an authorized FPL historical target source or written permission for the 2017/18 archive. Keep Wyscout event data as a separate provider until the target rights and point-in-time gates clear.
-5. Preserve the 34-match StatsBomb engineering benchmark and investigate the quarantined 360 source anomaly without modifying the source records.
-6. Validate live EO capture after an actual deadline; archive aggregated outputs and provenance privately.
-7. Only after data rights, identity, point-in-time, and predictive validation gates pass, add CTA-derived player-gameweek features and integrate them into the FPL forecast layer.
-8. Validate covariance/CoVar on time-safe player-gameweek data before enabling risk-aware personal-squad optimisation.
+1. Obtain written permission from the FPL/Premier League rights holder for automated API access, private deadline snapshots, research/model development and intended publication. Ask Football DataCo about Opta/PulseLive match data.
+2. After permission, create a private durable archive destination and enable the workflow gate only for the approved scope.
+3. Continue Wyscout 2017/18 event-side parsing and numeric identity/fixture reconciliation under CC BY 4.0, but keep FPL target joins blocked until target rights are cleared.
+4. Extend CoVar history beyond 10 gameweeks, test rolling-window stability and run time-ordered out-of-sample validation; keep it disabled in `personal_squad` meanwhile.
+5. Preserve the 34-match StatsBomb engineering benchmark and investigate the quarantined 360 source anomaly without modifying source records.
+6. After permission, validate live EO capture and archive only the approved outputs and provenance.
+7. Only after rights, identity, point-in-time and predictive-validation gates pass, add CTA-derived player-gameweek features to the FPL forecast layer.
 
 ## 9. Durable evidence links
 
