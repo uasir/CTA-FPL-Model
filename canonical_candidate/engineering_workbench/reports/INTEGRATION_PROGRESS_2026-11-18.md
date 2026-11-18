@@ -146,15 +146,18 @@ Both recommendation products now have deterministic Python and JavaScript implem
 
 ### Shared official FPL baseline adapter
 - `scripts/build_fpl_baseline_forecast_snapshot.py` converts the timestamped official FPL player snapshot into the shared one-gameweek forecast schema.
-- EV comes from official `ep_next`; expected minutes are explicitly a latest-completed-gameweek actual-minutes proxy.
+- EV comes from official `ep_next`; expected minutes are latest completed-gameweek minutes per fixture scaled by the target gameweek's fixture count, including double gameweeks.
+- Snapshot IDs hash the complete player forecast records and quality/provenance envelope, not only the bootstrap and fixture source hashes.
+- `scripts/run_fpl_general_market_baseline.py` now runs the actual general-market engine on the generated official FPL snapshot and emits an exploratory ranked-market report.
 - The adapter verifies the source snapshot predates the target deadline and hashes the source feeds.
 - It accepts EO only when the collector report proves pre-deadline cohort selection and post-deadline picks capture for the same target deadline.
 - This adapter is a baseline, not a trained CTA model.
 
 ### Latest verification
-- CI run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44252742817
-- JavaScript: **32 passed, 0 failed**
-- Python: **143 passed, plus 3 subtests**
+- Latest CI run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44253457191
+- JavaScript: **33 passed, 0 failed**
+- Python: **146 passed, plus 3 subtests**
 - Crosswalk validator: **EMPTY_NOT_READY**, join_ready false.
+- Live ingestion with fixture-scaled minutes and the general-market smoke test: run https://github.com/uasir/CTA-FPL-Model/actions/runs/44253510302 is currently executing; its actual forecast artifact has not yet been inspected.
 
 These are exploratory v0.1 engines. Remaining work includes real FPL snapshot execution through the ingestion workflow, live GW11 locked EO capture, validated historical training data, multi-transfer/chip-aware planning, predictive accuracy testing and validated covariance. No production readiness is claimed.
