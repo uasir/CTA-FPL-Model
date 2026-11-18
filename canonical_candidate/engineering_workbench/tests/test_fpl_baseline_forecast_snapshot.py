@@ -56,7 +56,7 @@ def test_builds_official_ep_next_and_explicit_minutes_proxy():
     by_id = {row["fpl_element_id"]: row for row in snapshot["player_forecasts"]}
     assert by_id[10]["expected_points"] == 4.8
     assert by_id[10]["expected_minutes"] == 60
-    assert by_id[10]["minutes_proxy_source"] == "latest_completed_gameweek_actual"
+    assert by_id[10]["minutes_proxy_source"] == "latest_completed_gameweek_per_fixture_scaled_to_target_fixture_count"
     assert by_id[10]["price"] == 5.0
     assert by_id[10]["availability_probability"] == 1.0
     assert by_id[11]["expected_minutes"] == 120
@@ -108,7 +108,7 @@ def test_requires_source_hashes_for_provenance():
     metadata = source_metadata()
     metadata.pop("bootstrap_sha256")
     with pytest.raises(ValueError, match="SHA-256 hashes"):
-        build_snapshot(players(), gameweek_rows(), metadata)
+        build_snapshot(players(), gameweek_rows(), fixtures(), metadata)
 
 
 
@@ -121,7 +121,7 @@ def test_rejects_eo_without_cohort_and_lock_timestamps():
     }
     with pytest.raises(ValueError, match="cohort/lock provenance"):
         build_snapshot(
-            players(), gameweek_rows(), source_metadata(),
+            players(), gameweek_rows(), fixtures(), source_metadata(),
             [{"gameweek": "12", "fpl_element_id": "10", "effective_ownership_pct": "100"}],
             eo_report,
         )
@@ -129,8 +129,8 @@ def test_rejects_eo_without_cohort_and_lock_timestamps():
 
 
 def test_snapshot_id_changes_when_forecast_inputs_change():
-    first, _ = build_snapshot(players(), gameweek_rows(), source_metadata())
+    first, _ = build_snapshot(players(), gameweek_rows(), fixtures(), source_metadata())
     changed_rows = gameweek_rows()
     changed_rows[-1]["target_minutes"] = "30"
-    second, _ = build_snapshot(players(), changed_rows, source_metadata())
+    second, _ = build_snapshot(players(), changed_rows, fixtures(), source_metadata())
     assert first["forecast_snapshot_id"] != second["forecast_snapshot_id"]
