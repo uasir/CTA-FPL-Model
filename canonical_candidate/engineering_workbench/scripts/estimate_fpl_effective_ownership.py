@@ -80,7 +80,7 @@ def _stratified_normal_ci(samples_by_stratum, metric_index, rank_limit, confiden
     return max(0.0,mean-confidence_z*se),mean+confidence_z*se
 
 
-def estimate_effective_ownership(rows):
+def estimate_effective_ownership(rows, player_ids=None):
     if not rows:
         raise ValueError("manager-pick input is empty")
     managers=defaultdict(list)
@@ -150,7 +150,8 @@ def estimate_effective_ownership(rows):
         page_count=0
 
     all_players=sorted(
-        {str(row["fpl_element_id"]) for items in managers.values() for row,_,_ in items},
+        {str(row["fpl_element_id"]) for items in managers.values() for row,_,_ in items}
+        | {str(player_id) for player_id in (player_ids or []) if str(player_id).strip()},
         key=lambda value:(0,int(value)) if value.isdigit() else (1,value),
     )
     per_player=defaultdict(lambda:{"owned":0.0,"starting":0.0,"captained":0.0,"triple_captained":0.0,"scoring_exposure":0.0})
@@ -268,7 +269,8 @@ def estimate_effective_ownership(rows):
             "intervals_available":all(row["effective_ownership_pct_ci95_low"] is not None for row in output),
             "caveat":"Intervals are approximate; Wilson rates use effective sample size, while EO/scoring intervals use within-page sample variance and finite population correction. They do not model every source of rank-cohort uncertainty.",
         },
-        "players_with_exposure":len(output),
+        "players_with_exposure":sum(1 for stats in per_player.values() if stats["owned"]>0),
+        "player_universe_size":len(output),
         "status":"SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS",
         "formula":"standard EO = 100 * weighted sum(all 15 squad selections + captain extra + Triple Captain extra) / total manager sample weight",
         "lineup_policy":"ownership and standard EO count all 15 squad picks; starting_pct separately counts positions 1-11; scoring_exposure_pct counts starters, Bench Boost bench players, captain extra, and Triple Captain extra",
