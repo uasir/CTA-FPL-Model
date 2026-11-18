@@ -56,7 +56,7 @@ def estimate_effective_ownership(rows):
     denominator=sum(manager_weights.values())
     if denominator<=0:
         raise ValueError("total sample weight must be positive")
-    per_player=defaultdict(lambda:{"selected":0.0,"captained":0.0,"triple_captained":0.0,"exposure":0.0})
+    per_player=defaultdict(lambda:{"owned":0.0,"starting":0.0,"captained":0.0,"triple_captained":0.0,"scoring_exposure":0.0})
     for (gw,entry),items in managers.items():
         weight=manager_weights[(gw,entry)]
         captain_count=0
@@ -64,32 +64,41 @@ def estimate_effective_ownership(rows):
             chip=str(row.get("active_chip") or "").strip().lower()
             is_captain=truth(row.get("is_captain"))
             is_triple=chip=="3xc" and is_captain
-            started=(chip=="bboost" or position<=11)
-            if is_captain and not started:
-                raise ValueError(f"captain is not in the scoring lineup for manager {entry}")
+            is_starter=position<=11
+            is_bench_boost=chip=="bboost" and not is_starter
+            if is_captain and not is_starter:
+                raise ValueError(f"captain is not in the starting XI for manager {entry}")
             stats=per_player[str(row["fpl_element_id"])]
-            if started:
-                stats["selected"]+=weight
-                stats["exposure"]+=weight
+            # Standard FPL ownership includes every squad pick (all 15),
+            # irrespective of whether the player starts or Bench Boost is active.
+            stats["owned"]+=weight
+            if is_starter:
+                stats["starting"]+=weight
+                stats["scoring_exposure"]+=weight
+            elif is_bench_boost:
+                stats["scoring_exposure"]+=weight
             if is_captain:
                 stats["captained"]+=weight
-                stats["exposure"]+=weight
+                stats["scoring_exposure"]+=weight
                 captain_count+=1
             if is_triple:
                 stats["triple_captained"]+=weight
-                stats["exposure"]+=weight
+                stats["scoring_exposure"]+=weight
         if captain_count!=1:
             raise ValueError(f"manager {entry} GW{gw} must have exactly one captain")
     for player_id,stats in sorted(per_player.items(),key=lambda item:(0,int(item[0])) if item[0].isdigit() else (1,item[0])):
+        effective_exposure=stats["owned"]+stats["captained"]+stats["triple_captained"]
         output.append({
             "gameweek":next(iter(gameweeks)),
             "fpl_element_id":player_id,
             "sample_managers":len(managers),
             "sample_weight":round(denominator,8),
-            "owned_by_pct":round(stats["selected"]/denominator*100,8),
+            "owned_by_pct":round(stats["owned"]/denominator*100,8),
+            "starting_pct":round(stats["starting"]/denominator*100,8),
             "captain_pct":round(stats["captained"]/denominator*100,8),
             "triple_captain_pct":round(stats["triple_captained"]/denominator*100,8),
-            "effective_ownership_pct":round(stats["exposure"]/denominator*100,8),
+            "effective_ownership_pct":round(effective_exposure/denominator*100,8),
+            "scoring_exposure_pct":round(stats["scoring_exposure"]/denominator*100,8),
         })
     report={
         "gameweek":next(iter(gameweeks)),
@@ -97,10 +106,11 @@ def estimate_effective_ownership(rows):
         "sample_weight":round(denominator,8),
         "players_with_exposure":len(output),
         "status":"SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS",
-        "formula":"100 * weighted sum(starting selection + captain extra + triple-captain extra) / total manager sample weight",
-        "lineup_policy":"positions 1-11 count as starters; all 15 count for Bench Boost; captain adds one exposure unit; Triple Captain adds a second extra unit",
+        "formula":"standard EO = 100 * weighted sum(all 15 squad selections + captain extra + Triple Captain extra) / total manager sample weight",
+        "lineup_policy":"ownership and standard EO count all 15 squad picks; starting_pct separately counts positions 1-11; scoring_exposure_pct counts starters, Bench Boost bench players, captain extra, and Triple Captain extra",
         "limitations":[
             "Results are representative only of the supplied manager sample and its weighting scheme.",
+            "Standard ownership and EO count all 15 squad picks, including bench players; starting_pct and scoring_exposure_pct are separate measures.",
             "Manager ranks and picks must be captured at/after the deadline without using post-gameweek rank to define the cohort.",
             "This estimate is not the official whole-game ownership or a census unless the input contains the complete manager population.",
             "Bench Boost and Triple Captain chip states must reflect the locked gameweek picks.",
