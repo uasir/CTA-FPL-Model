@@ -132,6 +132,9 @@ def capture(bootstrap,fetch=fetch_json,rank_limit=10000,sample_size=100,seed=202
         raise ValueError("sample_size must be positive and no larger than the number of rank pages")
 
     # Stage 1: freeze the rank-defined cohort before the deadline.
+    rank_capture_started_at=now_fn()
+    if rank_capture_started_at>=deadline:
+        raise RuntimeError("Rank cohort capture started after the deadline; refusing a post-lock cohort")
     pages=choose_pages(rank_limit,sample_size,seed)
     page_payloads={}
     def get_page(page):
@@ -143,6 +146,8 @@ def capture(bootstrap,fetch=fetch_json,rank_limit=10000,sample_size=100,seed=202
             page,payload=future.result();page_payloads[page]=payload
     managers=select_managers(page_payloads,sample_size,rank_limit,seed)
     cohort_captured_at=now_fn()
+    if cohort_captured_at>=deadline:
+        raise RuntimeError("Rank cohort fetch crossed the deadline; refusing to mix pre- and post-deadline standings")
 
     # Stage 2: wait for the deadline to pass, plus a short API-lock grace period.
     lock_time=deadline.timestamp()+lock_grace_seconds
