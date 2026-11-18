@@ -108,3 +108,17 @@ New tests cover pre-deadline rank sampling, post-deadline pick retrieval, lock t
 - Crosswalk validator: executed successfully, but `EMPTY_NOT_READY`; no verified identity rows exist.
 
 This verifies the collector's logic against mocked API responses. It is **not yet a live GW11 lock capture**. The next scheduled run near the 2026-11-21 11:00 UTC deadline is the first live validation opportunity. The capture remains a top-10k weighted sample, not whole-game EO.
+
+
+## 5. Official FPL forecast baseline fields
+
+The official ingestion adapter now preserves `ep_next` and `ep_this` from each timestamped bootstrap snapshot, alongside current form, points-per-game, expected-goals/assists, ICT, starts, bonus and related season aggregates. The ingestion report records `ep_next` coverage and missing player IDs rather than silently assuming complete coverage.
+
+This gives the shared forecast layer an auditable official FPL baseline for the next gameweek. It is not a CTA-trained prediction and must remain labelled as the official FPL baseline. The historical lagged dataset must not backfill past `ep_next` values from a later bootstrap snapshot.
+
+Verification:
+- CI run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44251388673
+- Commit: `0a48115eb3982198087ac781b358f681cd5fad44`
+- JavaScript tests: **19 passed**
+- Python tests: **117 passed, plus 3 subtests**
+- Crosswalk validator: no errors, but `EMPTY_NOT_READY` and `join_ready: false`.
