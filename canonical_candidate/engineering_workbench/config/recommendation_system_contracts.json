@@ -5,7 +5,8 @@
     "required_forecast_metadata": [
       "forecast_snapshot_id",
       "model_version",
-      "forecast_horizon_gameweeks"
+      "forecast_horizon_gameweeks",
+      "forecast_quality"
     ],
     "shared_player_fields": [
       "fpl_element_id",
@@ -26,7 +27,26 @@
       "Missing values remain missing and are surfaced; they are not silently imputed by recommendation code.",
       "Exploratory covariance is not a production decision signal.",
       "Forecast validity and point-in-time status travel with every recommendation response."
-    ]
+    ],
+    "forecast_quality": {
+      "validation_status": [
+        "EXPLORATORY_ONLY",
+        "VALIDATED",
+        "UNAVAILABLE"
+      ],
+      "point_in_time_status": [
+        "VERIFIED",
+        "NOT_VERIFIED",
+        "NOT_APPLICABLE"
+      ],
+      "required_fields": [
+        "validation_status",
+        "point_in_time_status",
+        "data_coverage",
+        "limitations"
+      ],
+      "policy": "Always disclose source coverage and limitations; do not label exploratory or non-point-in-time data as validated."
+    }
   },
   "systems": {
     "general_market": {
@@ -35,7 +55,8 @@
         "forecast_snapshot_id",
         "model_version",
         "forecast_horizon_gameweeks",
-        "player_forecasts"
+        "player_forecasts",
+        "forecast_quality"
       ],
       "forbidden_inputs": [
         "squad",
@@ -75,7 +96,8 @@
         "squad_snapshot",
         "bank",
         "free_transfers",
-        "personal_risk_profile"
+        "personal_risk_profile",
+        "forecast_quality"
       ],
       "squad_snapshot": {
         "player_count": 15,
