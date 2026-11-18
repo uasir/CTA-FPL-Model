@@ -224,11 +224,24 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
         raise ValueError("Duplicate fixture-team keys")
     if len(player_keys) != len(set(player_keys)):
         raise ValueError("Duplicate player-fixture keys")
+    fixture_ids = {str(f.get("id", "")) for f in fixtures}
+    match_teams = defaultdict(set)
+    for row in source:
+        match_teams[str(row.get("matchId", ""))].add(row["_team_id"])
+    provider_match_ids = set(match_teams) - {""}
+    malformed_match_ids = sorted(mid for mid, ids in match_teams.items() if mid and len(ids) != 2)
     report = {
         "season": season, "fixtures": len(fixtures),
         "fixtures_without_kickoff": sum(not bool(f.get("kickoff_time")) for f in fixtures),
         "team_fixture_rows": len(team_output), "player_fixture_rows": len(player_output),
-        "provider_team_match_rows": len(source), "metrics_used": metrics,
+        "provider_team_match_rows": len(source), "provider_unique_match_ids": len(provider_match_ids),
+        "provider_match_ids_in_fpl_fixture_list": len(provider_match_ids & fixture_ids),
+        "provider_match_ids_not_in_fpl_fixture_list": len(provider_match_ids - fixture_ids),
+        "provider_matches_with_team_count_not_equal_to_two": malformed_match_ids,
+        "provider_team_ids_not_in_fpl_bootstrap": sorted(
+            set(by_team) - set(teams)
+        ),
+        "metrics_used": metrics,
         "max_prior_matches": max_history,
         "same_or_future_rows_excluded": excluded_same_or_future,
         "leakage_policy": "Only same-season provider team rows with kickoff strictly earlier than target fixture kickoff are used; current fixture matchId is excluded.",
