@@ -146,6 +146,7 @@ jobs:
             --crosswalk run_artifacts/11footy_fpl/crosswalk_validation/verified_provider_fpl_crosswalk.csv \
             --crosswalk-validation run_artifacts/11footy_fpl/crosswalk_validation/crosswalk_validation.json \
             --season "$FPL_SEASON" \
+            --release 11footy-2026-11-10 \
             --competition-id 1 \
             --out-dir run_artifacts/11footy_fpl/output
 
