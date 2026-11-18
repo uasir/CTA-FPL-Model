@@ -44,6 +44,36 @@ class ProviderCrosswalkTests(unittest.TestCase):
         self.assertEqual(report["status"], "BLOCKED")
         self.assertEqual(accepted, [])
 
+    def test_11footy_verified_crosswalk_uses_season_scoped_provider_and_fpl_ids(self):
+        accepted, report = MODULE.validate_rows(
+            [row(
+                season="2026/27", competition_id="1", provider_player_id="10790",
+                provider_player_name="Illan Meslier", fpl_element_id="3",
+                fpl_player_code="12345", fpl_player_name="Illan Meslier",
+                provider_team_id="1", provider_team_name="Arsenal",
+                fpl_team_id="1", fpl_team_name="Arsenal",
+                verification_status="verified", match_method="manual_source_verified",
+                evidence_source="Official FPL, 11footy and independent club profile",
+                evidence_url="https://example.org/player-profile",
+                provider_birth_date="2000-03-02", fpl_birth_date="2000-03-02",
+                source_release="11footy-2026-11-10",
+                confidence_level="very_high",
+            )],
+            "11footy",
+        )
+        self.assertEqual(report["status"], "PASS")
+        self.assertTrue(report["join_ready"])
+        self.assertEqual(len(accepted), 1)
+        self.assertEqual(accepted[0]["provider_source_sha256"], "x")
+
+    def test_11footy_pending_candidates_are_excluded_from_join(self):
+        accepted, report = MODULE.validate_rows(
+            [row(verification_status="pending")], "11footy"
+        )
+        self.assertEqual(report["status"], "NO_VERIFIED_MAPPINGS")
+        self.assertFalse(report["join_ready"])
+        self.assertEqual(accepted, [])
+
     def test_name_only_method_is_not_accepted(self):
         accepted, report = MODULE.validate_rows([row(match_method="fuzzy_name")], "wyscout")
         self.assertEqual(report["status"], "BLOCKED")
