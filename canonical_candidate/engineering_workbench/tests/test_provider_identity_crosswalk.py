@@ -66,6 +66,23 @@ class ProviderCrosswalkTests(unittest.TestCase):
         self.assertEqual(len(accepted), 1)
         self.assertEqual(accepted[0]["provider_source_sha256"], "x")
 
+    def test_11footy_verified_mapping_requires_numeric_ids_and_matching_team(self):
+        accepted, report = MODULE.validate_rows(
+            [row(
+                season="2026/27", competition_id="1", provider_player_id="10790",
+                fpl_element_id="3", provider_team_id="12", fpl_team_id="1",
+                provider_team_name="Liverpool", fpl_team_name="Arsenal",
+                verification_status="verified", match_method="manual_source_verified",
+            )],
+            "11footy",
+        )
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertEqual(accepted, [])
+        self.assertEqual(
+            report["errors"][0]["error"],
+            "11footy_provider_and_fpl_team_names_do_not_match",
+        )
+
     def test_11footy_pending_candidates_are_excluded_from_join(self):
         accepted, report = MODULE.validate_rows(
             [row(verification_status="pending")], "11footy"
