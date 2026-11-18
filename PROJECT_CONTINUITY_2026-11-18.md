@@ -57,10 +57,13 @@ Current-turn materialization and checks:
 - PR #5, standard EO definition correction, merged: `090cb01f5a3bf6668612e589ebad3f28ae5da4cd`.
 - PR #6, written-permission gate for automated FPL API access, merged: `327c7ac717d0fae389fc866c078629c186176d89`.
 - PR #7, exploratory CoVar workflow from Onside actual points, merged: `0299f37139d2ef39c1da63de2470e1f2e92e1075`.
+- PR #8, rolling-window CoVar stability diagnostic, merged: `db7eed7241ef91319630e705edbff64e8dc5e3e6`.
 - EO correction CI: [44259359716](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259359716), success; 165 Python tests and 3 subtests passed.
 - Permission-gate CI: [44259464265](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259464265), success.
 - CoVar workflow: [44259763220](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220), success; artifact [14407138593](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220/artifacts/14407138593).
 - CoVar branch CI: [44259735610](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259735610), success.
+- CoVar stability CI: [44260208715](https://github.com/uasir/CTA-FPL-Model/actions/runs/44260208715), success; 172 Python tests and 3 subtests passed.
+- CoVar split-window audit: [44260264105](https://github.com/uasir/CTA-FPL-Model/actions/runs/44260264105), success; artifact [14407094178](https://github.com/uasir/CTA-FPL-Model/actions/runs/44260264105/artifacts/14407094178).
 - Latest main CI after PR #7: [44259849870](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259849870), success; 37 JavaScript tests, 170 Python tests and 3 subtests passed. All three provider crosswalk validators still correctly report `EMPTY_NOT_READY`.
 - GitHub Actions is the verified cloud execution route for Python/Node tests and licensed-source research jobs.
 
@@ -104,7 +107,8 @@ The official FPL workflow has fetched the 2026/27 roster and fixtures:
 - Python and JavaScript implementations exist for both `general_market` and `personal_squad`.
 - `general_market` has been run against the full 672-player official FPL pool. Its Python and JavaScript outputs were exactly numerically equal across the player pool and output categories. The latest forecast snapshot was stale relative to the target deadline and correctly labelled exploratory.
 - `personal_squad` passed a 672-player scale smoke test using a **synthetic** legal 15-player squad; it evaluated 2,914 legal one-transfer candidates and built a legal 4-3-3. This was not the user's actual squad or a real manager recommendation.
-- A real exploratory CoVar matrix has now been generated from 10 completed 2026/27 gameweeks (Onside actuals only): 350 complete-panel players, 296 non-zero-variance players, 43,956 pair estimates. Run [44259763220](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220); artifact [14407138593](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220/artifacts/14407138593). It remains too short and selected to enable; CoVar stays disabled in `personal_squad` pending longer-window and out-of-sample validation.
+- A real exploratory CoVar matrix has been generated from 10 completed 2026/27 gameweeks (Onside actuals only): 350 complete-panel players, 296 non-zero-variance players, 43,956 pair estimates. Run [44259763220](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220); artifact [14407138593](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220/artifacts/14407138593).
+- The split-window stability diagnostic across GW1–GW5 vs GW6–GW10 found correlation-of-correlations **0.0078**, median absolute pairwise correlation change **0.5004**, mean change **0.5780** across 260 players and 33,670 pairs. This is not a formal stationarity test, but it is a strong warning that the covariance estimates are unstable. CoVar remains disabled in `personal_squad`.
 - The user's manager-specific squad has not been supplied to this engineering run.
 
 ### Effective ownership
