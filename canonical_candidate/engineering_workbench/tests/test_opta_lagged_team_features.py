@@ -25,7 +25,7 @@ def test_crosswalk_requires_exact_numeric_id_and_team_match():
     assert report["verified_id_and_team_matches"] == 1
     assert report["exact_shared_numeric_ids"] == 2
     assert report["team_mismatches_or_duplicate_ids"] == 1
-    assert report["fpl_players_without_provider_stats"] == 0
+    assert report["fpl_players_without_provider_season_row"] == 0
     assert rows[0]["verification_status"] == "verified"
     assert rows[0]["fpl_element_id"] == "1"
     assert rows[0]["fpl_team_id"] == "1"
