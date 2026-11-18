@@ -3,7 +3,7 @@
 Date: 2026-11-18  
 Repository: https://github.com/uasir/CTA-FPL-Model  
 Default branch: `main`  
-Current verified main commit at this update: `4183f389f23c2da88e8067928428f84900d7960f`
+Current verified main commit: `264f2792514d5927cc051d9fad36a6f03a2d3a24`
 
 This document is the durable project handoff for continuing work in one primary ChatGPT conversation. It supersedes earlier status notes where newer evidence below conflicts with them. It is a continuity aid, not a claim that all integration gates have passed.
 
@@ -51,7 +51,8 @@ Current-turn materialization and checks:
 
 - GitHub repository: https://github.com/uasir/CTA-FPL-Model
 - PR #3, provider-specific identity crosswalks, was merged on 2026-11-18. Merge commit: `4183f389f23c2da88e8067928428f84900d7960f`.
-- Main CI after that merge: run [44257461096](https://github.com/uasir/CTA-FPL-Model/actions/runs/44257461096), conclusion success.
+- PR #4, Onside FPL benchmark source audit and this continuity brief, was merged on 2026-11-18. Merge commit/current main: `264f2792514d5927cc051d9fad36a6f03a2d3a24`.
+- Latest main CI after both merges: run [44257955121](https://github.com/uasir/CTA-FPL-Model/actions/runs/44257955121), conclusion success; 37 JavaScript tests, 164 Python tests and 3 subtests passed. All three provider crosswalk validators correctly report `EMPTY_NOT_READY`.
 - The earlier PR branch CI [44256906777](https://github.com/uasir/CTA-FPL-Model/actions/runs/44256906777) passed with 37 JavaScript tests, 164 Python tests and 3 subtests. The new crosswalk validators ran; both new provider templates correctly remained empty/not ready.
 - Replit app: [CTA-FPL-Model](https://replit.com/@uasieg1/CTA-FPL-Model), replId `bb60190a-50a0-46bf-9253-a4c3e09302d9`.
 - Replit Agent inspection requests on 18 November returned `phase=paused` with empty responses. The latest Replit source and whether its earlier multi-match update completed are therefore unverified. Do not claim the Replit workspace is synchronized with GitHub main.
@@ -126,14 +127,14 @@ Provider source assessment:
 ## 6. New Onside FPL benchmark audit
 
 A separate source-audit workflow and script have been added on PR #4:
-- PR: https://github.com/uasir/CTA-FPL-Model/pull/4
+- PR #4: https://github.com/uasir/CTA-FPL-Model/pull/4 (merged; main commit `264f2792514d5927cc051d9fad36a6f03a2d3a24`)
 - Workflow: `.github/workflows/cta-onside-benchmark.yml`
 - Script: `canonical_candidate/engineering_workbench/scripts/inspect_onside_fpl_benchmark.py`
 - Source: https://onsidearena.com/data/graded-predictions.csv
 - Provider-stated licence: CC BY 4.0, attribution to Onside Arena.
 - DOI: https://doi.org/10.5281/zenodo.22746985
 
-Latest real-source audit: [GitHub Actions run 44257817207](https://github.com/uasir/CTA-FPL-Model/actions/runs/44257817207), conclusion success. Source snapshot SHA-256:
+Latest real-source audit: [GitHub Actions run 44257909685](https://github.com/uasir/CTA-FPL-Model/actions/runs/44257909685), conclusion success. Artifact: [cta-onside-benchmark-44257909685](https://github.com/uasir/CTA-FPL-Model/actions/runs/44257909685/artifacts/14407050697), ID `14407050697`, retained until 2027-02-16. Earlier successful audit: [run 44257817207](https://github.com/uasir/CTA-FPL-Model/actions/runs/44257817207). Source snapshot SHA-256:
 `dd51366a5f71d5f0bf26b4265b17188f04774d584c4444172be3f307aaf02a81`
 
 Verified:
@@ -178,7 +179,8 @@ Exploratory comparison on the same 4,954 scored rows:
 - 34-match parity: https://github.com/uasir/CTA-FPL-Model/actions/runs/44091783751
 - FPL official ingestion + general-market integration history: https://github.com/uasir/CTA-FPL-Model/actions/runs/44255361502
 - Provider-specific identity crosswalk PR (merged): https://github.com/uasir/CTA-FPL-Model/pull/3
-- Onside benchmark audit PR: https://github.com/uasir/CTA-FPL-Model/pull/4
+- Onside benchmark audit PR #4 (merged): https://github.com/uasir/CTA-FPL-Model/pull/4
+- Main CI after merges: https://github.com/uasir/CTA-FPL-Model/actions/runs/44257955121
 - Onside benchmark source audit run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44257817207
 - Onside dataset and CC BY 4.0 terms: https://onsidearena.com/data
 - Onside public accuracy ledger: https://onsidearena.com/accuracy
