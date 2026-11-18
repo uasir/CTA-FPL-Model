@@ -356,7 +356,7 @@ def test_direction_inference_withholds_weak_or_conflicting_evidence():
     ]
     rows, report = infer_directions(weak, "match-1")
     assert rows == []
-    assert report["period_reports"][0]["status"] == "WITHHELD_INSUFFICIENT_SHOT_ENDPOINT_EVIDENCE"
+    assert report["period_reports"][0]["status"] == "WITHHELD_INSUFFICIENT_DIRECTION_EVIDENCE"
 
     conflicting = [
         {
