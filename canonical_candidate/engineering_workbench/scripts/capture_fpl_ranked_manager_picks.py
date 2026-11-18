@@ -114,7 +114,9 @@ def parse_deadline(event):
 
 def capture(bootstrap,fetch=fetch_json,rank_limit=10000,sample_size=100,seed=20261117,
             delay=0.15,workers=2,deadline_window_minutes=7,lock_grace_seconds=60,
-            now_fn=lambda:datetime.now(timezone.utc),sleep_fn=time.sleep):
+            force=False,now_fn=lambda:datetime.now(timezone.utc),sleep_fn=time.sleep):
+    # Retain the old keyword for callers, but never let force bypass deadline
+    # timing: final EO must only use picks fetched after the lock grace period.
     now=now_fn()
     upcoming=[]
     for event in bootstrap.get("events",[]):
