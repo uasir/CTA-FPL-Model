@@ -3,6 +3,7 @@
 
 This model is deliberately not wired into either recommendation engine:
 the historical source is structurally lagged but not fully point-in-time verified.
+Fixture-level minutes predictions are constrained to 0–90 before gameweek aggregation.
 """
 from __future__ import annotations
 import argparse,csv,json,math
