@@ -382,3 +382,21 @@ Pinned StatsBomb Open Data commit: `4b73468fc5b0f1950f9f66fada70ad3a4f9327cb`.
 - Data-quality result: `PASS` for structure and parity, but `fpl_readiness: BLOCKED`.
 
 Next data work remains provider/season alignment: verify Wyscout 2017/18 or Opta/PulseLive 2026/27 player-to-FPL numeric identities and trusted minutes. Do not populate FPL names from normalized-name guesses.
+
+## 13. Opta/PulseLive live 2026/27 integration — verified 2026-11-18
+
+Workflow run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44352173248  
+Aggregate artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44352173248/artifacts/14448343224  
+Artifact digest: `sha256:427e9ab6fb523cf7d899c9e251d0fdd13b9fad877deea5bdd81e822033792f8e`.  
+Detailed report: `reports/OPTA_PULSELIVE_LIVE_INTEGRATION_2026-11-18.md`.
+
+- 511/511 Opta/PulseLive player IDs exactly match FPL `code`; all 511 also pass provider team ID = FPL team code; zero mismatches/duplicates.
+- 161 of 672 FPL players have no provider player-season row in this snapshot; these are missing coverage, not failed identity joins.
+- 100/100 provider match IDs match FPL fixture `code`; all 200 team-match rows reconcile to two team rows per match; no unknown provider team codes.
+- 760 team-fixture rows and 18,816 prospective player-fixture rows generated.
+- Ten team metrics included; only previous three team matches strictly before target kickoff are used. Provider local kickoff times are converted from Europe/London to UTC. Target provider match ID is explicitly excluded.
+- The current FPL roster is emitted only for unfinished fixtures strictly after the run's `as_of_time`; it is not projected backwards onto completed fixtures.
+- Crosswalk validator: 511/511 accepted, PASS. CI run 44352156201: 38 JS tests, 10 canonical Python unittests, 180 pytest tests + 3 subtests all passed.
+- Only aggregate counts and SHA-256 provenance were uploaded; the raw provider data, crosswalk rows, and player-fixture rows were not uploaded or committed.
+
+**Remaining limitation:** provider data is a current cumulative snapshot; historical point-in-time vintage remains `NOT_VERIFIED`. The provider repository does not expose player-level per-match event rows in this pinned tree. Team context is structural/leakage-guarded but not yet predictive validation; keep it disconnected from recommendation scoring until vintage capture and out-of-sample value are demonstrated. Underlying Premier League/PulseLive data rights also remain unverified; no third-party data is redistributed by the workflow.
