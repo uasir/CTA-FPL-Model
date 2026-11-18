@@ -260,6 +260,89 @@ def test_infer_statsbomb_attack_directions_from_goal_and_saved_shots():
     assert report["status"] == "PASS_EVIDENCE_BACKED_DIRECTION_MAP"
 
 
+def test_keeper_positions_resolve_non_goal_shot_endpoint_disagreement():
+    from infer_statsbomb_attack_directions import infer_directions
+
+    events = []
+    frames = []
+    for index in range(5):
+        event_id = "home-pass-" + str(index)
+        events.append({
+            "id": event_id, "period": 1, "type": {"name": "Pass"},
+            "team": {"id": 1, "name": "Home"},
+        })
+        frames.append({
+            "event_uuid": event_id,
+            "freeze_frame": [
+                {"keeper": True, "teammate": False, "location": [118, 40]},
+            ],
+        })
+        event_id = "away-pass-" + str(index)
+        events.append({
+            "id": event_id, "period": 1, "type": {"name": "Pass"},
+            "team": {"id": 2, "name": "Away"},
+        })
+        frames.append({
+            "event_uuid": event_id,
+            "freeze_frame": [
+                {"keeper": True, "teammate": False, "location": [2, 40]},
+            ],
+        })
+
+    for index in range(2):
+        events.append({
+            "id": "home-saved-" + str(index), "period": 1,
+            "type": {"name": "Shot"}, "team": {"id": 1, "name": "Home"},
+            "shot": {"outcome": {"name": "Saved"}, "end_location": [0, 40]},
+        })
+        events.append({
+            "id": "away-saved-" + str(index), "period": 1,
+            "type": {"name": "Shot"}, "team": {"id": 2, "name": "Away"},
+            "shot": {"outcome": {"name": "Saved"}, "end_location": [120, 40]},
+        })
+
+    rows, report = infer_directions(events, "match-1", frames=frames)
+    by_team = {row["team"]: row for row in rows}
+
+    assert by_team["1"]["attacks_right"] == "true"
+    assert by_team["2"]["attacks_right"] == "false"
+    assert by_team["1"]["direction_source"] == "opponent_goalkeeper_position_overriding_non_goal_shot_endpoints"
+    assert report["period_reports"][0]["non_goal_shot_disagreement_team_ids"] == ["1", "2"]
+    assert report["keeper_position_evidence_events"] == 10
+
+
+def test_goal_and_keeper_direction_disagreement_is_withheld():
+    from infer_statsbomb_attack_directions import infer_directions
+
+    events = []
+    frames = []
+    for index in range(5):
+        event_id = "keeper-" + str(index)
+        events.append({
+            "id": event_id, "period": 1, "type": {"name": "Pass"},
+            "team": {"id": 1, "name": "Home"},
+        })
+        frames.append({
+            "event_uuid": event_id,
+            "freeze_frame": [
+                {"keeper": True, "teammate": False, "location": [118, 40]},
+            ],
+        })
+    events.extend([
+        {
+            "id": "goal-home", "period": 1, "type": {"name": "Shot"},
+            "team": {"id": 1, "name": "Home"},
+            "shot": {"outcome": {"name": "Goal"}, "end_location": [0, 40]},
+        },
+        {"id": "away-pass", "period": 1, "type": {"name": "Pass"}, "team": {"id": 2, "name": "Away"}},
+    ])
+
+    rows, report = infer_directions(events, "match-1", frames=frames)
+
+    assert rows == []
+    assert report["period_reports"][0]["status"] == "WITHHELD_CONFLICTING_DIRECTION_EVIDENCE"
+
+
 def test_direction_inference_withholds_weak_or_conflicting_evidence():
     from infer_statsbomb_attack_directions import infer_directions
 
