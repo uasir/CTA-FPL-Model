@@ -2,10 +2,12 @@ name: CTA 11footy Premier League match-data audit
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
     paths:
       - .github/workflows/cta-11footy-match-data-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_11footy_premier_league_data.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_premier_league_data_audit.py
+      - canonical_candidate/engineering_workbench/docs/CONTEXTUAL_THREAT_ASSESSMENT.md
   push:
     branches: [main]
     paths:
