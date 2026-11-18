@@ -66,6 +66,9 @@ jobs:
             tests/test_fpl_personal_squad_scale_smoke_test.py \
             tests/test_fpl_personal_squad_parity.py \
             tests/test_fpl_exploratory_ridge.py
+            tests/test_opta_lagged_team_features.py \
+            tests/test_opta_team_context_evaluation.py \
+            tests/test_provider_identity_crosswalk.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
