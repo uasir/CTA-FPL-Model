@@ -162,3 +162,13 @@ test("player forecast records enforce shared required fields and bounds", () => 
     /expected_minutes must be a finite number/,
   );
 });
+
+
+test("squad purchase prices must be positive", () => {
+  const payload = personal();
+  payload.squad_snapshot[0].purchase_price = 0;
+  assert.throws(
+    () => validatePersonalSquadRequest(payload),
+    /purchase_price must be a non-negative number/,
+  );
+});
