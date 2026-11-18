@@ -400,3 +400,35 @@ Detailed report: `reports/OPTA_PULSELIVE_LIVE_INTEGRATION_2026-11-18.md`.
 - Only aggregate counts and SHA-256 provenance were uploaded; the raw provider data, crosswalk rows, and player-fixture rows were not uploaded or committed.
 
 **Remaining limitation:** provider data is a current cumulative snapshot; historical point-in-time vintage remains `NOT_VERIFIED`. The provider repository does not expose player-level per-match event rows in this pinned tree. Team context is structural/leakage-guarded but not yet predictive validation; keep it disconnected from recommendation scoring until vintage capture and out-of-sample value are demonstrated. Underlying Premier League/PulseLive data rights also remain unverified; no third-party data is redistributed by the workflow.
+
+## 14. Daily FPL ingestion + Opta historical evaluation — verified 2026-11-18
+
+Full pipeline run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44353308393  
+Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44353308393/artifacts/14449347197  
+Artifact digest: `sha256:540aa3d7e0b835a5d55a8a873d9e802a86f4c8a03bc7b6c43380162498b04b6a`.  
+Detailed model report: `reports/OPTA_TEAM_CONTEXT_TEMPORAL_EVALUATION_2026-11-18.md`.
+
+**Official FPL ingestion**
+- 672/672 player-summary requests succeeded; 380 fixtures; 6,562 player-fixture rows.
+- All 672 players had history; no orphan fixtures, missing summaries, minute mismatches or total-points mismatches.
+- GW11 snapshot captured 2026-11-18 16:59:30 UTC, 66.008 hours before the 2026-11-21 11:00 UTC deadline. All 672 had `ep_next`; no EO rows were available. Snapshot and recommendations remain `EXPLORATORY_ONLY`.
+
+**Opta/PulseLive integration**
+- 511/511 exact player ID + team-code joins; 161 FPL players have no provider player-season row.
+- 100/100 provider match IDs matched FPL fixture codes; 200 team-match rows reconcile; 6,562/6,562 historical FPL player-fixture rows joined to team-at-fixture context.
+- Strictly prior three-match team features were generated with target-match exclusion and timezone normalization. Provider vintage remains `NOT_VERIFIED`.
+
+**Paired temporal holdout**
+- Train GW1–GW6 (3,216 player-fixture rows); validate GW7–GW10 (2,679 player-gameweek rows).
+- Player-form ridge: MAE 1.201603, RMSE 2.015697.
+- Player-form + 11 Opta team-context features: MAE 1.229909, RMSE 2.022270.
+- Augmentation worsened MAE by 0.028306 and RMSE by 0.006573. Naive last-five-GW baseline MAE was 1.185511.
+- Decision: `DO_NOT_PROMOTE`. Do not feed these Opta features into points scoring or recommendation engines.
+
+**Engine parity and tests**
+- General-market Python/JavaScript parity passed for all 672 forecasts.
+- Personal-squad Python/JavaScript parity passed on the same pool with a synthetic legal 15-player squad and 2,914 transfer candidates; no real manager squad was used.
+- CI run 44353350036: 38 JavaScript tests, 10 canonical Python unittests, 184 pytest tests + 3 subtests passed.
+- CoVar remains disabled; the 10-GW complete-case covariance matrix is exploratory and the earlier split-window stability screen failed.
+
+Only aggregate Opta evaluation metrics and source hashes are uploaded; raw provider files, crosswalk rows and player-fixture sidecars are not uploaded or committed.
