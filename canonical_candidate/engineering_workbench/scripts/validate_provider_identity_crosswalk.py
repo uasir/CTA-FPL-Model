@@ -11,6 +11,8 @@ FIELDS = [
     "fpl_player_name", "provider_team_id", "provider_team_name",
     "fpl_team_id", "fpl_team_code", "fpl_team_name", "verification_status", "match_method",
     "evidence_source", "evidence_url", "verified_by", "verified_at",
+    "provider_birth_date", "fpl_birth_date", "source_release",
+    "provider_source_sha256", "fpl_source_sha256", "confidence_level", "review_notes",
 ]
 REQUIRED = [
     "season", "competition_id", "provider_player_id", "provider_player_name",
@@ -79,7 +81,7 @@ def validate_rows(rows, provider):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--provider", choices=("wyscout", "opta_pulselive"), required=True)
+    parser.add_argument("--provider", choices=("11footy", "wyscout", "opta_pulselive"), required=True)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
