@@ -126,3 +126,12 @@ def test_eo_deadline_must_match_forecast_target_deadline():
     payload["forecast_quality"]["data_coverage"]["eo_picks_captured_at_utc"] = "2026-11-29T11:01:00+00:00"
     with pytest.raises(RecommendationContractError, match="does not match the forecast snapshot deadline"):
         recommend_general_market(payload)
+
+
+
+def test_unverified_point_in_time_data_cannot_be_labelled_validated():
+    payload = request()
+    payload["forecast_quality"]["validation_status"] = "VALIDATED"
+    payload["forecast_quality"]["point_in_time_status"] = "NOT_VERIFIED"
+    result = recommend_general_market(payload)
+    assert result["recommendation_status"] == "EXPLORATORY_ONLY"
