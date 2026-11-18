@@ -87,6 +87,7 @@ def test_pending_identity_is_cross_checked_but_never_enters_model_panel():
         panel, evidence, report = build_panel(
             main, players, fixtures, fpl_players, history,
             candidates, [], "2026-27", "1",
+            crosswalk_validation_report={"status": "NO_VERIFIED_MAPPINGS"},
         )
     finally:
         main.close()
@@ -123,6 +124,7 @@ def test_verified_crosswalk_creates_common_player_match_row_and_resolves_merged_
         panel, evidence, report = build_panel(
             main, players, fixtures, fpl_players, history,
             candidates, crosswalk, "2026-27", "1",
+            crosswalk_validation_report={"status": "PASS"},
         )
     finally:
         main.close()
@@ -157,6 +159,7 @@ def test_player_match_fixture_team_mismatch_blocks_verified_training_join():
         panel, evidence, report = build_panel(
             main, players, fixtures, fpl_players, history,
             candidates, crosswalk, "2026-27", "1",
+            crosswalk_validation_report={"status": "PASS"},
         )
     finally:
         main.close()
