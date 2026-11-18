@@ -24,7 +24,7 @@ Both products consume the same validated, versioned player/fixture forecast reco
 - Expected FPL points (EV) and uncertainty/distribution summaries.
 - Fixture and team context.
 - Effective ownership (EO) with cohort, sample size, deadline and source metadata.
-- Data freshness, provenance, model version and validation status.
+- Data freshness, provenance, model version and validation status. Snapshots more than 24 hours before the target deadline are marked stale; they cannot be labelled validated.
 
 Missing fields must remain explicitly missing. Current global ownership (`selected_by_percent` or historical `selected` counts) must not be relabelled as EO. Exploratory baselines must not be presented as trained forecasts.
 
@@ -137,6 +137,7 @@ Do not rebuild the existing engine, replace recovered source lineage, fabricate 
 
 ### Not yet production-ready
 - Official FPL `ep_next` is the current points baseline; it is not a CTA-trained forecast.
+- Baseline freshness is labelled relative to the deadline; snapshots older than 24 hours remain exploratory even if captured before the deadline.
 - Expected minutes are proxied by latest completed-gameweek minutes per fixture, scaled to the target gameweek fixture count; this is not a trained minutes model.
 - Live post-lock EO capture has not yet been validated.
 - Multi-season, point-in-time historical training data and out-of-sample predictive validation remain incomplete.
