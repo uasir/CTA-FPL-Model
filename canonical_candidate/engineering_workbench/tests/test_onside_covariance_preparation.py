@@ -41,6 +41,21 @@ class OnsideCovariancePreparationTests(unittest.TestCase):
         self.assertEqual(prepared[0]["target_total_points"], 2.0)
         self.assertEqual(len(players), 3)
 
+    def test_window_size_twenty_uses_all_available_completed_gameweeks(self):
+        data=[]
+        for player_id in ("1","2","3"):
+            for gw in range(1,13):
+                data.append({
+                    "gw":str(gw),"player_id":player_id,
+                    "player_name":f"Player {player_id}",
+                    "actual_points":str((gw+int(player_id))%8),
+                })
+        prepared,_,report=prepare_covariance_inputs(data,window_size=20)
+        self.assertEqual(report["selected_completed_gameweeks"],list(range(1,13)))
+        stability=rolling_correlation_stability(prepared,report["selected_completed_gameweeks"])
+        self.assertEqual(stability["first_window"],list(range(1,7)))
+        self.assertEqual(stability["second_window"],list(range(7,13)))
+
     def test_partially_graded_gameweek_is_excluded_as_a_whole(self):
         data = rows()
         data.extend([
