@@ -11,6 +11,7 @@ const SHARED_REQUIRED_FIELDS = [
   "forecast_snapshot_id",
   "model_version",
   "forecast_horizon_gameweeks",
+  "forecast_quality",
   "player_forecasts",
 ];
 
@@ -66,6 +67,22 @@ function validateShared(payload) {
       "forecast_horizon_gameweeks must be a positive integer",
     );
   }
+  const quality = payload.forecast_quality;
+  if (!isRecord(quality)) {
+    throw new RecommendationContractError("forecast_quality must be an object");
+  }
+  if (!["EXPLORATORY_ONLY", "VALIDATED", "UNAVAILABLE"].includes(quality.validation_status)) {
+    throw new RecommendationContractError("forecast_quality.validation_status is invalid");
+  }
+  if (!["VERIFIED", "NOT_VERIFIED", "NOT_APPLICABLE"].includes(quality.point_in_time_status)) {
+    throw new RecommendationContractError("forecast_quality.point_in_time_status is invalid");
+  }
+  if (!isRecord(quality.data_coverage)) {
+    throw new RecommendationContractError("forecast_quality.data_coverage must be an object");
+  }
+  if (!Array.isArray(quality.limitations ?? [])) {
+    throw new RecommendationContractError("forecast_quality.limitations must be a list");
+  }
   if (!Array.isArray(payload.player_forecasts) || payload.player_forecasts.length === 0) {
     throw new RecommendationContractError("player_forecasts must be a non-empty list");
   }
@@ -106,6 +123,7 @@ export function validateGeneralMarketRequest(payload) {
     forecast_snapshot_id: payload.forecast_snapshot_id,
     model_version: payload.model_version,
     forecast_horizon_gameweeks: payload.forecast_horizon_gameweeks,
+    forecast_quality: payload.forecast_quality,
     player_forecasts: payload.player_forecasts,
     filters: payload.filters ?? {},
   };
