@@ -464,9 +464,11 @@ def main():
     parser.add_argument("--events-dir", type=Path, required=True)
     parser.add_argument("--three-sixty-dir", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument("--direction-map", type=Path, help="Explicit match, period and team attack-direction CSV")
     parser.add_argument("--match-id", action="append", dest="match_ids", help="Optional match ID filter; repeat to select multiple matches")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    direction_map = read_direction_map(args.direction_map)
     summaries = []
     all_events, all_players = [], []
     event_paths = sorted(args.events_dir.glob("*.json"))
@@ -483,7 +485,9 @@ def main():
             continue
         events = json.loads(event_path.read_text(encoding="utf-8"))
         frames = json.loads(frame_path.read_text(encoding="utf-8"))
-        event_rows, player_rows, report = extract_contextual_threat(events, frames, event_path.stem)
+        event_rows, player_rows, report = extract_contextual_threat(
+            events, frames, event_path.stem, direction_map=direction_map
+        )
         all_events.extend(event_rows)
         all_players.extend(player_rows)
         summaries.append(report)
@@ -494,10 +498,13 @@ def main():
         "matches_processed": len(summaries),
         "event_context_rows": len(all_events),
         "player_match_rows": len(all_players),
+        "direction_map_rows": len(direction_map),
+        "events_with_known_attack_direction": sum(r["events_with_known_attack_direction"] for r in summaries),
+        "events_missing_attack_direction": sum(r["events_missing_attack_direction"] for r in summaries),
         "matches": summaries,
         "overall_status": "PASS_STRUCTURAL_ONLY",
         "prediction_validation": "NOT_EVALUATED",
-        "warning": "360 is sampled context, not continuous tracking; player aggregates are not full-match totals.",
+        "warning": "360 is sampled context, not continuous tracking; directional and receiving-lane features are withheld without an explicit direction map.",
     }
     (args.out_dir / "contextual_threat_report.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps({
