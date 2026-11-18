@@ -119,3 +119,13 @@ test("stale pre-deadline snapshots cannot be labelled validated", () => {
   const result = recommendGeneralMarket(payload);
   assert.equal(result.recommendation_status, "EXPLORATORY_ONLY");
 });
+
+
+test("validated market status requires validation, PIT and freshness gates", () => {
+  const payload = request();
+  payload.forecast_quality.validation_status = "VALIDATED";
+  payload.forecast_quality.point_in_time_status = "VERIFIED";
+  payload.forecast_quality.data_coverage.freshness_status = "FRESH_WITHIN_24H";
+  const result = recommendGeneralMarket(payload);
+  assert.equal(result.recommendation_status, "VALIDATED");
+});
