@@ -1,9 +1,11 @@
+import pytest
+
 from train_fpl_exploratory_ridge import solve_linear_system, train_and_evaluate
 
 
 def test_gaussian_elimination_solver():
     result = solve_linear_system([[3, 2], [1, 2]], [5, 5])
-    assert result == [0.0, 2.5]
+    assert result == pytest.approx([0.0, 2.5], abs=1e-12)
 
 
 def test_ridge_pipeline_uses_temporal_holdout_and_stays_exploratory():
