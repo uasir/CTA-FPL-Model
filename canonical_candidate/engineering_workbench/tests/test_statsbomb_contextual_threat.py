@@ -224,16 +224,57 @@ def test_creation_reception_and_realisation_remain_separate_player_dimensions():
     assert report["direction_coverage"] == 1.0
     assert report["threat_creation_pass_attempts"] == 1
     assert report["threat_creation_pass_completions"] == 1
-    assert report["receiving_options_observed_ahead"] == 1
-    assert report["receiving_options_assessed_ahead"] == 1
-    assert report["open_receiving_options_ahead"] == 1
-    assert report["dangerous_receiving_options_open"] == 1
-    assert report["events_with_dangerous_open_receiving_options"] == 1
+    assert report["receiving_options_observed_ahead_event_frame_instances"] == 1
+    assert report["receiving_options_assessed_ahead_event_frame_instances"] == 1
+    assert report["open_receiving_options_ahead_event_frame_instances"] == 1
+    assert report["dangerous_receiving_options_open_event_frame_instances"] == 1
+    assert report["event_frames_with_dangerous_open_receiving_options"] == 1
+    assert report["team_possession_peak_open_receiving_options"] == 1
+    assert report["team_possession_peak_dangerous_open_receiving_options"] == 1
+    assert report["team_possessions_with_dangerous_open_receiving_options"] == 1
+    assert report["event_rows_missing_possession_id"] == 3
     assert report["threat_involvement_dangerous_receipts"] == 1
     assert report["threat_realisation_shots"] == 1
     assert report["threat_realisation_xg"] == 0.2
     assert report["threat_realisation_goals"] == 1
     assert report["aggregation_policy"].startswith("Creation, involvement, receiving opportunity")
+
+
+def test_receiving_options_are_deduplicated_within_possession():
+    event_template = {
+        "type": {"name": "Pass"},
+        "player": {"id": 10, "name": "Creator"},
+        "team": {"id": 1, "name": "Home"},
+        "period": 1,
+        "possession": 7,
+        "location": [60, 40],
+        "pass": {"end_location": [90, 40]},
+    }
+    events = [
+        {"id": "pass-1", **event_template},
+        {"id": "pass-2", **event_template},
+    ]
+    frame_template = [
+        {"teammate": True, "actor": True, "keeper": False, "location": [60, 40]},
+        {"teammate": True, "actor": False, "keeper": False, "location": [90, 40]},
+        {"teammate": False, "actor": False, "keeper": False, "location": [70, 50]},
+        {"teammate": False, "actor": False, "keeper": True, "location": [115, 40]},
+    ]
+    frames = [
+        {"event_uuid": "pass-1", "freeze_frame": frame_template},
+        {"event_uuid": "pass-2", "freeze_frame": frame_template},
+    ]
+
+    event_rows, player_rows, report = extract_contextual_threat(events, frames, "match-1")
+
+    assert sum(row["open_receiving_options_ahead"] for row in event_rows) == 2
+    assert report["open_receiving_options_ahead_event_frame_instances"] == 2
+    assert report["team_possession_peak_open_receiving_options"] == 1
+    assert report["team_possession_peak_dangerous_open_receiving_options"] == 1
+    assert report["team_possessions_with_open_receiving_options"] == 1
+    assert player_rows[0]["actor_possession_peak_open_receiving_options"] == 1
+    assert player_rows[0]["actor_possessions_with_open_receiving_options"] == 1
+    assert report["event_rows_missing_possession_id"] == 0
 
 
 def test_direction_map_is_match_period_and_team_scoped(tmp_path):
