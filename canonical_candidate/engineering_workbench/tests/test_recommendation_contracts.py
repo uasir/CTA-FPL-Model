@@ -15,8 +15,8 @@ def shared():
         "model_version": "unvalidated-baseline-0",
         "forecast_horizon_gameweeks": 5,
         "player_forecasts": [
-            {"fpl_element_id": 1, "expected_points": 4.2},
-            {"fpl_element_id": 2, "expected_points": 3.1},
+            {"fpl_element_id": 1, "expected_points": 4.2, "expected_minutes": 80, "price": 5.0, "position": "MID", "team_id": 1},
+            {"fpl_element_id": 2, "expected_points": 3.1, "expected_minutes": 75, "price": 4.5, "position": "DEF", "team_id": 2},
         ],
     }
 
@@ -89,7 +89,7 @@ def test_personal_squad_rejects_invalid_constraints(mutation, message):
 
 def test_both_systems_reject_duplicate_forecast_player_ids():
     payload = shared()
-    payload["player_forecasts"].append({"fpl_element_id": 1})
+    payload["player_forecasts"].append({"fpl_element_id": 1, "expected_points": 4.2, "expected_minutes": 80, "price": 5.0, "position": "MID", "team_id": 1})
     with pytest.raises(RecommendationContractError, match="Duplicate forecast"):
         validate_general_market_request(payload)
     personal_payload = personal()
@@ -150,3 +150,28 @@ def test_both_request_types_reject_invalid_forecast_quality(mutation):
         mutation(payload)
         with pytest.raises(RecommendationContractError, match="forecast_quality"):
             validator(payload)
+
+
+@pytest.mark.parametrize(
+    "field, value, message",
+    [
+        ("expected_minutes", -1, "expected_minutes cannot be negative"),
+        ("price", 0, "price must be positive"),
+        ("position", "WING", "position is invalid"),
+        ("team_id", 0, "team_id must be a positive integer"),
+        ("availability_probability", 1.1, "availability_probability must be between 0 and 1"),
+        ("points_variance", -0.1, "points_variance must be non-negative"),
+    ],
+)
+def test_player_forecast_record_rejects_invalid_fields(field, value, message):
+    payload = shared()
+    payload["player_forecasts"][0][field] = value
+    with pytest.raises(RecommendationContractError, match=message):
+        validate_general_market_request(payload)
+
+
+def test_player_forecast_record_requires_core_fields():
+    payload = shared()
+    del payload["player_forecasts"][0]["expected_minutes"]
+    with pytest.raises(RecommendationContractError, match="expected_minutes"):
+        validate_general_market_request(payload)
