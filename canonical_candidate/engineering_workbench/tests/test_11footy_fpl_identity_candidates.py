@@ -48,15 +48,15 @@ def test_exact_name_team_and_birth_date_candidates_are_high_confidence_not_verif
     assert report["fpl_player_count"] == 5
     assert report["provider_player_catalogue_count"] == 5
     assert report["exact_normalized_name_and_team_candidates"] == 3
-    assert report["high_confidence_name_team_birth_date_candidates"] == 2
-    assert report["name_team_candidates_missing_birth_date"] == 1
+    assert report["high_confidence_name_team_birth_date_candidates"] == 3
+    assert report["name_team_candidates_missing_birth_date"] == 0
     assert report["unique_name_only_unverified"] == 1
     assert report["unmatched_fpl_players"] == 1
     assert report["candidate_rows_remaining"] == 3
     assert report["verification_status"] == "CANDIDATES_ONLY_NOT_VERIFIED"
     assert len(candidates) == 3
-    assert sum(row["confidence_level"] == "high" for row in candidates) == 2
-    assert sum(row["confidence_level"] == "review_required" for row in candidates) == 1
+    assert sum(row["confidence_level"] == "high" for row in candidates) == 3
+    assert sum(row["confidence_level"] == "review_required" for row in candidates) == 0
     assert all(row["verification_status"] == "pending" for row in candidates)
     salah = next(row for row in candidates if row["fpl_element_id"] == 100)
     assert salah["provider_player_id"] == 1
@@ -67,6 +67,27 @@ def test_exact_name_team_and_birth_date_candidates_are_high_confidence_not_verif
     assert "awaiting independent identity review" in salah["verification_reason"]
     assert salah["provider_release_url"].startswith("https://")
     assert salah["fpl_source_url"].startswith("https://")
+
+
+
+def test_missing_birth_date_keeps_exact_name_team_candidate_pending_for_review():
+    db = _players_db([(7, "Jordan Example", "Arsenal", None)])
+    bootstrap = {
+        "teams": [{"id": 1, "name": "Arsenal"}],
+        "elements": [
+            {"id": 107, "code": 1007, "first_name": "Jordan", "second_name": "Example", "team": 1, "birth_date": None}
+        ],
+    }
+
+    report, candidates = audit_identity_candidates(db, bootstrap)
+
+    assert report["exact_normalized_name_and_team_candidates"] == 1
+    assert report["high_confidence_name_team_birth_date_candidates"] == 0
+    assert report["name_team_candidates_missing_birth_date"] == 1
+    assert len(candidates) == 1
+    assert candidates[0]["confidence_level"] == "review_required"
+    assert candidates[0]["verification_status"] == "pending"
+    assert candidates[0]["match_method"] == "exact_name_team_birth_date_missing"
 
 
 def test_duplicate_provider_identity_is_ambiguous_not_auto_joined():
