@@ -1,6 +1,8 @@
 name: Onside FPL benchmark source audit
 
 on:
+  push:
+    branches: ["work/onside-benchmark-audit"]
   workflow_dispatch:
   schedule:
     - cron: "17 12 * * 0"
