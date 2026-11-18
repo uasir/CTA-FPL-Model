@@ -486,3 +486,4 @@ Onside source SHA-256: `dd51366a5f71d5f0bf26b4265b17188f04774d584c4444172be3f307
 - No expected-points, CoVar, market or personal-squad scoring is changed by this cross-audit.
 
 Detailed report: `reports/ONSIDE_FPL_ACTUALS_CROSS_AUDIT_2026-11-18.md`.
+Final integrated verification: run https://github.com/uasir/CTA-FPL-Model/actions/runs/44357649202, artifact https://github.com/uasir/CTA-FPL-Model/actions/runs/44357649202/artifacts/14451857683, digest `sha256:45b7d36cb2ea6806d1a10f9d18828bbfefcbb220102c32aa9f3733ae10b5f1e2`. The published aggregate summary confirms the same 4,954/4,954 exact Onside/FPL matches, zero mismatches, source hash and attribution. That run also passed the 672-player Python/JavaScript general-market parity and synthetic 15-player personal-squad parity (2,914 legal transfer candidates); CoVar was not used.
