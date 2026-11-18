@@ -23,6 +23,13 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/build_opta_lagged_team_features.py"
       - "canonical_candidate/engineering_workbench/scripts/evaluate_opta_team_context.py"
       - "canonical_candidate/engineering_workbench/scripts/train_fpl_nested_tuned_ridge.py"
+      - "canonical_candidate/engineering_workbench/scripts/audit_11footy_fpl_identity_candidates.py"
+      - "canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py"
+      - "canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py"
+      - "canonical_candidate/engineering_workbench/tests/test_11footy_fpl_identity_candidates.py"
+      - "canonical_candidate/engineering_workbench/tests/test_11footy_player_match_features.py"
+      - "canonical_candidate/engineering_workbench/tests/test_provider_identity_crosswalk.py"
+      - "canonical_candidate/data/11footy_fpl_identity_crosswalk.csv"
       - "canonical_candidate/engineering_workbench/scripts/audit_onside_against_fpl_actuals.py"
   schedule:
     - cron: "30 5 * * *"
@@ -73,7 +80,9 @@ jobs:
             tests/test_opta_team_context_evaluation.py \
             tests/test_provider_identity_crosswalk.py \
             tests/test_fpl_nested_tuned_ridge.py \
-            tests/test_onside_fpl_actuals_cross_audit.py
+            tests/test_onside_fpl_actuals_cross_audit.py \
+            tests/test_11footy_fpl_identity_candidates.py \
+            tests/test_11footy_player_match_features.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -87,6 +96,114 @@ jobs:
             --out-dir run_artifacts/fpl_official \
             --workers 2 \
             --delay 0.15
+
+      - name: Download pinned 11footy EPL match and player sources
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p run_artifacts/11footy_fpl/source run_artifacts/11footy_fpl/output
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 300 \
+            https://github.com/fm-devlab/11footy-dataset/releases/download/11footy-2026-11-10/england.premier-league.db.xz \
+            -o run_artifacts/11footy_fpl/source/england.premier-league.db.xz
+          echo "a74e735c01a0f6da9b871ade0031573e212ba7f8be0698b29d240921aea0485f  run_artifacts/11footy_fpl/source/england.premier-league.db.xz" | sha256sum --check
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 \
+            https://github.com/fm-devlab/11footy-dataset/releases/download/11footy-2026-11-10/players.db.xz \
+            -o run_artifacts/11footy_fpl/source/players.db.xz
+          echo "a0ad11b9f7bb8f845c6f62bc2cacc27639ea7a7f2f9ce861485297bc6db0d0c2  run_artifacts/11footy_fpl/source/players.db.xz" | sha256sum --check
+
+      - name: Generate 11footy identity candidates from the same FPL snapshot
+        continue-on-error: true
+        run: |
+          FPL_SEASON=$(python -c 'import json; print(json.load(open("run_artifacts/fpl_official/ingestion_report.json"))["season"])')
+          CROSSWALK_SEASON="${FPL_SEASON/-//}"
+          python canonical_candidate/engineering_workbench/scripts/audit_11footy_fpl_identity_candidates.py \
+            --players-input run_artifacts/11footy_fpl/source/players.db.xz \
+            --fpl-bootstrap run_artifacts/fpl_official/bootstrap-static.json \
+            --season "$CROSSWALK_SEASON" \
+            --release 11footy-2026-11-10 \
+            --out-dir run_artifacts/11footy_fpl
+
+      - name: Validate season-scoped 11footy to FPL crosswalk
+        continue-on-error: true
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/validate_provider_identity_crosswalk.py \
+            --provider 11footy \
+            --input ../data/11footy_fpl_identity_crosswalk.csv \
+            --out-dir ../../run_artifacts/11footy_fpl/crosswalk_validation
+
+      - name: Build 11footy player-match panel and corroborate pending identities
+        continue-on-error: true
+        run: |
+          FPL_SEASON=$(python -c 'import json; print(json.load(open("run_artifacts/fpl_official/ingestion_report.json"))["season"])')
+          python canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py \
+            --database run_artifacts/11footy_fpl/source/england.premier-league.db.xz \
+            --players-database run_artifacts/11footy_fpl/source/players.db.xz \
+            --fpl-fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
+            --fpl-players run_artifacts/fpl_official/fpl_players.csv \
+            --fpl-player-fixture run_artifacts/fpl_official/fpl_player_fixture.csv \
+            --candidates run_artifacts/11footy_fpl/identity_candidates.csv \
+            --crosswalk canonical_candidate/data/11footy_fpl_identity_crosswalk.csv \
+            --season "$FPL_SEASON" \
+            --competition-id 1 \
+            --out-dir run_artifacts/11footy_fpl/output
+
+      - name: Publish aggregate-only 11footy/FPL integration status
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = Path("run_artifacts/11footy_fpl/output/11footy_fpl_player_match_integration.json")
+          target = Path("run_artifacts/fpl_official/11footy_player_match_integration.json")
+          target.parent.mkdir(parents=True, exist_ok=True)
+          if source.exists():
+              report = json.loads(source.read_text())
+              safe = {
+                  "provider": report["provider"],
+                  "source_release": report["source_release"],
+                  "season": report["season"],
+                  "competition_id": report["competition_id"],
+                  "11footy_season_id": report["11footy_season_id"],
+                  "source_built_at": report["source_built_at"],
+                  "latest_completed_match_kickoff_utc": report["latest_completed_match_kickoff_utc"],
+                  "source_match_count": report["source_match_count"],
+                  "provider_matches_with_fixture_match": report["provider_matches_with_fixture_match"],
+                  "unique_fpl_fixture_ids_matched": report["unique_fpl_fixture_ids_matched"],
+                  "fixture_match_status_counts": report["fixture_match_status_counts"],
+                  "player_match_rows": report["player_match_rows"],
+                  "player_match_rows_with_fpl_fixture": report["player_match_rows_with_fpl_fixture"],
+                  "player_match_rows_with_candidate_identity": report["player_match_rows_with_candidate_identity"],
+                  "candidate_identity_count": report["candidate_identity_count"],
+                  "candidate_high_confidence_count": report["candidate_high_confidence_count"],
+                  "candidate_rows_with_multi_match_consistency": report["candidate_rows_with_multi_match_consistency"],
+                  "candidate_rows_with_any_match_conflict": report["candidate_rows_with_any_match_conflict"],
+                  "verified_crosswalk_rows": report["verified_crosswalk_rows"],
+                  "verified_player_match_panel_rows": report["verified_player_match_panel_rows"],
+                  "verified_identity_history_missing_rows": report["verified_identity_history_missing_rows"],
+                  "verified_team_mismatch_rows": report["verified_team_mismatch_rows"],
+                  "provider_team_ids_not_in_match_teams": report["provider_team_ids_not_in_match_teams"],
+                  "duplicate_fpl_player_fixture_keys": report["duplicate_fpl_player_fixture_keys"],
+                  "join_ready": report["join_ready"],
+                  "status": report["status"],
+                  "source_hashes": report["source_hashes"],
+                  "attribution": report["attribution"],
+                  "identity_policy": report["identity_policy"],
+                  "candidate_evidence_policy": report["candidate_evidence_policy"],
+                  "prediction_validation": report["prediction_validation"],
+                  "publication_policy": "Aggregate-only; candidate evidence rows and player-match feature rows remain inside the workflow runner."
+              }
+          else:
+              safe = {
+                  "provider": "11footy",
+                  "status": "UNAVAILABLE_OR_INTEGRATION_STEP_FAILED",
+                  "join_ready": False,
+                  "prediction_validation": "NOT_EVALUATED",
+                  "publication_policy": "No provider-level rows are published."
+              }
+          target.write_text(json.dumps(safe, indent=2))
+          print(json.dumps(safe, indent=2))
+          PY
       - name: Build leakage-safe lagged FPL dataset
         run: |
           python canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py \
