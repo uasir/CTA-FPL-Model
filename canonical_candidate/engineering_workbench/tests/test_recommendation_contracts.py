@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -199,3 +200,20 @@ def test_personal_squad_requires_forecast_for_every_owned_player():
     payload["player_forecasts"] = payload["player_forecasts"][:-1]
     with pytest.raises(RecommendationContractError, match="Missing forecast for owned"):
         validate_personal_squad_request(payload)
+
+
+def test_python_and_javascript_contract_outputs_are_identical():
+    test_dir = Path(__file__).parent
+    runner = test_dir / "js" / "emit_recommendation_contract_outputs.mjs"
+    completed = subprocess.run(
+        ["node", str(runner)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    javascript = json.loads(completed.stdout)
+    python = {
+        "general_market": validate_general_market_request(shared()),
+        "personal_squad": validate_personal_squad_request(personal()),
+    }
+    assert javascript == python
