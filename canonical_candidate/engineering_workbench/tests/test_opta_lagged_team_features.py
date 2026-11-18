@@ -64,3 +64,17 @@ def test_team_features_exclude_current_and_future_match_rows():
     assert alex["opta_prior3_expectedGoals_avg"] == 1.0
     assert report["status"] == "PASS_STRUCTURAL_ONLY"
     assert "strictly earlier" in report["leakage_policy"]
+
+
+def test_postponed_fixture_without_kickoff_emits_blank_features_not_future_data():
+    bootstrap = {
+        "elements": [{"id": 1, "code": 100, "team": 3, "first_name": "Alex", "second_name": "Player"}],
+        "teams": [{"id": 3, "name": "Arsenal"}, {"id": 7, "name": "Brentford"}],
+    }
+    fixtures = [{"id": 99, "event": None, "kickoff_time": None, "team_h": 3, "team_a": 7}]
+    team_rows, player_rows, report = build_team_features(fixtures, bootstrap, [])
+    assert len(team_rows) == 2
+    assert len(player_rows) == 1
+    assert player_rows[0]["kickoff_time"] == ""
+    assert player_rows[0]["opta_prior_matches_count"] == 0
+    assert report["fixtures_without_kickoff"] == 1
