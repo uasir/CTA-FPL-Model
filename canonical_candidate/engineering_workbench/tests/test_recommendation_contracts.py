@@ -67,6 +67,7 @@ def test_personal_squad_requires_and_preserves_explicit_manager_context():
     assert result["bank"] == 4.6
     assert result["free_transfers"] == 1
     assert result["formation"] == "4-3-3"
+    assert result["forecast_quality"]["point_in_time_status"] == "NOT_VERIFIED"
 
 
 @pytest.mark.parametrize(
@@ -127,3 +128,24 @@ def test_personal_squad_rejects_non_finite_money_values(bad_value):
     payload["squad_snapshot"][0]["purchase_price"] = bad_value
     with pytest.raises(RecommendationContractError, match="purchase_price"):
         validate_personal_squad_request(payload)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda p: p.update(forecast_quality=None),
+        lambda p: p["forecast_quality"].update(validation_status="PRODUCTION_READY"),
+        lambda p: p["forecast_quality"].update(point_in_time_status="UNKNOWN"),
+        lambda p: p["forecast_quality"].update(data_coverage=[]),
+        lambda p: p["forecast_quality"].update(limitations="not-a-list"),
+    ],
+)
+def test_both_request_types_reject_invalid_forecast_quality(mutation):
+    for factory, validator in [
+        (shared, validate_general_market_request),
+        (personal, validate_personal_squad_request),
+    ]:
+        payload = factory()
+        mutation(payload)
+        with pytest.raises(RecommendationContractError, match="forecast_quality"):
+            validator(payload)
