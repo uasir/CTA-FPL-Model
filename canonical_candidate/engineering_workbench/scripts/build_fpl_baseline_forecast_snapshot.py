@@ -67,6 +67,17 @@ def build_snapshot(players,gameweek_rows,source_metadata,eo_rows=None,eo_report=
             raise ValueError("EO input is not verified as post-deadline locked picks")
         if int(eo_report.get("gameweek",-1))!=int(target_gw):
             raise ValueError("EO snapshot gameweek does not match the forecast target gameweek")
+        required_eo_metadata=("cohort","rank_cohort_captured_at_utc","deadline_time_utc","picks_captured_at_utc","sample_managers")
+        missing_eo_metadata=[field for field in required_eo_metadata if eo_report.get(field) in (None,"")]
+        if missing_eo_metadata:
+            raise ValueError("EO snapshot is missing cohort/lock provenance: "+", ".join(missing_eo_metadata))
+        eo_deadline=parse_time(eo_report["deadline_time_utc"])
+        rank_captured=parse_time(eo_report["rank_cohort_captured_at_utc"])
+        picks_captured=parse_time(eo_report["picks_captured_at_utc"])
+        if eo_deadline!=deadline or rank_captured>=eo_deadline or picks_captured<=eo_deadline:
+            raise ValueError("EO rank cohort must be pre-deadline and picks must be post-deadline for the same deadline")
+        if isinstance(eo_report.get("sample_managers"),bool) or int(eo_report["sample_managers"])<1:
+            raise ValueError("EO sample_managers must be a positive integer")
         for row in eo_rows:
             if int(row.get("gameweek",-1))!=int(target_gw):
                 raise ValueError("EO row gameweek does not match forecast target")
@@ -152,7 +163,12 @@ def build_snapshot(players,gameweek_rows,source_metadata,eo_rows=None,eo_report=
             "minutes_proxy_missing_history_players":len(no_minutes_history),
             "eo_players":eo_coverage,
             "eo_sample_managers":eo_report.get("sample_managers") if eo_report else 0,
-            "eo_cohort":"pre-deadline overall top-10k rank-stratified sample" if eo_report else "unavailable",
+            "eo_cohort":eo_report.get("cohort") if eo_report else "unavailable",
+            "eo_rank_cohort_captured_at_utc":eo_report.get("rank_cohort_captured_at_utc") if eo_report else None,
+            "eo_deadline_time_utc":eo_report.get("deadline_time_utc") if eo_report else None,
+            "eo_picks_captured_at_utc":eo_report.get("picks_captured_at_utc") if eo_report else None,
+            "eo_picks_lock_verified":bool(eo_report and eo_report.get("picks_lock_verified") is True),
+            "eo_source":"CTA official FPL ranked manager picks" if eo_report else "unavailable",
             "invalid_players_excluded":len(invalid_players),
         },
         "limitations":[
