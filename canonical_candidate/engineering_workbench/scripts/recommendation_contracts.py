@@ -98,11 +98,11 @@ def _validate_shared(payload: Mapping[str, Any]) -> None:
             raise RecommendationContractError(
                 f"player_forecasts[{index}] is missing fpl_element_id"
             )
-        if isinstance(element_id, bool) or not str(element_id).isdigit() or int(element_id) < 1:
+        if isinstance(element_id, bool) or not isinstance(element_id, int) or element_id < 1:
             raise RecommendationContractError(
                 f"player_forecasts[{index}].fpl_element_id must be a positive integer"
             )
-        key = str(int(element_id))
+        key = str(element_id)
         if key in seen:
             raise RecommendationContractError(
                 f"Duplicate forecast for FPL element ID {key}"
