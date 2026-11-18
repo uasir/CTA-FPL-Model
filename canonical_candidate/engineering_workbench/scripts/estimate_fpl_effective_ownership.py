@@ -34,6 +34,28 @@ def _weighted_normal_ci(samples, confidence_z=1.96):
     return max(0.0,mean-confidence_z*se),mean+confidence_z*se
 
 
+def _wilson_ci(samples_by_stratum, metric_index, rank_stratified, confidence_z=1.96):
+    samples=[]
+    if rank_stratified:
+        for values in samples_by_stratum.values():
+            samples.extend(values)
+    else:
+        samples=samples_by_stratum.get("all",[])
+    if not samples:
+        return None
+    total_weight=sum(weight for _,weight in samples)
+    total_weight_sq=sum(weight*weight for _,weight in samples)
+    if total_weight<=0 or total_weight_sq<=0:
+        return None
+    p=sum(values[metric_index]*weight for values,weight in samples)/total_weight
+    n_eff=total_weight*total_weight/total_weight_sq
+    z2=confidence_z*confidence_z
+    denominator=1+z2/n_eff
+    centre=(p+z2/(2*n_eff))/denominator
+    half=confidence_z*math.sqrt((p*(1-p)/n_eff)+(z2/(4*n_eff*n_eff)))/denominator
+    return max(0.0,centre-half),min(1.0,centre+half)
+
+
 def _stratified_normal_ci(samples_by_stratum, metric_index, rank_limit, confidence_z=1.96):
     if rank_limit<=0 or rank_limit%PAGE_SIZE:
         return None
