@@ -43,8 +43,8 @@ def gameweek_rows():
 
 def fixtures():
     return [
-        {"event": 12, "team_h": 1, "team_a": 2},
-        {"event": 12, "team_h": 2, "team_a": 3},
+        {"gameweek": 12, "team_h_id": 1, "team_a_id": 2},
+        {"gameweek": 12, "team_h_id": 2, "team_a_id": 3},
     ]
 
 
