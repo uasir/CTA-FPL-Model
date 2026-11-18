@@ -261,3 +261,17 @@ A nested rolling-origin experiment selects alpha only inside the outer training 
 - Decision: `DO_NOT_PROMOTE`; no recommendation scoring uses either model.
 
 The outer GW7–10 holdout has now been consumed. Any further tuning must use new later-gameweek data or another season, not reuse this test window. Historical source-vintage remains `NOT_VERIFIED`.
+
+## 11. Rank-tier EO sample precision — 2026-11-18
+
+The EO collector has been upgraded for GW11:
+- Top-10k overall-rank cohort, all 200 standings pages captured.
+- Two managers sampled per 50-rank page (400 managers), equal weight 25.
+- Complete rank-page coverage is required; a missing/incomplete page aborts the sample.
+- The estimator includes the full official player universe (672), including zero sample exposure, and reports approximate 95% intervals for ownership, starting, captain, Triple Captain, EO and scoring exposure.
+- The capture still freezes ranks before the deadline and fetches picks only after deadline + 60-second grace + fresh bootstrap confirmation.
+- No manager IDs or individual picks are uploaded.
+
+CI run 44355853392 passed. Design report: `reports/EO_RANK_STRATIFIED_SAMPLE_DESIGN_2026-11-18.md`.
+
+No live rank-tier EO sample has yet been captured. The GW11 deadline is 2026-11-21 11:00 UTC; expected pre-deadline run is 10:35 UTC. If scheduler delay or incomplete page coverage prevents a valid capture, no EO estimate will be published.
