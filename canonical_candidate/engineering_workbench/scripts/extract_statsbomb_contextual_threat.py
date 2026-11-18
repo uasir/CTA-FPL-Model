@@ -272,7 +272,7 @@ def contextual_event_features(event, frame, attacks_right=None):
     pass_data = event.get("pass") or {}
     pass_end = _point(pass_data.get("end_location"))
     pass_outcome = (pass_data.get("outcome") or {}).get("name")
-    pass_completed = event_type == "Pass" and pass_outcome is None
+    pass_completed = event_type == "Pass" and bool(pass_data) and pass_outcome is None
     if direction_known and event_type == "Pass" and pass_end and _inside_pitch(pass_end):
         end_progress = _progress_x(pass_end, attacks_right)
         progressive = end_progress - actor_progress >= 10.0
