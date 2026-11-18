@@ -3,9 +3,9 @@ name: CTA pre-deadline FPL effective ownership capture
 on:
   workflow_dispatch:
   schedule:
-    # Poll every five minutes so a pre-deadline rank cohort can be captured
-    # shortly before lock; the job then waits and fetches picks after lock.
-    - cron: "*/5 * * * *"
+    # FPL deadlines are normally aligned to the hour; run five minutes before
+    # each hour and only proceed when the official deadline is within seven minutes.
+    - cron: "55 * * * *"
 
 permissions:
   contents: read
