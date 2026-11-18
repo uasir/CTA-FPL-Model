@@ -51,12 +51,12 @@ Sources inspected on 2026-11-18:
 - https://onsidearena.com/accuracy
 
 ### Integration decision
-**Candidate accepted for evaluation as an external forecast benchmark only; ingestion is gated.**
+**Candidate remains unverified; ingestion is gated and it is not yet an approved benchmark input.**
 
 Do not use Onside forecasts as training targets or silently blend them into CTA forecasts. Preserve provider forecasts as a separately named benchmark arm. Compare against FPL `ep_next` and our own baselines on identical player-gameweek rows, with explicit minutes-qualified and all-player cohorts.
 
 ### Remaining checks before ingestion
-The downloadable CSV and DOI record have not yet been retrieved and inspected in this environment. Consequently, do not assume or invent:
+A retrieval inconsistency was found on 2026-11-18: the current search index describes the FPL graded-predictions CSV and links DOI 10.5281/zenodo.22746985, but the opened /data page currently renders a World Cup 2026 catalogue and does not expose that FPL CSV. The Zenodo record and CSV endpoints could not be retrieved through the available research tools. The public accuracy page still displays provider-reported FPL accuracy figures, but those claims do not substitute for the raw row-level ledger. Therefore the dataset's current availability, exact version and DOI contents remain unresolved. Do not assume or invent:
 - the exact 14-column header and data types;
 - the player identity key or whether it is the official FPL element ID;
 - exact row count, gameweek coverage, historical season coverage, or current freshness;
@@ -99,9 +99,10 @@ The scheduler now checks once per hour at minute 55, rather than launching 288 s
 New tests cover pre-deadline rank sampling, post-deadline pick retrieval, lock timing, weighted cohort output, and out-of-window skipping.
 
 ### CI verification of this correction
-- Run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44250932574
-- Commit: `d792d1c0abddc520b93adf10b1bffae6cfe027b1`
-- Result: **success**
+- Run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44251036635
+- Commit: `09d7ad1714da34a0d7a916826efa61a42e2d4c6f`
+- Result: **success** (includes the scheduler change and the full test suite)
+- Earlier focused run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44250932574 — **success**
 - JavaScript tests: **19 passed**
 - Python tests: **117 passed, plus 3 subtests**
 - Crosswalk validator: executed successfully, but `EMPTY_NOT_READY`; no verified identity rows exist.
