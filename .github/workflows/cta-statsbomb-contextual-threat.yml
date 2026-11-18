@@ -15,6 +15,7 @@ on:
       - canonical_candidate/engineering_workbench/scripts/extract_statsbomb_contextual_threat.py
       - canonical_candidate/data/events/3895320.json
       - canonical_candidate/data/three-sixty/3895320.json
+      - canonical_candidate/data/direction_map.csv
   workflow_dispatch:
 
 permissions:
