@@ -38,3 +38,13 @@ def test_live_parity_comparator_reports_exact_match_and_first_difference():
     report = compare(python_result, changed)
     assert report["status"] == "FAIL_PYTHON_JAVASCRIPT_PARITY"
     assert report["first_difference"]["path"].endswith("expected_points")
+
+
+
+def test_parity_comparator_treats_equal_json_integer_and_float_as_equal():
+    assert compare({"availability_probability": 1.0}, {"availability_probability": 1})["status"] == "PASS_PYTHON_JAVASCRIPT_PARITY"
+
+
+def test_parity_comparator_does_not_conflate_booleans_with_numbers():
+    report = compare({"flag": True}, {"flag": 1})
+    assert report["status"] == "FAIL_PYTHON_JAVASCRIPT_PARITY"
