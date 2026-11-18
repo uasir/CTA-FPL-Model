@@ -74,6 +74,65 @@ def test_directional_features_are_withheld_without_explicit_attack_direction():
     assert row["threat_creation_pass_attempt"] == ""
 
 
+def test_statsbomb_action_executing_team_orientation_needs_no_direction_map():
+    event = {
+        "id": "event-source-oriented",
+        "type": {"name": "Pass"},
+        "player": {"id": 10, "name": "Attacker"},
+        "team": {"id": 1, "name": "Home"},
+        "period": 1,
+        "location": [60, 40],
+        "pass": {"end_location": [90, 40]},
+    }
+    frame = {
+        "event_uuid": "event-source-oriented",
+        "freeze_frame": [
+            {"teammate": True, "actor": True, "keeper": False, "location": [60, 40]},
+            {"teammate": True, "actor": False, "keeper": False, "location": [90, 40]},
+            {"teammate": False, "actor": False, "keeper": False, "location": [70, 50]},
+            {"teammate": False, "actor": False, "keeper": True, "location": [115, 40]},
+        ],
+    }
+
+    event_rows, _, report = extract_contextual_threat([event], [frame], "match-1")
+    row = event_rows[0]
+
+    assert row["direction_known"] is True
+    assert row["attacks_right"] is True
+    assert row["attack_direction_source"] == "statsbomb_action_executing_team_orientation"
+    assert row["attack_direction_confidence"] == "source_specification"
+    assert row["threat_creation_pass_attempt"] == 1
+    assert report["direction_coverage"] == 1.0
+    assert report["direction_sources"] == ["statsbomb_action_executing_team_orientation"]
+    assert report["direction_confidence_counts"] == {"source_specification": 1}
+
+
+def test_direction_can_be_required_when_source_orientation_is_not_known():
+    event = {
+        "id": "event-global-frame",
+        "type": {"name": "Pass"},
+        "player": {"id": 10, "name": "Attacker"},
+        "team": {"id": 1, "name": "Home"},
+        "period": 1,
+        "location": [60, 40],
+    }
+    frame = {
+        "event_uuid": "event-global-frame",
+        "freeze_frame": [
+            {"teammate": True, "actor": True, "keeper": False, "location": [60, 40]},
+            {"teammate": False, "actor": False, "keeper": False, "location": [70, 50]},
+        ],
+    }
+
+    event_rows, _, report = extract_contextual_threat(
+        [event], [frame], "match-1", coordinate_orientation="requires_direction_map"
+    )
+
+    assert event_rows[0]["direction_known"] is False
+    assert event_rows[0]["goal_corridor_opponents_5m"] == ""
+    assert report["direction_coverage"] == 0.0
+
+
 def test_receiving_lane_and_threat_creation_features_respect_attack_direction():
     event = {
         "id": "event-forward-pass",
