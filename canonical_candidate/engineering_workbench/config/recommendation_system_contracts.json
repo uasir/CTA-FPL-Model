@@ -17,7 +17,7 @@
       "team_id"
     ],
     "optional_player_fields": [
-      "effective_ownership",
+      "effective_ownership_pct",
       "points_variance",
       "availability_probability",
       "fixture_features"
@@ -46,6 +46,22 @@
         "limitations"
       ],
       "policy": "Always disclose source coverage and limitations; do not label exploratory or non-point-in-time data as validated."
+    },
+    "player_record_rules": {
+      "fpl_element_id": "Positive integer FPL element ID; unique within one forecast snapshot.",
+      "expected_points": "Finite numeric expected FPL points for the declared forecast horizon; negative values are allowed.",
+      "expected_minutes": "Finite non-negative expected minutes for the declared forecast horizon.",
+      "price": "Finite positive FPL price in £m units.",
+      "position": [
+        "GKP",
+        "DEF",
+        "MID",
+        "FWD"
+      ],
+      "team_id": "Positive integer FPL team ID.",
+      "effective_ownership_pct": "Optional non-negative percentage; values above 100 are valid because captaincy/chip exposure can exceed one unit per manager.",
+      "points_variance": "Optional non-negative variance estimate; only use as a decision signal after validation.",
+      "availability_probability": "Optional probability in [0,1]."
     }
   },
   "systems": {
