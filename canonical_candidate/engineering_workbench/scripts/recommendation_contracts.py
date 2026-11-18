@@ -169,6 +169,9 @@ def validate_general_market_request(
             "general_market must not receive personal fields: " + ", ".join(forbidden)
         )
     _validate_shared(payload)
+    filters = payload.get("filters", {})
+    if not isinstance(filters, Mapping):
+        raise RecommendationContractError("filters must be a mapping")
     return {
         "system": "general_market",
         "contract_version": CONTRACT_VERSION,
@@ -177,7 +180,7 @@ def validate_general_market_request(
         "forecast_horizon_gameweeks": payload["forecast_horizon_gameweeks"],
         "forecast_quality": payload["forecast_quality"],
         "player_forecasts": payload["player_forecasts"],
-        "filters": payload.get("filters", {}),
+        "filters": filters,
     }
 
 
