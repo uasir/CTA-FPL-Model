@@ -32,7 +32,7 @@ def test_360_context_measures_defensive_pressure_and_support_geometry():
         ],
     }
 
-    row = contextual_event_features(event, frame)
+    row = contextual_event_features(event, frame, attacks_right=True)
 
     assert row["player_id"] == "10"
     assert row["under_pressure"] is True
@@ -45,6 +45,140 @@ def test_360_context_measures_defensive_pressure_and_support_geometry():
     assert row["goal_side_opponents_12m"] == 2
     assert row["teammates_ahead_within_20"] == 1
     assert row["excluded_out_of_bounds_frame_players"] == 1
+
+
+
+def test_directional_features_are_withheld_without_explicit_attack_direction():
+    event = {
+        "id": "event-direction-unknown",
+        "type": {"name": "Pass"},
+        "player": {"id": 10, "name": "Attacker"},
+        "team": {"id": 1, "name": "Home"},
+        "location": [60, 40],
+    }
+    frame = {
+        "event_uuid": "event-direction-unknown",
+        "freeze_frame": [
+            {"teammate": True, "actor": True, "keeper": False, "location": [60, 40]},
+            {"teammate": True, "actor": False, "keeper": False, "location": [90, 40]},
+            {"teammate": False, "actor": False, "keeper": False, "location": [70, 50]},
+        ],
+    }
+
+    row = contextual_event_features(event, frame)
+
+    assert row["direction_known"] is False
+    assert row["goal_corridor_opponents_5m"] == ""
+    assert row["teammates_ahead_within_20"] == ""
+    assert row["dangerous_receiving_options_open"] == ""
+    assert row["threat_creation_pass_attempt"] == ""
+
+
+def test_receiving_lane_and_threat_creation_features_respect_attack_direction():
+    event = {
+        "id": "event-forward-pass",
+        "type": {"name": "Pass"},
+        "player": {"id": 10, "name": "Passer"},
+        "team": {"id": 1, "name": "Home"},
+        "location": [60, 40],
+        "pass": {
+            "recipient": {"id": 11, "name": "Receiver"},
+            "end_location": [90, 40],
+        },
+    }
+    frame = {
+        "event_uuid": "event-forward-pass",
+        "freeze_frame": [
+            {"teammate": True, "actor": True, "keeper": False, "location": [60, 40]},
+            {"teammate": True, "actor": False, "keeper": False, "location": [90, 40]},
+            {"teammate": False, "actor": False, "keeper": False, "location": [70, 50]},
+            {"teammate": False, "actor": False, "keeper": True, "location": [115, 40]},
+        ],
+    }
+
+    attacks_right = contextual_event_features(event, frame, attacks_right=True)
+    attacks_left = contextual_event_features(event, frame, attacks_right=False)
+
+    assert attacks_right["pass_recipient_id"] == "11"
+    assert attacks_right["receiving_options_observed_ahead"] == 1
+    assert attacks_right["open_receiving_options_ahead"] == 1
+    assert attacks_right["dangerous_receiving_options_open"] == 1
+    assert attacks_right["threat_creation_pass_attempt"] == 1
+    assert attacks_right["threat_creation_pass_completed"] == 1
+    assert attacks_right["progressive_pass_attempt"] == 1
+    assert attacks_left["receiving_options_observed_ahead"] == 0
+    assert attacks_left["dangerous_receiving_options_open"] == 0
+    assert attacks_left["threat_creation_pass_attempt"] == 0
+
+
+def test_creation_reception_and_realisation_remain_separate_player_dimensions():
+    common_frame = [
+        {"teammate": True, "actor": True, "keeper": False, "location": [90, 40]},
+        {"teammate": False, "actor": False, "keeper": False, "location": [96, 45]},
+        {"teammate": False, "actor": False, "keeper": True, "location": [115, 40]},
+    ]
+    events = [
+        {
+            "id": "pass", "type": {"name": "Pass"},
+            "player": {"id": 10, "name": "Creator"},
+            "team": {"id": 1, "name": "Home"}, "period": 1, "location": [60, 40],
+            "pass": {"recipient": {"id": 11, "name": "Receiver"}, "end_location": [90, 40]},
+        },
+        {
+            "id": "receipt", "type": {"name": "Ball Receipt*"},
+            "player": {"id": 11, "name": "Receiver"},
+            "team": {"id": 1, "name": "Home"}, "period": 1, "location": [90, 40],
+        },
+        {
+            "id": "shot", "type": {"name": "Shot"},
+            "player": {"id": 11, "name": "Receiver"},
+            "team": {"id": 1, "name": "Home"}, "period": 1, "location": [100, 40],
+            "shot": {"statsbomb_xg": 0.2, "outcome": {"name": "Goal"}},
+        },
+    ]
+    frames = [
+        {"event_uuid": "pass", "freeze_frame": [
+            {"teammate": True, "actor": True, "keeper": False, "location": [60, 40]},
+            {"teammate": True, "actor": False, "keeper": False, "location": [90, 40]},
+            {"teammate": False, "actor": False, "keeper": False, "location": [70, 50]},
+            {"teammate": False, "actor": False, "keeper": True, "location": [115, 40]},
+        ]},
+        {"event_uuid": "receipt", "freeze_frame": common_frame},
+        {"event_uuid": "shot", "freeze_frame": common_frame},
+    ]
+    directions = {("match-1", "1", "1"): True}
+
+    event_rows, player_rows, report = extract_contextual_threat(
+        events, frames, "match-1", direction_map=directions
+    )
+    by_player = {row["player_id"]: row for row in player_rows}
+
+    assert by_player["10"]["threat_creation_pass_attempts"] == 1
+    assert by_player["10"]["threat_involvement_dangerous_receipts"] == 0
+    assert by_player["10"]["threat_realisation_shots"] == 0
+    assert by_player["11"]["threat_creation_pass_attempts"] == 0
+    assert by_player["11"]["threat_involvement_dangerous_receipts"] == 1
+    assert by_player["11"]["threat_realisation_shots"] == 1
+    assert by_player["11"]["threat_realisation_xg"] == 0.2
+    assert by_player["11"]["threat_realisation_goals"] == 1
+    assert report["events_with_known_attack_direction"] == 3
+    assert report["direction_coverage"] == 1.0
+    assert report["aggregation_policy"].startswith("Creation, involvement, receiving opportunity")
+
+
+def test_direction_map_is_match_period_and_team_scoped(tmp_path):
+    direction_file = tmp_path / "direction_map.csv"
+    direction_file.write_text(
+        "match_id,period,team,attacks_right\nmatch-1,1,1,true\nmatch-1,1,Away,false\n",
+        encoding="utf-8",
+    )
+
+    from extract_statsbomb_contextual_threat import read_direction_map
+
+    directions = read_direction_map(direction_file)
+
+    assert directions[("match-1", "1", "1")] is True
+    assert directions[("match-1", "1", "Away")] is False
 
 
 def test_missing_360_frame_is_not_imputed_as_zero_context():

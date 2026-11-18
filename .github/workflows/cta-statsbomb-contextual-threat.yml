@@ -7,6 +7,7 @@ on:
       - canonical_candidate/engineering_workbench/scripts/extract_statsbomb_contextual_threat.py
       - canonical_candidate/data/events/3895320.json
       - canonical_candidate/data/three-sixty/3895320.json
+      - canonical_candidate/data/direction_map.csv
   push:
     branches: [main]
     paths:
@@ -14,6 +15,7 @@ on:
       - canonical_candidate/engineering_workbench/scripts/extract_statsbomb_contextual_threat.py
       - canonical_candidate/data/events/3895320.json
       - canonical_candidate/data/three-sixty/3895320.json
+      - canonical_candidate/data/direction_map.csv
   workflow_dispatch:
 
 permissions:
@@ -42,6 +44,7 @@ jobs:
           python scripts/extract_statsbomb_contextual_threat.py \
             --events-dir ../data/events \
             --three-sixty-dir ../data/three-sixty \
+            --direction-map ../data/direction_map.csv \
             --match-id 3895320 \
             --out-dir ../../run_artifacts/statsbomb_contextual_threat
 
@@ -91,10 +94,19 @@ jobs:
               "matches_processed": report["matches_processed"],
               "event_context_rows": report["event_context_rows"],
               "player_match_rows": report["player_match_rows"],
+              "direction_map_rows": report["direction_map_rows"],
+              "events_with_known_attack_direction": report["events_with_known_attack_direction"],
+              "events_missing_attack_direction": report["events_missing_attack_direction"],
+              "threat_dimensions": match["threat_dimensions"],
+              "aggregation_policy": match["aggregation_policy"],
+              "direction_policy": match["direction_policy"],
               "match_summary": {
                   key: match[key] for key in (
                       "supported_events", "events_with_usable_360_context",
-                      "event_context_coverage", "unmatched_supported_events_without_frame",
+                      "event_context_coverage", "events_with_known_attack_direction",
+                      "events_missing_attack_direction", "direction_coverage",
+                      "threat_creation_pass_attempts", "threat_involvement_dangerous_receipts",
+                      "threat_realisation_shots", "unmatched_supported_events_without_frame",
                       "duplicate_360_event_uuids", "context_rows_without_player_id",
                       "player_match_rows", "status", "prediction_validation"
                   )
@@ -104,6 +116,7 @@ jobs:
               "publication_policy": "Aggregate-only artifact; raw provider data and player-level feature rows are not uploaded.",
               "limitations": [
                   "StatsBomb 360 is sampled context, not continuous tracking.",
+                  "Directional and receiving-lane metrics are withheld unless an explicit match-period-team direction is supplied; the repository map currently has no verified rows.",
                   "This pilot is one Bundesliga match and does not establish FPL predictive value.",
                   "No StatsBomb-to-FPL identity crosswalk is applied."
               ]
