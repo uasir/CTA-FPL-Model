@@ -183,18 +183,27 @@ Duplicate event-frame UUIDs are reported; only the first frame is used.
 
 ### Attack direction and receiving-option safeguards
 
-The earlier extractor treated the right-hand goal as the attacking goal for
-every team and period. That assumption is not valid for a shared match coordinate
-frame and could invert goal-side, forward-player and passing-lane features.
+The original global-direction assumption was wrong for StatsBomb. StatsBomb
+event coordinates use **ACTION_EXECUTING_TEAM** orientation: the team executing
+the event is oriented toward the opponent goal at positive x. The 360 freeze-frame
+teammate/opponent flags are also relative to the event team. The StatsBomb
+adapter in [Kloppy's coordinate-orientation documentation](https://kloppy.pysport.org/user-guide/concepts/coordinates/)
+identifies this as `ACTION_EXECUTING_TEAM`.
 
-The extractor now accepts an explicit direction_map.csv keyed by match,
-period and team ID (or team name). It does not infer or default a direction.
-When no verified direction row exists, it withholds goal-relative, forward-lane,
-progression, dangerous-receipt and receiving-option features rather than
-publishing a misleading zero or a directionally inverted value. The repository
-direction map currently contains only its header, so the real-match pilot will
-report these directional features as unavailable until verified directions are
-added.
+The extractor therefore uses `attacks_right=True` for event-relative StatsBomb
+features when the event team is present. A per-match home/away direction map is
+not required. An explicit direction-map row remains available only as an override
+when a different coordinate frame has been independently established.
+
+This convention has an important boundary: raw coordinates from different
+acting teams are not a shared global home/away pitch frame. Do not compare their
+x positions directly across teams. Convert to a common match orientation first
+when performing cross-team spatial comparisons. For player-level attacking
+threat, event-relative coordinates are the appropriate frame.
+
+Directional features are withheld only when the event team or usable 360 frame
+is missing, or when a caller explicitly selects `requires_direction_map` for
+a source whose coordinate orientation is unknown.
 
 Receiving options are assessed only among visible teammates ahead of the actor
 and within 35 pitch units. A lane is considered blocked when a visible defender
@@ -202,6 +211,7 @@ occupies the actor-to-receiver corridor; receiver pressure is estimated from
 visible opponent distance to the receiver. These are observable-frame
 opportunity indicators, not proof that the entire pitch is open or that a pass
 was actually available to the player.
+
 
 ## Threat dimensions and non-shot opportunities
 
