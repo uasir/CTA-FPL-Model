@@ -169,24 +169,28 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
     excluded_same_or_future = 0
     for fixture in fixtures:
         fixture_id = str(fixture.get("id", ""))
-        target_kickoff = parse_time(fixture.get("kickoff_time", ""))
+        kickoff_value = fixture.get("kickoff_time", "")
+        target_kickoff = parse_time(kickoff_value) if kickoff_value else None
         event = fixture.get("event")
         sides = (("home", str(fixture.get("team_h", ""))),
                  ("away", str(fixture.get("team_a", ""))))
         for side, team_id in sides:
-            prior = [r for r in by_team.get(team_id, [])
-                     if r["_kickoff"] < target_kickoff and str(r.get("matchId", "")) != fixture_id]
-            excluded_same_or_future += sum(
-                1 for r in by_team.get(team_id, [])
-                if r["_kickoff"] >= target_kickoff or str(r.get("matchId", "")) == fixture_id
-            )
+            team_source = by_team.get(team_id, [])
+            prior = ([r for r in team_source
+                      if r["_kickoff"] < target_kickoff and str(r.get("matchId", "")) != fixture_id]
+                     if target_kickoff else [])
+            if target_kickoff:
+                excluded_same_or_future += sum(
+                    1 for r in team_source
+                    if r["_kickoff"] >= target_kickoff or str(r.get("matchId", "")) == fixture_id
+                )
             prior = prior[-max_history:]
             row = {
                 "season": season, "fixture_id": fixture_id, "gameweek": event or "",
-                "kickoff_time": target_kickoff.isoformat(), "side": side,
-                "team_id": team_id, "team_name": teams.get(team_id, ""),
+                "kickoff_time": target_kickoff.isoformat() if target_kickoff else "",
+                "side": side, "team_id": team_id, "team_name": teams.get(team_id, ""),
                 "opta_prior_matches_count": len(prior),
-                "features_as_of": target_kickoff.isoformat(),
+                "features_as_of": target_kickoff.isoformat() if target_kickoff else "",
             }
             for metric in metrics:
                 values = [as_float(r.get(metric)) for r in prior]
@@ -222,6 +226,7 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
         raise ValueError("Duplicate player-fixture keys")
     report = {
         "season": season, "fixtures": len(fixtures),
+        "fixtures_without_kickoff": sum(not bool(f.get("kickoff_time")) for f in fixtures),
         "team_fixture_rows": len(team_output), "player_fixture_rows": len(player_output),
         "provider_team_match_rows": len(source), "metrics_used": metrics,
         "max_prior_matches": max_history,
