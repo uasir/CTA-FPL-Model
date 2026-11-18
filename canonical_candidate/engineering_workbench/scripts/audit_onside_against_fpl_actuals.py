@@ -48,10 +48,10 @@ def audit(fpl_rows,onside_rows,*,season="2026-27",source_sha256=None):
             fixture_id=str(int(row["fixture_id"]))
             gw=int(row["gameweek"])
             points=float(row["target_total_points"])
-            if not math.isfinite(points):
-                raise ValueError("FPL target_total_points must be finite")
         except (KeyError,TypeError,ValueError):
-            raise ValueError("FPL training rows require numeric fpl_element_id, gameweek and target_total_points")
+            raise ValueError("FPL training rows require numeric fpl_element_id, fixture_id, gameweek and target_total_points")
+        if not math.isfinite(points):
+            raise ValueError("FPL target_total_points must be finite")
         fixture_key=(player_id,fixture_id)
         if fixture_key in seen_fpl_fixture_keys:
             raise ValueError(f"Duplicate official FPL player-fixture key: {fixture_key}")
