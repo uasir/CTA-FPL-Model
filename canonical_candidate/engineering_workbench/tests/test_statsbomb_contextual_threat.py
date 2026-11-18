@@ -124,3 +124,22 @@ def test_duplicate_frame_uuid_is_reported_and_only_one_is_used():
 
     assert len(event_rows) == 1
     assert report["duplicate_360_event_uuids"] == 1
+
+
+
+def test_real_statsbomb_360_fixture_subset_extracts_context_without_fpl_join():
+    import json
+
+    fixture_root = Path(__file__).resolve().parent / "fixtures" / "3895320"
+    events = json.loads((fixture_root / "events" / "3895320.json").read_text())
+    frames = json.loads((fixture_root / "three-sixty" / "3895320.json").read_text())
+
+    event_rows, player_rows, report = extract_contextual_threat(events, frames, "3895320")
+
+    assert report["status"] == "PASS_STRUCTURAL_ONLY"
+    assert report["prediction_validation"] == "NOT_EVALUATED"
+    assert report["duplicate_360_event_uuids"] == 0
+    assert report["events_with_usable_360_context"] > 0
+    assert len(player_rows) > 0
+    assert all(row["match_id"] == "3895320" for row in player_rows)
+    assert all(row["feature_scope"] == "360_sampled_events_only_not_full_match_totals" for row in player_rows)
