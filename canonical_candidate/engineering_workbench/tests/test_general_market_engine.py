@@ -135,3 +135,13 @@ def test_unverified_point_in_time_data_cannot_be_labelled_validated():
     payload["forecast_quality"]["point_in_time_status"] = "NOT_VERIFIED"
     result = recommend_general_market(payload)
     assert result["recommendation_status"] == "EXPLORATORY_ONLY"
+
+
+
+def test_stale_pre_deadline_snapshot_cannot_be_labelled_validated():
+    payload = request()
+    payload["forecast_quality"]["validation_status"] = "VALIDATED"
+    payload["forecast_quality"]["point_in_time_status"] = "VERIFIED"
+    payload["forecast_quality"]["data_coverage"]["freshness_status"] = "STALE_OVER_24H"
+    result = recommend_general_market(payload)
+    assert result["recommendation_status"] == "EXPLORATORY_ONLY"
