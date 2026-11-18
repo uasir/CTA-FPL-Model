@@ -76,9 +76,9 @@ def _validate_shared(payload: Mapping[str, Any]) -> None:
     quality = payload["forecast_quality"]
     if not isinstance(quality, Mapping):
         raise RecommendationContractError("forecast_quality must be a mapping")
-    if quality.get("validation_status") not in {"EXPLORATORY_ONLY", "VALIDATED", "UNAVAILABLE"}:
+    if not isinstance(quality.get("validation_status"), str) or quality["validation_status"] not in {"EXPLORATORY_ONLY", "VALIDATED", "UNAVAILABLE"}:
         raise RecommendationContractError("forecast_quality.validation_status is invalid")
-    if quality.get("point_in_time_status") not in {"VERIFIED", "NOT_VERIFIED", "NOT_APPLICABLE"}:
+    if not isinstance(quality.get("point_in_time_status"), str) or quality["point_in_time_status"] not in {"VERIFIED", "NOT_VERIFIED", "NOT_APPLICABLE"}:
         raise RecommendationContractError("forecast_quality.point_in_time_status is invalid")
     if not isinstance(quality.get("data_coverage"), Mapping):
         raise RecommendationContractError("forecast_quality.data_coverage must be a mapping")
@@ -134,7 +134,7 @@ def _validate_shared(payload: Mapping[str, Any]) -> None:
             raise RecommendationContractError(
                 f"player_forecasts[{index}].team_id must be a positive integer"
             )
-        if position not in {"GKP", "DEF", "MID", "FWD"}:
+        if not isinstance(position, str) or position not in {"GKP", "DEF", "MID", "FWD"}:
             raise RecommendationContractError(
                 f"player_forecasts[{index}].position is invalid"
             )
@@ -202,9 +202,9 @@ def validate_personal_squad_request(
             raise RecommendationContractError(f"squad_snapshot[{index}] must be a mapping")
         element_id = player.get("fpl_element_id")
         purchase_price = player.get("purchase_price")
-        if element_id is None or str(element_id).strip() == "":
+        if isinstance(element_id, bool) or not isinstance(element_id, int) or element_id < 1:
             raise RecommendationContractError(
-                f"squad_snapshot[{index}] is missing fpl_element_id"
+                f"squad_snapshot[{index}].fpl_element_id must be a positive integer"
             )
         key = str(element_id)
         if key in ids:
@@ -216,9 +216,9 @@ def validate_personal_squad_request(
             raise RecommendationContractError(
                 f"squad_snapshot[{index}].purchase_price must be numeric"
             )
-        if purchase_price < 0:
+        if purchase_price <= 0:
             raise RecommendationContractError(
-                f"squad_snapshot[{index}].purchase_price cannot be negative"
+                f"squad_snapshot[{index}].purchase_price must be positive"
             )
 
     bank = payload["bank"]
