@@ -33,7 +33,8 @@ jobs:
             tests/test_fpl_gameweek_aggregation.py \
             tests/test_fpl_naive_baselines.py \
             tests/test_fpl_covariance.py \
-            tests/test_fpl_effective_ownership.py
+            tests/test_fpl_effective_ownership.py \
+            tests/test_fpl_baseline_forecast_snapshot.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -60,6 +61,14 @@ jobs:
         run: |
           python canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py \
             --input run_artifacts/fpl_official/fpl_lagged_training.csv \
+            --out-dir run_artifacts/fpl_official
+
+      - name: Build official FPL one-gameweek baseline forecast snapshot
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py \
+            --players run_artifacts/fpl_official/fpl_players.csv \
+            --gameweek-rows run_artifacts/fpl_official/fpl_lagged_gameweek.csv \
+            --source-metadata run_artifacts/fpl_official/source_metadata.json \
             --out-dir run_artifacts/fpl_official
 
       - name: Evaluate exploratory FPL rolling-history baselines
