@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import copy
+import json
+from pathlib import Path
+
 import pytest
 
 from recommendation_contracts import (
@@ -9,37 +13,19 @@ from recommendation_contracts import (
 )
 
 
+_FIXTURE = json.loads(
+    (Path(__file__).parent / "fixtures" / "recommendation_requests.json").read_text(
+        encoding="utf-8"
+    )
+)
+
+
 def shared():
-    return {
-        "forecast_snapshot_id": "snapshot-2026-11-18T05:00:00Z",
-        "model_version": "unvalidated-baseline-0",
-        "forecast_horizon_gameweeks": 5,
-        "forecast_quality": {
-            "validation_status": "EXPLORATORY_ONLY",
-            "point_in_time_status": "NOT_VERIFIED",
-            "data_coverage": {"season": "2026-27", "gameweeks": [1, 10], "players": 672},
-            "limitations": ["Current snapshot; point-in-time history not verified."],
-        },
-        "player_forecasts": [
-            {"fpl_element_id": 1, "expected_points": 4.2, "expected_minutes": 80, "price": 5.0, "position": "MID", "team_id": 1},
-            {"fpl_element_id": 2, "expected_points": 3.1, "expected_minutes": 75, "price": 4.5, "position": "DEF", "team_id": 2},
-        ],
-    }
+    return copy.deepcopy(_FIXTURE["general_market"])
 
 
 def personal():
-    return {
-        **shared(),
-        "squad_snapshot": [
-            {"fpl_element_id": i, "purchase_price": 5.0}
-            for i in range(1, 16)
-        ],
-        "bank": 4.6,
-        "free_transfers": 1,
-        "personal_risk_profile": "aggressive",
-        "chips": [],
-        "formation": "4-3-3",
-    }
+    return copy.deepcopy(_FIXTURE["personal_squad"])
 
 
 def test_general_market_is_valid_without_any_squad_context():
