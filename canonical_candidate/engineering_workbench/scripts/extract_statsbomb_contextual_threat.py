@@ -393,20 +393,33 @@ def _possession_receiving_metrics(event_rows):
         team_metrics["team_possessions_with_dangerous_open_receiving_options"] += int(dangerous_peak > 0)
         team_metrics["team_possessions_with_blocked_receiving_options"] += int(blocked_peak > 0)
 
-    player_metrics = {}
+    player_metrics = defaultdict(lambda: {
+        "actor_possession_peak_open_receiving_options": 0.0,
+        "actor_possession_peak_dangerous_open_receiving_options": 0.0,
+        "actor_possession_peak_blocked_receiving_options": 0.0,
+        "actor_possessions_with_open_receiving_options": 0,
+        "actor_possessions_with_dangerous_open_receiving_options": 0,
+        "actor_possessions_with_blocked_receiving_options": 0,
+    })
     for key, rows in player_groups.items():
         open_peak = peak(rows, "open_receiving_options_ahead")
         dangerous_peak = peak(rows, "dangerous_receiving_options_open")
         blocked_peak = peak(rows, "blocked_receiving_options_ahead")
-        player_metrics[(key[0], key[2], key[3])] = {
-            "actor_possession_peak_open_receiving_options": open_peak,
-            "actor_possession_peak_dangerous_open_receiving_options": dangerous_peak,
-            "actor_possession_peak_blocked_receiving_options": blocked_peak,
-            "actor_possessions_with_open_receiving_options": int(open_peak > 0),
-            "actor_possessions_with_dangerous_open_receiving_options": int(dangerous_peak > 0),
-            "actor_possessions_with_blocked_receiving_options": int(blocked_peak > 0),
-        }
+        metrics = player_metrics[(key[0], key[2], key[3])]
+        metrics["actor_possession_peak_open_receiving_options"] += open_peak
+        metrics["actor_possession_peak_dangerous_open_receiving_options"] += dangerous_peak
+        metrics["actor_possession_peak_blocked_receiving_options"] += blocked_peak
+        metrics["actor_possessions_with_open_receiving_options"] += int(open_peak > 0)
+        metrics["actor_possessions_with_dangerous_open_receiving_options"] += int(dangerous_peak > 0)
+        metrics["actor_possessions_with_blocked_receiving_options"] += int(blocked_peak > 0)
 
+    player_metrics = {
+        key: {
+            metric: round(value, 6) if isinstance(value, float) else value
+            for metric, value in metrics.items()
+        }
+        for key, metrics in player_metrics.items()
+    }
     team_metrics = {key: round(value, 6) if isinstance(value, float) else value for key, value in team_metrics.items()}
     return team_metrics, player_metrics, missing_possession_rows
 
