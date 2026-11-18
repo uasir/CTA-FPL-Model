@@ -90,9 +90,15 @@ def build_crosswalk(elements: list[dict], teams: list[dict], provider_players: l
     for player_id, provider_matches in sorted(provider_by_id.items()):
         status, fpl, provider = "pending", None, provider_matches[0]
         candidates = fpl_by_code.get(player_id, [])
-        if len(provider_matches) != 1 or len(candidates) != 1:
+        if len(provider_matches) != 1:
             status = "ambiguous"
-            errors.append({"provider_player_id": player_id, "reason": "non_unique_numeric_id",
+            errors.append({"provider_player_id": player_id, "reason": "duplicate_provider_numeric_id",
+                           "provider_rows": len(provider_matches), "fpl_rows": len(candidates)})
+        elif len(candidates) == 0:
+            status = "pending"
+        elif len(candidates) != 1:
+            status = "ambiguous"
+            errors.append({"provider_player_id": player_id, "reason": "duplicate_fpl_numeric_code",
                            "provider_rows": len(provider_matches), "fpl_rows": len(candidates)})
         elif str(provider.get("team_id", "")) != str(candidates[0].get("team", "")):
             status = "ambiguous"
