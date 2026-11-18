@@ -53,6 +53,7 @@ def test_builds_official_ep_next_and_explicit_minutes_proxy():
     assert snapshot["forecast_horizon_gameweeks"] == 1
     assert snapshot["forecast_quality"]["validation_status"] == "EXPLORATORY_ONLY"
     assert snapshot["forecast_quality"]["point_in_time_status"] == "VERIFIED"
+    assert snapshot["forecast_quality"]["data_coverage"]["freshness_status"] == "STALE_OVER_24H"
     by_id = {row["fpl_element_id"]: row for row in snapshot["player_forecasts"]}
     assert by_id[10]["expected_points"] == 4.8
     assert by_id[10]["expected_minutes"] == 60
@@ -134,3 +135,11 @@ def test_snapshot_id_changes_when_forecast_inputs_change():
     changed_rows[-1]["target_minutes"] = "30"
     second, _ = build_snapshot(players(), changed_rows, fixtures(), source_metadata())
     assert first["forecast_snapshot_id"] != second["forecast_snapshot_id"]
+
+
+
+def test_snapshot_is_fresh_when_captured_within_24_hours_of_deadline():
+    metadata = source_metadata()
+    metadata["fetched_at_utc"] = "2026-11-28T05:30:00Z"
+    snapshot, _ = build_snapshot(players(), gameweek_rows(), fixtures(), metadata)
+    assert snapshot["forecast_quality"]["data_coverage"]["freshness_status"] == "FRESH_WITHIN_24H"
