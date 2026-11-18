@@ -20,6 +20,7 @@ def request():
 
 def add_locked_eo_provenance(payload):
     payload["forecast_quality"]["data_coverage"].update({
+        "target_deadline_utc": "2026-11-28T11:00:00+00:00",
         "eo_cohort": "overall top-10k rank-stratified sample",
         "eo_sample_managers": 100,
         "eo_rank_cohort_captured_at_utc": "2026-11-28T10:55:00+00:00",
@@ -113,4 +114,13 @@ def test_eo_values_without_lock_provenance_are_rejected():
     payload = request()
     payload["player_forecasts"][0]["effective_ownership_pct"] = 4.5
     with pytest.raises(RecommendationContractError, match="verified cohort and post-lock provenance"):
+        recommend_general_market(payload)
+
+
+
+def test_eo_deadline_must_match_forecast_target_deadline():
+    payload = add_locked_eo_provenance(request())
+    payload["player_forecasts"][0]["effective_ownership_pct"] = 4.5
+    payload["forecast_quality"]["data_coverage"]["eo_deadline_time_utc"] = "2026-11-29T11:00:00+00:00"
+    with pytest.raises(RecommendationContractError, match="does not match the forecast snapshot deadline"):
         recommend_general_market(payload)
