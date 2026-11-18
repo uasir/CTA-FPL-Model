@@ -143,11 +143,7 @@ def build_snapshot(players,gameweek_rows,source_metadata,eo_rows=None,eo_report=
     ep_coverage=len(forecasts)
     minutes_proxy_coverage=ep_coverage-len(no_minutes_history)
     eo_coverage=sum("effective_ownership_pct" in row for row in forecasts)
-    identity=hashlib.sha256()
-    identity.update(str(source_metadata["bootstrap_sha256"]).encode())
-    identity.update(str(source_metadata["fixtures_sha256"]).encode())
-    identity.update(str(target_gw).encode())
-    snapshot_id=identity.hexdigest()
+    forecasts.sort(key=lambda row:row["fpl_element_id"])
     quality={
         "validation_status":"EXPLORATORY_ONLY",
         "point_in_time_status":"VERIFIED",
@@ -155,6 +151,8 @@ def build_snapshot(players,gameweek_rows,source_metadata,eo_rows=None,eo_report=
             "target_gameweek":int(target_gw),
             "source_fetched_at_utc":fetched.isoformat(),
             "target_deadline_utc":deadline.isoformat(),
+            "bootstrap_sha256":source_metadata["bootstrap_sha256"],
+            "fixtures_sha256":source_metadata["fixtures_sha256"],
             "hours_before_deadline":round((deadline-fetched).total_seconds()/3600,3),
             "roster_players":total,
             "forecast_players":ep_coverage,
@@ -181,6 +179,13 @@ def build_snapshot(players,gameweek_rows,source_metadata,eo_rows=None,eo_report=
             "This snapshot covers one upcoming gameweek only.",
         ],
     }
+    identity_payload={
+        "model_version":"cta-fpl-official-epnext-minutes-proxy-v0.1.0",
+        "forecast_horizon_gameweeks":1,
+        "player_forecasts":forecasts,
+        "forecast_quality":quality,
+    }
+    snapshot_id=hashlib.sha256(json.dumps(identity_payload,sort_keys=True,separators=(",",":")).encode()).hexdigest()
     return {
         "forecast_snapshot_id":snapshot_id,
         "model_version":"cta-fpl-official-epnext-minutes-proxy-v0.1.0",
