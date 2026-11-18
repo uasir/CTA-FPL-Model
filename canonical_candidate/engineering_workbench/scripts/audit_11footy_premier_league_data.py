@@ -15,7 +15,7 @@ from pathlib import Path
 REQUIRED_TABLES = {
     "format_version", "competitions", "seasons", "matches", "teams", "players",
     "match_events", "shots", "match_players", "player_match_statistics",
-    "player_match_event_counts", "match_team_statistics", "player_merges",
+    "player_match_event_counts", "match_team_statistics",
 }
 
 
@@ -44,7 +44,7 @@ def _tables(connection):
     }
 
 
-def audit_database(connection, source_release: str, source_sha256: str):
+def audit_database(connection, source_release: str, source_sha256: str,\n                   players_connection=None, players_sha256: str | None = None):
     tables = _tables(connection)
     missing_tables = sorted(REQUIRED_TABLES - tables)
     if missing_tables:
@@ -148,10 +148,25 @@ def audit_database(connection, source_release: str, source_sha256: str):
     )[0]
 
     licence_values = sorted({str(row.get("licence") or "") for row in format_rows})
+    player_catalogue = {"available": False, "players": None, "player_merges": None}
+    if players_connection is not None:
+        player_tables = _tables(players_connection)
+        if "players" not in player_tables:
+            raise ValueError("Separate 11footy player catalogue is missing the players table")
+        player_catalogue = {
+            "available": True,
+            "players": players_connection.execute("SELECT COUNT(*) FROM players").fetchone()[0],
+            "player_merges": (
+                players_connection.execute("SELECT COUNT(*) FROM player_merges").fetchone()[0]
+                if "player_merges" in player_tables else None
+            ),
+            "sha256": players_sha256,
+        }
     report = {
         "provider": "11footy",
         "source_release": source_release,
         "source_sha256": source_sha256,
+        "player_catalogue": player_catalogue,
         "licence": licence_values,
         "attribution": "Credit 11footy; CC BY-NC 4.0; non-commercial use only.",
         "competitions": competitions,
@@ -183,6 +198,8 @@ def main():
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--release", required=True)
     parser.add_argument("--expected-sha256", required=True)
+    parser.add_argument("--players-input", type=Path)
+    parser.add_argument("--players-expected-sha256")
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
 
@@ -191,14 +208,30 @@ def main():
     if actual_sha != expected_sha:
         raise SystemExit("Source SHA-256 mismatch: expected " + expected_sha + ", got " + actual_sha)
 
+    if bool(args.players_input) != bool(args.players_expected_sha256):
+        raise SystemExit("--players-input and --players-expected-sha256 must be supplied together")
+    players_sha = None
+    if args.players_input:
+        players_sha = sha256(args.players_input)
+        expected_players_sha = args.players_expected_sha256.lower().removeprefix("sha256:")
+        if players_sha != expected_players_sha:
+            raise SystemExit("Player catalogue SHA-256 mismatch: expected " + expected_players_sha + ", got " + players_sha)
+
     args.out_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="cta-11footy-") as temp:
-        database_path = _materialize_sqlite(args.input, Path(temp))
+        temp_path = Path(temp)
+        database_path = _materialize_sqlite(args.input, temp_path)
         connection = sqlite3.connect("file:" + str(database_path.resolve()) + "?mode=ro", uri=True)
+        players_connection = None
         try:
-            report = audit_database(connection, args.release, actual_sha)
+            if args.players_input:
+                players_path = _materialize_sqlite(args.players_input, temp_path)
+                players_connection = sqlite3.connect("file:" + str(players_path.resolve()) + "?mode=ro", uri=True)
+            report = audit_database(connection, args.release, actual_sha, players_connection, players_sha)
         finally:
             connection.close()
+            if players_connection is not None:
+                players_connection.close()
 
     (args.out_dir / "11footy_premier_league_data_audit.json").write_text(
         json.dumps(report, indent=2, allow_nan=False), encoding="utf-8"
@@ -208,7 +241,7 @@ def main():
         "release": report["source_release"],
         "status": report["status"],
         "seasons": len(report["season_coverage"]),
-        "player_match_rows": report["player_match_statistics"]["rows"],
+        "player_match_rows": report["player_match_statistics"]["rows"],\n        "player_catalogue": report["player_catalogue"],
         "shot_layers": report["shot_layers"],
         "prediction_validation": report["prediction_validation"],
     }, indent=2))
