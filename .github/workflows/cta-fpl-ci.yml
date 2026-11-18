@@ -3,7 +3,7 @@ name: CTA FPL engineering CI
 on:
   workflow_dispatch:
   push:
-    branches: [main, "work/**", "fix/**", "docs/**"]
+    branches: [main, "work/**", "fix/**", "docs/**", "feat/**"]
     paths:
       - .github/workflows/cta-fpl-ci.yml
       - .github/workflows/cta-fpl-ingestion.yml
