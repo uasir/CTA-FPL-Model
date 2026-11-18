@@ -83,7 +83,7 @@ The output is explicitly labelled `SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS`. It does n
 
 A first-party lock-safe capture workflow is implemented at `.github/workflows/cta-fpl-eo-capture.yml`, with collector `scripts/capture_fpl_ranked_manager_picks.py`.
 
-It runs at minute 55 of each hour and only proceeds when the official next deadline is within seven minutes. It:
+It runs at minutes 25 and 55 of each hour to cover the observed :30 and :00 FPL deadline times; it only proceeds when the official next deadline is within seven minutes. It:
 - samples 100 managers across rank strata within the pre-deadline overall top 10,000;
 - records the rank cohort before the deadline and refuses to proceed if the standings fetch crosses the deadline;
 - waits until 60 seconds after the official deadline;
@@ -152,3 +152,17 @@ These sources may help us validate our future EV layer against independently fro
 - Vaastav FPL historical archive: https://github.com/vaastav/Fantasy-Premier-League
 - Onside Arena FPL graded predictions and CC BY 4.0: https://onsidearena.com/data and https://onsidearena.com/accuracy; Zenodo DOI: https://doi.org/10.5281/zenodo.22746985
 - evmax projection data and CC BY 4.0 terms: https://evmax.ai/data/
+
+
+### Official FPL baseline and live general-market smoke test (2026-11-18)
+
+Actions run 44254087867 completed successfully and uploaded artifact 14405276623:
+https://github.com/uasir/CTA-FPL-Model/actions/runs/44254087867
+
+- 672/672 `ep_next` and `ep_this` values present.
+- 672 player forecasts built for GW11 from the official FPL baseline.
+- Target fixture counts are read from normalized fixture columns `gameweek`, `team_h_id`, `team_a_id`; minutes per prior fixture are scaled by the target GW fixture count.
+- The general-market engine ranked all 672 players.
+- The snapshot was 76.164 hours before deadline and correctly labelled `STALE_OVER_24H`; recommendations remain exploratory.
+- No EO was attached; no CoVar was used.
+- Historical lagged training remains `NOT_VERIFIED` for point-in-time reconstruction.
