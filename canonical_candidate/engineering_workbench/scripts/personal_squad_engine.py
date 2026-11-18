@@ -210,7 +210,7 @@ def recommend_personal_squad(payload):
         "model_version":request["model_version"],
         "forecast_horizon_gameweeks":request["forecast_horizon_gameweeks"],
         "forecast_quality":quality,
-        "recommendation_status":"EXPLORATORY_ONLY" if quality["validation_status"]!="VALIDATED" or quality["point_in_time_status"]!="VERIFIED" else "VALIDATED",
+        "recommendation_status":"VALIDATED" if quality["validation_status"]=="VALIDATED" and quality["point_in_time_status"]=="VERIFIED" and quality["data_coverage"].get("freshness_status")=="FRESH_WITHIN_24H" else "EXPLORATORY_ONLY",
         "manager_context":{
             "bank":request["bank"],"free_transfers":request["free_transfers"],
             "personal_risk_profile":request["personal_risk_profile"],
