@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate season-scoped provider-to-FPL identity mappings without fuzzy matching."""
 from __future__ import annotations
-import argparse, csv, json
+import argparse, csv, json, re, unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -11,6 +11,8 @@ FIELDS = [
     "fpl_player_name", "provider_team_id", "provider_team_name",
     "fpl_team_id", "fpl_team_code", "fpl_team_name", "verification_status", "match_method",
     "evidence_source", "evidence_url", "verified_by", "verified_at",
+    "provider_birth_date", "fpl_birth_date", "source_release",
+    "provider_source_sha256", "fpl_source_sha256", "confidence_level", "review_notes",
 ]
 REQUIRED = [
     "season", "competition_id", "provider_player_id", "provider_player_name",
@@ -20,6 +22,24 @@ REQUIRED = [
 ]
 STATUSES = {"verified", "pending", "ambiguous", "rejected"}
 METHODS = {"provider_id_crosswalk", "official_alias", "club_roster_crosscheck", "manual_source_verified"}
+
+def _normalize_team_name(value):
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch)).casefold()
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    text = " ".join(text.split())
+    aliases = {
+        "afc bournemouth": "bournemouth", "brighton": "brighton and hove albion",
+        "brighton hove albion": "brighton and hove albion",
+        "leeds": "leeds united", "man city": "manchester city",
+        "man utd": "manchester united", "newcastle": "newcastle united",
+        "nottm forest": "nottingham forest", "nott forest": "nottingham forest",
+        "sheffield utd": "sheffield united", "spurs": "tottenham hotspur",
+        "tottenham": "tottenham hotspur", "west ham": "west ham united",
+        "wolves": "wolverhampton wanderers", "wolverhampton": "wolverhampton wanderers",
+    }
+    return aliases.get(text, text)
+
 
 def validate_rows(rows, provider):
     errors, accepted, statuses = [], [], Counter()
@@ -43,6 +63,15 @@ def validate_rows(rows, provider):
         if provider == "opta_pulselive" and (row.get("provider_team_id") or "").strip() != (row.get("fpl_team_code") or "").strip():
             errors.append({"line": line, "error": "provider_team_id_does_not_match_fpl_team_code"})
             continue
+        if provider == "11footy":
+            numeric_fields = ("provider_player_id", "fpl_element_id", "provider_team_id", "fpl_team_id", "competition_id")
+            invalid_numeric = [field for field in numeric_fields if not (row.get(field) or "").strip().isdigit()]
+            if invalid_numeric:
+                errors.append({"line": line, "error": "11footy_identity_and_team_ids_must_be_numeric", "fields": invalid_numeric})
+                continue
+            if _normalize_team_name(row.get("provider_team_name")) != _normalize_team_name(row.get("fpl_team_name")):
+                errors.append({"line": line, "error": "11footy_provider_and_fpl_team_names_do_not_match"})
+                continue
         if not (row.get("evidence_url") or "").strip().startswith(("https://", "http://")):
             errors.append({"line": line, "error": "evidence_url_must_be_http"})
             continue
@@ -79,7 +108,7 @@ def validate_rows(rows, provider):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--provider", choices=("wyscout", "opta_pulselive"), required=True)
+    parser.add_argument("--provider", choices=("11footy", "wyscout", "opta_pulselive"), required=True)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
