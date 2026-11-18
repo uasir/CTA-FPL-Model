@@ -432,3 +432,19 @@ Detailed model report: `reports/OPTA_TEAM_CONTEXT_TEMPORAL_EVALUATION_2026-11-18
 - CoVar remains disabled; the 10-GW complete-case covariance matrix is exploratory and the earlier split-window stability screen failed.
 
 Only aggregate Opta evaluation metrics and source hashes are uploaded; raw provider files, crosswalk rows and player-fixture sidecars are not uploaded or committed.
+
+## 15. Nested rolling-origin ridge tuning — verified 2026-11-18
+
+Run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44354131782  
+Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44354131782/artifacts/14450580753  
+Artifact digest: `sha256:89370feea299167637734e02188cbddd17fe8533820a1ef0d266bac9a180cb4b`.  
+Detailed report: `reports/FPL_NESTED_RIDGE_TEMPORAL_VALIDATION_2026-11-18.md`.
+
+- Outer train GW1–6 (3,216 fixture rows); outer validation GW7–10 (2,679 player-gameweek rows).
+- Inner alpha selection used only GW1–4 (1,890 eligible rows) to validate on GW5–6 (1,334 rows).
+- Selected points alpha 300 (upper edge of grid); minutes alpha 0.1.
+- Outer holdout points MAE/RMSE: fixed alpha10 = 1.201603 / 2.015697; nested tuned = 1.199065 / 2.009075; naive last-five-GW points baseline MAE = 1.185511.
+- Minutes MAE: nested tuned 15.367280 vs naive last-GW 11.098918; minutes model remains weak.
+- Decision: `DO_NOT_PROMOTE`. Small improvement over fixed ridge is insufficient; naive points MAE remains better.
+- GW7–GW10 outer holdout is now consumed. Do not expand the alpha grid or tune further on this same holdout; next evaluation must use later gameweeks or another season.
+- Recommendation engines remain unchanged; neither the fixed nor tuned ridge model supplies forecast points or minutes to scoring.
