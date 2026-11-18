@@ -57,3 +57,10 @@ test("invalid filters are rejected", () => {
   payload.filters = { position: "WING" };
   assert.throws(() => recommendGeneralMarket(payload), /filters.position is invalid/);
 });
+
+
+test("null filters are rejected instead of silently ignored", () => {
+  const payload = request();
+  payload.filters = null;
+  assert.throws(() => recommendGeneralMarket(payload), /filters must be an object/);
+});
