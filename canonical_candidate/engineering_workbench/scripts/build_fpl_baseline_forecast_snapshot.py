@@ -36,7 +36,7 @@ def finite_number(value):
     return number if math.isfinite(number) else None
 
 
-def build_snapshot(players,gameweek_rows,source_metadata,eo_rows=None,eo_report=None):
+def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,eo_report=None):
     target_gw=source_metadata.get("next_deadline_event_id")
     deadline_raw=source_metadata.get("next_deadline_time_utc")
     fetched_raw=source_metadata.get("fetched_at_utc")
@@ -48,6 +48,18 @@ def build_snapshot(players,gameweek_rows,source_metadata,eo_rows=None,eo_report=
         raise ValueError("FPL source snapshot was not captured before the target deadline")
     if not source_metadata.get("bootstrap_sha256") or not source_metadata.get("fixtures_sha256"):
         raise ValueError("source metadata must include bootstrap and fixtures SHA-256 hashes")
+
+    fixture_counts={}
+    for fixture in fixtures:
+        if finite_number(fixture.get("event"))!=int(target_gw):
+            continue
+        for field in ("team_h","team_a"):
+            team=finite_number(fixture.get(field))
+            if team is not None and team>0:
+                team_id=int(team)
+                fixture_counts[team_id]=fixture_counts.get(team_id,0)+1
+    if not fixture_counts:
+        raise ValueError("No upcoming fixtures found for the target gameweek")
 
     latest_by_player={}
     for row in gameweek_rows:
@@ -104,15 +116,22 @@ def build_snapshot(players,gameweek_rows,source_metadata,eo_rows=None,eo_report=
             invalid_players.append(player_id)
             continue
         history=latest_by_player.get(player_id)
-        minutes=finite_number(history.get("target_minutes")) if history else None
-        minutes_source="latest_completed_gameweek_actual"
-        if minutes is None and history:
-            minutes=finite_number(history.get("prior_gw_minutes"))
-            minutes_source="lagged_prior_gameweek_actual"
-        if minutes is None:
+        next_fixtures=fixture_counts.get(int(team_id),0)
+        last_minutes=finite_number(history.get("target_minutes")) if history else None
+        prior_fixture_count=finite_number(history.get("target_fixtures_count")) if history else None
+        if history is None or last_minutes is None:
             minutes=0.0
             minutes_source="no_history_zero_fallback"
             no_minutes_history.append(player_id)
+        elif next_fixtures==0:
+            minutes=0.0
+            minutes_source="no_upcoming_fixture"
+        elif prior_fixture_count is not None and prior_fixture_count>0:
+            minutes=(last_minutes/prior_fixture_count)*next_fixtures
+            minutes_source="latest_completed_gameweek_per_fixture_scaled_to_target_fixture_count"
+        else:
+            minutes=last_minutes*next_fixtures
+            minutes_source="latest_completed_gameweek_unscaled_fixture_fallback"
         if minutes<0:
             invalid_players.append(player_id)
             continue
@@ -123,6 +142,7 @@ def build_snapshot(players,gameweek_rows,source_metadata,eo_rows=None,eo_report=
             "expected_points":ep_next,
             "expected_minutes":minutes,
             "minutes_proxy_source":minutes_source,
+            "next_fixtures_count":next_fixtures,
             "price":price_cost/10.0,
             "position":position,
             "team_id":int(team_id),
@@ -155,6 +175,8 @@ def build_snapshot(players,gameweek_rows,source_metadata,eo_rows=None,eo_report=
             "fixtures_sha256":source_metadata["fixtures_sha256"],
             "hours_before_deadline":round((deadline-fetched).total_seconds()/3600,3),
             "roster_players":total,
+            "target_gameweek_fixtures":sum(fixture_counts.values())//2,
+            "teams_with_target_fixtures":len(fixture_counts),
             "forecast_players":ep_coverage,
             "ep_next_coverage_pct":round(ep_coverage/total*100,3) if total else 0,
             "minutes_proxy_players":minutes_proxy_coverage,
@@ -210,6 +232,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--players",type=Path,required=True)
     parser.add_argument("--gameweek-rows",type=Path,required=True)
+    parser.add_argument("--fixtures",type=Path,required=True)
     parser.add_argument("--source-metadata",type=Path,required=True)
     parser.add_argument("--eo-csv",type=Path)
     parser.add_argument("--eo-report",type=Path)
@@ -221,7 +244,7 @@ def main():
     eo_rows=read_csv(args.eo_csv) if args.eo_csv else None
     eo_report=json.loads(args.eo_report.read_text(encoding="utf-8")) if args.eo_report else None
     snapshot,report=build_snapshot(
-        read_csv(args.players),read_csv(args.gameweek_rows),source_metadata,eo_rows,eo_report
+        read_csv(args.players),read_csv(args.gameweek_rows),read_csv(args.fixtures),source_metadata,eo_rows,eo_report
     )
     args.out_dir.mkdir(parents=True,exist_ok=True)
     (args.out_dir/"fpl_baseline_forecast_snapshot.json").write_text(json.dumps(snapshot,indent=2),encoding="utf-8")
