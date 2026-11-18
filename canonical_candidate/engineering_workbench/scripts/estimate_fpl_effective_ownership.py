@@ -68,7 +68,9 @@ def _stratified_normal_ci(samples_by_stratum, metric_index, rank_limit, confiden
         population=min(PAGE_SIZE,rank_limit-(page-1)*PAGE_SIZE)
         if n<2 or n>population:
             return None
-        values=[sample[metric_index] for sample in samples]
+        if len({sample[1] for sample in samples})!=1:
+            return None
+        values=[sample[0][metric_index] for sample in samples]
         page_mean=sum(values)/n
         page_variance=sum((value-page_mean)**2 for value in values)/(n-1)
         share=population/rank_limit
