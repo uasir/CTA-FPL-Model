@@ -142,4 +142,4 @@ Do not rebuild the existing engine, replace recovered source lineage, fabricate 
 - Multi-season, point-in-time historical training data and out-of-sample predictive validation remain incomplete.
 - Multi-transfer optimisation, chip effects, multiweek planning and CoVar utility validation remain future work.
 
-Latest full CI verification for the exploratory engines: https://github.com/uasir/CTA-FPL-Model/actions/runs/44252317726 — 30 JavaScript tests and 140 Python tests passed, plus 3 subtests. Subsequent EO-provenance hardening is undergoing its own CI run.
+Latest full CI verification, including the EO provenance hardening: https://github.com/uasir/CTA-FPL-Model/actions/runs/44252742817 — **32 JavaScript tests and 143 Python tests passed, plus 3 subtests**. The crosswalk validator still reports `EMPTY_NOT_READY`; no verified StatsBomb↔FPL identity rows exist.
