@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Manager-specific one-transfer FPL optimiser over a shared forecast snapshot.
+"""Manager-specific one-transfer FPL optimiser over a shared forecast snapshot (v0.1.1).
 
 The initial version is intentionally conservative: it optimises a single
 transfer and a legal starting XI, while explicitly excluding unvalidated
