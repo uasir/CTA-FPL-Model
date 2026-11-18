@@ -9,6 +9,8 @@ from build_11footy_player_match_features import build_panel
 def _databases():
     main = sqlite3.connect(":memory:")
     main.executescript("""
+        CREATE TABLE format_version(built_at TEXT, licence TEXT);
+        INSERT INTO format_version VALUES ('2026-11-10T00:00:00Z', 'CC BY-NC 4.0');
         CREATE TABLE seasons(season_id INTEGER, competition_id INTEGER, season INTEGER);
         CREATE TABLE teams(team_id INTEGER, name TEXT);
         CREATE TABLE matches(
