@@ -144,6 +144,7 @@ jobs:
             --fpl-player-fixture run_artifacts/fpl_official/fpl_player_fixture.csv \
             --candidates run_artifacts/11footy_fpl/identity_candidates.csv \
             --crosswalk run_artifacts/11footy_fpl/crosswalk_validation/verified_provider_fpl_crosswalk.csv \
+            --crosswalk-validation run_artifacts/11footy_fpl/crosswalk_validation/crosswalk_validation.json \
             --season "$FPL_SEASON" \
             --competition-id 1 \
             --out-dir run_artifacts/11footy_fpl/output
@@ -179,6 +180,7 @@ jobs:
                   "candidate_rows_with_multi_match_consistency": report["candidate_rows_with_multi_match_consistency"],
                   "candidate_rows_with_any_match_conflict": report["candidate_rows_with_any_match_conflict"],
                   "verified_crosswalk_rows": report["verified_crosswalk_rows"],
+                  "crosswalk_validation_status": report["crosswalk_validation_status"],
                   "verified_player_match_panel_rows": report["verified_player_match_panel_rows"],
                   "verified_identity_history_missing_rows": report["verified_identity_history_missing_rows"],
                   "verified_team_mismatch_rows": report["verified_team_mismatch_rows"],
