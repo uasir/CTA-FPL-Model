@@ -113,14 +113,26 @@ def read_direction_map(path):
     return result
 
 
-def _event_direction(event, match_id, direction_map):
+def _event_direction(event, match_id, direction_map, coordinate_orientation="action_executing_team"):
     team = event.get("team") or {}
     period = str(event.get("period") or "")
     for team_key in (str(team.get("id") or ""), str(team.get("name") or "")):
         if team_key:
             value = direction_map.get((str(match_id), period, team_key))
             if value is not None:
-                return value
+                return {
+                    "attacks_right": bool(value),
+                    "direction_source": "explicit_direction_map_override",
+                    "confidence_level": "manual_map",
+                    "evidence_count": "",
+                }
+    if coordinate_orientation == "action_executing_team" and team.get("id") is not None:
+        return {
+            "attacks_right": True,
+            "direction_source": "statsbomb_action_executing_team_orientation",
+            "confidence_level": "source_specification",
+            "evidence_count": "",
+        }
     return None
 
 
@@ -314,6 +326,9 @@ def contextual_event_features(event, frame, attacks_right=None):
         "y": round(actor_position[1], 4),
         "attacks_right": attacks_right if direction_known else "",
         "direction_known": direction_known,
+        "attack_direction_source": "",
+        "attack_direction_confidence": "",
+        "attack_direction_evidence_count": "",
         "distance_to_attacking_goal": round(_distance(actor_position, goal), 4) if goal else "",
         "under_pressure": bool(event.get("under_pressure")),
         "visible_opponents": len(opponents),
@@ -337,7 +352,10 @@ def contextual_event_features(event, frame, attacks_right=None):
     }
 
 
-def extract_contextual_threat(events, frames, match_id="", direction_map=None):
+def extract_contextual_threat(
+    events, frames, match_id="", direction_map=None,
+    coordinate_orientation="action_executing_team",
+):
     direction_map = direction_map or {}
     frame_by_uuid, duplicate_frames = _frame_map(frames)
     event_rows = []
@@ -355,10 +373,17 @@ def extract_contextual_threat(events, frames, match_id="", direction_map=None):
             unmatched_supported_events += 1
             continue
         resolved_match_id = str(match_id or event.get("_match_id") or "")
-        attacks_right = _event_direction(event, resolved_match_id, direction_map)
+        direction_record = _event_direction(
+            event, resolved_match_id, direction_map, coordinate_orientation
+        )
+        attacks_right = direction_record.get("attacks_right") if direction_record else None
         row = contextual_event_features(event, frame, attacks_right=attacks_right)
         if row is None:
             continue
+        if direction_record:
+            row["attack_direction_source"] = direction_record["direction_source"]
+            row["attack_direction_confidence"] = direction_record["confidence_level"]
+            row["attack_direction_evidence_count"] = direction_record["evidence_count"]
         row["match_id"] = resolved_match_id
         event_rows.append(row)
         if not row["player_id"]:
@@ -431,6 +456,16 @@ def extract_contextual_threat(events, frames, match_id="", direction_map=None):
         "events_with_known_attack_direction": direction_known_count,
         "events_missing_attack_direction": len(event_rows) - direction_known_count,
         "direction_coverage": round(direction_known_count / len(event_rows), 6) if event_rows else None,
+        "direction_sources": sorted({
+            str(row.get("attack_direction_source") or "")
+            for row in event_rows if row.get("attack_direction_source")
+        }),
+        "direction_confidence_counts": dict(Counter(
+            str(row.get("attack_direction_confidence") or "unspecified")
+            for row in event_rows if row.get("direction_known")
+        )),
+        "direction_map_rows": len(direction_map),
+        "coordinate_orientation": coordinate_orientation,
         "unmatched_supported_events_without_frame": unmatched_supported_events,
         "duplicate_360_event_uuids": len(duplicate_frames),
         "context_rows_without_player_id": missing_player_events,
@@ -439,7 +474,11 @@ def extract_contextual_threat(events, frames, match_id="", direction_map=None):
         "threat_involvement_dangerous_receipts": sum(float(r["threat_involvement_dangerous_receipt"] or 0) for r in event_rows),
         "threat_realisation_shots": sum(float(r["threat_realisation_shot"] or 0) for r in event_rows),
         "missing_context_policy": "Missing 360 frames are not imputed as zero; aggregates cover sampled 360-linked events only.",
-        "direction_policy": "Directional and receiving-lane features are withheld unless an explicit match-period-team direction is supplied.",
+        "direction_policy": (
+            "StatsBomb event coordinates use ACTION_EXECUTING_TEAM orientation: +x points toward the opponent goal of the team executing the event. "
+            "The 360 freeze-frame teammate/opponent flags and coordinates are interpreted relative to that event team. "
+            "No global home/away direction map is required; an explicit map may override only when a different coordinate frame is independently established."
+        ),
         "threat_dimensions": {
             "creation": "Passes progressing at least 10 pitch units or ending within 40 units of the attacking goal; attempts and completions reported separately.",
             "involvement_reception": "Ball receipts within 40 pitch units of the attacking goal.",
@@ -469,7 +508,16 @@ def main():
     parser.add_argument("--events-dir", type=Path, required=True)
     parser.add_argument("--three-sixty-dir", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
-    parser.add_argument("--direction-map", type=Path, help="Explicit match, period and team attack-direction CSV")
+    parser.add_argument(
+        "--direction-map", type=Path,
+        help="Optional explicit override map for a separately verified non-StatsBomb coordinate frame",
+    )
+    parser.add_argument(
+        "--coordinate-orientation",
+        choices=["action_executing_team", "requires_direction_map"],
+        default="action_executing_team",
+        help="StatsBomb defaults to action-executing-team coordinates; use requires_direction_map only for a different verified frame",
+    )
     parser.add_argument("--match-id", action="append", dest="match_ids", help="Optional match ID filter; repeat to select multiple matches")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
@@ -491,7 +539,8 @@ def main():
         events = json.loads(event_path.read_text(encoding="utf-8"))
         frames = json.loads(frame_path.read_text(encoding="utf-8"))
         event_rows, player_rows, report = extract_contextual_threat(
-            events, frames, event_path.stem, direction_map=direction_map
+            events, frames, event_path.stem, direction_map=direction_map,
+            coordinate_orientation=args.coordinate_orientation,
         )
         all_events.extend(event_rows)
         all_players.extend(player_rows)
@@ -504,12 +553,22 @@ def main():
         "event_context_rows": len(all_events),
         "player_match_rows": len(all_players),
         "direction_map_rows": len(direction_map),
+        "direction_sources": sorted({
+            source for summary in summaries for source in summary.get("direction_sources", [])
+        }),
+        "direction_confidence_counts": dict(Counter(
+            confidence
+            for summary in summaries
+            for confidence, count in summary.get("direction_confidence_counts", {}).items()
+            for _ in range(count)
+        )),
+        "coordinate_orientation": args.coordinate_orientation,
         "events_with_known_attack_direction": sum(r["events_with_known_attack_direction"] for r in summaries),
         "events_missing_attack_direction": sum(r["events_missing_attack_direction"] for r in summaries),
         "matches": summaries,
         "overall_status": "PASS_STRUCTURAL_ONLY",
         "prediction_validation": "NOT_EVALUATED",
-        "warning": "360 is sampled context, not continuous tracking; directional and receiving-lane features are withheld without an explicit direction map.",
+        "warning": "360 is sampled context, not continuous tracking; directional features use StatsBomb action-executing-team coordinates and are withheld only when the event team or usable frame is missing.",
     }
     (args.out_dir / "contextual_threat_report.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps({
