@@ -296,3 +296,4 @@ The daily FPL ingestion workflow cross-audited Onside `actual_points` against of
 This verifies the Onside actual-points values for the overlapping subset and supports their continued use as an exploratory CoVar input. It does not establish full-population coverage, point-in-time historical vintages, or covariance stability. CoVar remains disabled in `personal_squad`.
 
 Detailed report: `reports/ONSIDE_FPL_ACTUALS_CROSS_AUDIT_2026-11-18.md`.
+Final integrated pipeline run 44357649202 (artifact 14451857683; digest `sha256:45b7d36cb2ea6806d1a10f9d18828bbfefcbb220102c32aa9f3733ae10b5f1e2`) republishes the aggregate audit result and confirms 4,954/4,954 exact matches. It also passes the live-pool general-market and synthetic personal-squad Python–JavaScript parity checks. The Onside source validation is therefore part of the end-to-end FPL ingestion artifact, not just a standalone log.
