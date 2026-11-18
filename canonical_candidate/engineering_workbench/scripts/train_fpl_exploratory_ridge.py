@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train and time-holdout an exploratory ridge baseline on lagged FPL rows (v0.1.1).
+"""Train and time-holdout an exploratory ridge baseline on lagged FPL rows (v0.1.2).
 
 This model is deliberately not wired into either recommendation engine:
 the historical source is structurally lagged but not fully point-in-time verified.
@@ -108,7 +108,9 @@ def aggregate_predictions(rows,points_model,minutes_model):
     result=[]
     for (player_id,gameweek),items in sorted(groups.items(),key=lambda item:(int(item[0][0]),item[0][1])):
         predicted_points=sum(predict(points_model,row) for row in items)
-        predicted_minutes=sum(predict(minutes_model,row) for row in items)
+        # FPL minutes are physically bounded per fixture; constrain each fixture's
+        # estimate before summing DGW forecasts.
+        predicted_minutes=sum(min(90.0,max(0.0,predict(minutes_model,row))) for row in items)
         result.append({
             "fpl_element_id":player_id,
             "gameweek":gameweek,
@@ -190,7 +192,8 @@ def train_and_evaluate(rows):
     minutes_metrics=metrics(predictions,"actual_minutes","predicted_minutes","baseline_last_gw_minutes")
     report={
         "status":"EXPLORATORY_ONLY",
-        "model_version":"cta-fpl-lagged-ridge-v0.1.1",
+        "model_version":"cta-fpl-lagged-ridge-v0.1.2",
+        "minutes_prediction_constraints":{"per_fixture_min":0.0,"per_fixture_max":90.0,"applied_before_gameweek_aggregation":True},
         "model_trained":True,
         "point_in_time_status":"NOT_VERIFIED",
         "training_gameweeks":train_gws,
