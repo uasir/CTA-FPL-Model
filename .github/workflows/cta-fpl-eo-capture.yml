@@ -3,9 +3,9 @@ name: CTA pre-deadline FPL effective ownership capture
 on:
   workflow_dispatch:
   schedule:
-    # FPL deadlines are normally aligned to the hour; run five minutes before
-    # each hour and only proceed when the official deadline is within seven minutes.
-    - cron: "55 * * * *"
+    # Current-season FPL deadlines fall on :00 and :30; check five minutes before both.
+    # The collector still proceeds only when the official deadline is within seven minutes.
+    - cron: "25,55 * * * *"
 
 permissions:
   contents: read
