@@ -11,7 +11,7 @@ CTA-FPL-Model will expose two recommendation products over one shared, versioned
 - `general_market`: recommendations that are useful to any FPL manager and do not depend on a manager's squad.
 - `personal_squad`: recommendations optimized for one manager's actual squad, budget, transfers, chips, formation and preferences.
 
-The first deterministic versions of both engines now exist in Python and JavaScript with cross-language output-parity tests. They are exploratory only and are not production-ready; the shared FPL baseline still uses official ep_next plus a previous-gameweek minutes proxy.
+The first deterministic versions of both engines now exist in Python and JavaScript with cross-language output-parity tests. They are exploratory only and are not production-ready; the shared FPL baseline still uses official ep_next plus latest-completed-gameweek minutes per fixture scaled by the target gameweek's fixture count.
 
 ## 2. Shared forecasting foundation
 
@@ -137,7 +137,7 @@ Do not rebuild the existing engine, replace recovered source lineage, fabricate 
 
 ### Not yet production-ready
 - Official FPL `ep_next` is the current points baseline; it is not a CTA-trained forecast.
-- Expected minutes are proxied by latest completed-gameweek actual minutes.
+- Expected minutes are proxied by latest completed-gameweek minutes per fixture, scaled to the target gameweek fixture count; this is not a trained minutes model.
 - Live post-lock EO capture has not yet been validated.
 - Multi-season, point-in-time historical training data and out-of-sample predictive validation remain incomplete.
 - Multi-transfer optimisation, chip effects, multiweek planning and CoVar utility validation remain future work.
