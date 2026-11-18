@@ -1,6 +1,7 @@
 name: CTA FPL engineering CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
