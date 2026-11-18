@@ -181,3 +181,15 @@ def test_player_forecast_record_requires_core_fields():
     del payload["player_forecasts"][0]["expected_minutes"]
     with pytest.raises(RecommendationContractError, match="expected_minutes"):
         validate_general_market_request(payload)
+
+
+def test_python_contract_rejects_non_numeric_ids_and_unhashable_position():
+    payload = shared()
+    payload["player_forecasts"][0]["fpl_element_id"] = "1"
+    with pytest.raises(RecommendationContractError, match="positive integer"):
+        validate_general_market_request(payload)
+
+    payload = shared()
+    payload["player_forecasts"][0]["position"] = ["MID"]
+    with pytest.raises(RecommendationContractError, match="position is invalid"):
+        validate_general_market_request(payload)
