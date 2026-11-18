@@ -7,6 +7,7 @@ rankings or recommendations while the shared forecast layer is not validated.
 from __future__ import annotations
 
 from collections.abc import Mapping
+import math
 from typing import Any
 
 CONTRACT_VERSION = "1.0.0"
@@ -144,7 +145,9 @@ def validate_personal_squad_request(
         if key in ids:
             raise RecommendationContractError(f"Duplicate squad FPL element ID {key}")
         ids.add(key)
-        if isinstance(purchase_price, bool) or not isinstance(purchase_price, (int, float)):
+        if (isinstance(purchase_price, bool)
+                or not isinstance(purchase_price, (int, float))
+                or not math.isfinite(float(purchase_price))):
             raise RecommendationContractError(
                 f"squad_snapshot[{index}].purchase_price must be numeric"
             )
@@ -154,7 +157,8 @@ def validate_personal_squad_request(
             )
 
     bank = payload["bank"]
-    if isinstance(bank, bool) or not isinstance(bank, (int, float)) or bank < 0:
+    if (isinstance(bank, bool) or not isinstance(bank, (int, float))
+            or not math.isfinite(float(bank)) or bank < 0):
         raise RecommendationContractError("bank must be a non-negative number")
     transfers = payload["free_transfers"]
     if isinstance(transfers, bool) or not isinstance(transfers, int) or transfers < 0:
