@@ -121,7 +121,8 @@
         "required_player_fields": [
           "fpl_element_id",
           "purchase_price"
-        ]
+        ],
+        "purchase_price_rule": "Finite positive FPL purchase price in £m units."
       },
       "additional_context": [
         "chips",
