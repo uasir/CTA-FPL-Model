@@ -152,3 +152,31 @@ test("squad purchase prices must be positive", () => {
     /purchase_price must be positive/,
   );
 });
+
+
+test("personal squad enforces FPL position and team composition", () => {
+  const wrongPositions = personal();
+  wrongPositions.player_forecasts[0].position = "DEF";
+  assert.throws(
+    () => validatePersonalSquadRequest(wrongPositions),
+    /position composition/,
+  );
+
+  const tooManyFromTeam = personal();
+  for (const player of tooManyFromTeam.player_forecasts.slice(0, 4)) {
+    player.team_id = 1;
+  }
+  assert.throws(
+    () => validatePersonalSquadRequest(tooManyFromTeam),
+    /more than 3 players/,
+  );
+});
+
+test("personal squad requires a forecast for every owned player", () => {
+  const payload = personal();
+  payload.player_forecasts.pop();
+  assert.throws(
+    () => validatePersonalSquadRequest(payload),
+    /Missing forecast for owned/,
+  );
+});
