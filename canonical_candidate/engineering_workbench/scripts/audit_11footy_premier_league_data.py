@@ -242,7 +242,8 @@ def main():
         "release": report["source_release"],
         "status": report["status"],
         "seasons": len(report["season_coverage"]),
-        "player_match_rows": report["player_match_statistics"]["rows"],\n        "player_catalogue": report["player_catalogue"],
+        "player_match_rows": report["player_match_statistics"]["rows"],
+        "player_catalogue": report["player_catalogue"],
         "shot_layers": report["shot_layers"],
         "prediction_validation": report["prediction_validation"],
     }, indent=2))
