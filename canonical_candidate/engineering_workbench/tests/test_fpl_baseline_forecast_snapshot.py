@@ -61,6 +61,10 @@ def test_only_verified_post_lock_eo_is_attached():
         "picks_lock_verified": True,
         "gameweek": 12,
         "sample_managers": 100,
+        "cohort": "overall top-10k rank-stratified sample",
+        "rank_cohort_captured_at_utc": "2026-11-28T10:55:00Z",
+        "deadline_time_utc": "2026-11-28T11:00:00Z",
+        "picks_captured_at_utc": "2026-11-28T11:01:00Z",
     }
     snapshot, report = build_snapshot(players(), gameweek_rows(), source_metadata(), eo_rows, eo_report)
     keeper = next(row for row in snapshot["player_forecasts"] if row["fpl_element_id"] == 10)
@@ -89,3 +93,19 @@ def test_requires_source_hashes_for_provenance():
     metadata.pop("bootstrap_sha256")
     with pytest.raises(ValueError, match="SHA-256 hashes"):
         build_snapshot(players(), gameweek_rows(), metadata)
+
+
+
+def test_rejects_eo_without_cohort_and_lock_timestamps():
+    eo_report = {
+        "status": "CAPTURED_POST_DEADLINE_PICKS",
+        "picks_lock_verified": True,
+        "gameweek": 12,
+        "sample_managers": 100,
+    }
+    with pytest.raises(ValueError, match="cohort/lock provenance"):
+        build_snapshot(
+            players(), gameweek_rows(), source_metadata(),
+            [{"gameweek": "12", "fpl_element_id": "10", "effective_ownership_pct": "100"}],
+            eo_report,
+        )
