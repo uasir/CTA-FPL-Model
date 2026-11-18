@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train and time-holdout an exploratory ridge baseline on lagged FPL rows (v0.1.0).
+"""Train and time-holdout an exploratory ridge baseline on lagged FPL rows (v0.1.1).
 
 This model is deliberately not wired into either recommendation engine:
 the historical source is structurally lagged but not fully point-in-time verified.
@@ -190,7 +190,7 @@ def train_and_evaluate(rows):
     minutes_metrics=metrics(predictions,"actual_minutes","predicted_minutes","baseline_last_gw_minutes")
     report={
         "status":"EXPLORATORY_ONLY",
-        "model_version":"cta-fpl-lagged-ridge-v0.1.0",
+        "model_version":"cta-fpl-lagged-ridge-v0.1.1",
         "model_trained":True,
         "point_in_time_status":"NOT_VERIFIED",
         "training_gameweeks":train_gws,
