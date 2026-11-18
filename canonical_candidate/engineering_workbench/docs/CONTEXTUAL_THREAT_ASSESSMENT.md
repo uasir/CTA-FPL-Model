@@ -183,18 +183,27 @@ Duplicate event-frame UUIDs are reported; only the first frame is used.
 
 ### Attack direction and receiving-option safeguards
 
-The earlier extractor treated the right-hand goal as the attacking goal for
-every team and period. That assumption is not valid for a shared match coordinate
-frame and could invert goal-side, forward-player and passing-lane features.
+The original global-direction assumption was wrong for StatsBomb. StatsBomb
+event coordinates use **ACTION_EXECUTING_TEAM** orientation: the team executing
+the event is oriented toward the opponent goal at positive x. The 360 freeze-frame
+teammate/opponent flags are also relative to the event team. The StatsBomb
+adapter in [Kloppy's coordinate-orientation documentation](https://kloppy.pysport.org/user-guide/concepts/coordinates/)
+identifies this as `ACTION_EXECUTING_TEAM`.
 
-The extractor now accepts an explicit direction_map.csv keyed by match,
-period and team ID (or team name). It does not infer or default a direction.
-When no verified direction row exists, it withholds goal-relative, forward-lane,
-progression, dangerous-receipt and receiving-option features rather than
-publishing a misleading zero or a directionally inverted value. The repository
-direction map currently contains only its header, so the real-match pilot will
-report these directional features as unavailable until verified directions are
-added.
+The extractor therefore uses `attacks_right=True` for event-relative StatsBomb
+features when the event team is present. A per-match home/away direction map is
+not required. An explicit direction-map row remains available only as an override
+when a different coordinate frame has been independently established.
+
+This convention has an important boundary: raw coordinates from different
+acting teams are not a shared global home/away pitch frame. Do not compare their
+x positions directly across teams. Convert to a common match orientation first
+when performing cross-team spatial comparisons. For player-level attacking
+threat, event-relative coordinates are the appropriate frame.
+
+Directional features are withheld only when the event team or usable 360 frame
+is missing, or when a caller explicitly selects `requires_direction_map` for
+a source whose coordinate orientation is unknown.
 
 Receiving options are assessed only among visible teammates ahead of the actor
 and within 35 pitch units. A lane is considered blocked when a visible defender
@@ -202,6 +211,7 @@ occupies the actor-to-receiver corridor; receiver pressure is estimated from
 visible opponent distance to the receiver. These are observable-frame
 opportunity indicators, not proof that the entire pitch is open or that a pass
 was actually available to the player.
+
 
 ## Threat dimensions and non-shot opportunities
 
@@ -269,3 +279,37 @@ receiving option or every attacking sequence.
 PASS_STRUCTURAL_ONLY means the extractor completed its data and geometry checks.
 It does not mean the feature predicts points. The extractor's report therefore
 sets prediction_validation to NOT_EVALUATED.
+
+### Verified integration state — 2026-11-18
+
+- **StatsBomb 360:** The real Bundesliga pilot produced 2,568 usable contextual
+  rows from 3,021 supported events (85.0% frame coverage), with 31 player-match
+  aggregates. All 2,568 rows had known attack direction using the
+  ACTION_EXECUTING_TEAM source convention; no global direction map was needed.
+  The sample contains 363 threat-creation pass attempts (234 completed), 249
+  progressive pass attempts (157 completed), 76 progressive carries, 125
+  dangerous receipts and 24 shots (3.312 xG, four goals).
+- **Receiving opportunities:** The 2,568 sampled frames contain 7,124
+  event-frame option observations, including 2,645 open and 368 dangerous-open
+  observations. These are repeated observations, not unique opportunities.
+  After deduplicating at team-possession level using the maximum simultaneous
+  options per possession, the pilot records 525 open-option peaks across 188
+  possessions and 124 dangerous-open peaks across 81 possessions. All 200
+  possessions with blocked options are counted using the same peak rule.
+  Possession IDs were available for every usable event row. The player-match
+  layer uses actor-possession peaks rather than summing repeated frames.
+  These are sampled-event measures, not full-match totals.
+- The direction, geometry and possession-deduplication implementation is
+  structurally validated, not points validated.
+- **11footy/FPL:** 100 of 100 completed 2026/27 matches reconcile to official
+  FPL fixtures; 4,000 player-match rows are available. Of 490 identity
+  candidates, 340 have exact normalized name/team/birth-date evidence, and 68
+  also show exact team/minutes/goals/assists consistency across at least three
+  overlapping matches. No candidate team conflicts were observed. All remain
+  pending; the verified-only FPL panel correctly contains zero rows until the
+  crosswalk is approved.
+- **Wyscout:** The 2017/18 EPL audit covers 643,150 events across 380 matches.
+  It remains a historical event source without an FPL identity crosswalk.
+- **Prediction status:** No CTA feature has yet demonstrated incremental FPL
+  points prediction value. Keep all contextual features provisional until
+  verified identity joins and chronological out-of-sample evaluation pass.
