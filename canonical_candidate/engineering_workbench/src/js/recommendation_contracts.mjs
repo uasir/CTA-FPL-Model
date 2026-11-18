@@ -99,6 +99,11 @@ function validateShared(payload) {
         `player_forecasts[${index}] is missing fpl_element_id`,
       );
     }
+    if (!Number.isInteger(id) || id < 1) {
+      throw new RecommendationContractError(
+        `player_forecasts[${index}].fpl_element_id must be a positive integer`,
+      );
+    }
     const key = String(id);
     if (seen.has(key)) {
       throw new RecommendationContractError(
@@ -106,6 +111,58 @@ function validateShared(payload) {
       );
     }
     seen.add(key);
+    for (const field of ["expected_points", "expected_minutes", "price"]) {
+      if (typeof player[field] !== "number" || !Number.isFinite(player[field])) {
+        throw new RecommendationContractError(
+          `player_forecasts[${index}].${field} must be a finite number`,
+        );
+      }
+    }
+    if (player.expected_minutes < 0) {
+      throw new RecommendationContractError(
+        `player_forecasts[${index}].expected_minutes cannot be negative`,
+      );
+    }
+    if (player.price <= 0) {
+      throw new RecommendationContractError(
+        `player_forecasts[${index}].price must be positive`,
+      );
+    }
+    if (!Number.isInteger(player.team_id) || player.team_id < 1) {
+      throw new RecommendationContractError(
+        `player_forecasts[${index}].team_id must be a positive integer`,
+      );
+    }
+    if (!["GKP", "DEF", "MID", "FWD"].includes(player.position)) {
+      throw new RecommendationContractError(
+        `player_forecasts[${index}].position is invalid`,
+      );
+    }
+    if (Object.hasOwn(player, "effective_ownership_pct")
+        && (typeof player.effective_ownership_pct !== "number"
+          || !Number.isFinite(player.effective_ownership_pct)
+          || player.effective_ownership_pct < 0)) {
+      throw new RecommendationContractError(
+        `player_forecasts[${index}].effective_ownership_pct must be non-negative`,
+      );
+    }
+    if (Object.hasOwn(player, "points_variance")
+        && (typeof player.points_variance !== "number"
+          || !Number.isFinite(player.points_variance)
+          || player.points_variance < 0)) {
+      throw new RecommendationContractError(
+        `player_forecasts[${index}].points_variance must be non-negative`,
+      );
+    }
+    if (Object.hasOwn(player, "availability_probability")
+        && (typeof player.availability_probability !== "number"
+          || !Number.isFinite(player.availability_probability)
+          || player.availability_probability < 0
+          || player.availability_probability > 1)) {
+      throw new RecommendationContractError(
+        `player_forecasts[${index}].availability_probability must be between 0 and 1`,
+      );
+    }
   });
 }
 
