@@ -52,3 +52,13 @@ Historical source-vintage remains `NOT_VERIFIED`; exact retrospective points equ
 ## Decision
 
 Retain the Onside source for exploratory covariance research with exact-point validation on the overlapping subset. Keep CoVar disabled in `personal_squad` until longer-window stability and out-of-sample evidence improve.
+
+## Final integrated pipeline verification
+
+A second full pipeline run included the audit in the published aggregate summary:
+
+- Run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44357649202
+- Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44357649202/artifacts/14451857683
+- Artifact digest: `sha256:45b7d36cb2ea6806d1a10f9d18828bbfefcbb220102c32aa9f3733ae10b5f1e2`.
+
+The aggregate artifact confirms `PASS_EXACT_MATCH`, 4,954/4,954 exact rows, zero mismatches, and includes the Onside source SHA and attribution. The same run also passed official FPL ingestion, Opta team/fixture reconciliation, the 6,562-row historical sidecar, general-market parity across 672 players, and personal-squad parity across the same pool using a synthetic 15-player roster (2,914 legal transfer candidates). CoVar was not used.
