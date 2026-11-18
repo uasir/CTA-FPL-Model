@@ -114,3 +114,16 @@ def test_general_market_rejects_personal_context_nested_in_filters_or_forecasts(
     payload["player_forecasts"][0]["personal_risk_profile"] = "aggressive"
     with pytest.raises(RecommendationContractError, match="must not receive personal fields"):
         validate_general_market_request(payload)
+
+
+@pytest.mark.parametrize("bad_value", [float("nan"), float("inf"), float("-inf")])
+def test_personal_squad_rejects_non_finite_money_values(bad_value):
+    payload = personal()
+    payload["bank"] = bad_value
+    with pytest.raises(RecommendationContractError, match="bank must be"):
+        validate_personal_squad_request(payload)
+
+    payload = personal()
+    payload["squad_snapshot"][0]["purchase_price"] = bad_value
+    with pytest.raises(RecommendationContractError, match="purchase_price"):
+        validate_personal_squad_request(payload)
