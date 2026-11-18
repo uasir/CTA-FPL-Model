@@ -532,12 +532,20 @@ def main():
         "event_context_rows": len(all_events),
         "player_match_rows": len(all_players),
         "direction_map_rows": len(direction_map),
+        "direction_sources": sorted({
+            str(value.get("direction_source") or "")
+            for value in direction_map.values() if isinstance(value, dict) and value.get("direction_source")
+        }),
+        "direction_confidence_counts": dict(Counter(
+            str(value.get("confidence_level") or "unspecified")
+            for value in direction_map.values() if isinstance(value, dict)
+        )),
         "events_with_known_attack_direction": sum(r["events_with_known_attack_direction"] for r in summaries),
         "events_missing_attack_direction": sum(r["events_missing_attack_direction"] for r in summaries),
         "matches": summaries,
         "overall_status": "PASS_STRUCTURAL_ONLY",
         "prediction_validation": "NOT_EVALUATED",
-        "warning": "360 is sampled context, not continuous tracking; directional and receiving-lane features are withheld without an explicit direction map.",
+        "warning": "360 is sampled context, not continuous tracking; directional and receiving-lane features are withheld for match-period-team keys without a supported direction record.",
     }
     (args.out_dir / "contextual_threat_report.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps({
