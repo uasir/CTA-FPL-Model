@@ -143,7 +143,7 @@ jobs:
             --fpl-players run_artifacts/fpl_official/fpl_players.csv \
             --fpl-player-fixture run_artifacts/fpl_official/fpl_player_fixture.csv \
             --candidates run_artifacts/11footy_fpl/identity_candidates.csv \
-            --crosswalk canonical_candidate/data/11footy_fpl_identity_crosswalk.csv \
+            --crosswalk run_artifacts/11footy_fpl/crosswalk_validation/verified_provider_fpl_crosswalk.csv \
             --season "$FPL_SEASON" \
             --competition-id 1 \
             --out-dir run_artifacts/11footy_fpl/output
