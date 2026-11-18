@@ -21,13 +21,13 @@ The official FPL ingestion workflow was previously scheduled daily at 05:30 UTC 
 
 Each run records fetch time and SHA-256 hashes, and uploads normalized rows plus the raw bootstrap and fixture feeds. The current player snapshot reports official `ep_next` coverage explicitly. The artifact retention has now been extended from 30 to **90 days**.
 
-The workflow is now gated and will not fetch FPL data unless the repository Actions variable `FPL_DATA_PERMISSION_CONFIRMED=true` is set after written permission is obtained. Before the gate, the daily workflow was useful for capturing snapshots before some deadlines but did not guarantee an immediate pre-deadline snapshot. GitHub Actions schedules are best-effort. A 90-day artifact window is not a durable full-season archive.
+Following the user's explicit engineering instruction, PR #9 removed the `FPL_DATA_PERMISSION_CONFIRMED` execution gate on 2026-11-18. Official FPL ingestion is now scheduled daily at 05:30 UTC and has completed a successful live run (Actions run 44324401400). The job uses low concurrency and records source timestamps and SHA-256 hashes. GitHub Actions schedules remain best-effort; a 90-day artifact window is not a durable full-season archive.
 
 ### Storage decision
 
-The CTA repository is public. Do not commit raw FPL API snapshots or user-specific manager picks into its public Git history as a workaround for artifact expiry. The official FPL terms prohibit automated access/extraction and reserve rights in Game data; written permission is required before automated API collection resumes.
+The CTA repository is public, and GitHub Actions artifacts from it are not private. Do not commit user-specific manager picks, personal squad selections, or account identifiers into public Git history or artifacts. The current EO collector is designed to publish only aggregated EO rows plus a sample hash/report, not raw manager IDs or individual picks. Official bootstrap, fixture and player-history feeds are public-source snapshots but still need careful provenance and retention handling.
 
-A durable archive needs a private user-controlled storage destination, but private storage is not a substitute for data permission. First obtain written permission covering automated collection, private archival, research/model development and publication scope. Then create a private repository or private cloud folder and configure the archive workflow. Until both permission and destination exist, no automated FPL snapshots should be collected and no full-season point-in-time archive is claimed.
+The official FPL terms raise a separate data-use question: API reachability and private/non-commercial intent do not themselves establish a licence. That issue is recorded as a caveat, not an engineering execution gate; it does not block the user's private development workflow. Continue with low request rates, preserve source/provenance records, and treat a concrete technical denial, throttling response or access failure as a technical blocker. A durable archive still needs a private user-controlled storage destination because public Actions artifacts expire after 90 days. Private storage is a privacy/retention design decision, not a substitute for rights clearance or a reason to disable the existing workflow.
 
 ### Backtest policy
 
@@ -83,7 +83,7 @@ The output is explicitly labelled `SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS`. It does n
 
 A first-party lock-safe capture workflow is implemented at `.github/workflows/cta-fpl-eo-capture.yml`, with collector `scripts/capture_fpl_ranked_manager_picks.py`.
 
-It is scheduled at minutes 25 and 55 of each hour to cover observed :30 and :00 deadlines; it only proceeds when the official next deadline is within seven minutes. The workflow is currently gated and will not make requests until written FPL data permission is confirmed. It:
+It is scheduled at minutes 5 and 35 of each hour to begin about 25 minutes before observed :30 and :00 deadlines. The collector accepts a 35-minute pre-deadline window to absorb best-effort scheduler delay; the job timeout is 45 minutes. It:
 - samples 100 managers across rank strata within the pre-deadline overall top 10,000;
 - records the rank cohort before the deadline and refuses to proceed if the standings fetch crosses the deadline;
 - waits until 60 seconds after the official deadline;
@@ -93,7 +93,7 @@ It is scheduled at minutes 25 and 55 of each hour to cover observed :30 and :00 
 - calculates EO using the tested estimator;
 - stores only aggregated EO rows and a hash/summary of the sample, not raw manager IDs or individual picks.
 
-The collector's mocked timing/API tests pass, but it has **not completed a live near-deadline capture**. Its automated job is now gated until written permission for automated FPL data collection is obtained. Once permission is received and the repository variable is enabled, the post-lock picks endpoint must return locked gameweek selections for the sample to be accepted; it must never fall back to provisional picks.
+The collector's mocked timing/API tests pass. Its first scheduled live job (Actions run 44342865582) completed successfully but returned `SKIPPED_OUTSIDE_DEADLINE_WINDOW`: it started about 4,015.77 minutes before the GW11 deadline (2026-11-21 11:00 UTC). Its 324-byte artifact contains only the skip report; no cohort, picks or EO rows were captured. The new earlier schedule and wider 35-minute pre-deadline window are intended to improve capture reliability. A successful live capture still requires the rank cohort to be frozen before deadline, followed by post-deadline picks after the 60-second lock grace and a fresh bootstrap confirmation. It must never fall back to provisional picks.
 
 Do not define the cohort using post-gameweek ranks; that would introduce lookahead bias. Do not treat a top-10k sample as whole-game EO. The current collector samples top 10k only; top-100k and broader-field samples remain future work.
 
@@ -166,10 +166,10 @@ A separate reproducible workflow uses only the provider-stated CC BY 4.0 ledger'
 
 | Blocker | Current evidence | Gate to clear |
 |---|---|---|
-| Automated FPL API access | Official FPL terms prohibit automated systems accessing the Game and extracting information; public API reachability is not a data licence | Written permission for the intended automation and storage scope; then set `FPL_DATA_PERMISSION_CONFIRMED=true` |
-| Point-in-time FPL vintages | Historical snapshots exist, but automated jobs are gated pending written permission | Written FPL permission + private durable storage + deadline-aware snapshots |
-| Global ownership | Official history `selected` + event `ranked_count` | Pipeline run verifies full-roster coverage and values |
-| Rank-tier EO | Lock-safe collector tested; standard EO formula corrected; no live capture | Written FPL permission + deadline-locked manager-pick sample or licensed provider |
+| Automated FPL API access | Scheduled official API ingestion completed successfully on 2026-11-18; no technical denial observed. Official terms/data-use interpretation remains a separate caveat. | No permission-variable execution gate. Keep request rate low, preserve provenance, monitor for concrete technical failures, and obtain legal advice if use scope expands. |
+| Point-in-time FPL vintages | Current snapshot captured 2026-11-18 14:28 UTC; historical feature table is structurally lagged but source-vintage status remains `NOT_VERIFIED`. Artifacts expire after 90 days. | Capture and privately retain pre-deadline snapshots over time; prove immutable source vintages before claiming point-in-time backtests. |
+| Global ownership | Official per-player history `selected` and event `ranked_count` are ingested for all 672 players; coverage and row reconciliation passed. | Add validation for denominator completeness and persist deadline-vintage snapshots. |
+| Rank-tier EO | Formula and collector are tested; first live scheduled attempt skipped outside the deadline window, so no locked EO sample exists yet. | Obtain a successful pre-deadline cohort and post-lock manager-pick sample, then validate weighted EO and sample uncertainty. |
 | Event/FPL season overlap | Wyscout 2017/18 candidate | Reconcile official data and secure FPL target rights |
 | Opta/PulseLive player-match feed | No per-player-match files found in inspected tree | Provider documentation, actual files, and explicit data rights |
 | Historical target rights | Onside provider states CC BY 4.0; Vaastav 2017/18 archive rights and underlying FPL rights remain unresolved | Obtain written permission or another source with a cleared rights chain before FPL target ingestion |
@@ -202,3 +202,16 @@ https://github.com/uasir/CTA-FPL-Model/actions/runs/44254087867
 - The snapshot was 76.164 hours before deadline and correctly labelled `STALE_OVER_24H`; recommendations remain exploratory.
 - No EO was attached; no CoVar was used.
 - Historical lagged training remains `NOT_VERIFIED` for point-in-time reconstruction.
+
+### Latest live FPL run — 2026-11-18
+
+Official ingestion Actions run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44324401400. Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44324401400/artifacts/14436735723.
+
+- 672 players, 380 fixtures, 6,562 player-fixture rows.
+- 672/672 player-summary requests succeeded; no unknown player IDs, orphan fixtures, minute mismatches or total-points mismatches.
+- All 672 players had official `ep_next` and `ep_this`.
+- Python/JavaScript parity passed for both `general_market` and the synthetic 15-player `personal_squad` scale run across the same 672-player forecast pool.
+- The baseline forecast is still exploratory: official `ep_next` is not a CTA-trained forecast, minutes are a proxy, EO coverage is zero, and point-in-time historical status is not verified.
+- The exploratory ridge model remains `DO_NOT_PROMOTE`; its points MAE was 1.2016 versus 1.1855 for the baseline. CoVar remains disabled due to weak split-window stability.
+
+Original source archive recovery and SHA-256 verification are documented in `reports/INTEGRATION_PROGRESS_2026-11-18.md`, section 11.
