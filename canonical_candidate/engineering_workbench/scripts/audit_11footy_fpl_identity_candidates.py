@@ -169,10 +169,34 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
                 verification_status = "CANDIDATE_REQUIRES_REVIEW"
                 match_method = "EXACT_NAME_AND_TEAM_BIRTH_DATE_UNAVAILABLE"
             candidate_rows.append({
+                "season": "2026/27",
+                "source_release": "11footy-2026-11-10",
                 "fpl_element_id": row["fpl_element_id"],
+                "fpl_player_code": row["fpl_code"],
+                "fpl_player_name": row["fpl_name"],
+                "fpl_team_name": row["fpl_team"],
+                "fpl_birth_date": fpl_dob,
                 "provider_player_id": provider_player["provider_player_id"],
-                "match_method": match_method,
-                "verification_status": verification_status,
+                "provider_player_name": provider_player["provider_name"],
+                "provider_team_name": provider_player["provider_team"],
+                "provider_birth_date": provider_dob,
+                "match_method": (
+                    "exact_name_team_birth_date" if provider_dob and fpl_dob
+                    else "exact_name_team_birth_date_missing"
+                ),
+                "confidence_level": (
+                    "high" if provider_dob and fpl_dob else "review_required"
+                ),
+                "verification_status": "pending",
+                "verification_reason": (
+                    "Exact normalized full name, team and matching birth date; "
+                    "awaiting independent identity review"
+                    if provider_dob and fpl_dob
+                    else "Exact normalized full name and team; one or both birth dates unavailable"
+                ),
+                "evidence_source": "11footy player catalogue and official FPL bootstrap-static",
+                "provider_release_url": "https://github.com/fm-devlab/11footy-dataset/releases/tag/11footy-2026-11-10",
+                "fpl_source_url": "https://fantasy.premierleague.com/api/bootstrap-static/",
             })
         elif len(same_name) == 1 and not same_name_team and not same_name[0]["norm_team"]:
             unique_name_only += 1
@@ -220,6 +244,8 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
         "candidate_rows_remaining": len(candidate_rows),
         "matching_policy": "Exact normalized full name plus normalized current team; when both birth dates exist they must match. No fuzzy matching.",
         "verification_status": "CANDIDATES_ONLY_NOT_VERIFIED",
+        "candidate_export": "identity_candidates.csv",
+        "candidate_policy": "All exported rows remain pending; high confidence is an automated evidence grade, not human verification.",
         "birth_date_policy": "Birth-date mismatches are excluded; missing birth dates remain review candidates.",
         "prediction_validation": "NOT_EVALUATED",
     }, candidate_rows
@@ -249,7 +275,14 @@ def main():
         import csv
         writer = csv.DictWriter(
             handle,
-            fieldnames=["fpl_element_id", "provider_player_id", "match_method", "verification_status"],
+            fieldnames=[
+                "season", "source_release", "fpl_element_id", "fpl_player_code",
+                "fpl_player_name", "fpl_team_name", "fpl_birth_date",
+                "provider_player_id", "provider_player_name", "provider_team_name",
+                "provider_birth_date", "match_method", "confidence_level",
+                "verification_status", "verification_reason", "evidence_source",
+                "provider_release_url", "fpl_source_url",
+            ],
         )
         writer.writeheader()
         writer.writerows(candidate_rows)
