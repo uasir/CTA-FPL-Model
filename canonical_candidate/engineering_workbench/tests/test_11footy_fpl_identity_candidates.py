@@ -132,7 +132,7 @@ def test_source_hash_is_stable_and_matches_sha256(tmp_path):
     source = tmp_path / "source.db.xz"
     source.write_bytes(b"verified-source-bytes")
 
-    assert _sha256_file(source) == "8f4c7f1e7b1e1b3f1f1d6c7a4d3e3c9b0e0d1c0a1b1b4d4d4c1d1e0f0a0b0c0d"
+    assert _sha256_file(source) == "ba0328929fe82207f3f29c962cd6c1da32ef2bcb7fb2f5eebad6c62542be799a"
 
 
 def test_name_and_team_normalization_handles_accents_and_aliases():
