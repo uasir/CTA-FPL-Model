@@ -49,6 +49,7 @@ def test_general_market_is_valid_without_any_squad_context():
         "squad", "squad_snapshot", "bank", "free_transfers", "chips",
         "formation", "starting_xi", "bench_order", "manager_rank",
         "rank_target", "personal_risk_profile", "personal_preferences",
+        "manager_id", "manager_entry_id", "team_id_for_manager",
     ],
 )
 def test_general_market_rejects_personal_context(field):
@@ -101,3 +102,15 @@ def test_personal_squad_requires_purchase_price_per_player():
     payload["squad_snapshot"][0].pop("purchase_price")
     with pytest.raises(RecommendationContractError, match="purchase_price"):
         validate_personal_squad_request(payload)
+
+
+def test_general_market_rejects_personal_context_nested_in_filters_or_forecasts():
+    payload = shared()
+    payload["filters"] = {"position": "MID", "squad_snapshot": [{"fpl_element_id": 1}]}
+    with pytest.raises(RecommendationContractError, match="must not receive personal fields"):
+        validate_general_market_request(payload)
+
+    payload = shared()
+    payload["player_forecasts"][0]["personal_risk_profile"] = "aggressive"
+    with pytest.raises(RecommendationContractError, match="must not receive personal fields"):
+        validate_general_market_request(payload)
