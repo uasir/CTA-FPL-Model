@@ -225,7 +225,7 @@ export function validatePersonalSquadRequest(payload) {
         || !Number.isFinite(player.purchase_price)
         || player.purchase_price <= 0) {
       throw new RecommendationContractError(
-        `squad_snapshot[${index}].purchase_price must be a non-negative number`,
+        `squad_snapshot[${index}].purchase_price must be positive`,
       );
     }
   });
