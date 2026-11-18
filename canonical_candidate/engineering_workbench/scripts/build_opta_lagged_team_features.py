@@ -14,6 +14,7 @@ import json
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 PROVIDER_COMMIT = "f0f3d40f803c69bc7fac48d0748b49175e2d08ce"
 PROVIDER_REPO = "imadeddine-belkat/Premier-League-Stats"
@@ -64,12 +65,12 @@ def as_float(value):
         return None
 
 
-def parse_time(value: str) -> datetime:
+def parse_time(value: str, naive_timezone=timezone.utc) -> datetime:
     if not value:
         raise ValueError("Missing kickoff timestamp; refusing a non-time-safe join")
     parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=naive_timezone)
     return parsed.astimezone(timezone.utc)
 
 
@@ -77,7 +78,9 @@ def build_crosswalk(elements: list[dict], teams: list[dict], provider_players: l
                     source_commit: str = PROVIDER_COMMIT, verified_at: str | None = None):
     """Exact provider playerId == FPL code plus team-ID verification."""
     verified_at = verified_at or datetime.now(timezone.utc).isoformat()
-    team_names = {str(t.get("id")): t.get("name", "") for t in teams}
+    team_by_id = {str(t.get("id")): t for t in teams}
+    team_names = {key: value.get("name", "") for key, value in team_by_id.items()}
+    team_codes = {key: str(value.get("code", "")) for key, value in team_by_id.items()}
     fpl_by_code = defaultdict(list)
     for element in elements:
         fpl_by_code[str(element.get("code", ""))].append(element)
@@ -100,17 +103,19 @@ def build_crosswalk(elements: list[dict], teams: list[dict], provider_players: l
             status = "ambiguous"
             errors.append({"provider_player_id": player_id, "reason": "duplicate_fpl_numeric_code",
                            "provider_rows": len(provider_matches), "fpl_rows": len(candidates)})
-        elif str(provider.get("team_id", "")) != str(candidates[0].get("team", "")):
+        elif str(provider.get("team_id", "")) != team_codes.get(str(candidates[0].get("team", "")), ""):
             status = "ambiguous"
             errors.append({"provider_player_id": player_id, "reason": "team_id_mismatch",
                            "provider_team_id": provider.get("team_id"),
-                           "fpl_team_id": candidates[0].get("team")})
+                           "fpl_team_id": candidates[0].get("team"),
+                           "fpl_team_code": team_codes.get(str(candidates[0].get("team", "")))})
         else:
             status = "verified"
             fpl = candidates[0]
             verified += 1
         team_id = str(provider.get("team_id", ""))
         fpl_team_id = str(fpl.get("team", "")) if fpl else ""
+        fpl_team_code = team_codes.get(fpl_team_id, "") if fpl else ""
         rows.append({
             "season": str(provider.get("season", "2026-27")),
             "competition_id": "PL",
@@ -124,6 +129,7 @@ def build_crosswalk(elements: list[dict], teams: list[dict], provider_players: l
             "provider_team_id": team_id,
             "provider_team_name": provider.get("team_name", ""),
             "fpl_team_id": fpl_team_id,
+            "fpl_team_code": fpl_team_code,
             "fpl_team_name": team_names.get(fpl_team_id, ""),
             "verification_status": status,
             "match_method": "provider_id_crosswalk",
@@ -155,12 +161,13 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
     """Produce fixture-team and FPL player-fixture rows using strictly prior team matches."""
     elements = bootstrap.get("elements", [])
     teams = {str(t["id"]): t.get("name", "") for t in bootstrap.get("teams", [])}
+    team_codes = {str(t["id"]): str(t.get("code", "")) for t in bootstrap.get("teams", [])}
     metrics = [m for m in METRIC_CANDIDATES if any(m in row for row in provider_rows)]
     source = []
     for row in provider_rows:
         if str(row.get("season", season)) != season:
             continue
-        kickoff = parse_time(row.get("kickoff", ""))
+        kickoff = parse_time(row.get("kickoff", ""), ZoneInfo("Europe/London"))
         team_id = str(row.get("team_id", ""))
         if not team_id:
             continue
@@ -175,26 +182,29 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
     excluded_same_or_future = 0
     for fixture in fixtures:
         fixture_id = str(fixture.get("id", ""))
+        provider_match_id = str(fixture.get("code", ""))
         kickoff_value = fixture.get("kickoff_time", "")
         target_kickoff = parse_time(kickoff_value) if kickoff_value else None
         event = fixture.get("event")
         sides = (("home", str(fixture.get("team_h", ""))),
                  ("away", str(fixture.get("team_a", ""))))
         for side, team_id in sides:
-            team_source = by_team.get(team_id, [])
+            provider_team_id = team_codes.get(team_id, "")
+            team_source = by_team.get(provider_team_id, [])
             prior = ([r for r in team_source
-                      if r["_kickoff"] < target_kickoff and str(r.get("matchId", "")) != fixture_id]
+                      if r["_kickoff"] < target_kickoff and str(r.get("matchId", "")) != provider_match_id]
                      if target_kickoff else [])
             if target_kickoff:
                 excluded_same_or_future += sum(
                     1 for r in team_source
-                    if r["_kickoff"] >= target_kickoff or str(r.get("matchId", "")) == fixture_id
+                    if r["_kickoff"] >= target_kickoff or str(r.get("matchId", "")) == provider_match_id
                 )
             prior = prior[-max_history:]
             row = {
                 "season": season, "fixture_id": fixture_id, "gameweek": event or "",
                 "kickoff_time": target_kickoff.isoformat() if target_kickoff else "",
-                "side": side, "team_id": team_id, "team_name": teams.get(team_id, ""),
+                "side": side, "team_id": team_id, "provider_team_id": provider_team_id,
+                "provider_match_id": provider_match_id, "team_name": teams.get(team_id, ""),
                 "opta_prior_matches_count": len(prior),
                 "features_as_of": target_kickoff.isoformat() if target_kickoff else "",
             }
@@ -230,7 +240,7 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
         raise ValueError("Duplicate fixture-team keys")
     if len(player_keys) != len(set(player_keys)):
         raise ValueError("Duplicate player-fixture keys")
-    fixture_ids = {str(f.get("id", "")) for f in fixtures}
+    fixture_ids = {str(f.get("code", "")) for f in fixtures}
     match_teams = defaultdict(set)
     for row in source:
         match_teams[str(row.get("matchId", ""))].add(row["_team_id"])
@@ -242,11 +252,13 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
         "team_fixture_rows": len(team_output), "player_fixture_rows": len(player_output),
         "provider_team_match_rows": len(source), "provider_unique_match_ids": len(provider_match_ids),
         "provider_match_ids_in_fpl_fixture_list": len(provider_match_ids & fixture_ids),
-        "provider_match_ids_not_in_fpl_fixture_list": len(provider_match_ids - fixture_ids),
+        "provider_match_ids_not_in_fpl_fixture_list": len(provider_match_ids - {str(f.get("code", "")) for f in fixtures}),
         "provider_matches_with_team_count_not_equal_to_two": malformed_match_ids,
         "provider_team_ids_not_in_fpl_bootstrap": sorted(
-            set(by_team) - set(teams)
+            set(by_team) - set(team_codes.values())
         ),
+        "provider_kickoff_timezone_for_naive_values": "Europe/London",
+        "fpl_kickoff_timezone": "UTC",
         "metrics_used": metrics,
         "max_prior_matches": max_history,
         "same_or_future_rows_excluded": excluded_same_or_future,
