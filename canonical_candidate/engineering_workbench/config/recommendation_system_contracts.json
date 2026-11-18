@@ -122,7 +122,15 @@
           "fpl_element_id",
           "purchase_price"
         ],
-        "purchase_price_rule": "Finite positive FPL purchase price in £m units."
+        "purchase_price_rule": "Finite positive FPL purchase price in £m units.",
+        "composition": {
+          "GKP": 2,
+          "DEF": 5,
+          "MID": 5,
+          "FWD": 3,
+          "max_players_per_team": 3,
+          "policy": "Validate composition using the position and team_id from the shared forecast records; every owned player must have a forecast record."
+        }
       },
       "additional_context": [
         "chips",
