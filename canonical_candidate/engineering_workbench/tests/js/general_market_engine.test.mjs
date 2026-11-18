@@ -100,3 +100,12 @@ test("EO deadline must match the forecast target deadline", () => {
     /does not match the forecast snapshot deadline/,
   );
 });
+
+
+test("unverified point-in-time data cannot be labelled validated", () => {
+  const payload = request();
+  payload.forecast_quality.validation_status = "VALIDATED";
+  payload.forecast_quality.point_in_time_status = "NOT_VERIFIED";
+  const result = recommendGeneralMarket(payload);
+  assert.equal(result.recommendation_status, "EXPLORATORY_ONLY");
+});
