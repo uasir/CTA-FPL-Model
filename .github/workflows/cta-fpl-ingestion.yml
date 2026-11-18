@@ -10,6 +10,8 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py"
       - "canonical_candidate/engineering_workbench/scripts/general_market_engine.py"
       - "canonical_candidate/engineering_workbench/scripts/run_fpl_general_market_baseline.py"
+      - "canonical_candidate/engineering_workbench/scripts/personal_squad_engine.py"
+      - "canonical_candidate/engineering_workbench/scripts/run_fpl_personal_squad_scale_smoke_test.py"
   schedule:
     - cron: "30 5 * * *"
 permissions:
@@ -47,7 +49,8 @@ jobs:
             tests/test_fpl_covariance.py \
             tests/test_fpl_effective_ownership.py \
             tests/test_fpl_baseline_forecast_snapshot.py \
-            tests/test_fpl_general_market_baseline.py
+            tests/test_fpl_general_market_baseline.py \
+            tests/test_fpl_personal_squad_scale_smoke_test.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -88,6 +91,12 @@ jobs:
       - name: Run general-market engine on official FPL baseline
         run: |
           python canonical_candidate/engineering_workbench/scripts/run_fpl_general_market_baseline.py \
+            --snapshot run_artifacts/fpl_official/fpl_baseline_forecast_snapshot.json \
+            --out-dir run_artifacts/fpl_official
+
+      - name: Run personal-squad engine scale smoke test on official FPL pool
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/run_fpl_personal_squad_scale_smoke_test.py \
             --snapshot run_artifacts/fpl_official/fpl_baseline_forecast_snapshot.json \
             --out-dir run_artifacts/fpl_official
 
