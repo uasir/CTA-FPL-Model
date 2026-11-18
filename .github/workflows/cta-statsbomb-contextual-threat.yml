@@ -47,6 +47,7 @@ jobs:
         run: |
           python scripts/infer_statsbomb_attack_directions.py \
             --events ../data/events/3895320.json \
+            --three-sixty ../data/three-sixty/3895320.json \
             --match-id 3895320 \
             --out-dir ../../run_artifacts/statsbomb_contextual_threat/direction
 
