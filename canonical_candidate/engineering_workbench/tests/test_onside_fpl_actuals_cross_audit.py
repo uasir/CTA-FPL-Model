@@ -54,7 +54,7 @@ def test_duplicate_onside_player_gameweek_is_rejected():
 
 
 def test_non_finite_actual_points_are_rejected():
-    fpl=[{"season":"2026-27","fpl_element_id":"1","gameweek":"1","target_total_points":"2"}]
+    fpl=[{"season":"2026-27","fpl_element_id":"1","fixture_id":"10","gameweek":"1","target_total_points":"2"}]
     onside=[{"player_id":"1","gw":"1","actual_points":"NaN"}]
     try:
         audit(fpl,onside)
