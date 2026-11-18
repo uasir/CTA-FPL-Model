@@ -142,15 +142,62 @@ Initial components include:
 - Number of visible opponents and teammates.
 - Opponents within 5 and 10 pitch units of the actor.
 - Nearest opponent and goalkeeper distance.
-- Opponents occupying a 5-unit corridor between actor and goal.
-- Goal-side opponents within a 12-unit lateral band.
-- Teammates ahead within 20 units.
-- Nearest opponent ahead in an 8-unit lateral lane.
-- Event-level under-pressure indicator and action type.
+- Explicitly direction-aware opponents in the goal corridor and goal-side band.
+- Forward teammates and opponents in the actor's attacking lane.
+- Visible forward receiving options, passing-lane obstruction and receiver pressure.
+- Progressive pass attempts/completions and progressive carries.
+- Dangerous ball receipts, separated from passes that create progression or enter the final 40 pitch units.
+- Shot attempts, StatsBomb xG and goals, kept as separate realisation outcomes.
+- Event-level under-pressure indicator, pass recipient, shot-assist and goal-assist flags.
 
 Coordinates are retained in StatsBomb's 120 × 80 frame. Out-of-bounds visible
 players are excluded from geometric calculations and counted in diagnostics.
 Duplicate event-frame UUIDs are reported; only the first frame is used.
+
+### Attack direction and receiving-option safeguards
+
+The earlier extractor treated the right-hand goal as the attacking goal for
+every team and period. That assumption is not valid for a shared match coordinate
+frame and could invert goal-side, forward-player and passing-lane features.
+
+The extractor now accepts an explicit direction_map.csv keyed by match,
+period and team ID (or team name). It does not infer or default a direction.
+When no verified direction row exists, it withholds goal-relative, forward-lane,
+progression, dangerous-receipt and receiving-option features rather than
+publishing a misleading zero or a directionally inverted value. The repository
+direction map currently contains only its header, so the real-match pilot will
+report these directional features as unavailable until verified directions are
+added.
+
+Receiving options are assessed only among visible teammates ahead of the actor
+and within 35 pitch units. A lane is considered blocked when a visible defender
+occupies the actor-to-receiver corridor; receiver pressure is estimated from
+visible opponent distance to the receiver. These are observable-frame
+opportunity indicators, not proof that the entire pitch is open or that a pass
+was actually available to the player.
+
+## Threat dimensions and non-shot opportunities
+
+Keep three dimensions distinct:
+
+1. **Threat creation:** progressive pass attempts/completions and passes directed
+   into the dangerous area, plus progressive carries. The extractor also records
+   visible open dangerous receiving options even when no pass or shot follows.
+2. **Threat involvement/reception:** a player receiving the ball in a dangerous
+   area, independently of whether the possession produces a shot.
+3. **Threat realisation:** shots, xG and goals, with assists retained as separate
+   contribution evidence.
+
+Do not sum these into an opaque score or count every failed action as a chance.
+Pass attempts and completions are separate; open receiving options are counted
+only when a visible teammate, visible defenders and a usable direction support
+the geometric assessment. Creation, reception and realisation can be studied
+as separate predictors and their sequence overlap must be handled explicitly
+in player-match modelling.
+
+The StatsBomb 360 feature set remains a sampled research sidecar. It does not
+measure off-ball runs continuously, and it must not claim to observe every
+receiving option or every attacking sequence.
 
 ## Interpretation safeguards
 
