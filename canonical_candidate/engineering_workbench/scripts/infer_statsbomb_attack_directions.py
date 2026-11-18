@@ -254,6 +254,10 @@ def infer_directions(
                     row["outcome"] == "Goal"
                     for t in team_ids for row in shot_evidence.get((period, t), [])
                 ),
+                "non_goal_evidence_count_period": sum(
+                    row["outcome"] != "Goal"
+                    for t in team_ids for row in shot_evidence.get((period, t), [])
+                ),
                 "shot_endpoint_evidence_count_team": len(shots),
                 "keeper_position_evidence_count_team": len(keepers),
                 "keeper_position_consistency_team": (
@@ -270,6 +274,7 @@ def infer_directions(
             "keeper_position_evidence_count": sum(len(keeper_evidence.get((period, t), [])) for t in team_ids),
             "mapped_team_count": 2,
             "confidence_level": "high",
+            "non_goal_shot_disagreement_team_ids": non_goal_shot_disagreements,
         })
 
     report = {
