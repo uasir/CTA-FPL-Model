@@ -469,3 +469,20 @@ The weekly Onside actual-points research workflow now uses the latest **up to 20
 Complete-case rules remain unchanged: partially graded gameweeks and incomplete player panels are excluded, and missing points are never zero-filled. Diagonal shrinkage remains 50%; no covariance-based recommendation or CoVar activation is enabled. The existing 10-GW instability result remains valid for its historical run; the longer window must be evaluated on future completed gameweeks.
 
 This is a data-window improvement only, not evidence that CoVar is now reliable. Personal-squad CoVar stays disabled.
+
+## 19. Onside actual-points cross-validation against official FPL — verified 2026-11-18
+
+Run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44357104115  
+Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44357104115/artifacts/14452257166  
+Onside source SHA-256: `dd51366a5f71d5f0bf26b4265b17188f04774d584c4444172be3f307aaf02a81`.
+
+- Official FPL: 6,562 player-gameweek rows, 672 unique players, GW1–GW10.
+- Onside: 4,954 player-gameweek rows, 605 unique players, GW1–GW10.
+- Matched: 4,954/4,954 exact points; **zero mismatches**, MAE 0.0, maximum absolute difference 0.0.
+- 1,608 FPL player-gameweek rows have no Onside counterpart; zero Onside rows lack an FPL counterpart. Missing rows are not zero-filled.
+- FPL double-gameweek fixture rows are summed before comparison.
+- The Onside actual-points values are therefore verified against official FPL history for the entire overlapping subset. The Onside panel is still incomplete relative to all FPL rows.
+- This does not repair the CoVar stability issue: the 10-GW split-window screen remains poor. The CoVar pipeline now uses up to 20 fully graded GWs, but must be re-evaluated as more data arrive.
+- No expected-points, CoVar, market or personal-squad scoring is changed by this cross-audit.
+
+Detailed report: `reports/ONSIDE_FPL_ACTUALS_CROSS_AUDIT_2026-11-18.md`.
