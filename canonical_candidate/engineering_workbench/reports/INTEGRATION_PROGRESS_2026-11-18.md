@@ -15,14 +15,18 @@ Python and JavaScript boundary validators are implemented. Their shared request 
 - Added a JavaScript test for the fixture's 15-player identity and FPL 2/5/5/3 composition.
 - Added `workflow_dispatch` to `.github/workflows/cta-fpl-ci.yml` so the workflow can be manually started from GitHub Actions.
 
-### Verification status — not yet confirmed
-The GitHub connector's commit-status endpoint returned an empty status list for the recent recommendation commits, including the latest CI-workflow update. Its workflow-run lookup only returns pull-request-triggered runs, and no tool is exposed here to list push-triggered workflow runs or dispatch a workflow. Therefore this report does **not** claim that the latest CI passed.
+### Verification status — passed
+Manually dispatched GitHub Actions run **44249934156** completed successfully on 2026-11-18, checking out commit `4605077618ab50151d17c74b627d24ff0eef15dd` on `main`.
 
-To obtain a definitive run:
-1. Open https://github.com/uasir/CTA-FPL-Model/actions
-2. Select **CTA FPL engineering CI**.
-3. Choose **Run workflow**, branch `main`, then run it.
-4. Share the resulting run URL. With its run ID, job summaries and logs can be retrieved and any failures fixed.
+Verified job and log results:
+- JavaScript recommendation and engineering tests: **19 passed, 0 failed**.
+- Python engineering suite: **115 passed, plus 3 subtests**. This includes the cross-language test that compares complete Python and JavaScript validated outputs from the same fixture.
+- Player-identity crosswalk validator executed without errors, but returned `EMPTY_NOT_READY`, with zero verified rows and `join_ready: false`.
+- Overall Actions job conclusion: **success**.
+
+Run URL: https://github.com/uasir/CTA-FPL-Model/actions/runs/44249934156
+
+This verifies the current recommendation request contracts and Python–JavaScript boundary parity. It does not verify production scoring parity, predictive accuracy, or a populated StatsBomb/FPL identity crosswalk.
 
 The workflow executes Node.js recommendation tests, the complete Python pytest suite (including Python–JavaScript output parity), and the verified player-identity crosswalk validator.
 
