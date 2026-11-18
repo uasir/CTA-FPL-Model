@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exploratory temporal holdout: does lagged Opta team context add FPL points signal?
+"""Exploratory temporal holdout: does lagged Opta team context add FPL points signal? (v0.1.0)
 
 This is deliberately a paired baseline-vs-augmented experiment. It never
 promotes the model: provider source-vintage status is not point-in-time verified.
