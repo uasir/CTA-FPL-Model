@@ -140,47 +140,63 @@ def infer_directions(
         direct_evidence = {}
         conflicts = []
 
+        non_goal_shot_disagreements = []
         for team_id in team_ids:
             shots = shot_evidence.get((period, team_id), [])
             keepers = keeper_evidence.get((period, team_id), [])
-            shot_sides = {row["attacks_right"] for row in shots}
+            goal_rows = [row for row in shots if row["outcome"] == "Goal"]
+            non_goal_rows = [row for row in shots if row["outcome"] != "Goal"]
+            goal_sides = {row["attacks_right"] for row in goal_rows}
+            non_goal_sides = {row["attacks_right"] for row in non_goal_rows}
             keeper_counts = Counter(row["attacks_right"] for row in keepers)
-            shot_direction = None
+            goal_direction = next(iter(goal_sides)) if len(goal_sides) == 1 else None
+            non_goal_direction = (
+                next(iter(non_goal_sides))
+                if len(non_goal_sides) == 1 and len(non_goal_rows) >= min_non_goal_evidence
+                else None
+            )
             keeper_direction = None
-            goal_count = sum(row["outcome"] == "Goal" for row in shots)
 
-            if len(shot_sides) > 1:
-                conflicts.append({"team_id": team_id, "source": "shot_endpoint_outcomes"})
+            if len(goal_sides) > 1:
+                conflicts.append({"team_id": team_id, "source": "conflicting_goal_endpoints"})
                 continue
-            if shots and (goal_count > 0 or len(shots) >= min_non_goal_evidence):
-                shot_direction = next(iter(shot_sides))
-
             if len(keepers) >= min_keeper_evidence:
                 side, count = keeper_counts.most_common(1)[0]
                 if count / len(keepers) >= keeper_consistency:
                     keeper_direction = side
-                else:
-                    conflicts.append({"team_id": team_id, "source": "keeper_position"})
-                    continue
 
-            if (
-                shot_direction is not None
-                and keeper_direction is not None
-                and shot_direction != keeper_direction
-            ):
-                conflicts.append({"team_id": team_id, "source": "shot_keeper_disagreement"})
+            if goal_direction is not None and keeper_direction is not None and goal_direction != keeper_direction:
+                conflicts.append({"team_id": team_id, "source": "goal_keeper_disagreement"})
                 continue
 
-            chosen = keeper_direction if keeper_direction is not None else shot_direction
-            if chosen is None:
-                continue
-            direct_directions[team_id] = chosen
-            if keeper_direction is not None and shot_direction is not None:
-                direct_sources[team_id] = "combined_keeper_and_shot_evidence"
+            # Goal endpoints and repeated goalkeeper positions outrank non-goal
+            # saved/post endpoints, whose end locations can reflect the save
+            # rather than the attacked goal. Preserve such disagreement in provenance.
+            if goal_direction is not None:
+                chosen = goal_direction
+                direct_sources[team_id] = (
+                    "combined_goal_and_keeper_evidence"
+                    if keeper_direction is not None else "goal_endpoint"
+                )
             elif keeper_direction is not None:
-                direct_sources[team_id] = "opponent_goalkeeper_position"
-            else:
+                chosen = keeper_direction
+                if non_goal_sides and non_goal_sides != {keeper_direction}:
+                    non_goal_shot_disagreements.append(team_id)
+                    direct_sources[team_id] = "opponent_goalkeeper_position_overriding_non_goal_shot_endpoints"
+                else:
+                    direct_sources[team_id] = (
+                        "combined_keeper_and_non_goal_shot_evidence"
+                        if non_goal_direction is not None else "opponent_goalkeeper_position"
+                    )
+            elif non_goal_direction is not None:
+                chosen = non_goal_direction
                 direct_sources[team_id] = "shot_endpoint_outcomes"
+            else:
+                if len(non_goal_sides) > 1:
+                    conflicts.append({"team_id": team_id, "source": "conflicting_non_goal_shot_endpoints"})
+                continue
+
+            direct_directions[team_id] = chosen
             direct_confidence[team_id] = "high"
             direct_evidence[team_id] = shots + keepers
 
@@ -191,6 +207,7 @@ def infer_directions(
                 "conflicts": conflicts,
                 "shot_endpoint_evidence_count": sum(len(shot_evidence.get((period, t), [])) for t in team_ids),
                 "keeper_position_evidence_count": sum(len(keeper_evidence.get((period, t), [])) for t in team_ids),
+                "non_goal_shot_disagreement_team_ids": non_goal_shot_disagreements,
             })
             continue
         if not direct_directions:
@@ -267,6 +284,9 @@ def infer_directions(
         "direction_map_rows": len(direction_rows),
         "keeper_position_evidence_events": sum(len(rows) for rows in keeper_evidence.values()),
         "shot_endpoint_evidence_events": sum(len(rows) for rows in shot_evidence.values()),
+        "non_goal_shot_disagreement_periods": sum(
+            bool(row.get("non_goal_shot_disagreement_team_ids")) for row in period_reports
+        ),
         "periods_inferred": sum(row["status"] == "INFERRED" for row in period_reports),
         "periods_withheld": sum(row["status"] != "INFERRED" for row in period_reports),
         "period_reports": period_reports,
@@ -300,7 +320,8 @@ def main():
         "match_id", "period", "team", "team_name", "attacks_right",
         "direction_source", "evidence_count", "evidence_event_ids",
         "confidence_level", "goal_evidence_count_period",
-        "non_goal_evidence_count_period",
+        "non_goal_evidence_count_period", "shot_endpoint_evidence_count_team",
+        "keeper_position_evidence_count_team", "keeper_position_consistency_team",
     ]
     with (args.out_dir / "direction_map.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
