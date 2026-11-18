@@ -188,6 +188,7 @@ def validate_personal_squad_request(
         "forecast_snapshot_id": payload["forecast_snapshot_id"],
         "model_version": payload["model_version"],
         "forecast_horizon_gameweeks": payload["forecast_horizon_gameweeks"],
+        "forecast_quality": payload["forecast_quality"],
         "player_forecasts": payload["player_forecasts"],
         "squad_snapshot": payload["squad_snapshot"],
         "bank": bank,
