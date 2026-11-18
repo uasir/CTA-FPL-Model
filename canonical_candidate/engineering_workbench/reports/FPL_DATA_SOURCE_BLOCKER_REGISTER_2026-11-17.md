@@ -166,6 +166,7 @@ A separate reproducible workflow uses only the provider-stated CC BY 4.0 ledger'
 
 | Blocker | Current evidence | Gate to clear |
 |---|---|---|
+| Automated FPL API access | Official FPL terms prohibit automated systems accessing the Game and extracting information; public API reachability is not a data licence | Written permission for the intended automation and storage scope; then set `FPL_DATA_PERMISSION_CONFIRMED=true` |
 | Point-in-time FPL vintages | Historical snapshots exist, but automated jobs are gated pending written permission | Written FPL permission + private durable storage + deadline-aware snapshots |
 | Global ownership | Official history `selected` + event `ranked_count` | Pipeline run verifies full-roster coverage and values |
 | Rank-tier EO | Lock-safe collector tested; standard EO formula corrected; no live capture | Written FPL permission + deadline-locked manager-pick sample or licensed provider |
@@ -175,6 +176,9 @@ A separate reproducible workflow uses only the provider-stated CC BY 4.0 ledger'
 
 ## Sources reviewed
 
+- Official FPL Terms & Conditions: https://fantasy.premierleague.com/help/terms
+- Premier League Terms of Use: https://www.premierleague.com/en/terms-and-conditions
+- Premier League data-permission contact guidance (match data via Football DataCo): https://www.premierleague.com/en/news/102426
 - FPL official API schema reference: https://github.com/shyndman/fpl-scrapper/blob/main/docs/API.md
 - FPL mirror snapshot README: https://github.com/Unholy-smoke/fpl-mirror
 - Fantasy Football Pundit EO method: https://www.fantasyfootballpundit.com/fpl-effective-ownership/
