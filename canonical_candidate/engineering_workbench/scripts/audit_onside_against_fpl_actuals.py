@@ -38,18 +38,24 @@ def fetch_source(url=SOURCE_URL):
 def audit(fpl_rows,onside_rows,*,season="2026-27",source_sha256=None):
     fpl={}
     fixture_counts=defaultdict(int)
+    seen_fpl_fixture_keys=set()
     for row in fpl_rows:
         row_season=str(row.get("season") or "")
         if row_season and row_season!=season:
             continue
         try:
             player_id=str(int(row["fpl_element_id"]))
+            fixture_id=str(int(row["fixture_id"]))
             gw=int(row["gameweek"])
             points=float(row["target_total_points"])
             if not math.isfinite(points):
                 raise ValueError("FPL target_total_points must be finite")
         except (KeyError,TypeError,ValueError):
             raise ValueError("FPL training rows require numeric fpl_element_id, gameweek and target_total_points")
+        fixture_key=(player_id,fixture_id)
+        if fixture_key in seen_fpl_fixture_keys:
+            raise ValueError(f"Duplicate official FPL player-fixture key: {fixture_key}")
+        seen_fpl_fixture_keys.add(fixture_key)
         key=(player_id,gw)
         fpl[key]=fpl.get(key,0.0)+points
         fixture_counts[key]+=1
