@@ -26,7 +26,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Official FPL terms require written permission before automated extraction.
+  # Set repository variable FPL_DATA_PERMISSION_CONFIRMED=true only after approval.
   ingest:
+    if: ${{ vars.FPL_DATA_PERMISSION_CONFIRMED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
