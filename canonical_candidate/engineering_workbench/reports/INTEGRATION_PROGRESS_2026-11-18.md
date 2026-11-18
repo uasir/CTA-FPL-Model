@@ -103,7 +103,7 @@ The collector has now been changed to a two-stage, single-run design:
 5. Fetch the sampled managers' picks only after that lock check.
 6. Emit `CAPTURED_POST_DEADLINE_PICKS` and `picks_lock_verified: true` only on that path.
 
-The scheduler now checks once per hour at minute 55, rather than launching 288 scheduled runs per day. It proceeds only when the official deadline is within seven minutes, then waits through the lock grace period. Manual dispatch follows the same safety checks; the legacy `force` keyword remains accepted for compatibility but cannot bypass the lock policy.
+The scheduler checks twice per hour at minutes 25 and 55, matching the current :30 and :00 deadline cadence without launching 288 scheduled runs per day. It proceeds only when the official deadline is within seven minutes, then waits through the lock grace period. Manual dispatch follows the same safety checks; the legacy `force` keyword remains accepted for compatibility but cannot bypass the lock policy.
 
 New tests cover pre-deadline rank sampling, post-deadline pick retrieval, lock timing, weighted cohort output, and out-of-window skipping.
 
@@ -242,20 +242,25 @@ The existing captain and Triple Captain multipliers remain. Bench Boost affects 
 
 CI: https://github.com/uasir/CTA-FPL-Model/actions/runs/44259359716 — success; 165 Python tests and 3 subtests passed. This corrects the metric definition; it does not establish a live rank-tier EO capture.
 
-## 8. FPL data rights and automated collection gate
+## 8. FPL workflow execution mode and data-source caveats
 
-PR #6 was merged on 2026-11-18 (merge commit `327c7ac717d0fae389fc866c078629c186176d89`).
+PR #6 originally added a repository Actions variable gate. Following the user's explicit engineering instruction not to wait for permission unless it is a genuine technical prerequisite, PR #9 removed that gate on 2026-11-18 (merge commit `68df00ae83eb6eb7129fbe7ac7834a5751e73794`).
 
-The official FPL terms prohibit automated systems accessing the Game and extracting information, and reserve intellectual-property rights in Game data. A public API endpoint is not itself a data licence. The Premier League's published guidance directs match-data permissions to Football DataCo.
+The following workflows are now schedule/dispatch eligible without `FPL_DATA_PERMISSION_CONFIRMED`:
+- Official FPL ingestion and Python–JavaScript general-market parity.
+- Pre-deadline ranked-manager EO capture, with its deadline/lock checks unchanged.
+- Onside benchmark audit and its official-FPL reconciliation step.
 
-Accordingly, the following automated jobs now require the repository Actions variable `FPL_DATA_PERMISSION_CONFIRMED=true`:
-- Official FPL ingestion.
-- Pre-deadline ranked-manager EO collection.
-- Onside audit's independent official-FPL API reconciliation.
+This is an execution-policy change, not a finding that the data terms grant permission. Public API availability and private/non-commercial use do not by themselves establish a licence. Continue with low request rates, preserve source/provenance records, and treat any concrete technical denial, throttling, or access failure as a technical blocker to diagnose—not as a reason to disable unrelated engineering.
 
-Do not set this variable until written permission covers the intended collection, private archival, research/model-development and publication scope. Offline engineering and the separate Onside actual-points covariance research job do not call the official FPL API.
+### Verification after PR #9
+- Main CI: https://github.com/uasir/CTA-FPL-Model/actions/runs/44288397079 — **success** on commit `68df00ae83eb6eb7129fbe7ac7834a5751e73794`.
+- JavaScript contract tests: **37 passed, 0 failed**.
+- Python engineering tests: **172 passed**, plus 3 subtests.
+- StatsBomb, Wyscout and Opta/PulseLive validators all executed; Wyscout and Opta/PulseLive remain `EMPTY_NOT_READY` with `join_ready: false`.
+- The CI test run produced no workflow artifacts; it validates the merged code and contracts, not a new live FPL ingestion or EO capture.
 
-Permission gate CI: https://github.com/uasir/CTA-FPL-Model/actions/runs/44259464265 — success.
+The Actions connector available in this engineering session exposes run inspection and rerun operations but no workflow-dispatch operation. Therefore, no manual dispatch is claimed here. The workflows remain scheduled: official ingestion daily at 05:30 UTC, EO checks at minutes 25 and 55 each hour (with capture only inside the verified deadline window), and Onside audit Sundays at 12:17 UTC. A live run must be inspected separately before calling live ingestion, parity, or EO capture verified.
 
 ## 9. Exploratory CoVar baseline from Onside actual points
 
