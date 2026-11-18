@@ -465,3 +465,34 @@ Next engineering steps:
 4. Implement general-market ranking independently of personal context; test ranking invariance.
 5. Implement personal squad optimisation as a separate engine; test sensitivity to squad, bank, transfers and risk constraints.
 6. Keep production CoVar disabled until its stability and out-of-sample gates pass.
+
+
+### Dual-system contracts: Python/JavaScript implementation
+
+The boundary layer has now been implemented in both languages:
+- Python: `scripts/recommendation_contracts.py`.
+- JavaScript: `src/js/recommendation_contracts.mjs`.
+- Python tests: `tests/test_recommendation_contracts.py`.
+- JavaScript tests: `tests/js/recommendation_contracts.test.mjs`.
+- Shared machine-readable contract: `config/recommendation_system_contracts.json`.
+
+Both validators now enforce the same versioned request contract:
+- Both modes require a forecast snapshot ID, model version, forecast horizon, unique player forecasts, and a forecast-quality envelope.
+- The forecast-quality envelope requires a declared validation status (`EXPLORATORY_ONLY`, `VALIDATED`, or `UNAVAILABLE`), point-in-time status (`VERIFIED`, `NOT_VERIFIED`, or `NOT_APPLICABLE`), a coverage object, and an explicit limitations list.
+- General mode rejects personal squad/manager context recursively, including when it is hidden inside filters or forecast records.
+- Personal mode requires exactly 15 unique squad players with purchase prices, non-negative bank, non-negative integer free transfers, and a risk profile.
+- Numeric money fields reject NaN and infinities. Python and JavaScript implementations now use matching validation rules.
+- Both request outputs preserve forecast-quality metadata so downstream ranking cannot silently drop validation caveats.
+
+The CI workflow now sets up Node.js 22 and runs the JavaScript contract tests alongside the existing Python pytest suite. It also triggers on JavaScript source changes.
+
+Latest implementation commits:
+- Python validator: `60b694f0f99b8d68f3095573623443f0ed0ee215`.
+- JavaScript validator: `63e434ffb6874eca10f2b201d940e8f0ed90d6a2`.
+- Python tests: `648b6252163b2ee3228336c051ef3bfdefef5a52`.
+- JavaScript tests: `fd0006fe3a8407549c251acba33a8f03364d33e2`.
+- CI Node test integration: `b49621d6570175a72de74b560b105a913566fbeb`.
+
+Static repository inspection confirms the JSON contract parses, both implementations preserve forecast quality in their outputs, and CI includes both Node and Python test commands. A workflow/check-run result for the final implementation commit was not available through the connected GitHub status endpoint during this continuation; **the tests remain CI-unverified**. The next action is to inspect the GitHub Actions run and fix any failures before treating the boundary layer as accepted.
+
+No scoring engine has been implemented yet. This is intentional: the forecast layer remains exploratory and point-in-time-unverified. The next build step is a shared forecast data schema plus a cross-language fixture/parity test, followed by the independent general-market and personal-squad engines.
