@@ -6,6 +6,14 @@ from pathlib import Path
 
 
 def first_difference(left,right,path="$"):
+    if isinstance(left,bool) or isinstance(right,bool):
+        if type(left) is not type(right) or left!=right:
+            return {"path":path,"python_value":left,"javascript_value":right}
+        return None
+    if isinstance(left,(int,float)) and isinstance(right,(int,float)):
+        if left!=right:
+            return {"path":path,"python_value":left,"javascript_value":right}
+        return None
     if type(left) is not type(right):
         return {"path":path,"python_type":type(left).__name__,"javascript_type":type(right).__name__}
     if isinstance(left,dict):
