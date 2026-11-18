@@ -215,3 +215,22 @@ Official ingestion Actions run: https://github.com/uasir/CTA-FPL-Model/actions/r
 - The exploratory ridge model remains `DO_NOT_PROMOTE`; its points MAE was 1.2016 versus 1.1855 for the baseline. CoVar remains disabled due to weak split-window stability.
 
 Original source archive recovery and SHA-256 verification are documented in `reports/INTEGRATION_PROGRESS_2026-11-18.md`, section 11.
+
+## 8. Opta/PulseLive current-season integration — 2026-11-18 update
+
+Live Actions run 44352173248 passed the exact 2026/27 FPL/Opta identity, team, and fixture reconciliation:
+
+- 511/511 shared `playerId = FPL code` joins and 511/511 provider `team_id = FPL team code` checks; zero mismatches.
+- 161/672 FPL players have no provider player-season row.
+- 100/100 provider match IDs match FPL fixture `code`; 200 team-match rows have exactly two team rows each.
+- 760 team-fixture features and 18,816 prospective player-fixture rows generated, with 10 team metrics lagged to strictly before target kickoff.
+- Generated crosswalk passes strict validation, 511 verified rows accepted.
+- Workflow publishes aggregate counts and source hashes only; raw provider data, crosswalk rows and player-fixture rows are not uploaded.
+
+This resolves the **technical ID/fixture mapping** blocker for the provider snapshot, but not the data-use or vintage blockers:
+1. Underlying Premier League/PulseLive data rights remain unverified.
+2. The player-season and team-match CSVs are current cumulative snapshots; no archived deadline-vintage history exists yet. `point_in_time_status = NOT_VERIFIED`.
+3. The provider tree does not establish player-level per-match event metrics; current integration supplies team context only.
+4. Do not attach these team features to predictive scoring or strict historical backtests until point-in-time capture and out-of-sample value are demonstrated.
+
+Detailed results and source hashes: `reports/OPTA_PULSELIVE_LIVE_INTEGRATION_2026-11-18.md`.
