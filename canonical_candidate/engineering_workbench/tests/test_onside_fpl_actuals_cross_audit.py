@@ -30,7 +30,7 @@ def test_fpl_double_gameweek_is_aggregated_before_onside_comparison():
 
 
 def test_audit_never_fills_missing_player_gameweeks_with_zero():
-    fpl=[{"season":"2026-27","fpl_element_id":"1","gameweek":"1","target_total_points":"0"}]
+    fpl=[{"season":"2026-27","fpl_element_id":"1","fixture_id":"10","gameweek":"1","target_total_points":"0"}]
     onside=[{"player_id":"2","gw":"1","actual_points":"0"}]
     report=audit(fpl,onside)
     assert report["matched_player_gameweek_rows"]==0
@@ -40,7 +40,7 @@ def test_audit_never_fills_missing_player_gameweeks_with_zero():
 
 
 def test_duplicate_onside_player_gameweek_is_rejected():
-    fpl=[{"season":"2026-27","fpl_element_id":"1","gameweek":"1","target_total_points":"2"}]
+    fpl=[{"season":"2026-27","fpl_element_id":"1","fixture_id":"10","gameweek":"1","target_total_points":"2"}]
     onside=[
         {"player_id":"1","gw":"1","actual_points":"2"},
         {"player_id":"1","gw":"1","actual_points":"2"},
