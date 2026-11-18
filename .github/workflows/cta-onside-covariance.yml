@@ -2,7 +2,7 @@ name: Exploratory FPL CoVar from Onside actual-points ledger
 
 on:
   push:
-    branches: [work/onside-covariance-baseline, work/covar-stability-diagnostic]
+    branches: [main, "work/**"]
     paths:
       - ".github/workflows/cta-onside-covariance.yml"
       - "canonical_candidate/engineering_workbench/scripts/build_onside_fpl_covariance.py"
@@ -33,7 +33,7 @@ jobs:
         run: |
           python canonical_candidate/engineering_workbench/scripts/build_onside_fpl_covariance.py \
             --out-dir run_artifacts/onside_covariance \
-            --window-size 10 \
+            --window-size 20 \
             --shrinkage 0.5
       - name: Upload exploratory CoVar research artifact
         if: always()
