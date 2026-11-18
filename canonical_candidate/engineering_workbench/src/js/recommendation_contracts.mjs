@@ -229,6 +229,34 @@ export function validatePersonalSquadRequest(payload) {
       );
     }
   });
+  const forecastById = new Map(
+    payload.player_forecasts.map((player) => [player.fpl_element_id, player]),
+  );
+  const positionCounts = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
+  const teamCounts = new Map();
+  for (const player of squad) {
+    const forecast = forecastById.get(player.fpl_element_id);
+    if (!forecast) {
+      throw new RecommendationContractError(
+        `Missing forecast for owned FPL element ID ${player.fpl_element_id}`,
+      );
+    }
+    positionCounts[forecast.position] += 1;
+    teamCounts.set(forecast.team_id, (teamCounts.get(forecast.team_id) ?? 0) + 1);
+  }
+  const expectedPositions = { GKP: 2, DEF: 5, MID: 5, FWD: 3 };
+  if (Object.keys(expectedPositions).some(
+    (position) => positionCounts[position] !== expectedPositions[position],
+  )) {
+    throw new RecommendationContractError(
+      "squad position composition must be 2 GKP, 5 DEF, 5 MID and 3 FWD",
+    );
+  }
+  if ([...teamCounts.values()].some((count) => count > 3)) {
+    throw new RecommendationContractError(
+      "squad cannot contain more than 3 players from one team",
+    );
+  }
   if (typeof payload.bank !== "number" || !Number.isFinite(payload.bank) || payload.bank < 0) {
     throw new RecommendationContractError("bank must be a non-negative number");
   }
