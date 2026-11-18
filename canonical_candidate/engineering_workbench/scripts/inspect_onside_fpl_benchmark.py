@@ -185,7 +185,8 @@ def main():
     official_players = bootstrap.get("elements", [])
     official_elements = {int(p["id"]) for p in official_players if p.get("id") is not None}
     official_codes = {int(p["code"]) for p in official_players if p.get("code") is not None}
-    events = {int(e["id"]): bool(e.get("finished")) for e in bootstrap.get("events", [])}
+    official_events = {int(e["id"]): e for e in bootstrap.get("events", [])}
+    events = {gw: bool(event.get("finished")) for gw, event in official_events.items()}
     dataset_ids = {as_int(row.get(player)) for row in rows} if player else set()
     dataset_ids.discard(None)
     element_matches = dataset_ids & official_elements
@@ -200,6 +201,30 @@ def main():
         "matched_official_player_codes": len(code_matches),
         "unmatched_player_id_examples": sorted(dataset_ids - official_elements)[:20],
     }
+
+    # Confirm each row's deadline matches the current official FPL event schedule.
+    deadline_alignment = {
+        "checked": 0, "exact_matches": 0, "mismatches": 0,
+        "unresolved_events": 0, "mismatch_examples": [],
+    }
+    if gameweek and deadline:
+        for row in rows:
+            gw = as_int(row.get(gameweek))
+            event = official_events.get(gw) if gw is not None else None
+            row_deadline = parse_time(row.get(deadline, ""))
+            official_deadline = parse_time(event.get("deadline_time", "")) if event else None
+            deadline_alignment["checked"] += 1
+            if event is None or row_deadline is None or official_deadline is None:
+                deadline_alignment["unresolved_events"] += 1
+            elif row_deadline == official_deadline:
+                deadline_alignment["exact_matches"] += 1
+            else:
+                deadline_alignment["mismatches"] += 1
+                if len(deadline_alignment["mismatch_examples"]) < 10:
+                    deadline_alignment["mismatch_examples"].append({
+                        "gameweek": gw, "dataset_deadline": row.get(deadline),
+                        "official_deadline": event.get("deadline_time"),
+                    })
 
     # Reconcile graded actuals to official FPL event-live scores. Blank actuals
     # are allowed only for gameweeks not yet marked finished by the official API.
@@ -281,8 +306,9 @@ def main():
                        and timing["invalid_or_missing"] == 0)
     key_pass = bool(player and gameweek and duplicate_key_count == 0)
     identity_pass = identity["status"] == "ELEMENT_ID_MATCH"
+    deadline_pass = deadline_alignment["checked"] == len(rows) and deadline_alignment["mismatches"] == 0 and deadline_alignment["unresolved_events"] == 0
     points_pass = points_check["status"] == "PASS"
-    overall_pass = schema_pass and timing_pass and key_pass and identity_pass and points_pass
+    overall_pass = schema_pass and timing_pass and key_pass and identity_pass and deadline_pass and points_pass
 
     audit = {
         "status": "PASS_SOURCE_SCHEMA_TIMING_AND_OFFICIAL_FPL_RECONCILIATION"
@@ -302,6 +328,7 @@ def main():
             "duplicate_or_incomplete_key_examples": duplicate_key_examples,
         },
         "official_fpl_identity_reconciliation": identity,
+        "official_fpl_deadline_reconciliation": deadline_alignment,
         "official_fpl_actual_points_reconciliation": points_check,
         "exploratory_forecast_benchmark": benchmark,
         "column_profiles": profile(rows, headers),
@@ -326,6 +353,7 @@ def main():
         "candidate_columns": candidate_columns, "timestamp_order": timing,
         "player_gameweek_key": audit["player_gameweek_key"],
         "official_fpl_identity_reconciliation": identity,
+        "official_fpl_deadline_reconciliation": deadline_alignment,
         "official_fpl_actual_points_reconciliation": points_check,
         "exploratory_forecast_benchmark": benchmark,
         "sha256": audit["sha256"],
