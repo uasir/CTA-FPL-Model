@@ -67,6 +67,12 @@ def select_managers(page_payloads,sample_size,rank_limit,seed):
             if first_rank<=int(x.get("rank") or 0)<=last_rank
             and int(x.get("entry") or 0)>0
         ]
+        expected_population=last_rank-first_rank+1
+        observed_ranks=[int(x.get("rank") or 0) for x in eligible]
+        if len(eligible)!=expected_population or len(set(observed_ranks))!=expected_population:
+            raise ValueError(
+                f"Rank page {page} is incomplete: expected {expected_population} unique ranks, found {len(eligible)}"
+            )
         if len(eligible)<per_page:
             raise ValueError(f"Rank page {page} has {len(eligible)} eligible managers; need {per_page}")
         for selected in rng.sample(eligible,per_page):
