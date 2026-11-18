@@ -17,8 +17,9 @@ The official FPL workflow runs daily at 05:30 UTC and fetches:
 - `bootstrap-static`
 - `fixtures`
 - Per-player `element-summary` history
+- Official `ep_next` and `ep_this` expected-points baselines, plus current form, points-per-game, xG/xA and ICT-related bootstrap fields
 
-Each run records fetch time and SHA-256 hashes, and uploads normalized rows plus the raw bootstrap and fixture feeds. The artifact retention has now been extended from 30 to **90 days**.
+Each run records fetch time and SHA-256 hashes, and uploads normalized rows plus the raw bootstrap and fixture feeds. The current player snapshot reports official `ep_next` coverage explicitly. The artifact retention has now been extended from 30 to **90 days**.
 
 The daily workflow is useful for capturing snapshots before some gameweek deadlines, but it does not guarantee a snapshot immediately before every deadline. GitHub Actions schedules are best-effort. A 90-day artifact window is also not a durable full-season archive.
 
@@ -80,16 +81,21 @@ The output is explicitly labelled `SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS`. It does n
 
 ### Next EO data acquisition step
 
-A first-party capture workflow is now implemented at `.github/workflows/cta-fpl-eo-capture.yml`, with collector `scripts/capture_fpl_ranked_manager_picks.py`. It runs hourly at minute 15 and only samples when the next deadline is within 70 minutes. It:
+A first-party lock-safe capture workflow is implemented at `.github/workflows/cta-fpl-eo-capture.yml`, with collector `scripts/capture_fpl_ranked_manager_picks.py`.
+
+It runs at minute 55 of each hour and only proceeds when the official next deadline is within seven minutes. It:
 - samples 100 managers across rank strata within the pre-deadline overall top 10,000;
-- captures their public picks and chip state for the target gameweek;
+- records the rank cohort before the deadline and refuses to proceed if the standings fetch crosses the deadline;
+- waits until 60 seconds after the official deadline;
+- re-fetches official bootstrap data and verifies that the deadline has passed;
+- only then fetches manager picks and chip state for the target gameweek;
 - weights each sampled manager as 100 entries;
 - calculates EO using the tested estimator;
 - stores only aggregated EO rows and a hash/summary of the sample, not raw manager IDs or individual picks.
 
-This collector is intentionally separate from the main ingestion workflow and does not use post-gameweek ranks to define the cohort. It has not yet completed a live near-deadline capture; the next useful validation is the GW11 deadline. FPL's picks endpoint must return the future event's saved picks for the sample to work. If it does not, the collector will fail visibly and we will need to capture the cohort pre-deadline and fetch picks after lock through a separate archival handoff.
+The collector's mocked timing/API tests and the full engineering CI suite pass. It has **not yet completed a live near-deadline capture**; the next live validation opportunity is the GW11 deadline at 2026-11-21 11:00 UTC. The post-lock picks endpoint must return the locked gameweek selections for the sample to be accepted. If it does not, the workflow will fail visibly; it will not silently fall back to provisional picks.
 
-Do not define the cohort using post-gameweek ranks; that would introduce lookahead bias. Do not treat a top-10k or top-100k sample as whole-game EO. The current collector samples top 10k only; top-100k and broader-field samples remain future work.
+Do not define the cohort using post-gameweek ranks; that would introduce lookahead bias. Do not treat a top-10k sample as whole-game EO. The current collector samples top 10k only; top-100k and broader-field samples remain future work.
 
 ## 4. Player-level event data aligned to FPL
 
