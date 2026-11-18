@@ -279,3 +279,26 @@ receiving option or every attacking sequence.
 PASS_STRUCTURAL_ONLY means the extractor completed its data and geometry checks.
 It does not mean the feature predicts points. The extractor's report therefore
 sets prediction_validation to NOT_EVALUATED.
+
+### Verified integration state — 2026-11-18
+
+- **StatsBomb 360:** The real Bundesliga pilot produced 2,568 usable contextual
+  rows from 3,021 supported events (85.0% frame coverage), with 31 player-match
+  aggregates. All 2,568 rows had known attack direction using the
+  ACTION_EXECUTING_TEAM source convention; no global direction map was needed.
+  The pilot recorded 363 threat-creation pass attempts, 125 dangerous receipts
+  and 24 shots. These are sampled-event counts, not full-match totals. The
+  direction and geometry implementation is structurally validated, not points
+  validated.
+- **11footy/FPL:** 100 of 100 completed 2026/27 matches reconcile to official
+  FPL fixtures; 4,000 player-match rows are available. Of 490 identity
+  candidates, 340 have exact normalized name/team/birth-date evidence, and 68
+  also show exact team/minutes/goals/assists consistency across at least three
+  overlapping matches. No candidate team conflicts were observed. All remain
+  pending; the verified-only FPL panel correctly contains zero rows until the
+  crosswalk is approved.
+- **Wyscout:** The 2017/18 EPL audit covers 643,150 events across 380 matches.
+  It remains a historical event source without an FPL identity crosswalk.
+- **Prediction status:** No CTA feature has yet demonstrated incremental FPL
+  points prediction value. Keep all contextual features provisional until
+  verified identity joins and chronological out-of-sample evaluation pass.
