@@ -262,7 +262,44 @@ This is an execution-policy change, not a finding that the data terms grant perm
 
 The Actions connector available in this engineering session exposes run inspection and rerun operations but no workflow-dispatch operation. Therefore, no manual dispatch is claimed here. The workflows remain scheduled: official ingestion daily at 05:30 UTC, EO checks at minutes 25 and 55 each hour (with capture only inside the verified deadline window), and Onside audit Sundays at 12:17 UTC. A live run must be inspected separately before calling live ingestion, parity, or EO capture verified.
 
-## 9. Exploratory CoVar baseline from Onside actual points
+### Live official FPL ingestion and Python–JavaScript parity — verified 2026-11-18
+
+Scheduled run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44324401400  
+Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44324401400/artifacts/14436735723  
+Artifact ID: `14436735723`; SHA-256: `a4a2a8b8deae2009e80958e79b8ee38a4392a7397da7436f54ff1fab2608269f`.  
+Commit: `d9f3f4a61525ae4b3bacd358f50a3c7cec5ce4e3`; fetched at 2026-11-18 14:28:47 UTC.
+
+**Official feed integrity**
+- 2026/27 season; target GW11; 672 unique players and 380 fixtures.
+- 672/672 element-summary requests succeeded; zero summary fetch errors.
+- 6,562 player-fixture rows; no orphan fixtures, unknown player IDs, minute mismatches or total-points mismatches.
+- All 672 players have official `ep_next` and `ep_this` values.
+- 459 players have positive season minutes.
+
+**Engine execution**
+- Python and JavaScript general-market outputs matched exactly over all 672 forecast players: `PASS_PYTHON_JAVASCRIPT_PARITY`.
+- Python and JavaScript personal-squad outputs matched exactly on the same 672-player forecast pool: `PASS_PERSONAL_SQUAD_PYTHON_JAVASCRIPT_PARITY`.
+- The personal-squad test used a synthetic legal 15-player roster, built an 11-player XI, and evaluated 2,914 legal one-transfer candidates. It is a scale/parity test, not the user's actual squad.
+- Both engines remain `EXPLORATORY_ONLY`; CoVar was not used.
+
+**Model and data limitations**
+- Official `ep_next` is the points baseline, not a CTA-trained prediction.
+- Expected minutes are a proxy based on latest completed-GW minutes per fixture, scaled to target fixture count.
+- EO coverage in the GW11 snapshot is zero; no differential ranking is available.
+- The historical lagged table has 6,562 rows for GW1–GW10 but point-in-time status remains `NOT_VERIFIED` because current API history may contain retrospective revisions.
+- Ridge exploratory holdout: points MAE 1.2016 versus 1.1855 for the baseline (worse); RMSE 2.0157 versus 2.1513 (better). Minutes MAE 15.375 versus 11.099 (worse). Decision remains `DO_NOT_PROMOTE`; the model is not connected to either recommendation engine.
+- The covariance run used 10 gameweeks, with 420 players in its complete-case, non-zero-variance matrix; the point-in-time caveat remains. CoVar stays disabled.
+
+### Live EO scheduler verification — no capture yet
+
+Run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44342865582  
+Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44342865582/artifacts/14444142532
+
+The scheduled job itself completed successfully, but the collector returned `SKIPPED_OUTSIDE_DEADLINE_WINDOW`: GW11 deadline was 2026-11-21 11:00 UTC and the run began roughly 4,015.77 minutes beforehand. The 324-byte artifact contains only the skip report; **no manager cohort, picks or EO rows were captured**.
+
+To improve the chance of a real near-deadline run despite GitHub's best-effort scheduler, the EO workflow is being adjusted to start about 20 minutes before the observed :00/:30 deadline cadence, accept a 25-minute pre-deadline window, and allow a 30-minute job timeout. The collector's safeguards remain: cohort capture must finish before deadline; picks are requested only after the deadline plus 60 seconds and a fresh official bootstrap confirmation.
+
+## 10. Exploratory CoVar baseline from Onside actual points
 
 PR #7 was merged on 2026-11-18 (merge commit `0299f37139d2ef39c1da63de2470e1f2e92e1075`).
 
@@ -299,3 +336,20 @@ On the same 260-player, 33,670-pair comparison:
 - Mean absolute pairwise-correlation change: **0.5780**.
 
 This is not a formal stationarity test (each half contains only five gameweeks), but it is a strong warning that the observed pairwise relationships are not stable enough to drive team selection. The covariance matrix being positive definite after shrinkage is a mathematical property, not evidence that its estimates are reliable. CoVar remains disabled in `personal_squad`.
+
+
+## 11. Original source archive recovery
+
+The five original recovery archives are present locally, pass ZIP integrity checks, and match the hashes recorded in the 2026-11-15 project state:
+
+| Archive | SHA-256 | Entries |
+|---|---|---:|
+| `CTA_FPL_reconstruction_scaffold_v0_1.zip` | `b96b6e3c3ef04b4e12d5d153f4f381843f4ecc2e48f0ae54d41d4ec14c1d6dc1` | 20 |
+| `CTA-FPL-Engineering-Workbench.zip` | `b7e62bec4299a63fb06d72e7bc38f54f2726ea68f366a29b4e3f64607f6e4630` | 44 |
+| `CTA_FPL_Model_v1_0_2_Engineering_Build.zip` | `7c8960ef250472eb2bb57b3d82f4ebec8dec00096482307470aedecb40cf5a73` | 15 |
+| `CTA_FPL_Model_v1_0_1_Engineering_Fix.zip` | `2c000b3c3f84bf1197303013d0d21e402b01d8ebfbddef3aa6558cfc50ab7553` | 21 |
+| `CTA_FPL_Model_v1_0_Experimental.zip` | `2d8278b593165b2bad7d55ee50969d166070e8872288a7fc59d07976ae17d749` | 11 |
+
+The 2026-11-17 independent workspace and 2026-11-15 candidate bundle are additional working snapshots, not replacements for those five originals. Their ZIP hashes are respectively `c482a282466e36d6eaa8f42f724e0103a29390954b2342d64a855714b6abb7c4` and `ad4334228574ccfcc4bdfb6d3d4f7160a680837d58b92147d63b88ecda8b6305`; both also pass ZIP integrity checks.
+
+The v1.0.2 source and Workbench are separate components. The later independent workspace contains additional experimental changes, including match-scoped 360 UUID auditing. The current repository's v1.0.3 engine is not byte-identical to that later local snapshot. Preserve all archives unchanged; port improvements selectively with tests rather than replacing the canonical engine wholesale.
