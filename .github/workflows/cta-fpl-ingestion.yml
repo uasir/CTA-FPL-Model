@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - ".github/workflows/cta-fpl-ingestion.yml"
       - "canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py"
       - "canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py"
       - "canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py"
@@ -13,6 +12,10 @@ on:
     - cron: "30 5 * * *"
 permissions:
   contents: read
+
+concurrency:
+  group: cta-fpl-official-ingestion
+  cancel-in-progress: false
 
 jobs:
   ingest:
