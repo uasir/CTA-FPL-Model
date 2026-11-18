@@ -174,6 +174,10 @@ export function validateGeneralMarketRequest(payload) {
       `general_market must not receive personal fields: ${forbidden.join(", ")}`,
     );
   }
+  const filters = Object.hasOwn(payload, "filters") ? payload.filters : {};
+  if (!isRecord(filters)) {
+    throw new RecommendationContractError("filters must be an object");
+  }
   return {
     system: "general_market",
     contract_version: RECOMMENDATION_CONTRACT_VERSION,
@@ -182,7 +186,7 @@ export function validateGeneralMarketRequest(payload) {
     forecast_horizon_gameweeks: payload.forecast_horizon_gameweeks,
     forecast_quality: payload.forecast_quality,
     player_forecasts: payload.player_forecasts,
-    filters: payload.filters ?? {},
+    filters,
   };
 }
 
