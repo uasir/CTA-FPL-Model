@@ -115,7 +115,7 @@ jobs:
       - name: Upload aggregate-only pilot report
         uses: actions/upload-artifact@v4
         with:
-          name: cta-statsbomb-360-contextual-threat-\${{ github.run_id }}
+          name: cta-statsbomb-360-contextual-threat-${{ github.run_id }}
           path: run_artifacts/statsbomb_contextual_threat/aggregate_summary.json
           if-no-files-found: error
           retention-days: 90
