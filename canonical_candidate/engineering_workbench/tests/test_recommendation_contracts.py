@@ -179,3 +179,23 @@ def test_python_contract_rejects_non_numeric_ids_and_unhashable_position():
     payload["player_forecasts"][0]["position"] = ["MID"]
     with pytest.raises(RecommendationContractError, match="position is invalid"):
         validate_general_market_request(payload)
+
+
+def test_personal_squad_enforces_fpl_position_and_team_composition():
+    payload = personal()
+    payload["player_forecasts"][0]["position"] = "DEF"
+    with pytest.raises(RecommendationContractError, match="position composition"):
+        validate_personal_squad_request(payload)
+
+    payload = personal()
+    for player in payload["player_forecasts"][:4]:
+        player["team_id"] = 1
+    with pytest.raises(RecommendationContractError, match="more than 3 players"):
+        validate_personal_squad_request(payload)
+
+
+def test_personal_squad_requires_forecast_for_every_owned_player():
+    payload = personal()
+    payload["player_forecasts"] = payload["player_forecasts"][:-1]
+    with pytest.raises(RecommendationContractError, match="Missing forecast for owned"):
+        validate_personal_squad_request(payload)
