@@ -265,7 +265,7 @@ def _candidate_evidence_template(candidate):
 
 def build_panel(
     connection, players_connection, fpl_fixtures, fpl_players, fpl_history,
-    candidate_rows, crosswalk_rows, season, competition_id,
+    candidate_rows, crosswalk_rows, season, competition_id, crosswalk_validation_report=None,
 ):
     season_start = int(str(season).replace("/", "-").split("-")[0])
     season_rows = connection.execute(
@@ -290,6 +290,13 @@ def build_panel(
     candidates, verified, identity_errors = load_identity_maps(
         candidate_rows, crosswalk_rows, season, competition_id
     )
+    validation_status = (
+        str(crosswalk_validation_report.get("status") or "")
+        if isinstance(crosswalk_validation_report, dict) else "VALIDATION_REPORT_MISSING"
+    )
+    if validation_status in {"BLOCKED", "VALIDATION_REPORT_MISSING"}:
+        identity_errors.append({"error": "crosswalk_validation_" + validation_status.lower()})
+        verified = {}
     merge_map = _player_merge_map(players_connection)
     player_names = _provider_player_names(players_connection)
 
@@ -567,6 +574,7 @@ def build_panel(
         ),
         "candidate_rows_with_any_match_conflict": sum(row["team_mismatch_rows"] > 0 for row in evidence_rows),
         "verified_crosswalk_rows": len(verified),
+        "crosswalk_validation_status": validation_status,
         "player_match_rows_with_verified_identity": player_match_rows_with_verified,
         "verified_player_match_panel_rows": len(panel_rows),
         "verified_identity_history_missing_rows": verified_history_missing,
@@ -600,6 +608,7 @@ def main():
     parser.add_argument("--fpl-player-fixture", type=Path, required=True)
     parser.add_argument("--candidates", type=Path, required=True)
     parser.add_argument("--crosswalk", type=Path, required=True)
+    parser.add_argument("--crosswalk-validation", type=Path, required=True)
     parser.add_argument("--season", required=True)
     parser.add_argument("--competition-id", default="1")
     parser.add_argument("--out-dir", type=Path, required=True)
@@ -608,6 +617,10 @@ def main():
 
     candidates = read_csv(args.candidates)
     crosswalk = read_csv(args.crosswalk)
+    validation_report = (
+        json.loads(args.crosswalk_validation.read_text(encoding="utf-8"))
+        if args.crosswalk_validation.exists() else None
+    )
     fixtures = read_csv(args.fpl_fixtures)
     fpl_players = read_csv(args.fpl_players)
     fpl_history = read_csv(args.fpl_player_fixture)
@@ -622,6 +635,7 @@ def main():
             panel_rows, evidence_rows, report = build_panel(
                 connection, players_connection, fixtures, fpl_players, fpl_history,
                 candidates, crosswalk, args.season, args.competition_id,
+                crosswalk_validation_report=validation_report,
             )
         finally:
             connection.close()
