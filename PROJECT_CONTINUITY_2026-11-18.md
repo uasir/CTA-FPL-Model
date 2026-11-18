@@ -64,7 +64,7 @@ Current-turn materialization and checks:
 - CoVar branch CI: [44259735610](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259735610), success.
 - CoVar stability CI: [44260208715](https://github.com/uasir/CTA-FPL-Model/actions/runs/44260208715), success; 172 Python tests and 3 subtests passed.
 - CoVar split-window audit: [44260264105](https://github.com/uasir/CTA-FPL-Model/actions/runs/44260264105), success; artifact [14407094178](https://github.com/uasir/CTA-FPL-Model/actions/runs/44260264105/artifacts/14407094178).
-- Latest main CI after PR #7: [44259849870](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259849870), success; 37 JavaScript tests, 170 Python tests and 3 subtests passed. All three provider crosswalk validators still correctly report `EMPTY_NOT_READY`.
+- Latest main CI after PR #8: [44260333143](https://github.com/uasir/CTA-FPL-Model/actions/runs/44260333143), success; 37 JavaScript tests, 172 Python tests and 3 subtests passed. All three provider crosswalk validators still correctly report `EMPTY_NOT_READY`.
 - GitHub Actions is the verified cloud execution route for Python/Node tests and licensed-source research jobs.
 
 ## 4. Verified engineering milestones
