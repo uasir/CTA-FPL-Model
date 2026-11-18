@@ -525,27 +525,38 @@ export function xtGridRows(values) {
   }));
 }
 
-export function audit360(events, frames) {
-  const eventIds = new Set(events.filter((event) => event.id !== null && event.id !== undefined).map((event) => String(event.id)));
-  const uuids = frames
+export function audit360(events, frames, defaultMatchId = null) {
+  const eventKeys = new Set(
+    events
+      .filter((event) => event.id !== null && event.id !== undefined)
+      .map((event) => JSON.stringify([
+        String(event._match_id ?? defaultMatchId ?? ""),
+        String(event.id),
+      ])),
+  );
+  const frameKeys = frames
     .filter((frame) => isObject(frame) && frame.event_uuid !== null && frame.event_uuid !== undefined)
-    .map((frame) => String(frame.event_uuid));
+    .map((frame) => JSON.stringify([
+      String(frame._match_id ?? defaultMatchId ?? ""),
+      String(frame.event_uuid),
+    ]));
   const counts = new Map();
-  for (const uuid of uuids) counts.set(uuid, (counts.get(uuid) ?? 0) + 1);
-  const matched = uuids.reduce((sum, uuid) => sum + Number(eventIds.has(uuid)), 0);
-  const linkedIds = new Set(uuids.filter((uuid) => eventIds.has(uuid)));
+  for (const key of frameKeys) counts.set(key, (counts.get(key) ?? 0) + 1);
+  const matched = frameKeys.reduce((sum, key) => sum + Number(eventKeys.has(key)), 0);
+  const matchedKeys = new Set(frameKeys.filter((key) => eventKeys.has(key)));
+  const uniqueUuids = new Set(frameKeys.map((key) => JSON.parse(key)[1]));
   return {
     frames: frames.filter(isObject).length,
-    frames_with_event_uuid: uuids.length,
-    unique_event_uuids: counts.size,
+    frames_with_event_uuid: frameKeys.length,
+    unique_event_uuids: uniqueUuids.size,
+    unique_match_event_keys: new Set(frameKeys).size,
     duplicate_frame_event_uuids: [...counts.values()].reduce((sum, count) => sum + Math.max(0, count - 1), 0),
     matched_frame_uuids: matched,
-    unmatched_frame_uuids: uuids.length - matched,
-    frame_to_event_join_rate: uuids.length ? roundHalfEven(matched / uuids.length, 6) : null,
-    event_coverage_with_frame: eventIds.size ? roundHalfEven(linkedIds.size / eventIds.size, 6) : null,
+    unmatched_frame_uuids: frameKeys.length - matched,
+    frame_to_event_join_rate: frameKeys.length ? roundHalfEven(matched / frameKeys.length, 6) : null,
+    event_coverage_with_frame: eventKeys.size ? roundHalfEven(matchedKeys.size / eventKeys.size, 6) : null,
   };
 }
-
 export function coordinateDiagnostics(frames) {
   const visible = [];
   let invalidShapeOrType = 0;
