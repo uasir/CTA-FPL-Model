@@ -275,3 +275,9 @@ The EO collector has been upgraded for GW11:
 CI run 44355853392 passed. Design report: `reports/EO_RANK_STRATIFIED_SAMPLE_DESIGN_2026-11-18.md`.
 
 No live rank-tier EO sample has yet been captured. The GW11 deadline is 2026-11-21 11:00 UTC; expected pre-deadline run is 10:35 UTC. If scheduler delay or incomplete page coverage prevents a valid capture, no EO estimate will be published.
+
+## 12. CoVar sample horizon — 2026-11-18
+
+The weekly Onside actual-points covariance workflow now takes up to the latest 20 fully graded gameweeks, using all available completed gameweeks when fewer than 20 exist. This allows the split-window stability diagnostic to compare two 10-GW halves once the season has 20 completed observations.
+
+The previous 10-GW split-window result remains unstable (correlation-of-correlations 0.0078; median absolute correlation change 0.5004). The longer panel must be observed before any reliability claim. Complete-case exclusion, no zero-filling, and 50% diagonal shrinkage remain. CoVar is still disabled in `personal_squad`.
