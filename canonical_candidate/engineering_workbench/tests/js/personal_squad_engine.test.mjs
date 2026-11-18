@@ -28,19 +28,23 @@ test("personal squad returns a legal XI and constrained transfer", () => {
   assert.equal(result.squad_plan.starting_xi.length, 11);
   assert.ok(result.squad_plan.starting_xi.includes(result.squad_plan.captain));
   assert.equal(result.transfer_recommendation.action, "TRANSFER");
-  assert.equal(result.transfer_recommendation.best_candidate.transfer_out_id, 3);
-  assert.equal(result.transfer_recommendation.best_candidate.transfer_in_id, 16);
-  assert.equal(result.transfer_recommendation.best_candidate.selling_price, 5.1);
-  assert.equal(result.transfer_recommendation.best_candidate.bank_after_transfer, 4.7);
+  assert.equal(result.transfer_recommendation.best_candidate.transfer_out_id, 6);
+  assert.equal(result.transfer_recommendation.best_candidate.transfer_in_id, 17);
+  const sameTeamReplacement = result.transfer_recommendation.alternatives.find(
+    (candidate) => candidate.transfer_out_id === 3 && candidate.transfer_in_id === 16,
+  );
+  assert.equal(sameTeamReplacement.selling_price, 5.1);
+  assert.equal(sameTeamReplacement.bank_after_transfer, 4.7);
   assert.equal(result.portfolio_risk.covar_used, false);
 });
 
 test("a four-point hit is applied when no free transfer remains", () => {
   const payload = request();
   payload.free_transfers = 0;
+  payload.personal_preferences = { hit_cost_points: 5 };
   const result = recommendPersonalSquad(payload);
   assert.equal(result.transfer_recommendation.action, "HOLD");
-  assert.equal(result.transfer_recommendation.hit_cost_points_applied, 4);
+  assert.equal(result.transfer_recommendation.hit_cost_points_applied, 5);
 });
 
 test("zero hit cost can be explicitly selected in personal preferences", () => {
@@ -56,4 +60,16 @@ test("invalid formation is rejected", () => {
   const payload = request();
   payload.formation = "2-4-4";
   assert.throws(() => recommendPersonalSquad(payload), /legal FPL/);
+});
+
+
+test("team limit allows a replacement only when outgoing player frees the same team slot", () => {
+  const result = recommendPersonalSquad(request());
+  const teamOneReplacements = result.transfer_recommendation.alternatives
+    .filter((candidate) => candidate.transfer_in_id === 17);
+  assert.ok(teamOneReplacements.length > 0);
+  assert.ok(teamOneReplacements.every((candidate) => candidate.transfer_out_id === 6));
+  assert.ok(result.transfer_recommendation.alternatives.every(
+    (candidate) => candidate.transfer_in_id !== 18,
+  ));
 });
