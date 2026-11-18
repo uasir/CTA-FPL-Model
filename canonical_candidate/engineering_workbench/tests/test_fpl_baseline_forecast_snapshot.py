@@ -109,3 +109,12 @@ def test_rejects_eo_without_cohort_and_lock_timestamps():
             [{"gameweek": "12", "fpl_element_id": "10", "effective_ownership_pct": "100"}],
             eo_report,
         )
+
+
+
+def test_snapshot_id_changes_when_forecast_inputs_change():
+    first, _ = build_snapshot(players(), gameweek_rows(), source_metadata())
+    changed_rows = gameweek_rows()
+    changed_rows[-1]["target_minutes"] = "30"
+    second, _ = build_snapshot(players(), changed_rows, source_metadata())
+    assert first["forecast_snapshot_id"] != second["forecast_snapshot_id"]
