@@ -1,42 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   RecommendationContractError,
   validateGeneralMarketRequest,
   validatePersonalSquadRequest,
 } from "../../src/js/recommendation_contracts.mjs";
 
+const FIXTURE = JSON.parse(
+  readFileSync(new URL("../fixtures/recommendation_requests.json", import.meta.url), "utf8"),
+);
+
 function shared() {
-  return {
-    forecast_snapshot_id: "snapshot-2026-11-18T05:00:00Z",
-    model_version: "unvalidated-baseline-0",
-    forecast_horizon_gameweeks: 5,
-    forecast_quality: {
-      validation_status: "EXPLORATORY_ONLY",
-      point_in_time_status: "NOT_VERIFIED",
-      data_coverage: { season: "2026-27", gameweeks: [1, 10], players: 672 },
-      limitations: ["Current snapshot; point-in-time history not verified."],
-    },
-    player_forecasts: [
-      { fpl_element_id: 1, expected_points: 4.2, expected_minutes: 80, price: 5.0, position: "MID", team_id: 1 },
-      { fpl_element_id: 2, expected_points: 3.1, expected_minutes: 75, price: 4.5, position: "DEF", team_id: 2 },
-    ],
-  };
+  return structuredClone(FIXTURE.general_market);
 }
 
 function personal() {
-  return {
-    ...shared(),
-    squad_snapshot: Array.from({ length: 15 }, (_, i) => ({
-      fpl_element_id: i + 1,
-      purchase_price: 5.0,
-    })),
-    bank: 4.6,
-    free_transfers: 1,
-    personal_risk_profile: "aggressive",
-    chips: [],
-    formation: "4-3-3",
-  };
+  return structuredClone(FIXTURE.personal_squad);
 }
 
 test("general market works without personal squad inputs", () => {
