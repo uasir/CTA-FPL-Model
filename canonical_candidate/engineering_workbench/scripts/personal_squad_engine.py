@@ -50,7 +50,9 @@ def _best_starting_xi(owned,by_id,formation_value=None,starting_xi_value=None):
     if starting_xi_value is not None:
         if not isinstance(starting_xi_value,list) or len(starting_xi_value)!=11:
             raise RecommendationContractError("starting_xi must contain exactly 11 FPL element IDs")
-        ids=[int(value) for value in starting_xi_value]
+        if any(isinstance(value,bool) or not isinstance(value,int) or value<1 for value in starting_xi_value):
+            raise RecommendationContractError("starting_xi must contain positive integer FPL element IDs")
+        ids=list(starting_xi_value)
         if len(set(ids))!=11 or any(value not in {p["fpl_element_id"] for p in owned} for value in ids):
             raise RecommendationContractError("starting_xi must contain 11 unique players from the current squad")
         selected=[by_id[value] for value in ids]
@@ -130,9 +132,9 @@ def _transfer_candidates(request,forecasts):
             net=delta-applied_hit_cost
             candidates.append({
                 "transfer_out_id":out_id,"transfer_in_id":in_id,
-                "expected_points_delta":round(delta,8),
-                "hit_cost_points":round(applied_hit_cost,8),
-                "net_expected_points_gain":round(net,8),
+                "expected_points_delta":delta,
+                "hit_cost_points":applied_hit_cost,
+                "net_expected_points_gain":net,
                 "selling_price":round(sell_price,2),
                 "incoming_price":round(incoming["price"],2),
                 "bank_after_transfer":round(available-incoming["price"],2),
@@ -163,9 +165,9 @@ def recommend_personal_squad(payload):
     preferences=request.get("personal_preferences") or {}
     if not isinstance(preferences,dict):
         raise RecommendationContractError("personal_preferences must be an object")
-    formation_value=request.get("formation") or preferences.get("formation")
-    starting_value=request.get("starting_xi") or preferences.get("starting_xi")
-    bench_value=request.get("bench_order") or preferences.get("bench_order")
+    formation_value=request.get("formation") if request.get("formation") is not None else preferences.get("formation")
+    starting_value=request.get("starting_xi") if request.get("starting_xi") is not None else preferences.get("starting_xi")
+    bench_value=request.get("bench_order") if request.get("bench_order") is not None else preferences.get("bench_order")
     starting,formation=_best_starting_xi(owned,forecast_by_id,formation_value,starting_value)
     starting_ids={p["fpl_element_id"] for p in starting}
     remaining=[p for p in owned if p["fpl_element_id"] not in starting_ids]
@@ -174,9 +176,10 @@ def recommend_personal_squad(payload):
     if len(reserve_gk)!=1 or len(outfield_bench)!=3:
         raise RecommendationContractError("Squad must leave one reserve goalkeeper and three outfield bench players")
     if bench_value is not None:
-        if not isinstance(bench_value,list) or len(bench_value)!=3:
-            raise RecommendationContractError("bench_order must contain exactly three outfield player IDs")
-        bench_ids=[int(value) for value in bench_value]
+        if (not isinstance(bench_value,list) or len(bench_value)!=3
+                or any(isinstance(value,bool) or not isinstance(value,int) or value<1 for value in bench_value)):
+            raise RecommendationContractError("bench_order must contain exactly three positive integer outfield player IDs")
+        bench_ids=list(bench_value)
         available={p["fpl_element_id"] for p in outfield_bench}
         if len(set(bench_ids))!=3 or set(bench_ids)!=available:
             raise RecommendationContractError("bench_order must contain all three outfield substitutes exactly once")
@@ -217,7 +220,7 @@ def recommend_personal_squad(payload):
             "vice_captain":vice["fpl_element_id"],
             "reserve_goalkeeper":reserve_gk[0]["fpl_element_id"],
             "bench_order":bench_order,
-            "expected_starting_points":round(expected_points,8),
+            "expected_starting_points":expected_points,
         },
         "portfolio_risk":{
             "covar_used":False,"risk_profile_applied":False,
