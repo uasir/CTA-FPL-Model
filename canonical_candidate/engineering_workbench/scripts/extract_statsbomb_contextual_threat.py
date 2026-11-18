@@ -245,6 +245,11 @@ def contextual_event_features(event, frame, attacks_right=None):
                 open_receivers.append(receiver)
 
         directional.update({
+            "threat_creation_pass_attempt": 0 if event_type != "Pass" else "",
+            "threat_creation_pass_completed": 0 if event_type != "Pass" else "",
+            "progressive_pass_attempt": 0 if event_type != "Pass" else "",
+            "progressive_pass_completed": 0 if event_type != "Pass" else "",
+            "progressive_carry": 0 if event_type not in {"Carry", "Dribble"} else "",
             "goal_corridor_opponents_5m": len(corridor_opponents),
             "goal_side_opponents_12m": len(goal_side_opponents),
             "teammates_ahead_within_20": len(teammates_ahead),
