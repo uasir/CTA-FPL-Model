@@ -180,3 +180,21 @@ test("personal squad requires a forecast for every owned player", () => {
     /Missing forecast for owned/,
   );
 });
+
+
+test("shared canonical fixture covers the complete FPL player pool contract", () => {
+  const forecasts = FIXTURE.general_market.player_forecasts;
+  assert.equal(forecasts.length, 15);
+  assert.deepEqual(
+    forecasts.reduce((counts, player) => {
+      counts[player.position] += 1;
+      return counts;
+    }, { GKP: 0, DEF: 0, MID: 0, FWD: 0 }),
+    { GKP: 2, DEF: 5, MID: 5, FWD: 3 },
+  );
+  assert.equal(FIXTURE.personal_squad.squad_snapshot.length, 15);
+  assert.deepEqual(
+    new Set(forecasts.map((player) => player.fpl_element_id)).size,
+    15,
+  );
+});
