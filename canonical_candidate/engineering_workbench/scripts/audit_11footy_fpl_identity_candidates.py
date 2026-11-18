@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import lzma
 import re
@@ -10,6 +11,7 @@ import shutil
 import sqlite3
 import tempfile
 import unicodedata
+from datetime import datetime, timezone
 from collections import defaultdict
 from pathlib import Path
 
@@ -58,6 +60,14 @@ def normalize_text(value):
 def normalize_team(value):
     key = normalize_text(value)
     return TEAM_ALIASES.get(key, key)
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _materialize_sqlite(source: Path, temp_dir: Path):
@@ -268,6 +278,17 @@ def main():
         finally:
             connection.close()
 
+    provider_source_sha256 = _sha256_file(args.players_input)
+    fpl_bootstrap_sha256 = _sha256_file(args.fpl_bootstrap)
+    generated_at_utc = datetime.now(timezone.utc).isoformat()
+    report["provider_source_sha256"] = provider_source_sha256
+    report["fpl_bootstrap_sha256"] = fpl_bootstrap_sha256
+    report["generated_at_utc"] = generated_at_utc
+    for row in candidate_rows:
+        row["provider_source_sha256"] = provider_source_sha256
+        row["fpl_bootstrap_sha256"] = fpl_bootstrap_sha256
+        row["generated_at_utc"] = generated_at_utc
+
     (args.out_dir / "identity_candidate_summary.json").write_text(
         json.dumps(report, indent=2, allow_nan=False), encoding="utf-8"
     )
@@ -282,6 +303,7 @@ def main():
                 "provider_birth_date", "match_method", "confidence_level",
                 "verification_status", "verification_reason", "evidence_source",
                 "provider_release_url", "fpl_source_url",
+                "provider_source_sha256", "fpl_bootstrap_sha256", "generated_at_utc",
             ],
         )
         writer.writeheader()
