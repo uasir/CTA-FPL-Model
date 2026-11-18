@@ -6,6 +6,7 @@ sampled EO. It does not consume squad context or exploratory CoVar.
 """
 from __future__ import annotations
 import math
+from datetime import datetime
 from recommendation_contracts import validate_general_market_request, RecommendationContractError
 
 POSITIONS=("GKP","DEF","MID","FWD")
@@ -47,10 +48,38 @@ def _validate_filters(filters):
     return position,team_id,limit,minimum,maximum,min_points,eo_threshold
 
 
+def _validated_eo_provenance(quality,players):
+    eo_players=[player for player in players if "effective_ownership_pct" in player]
+    if not eo_players:
+        return None
+    coverage=quality["data_coverage"]
+    required=("eo_cohort","eo_sample_managers","eo_rank_cohort_captured_at_utc","eo_deadline_time_utc","eo_picks_captured_at_utc")
+    missing=[field for field in required if coverage.get(field) in (None,"")]
+    if missing or coverage.get("eo_picks_lock_verified") is not True:
+        raise RecommendationContractError("EO fields require verified cohort and post-lock provenance")
+    sample_size=coverage.get("eo_sample_managers")
+    if isinstance(sample_size,bool) or not isinstance(sample_size,int) or sample_size<1:
+        raise RecommendationContractError("EO sample size must be a positive integer")
+    rank_time=datetime.fromisoformat(str(coverage["eo_rank_cohort_captured_at_utc"]).replace("Z","+00:00"))
+    deadline=datetime.fromisoformat(str(coverage["eo_deadline_time_utc"]).replace("Z","+00:00"))
+    picks_time=datetime.fromisoformat(str(coverage["eo_picks_captured_at_utc"]).replace("Z","+00:00"))
+    if not rank_time<deadline<picks_time:
+        raise RecommendationContractError("EO rank cohort must precede deadline and picks must follow deadline")
+    return {
+        "cohort":coverage["eo_cohort"],
+        "sample_managers":sample_size,
+        "rank_cohort_captured_at_utc":rank_time.isoformat(),
+        "deadline_time_utc":deadline.isoformat(),
+        "picks_captured_at_utc":picks_time.isoformat(),
+        "picks_lock_verified":True,
+    }
+
+
 def recommend_general_market(payload):
     request=validate_general_market_request(payload)
     position,team_id,limit,min_price,max_price,min_points,eo_threshold=_validate_filters(request.get("filters",{}))
     players=request["player_forecasts"]
+    eo_provenance=_validated_eo_provenance(request["forecast_quality"],players)
     filtered=[]
     for source in players:
         if position is not None and source["position"]!=position: continue
@@ -71,13 +100,13 @@ def recommend_general_market(payload):
 
     eo_players=[p for p in filtered if "effective_ownership_pct" in p]
     if eo_threshold is None:
-        differential={"status":"EO_THRESHOLD_NOT_SET","players":[],"threshold_pct":None}
+        differential={"status":"EO_THRESHOLD_NOT_SET","players":[],"threshold_pct":None,"provenance":eo_provenance}
     elif not eo_players:
-        differential={"status":"EO_UNAVAILABLE","players":[],"threshold_pct":eo_threshold}
+        differential={"status":"EO_UNAVAILABLE","players":[],"threshold_pct":eo_threshold,"provenance":None}
     else:
         differential={"status":"SAMPLED_EO_AVAILABLE","players":sorted(
             [p for p in eo_players if p["effective_ownership_pct"]<=eo_threshold],key=order
-        )[:limit],"threshold_pct":eo_threshold}
+        )[:limit],"threshold_pct":eo_threshold,"provenance":eo_provenance}
 
     quality=request["forecast_quality"]
     return {
