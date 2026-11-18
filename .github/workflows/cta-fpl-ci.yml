@@ -8,6 +8,7 @@ on:
       - .github/workflows/cta-fpl-ingestion.yml
       - .github/workflows/cta-fpl-eo-capture.yml
       - canonical_candidate/engineering_workbench/scripts/**
+      - canonical_candidate/engineering_workbench/src/js/**
       - canonical_candidate/engineering_workbench/tests/**
       - canonical_candidate/data/player_identity_crosswalk.csv
 
@@ -25,6 +26,13 @@ jobs:
     steps:
       - name: Checkout CTA-FPL-Model
         uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run JavaScript recommendation contract tests
+        working-directory: canonical_candidate/engineering_workbench
+        run: node --test tests/js/*.test.mjs
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
