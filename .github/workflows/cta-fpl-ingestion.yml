@@ -12,6 +12,9 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/run_fpl_general_market_baseline.py"
       - "canonical_candidate/engineering_workbench/scripts/personal_squad_engine.py"
       - "canonical_candidate/engineering_workbench/scripts/run_fpl_personal_squad_scale_smoke_test.py"
+      - "canonical_candidate/engineering_workbench/scripts/compare_fpl_general_market_outputs.py"
+      - "canonical_candidate/engineering_workbench/src/js/general_market_engine.mjs"
+      - "canonical_candidate/engineering_workbench/tests/js/run_fpl_general_market_snapshot.mjs"
   schedule:
     - cron: "30 5 * * *"
 permissions:
@@ -28,6 +31,10 @@ jobs:
     steps:
       - name: Checkout CTA-FPL-Model
         uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -92,6 +99,18 @@ jobs:
         run: |
           python canonical_candidate/engineering_workbench/scripts/run_fpl_general_market_baseline.py \
             --snapshot run_artifacts/fpl_official/fpl_baseline_forecast_snapshot.json \
+            --out-dir run_artifacts/fpl_official
+
+      - name: Run JavaScript general-market engine on official FPL snapshot
+        run: |
+          node canonical_candidate/engineering_workbench/tests/js/run_fpl_general_market_snapshot.mjs \
+            run_artifacts/fpl_official/fpl_baseline_forecast_snapshot.json \
+            run_artifacts/fpl_official/fpl_general_market_baseline_js.json
+      - name: Compare live Python and JavaScript market outputs
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/compare_fpl_general_market_outputs.py \
+            --python run_artifacts/fpl_official/fpl_general_market_baseline.json \
+            --javascript run_artifacts/fpl_official/fpl_general_market_baseline_js.json \
             --out-dir run_artifacts/fpl_official
 
       - name: Run personal-squad engine scale smoke test on official FPL pool
