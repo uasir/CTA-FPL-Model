@@ -51,6 +51,13 @@ repeated event IDs with the provider's event_id_sub field; and preserve the
 expanded-minutes convention. The 2026/27 season is not included, so it cannot
 replace a current-season feed.
 
+Openplay access check (2026-11-18): the public Python reader installs, but
+its first attempt to fetch the pinned data release's checksums.json from
+nlbair/openplay returns HTTP 404 in GitHub Actions. The dataset is therefore
+not integrated or used by CTA at this point. Treat it as a promising source
+whose release access must be fixed or confirmed by its maintainer; do not build
+the training pipeline on an unverified download path.
+
 ### 11footy current-season match dataset
 
 11footy publishes a Premier League SQLite/CSV snapshot rebuilt after rounds.
