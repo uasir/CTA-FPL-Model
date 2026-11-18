@@ -41,3 +41,41 @@ def test_ridge_pipeline_uses_temporal_holdout_and_stays_exploratory():
     assert report["validation_player_gameweek_rows"] == 20
     assert report["decision"] == "DO_NOT_PROMOTE"
     assert len(model["points_model"]["coefficients"]) == len(model["points_model"]["feature_names"]) + 1
+
+
+
+def test_minutes_predictions_are_bounded_per_fixture_before_dgw_aggregation():
+    from train_fpl_exploratory_ridge import aggregate_predictions, FEATURES
+
+    row = {
+        "fpl_element_id": "7",
+        "gameweek": "9",
+        "target_total_points": "4",
+        "target_minutes": "90",
+        "prior5_gw_points_avg": "5",
+        "prior_gw_minutes": "90",
+    }
+    row.update({name: "0" for name in FEATURES})
+    row["fixture_count"] = "2"
+    second = dict(row)
+    second["target_total_points"] = "2"
+    second["target_minutes"] = "45"
+
+    over_90 = {
+        "feature_names": list(FEATURES),
+        "means": [0.0] * len(FEATURES),
+        "scales": [1.0] * len(FEATURES),
+        "coefficients": [120.0] + [0.0] * len(FEATURES),
+    }
+    below_zero = {
+        "feature_names": list(FEATURES),
+        "means": [0.0] * len(FEATURES),
+        "scales": [1.0] * len(FEATURES),
+        "coefficients": [-20.0] + [0.0] * len(FEATURES),
+    }
+
+    high = aggregate_predictions([row, second], over_90, over_90)[0]
+    low = aggregate_predictions([row, second], below_zero, below_zero)[0]
+
+    assert high["predicted_minutes"] == 180.0
+    assert low["predicted_minutes"] == 0.0
