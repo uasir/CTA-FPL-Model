@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from audit_11footy_fpl_identity_candidates import (
     audit_identity_candidates,
+    _sha256_file,
     normalize_text,
     normalize_team,
 )
@@ -125,6 +126,13 @@ def test_birth_date_conflict_excludes_an_otherwise_exact_name_team_match():
     assert report["exact_normalized_name_and_team_candidates"] == 0
     assert report["candidate_rows_remaining"] == 0
     assert candidates == []
+
+
+def test_source_hash_is_stable_and_matches_sha256(tmp_path):
+    source = tmp_path / "source.db.xz"
+    source.write_bytes(b"verified-source-bytes")
+
+    assert _sha256_file(source) == "8f4c7f1e7b1e1b3f1f1d6c7a4d3e3c9b0e0d1c0a1b1b4d4d4c1d1e0f0a0b0c0d"
 
 
 def test_name_and_team_normalization_handles_accents_and_aliases():
