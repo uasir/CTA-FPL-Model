@@ -92,7 +92,9 @@ test("EO values without locked cohort provenance are rejected", () => {
 test("EO deadline must match the forecast target deadline", () => {
   const payload = addLockedEoProvenance(request());
   payload.player_forecasts[0].effective_ownership_pct = 4.5;
+  payload.forecast_quality.data_coverage.eo_rank_cohort_captured_at_utc = "2026-11-29T10:55:00+00:00";
   payload.forecast_quality.data_coverage.eo_deadline_time_utc = "2026-11-29T11:00:00+00:00";
+  payload.forecast_quality.data_coverage.eo_picks_captured_at_utc = "2026-11-29T11:01:00+00:00";
   assert.throws(
     () => recommendGeneralMarket(payload),
     /does not match the forecast snapshot deadline/,
