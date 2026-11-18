@@ -461,3 +461,11 @@ PR #18 updates the deadline EO collector for the upcoming GW11 lock:
 CI run 44355853392 passed: 38 JS tests, 10 canonical Python unittests, 190 pytest tests + 3 subtests. Detailed design: `reports/EO_RANK_STRATIFIED_SAMPLE_DESIGN_2026-11-18.md`.
 
 **No live EO result yet.** GW11 deadline is 2026-11-21 11:00 UTC; expected pre-deadline cohort run is 10:35 UTC. The workflow will only report a capture if all timing, rank-page completeness, 15-pick, captain, and lock checks pass. Otherwise it records a skip/failure and no EO estimate is claimed.
+
+## 17. CoVar rolling-window expansion — 2026-11-18
+
+The weekly Onside actual-points research workflow now uses the latest **up to 20 fully graded gameweeks**, rather than always truncating to 10. When fewer than 20 are available, it uses all completed gameweeks. The split-window stability diagnostic therefore grows from two 5-GW halves (at 10 GWs) to two 10-GW halves (at 20 GWs).
+
+Complete-case rules remain unchanged: partially graded gameweeks and incomplete player panels are excluded, and missing points are never zero-filled. Diagonal shrinkage remains 50%; no covariance-based recommendation or CoVar activation is enabled. The existing 10-GW instability result remains valid for its historical run; the longer window must be evaluated on future completed gameweeks.
+
+This is a data-window improvement only, not evidence that CoVar is now reliable. Personal-squad CoVar stays disabled.
