@@ -34,41 +34,50 @@ Latest commits:
 - Cross-language parity test: `47e841f3727fe4ce9d8b125212a37041fe197572`
 - Manual dispatch enabled: `dbb273273ec6a0813904534e41be2e1f2fc0bf98`
 
-## 2. External FPL forecast benchmark candidate: Onside Arena
+## 2. External FPL forecast benchmark: Onside Arena — source and target reconciliation passed
 
 Candidate dataset:
-- Dataset: Fantasy Premier League — Graded Predictions Dataset, 2026/27
+- Dataset: Fantasy Premier League — Graded Predictions Dataset, 2026/27.
 - CSV: https://onsidearena.com/data/graded-predictions.csv
-- Dataset landing page: https://onsidearena.com/data
 - DOI: https://doi.org/10.5281/zenodo.22746985
-- Provider-stated licence: CC BY 4.0; attribution to Onside Arena and a link back are required.
-- Provider describes one row per player per gameweek and 14 columns.
-- Documented fields include `captured_at`, `deadline_utc`, Onside forecast, actual FPL points, FPL `ep_next`, recent-form and season-average baselines, and `minutes_qualified`.
-- Provider states forecasts are frozen before the deadline and paired with post-deadline outcomes.
+- Provider-stated licence: CC BY 4.0; attribution to Onside Arena with a link to onsidearena.com.
+- The provider describes one player-gameweek row with a pre-deadline forecast, official FPL `ep_next`, actual FPL points, recent-form and season-average baselines, and a minutes-qualified flag.
 
-Sources inspected on 2026-11-18:
-- https://onsidearena.com/data
-- https://onsidearena.com/accuracy
+### Real-source audit — passed
 
-### Integration decision
-**Candidate remains unverified; ingestion is gated and it is not yet an approved benchmark input.**
+The source was fetched and inspected by the new GitHub Actions workflow:
+- Latest run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44257909685
+- Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44257909685/artifacts/14407050697
+- Artifact ID: `14407050697`; retained until 2027-02-16.
+- Source SHA-256: `dd51366a5f71d5f0bf26b4265b17188f04774d584c4444172be3f307aaf02a81`.
 
-Do not use Onside forecasts as training targets or silently blend them into CTA forecasts. Preserve provider forecasts as a separately named benchmark arm. Compare against FPL `ep_next` and our own baselines on identical player-gameweek rows, with explicit minutes-qualified and all-player cohorts.
+Verified:
+- 5,450 rows and 14 columns.
+- 5,450/5,450 rows have `captured_at < deadline_utc`.
+- 5,450/5,450 row deadlines exactly match the official FPL event deadlines.
+- 608 unique `player_id` values; 608/608 match official FPL `element` IDs, not `player_code`.
+- Zero duplicate player-gameweek keys.
+- 4,954 populated actual-points rows match official FPL event-live `total_points` exactly; zero mismatches.
+- The other 496 rows have blank actual points and belong to gameweeks the official API still marks unfinished. No finished gameweek has an ungraded row.
 
-### Remaining checks before ingestion
-A retrieval inconsistency was found on 2026-11-18: the current search index describes the FPL graded-predictions CSV and links DOI 10.5281/zenodo.22746985, but the opened /data page currently renders a World Cup 2026 catalogue and does not expose that FPL CSV. The Zenodo record and CSV endpoints could not be retrieved through the available research tools. The public accuracy page still displays provider-reported FPL accuracy figures, but those claims do not substitute for the raw row-level ledger. Therefore the dataset's current availability, exact version and DOI contents remain unresolved. Do not assume or invent:
-- the exact 14-column header and data types;
-- the player identity key or whether it is the official FPL element ID;
-- exact row count, gameweek coverage, historical season coverage, or current freshness;
-- whether the Zenodo deposit file matches the live CSV byte-for-byte.
+### Independently recomputed exploratory benchmark
 
-Next adapter gate:
-1. Retrieve the CSV and Zenodo metadata; record file name, version, byte size, SHA-256, licence and retrieval timestamp.
-2. Inspect exact header, nullability, numeric domains, duplicate keys and coverage.
-3. Verify `captured_at < deadline_utc` for every row and exclude any invalid rows from leakage-safe scoring.
-4. Resolve a stable FPL player key. Never fuzzy-join names.
-5. Verify actual points and FPL `ep_next` against the official FPL source for matching player-gameweek keys.
-6. Compute MAE, RMSE, calibration and rank/captain metrics on identical eligible cohorts. Keep the provider's published historical claims separate from metrics independently reproduced by this project.
+On the same 4,954 scored rows:
+- All scored rows: Onside MAE 1.681 / RMSE 2.577; provider-supplied frozen FPL `ep_next` MAE 1.600 / RMSE 2.651.
+- Minutes-qualified cohort (2,045 rows): Onside MAE 2.515 / RMSE 3.530; FPL `ep_next` MAE 2.685 / RMSE 3.765.
+
+These are project calculations from the downloaded ledger, not an endorsement of the provider's wider four-season accuracy claims. All-player and minutes-qualified cohorts answer different questions and must remain separate. The historical `fpl_ep_next` values are supplied by Onside; the current official FPL API cannot independently recreate their exact historical vintages.
+
+### Integration decision and guardrails
+
+**Approved as a separate external FPL forecast benchmark only.** It is not a source of event-derived CTA features and does not clear the StatsBomb/Wyscout/Opta player-event integration blockers.
+
+- Preserve Onside forecasts as a separate benchmark arm.
+- Do not train CTA on Onside predictions or blend them into CTA forecasts.
+- Compare Onside and official FPL `ep_next` on identical player-gameweek rows and identical eligibility cohorts.
+- Preserve CC BY 4.0 attribution in any published report.
+- Keep the raw CSV in the workflow artifact, not the public Git history.
+- Do not treat this result as CTA predictive validation or as proof that the project's own FPL forecast is calibrated.
 
 ## 3. Existing integration blockers remain
 
