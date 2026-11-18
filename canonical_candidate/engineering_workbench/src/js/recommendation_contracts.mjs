@@ -80,7 +80,7 @@ function validateShared(payload) {
   if (!isRecord(quality.data_coverage)) {
     throw new RecommendationContractError("forecast_quality.data_coverage must be an object");
   }
-  if (!Array.isArray(quality.limitations ?? [])) {
+  if (!Array.isArray(quality.limitations)) {
     throw new RecommendationContractError("forecast_quality.limitations must be a list");
   }
   if (!Array.isArray(payload.player_forecasts) || payload.player_forecasts.length === 0) {
