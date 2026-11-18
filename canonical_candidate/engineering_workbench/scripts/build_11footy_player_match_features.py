@@ -601,9 +601,15 @@ def main():
             connection.close()
             players_connection.close()
 
+    report["attribution"] = "11footy; CC BY-NC 4.0; non-commercial use only."
     report["source_hashes"] = {
         "11footy_match_database_sha256": sha256(args.database),
         "11footy_player_catalogue_sha256": sha256(args.players_database),
+        "official_fpl_fixtures_sha256": sha256(args.fpl_fixtures),
+        "official_fpl_players_sha256": sha256(args.fpl_players),
+        "official_fpl_player_fixture_history_sha256": sha256(args.fpl_player_fixture),
+        "identity_candidate_snapshot_sha256": sha256(args.candidates),
+        "verified_crosswalk_snapshot_sha256": sha256(args.crosswalk),
     }
     write_csv(args.out_dir / "verified_player_match_panel.csv", PANEL_FIELDS, panel_rows)
     write_csv(args.out_dir / "candidate_match_evidence.csv", EVIDENCE_FIELDS, evidence_rows)
