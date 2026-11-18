@@ -14,9 +14,17 @@ from audit_11footy_fpl_identity_candidates import (
 def _players_db(rows):
     db = sqlite3.connect(":memory:")
     db.execute(
-        "CREATE TABLE players(player_id INTEGER, name TEXT, current_team_name TEXT, birth_date TEXT)"
+        "CREATE TABLE players(player_id INTEGER, name TEXT, current_team_id INTEGER, current_team_name TEXT, birth_date TEXT)"
     )
-    db.executemany("INSERT INTO players VALUES (?,?,?,?)", rows)
+    team_ids = {
+        "Liverpool": 1, "Manchester City": 2, "Arsenal": 3,
+        "Chelsea": 4, "Man City": 2,
+    }
+    expanded = [
+        (player_id, name, team_ids.get(team), team, birth_date)
+        for player_id, name, team, birth_date in rows
+    ]
+    db.executemany("INSERT INTO players VALUES (?,?,?,?,?)", expanded)
     return db
 
 
@@ -61,6 +69,9 @@ def test_exact_name_team_and_birth_date_candidates_are_high_confidence_not_verif
     assert all(row["verification_status"] == "pending" for row in candidates)
     salah = next(row for row in candidates if row["fpl_element_id"] == 100)
     assert salah["provider_player_id"] == 1
+    assert salah["provider_team_id"] == 1
+    assert salah["fpl_team_id"] == 1
+    assert salah["competition_id"] == "1"
     assert salah["fpl_player_code"] == 1000
     assert salah["provider_player_name"] == "Mohamed Salah"
     assert salah["fpl_player_name"] == "Mohamed Salah"
