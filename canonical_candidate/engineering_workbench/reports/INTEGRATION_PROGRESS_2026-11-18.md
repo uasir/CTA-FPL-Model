@@ -167,11 +167,13 @@ These are exploratory v0.1 engines. Remaining work includes real FPL snapshot ex
 
 A full live ingestion and baseline ranking run completed successfully:
 
-- Actions run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254087867
-- Commit: `b11cb2307b30f7f202800bab63ee4399c696a05a`
-- Artifact: `cta-fpl-official-44254087867` (ID `14405276623`)
-- Artifact download: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254087867/artifacts/14405276623
-- Artifact expiry: 2027-02-16 06:48:36 UTC.
+- Latest full Actions run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44255361502
+- Commit: `8d1c4e42f6529cd9886fa781a7be3bacfac4ae5d`
+- Artifact: `cta-fpl-official-44255361502` (ID `14405672773`)
+- Artifact download: https://github.com/uasir/CTA-FPL-Model/actions/runs/44255361502/artifacts/14405672773
+- Artifact expiry: 2027-02-16 06:59:09 UTC.
+- Forecast snapshot ID: `eba3236337a3288221a0b22aa90bf7a48f8633e09cb973c1eefadd221fae1f82`.
+- Captured at 2026-11-18 07:00:47 UTC.
 
 ### Official feed integrity
 - Season: 2026/27; target GW11.
@@ -182,12 +184,13 @@ A full live ingestion and baseline ranking run completed successfully:
 - No orphan fixtures, unknown IDs, minute reconciliation mismatches or total-points reconciliation mismatches.
 
 ### Forecast snapshot
-- Snapshot ID: `c49ad19ac91045b95b0d391be6deab0058ae701c8999dc2e47b59117bf816f92`.
 - 672/672 player forecasts built; no missing `ep_next`, invalid player rows or missing minutes history.
 - 10 target-GW fixtures counted; target fixture counts are used to scale latest completed-GW minutes per fixture.
-- The snapshot was captured at 2026-11-18 06:50:09 UTC, **76.164 hours before the GW11 deadline**. It is therefore marked `STALE_OVER_24H`; the recommendation status remains `EXPLORATORY_ONLY`. The scheduled daily ingestion should produce a fresh pre-deadline snapshot on deadline day.
+- The snapshot was captured **75.987 hours before the GW11 deadline**. It is marked `STALE_OVER_24H`; the recommendation status remains `EXPLORATORY_ONLY`. The scheduled daily ingestion should produce a fresh pre-deadline snapshot on deadline day.
 
-### General-market engine live smoke test
+### General-market engine live smoke test and Python–JavaScript parity
+- Python and JavaScript general-market outputs are **exactly numerically equal** across the full 672-player pool and all output categories.
+- Parity report: `PASS_PYTHON_JAVASCRIPT_PARITY`; artifact contains the Python output, JS output and comparison report.
 - Status: `PASS_EXPLORATORY_GENERAL_MARKET`.
 - All 672 players ranked.
 - The current official `ep_next` top five were N. Jackson (11.0), Konsa (10.7), Gabriel (10.3), Barry (9.0) and Evanilson (8.0).
@@ -204,12 +207,12 @@ The live EO capture remains outstanding for GW11. Its scheduler now checks five 
 
 The personal-squad engine was also executed against the same 672-player official forecast pool using a clearly labelled synthetic legal 15-player squad:
 
-- Actions run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254629419
-- Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254629419/artifacts/14405287431
+- Actions run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44255361502
+- Artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44255361502/artifacts/14405672773
 - Status: `PASS_SYNTHETIC_PERSONAL_SQUAD_SCALE_SMOKE_TEST`.
-- 672 forecast players; 15-player synthetic squad; £61.9m squad cost; £38.1m bank; maximum three players per team.
+- 672 forecast players; 15-player synthetic squad; £62.1m squad cost; £37.9m bank; maximum two players per team.
 - Built a legal 4-3-3, 11-player starting XI, captain, vice-captain and bench.
-- Evaluated 594 legal one-transfer candidates.
+- Evaluated 2,914 legal one-transfer candidates.
 - The smoke test deliberately used a synthetic squad and is **not** a real manager recommendation.
 - Risk profile and CoVar remained unapplied; recommendation status remained exploratory.
 
