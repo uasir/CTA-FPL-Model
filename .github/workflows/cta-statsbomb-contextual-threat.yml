@@ -1,0 +1,121 @@
+name: CTA StatsBomb 360 contextual-threat pilot
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/cta-statsbomb-contextual-threat.yml
+      - canonical_candidate/engineering_workbench/scripts/extract_statsbomb_contextual_threat.py
+      - canonical_candidate/data/events/3895320.json
+      - canonical_candidate/data/three-sixty/3895320.json
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/cta-statsbomb-contextual-threat.yml
+      - canonical_candidate/engineering_workbench/scripts/extract_statsbomb_contextual_threat.py
+      - canonical_candidate/data/events/3895320.json
+      - canonical_candidate/data/three-sixty/3895320.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-statsbomb-360-contextual-threat
+  cancel-in-progress: false
+
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out CTA-FPL-Model
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Extract contextual threat from the verified real StatsBomb match
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/extract_statsbomb_contextual_threat.py \
+            --events-dir ../data/events \
+            --three-sixty-dir ../data/three-sixty \
+            --match-id 3895320 \
+            --out-dir ../../run_artifacts/statsbomb_contextual_threat
+
+      - name: Enforce pilot integrity and prepare aggregate-only report
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path("run_artifacts/statsbomb_contextual_threat")
+          report = json.loads((root / "contextual_threat_report.json").read_text())
+          match = report["matches"][0]
+          source_root = Path("canonical_candidate/data")
+          source_files = {
+              "events": source_root / "events/3895320.json",
+              "three_sixty": source_root / "three-sixty/3895320.json",
+          }
+          source_hashes = {
+              name: {
+                  "path": str(path),
+                  "bytes": path.stat().st_size,
+                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+              }
+              for name, path in source_files.items()
+          }
+          failures = []
+          if report["matches_processed"] != 1:
+              failures.append("Expected exactly one selected match")
+          if match["events_with_usable_360_context"] <= 0:
+              failures.append("No usable 360 context was extracted")
+          if match["duplicate_360_event_uuids"] != 0:
+              failures.append("Duplicate 360 event UUIDs were found")
+          if match["player_match_rows"] <= 0:
+              failures.append("No player-match rows were produced")
+          if match["prediction_validation"] != "NOT_EVALUATED":
+              failures.append("Prediction status must remain NOT_EVALUATED")
+          if failures:
+              raise SystemExit("\n".join(failures))
+
+          aggregate = {
+              "provider": "StatsBomb Open Data",
+              "attribution": "StatsBomb Open Data; source attribution required for published analysis",
+              "source_match_id": "3895320",
+              "source_match_competition": "Bundesliga pilot; not an FPL Premier League training sample",
+              "source_file_hashes": source_hashes,
+              "matches_processed": report["matches_processed"],
+              "event_context_rows": report["event_context_rows"],
+              "player_match_rows": report["player_match_rows"],
+              "match_summary": {
+                  key: match[key] for key in (
+                      "supported_events", "events_with_usable_360_context",
+                      "event_context_coverage", "unmatched_supported_events_without_frame",
+                      "duplicate_360_event_uuids", "context_rows_without_player_id",
+                      "player_match_rows", "status", "prediction_validation"
+                  )
+              },
+              "overall_status": "PASS_STRUCTURAL_ONLY",
+              "prediction_validation": "NOT_EVALUATED",
+              "publication_policy": "Aggregate-only artifact; raw provider data and player-level feature rows are not uploaded.",
+              "limitations": [
+                  "StatsBomb 360 is sampled context, not continuous tracking.",
+                  "This pilot is one Bundesliga match and does not establish FPL predictive value.",
+                  "No StatsBomb-to-FPL identity crosswalk is applied."
+              ]
+          }
+          (root / "aggregate_summary.json").write_text(json.dumps(aggregate, indent=2))
+          print(json.dumps(aggregate, indent=2))
+          PY
+
+      - name: Upload aggregate-only pilot report
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-statsbomb-360-contextual-threat-${{ github.run_id }}
+          path: run_artifacts/statsbomb_contextual_threat/aggregate_summary.json
+          if-no-files-found: error
+          retention-days: 90

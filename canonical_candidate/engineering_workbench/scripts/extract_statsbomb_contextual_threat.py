@@ -271,11 +271,20 @@ def main():
     parser.add_argument("--events-dir", type=Path, required=True)
     parser.add_argument("--three-sixty-dir", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument("--match-id", action="append", dest="match_ids", help="Optional match ID filter; repeat to select multiple matches")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
     summaries = []
     all_events, all_players = [], []
-    for event_path in sorted(args.events_dir.glob("*.json")):
+    event_paths = sorted(args.events_dir.glob("*.json"))
+    if args.match_ids:
+        wanted = set(str(value) for value in args.match_ids)
+        event_paths = [path for path in event_paths if path.stem in wanted]
+        found = {path.stem for path in event_paths}
+        missing = sorted(wanted - found)
+        if missing:
+            raise SystemExit("Requested match IDs not found: " + ", ".join(missing))
+    for event_path in event_paths:
         frame_path = args.three_sixty_dir / event_path.name
         if not frame_path.exists():
             continue
