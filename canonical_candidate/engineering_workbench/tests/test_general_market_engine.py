@@ -145,3 +145,13 @@ def test_stale_pre_deadline_snapshot_cannot_be_labelled_validated():
     payload["forecast_quality"]["data_coverage"]["freshness_status"] = "STALE_OVER_24H"
     result = recommend_general_market(payload)
     assert result["recommendation_status"] == "EXPLORATORY_ONLY"
+
+
+
+def test_validated_market_status_requires_all_three_quality_gates():
+    payload = request()
+    payload["forecast_quality"]["validation_status"] = "VALIDATED"
+    payload["forecast_quality"]["point_in_time_status"] = "VERIFIED"
+    payload["forecast_quality"]["data_coverage"]["freshness_status"] = "FRESH_WITHIN_24H"
+    result = recommend_general_market(payload)
+    assert result["recommendation_status"] == "VALIDATED"
