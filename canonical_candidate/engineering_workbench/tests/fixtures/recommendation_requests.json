@@ -1,0 +1,354 @@
+{
+  "contract_version": "1.0.0",
+  "general_market": {
+    "forecast_snapshot_id": "snapshot-2026-11-18T05:00:00Z",
+    "model_version": "unvalidated-baseline-0",
+    "forecast_horizon_gameweeks": 5,
+    "forecast_quality": {
+      "validation_status": "EXPLORATORY_ONLY",
+      "point_in_time_status": "NOT_VERIFIED",
+      "data_coverage": {
+        "season": "2026-27",
+        "gameweeks": [
+          1,
+          10
+        ],
+        "players": 672
+      },
+      "limitations": [
+        "Current snapshot; point-in-time history not verified."
+      ]
+    },
+    "player_forecasts": [
+      {
+        "fpl_element_id": 1,
+        "expected_points": 3.8,
+        "expected_minutes": 80,
+        "price": 4.5,
+        "position": "GKP",
+        "team_id": 1
+      },
+      {
+        "fpl_element_id": 2,
+        "expected_points": 3.9000000000000004,
+        "expected_minutes": 75,
+        "price": 4.5,
+        "position": "GKP",
+        "team_id": 2
+      },
+      {
+        "fpl_element_id": 3,
+        "expected_points": 3.6,
+        "expected_minutes": 80,
+        "price": 5,
+        "position": "DEF",
+        "team_id": 3
+      },
+      {
+        "fpl_element_id": 4,
+        "expected_points": 4.2,
+        "expected_minutes": 80,
+        "price": 5,
+        "position": "DEF",
+        "team_id": 4
+      },
+      {
+        "fpl_element_id": 5,
+        "expected_points": 3.9000000000000004,
+        "expected_minutes": 80,
+        "price": 5,
+        "position": "DEF",
+        "team_id": 5
+      },
+      {
+        "fpl_element_id": 6,
+        "expected_points": 3.6,
+        "expected_minutes": 80,
+        "price": 5,
+        "position": "DEF",
+        "team_id": 1
+      },
+      {
+        "fpl_element_id": 7,
+        "expected_points": 4.2,
+        "expected_minutes": 80,
+        "price": 5,
+        "position": "DEF",
+        "team_id": 2
+      },
+      {
+        "fpl_element_id": 8,
+        "expected_points": 3.9000000000000004,
+        "expected_minutes": 80,
+        "price": 6,
+        "position": "MID",
+        "team_id": 3
+      },
+      {
+        "fpl_element_id": 9,
+        "expected_points": 3.6,
+        "expected_minutes": 80,
+        "price": 6,
+        "position": "MID",
+        "team_id": 4
+      },
+      {
+        "fpl_element_id": 10,
+        "expected_points": 4.2,
+        "expected_minutes": 80,
+        "price": 6,
+        "position": "MID",
+        "team_id": 5
+      },
+      {
+        "fpl_element_id": 11,
+        "expected_points": 3.9000000000000004,
+        "expected_minutes": 80,
+        "price": 6,
+        "position": "MID",
+        "team_id": 1
+      },
+      {
+        "fpl_element_id": 12,
+        "expected_points": 3.6,
+        "expected_minutes": 80,
+        "price": 6,
+        "position": "MID",
+        "team_id": 2
+      },
+      {
+        "fpl_element_id": 13,
+        "expected_points": 4.2,
+        "expected_minutes": 80,
+        "price": 7,
+        "position": "FWD",
+        "team_id": 3
+      },
+      {
+        "fpl_element_id": 14,
+        "expected_points": 3.9000000000000004,
+        "expected_minutes": 80,
+        "price": 7,
+        "position": "FWD",
+        "team_id": 4
+      },
+      {
+        "fpl_element_id": 15,
+        "expected_points": 3.6,
+        "expected_minutes": 80,
+        "price": 7,
+        "position": "FWD",
+        "team_id": 5
+      }
+    ]
+  },
+  "personal_squad": {
+    "forecast_snapshot_id": "snapshot-2026-11-18T05:00:00Z",
+    "model_version": "unvalidated-baseline-0",
+    "forecast_horizon_gameweeks": 5,
+    "forecast_quality": {
+      "validation_status": "EXPLORATORY_ONLY",
+      "point_in_time_status": "NOT_VERIFIED",
+      "data_coverage": {
+        "season": "2026-27",
+        "gameweeks": [
+          1,
+          10
+        ],
+        "players": 672
+      },
+      "limitations": [
+        "Current snapshot; point-in-time history not verified."
+      ]
+    },
+    "player_forecasts": [
+      {
+        "fpl_element_id": 1,
+        "expected_points": 3.8,
+        "expected_minutes": 80,
+        "price": 4.5,
+        "position": "GKP",
+        "team_id": 1
+      },
+      {
+        "fpl_element_id": 2,
+        "expected_points": 3.9000000000000004,
+        "expected_minutes": 75,
+        "price": 4.5,
+        "position": "GKP",
+        "team_id": 2
+      },
+      {
+        "fpl_element_id": 3,
+        "expected_points": 3.6,
+        "expected_minutes": 80,
+        "price": 5,
+        "position": "DEF",
+        "team_id": 3
+      },
+      {
+        "fpl_element_id": 4,
+        "expected_points": 4.2,
+        "expected_minutes": 80,
+        "price": 5,
+        "position": "DEF",
+        "team_id": 4
+      },
+      {
+        "fpl_element_id": 5,
+        "expected_points": 3.9000000000000004,
+        "expected_minutes": 80,
+        "price": 5,
+        "position": "DEF",
+        "team_id": 5
+      },
+      {
+        "fpl_element_id": 6,
+        "expected_points": 3.6,
+        "expected_minutes": 80,
+        "price": 5,
+        "position": "DEF",
+        "team_id": 1
+      },
+      {
+        "fpl_element_id": 7,
+        "expected_points": 4.2,
+        "expected_minutes": 80,
+        "price": 5,
+        "position": "DEF",
+        "team_id": 2
+      },
+      {
+        "fpl_element_id": 8,
+        "expected_points": 3.9000000000000004,
+        "expected_minutes": 80,
+        "price": 6,
+        "position": "MID",
+        "team_id": 3
+      },
+      {
+        "fpl_element_id": 9,
+        "expected_points": 3.6,
+        "expected_minutes": 80,
+        "price": 6,
+        "position": "MID",
+        "team_id": 4
+      },
+      {
+        "fpl_element_id": 10,
+        "expected_points": 4.2,
+        "expected_minutes": 80,
+        "price": 6,
+        "position": "MID",
+        "team_id": 5
+      },
+      {
+        "fpl_element_id": 11,
+        "expected_points": 3.9000000000000004,
+        "expected_minutes": 80,
+        "price": 6,
+        "position": "MID",
+        "team_id": 1
+      },
+      {
+        "fpl_element_id": 12,
+        "expected_points": 3.6,
+        "expected_minutes": 80,
+        "price": 6,
+        "position": "MID",
+        "team_id": 2
+      },
+      {
+        "fpl_element_id": 13,
+        "expected_points": 4.2,
+        "expected_minutes": 80,
+        "price": 7,
+        "position": "FWD",
+        "team_id": 3
+      },
+      {
+        "fpl_element_id": 14,
+        "expected_points": 3.9000000000000004,
+        "expected_minutes": 80,
+        "price": 7,
+        "position": "FWD",
+        "team_id": 4
+      },
+      {
+        "fpl_element_id": 15,
+        "expected_points": 3.6,
+        "expected_minutes": 80,
+        "price": 7,
+        "position": "FWD",
+        "team_id": 5
+      }
+    ],
+    "squad_snapshot": [
+      {
+        "fpl_element_id": 1,
+        "purchase_price": 4.5
+      },
+      {
+        "fpl_element_id": 2,
+        "purchase_price": 4.5
+      },
+      {
+        "fpl_element_id": 3,
+        "purchase_price": 5
+      },
+      {
+        "fpl_element_id": 4,
+        "purchase_price": 5
+      },
+      {
+        "fpl_element_id": 5,
+        "purchase_price": 5
+      },
+      {
+        "fpl_element_id": 6,
+        "purchase_price": 5
+      },
+      {
+        "fpl_element_id": 7,
+        "purchase_price": 5
+      },
+      {
+        "fpl_element_id": 8,
+        "purchase_price": 6
+      },
+      {
+        "fpl_element_id": 9,
+        "purchase_price": 6
+      },
+      {
+        "fpl_element_id": 10,
+        "purchase_price": 6
+      },
+      {
+        "fpl_element_id": 11,
+        "purchase_price": 6
+      },
+      {
+        "fpl_element_id": 12,
+        "purchase_price": 6
+      },
+      {
+        "fpl_element_id": 13,
+        "purchase_price": 7
+      },
+      {
+        "fpl_element_id": 14,
+        "purchase_price": 7
+      },
+      {
+        "fpl_element_id": 15,
+        "purchase_price": 7
+      }
+    ],
+    "bank": 4.6,
+    "free_transfers": 1,
+    "personal_risk_profile": "aggressive",
+    "chips": [],
+    "formation": "4-3-3"
+  }
+}
