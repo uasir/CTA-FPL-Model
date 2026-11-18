@@ -31,7 +31,7 @@ jobs:
           python canonical_candidate/engineering_workbench/scripts/capture_fpl_ranked_manager_picks.py \
             --out-dir run_artifacts/fpl_eo \
             --rank-limit 10000 \
-            --sample-size 100 \
+            --sample-size 400 \
             --workers 2 \
             --delay 0.15 \
             --deadline-window-minutes 35 \

@@ -4,21 +4,33 @@ from capture_fpl_ranked_manager_picks import choose_pages,select_managers,normal
 
 
 class RankedManagerSampleTests(unittest.TestCase):
-    def test_rank_page_sampling_is_deterministic_and_spread(self):
-        a=choose_pages(10000,100,7)
-        b=choose_pages(10000,100,7)
+    def test_rank_page_sampling_covers_every_page_deterministically(self):
+        a=choose_pages(10000,400,7)
+        b=choose_pages(10000,400,7)
         self.assertEqual(a,b)
-        self.assertEqual(len(a),100)
-        self.assertGreaterEqual(min(a),1)
-        self.assertLessEqual(max(a),200)
+        self.assertEqual(len(a),200)
+        self.assertEqual(a,list(range(1,201)))
 
-    def test_select_managers_uses_pre_deadline_ranks_and_weights(self):
-        payloads={1:{"standings":{"results":[{"entry":101,"rank":1},{"entry":102,"rank":2}]}},
-                  3:{"standings":{"results":[{"entry":201,"rank":101},{"entry":202,"rank":102}]}}}
-        managers=select_managers(payloads,2,10000,5)
-        self.assertEqual(len(managers),2)
-        self.assertEqual({x["sample_weight"] for x in managers},{5000.0})
-        self.assertTrue(all(x["rank_before_deadline"] in {1,2,101,102} for x in managers))
+    def test_select_managers_samples_two_from_every_page_with_equal_weights(self):
+        payloads={
+            1:{"standings":{"results":[{"entry":101+i,"rank":1+i} for i in range(50)]}},
+            2:{"standings":{"results":[{"entry":201+i,"rank":51+i} for i in range(50)]}},
+        }
+        managers=select_managers(payloads,4,100,5)
+        self.assertEqual(len(managers),4)
+        self.assertEqual({x["sample_weight"] for x in managers},{25.0})
+        self.assertEqual({x["page_standings"] for x in managers},{1,2})
+        self.assertEqual(sum(x["page_standings"]==1 for x in managers),2)
+        self.assertEqual(sum(x["page_standings"]==2 for x in managers),2)
+        self.assertTrue(all(1<=x["rank_before_deadline"]<=100 for x in managers))
+
+    def test_select_managers_rejects_incomplete_rank_page(self):
+        payloads={
+            1:{"standings":{"results":[{"entry":101+i,"rank":1+i} for i in range(49)]}},
+            2:{"standings":{"results":[{"entry":201+i,"rank":51+i} for i in range(50)]}},
+        }
+        with self.assertRaisesRegex(ValueError,"incomplete"):
+            select_managers(payloads,4,100,5)
 
     def test_normalizes_picks_and_chip_state(self):
         managers=[{"entry_id":7,"rank_before_deadline":7,"sample_weight":100.0}]

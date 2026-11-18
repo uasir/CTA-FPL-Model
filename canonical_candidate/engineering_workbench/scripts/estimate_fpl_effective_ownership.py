@@ -5,21 +5,88 @@ Input CSV has one row per manager-player pick and must be sourced from a
 deadline-aligned sample. This script does not fetch managers or infer rank tiers.
 """
 from __future__ import annotations
-import argparse,csv,json
+import argparse,csv,json,math
 from collections import defaultdict
 from pathlib import Path
+
+PAGE_SIZE=50
 
 
 def truth(value):
     return str(value).strip().lower() in {"1","true","yes","y"}
 
 
-def estimate_effective_ownership(rows):
+def _weighted_normal_ci(samples, confidence_z=1.96):
+    if not samples:
+        return None
+    weights=[weight for _,weight in samples]
+    total=sum(weights)
+    total_sq=sum(weight*weight for weight in weights)
+    if total<=0 or total_sq<=0:
+        return None
+    mean=sum(value*weight for value,weight in samples)/total
+    n_eff=total*total/total_sq
+    if n_eff<=1:
+        return None
+    variance=sum(weight*(value-mean)**2 for value,weight in samples)/total
+    variance*=n_eff/(n_eff-1)
+    se=math.sqrt(max(0.0,variance)/n_eff)
+    return max(0.0,mean-confidence_z*se),mean+confidence_z*se
+
+
+def _wilson_ci(samples_by_stratum, metric_index, rank_stratified, confidence_z=1.96):
+    samples=[]
+    if rank_stratified:
+        for values in samples_by_stratum.values():
+            samples.extend(values)
+    else:
+        samples=samples_by_stratum.get("all",[])
+    if not samples:
+        return None
+    total_weight=sum(weight for _,weight in samples)
+    total_weight_sq=sum(weight*weight for _,weight in samples)
+    if total_weight<=0 or total_weight_sq<=0:
+        return None
+    p=sum(values[metric_index]*weight for values,weight in samples)/total_weight
+    n_eff=total_weight*total_weight/total_weight_sq
+    z2=confidence_z*confidence_z
+    denominator=1+z2/n_eff
+    centre=(p+z2/(2*n_eff))/denominator
+    half=confidence_z*math.sqrt((p*(1-p)/n_eff)+(z2/(4*n_eff*n_eff)))/denominator
+    return max(0.0,centre-half),min(1.0,centre+half)
+
+
+def _stratified_normal_ci(samples_by_stratum, metric_index, rank_limit, confidence_z=1.96):
+    if rank_limit<=0 or rank_limit%PAGE_SIZE:
+        return None
+    page_count=rank_limit//PAGE_SIZE
+    mean=0.0
+    variance=0.0
+    for page in range(1,page_count+1):
+        samples=samples_by_stratum.get(page,[])
+        n=len(samples)
+        population=min(PAGE_SIZE,rank_limit-(page-1)*PAGE_SIZE)
+        if n<2 or n>population:
+            return None
+        if len({sample[1] for sample in samples})!=1:
+            return None
+        values=[sample[0][metric_index] for sample in samples]
+        page_mean=sum(values)/n
+        page_variance=sum((value-page_mean)**2 for value in values)/(n-1)
+        share=population/rank_limit
+        mean+=share*page_mean
+        variance+=(share**2)*(1-n/population)*page_variance/n
+    se=math.sqrt(max(0.0,variance))
+    return max(0.0,mean-confidence_z*se),mean+confidence_z*se
+
+
+def estimate_effective_ownership(rows, player_ids=None):
     if not rows:
         raise ValueError("manager-pick input is empty")
     managers=defaultdict(list)
     seen=set()
     gameweeks=set()
+    manager_ranks={}
     for row in rows:
         entry=str(row.get("entry_id","")).strip()
         element=str(row.get("fpl_element_id","")).strip()
@@ -34,14 +101,20 @@ def estimate_effective_ownership(rows):
         try:
             position=int(row["position"])
             weight=float(row.get("sample_weight") or 1)
+            rank_value=row.get("rank_before_deadline")
+            rank=int(rank_value) if rank_value not in (None,"") else None
         except (KeyError,TypeError,ValueError):
-            raise ValueError(f"invalid position or sample_weight for {key}")
-        if position<1 or position>15 or weight<=0:
-            raise ValueError(f"position must be 1..15 and sample_weight positive for {key}")
-        managers[(gw,entry)].append((row,position,weight))
+            raise ValueError(f"invalid position, rank or sample_weight for {key}")
+        if position<1 or position>15 or weight<=0 or (rank is not None and rank<1):
+            raise ValueError(f"position must be 1..15, rank positive and sample_weight positive for {key}")
+        manager_key=(gw,entry)
+        managers[manager_key].append((row,position,weight))
+        if rank is not None:
+            if manager_key in manager_ranks and manager_ranks[manager_key]!=rank:
+                raise ValueError(f"rank_before_deadline differs within manager {entry}")
+            manager_ranks[manager_key]=rank
     if len(gameweeks)!=1:
         raise ValueError("input must contain exactly one gameweek")
-    output=[]
     manager_weights={}
     for (gw,entry),items in managers.items():
         weights={weight for _,_,weight in items}
@@ -53,14 +126,42 @@ def estimate_effective_ownership(rows):
         if len(set(positions))!=15:
             raise ValueError(f"manager {entry} GW{gw} has duplicate pick positions")
         manager_weights[(gw,entry)]=next(iter(weights))
+    rank_values=[manager_ranks.get(key) for key in managers]
+    if any(value is not None for value in rank_values) and any(value is None for value in rank_values):
+        raise ValueError("rank_before_deadline must be supplied for every manager or none")
+    rank_stratified=all(value is not None for value in rank_values)
     denominator=sum(manager_weights.values())
     if denominator<=0:
         raise ValueError("total sample weight must be positive")
+    rank_limit=int(round(denominator)) if rank_stratified else None
+    if rank_stratified:
+        if abs(denominator-rank_limit)>1e-8 or rank_limit%PAGE_SIZE:
+            raise ValueError("rank-stratified sample weight must equal a multiple of the 50-rank page size")
+        counts=defaultdict(int)
+        for key,rank in manager_ranks.items():
+            counts[(rank-1)//PAGE_SIZE+1]+=1
+        page_count=rank_limit//PAGE_SIZE
+        if set(counts)!=set(range(1,page_count+1)) or len(set(counts.values()))!=1:
+            raise ValueError("rank-stratified sample must contain an equal manager count from every rank page")
+        weights=set(manager_weights.values())
+        if len(weights)!=1:
+            raise ValueError("rank-stratified sample requires equal manager weights")
+    else:
+        page_count=0
+
+    all_players=sorted(
+        {str(row["fpl_element_id"]) for items in managers.values() for row,_,_ in items}
+        | {str(player_id) for player_id in (player_ids or []) if str(player_id).strip()},
+        key=lambda value:(0,int(value)) if value.isdigit() else (1,value),
+    )
     per_player=defaultdict(lambda:{"owned":0.0,"starting":0.0,"captained":0.0,"triple_captained":0.0,"scoring_exposure":0.0})
+    samples_by_player=defaultdict(lambda:defaultdict(list))
     for (gw,entry),items in managers.items():
         weight=manager_weights[(gw,entry)]
         captain_count=0
+        local={}
         for row,position,_ in items:
+            player_id=str(row["fpl_element_id"])
             chip=str(row.get("active_chip") or "").strip().lower()
             is_captain=truth(row.get("is_captain"))
             is_triple=chip=="3xc" and is_captain
@@ -68,9 +169,7 @@ def estimate_effective_ownership(rows):
             is_bench_boost=chip=="bboost" and not is_starter
             if is_captain and not is_starter:
                 raise ValueError(f"captain is not in the starting XI for manager {entry}")
-            stats=per_player[str(row["fpl_element_id"])]
-            # Standard FPL ownership includes every squad pick (all 15),
-            # irrespective of whether the player starts or Bench Boost is active.
+            stats=per_player[player_id]
             stats["owned"]+=weight
             if is_starter:
                 stats["starting"]+=weight
@@ -84,27 +183,94 @@ def estimate_effective_ownership(rows):
             if is_triple:
                 stats["triple_captained"]+=weight
                 stats["scoring_exposure"]+=weight
+            local[player_id]=[
+                1.0,
+                float(is_starter),
+                float(is_captain),
+                float(is_triple),
+                float(1+int(is_captain)+int(is_triple)),
+                float(is_bench_boost),
+                float(int(is_starter or is_bench_boost)+int(is_captain)+int(is_triple)),
+            ]
         if captain_count!=1:
             raise ValueError(f"manager {entry} GW{gw} must have exactly one captain")
-    for player_id,stats in sorted(per_player.items(),key=lambda item:(0,int(item[0])) if item[0].isdigit() else (1,item[0])):
+        rank=manager_ranks.get((gw,entry))
+        stratum=(rank-1)//PAGE_SIZE+1 if rank is not None else "all"
+        for player_id in all_players:
+            values=local.get(player_id,[0.0]*7)
+            samples_by_player[player_id][stratum].append((values,weight))
+
+    def interval(player_id,metric_index):
+        samples=samples_by_player[player_id]
+        if rank_stratified:
+            return _stratified_normal_ci(samples,metric_index,rank_limit)
+        weighted=[]
+        for values,weight in samples.get("all",[]):
+            weighted.append((values[metric_index],weight))
+        return _weighted_normal_ci(weighted)
+
+    output=[]
+    for player_id in all_players:
+        stats=per_player[player_id]
         effective_exposure=stats["owned"]+stats["captained"]+stats["triple_captained"]
+        player_samples=samples_by_player[player_id]
+        ci_owned=_wilson_ci(player_samples,0,rank_stratified)
+        ci_starting=_wilson_ci(player_samples,1,rank_stratified)
+        ci_captain=_wilson_ci(player_samples,2,rank_stratified)
+        ci_triple=_wilson_ci(player_samples,3,rank_stratified)
+        ci_bboost=_wilson_ci(player_samples,5,rank_stratified)
+        ci_eo=interval(player_id,4)
+        ci_scoring=interval(player_id,6)
+        if ci_eo is None or ci_eo[1]-ci_eo[0]<1e-12:
+            ci_eo=(
+                max(0.0,(ci_owned[0] if ci_owned else 0)+(ci_captain[0] if ci_captain else 0)+(ci_triple[0] if ci_triple else 0)),
+                (ci_owned[1] if ci_owned else 0)+(ci_captain[1] if ci_captain else 0)+(ci_triple[1] if ci_triple else 0),
+            )
+        if ci_scoring is None or ci_scoring[1]-ci_scoring[0]<1e-12:
+            ci_scoring=(
+                max(0.0,(ci_starting[0] if ci_starting else 0)+(ci_bboost[0] if ci_bboost else 0)+(ci_captain[0] if ci_captain else 0)+(ci_triple[0] if ci_triple else 0)),
+                (ci_starting[1] if ci_starting else 0)+(ci_bboost[1] if ci_bboost else 0)+(ci_captain[1] if ci_captain else 0)+(ci_triple[1] if ci_triple else 0),
+            )
         output.append({
             "gameweek":next(iter(gameweeks)),
             "fpl_element_id":player_id,
             "sample_managers":len(managers),
             "sample_weight":round(denominator,8),
             "owned_by_pct":round(stats["owned"]/denominator*100,8),
+            "owned_by_pct_ci95_low":round(ci_owned[0]*100,8) if ci_owned else None,
+            "owned_by_pct_ci95_high":round(ci_owned[1]*100,8) if ci_owned else None,
             "starting_pct":round(stats["starting"]/denominator*100,8),
+            "starting_pct_ci95_low":round(ci_starting[0]*100,8) if ci_starting else None,
+            "starting_pct_ci95_high":round(ci_starting[1]*100,8) if ci_starting else None,
             "captain_pct":round(stats["captained"]/denominator*100,8),
+            "captain_pct_ci95_low":round(ci_captain[0]*100,8) if ci_captain else None,
+            "captain_pct_ci95_high":round(ci_captain[1]*100,8) if ci_captain else None,
             "triple_captain_pct":round(stats["triple_captained"]/denominator*100,8),
+            "triple_captain_pct_ci95_low":round(ci_triple[0]*100,8) if ci_triple else None,
+            "triple_captain_pct_ci95_high":round(ci_triple[1]*100,8) if ci_triple else None,
             "effective_ownership_pct":round(effective_exposure/denominator*100,8),
+            "effective_ownership_pct_ci95_low":round(ci_eo[0]*100,8) if ci_eo else None,
+            "effective_ownership_pct_ci95_high":round(ci_eo[1]*100,8) if ci_eo else None,
             "scoring_exposure_pct":round(stats["scoring_exposure"]/denominator*100,8),
+            "scoring_exposure_pct_ci95_low":round(ci_scoring[0]*100,8) if ci_scoring else None,
+            "scoring_exposure_pct_ci95_high":round(ci_scoring[1]*100,8) if ci_scoring else None,
         })
     report={
         "gameweek":next(iter(gameweeks)),
         "sample_managers":len(managers),
         "sample_weight":round(denominator,8),
-        "players_with_exposure":len(output),
+        "effective_sample_size":round(denominator**2/sum(w*w for w in manager_weights.values()),4),
+        "rank_stratified":rank_stratified,
+        "rank_strata_count":page_count,
+        "sampled_managers_per_rank_stratum":len(managers)//page_count if rank_stratified else None,
+        "confidence_interval":{
+            "level":0.95,
+            "method":"Wilson intervals for ownership/starting/captain/chip rates; rank-page-stratified normal approximation with finite population correction for EO and scoring exposure" if rank_stratified else "weighted normal approximation",
+            "intervals_available":all(row["effective_ownership_pct_ci95_low"] is not None for row in output),
+            "caveat":"Intervals are approximate; Wilson rates use effective sample size, while EO/scoring intervals use within-page sample variance and finite population correction. They do not model every source of rank-cohort uncertainty.",
+        },
+        "players_with_exposure":sum(1 for stats in per_player.values() if stats["owned"]>0),
+        "player_universe_size":len(output),
         "status":"SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS",
         "formula":"standard EO = 100 * weighted sum(all 15 squad selections + captain extra + Triple Captain extra) / total manager sample weight",
         "lineup_policy":"ownership and standard EO count all 15 squad picks; starting_pct separately counts positions 1-11; scoring_exposure_pct counts starters, Bench Boost bench players, captain extra, and Triple Captain extra",
@@ -128,7 +294,7 @@ def main():
         rows=list(csv.DictReader(handle))
     output,report=estimate_effective_ownership(rows)
     args.out_dir.mkdir(parents=True,exist_ok=True)
-    fields=["gameweek","fpl_element_id","sample_managers","sample_weight","owned_by_pct","captain_pct","triple_captain_pct","effective_ownership_pct"]
+    fields=list(output[0].keys()) if output else []
     with (args.out_dir/"fpl_effective_ownership_sample.csv").open("w",newline="",encoding="utf-8") as handle:
         writer=csv.DictWriter(handle,fieldnames=fields);writer.writeheader();writer.writerows(output)
     (args.out_dir/"fpl_effective_ownership_report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")

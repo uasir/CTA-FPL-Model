@@ -448,3 +448,16 @@ Detailed report: `reports/FPL_NESTED_RIDGE_TEMPORAL_VALIDATION_2026-11-18.md`.
 - Decision: `DO_NOT_PROMOTE`. Small improvement over fixed ridge is insufficient; naive points MAE remains better.
 - GW7–GW10 outer holdout is now consumed. Do not expand the alpha grid or tune further on this same holdout; next evaluation must use later gameweeks or another season.
 - Recommendation engines remain unchanged; neither the fixed nor tuned ridge model supplies forecast points or minutes to scoring.
+
+## 16. Rank-stratified effective ownership capture hardening — 2026-11-18
+
+PR #18 updates the deadline EO collector for the upcoming GW11 lock:
+- Top-10k global-rank cohort, every 50-rank page fetched (200 pages).
+- Two managers sampled per page (400 managers total), equal expansion weight 25.
+- Exact page coverage is validated before sampling; incomplete rank pages abort capture.
+- EO estimator reports all 672 official FPL players, including zero exposure, with approximate 95% uncertainty intervals: Wilson for ownership/starting/captain/chip rates and rank-page-stratified normal + finite population correction for EO/scoring exposure.
+- Picks remain post-deadline only, after 60-second lock grace and fresh bootstrap confirmation. No manager IDs or individual picks are uploaded.
+
+CI run 44355853392 passed: 38 JS tests, 10 canonical Python unittests, 190 pytest tests + 3 subtests. Detailed design: `reports/EO_RANK_STRATIFIED_SAMPLE_DESIGN_2026-11-18.md`.
+
+**No live EO result yet.** GW11 deadline is 2026-11-21 11:00 UTC; expected pre-deadline cohort run is 10:35 UTC. The workflow will only report a capture if all timing, rank-page completeness, 15-pick, captain, and lock checks pass. Otherwise it records a skip/failure and no EO estimate is claimed.
