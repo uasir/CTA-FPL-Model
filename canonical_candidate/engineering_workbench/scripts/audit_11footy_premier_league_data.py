@@ -30,7 +30,7 @@ def sha256(path: Path) -> str:
 def _materialize_sqlite(source: Path, temp_dir: Path) -> Path:
     if source.suffix.lower() != ".xz":
         return source
-    target = temp_dir / "11footy-premier-league.db"
+    target = temp_dir / source.name[:-3]
     with lzma.open(source, "rb") as compressed, target.open("wb") as output:
         shutil.copyfileobj(compressed, output)
     return target
