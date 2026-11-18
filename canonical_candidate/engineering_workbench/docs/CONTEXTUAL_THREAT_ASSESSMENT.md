@@ -109,6 +109,25 @@ identity reconciliation remains a required step, not an assumed join.
   Premier League event coverage. Compare rights, historical depth, event schema,
   360/tracking availability, identity mapping and price before committing.
 
+### Wyscout 2017/18 EPL audit result (2026-11-18)
+
+The pinned public Figshare download completed successfully in GitHub Actions.
+The England event file contains 643,150 events across all 380 Premier League
+matches, with 515 distinct players in event rows and 3,603 player metadata
+records. All 380 match IDs reconcile between the event and match files; one
+event player ID is absent from the player metadata catalogue.
+
+- 328,657 passes, 176,688 duels, 51,085 other-on-ball events, 36,423 free
+  kicks, 27,535 interruptions, 8,451 shots, 8,138 fouls, 3,349 save attempts,
+  1,558 offsides and 1,266 goalkeeper-leaving-line events.
+- 643,032 of 643,150 events (99.98%) have both start and end positions.
+- Data license: CC BY 4.0. The Pappalardo–Massucco data paper must be cited.
+
+The audit is structural only. It does not yet join the 2017/18 FPL points
+history or calculate a validated threat feature. It is nevertheless a viable
+first full-season event-level bridge for developing progressive-action and
+expected-threat features against FPL outcomes.
+
 ## First feature family: 360 spatial context
 
 The new script scripts/extract_statsbomb_contextual_threat.py emits two outputs:
