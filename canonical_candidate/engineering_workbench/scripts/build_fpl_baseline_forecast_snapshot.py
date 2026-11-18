@@ -193,8 +193,8 @@ def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,e
         },
         "limitations":[
             "expected_points is the official FPL ep_next baseline, not a CTA-trained prediction.",
-            "expected_minutes is a proxy from the latest completed gameweek's actual minutes; it is not a trained minutes forecast.",
-            "Players without gameweek history receive a zero-minute fallback and must be treated as low-confidence records.",
+            "expected_minutes is a proxy: latest completed-gameweek minutes per fixture scaled by the target gameweek fixture count; it is not a trained minutes forecast.",
+            "Players without gameweek history receive a zero-minute fallback; players with no target-gameweek fixture also receive zero expected minutes.",
             "Historical lagged training rows remain point-in-time-unverified because older source vintages are not durably archived.",
             "The current EO field, when present, is a weighted top-10k sample and not whole-game effective ownership.",
             "Player variance and CoVar are not supplied to this baseline snapshot.",
