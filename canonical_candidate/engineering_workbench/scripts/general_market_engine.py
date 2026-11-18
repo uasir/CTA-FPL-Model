@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Squad-independent FPL market rankings over a shared forecast snapshot.
+"""Squad-independent FPL market rankings over a shared forecast snapshot (v0.1.1).
 
 This first engine intentionally uses only EV, price and (when available)
 sampled EO. It does not consume squad context or exploratory CoVar.
