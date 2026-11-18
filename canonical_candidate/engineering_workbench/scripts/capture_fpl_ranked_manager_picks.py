@@ -38,37 +38,44 @@ def fetch_json(url,delay=0.15,retries=5,timeout=30):
 
 
 def choose_pages(rank_limit,sample_size,seed):
-    pages=math.ceil(rank_limit/PAGE_SIZE)
-    strata=math.ceil(rank_limit/sample_size)
-    rng=random.Random(seed)
-    chosen=[]
-    for i in range(sample_size):
-        first_rank=i*strata
-        last_rank=min(rank_limit,(i+1)*strata)
-        first_page=first_rank//PAGE_SIZE+1
-        last_page=math.ceil(last_rank/PAGE_SIZE)
-        if first_page>pages: break
-        chosen.append(rng.randint(first_page,min(last_page,pages)))
-    if len(chosen)!=sample_size:
-        raise ValueError(f"Could not construct {sample_size} rank strata")
-    return chosen
+    # Use every 50-rank page as a stratum. The sample size must allocate an
+    # equal integer number of managers to every page for equal expansion weights.
+    if rank_limit < 1 or rank_limit % PAGE_SIZE:
+        raise ValueError(f"rank_limit must be a positive multiple of page size {PAGE_SIZE}")
+    pages=rank_limit//PAGE_SIZE
+    if sample_size < pages or sample_size % pages:
+        raise ValueError(f"sample_size must be a positive multiple of {pages} rank pages")
+    per_page=sample_size//pages
+    if per_page>PAGE_SIZE:
+        raise ValueError("sample_size cannot exceed the rank population")
+    return list(range(1,pages+1))
 
 
 def select_managers(page_payloads,sample_size,rank_limit,seed):
     rng=random.Random(seed)
+    page_count=rank_limit//PAGE_SIZE
+    per_page=sample_size//page_count
+    if set(page_payloads)!=set(range(1,page_count+1)):
+        raise ValueError("Every rank page must be captured before manager sampling")
     managers=[]
     for page,payload in sorted(page_payloads.items()):
+        first_rank=(page-1)*PAGE_SIZE+1
+        last_rank=min(rank_limit,page*PAGE_SIZE)
         results=payload.get("standings",{}).get("results",[])
-        if not results: continue
-        eligible=[x for x in results if int(x.get("rank") or 0)>0 and int(x["rank"])<=rank_limit]
-        if not eligible: continue
-        selected=rng.choice(eligible)
-        managers.append({
-            "entry_id":int(selected["entry"]),
-            "rank_before_deadline":int(selected["rank"]),
-            "sample_weight":float(rank_limit)/sample_size,
-            "page_standings":page,
-        })
+        eligible=[
+            x for x in results
+            if first_rank<=int(x.get("rank") or 0)<=last_rank
+            and int(x.get("entry") or 0)>0
+        ]
+        if len(eligible)<per_page:
+            raise ValueError(f"Rank page {page} has {len(eligible)} eligible managers; need {per_page}")
+        for selected in rng.sample(eligible,per_page):
+            managers.append({
+                "entry_id":int(selected["entry"]),
+                "rank_before_deadline":int(selected["rank"]),
+                "sample_weight":float(rank_limit)/sample_size,
+                "page_standings":page,
+            })
     ids=[x["entry_id"] for x in managers]
     if len(ids)!=len(set(ids)):
         raise ValueError("Duplicate manager IDs in rank sample")
@@ -112,7 +119,7 @@ def parse_deadline(event):
     return datetime.fromisoformat(str(event["deadline_time"]).replace("Z","+00:00"))
 
 
-def capture(bootstrap,fetch=fetch_json,rank_limit=10000,sample_size=100,seed=20261117,
+def capture(bootstrap,fetch=fetch_json,rank_limit=10000,sample_size=400,seed=20261117,
             delay=0.15,workers=2,deadline_window_minutes=7,lock_grace_seconds=60,
             force=False,now_fn=lambda:datetime.now(timezone.utc),sleep_fn=time.sleep):
     # Retain the old keyword for callers, but never let force bypass deadline
@@ -130,8 +137,8 @@ def capture(bootstrap,fetch=fetch_json,rank_limit=10000,sample_size=100,seed=202
     if not (0<minutes<=deadline_window_minutes):
         return [],{"status":"SKIPPED_OUTSIDE_DEADLINE_WINDOW","gameweek":event["id"],
                    "deadline_time_utc":deadline.isoformat(),"minutes_until_deadline":round(minutes,2)}
-    if sample_size<1 or rank_limit<sample_size or sample_size>math.ceil(rank_limit/PAGE_SIZE):
-        raise ValueError("sample_size must be positive and no larger than the number of rank pages")
+    if sample_size<1 or rank_limit<sample_size or rank_limit%PAGE_SIZE or sample_size%(rank_limit//PAGE_SIZE):
+        raise ValueError("sample_size must allocate an equal positive number of managers to every 50-rank page")
 
     # Stage 1: freeze the rank-defined cohort before the deadline.
     rank_capture_started_at=now_fn()
@@ -195,6 +202,8 @@ def capture(bootstrap,fetch=fetch_json,rank_limit=10000,sample_size=100,seed=202
         "rank_max":max(x["rank_before_deadline"] for x in managers),
         "manager_sample_sha256":hashlib.sha256(",".join(str(x["entry_id"]) for x in sorted(managers,key=lambda x:x["entry_id"])).encode()).hexdigest(),
         "standings_pages_fetched":len(pages),
+        "rank_strata_count":len(pages),
+        "sampled_managers_per_rank_page":sample_size//len(pages),
         "manager_pick_rows":len(rows),
         "status_caveat":"The manager cohort is stratified by pre-deadline rank; picks are fetched only after the deadline and lock grace period. This is a weighted sample, not a whole-game census."
     }
@@ -205,7 +214,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--out-dir",type=Path,required=True)
     parser.add_argument("--rank-limit",type=int,default=10000)
-    parser.add_argument("--sample-size",type=int,default=100)
+    parser.add_argument("--sample-size",type=int,default=400)
     parser.add_argument("--seed",type=int,default=20261117)
     parser.add_argument("--workers",type=int,default=2)
     parser.add_argument("--delay",type=float,default=0.15)
