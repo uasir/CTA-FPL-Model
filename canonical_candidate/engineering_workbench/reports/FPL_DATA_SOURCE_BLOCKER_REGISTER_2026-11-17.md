@@ -13,7 +13,7 @@ Neither is interchangeable with current `selected_by_percent` in bootstrap-stati
 
 ### What exists
 
-The official FPL workflow runs daily at 05:30 UTC and fetches:
+The official FPL ingestion workflow was previously scheduled daily at 05:30 UTC and fetched:
 - `bootstrap-static`
 - `fixtures`
 - Per-player `element-summary` history
@@ -21,7 +21,7 @@ The official FPL workflow runs daily at 05:30 UTC and fetches:
 
 Each run records fetch time and SHA-256 hashes, and uploads normalized rows plus the raw bootstrap and fixture feeds. The current player snapshot reports official `ep_next` coverage explicitly. The artifact retention has now been extended from 30 to **90 days**.
 
-The daily workflow is useful for capturing snapshots before some gameweek deadlines, but it does not guarantee a snapshot immediately before every deadline. GitHub Actions schedules are best-effort. A 90-day artifact window is also not a durable full-season archive.
+The workflow is now gated and will not fetch FPL data unless the repository Actions variable `FPL_DATA_PERMISSION_CONFIRMED=true` is set after written permission is obtained. Before the gate, the daily workflow was useful for capturing snapshots before some deadlines but did not guarantee an immediate pre-deadline snapshot. GitHub Actions schedules are best-effort. A 90-day artifact window is not a durable full-season archive.
 
 ### Storage decision
 
@@ -83,7 +83,7 @@ The output is explicitly labelled `SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS`. It does n
 
 A first-party lock-safe capture workflow is implemented at `.github/workflows/cta-fpl-eo-capture.yml`, with collector `scripts/capture_fpl_ranked_manager_picks.py`.
 
-It runs at minutes 25 and 55 of each hour to cover the observed :30 and :00 FPL deadline times; it only proceeds when the official next deadline is within seven minutes. It:
+It is scheduled at minutes 25 and 55 of each hour to cover observed :30 and :00 deadlines; it only proceeds when the official next deadline is within seven minutes. The workflow is currently gated and will not make requests until written FPL data permission is confirmed. It:
 - samples 100 managers across rank strata within the pre-deadline overall top 10,000;
 - records the rank cohort before the deadline and refuses to proceed if the standings fetch crosses the deadline;
 - waits until 60 seconds after the official deadline;
