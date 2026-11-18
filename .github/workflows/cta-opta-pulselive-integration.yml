@@ -58,6 +58,31 @@ jobs:
             --provider opta_pulselive \
             --input ../../run_artifacts/opta_fpl/output/opta_pulselive_fpl_identity_crosswalk.csv \
             --out-dir ../../run_artifacts/opta_fpl/output/crosswalk_validation
+      - name: Enforce identity and fixture integrity
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("run_artifacts/opta_fpl/output")
+          report = json.loads((root / "opta_fpl_integration_report.json").read_text())
+          validation = json.loads((root / "crosswalk_validation/crosswalk_validation.json").read_text())
+          identity = report["identity"]
+          features = report["team_features"]
+          failures = []
+          if identity["status"] != "PASS":
+              failures.append("Opta/FPL numeric identity or team-ID reconciliation is not complete")
+          if validation["status"] != "PASS" or not validation["join_ready"]:
+              failures.append("Generated provider crosswalk did not pass the strict validator")
+          if features["provider_match_ids_not_in_fpl_fixture_list"]:
+              failures.append("Provider match IDs do not reconcile to FPL fixtures")
+          if features["provider_matches_with_team_count_not_equal_to_two"]:
+              failures.append("Provider match does not contain exactly two team rows")
+          if features["provider_team_ids_not_in_fpl_bootstrap"]:
+              failures.append("Provider team IDs do not reconcile to FPL teams")
+          if failures:
+              raise SystemExit("\\n".join(failures))
+          print("PASS: numeric identity, team IDs, match IDs, and team-row cardinality")
+          PY
       - name: Publish aggregate integration status only
         run: |
           python - <<'PY'
