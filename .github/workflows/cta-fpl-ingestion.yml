@@ -9,6 +9,7 @@ on:
       - canonical_candidate/engineering_workbench/scripts/evaluate_opta_team_context.py
       - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py
+      - canonical_candidate/engineering_workbench/tests/test_fpl_nested_tuned_ridge.py
   push:
     paths:
       - "canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py"
@@ -28,6 +29,7 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/compare_fpl_personal_squad_outputs.py"
       - "canonical_candidate/engineering_workbench/scripts/build_opta_lagged_team_features.py"
       - "canonical_candidate/engineering_workbench/scripts/evaluate_opta_team_context.py"
+      - "canonical_candidate/engineering_workbench/scripts/train_fpl_nested_tuned_ridge.py"
   schedule:
     - cron: "30 5 * * *"
 permissions:
@@ -75,7 +77,8 @@ jobs:
             tests/test_fpl_exploratory_ridge.py \
             tests/test_opta_lagged_team_features.py \
             tests/test_opta_team_context_evaluation.py \
-            tests/test_provider_identity_crosswalk.py
+            tests/test_provider_identity_crosswalk.py \
+            tests/test_fpl_nested_tuned_ridge.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -281,6 +284,12 @@ jobs:
       - name: Train and time-holdout exploratory FPL ridge baseline
         run: |
           python canonical_candidate/engineering_workbench/scripts/train_fpl_exploratory_ridge.py \
+            --input run_artifacts/fpl_official/fpl_lagged_training.csv \
+            --out-dir run_artifacts/fpl_official
+
+      - name: Train nested rolling-origin ridge experiment
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/train_fpl_nested_tuned_ridge.py \
             --input run_artifacts/fpl_official/fpl_lagged_training.csv \
             --out-dir run_artifacts/fpl_official
 

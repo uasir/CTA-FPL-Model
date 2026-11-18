@@ -248,3 +248,16 @@ The live adapter now joins 6,562/6,562 historical FPL player-fixture rows to str
 This is a single-season exploratory holdout and provider source-vintage remains `NOT_VERIFIED`; it is not a strict historical backtest. Do not attach these features to EV, ranking, transfer or squad-scoring decisions. Preserve the adapter as a validated structural/research sidecar only.
 
 Full run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44353308393. Detailed report: `reports/OPTA_TEAM_CONTEXT_TEMPORAL_EVALUATION_2026-11-18.md`.
+
+## 10. Nested ridge alpha selection — 2026-11-18
+
+A nested rolling-origin experiment selects alpha only inside the outer training window (inner train GW1–4, inner validation GW5–6), then evaluates on GW7–10:
+
+- Points alpha selected: 300; minutes alpha: 0.1.
+- Tuned points MAE/RMSE: 1.199065 / 2.009075.
+- Fixed alpha10 points MAE/RMSE: 1.201603 / 2.015697.
+- Naive last-five-GW points MAE: 1.185511.
+- Tuned minutes MAE: 15.367280 vs naive last-GW minutes MAE 11.098918.
+- Decision: `DO_NOT_PROMOTE`; no recommendation scoring uses either model.
+
+The outer GW7–10 holdout has now been consumed. Any further tuning must use new later-gameweek data or another season, not reuse this test window. Historical source-vintage remains `NOT_VERIFIED`.
