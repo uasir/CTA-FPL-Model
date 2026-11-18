@@ -33,13 +33,21 @@ PANEL_FIELDS = [
 ]
 
 EVIDENCE_FIELDS = [
-    "season", "competition_id", "provider_player_id", "provider_player_name",
-    "candidate_fpl_element_id", "candidate_fpl_player_name", "confidence_level",
-    "verification_status", "provider_player_match_rows", "fixture_matched_rows",
-    "fpl_history_overlap_rows", "fpl_history_missing_rows", "team_match_rows",
+    "season", "competition_id", "source_release",
+    "provider_player_id", "provider_player_name", "provider_team_id",
+    "provider_team_name", "provider_birth_date",
+    "candidate_fpl_element_id", "candidate_fpl_player_code",
+    "candidate_fpl_player_name", "candidate_fpl_team_id",
+    "candidate_fpl_team_name", "candidate_fpl_birth_date",
+    "confidence_level", "verification_status", "match_method",
+    "evidence_source", "provider_release_url", "fpl_source_url",
+    "provider_source_sha256", "fpl_source_sha256",
+    "provider_player_match_rows", "fixture_matched_rows",
+    "fpl_history_overlap_rows", "fpl_history_missing_rows",
+    "team_match_rows", "team_mismatch_rows",
     "minutes_exact_rows", "goals_exact_rows", "assists_exact_rows",
     "full_signature_exact_rows", "full_signature_match_rate",
-    "statistical_corroboration_level", "review_note",
+    "statistical_corroboration_level", "review_priority", "review_note",
 ]
 
 
@@ -242,17 +250,32 @@ def _candidate_evidence_template(candidate):
     return {
         "season": candidate.get("season", ""),
         "competition_id": candidate.get("competition_id", ""),
+        "source_release": candidate.get("source_release", ""),
         "provider_player_id": candidate.get("provider_player_id", ""),
         "provider_player_name": candidate.get("provider_player_name", ""),
+        "provider_team_id": candidate.get("provider_team_id", ""),
+        "provider_team_name": candidate.get("provider_team_name", ""),
+        "provider_birth_date": candidate.get("provider_birth_date", ""),
         "candidate_fpl_element_id": candidate.get("fpl_element_id", ""),
+        "candidate_fpl_player_code": candidate.get("fpl_player_code", ""),
         "candidate_fpl_player_name": candidate.get("fpl_player_name", ""),
+        "candidate_fpl_team_id": candidate.get("fpl_team_id", ""),
+        "candidate_fpl_team_name": candidate.get("fpl_team_name", ""),
+        "candidate_fpl_birth_date": candidate.get("fpl_birth_date", ""),
         "confidence_level": candidate.get("confidence_level", ""),
         "verification_status": candidate.get("verification_status", ""),
+        "match_method": candidate.get("match_method", ""),
+        "evidence_source": candidate.get("evidence_source", ""),
+        "provider_release_url": candidate.get("provider_release_url", ""),
+        "fpl_source_url": candidate.get("fpl_source_url", ""),
+        "provider_source_sha256": candidate.get("provider_source_sha256", ""),
+        "fpl_source_sha256": candidate.get("fpl_bootstrap_sha256", ""),
         "provider_player_match_rows": 0,
         "fixture_matched_rows": 0,
         "fpl_history_overlap_rows": 0,
         "fpl_history_missing_rows": 0,
         "team_match_rows": 0,
+        "team_mismatch_rows": 0,
         "minutes_exact_rows": 0,
         "goals_exact_rows": 0,
         "assists_exact_rows": 0,
@@ -261,6 +284,42 @@ def _candidate_evidence_template(candidate):
         "statistical_corroboration_level": "NO_MATCH_DATA",
         "review_note": "Cross-source match statistics are corroboration only; no candidate is auto-verified.",
     }
+
+
+def prioritize_candidate_evidence(rows):
+    """Order the local manual-review queue without promoting any identity."""
+    priority_order = {
+        "P1_STRONG_MULTI_MATCH_REVIEW": 0,
+        "P2_HIGH_CONFIDENCE_REVIEW": 1,
+        "P3_PARTIAL_EVIDENCE_REVIEW": 2,
+        "P4_IDENTITY_REVIEW": 3,
+    }
+    for row in rows:
+        strong = row.get("statistical_corroboration_level") == "STRONG_MULTI_MATCH_CONSISTENCY_REVIEW"
+        high = row.get("confidence_level") == "high"
+        overlap = as_int(row.get("fpl_history_overlap_rows")) or 0
+        mismatches = as_int(row.get("team_mismatch_rows")) or 0
+        if strong and high and mismatches == 0:
+            row["review_priority"] = "P1_STRONG_MULTI_MATCH_REVIEW"
+        elif high and overlap > 0 and mismatches == 0:
+            row["review_priority"] = "P2_HIGH_CONFIDENCE_REVIEW"
+        elif overlap > 0:
+            row["review_priority"] = "P3_PARTIAL_EVIDENCE_REVIEW"
+        else:
+            row["review_priority"] = "P4_IDENTITY_REVIEW"
+        row["review_note"] = (
+            "Priority is for manual review only. Match-statistical agreement, names, teams and birth dates "
+            "are evidence, not proof; this row remains unverified until a reliable source is checked."
+        )
+    return sorted(
+        rows,
+        key=lambda row: (
+            priority_order.get(row.get("review_priority"), 4),
+            -(as_int(row.get("full_signature_exact_rows")) or 0),
+            -(as_int(row.get("fpl_history_overlap_rows")) or 0),
+            as_int(row.get("provider_player_id")) or 0,
+        ),
+    )
 
 
 def build_panel(
@@ -523,6 +582,7 @@ def build_panel(
             evidence["statistical_corroboration_level"] = "PARTIAL_OR_CONFLICTING_MATCH_EVIDENCE"
         evidence_rows.append(evidence)
 
+    evidence_rows = prioritize_candidate_evidence(evidence_rows)
     fixture_ids_mapped = {
         as_int(row.get("fixture_id"))
         for row in match_map.values()
@@ -573,6 +633,7 @@ def build_panel(
             for row in evidence_rows
         ),
         "candidate_rows_with_any_match_conflict": sum(row["team_mismatch_rows"] > 0 for row in evidence_rows),
+        "candidate_review_priority_counts": dict(Counter(row["review_priority"] for row in evidence_rows)),
         "verified_crosswalk_rows": len(verified),
         "crosswalk_validation_status": validation_status,
         "player_match_rows_with_verified_identity": player_match_rows_with_verified,
@@ -656,6 +717,7 @@ def main():
     }
     write_csv(args.out_dir / "verified_player_match_panel.csv", PANEL_FIELDS, panel_rows)
     write_csv(args.out_dir / "candidate_match_evidence.csv", EVIDENCE_FIELDS, evidence_rows)
+    write_csv(args.out_dir / "candidate_identity_review_queue.csv", EVIDENCE_FIELDS, evidence_rows)
     (args.out_dir / "11footy_fpl_player_match_integration.json").write_text(
         json.dumps(report, indent=2, allow_nan=False), encoding="utf-8"
     )
