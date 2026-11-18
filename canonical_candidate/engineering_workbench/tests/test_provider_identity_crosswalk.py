@@ -30,6 +30,20 @@ class ProviderCrosswalkTests(unittest.TestCase):
         self.assertEqual(report["status"], "PASS")
         self.assertEqual(len(accepted), 1)
 
+    def test_opta_provider_team_id_must_match_fpl_team_code(self):
+        accepted, report = MODULE.validate_rows(
+            [row(provider_team_id="3", fpl_team_code="1")], "opta_pulselive"
+        )
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertEqual(accepted, [])
+
+    def test_opta_crosswalk_requires_fpl_team_code(self):
+        accepted, report = MODULE.validate_rows(
+            [row(fpl_team_code="")], "opta_pulselive"
+        )
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertEqual(accepted, [])
+
     def test_name_only_method_is_not_accepted(self):
         accepted, report = MODULE.validate_rows([row(match_method="fuzzy_name")], "wyscout")
         self.assertEqual(report["status"], "BLOCKED")

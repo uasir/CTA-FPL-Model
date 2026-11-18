@@ -70,3 +70,27 @@ Do not copy these datasets into CTA-FPL-Model, redistribute them, or make them a
 ## Engineering next step
 
 Resolve data-use permission. If permission is confirmed, build an isolated Opta/PulseLive adapter with pinned source commits, row/hash manifests, ID/fixture reconciliation, lagged team features, and time-ordered backtests. Keep StatsBomb parity and the Opta/PulseLive adapter as separate providers.
+
+## Live 2026/27 integration update — 2026-11-18
+
+The technical identity and team-fixture adapter has now been run against the pinned source commit and a live official FPL bootstrap/fixture snapshot.
+
+- Actions run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44352173248
+- Aggregate artifact: https://github.com/uasir/CTA-FPL-Model/actions/runs/44352173248/artifacts/14448343224
+- Pinned provider commit: `f0f3d40f803c69bc7fac48d0748b49175e2d08ce`.
+
+**Identity mapping is now verified for this snapshot:**
+- 511/511 provider `playerId` values exactly equal an official FPL `code`.
+- 511/511 also have matching team IDs when comparing provider `team_id` to FPL team `code`.
+- This is not a comparison to FPL's internal team `id`. The adapter preserves both the internal FPL team ID and the FPL team code as separate fields.
+- The verified runtime crosswalk maps 511 provider players to FPL element IDs. 161 of 672 FPL players have no provider player-season row; no fuzzy-name fill is attempted.
+- Strict validator accepted 511/511 rows, with no duplicate or team-code errors.
+
+**Team-match feature adapter:**
+- Provider `matchId` matches FPL fixture `code`, not FPL fixture `id`; 100/100 provider match IDs reconcile.
+- 200 team-match rows form 100 matches with exactly two team rows each; no unknown provider team codes.
+- 760 fixture-team rows and 18,816 prospective player-fixture rows were generated.
+- Ten team-level metrics are lagged over the previous maximum three matches, with provider kickoff values interpreted as Europe/London when timezone-naive and converted to UTC. The target fixture's own provider match ID is excluded.
+- Current FPL roster assignments are emitted only for unfinished fixtures strictly after the run's as-of time; they are not back-projected onto completed fixtures.
+
+**Interpretation remains limited:** the provider file is a current cumulative snapshot, not an archived series of deadline vintages. Team features are `PASS_STRUCTURAL_ONLY` and point-in-time status remains `NOT_VERIFIED`; do not use them for strict historical backtests or predictive recommendation scoring yet. The pinned repository snapshot does not contain player-level per-match event metrics. Underlying Premier League/PulseLive data rights remain unverified. The workflow uploads only aggregate counts and source hashes, not raw data, crosswalk rows or player-fixture outputs.
