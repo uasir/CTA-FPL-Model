@@ -33,7 +33,7 @@ The 2026-11-17 independent workspace contains a later `canonical_candidate/src/c
 - match-scoped `(match_id, event_uuid)` 360 linkage auditing;
 - a stable player feature row builder with explicit zero counters and blank denominators for non-estimable per-90 metrics.
 
-The GitHub `main` version at commit `d9f3f4a61525ae4b3bacd358f50a3c7cec5ce4e3` is v1.0.3 experimental and has Git blob SHA `74bd6665b8160fece18166b6f76043245792372a`. It is not byte-identical to the independent workspace file. The match-scoped 360 audit is being ported selectively with paired Python/JavaScript regression tests in PR #12; do not overwrite the repository's canonical engine with an archive copy.
+The GitHub `main` version at commit `d9f3f4a61525ae4b3bacd358f50a3c7cec5ce4e3` is v1.0.3 experimental and has Git blob SHA `74bd6665b8160fece18166b6f76043245792372a`. It is not byte-identical to the independent workspace file. The match-scoped 360 audit was ported selectively with paired Python/JavaScript regression tests and merged in PR #12 (commit `302c6bd0be38baf24cd2e299c32933cf9de9080a`). Do not overwrite the repository's canonical engine with an archive copy.
 
 ## Preservation policy
 
