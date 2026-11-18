@@ -1,6 +1,12 @@
 name: Exploratory FPL CoVar from Onside actual-points ledger
 
 on:
+  push:
+    branches: [work/onside-covariance-baseline]
+    paths:
+      - ".github/workflows/cta-onside-covariance.yml"
+      - "canonical_candidate/engineering_workbench/scripts/build_onside_fpl_covariance.py"
+      - "canonical_candidate/engineering_workbench/scripts/estimate_fpl_covariance.py"
   workflow_dispatch:
   schedule:
     - cron: "20 12 * * 1"
