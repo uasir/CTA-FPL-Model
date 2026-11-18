@@ -1,6 +1,6 @@
 # Dual FPL Recommendation Architecture
 
-Status: **APPROVED ARCHITECTURE / IMPLEMENTATION NOT YET COMPLETE**  
+Status: **APPROVED ARCHITECTURE / EXPLORATORY V0.1 ENGINES IMPLEMENTED / VALIDATION IN PROGRESS**  
 Approved by the project owner: 2026-11-17  
 Tracking issue: https://github.com/uasir/CTA-FPL-Model/issues/2
 
@@ -11,7 +11,7 @@ CTA-FPL-Model will expose two recommendation products over one shared, versioned
 - `general_market`: recommendations that are useful to any FPL manager and do not depend on a manager's squad.
 - `personal_squad`: recommendations optimized for one manager's actual squad, budget, transfers, chips, formation and preferences.
 
-This is a product and architecture specification. It does not claim that either recommendation engine is implemented or production-ready.
+The first deterministic versions of both engines now exist in Python and JavaScript with cross-language output-parity tests. They are exploratory only and are not production-ready; the shared FPL baseline still uses official ep_next plus a previous-gameweek minutes proxy.
 
 ## 2. Shared forecasting foundation
 
@@ -45,6 +45,15 @@ General mode accepts a forecast/data snapshot plus optional display filters (gam
 - High-upside/high-risk options.
 - Sell/avoid watchlists.
 
+### Implemented v0.1 output
+
+- Overall EV ranking and ranking by position.
+- Expected-points-per-price value ranking.
+- Captaincy shortlist based on EV.
+- Differential shortlist only when sampled EO includes verified cohort and post-lock provenance matching the forecast deadline.
+
+Fixture targets, trend detection, upside/downside categories and sell/avoid recommendations remain planned, not implemented.
+
 ### Invariance rule
 
 For identical forecast snapshots, model versions and filters, general recommendations must be identical regardless of any personal squad state stored elsewhere in the application. This must be enforced by API/service boundaries and regression tests, not merely by convention.
@@ -72,7 +81,7 @@ If essential squad state is missing or stale, return a clear incomplete-input st
 - Squad-specific coverage, concentration and differential analysis.
 - Whole-squad expected points, uncertainty, upside/downside and decision explanation.
 
-Every proposed transfer must be evaluated as a change to the full squad, including budget, position/team limits, free-transfer/hit consequences and future flexibility. A player ranking alone is not a personal transfer recommendation.
+The exploratory v0.1 evaluates one transfer at a time, with purchase-to-selling-price rules, budget, position and three-per-team limits, and a configurable hit cost. It builds a legal XI under the selected formation, captain/vice-captain and reserve/bench order. Multi-transfer sequences, chip simulation and future flexibility remain unimplemented. A player ranking alone is not a personal transfer recommendation.
 
 ## 5. CoVar and portfolio risk
 
@@ -113,3 +122,24 @@ General mode may optionally display validated player-pair or factor-risk context
 6. Run full CI, source regression tests, Python/JavaScript parity and end-to-end reproducibility checks.
 
 Do not rebuild the existing engine, replace recovered source lineage, fabricate player identity/EO/minutes, or claim production readiness from passing structural tests alone.
+
+
+## 9. Current implementation and validation status
+
+### Implemented, exploratory only
+- Python: `scripts/general_market_engine.py` and `scripts/personal_squad_engine.py`.
+- JavaScript: `src/js/general_market_engine.mjs` and `src/js/personal_squad_engine.mjs`.
+- Shared request contracts reject personal context from general-market inputs and validate the personal squad separately.
+- Both engines have deterministic Python/JavaScript output-parity tests.
+- The personal optimiser enforces one-transfer budget, position and three-player team constraints, legal formations, starting XI, captain, vice-captain and bench order.
+- The general engine uses EV and value; it uses EO only when locked cohort metadata and the matching target deadline are present.
+- Neither engine uses CoVar or pretends that the supplied risk profile has been applied.
+
+### Not yet production-ready
+- Official FPL `ep_next` is the current points baseline; it is not a CTA-trained forecast.
+- Expected minutes are proxied by latest completed-gameweek actual minutes.
+- Live post-lock EO capture has not yet been validated.
+- Multi-season, point-in-time historical training data and out-of-sample predictive validation remain incomplete.
+- Multi-transfer optimisation, chip effects, multiweek planning and CoVar utility validation remain future work.
+
+Latest full CI verification for the exploratory engines: https://github.com/uasir/CTA-FPL-Model/actions/runs/44252317726 — 30 JavaScript tests and 140 Python tests passed, plus 3 subtests. Subsequent EO-provenance hardening is undergoing its own CI run.
