@@ -21,7 +21,10 @@ class EffectiveOwnershipTests(unittest.TestCase):
         self.assertEqual(by_id["1"]["owned_by_pct"],100.0)
         self.assertEqual(by_id["1"]["captain_pct"],50.0)
         self.assertEqual(by_id["1"]["effective_ownership_pct"],150.0)
-        self.assertEqual(by_id["12"]["owned_by_pct"],0.0)
+        self.assertEqual(by_id["12"]["owned_by_pct"],100.0)
+        self.assertEqual(by_id["12"]["starting_pct"],0.0)
+        self.assertEqual(by_id["12"]["effective_ownership_pct"],100.0)
+        self.assertEqual(by_id["12"]["scoring_exposure_pct"],0.0)
         self.assertEqual(report["status"],"SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS")
 
     def test_triple_captain_adds_two_extra_exposure_units(self):
@@ -33,12 +36,22 @@ class EffectiveOwnershipTests(unittest.TestCase):
         self.assertEqual(haaland["triple_captain_pct"],100.0)
         self.assertEqual(haaland["effective_ownership_pct"],300.0)
 
-    def test_bench_boost_counts_all_fifteen_players(self):
+    def test_bench_ownership_is_counted_without_bench_boost(self):
+        rows=manager(1,1)
+        output,_=estimate_effective_ownership(rows)
+        bench=next(x for x in output if x["fpl_element_id"]=="15")
+        self.assertEqual(bench["owned_by_pct"],100.0)
+        self.assertEqual(bench["starting_pct"],0.0)
+        self.assertEqual(bench["effective_ownership_pct"],100.0)
+        self.assertEqual(bench["scoring_exposure_pct"],0.0)
+
+    def test_bench_boost_changes_scoring_exposure_not_standard_ownership(self):
         rows=manager(1,1,"bboost")
         output,_=estimate_effective_ownership(rows)
-        by_id={x["fpl_element_id"]:x for x in output}
-        self.assertEqual(by_id["15"]["owned_by_pct"],100.0)
-        self.assertEqual(by_id["15"]["effective_ownership_pct"],100.0)
+        bench=next(x for x in output if x["fpl_element_id"]=="15")
+        self.assertEqual(bench["owned_by_pct"],100.0)
+        self.assertEqual(bench["effective_ownership_pct"],100.0)
+        self.assertEqual(bench["scoring_exposure_pct"],100.0)
 
     def test_weighted_sample(self):
         rows=manager(1,1,weight=3)+manager(2,2,weight=1)
