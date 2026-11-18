@@ -3,7 +3,7 @@
 Date: 2026-11-18  
 Repository: https://github.com/uasir/CTA-FPL-Model  
 Default branch: `main`  
-Current verified main commit: `264f2792514d5927cc051d9fad36a6f03a2d3a24`
+PR #4 merge commit: `264f2792514d5927cc051d9fad36a6f03a2d3a24`; a documentation-only continuity update was subsequently pushed to `main`.
 
 This document is the durable project handoff for continuing work in one primary ChatGPT conversation. It supersedes earlier status notes where newer evidence below conflicts with them. It is a continuity aid, not a claim that all integration gates have passed.
 
@@ -51,7 +51,7 @@ Current-turn materialization and checks:
 
 - GitHub repository: https://github.com/uasir/CTA-FPL-Model
 - PR #3, provider-specific identity crosswalks, was merged on 2026-11-18. Merge commit: `4183f389f23c2da88e8067928428f84900d7960f`.
-- PR #4, Onside FPL benchmark source audit and this continuity brief, was merged on 2026-11-18. Merge commit/current main: `264f2792514d5927cc051d9fad36a6f03a2d3a24`.
+- PR #4, Onside FPL benchmark source audit and this continuity brief, was merged on 2026-11-18. Merge commit: `264f2792514d5927cc051d9fad36a6f03a2d3a24`. A later documentation-only continuity update was pushed directly to `main`.
 - Latest main CI after both merges: run [44257955121](https://github.com/uasir/CTA-FPL-Model/actions/runs/44257955121), conclusion success; 37 JavaScript tests, 164 Python tests and 3 subtests passed. All three provider crosswalk validators correctly report `EMPTY_NOT_READY`.
 - The earlier PR branch CI [44256906777](https://github.com/uasir/CTA-FPL-Model/actions/runs/44256906777) passed with 37 JavaScript tests, 164 Python tests and 3 subtests. The new crosswalk validators ran; both new provider templates correctly remained empty/not ready.
 - Replit app: [CTA-FPL-Model](https://replit.com/@uasieg1/CTA-FPL-Model), replId `bb60190a-50a0-46bf-9253-a4c3e09302d9`.
@@ -127,7 +127,7 @@ Provider source assessment:
 ## 6. New Onside FPL benchmark audit
 
 A separate source-audit workflow and script have been added on PR #4:
-- PR #4: https://github.com/uasir/CTA-FPL-Model/pull/4 (merged; main commit `264f2792514d5927cc051d9fad36a6f03a2d3a24`)
+- PR #4: https://github.com/uasir/CTA-FPL-Model/pull/4 (merged)
 - Workflow: `.github/workflows/cta-onside-benchmark.yml`
 - Script: `canonical_candidate/engineering_workbench/scripts/inspect_onside_fpl_benchmark.py`
 - Source: https://onsidearena.com/data/graded-predictions.csv
