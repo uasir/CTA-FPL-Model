@@ -202,7 +202,7 @@ def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,e
         ],
     }
     identity_payload={
-        "model_version":"cta-fpl-official-epnext-minutes-proxy-v0.1.0",
+        "model_version":"cta-fpl-official-epnext-fixture-scaled-minutes-proxy-v0.1.1",
         "forecast_horizon_gameweeks":1,
         "player_forecasts":forecasts,
         "forecast_quality":quality,
@@ -210,7 +210,7 @@ def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,e
     snapshot_id=hashlib.sha256(json.dumps(identity_payload,sort_keys=True,separators=(",",":")).encode()).hexdigest()
     return {
         "forecast_snapshot_id":snapshot_id,
-        "model_version":"cta-fpl-official-epnext-minutes-proxy-v0.1.0",
+        "model_version":"cta-fpl-official-epnext-fixture-scaled-minutes-proxy-v0.1.1",
         "forecast_horizon_gameweeks":1,
         "forecast_quality":quality,
         "player_forecasts":forecasts,
