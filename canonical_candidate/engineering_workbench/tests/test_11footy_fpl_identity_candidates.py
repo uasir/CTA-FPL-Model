@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from audit_11footy_fpl_identity_candidates import (
     audit_identity_candidates,
-    normalize_name,
+    normalize_text,
     normalize_team,
 )
 
@@ -99,6 +99,6 @@ def test_birth_date_conflict_excludes_an_otherwise_exact_name_team_match():
 
 
 def test_name_and_team_normalization_handles_accents_and_aliases():
-    assert normalize_name("João Pedro") == "joao pedro"
+    assert normalize_text("João Pedro") == "joao pedro"
     assert normalize_team("Man City") == normalize_team("Manchester City")
     assert normalize_team("Nott'm Forest") == normalize_team("Nottingham Forest")
