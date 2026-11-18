@@ -73,6 +73,10 @@ function validatedEoProvenance(quality, players) {
   if (![rankTime, deadline, picksTime].every(Number.isFinite) || !(rankTime < deadline && deadline < picksTime)) {
     throw new RecommendationContractError("EO rank cohort must precede deadline and picks must follow deadline");
   }
+  if (coverage.target_deadline_utc
+    && Date.parse(coverage.target_deadline_utc) !== deadline) {
+    throw new RecommendationContractError("EO deadline does not match the forecast snapshot deadline");
+  }
   return {
     cohort: coverage.eo_cohort,
     sample_managers: coverage.eo_sample_managers,
