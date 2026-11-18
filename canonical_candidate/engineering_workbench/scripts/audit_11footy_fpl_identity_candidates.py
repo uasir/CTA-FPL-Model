@@ -91,22 +91,23 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
     columns = {
         row[1] for row in players_connection.execute("PRAGMA table_info(players)")
     }
-    required_columns = {"player_id", "name", "current_team_name", "birth_date"}
+    required_columns = {"player_id", "name", "current_team_id", "current_team_name", "birth_date"}
     missing = sorted(required_columns - columns)
     if missing:
         raise ValueError("11footy players table is missing columns: " + ", ".join(missing))
 
     provider_rows = players_connection.execute(
-        "SELECT player_id, name, current_team_name, birth_date FROM players"
+        "SELECT player_id, name, current_team_id, current_team_name, birth_date FROM players"
     ).fetchall()
     provider_by_name_team = defaultdict(list)
     provider_by_name = defaultdict(list)
-    for player_id, name, team, birth_date in provider_rows:
+    for player_id, name, team_id, team, birth_date in provider_rows:
         norm_name = normalize_text(name)
         if not norm_name:
             continue
         row = {
             "provider_player_id": int(player_id),
+            "provider_team_id": int(team_id) if team_id is not None else "",
             "provider_name": str(name or ""),
             "provider_team": str(team or ""),
             "norm_team": normalize_team(team),
@@ -133,6 +134,7 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
         fpl_rows.append({
             "fpl_element_id": int(element["id"]),
             "fpl_code": element.get("code"),
+            "fpl_team_id": int(element.get("team") or 0),
             "fpl_name": full_name,
             "fpl_team": team_name,
             "norm_name": norm_name,
@@ -180,13 +182,17 @@ def audit_identity_candidates(players_connection, fpl_bootstrap):
                 match_method = "EXACT_NAME_AND_TEAM_BIRTH_DATE_UNAVAILABLE"
             candidate_rows.append({
                 "season": "2026/27",
+                "competition_id": "1",
+                "competition_name": "Premier League",
                 "source_release": "11footy-2026-11-10",
                 "fpl_element_id": row["fpl_element_id"],
                 "fpl_player_code": row["fpl_code"],
+                "fpl_team_id": row["fpl_team_id"],
                 "fpl_player_name": row["fpl_name"],
                 "fpl_team_name": row["fpl_team"],
                 "fpl_birth_date": fpl_dob,
                 "provider_player_id": provider_player["provider_player_id"],
+                "provider_team_id": provider_player["provider_team_id"],
                 "provider_player_name": provider_player["provider_name"],
                 "provider_team_name": provider_player["provider_team"],
                 "provider_birth_date": provider_dob,
@@ -297,9 +303,10 @@ def main():
         writer = csv.DictWriter(
             handle,
             fieldnames=[
-                "season", "source_release", "fpl_element_id", "fpl_player_code",
-                "fpl_player_name", "fpl_team_name", "fpl_birth_date",
-                "provider_player_id", "provider_player_name", "provider_team_name",
+                "season", "competition_id", "competition_name", "source_release",
+                "fpl_element_id", "fpl_player_code", "fpl_team_id", "fpl_player_name",
+                "fpl_team_name", "fpl_birth_date", "provider_player_id",
+                "provider_team_id", "provider_player_name", "provider_team_name",
                 "provider_birth_date", "match_method", "confidence_level",
                 "verification_status", "verification_reason", "evidence_source",
                 "provider_release_url", "fpl_source_url",
