@@ -181,6 +181,7 @@ jobs:
                   "candidate_identity_count": report["candidate_identity_count"],
                   "candidate_high_confidence_count": report["candidate_high_confidence_count"],
                   "candidate_rows_with_multi_match_consistency": report["candidate_rows_with_multi_match_consistency"],
+                  "candidate_review_priority_counts": report["candidate_review_priority_counts"],
                   "candidate_rows_with_any_match_conflict": report["candidate_rows_with_any_match_conflict"],
                   "verified_crosswalk_rows": report["verified_crosswalk_rows"],
                   "crosswalk_validation_status": report["crosswalk_validation_status"],

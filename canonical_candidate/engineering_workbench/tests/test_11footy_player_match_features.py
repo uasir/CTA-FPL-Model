@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from build_11footy_player_match_features import build_panel
+from build_11footy_player_match_features import build_panel, prioritize_candidate_evidence
 
 
 def _databases():
@@ -171,3 +171,55 @@ def test_player_match_fixture_team_mismatch_blocks_verified_training_join():
     assert report["verified_team_mismatch_rows"] == 1
     assert report["join_ready"] is False
     assert report["status"] == "BLOCKED"
+
+
+def test_candidate_review_queue_prioritizes_evidence_without_verifying_identity():
+    rows = [
+        {
+            "provider_player_id": "4",
+            "confidence_level": "high",
+            "verification_status": "PENDING",
+            "statistical_corroboration_level": "STRONG_MULTI_MATCH_CONSISTENCY_REVIEW",
+            "team_mismatch_rows": 0,
+            "full_signature_exact_rows": 3,
+            "fpl_history_overlap_rows": 3,
+        },
+        {
+            "provider_player_id": "3",
+            "confidence_level": "high",
+            "verification_status": "PENDING",
+            "statistical_corroboration_level": "PARTIAL_MATCH_CONSISTENCY_REVIEW",
+            "team_mismatch_rows": 0,
+            "full_signature_exact_rows": 1,
+            "fpl_history_overlap_rows": 2,
+        },
+        {
+            "provider_player_id": "2",
+            "confidence_level": "review",
+            "verification_status": "PENDING",
+            "statistical_corroboration_level": "NO_MATCH_DATA",
+            "team_mismatch_rows": 0,
+            "full_signature_exact_rows": 0,
+            "fpl_history_overlap_rows": 0,
+        },
+        {
+            "provider_player_id": "1",
+            "confidence_level": "high",
+            "verification_status": "PENDING",
+            "statistical_corroboration_level": "STRONG_MULTI_MATCH_CONSISTENCY_REVIEW",
+            "team_mismatch_rows": 1,
+            "full_signature_exact_rows": 3,
+            "fpl_history_overlap_rows": 3,
+        },
+    ]
+
+    queue = prioritize_candidate_evidence(rows)
+
+    assert [row["review_priority"] for row in queue] == [
+        "P1_STRONG_MULTI_MATCH_REVIEW",
+        "P2_HIGH_CONFIDENCE_REVIEW",
+        "P3_PARTIAL_EVIDENCE_REVIEW",
+        "P4_IDENTITY_REVIEW",
+    ]
+    assert all(row["verification_status"] == "PENDING" for row in queue)
+    assert all("manual review only" in row["review_note"] for row in queue)
