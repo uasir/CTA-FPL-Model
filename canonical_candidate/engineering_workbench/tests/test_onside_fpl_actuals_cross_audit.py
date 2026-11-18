@@ -62,3 +62,13 @@ def test_non_finite_actual_points_are_rejected():
         assert "finite" in str(exc)
     else:
         raise AssertionError("Expected non-finite actual points to be rejected")
+
+
+def test_duplicate_official_fpl_player_fixture_is_rejected():
+    row={"season":"2026-27","fpl_element_id":"1","gameweek":"1","fixture_id":"10","target_total_points":"2"}
+    try:
+        audit([row,row.copy()],[{"player_id":"1","gw":"1","actual_points":"4"}])
+    except ValueError as exc:
+        assert "Duplicate official FPL player-fixture" in str(exc)
+    else:
+        raise AssertionError("Expected duplicate FPL fixture row to be rejected")
