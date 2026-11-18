@@ -9,6 +9,8 @@ import argparse,csv,json,math
 from collections import defaultdict
 from pathlib import Path
 
+PAGE_SIZE=50
+
 
 def truth(value):
     return str(value).strip().lower() in {"1","true","yes","y"}
