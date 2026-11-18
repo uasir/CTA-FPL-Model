@@ -18,8 +18,8 @@ function shared() {
       limitations: ["Current snapshot; point-in-time history not verified."],
     },
     player_forecasts: [
-      { fpl_element_id: 1, expected_points: 4.2 },
-      { fpl_element_id: 2, expected_points: 3.1 },
+      { fpl_element_id: 1, expected_points: 4.2, expected_minutes: 80, price: 5.0, position: "MID", team_id: 1 },
+      { fpl_element_id: 2, expected_points: 3.1, expected_minutes: 75, price: 4.5, position: "DEF", team_id: 2 },
     ],
   };
 }
@@ -97,11 +97,11 @@ test("personal squad rejects malformed squad and budget constraints", () => {
 
 test("both systems reject duplicate forecast IDs", () => {
   const general = shared();
-  general.player_forecasts.push({ fpl_element_id: 1 });
+  general.player_forecasts.push({ fpl_element_id: 1, expected_points: 4.2, expected_minutes: 80, price: 5.0, position: "MID", team_id: 1 });
   assert.throws(() => validateGeneralMarketRequest(general), /Duplicate forecast/);
 
   const manager = personal();
-  manager.player_forecasts.push({ fpl_element_id: 1 });
+  manager.player_forecasts.push({ fpl_element_id: 1, expected_points: 4.2, expected_minutes: 80, price: 5.0, position: "MID", team_id: 1 });
   assert.throws(() => validatePersonalSquadRequest(manager), /Duplicate forecast/);
 });
 
@@ -138,4 +138,27 @@ test("both request types reject invalid forecast quality metadata", () => {
       assert.throws(() => validator(payload), /forecast_quality/);
     }
   }
+});
+
+
+test("player forecast records enforce shared required fields and bounds", () => {
+  const cases = [
+    ["expected_minutes", -1, /expected_minutes cannot be negative/],
+    ["price", 0, /price must be positive/],
+    ["position", "WING", /position is invalid/],
+    ["team_id", 0, /team_id must be a positive integer/],
+    ["availability_probability", 1.1, /availability_probability must be between 0 and 1/],
+    ["points_variance", -0.1, /points_variance must be non-negative/],
+  ];
+  for (const [field, value, message] of cases) {
+    const payload = shared();
+    payload.player_forecasts[0][field] = value;
+    assert.throws(() => validateGeneralMarketRequest(payload), message);
+  }
+  const missing = shared();
+  delete missing.player_forecasts[0].expected_minutes;
+  assert.throws(
+    () => validateGeneralMarketRequest(missing),
+    /expected_minutes must be a finite number/,
+  );
 });
