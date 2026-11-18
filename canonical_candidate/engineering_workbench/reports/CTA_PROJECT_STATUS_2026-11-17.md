@@ -496,3 +496,31 @@ Latest implementation commits:
 Static repository inspection confirms the JSON contract parses, both implementations preserve forecast quality in their outputs, and CI includes both Node and Python test commands. A workflow/check-run result for the final implementation commit was not available through the connected GitHub status endpoint during this continuation; **the tests remain CI-unverified**. The next action is to inspect the GitHub Actions run and fix any failures before treating the boundary layer as accepted.
 
 No scoring engine has been implemented yet. This is intentional: the forecast layer remains exploratory and point-in-time-unverified. The next build step is a shared forecast data schema plus a cross-language fixture/parity test, followed by the independent general-market and personal-squad engines.
+
+
+### Canonical forecast records and FPL squad integrity
+
+The shared forecast record contract is now enforced in both Python and JavaScript:
+- Required player fields: positive integer FPL element ID, finite expected points, finite non-negative expected minutes, finite positive price (£m), valid position (GKP/DEF/MID/FWD), and positive integer team ID.
+- Optional effective ownership percentage and points variance must be finite and non-negative. EO is not capped at 100%, because captaincy and chip exposure can exceed one selection per manager.
+- Optional availability probability must be finite and within [0, 1].
+- Python and JavaScript now require numeric integer IDs, not numeric strings, to keep identity handling consistent.
+
+Personal squad validation additionally:
+- Requires a valid forecast for every owned player.
+- Enforces the FPL squad composition of 2 GKP, 5 DEF, 5 MID and 3 FWD.
+- Enforces no more than three players from one team.
+- Requires a positive finite purchase price for every owned player.
+
+Cross-language test inputs now come from the same fixture:
+`tests/fixtures/recommendation_requests.json`.
+It contains 15 valid player forecast records, a squad-independent general request, and a separate valid personal squad request. Both Python and JavaScript test suites load this exact file, reducing the risk of the two contract implementations drifting apart.
+
+Static fixture inspection confirms:
+- 15 unique player records.
+- Position composition: 2/5/5/3.
+- Five team IDs with three players each.
+- Both test suites load the same fixture.
+- Current test modules contain 14 Python test functions and 11 JavaScript tests (parameterized cases expand the executed case count).
+
+These are repository inspections, not test-run results. The final GitHub Actions check remains unverified through the available status endpoint. No production recommendation engine is claimed to exist yet.
