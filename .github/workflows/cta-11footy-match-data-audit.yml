@@ -7,9 +7,7 @@ on:
       - .github/workflows/cta-11footy-match-data-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_11footy_premier_league_data.py
       - canonical_candidate/engineering_workbench/scripts/audit_11footy_fpl_identity_candidates.py
-      - canonical_candidate/engineering_workbench/tests/test_11footy_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_premier_league_data_audit.py
-      - canonical_candidate/engineering_workbench/scripts/audit_11footy_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/docs/CONTEXTUAL_THREAT_ASSESSMENT.md
   push:
@@ -17,7 +15,9 @@ on:
     paths:
       - .github/workflows/cta-11footy-match-data-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_11footy_premier_league_data.py
+      - canonical_candidate/engineering_workbench/scripts/audit_11footy_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_premier_league_data_audit.py
+      - canonical_candidate/engineering_workbench/tests/test_11footy_fpl_identity_candidates.py
   workflow_dispatch:
 
 permissions:
@@ -40,7 +40,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Download and verify the pinned 11footy release
+      - name: Download and verify the pinned 11footy release and official FPL bootstrap
         run: |
           set -euo pipefail
           mkdir -p run_artifacts/11footy/source run_artifacts/11footy/output
