@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train and time-holdout an exploratory ridge baseline on lagged FPL rows.
+"""Train and time-holdout an exploratory ridge baseline on lagged FPL rows (v0.1.0).
 
 This model is deliberately not wired into either recommendation engine:
 the historical source is structurally lagged but not fully point-in-time verified.
