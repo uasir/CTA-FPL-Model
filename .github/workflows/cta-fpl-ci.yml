@@ -3,7 +3,7 @@ name: CTA FPL engineering CI
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, "work/**"]
     paths:
       - .github/workflows/cta-fpl-ci.yml
       - .github/workflows/cta-fpl-ingestion.yml
@@ -12,6 +12,8 @@ on:
       - canonical_candidate/engineering_workbench/src/js/**
       - canonical_candidate/engineering_workbench/tests/**
       - canonical_candidate/data/player_identity_crosswalk.csv
+      - canonical_candidate/data/wyscout_fpl_identity_crosswalk.csv
+      - canonical_candidate/data/opta_pulselive_fpl_identity_crosswalk.csv
 
 permissions:
   contents: read
@@ -45,9 +47,23 @@ jobs:
         env:
           PYTHONPATH: scripts:src
         run: python -m pytest -q
-      - name: Validate verified player identity crosswalk
+      - name: Validate StatsBomb identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/validate_player_identity_crosswalk.py \
             --input ../data/player_identity_crosswalk.csv \
             --out-dir ../../run_artifacts/identity_crosswalk
+      - name: Validate Wyscout to FPL identity crosswalk
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/validate_provider_identity_crosswalk.py \
+            --provider wyscout \
+            --input ../data/wyscout_fpl_identity_crosswalk.csv \
+            --out-dir ../../run_artifacts/wyscout_identity
+      - name: Validate Opta/PulseLive to FPL identity crosswalk
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/validate_provider_identity_crosswalk.py \
+            --provider opta_pulselive \
+            --input ../data/opta_pulselive_fpl_identity_crosswalk.csv \
+            --out-dir ../../run_artifacts/opta_identity
