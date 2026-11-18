@@ -39,20 +39,67 @@ Important reconciliation caveat:
 - The 442 count is **not** the published 603-player season participation count: `currentTeamId` is a current-team field, not a match-level appearance history, and can omit players who moved during/after the season. The mirror's player-count difference must be reconciled against the official Figshare release before full ingestion.
 - The full 73.74 MB Events archive was not materialized in this run. No full-season Wyscout ingestion or feature parity test has been claimed.
 
-## Preliminary identity screening (candidate-only)
+## Match-level identity reconciliation — 2026-11-18
 
-The 2017/18 FPL historical archive in https://github.com/vaastav/Fantasy-Premier-League contains:
-- `data/2017-18/players_raw.csv`: 647 player rows.
-- `data/2017-18/cleaned_players.csv`: 647 player rows.
-- `data/2017-18/gws/gw1.csv` through `gw38.csv`: all 38 gameweeks.
+A strict match-roster reconciliation has now produced a **verified partial identity crosswalk**. It supersedes the earlier `currentTeamId`-only name screen for join decisions. The global player metadata `currentTeamId` is not used as season-team evidence because it can reflect transfers after the target season.
 
-A preliminary normalized full-name screen found:
-- 442 Wyscout player records currently associated with the 20 Premier League clubs.
-- 303 exact normalized full-name candidates against the 2017/18 FPL player list.
-- 139 without an exact full-name match.
-- No duplicate exact-name hits in this limited screen.
+### Pinned inputs
 
-These are **candidate counts only**, not verified identity joins. No rows were added to the project's verified crosswalk. The screen did not establish match-level team membership for every player, did not resolve all name variants/transliterations, and did not prove that one provider ID maps to one FPL element for the relevant season. Continue to require provider ID, season, competition, team, and source evidence before a row can be marked verified.
+- Wyscout processed mirror: `koenvo/wyscout-soccer-match-event-dataset`, commit `ebc4c54c1093c420a81ce442c69e4186fab33bb4`.
+- FPL historical player archive: `vaastav/Fantasy-Premier-League`, commit `d7b05b51d137bfefef4b692386d18c610975b9b9`.
+- FPL input: `data/2017-18/players_raw.csv`, Git blob `117a93b6bb6a093d790381c9347662a7d1e6defa`, 647 rows.
+- Wyscout input: 10 final-gameweek match roster files, all from 13 May 2018:
+  `2500089` through `2500098` (Burnley–Bournemouth, Crystal Palace–West Brom, Huddersfield–Arsenal, Liverpool–Brighton, Manchester United–Watford, Newcastle–Chelsea, Southampton–Manchester City, Swansea–Stoke, Tottenham–Leicester, West Ham–Everton).
+- Each processed match file exposes the two club IDs and the matchday roster with numeric Wyscout `playerId`, first/last name and team context. The Wyscout EPL competition ID is `364`.
+
+### Reconciliation method
+
+1. Parse the FPL 2017/18 player list (FPL element ID, player code, first name, second name, web name and FPL team ID).
+2. Parse the 10 Wyscout final-round match rosters (Wyscout player ID, first/last name, short name, match ID, team ID and team name).
+3. Generate exact normalized full-name matches only; normalization removes diacritics and punctuation but does not reorder or approximate names.
+4. Infer the 20-club FPL-team-ID → Wyscout-team-ID map from exact full-name matches only. Each FPL team has 9–16 independent full-name votes, every vote agrees on one provider team, and the 20 provider team IDs are one-to-one.
+5. Accept the 251 exact full-name matches only when their match-roster team agrees with that unanimous club mapping.
+6. Add five further exact official-alias matches only where FPL `web_name` exactly equals Wyscout `shortName` and the provider player is unique within the mapped club. These use `official_alias`, not fuzzy matching.
+7. Reject all remaining players from the verified crosswalk. No fuzzy, phonetic, or manual spelling guesses are used.
+
+### Result
+
+- **256 verified player identity rows** in `canonical_candidate/data/wyscout_fpl_identity_crosswalk.csv`.
+- 251 rows use `club_roster_crosscheck`; 5 use exact `official_alias`.
+- 245/256 mapped players have positive FPL season minutes.
+- 256/647 (39.6%) of all FPL player rows are mapped; 245/515 (47.6%) of players with positive minutes are mapped.
+- 20/20 FPL team IDs map to unique Wyscout team IDs, with 100% agreement among 9–16 full-name votes per club.
+- Zero duplicate FPL element IDs and zero duplicate Wyscout player IDs.
+- Evidence URLs are pinned to the exact Wyscout match roster file for each player; evidence-source fields also record the FPL archive commit and source CSV blob.
+
+This is a **verified partial identity crosswalk**, not a full-season player coverage claim. The 10 matchday rosters contain 360 distinct Wyscout player records; the remaining FPL players require additional match rosters or other season-specific evidence. The `verified` status means the player identity/team join is evidenced; it does not grant rights to the FPL target data or establish point-in-time provenance.
+
+### 20-club team mapping
+
+| FPL team ID | Wyscout team ID | Club | Exact full-name votes |
+|---:|---:|---|---:|
+| 1 | 1609 | Arsenal | 11 |
+| 2 | 1659 | AFC Bournemouth | 15 |
+| 3 | 1651 | Brighton & Hove Albion | 11 |
+| 4 | 1646 | Burnley | 16 |
+| 5 | 1610 | Chelsea | 9 |
+| 6 | 1628 | Crystal Palace | 13 |
+| 7 | 1623 | Everton | 11 |
+| 8 | 1673 | Huddersfield Town | 12 |
+| 9 | 1631 | Leicester City | 15 |
+| 10 | 1612 | Liverpool | 13 |
+| 11 | 1625 | Manchester City | 13 |
+| 12 | 1611 | Manchester United | 10 |
+| 13 | 1613 | Newcastle United | 9 |
+| 14 | 1619 | Southampton | 14 |
+| 15 | 1639 | Stoke City | 15 |
+| 16 | 10531 | Swansea City | 14 |
+| 17 | 1624 | Tottenham Hotspur | 14 |
+| 18 | 1644 | Watford | 12 |
+| 19 | 1627 | West Bromwich Albion | 15 |
+| 20 | 1633 | West Ham United | 9 |
+
+The FPL historical archive rights and point-in-time vintage issues below remain separate blockers. The identity crosswalk can be structurally validated without promoting the historical points data to a production target.
 
 ## FPL historical data-rights blocker
 
