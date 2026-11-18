@@ -57,9 +57,6 @@ Current-turn materialization and checks:
 - PR #5, standard EO definition correction, merged: `090cb01f5a3bf6668612e589ebad3f28ae5da4cd`.
 - PR #6, written-permission gate for automated FPL API access, merged: `327c7ac717d0fae389fc866c078629c186176d89`.
 - PR #7, exploratory CoVar workflow from Onside actual points, merged: `0299f37139d2ef39c1da63de2470e1f2e92e1075`.
-- PR #5, standard EO definition correction, merged 2026-11-18: `090cb01f5a3bf6668612e589ebad3f28ae5da4cd`.
-- PR #6, written-permission gate for automated FPL API access, merged 2026-11-18: `327c7ac717d0fae389fc866c078629c186176d89`.
-- PR #7, exploratory CoVar workflow from Onside actual points, merged 2026-11-18: `0299f37139d2ef39c1da63de2470e1f2e92e1075`.
 - EO correction CI: [44259359716](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259359716), success; 165 Python tests and 3 subtests passed.
 - Permission-gate CI: [44259464265](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259464265), success.
 - CoVar workflow: [44259763220](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220), success; artifact [14407138593](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220/artifacts/14407138593).
@@ -93,6 +90,7 @@ The official FPL workflow has fetched the 2026/27 roster and fixtures:
 - All 672 player summaries succeeded in the latest reported full run.
 - No orphan fixture/player references or minute/points reconciliation mismatches were reported.
 - Official `ep_next` and `ep_this` are preserved as the official FPL baseline, not relabelled as CTA forecasts.
+- These are historical verified ingestion results. Automated API ingestion, EO capture and Onside's official-API reconciliation are now gated until written data permission is obtained.
 
 ### Point-in-time features and baselines
 
