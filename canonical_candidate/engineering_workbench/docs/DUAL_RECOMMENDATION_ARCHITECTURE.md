@@ -143,12 +143,31 @@ Do not rebuild the existing engine, replace recovered source lineage, fabricate 
 - Multi-season, point-in-time historical training data and out-of-sample predictive validation remain incomplete.
 - Multi-transfer optimisation, chip effects, multiweek planning and CoVar utility validation remain future work.
 
-Latest full CI verification, including both engine adapters, the JSON numeric-parity comparator and quality gates: https://github.com/uasir/CTA-FPL-Model/actions/runs/44255497865 — **37 JavaScript tests and 155 Python tests passed, plus 3 subtests**. The crosswalk validator still reports `EMPTY_NOT_READY`; no verified StatsBomb↔FPL identity rows exist.
+## 10. Verified live state — 2026-11-18
 
+### End-to-end FPL ingestion and engine parity
 
-The live FPL-to-general-market smoke test also passed on 2026-11-18 using all 672 official FPL player forecasts: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254087867. The source snapshot was more than 24 hours before deadline, so the output correctly remained exploratory.
+- The latest engineering CI passed: 221 Python tests, 3 subtests, the legacy unit tests and the JavaScript contract/parity suite. [CI run](https://github.com/uasir/CTA-FPL-Model/actions/runs/44391549591)
+- The official FPL ingestion completed successfully for GW11: 672 players, 380 fixtures, 6,562 player-fixture history rows and 459 players with positive minutes. All 672 players have official `ep_next` coverage. [FPL ingestion run](https://github.com/uasir/CTA-FPL-Model/actions/runs/44391549645)
+- General-market and personal-squad engines passed the full-pool Python/JavaScript parity and scale checks. The personal-squad scale check uses a synthetic legal 15-player squad; it is not a recommendation for the manager's actual squad.
+- The current general-market output is still based on official FPL `ep_next`. Effective-ownership coverage is zero, CoVar is not used in the recommendation score, and the risk profile is not yet applied.
 
-The personal-squad engine also passed a live-pool scale smoke test on 672 forecasts using a synthetic, legal 15-player squad (594 candidate transfers); this is a scale check, not a manager recommendation: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254629419.
+### Prediction and data-validation results
 
+- The latest nested ridge experiment achieved MAE 1.1991 and RMSE 2.0091; the last-five-points baseline achieved MAE 1.1855 and RMSE 2.1513. Ridge improves RMSE but not MAE. It remains exploratory, not a promoted production model.
+- Adding Opta team context worsened both MAE and RMSE relative to the player-form ridge baseline. It has therefore not been promoted.
+- The Onside/FPL actual-points cross-audit found 4,954 exact player-fixture matches with zero points mismatches.
+- Opta identity reconciliation has 511 exact numeric player-ID matches to FPL, with no team mismatches; 161 FPL players have no corresponding Opta row.
+- The current historical-points covariance matrix covers 420 players over 10 gameweeks with 50% off-diagonal shrinkage. It remains exploratory and is not supplied to the recommendation engine.
+- The GW11 snapshot was captured on 2026-11-18 at approximately 20:31 UTC, more than 24 hours before the 2026-11-21 deadline. The forecast is correctly labelled exploratory.
 
-The live general-market engine has now passed exact numerical Python–JavaScript parity on the official 672-player GW11 forecast pool, not just the synthetic fixture: https://github.com/uasir/CTA-FPL-Model/actions/runs/44255361502. The same run passed the personal-squad scale smoke test with a synthetic legal squad and 2,914 transfer candidates. Both outputs remain explicitly exploratory because the source snapshot was stale and used FPL `ep_next`, not a CTA-trained forecast.
+### Contextual threat and 11footy integration
+
+- **11footy:** 100/100 completed 2026/27 matches reconcile to FPL fixtures, producing 4,000 player-match rows. There are 490 candidate identities, 340 with exact normalized name/team/birth-date evidence, and 68 with exact team/minutes/goals/assists consistency across at least three overlapping matches. No candidate team conflicts were observed. No candidates were automatically verified; the model-ready panel remains empty until the season-scoped crosswalk is approved. [Integration run](https://github.com/uasir/CTA-FPL-Model/actions/runs/44391549645)
+- **StatsBomb 360:** The pilot produced 2,568 usable contextual rows from 3,021 supported events and 31 player-match aggregates. Attack direction is not yet verified, so directional geometry is withheld. No StatsBomb-to-FPL identity join exists. [Pilot run](https://github.com/uasir/CTA-FPL-Model/actions/runs/44390083493)
+- **Wyscout:** The 2017/18 EPL audit covers 643,150 events across 380 matches. It remains a historical event source without an FPL identity crosswalk.
+- CTA's new non-shot and receiving-opportunity features remain provisional. No CTA feature has yet demonstrated incremental FPL points prediction value.
+
+### Current readiness boundary
+
+The complete architecture remains active, but the current working forecast is a baseline system, not yet the finished CTA-driven prediction system. The next engineering priorities are to review and verify the strongest 11footy identity candidates, populate and validate the StatsBomb direction map and identity links, connect verified player-match rows to the shared training layer, and run chronological out-of-sample tests before promoting any CTA features. Keep general-market and personal-squad services separate; keep CoVar as a complementary portfolio-risk layer rather than a substitute for CTA points prediction.
