@@ -91,7 +91,7 @@ def _finite_number(value):
 
 
 def read_direction_map(path):
-    """Read only explicit match-period-team attack directions; never infer a default."""
+    """Read match-period-team directions with source and confidence provenance."""
     if path is None or not path.exists():
         return {}
     result = {}
@@ -105,11 +105,17 @@ def read_direction_map(path):
                 raise ValueError(f"Direction-map row {line} is missing match_id, period or team")
             if raw not in {"true", "false", "1", "0", "yes", "no"}:
                 raise ValueError(f"Direction-map row {line} has invalid attacks_right value: {raw}")
-            value = raw in {"true", "1", "yes"}
+            record = {
+                "attacks_right": raw in {"true", "1", "yes"},
+                "direction_source": str(row.get("direction_source") or "").strip(),
+                "confidence_level": str(row.get("confidence_level") or "").strip(),
+                "evidence_count": int(row.get("evidence_count") or 0),
+                "evidence_event_ids": str(row.get("evidence_event_ids") or "").strip(),
+            }
             key = (match_id, period, team)
-            if key in result and result[key] != value:
+            if key in result and result[key]["attacks_right"] != record["attacks_right"]:
                 raise ValueError(f"Conflicting attack directions for {key}")
-            result[key] = value
+            result[key] = record
     return result
 
 
@@ -120,7 +126,9 @@ def _event_direction(event, match_id, direction_map):
         if team_key:
             value = direction_map.get((str(match_id), period, team_key))
             if value is not None:
-                return value
+                if isinstance(value, dict):
+                    return value
+                return {"attacks_right": bool(value)}
     return None
 
 
@@ -314,6 +322,9 @@ def contextual_event_features(event, frame, attacks_right=None):
         "y": round(actor_position[1], 4),
         "attacks_right": attacks_right if direction_known else "",
         "direction_known": direction_known,
+        "attack_direction_source": "",
+        "attack_direction_confidence": "",
+        "attack_direction_evidence_count": "",
         "distance_to_attacking_goal": round(_distance(actor_position, goal), 4) if goal else "",
         "under_pressure": bool(event.get("under_pressure")),
         "visible_opponents": len(opponents),
@@ -355,10 +366,18 @@ def extract_contextual_threat(events, frames, match_id="", direction_map=None):
             unmatched_supported_events += 1
             continue
         resolved_match_id = str(match_id or event.get("_match_id") or "")
-        attacks_right = _event_direction(event, resolved_match_id, direction_map)
+        direction_record = _event_direction(event, resolved_match_id, direction_map)
+        attacks_right = (
+            direction_record.get("attacks_right")
+            if isinstance(direction_record, dict) else direction_record
+        )
         row = contextual_event_features(event, frame, attacks_right=attacks_right)
         if row is None:
             continue
+        if isinstance(direction_record, dict):
+            row["attack_direction_source"] = direction_record.get("direction_source", "")
+            row["attack_direction_confidence"] = direction_record.get("confidence_level", "")
+            row["attack_direction_evidence_count"] = direction_record.get("evidence_count", "")
         row["match_id"] = resolved_match_id
         event_rows.append(row)
         if not row["player_id"]:
@@ -430,6 +449,15 @@ def extract_contextual_threat(events, frames, match_id="", direction_map=None):
         "event_context_coverage": round(len(event_rows) / supported_count, 6) if supported_count else None,
         "events_with_known_attack_direction": direction_known_count,
         "events_missing_attack_direction": len(event_rows) - direction_known_count,
+        "direction_map_rows": len(direction_map),
+        "direction_sources": sorted({
+            str(value.get("direction_source") or "")
+            for value in direction_map.values() if isinstance(value, dict) and value.get("direction_source")
+        }),
+        "direction_confidence_counts": dict(Counter(
+            str(value.get("confidence_level") or "unspecified")
+            for value in direction_map.values() if isinstance(value, dict)
+        )),
         "direction_coverage": round(direction_known_count / len(event_rows), 6) if event_rows else None,
         "unmatched_supported_events_without_frame": unmatched_supported_events,
         "duplicate_360_event_uuids": len(duplicate_frames),
@@ -439,7 +467,7 @@ def extract_contextual_threat(events, frames, match_id="", direction_map=None):
         "threat_involvement_dangerous_receipts": sum(float(r["threat_involvement_dangerous_receipt"] or 0) for r in event_rows),
         "threat_realisation_shots": sum(float(r["threat_realisation_shot"] or 0) for r in event_rows),
         "missing_context_policy": "Missing 360 frames are not imputed as zero; aggregates cover sampled 360-linked events only.",
-        "direction_policy": "Directional and receiving-lane features are withheld unless an explicit match-period-team direction is supplied.",
+        "direction_policy": "Directional and receiving-lane features require a match-period-team direction from a provenance-bearing direction map; inferred directions are accepted only when shot-endpoint evidence is internally consistent and meets the confidence threshold.",
         "threat_dimensions": {
             "creation": "Passes progressing at least 10 pitch units or ending within 40 units of the attacking goal; attempts and completions reported separately.",
             "involvement_reception": "Ball receipts within 40 pitch units of the attacking goal.",
