@@ -282,3 +282,17 @@ No live rank-tier EO sample has yet been captured. The GW11 deadline is 2026-11-
 The weekly Onside actual-points covariance workflow now takes up to the latest 20 fully graded gameweeks, using all available completed gameweeks when fewer than 20 exist. This allows the split-window stability diagnostic to compare two 10-GW halves once the season has 20 completed observations.
 
 The previous 10-GW split-window result remains unstable (correlation-of-correlations 0.0078; median absolute correlation change 0.5004). The longer panel must be observed before any reliability claim. Complete-case exclusion, no zero-filling, and 50% diagonal shrinkage remain. CoVar is still disabled in `personal_squad`.
+
+## 13. Onside actual-points source validation — 2026-11-18
+
+The daily FPL ingestion workflow cross-audited Onside `actual_points` against official FPL history for GW1–GW10:
+
+- 4,954/4,954 overlapping player-gameweek rows matched exactly.
+- Zero point mismatches; MAE 0.0 and maximum absolute difference 0.0.
+- Onside covers 4,954 rows across 605 players; official FPL contains 6,562 rows across 672 players.
+- 1,608 FPL rows have no Onside counterpart; zero Onside rows lack an FPL counterpart. Missing rows are not zero-filled.
+- Double-gameweek FPL fixture rows are aggregated before comparison.
+
+This verifies the Onside actual-points values for the overlapping subset and supports their continued use as an exploratory CoVar input. It does not establish full-population coverage, point-in-time historical vintages, or covariance stability. CoVar remains disabled in `personal_squad`.
+
+Detailed report: `reports/ONSIDE_FPL_ACTUALS_CROSS_AUDIT_2026-11-18.md`.
