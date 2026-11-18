@@ -105,12 +105,15 @@ The current StatsBomb Open Data Premier League seasons (2003/04 and 2015/16) do 
 
 ### Wyscout 2017/18
 
-The official Wyscout Figshare event collection is a promising event-side candidate for 2017/18 and its event/match/player/team/competition items display CC BY 4.0. The season overlaps 2017/18 FPL history. However:
-- the FPL historical target archive's data-use rights are unresolved;
-- the current player metadata and EPL appearance counts have not yet been reconciled to the official files;
-- candidate normalized-name matches are not verified identity links.
+The official Wyscout Figshare event collection is a season-aligned event-side source for 2017/18; its event/match/player/team/competition items display CC BY 4.0. A match-level reconciliation now populates 256 verified Wyscout→FPL identity rows from 10 final-gameweek match rosters:
+- 251 exact normalized full-name + match-roster club matches and 5 exact official short-name aliases;
+- all 20 FPL clubs map one-to-one to Wyscout team IDs, with 9–16 independent full-name votes per club and unanimous agreement;
+- 256 unique provider IDs and FPL element IDs, with zero duplicates;
+- 245 mapped players have positive FPL season minutes (47.6% of all positive-minute FPL rows).
 
-Keep this as a candidate provider, not production data, until both event and target rights plus numeric player/fixture mappings are proven.
+The crosswalk is partial: 391 of 647 FPL rows remain unmapped, and the 10 rosters are not a full 380-match ingest. The global Wyscout `currentTeamId` field is not used as season-team evidence. The exact evidence and source pins are documented in `reports/WYSCOUNT_FPL_SOURCE_AUDIT_2026-11-17.md`.
+
+The historical FPL target archive's data-use rights remain unresolved, and its retrospective snapshot is not point-in-time verified. Therefore the identity bridge is verified for the subset, but the FPL predictive integration remains exploratory and is not production-ready.
 
 ### Opta/PulseLive candidate
 
