@@ -122,3 +122,39 @@ Verification:
 - JavaScript tests: **19 passed**
 - Python tests: **117 passed, plus 3 subtests**
 - Crosswalk validator: no errors, but `EMPTY_NOT_READY` and `join_ready: false`.
+
+
+## 6. Exploratory dual recommendation engines
+
+Both recommendation products now have deterministic Python and JavaScript implementations:
+
+### `general_market`
+- `scripts/general_market_engine.py`
+- `src/js/general_market_engine.mjs`
+- Overall EV ranking, position rankings, points-per-price value ranking and captaincy shortlist.
+- Differential ranking is available only when EO is supplied with verified pre-deadline cohort time, sample size, post-deadline picks time, lock status and a deadline matching the forecast snapshot.
+- Rejects personal squad/manager context at the request boundary.
+- Never reads the personal-squad store or uses CoVar.
+
+### `personal_squad`
+- `scripts/personal_squad_engine.py`
+- `src/js/personal_squad_engine.mjs`
+- One-transfer alternatives with selling-price calculation, bank check, same-position constraint and maximum-three-per-team rule.
+- Legal formation, starting XI, captain, vice-captain, reserve goalkeeper and ordered outfield bench.
+- Hit cost is configurable in `personal_preferences.hit_cost_points`; default is the standard four points when no free transfer remains.
+- Risk profile is recorded but not applied because player variance is not validated. CoVar and chip simulation remain disabled.
+
+### Shared official FPL baseline adapter
+- `scripts/build_fpl_baseline_forecast_snapshot.py` converts the timestamped official FPL player snapshot into the shared one-gameweek forecast schema.
+- EV comes from official `ep_next`; expected minutes are explicitly a latest-completed-gameweek actual-minutes proxy.
+- The adapter verifies the source snapshot predates the target deadline and hashes the source feeds.
+- It accepts EO only when the collector report proves pre-deadline cohort selection and post-deadline picks capture for the same target deadline.
+- This adapter is a baseline, not a trained CTA model.
+
+### Latest verification
+- CI run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44252742817
+- JavaScript: **32 passed, 0 failed**
+- Python: **143 passed, plus 3 subtests**
+- Crosswalk validator: **EMPTY_NOT_READY**, join_ready false.
+
+These are exploratory v0.1 engines. Remaining work includes real FPL snapshot execution through the ingestion workflow, live GW11 locked EO capture, validated historical training data, multi-transfer/chip-aware planning, predictive accuracy testing and validated covariance. No production readiness is claimed.
