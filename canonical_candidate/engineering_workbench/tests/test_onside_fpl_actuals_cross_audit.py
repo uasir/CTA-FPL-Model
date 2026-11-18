@@ -51,3 +51,14 @@ def test_duplicate_onside_player_gameweek_is_rejected():
         assert "Duplicate Onside" in str(exc)
     else:
         raise AssertionError("Expected duplicate Onside key to fail")
+
+
+def test_non_finite_actual_points_are_rejected():
+    fpl=[{"season":"2026-27","fpl_element_id":"1","gameweek":"1","target_total_points":"2"}]
+    onside=[{"player_id":"1","gw":"1","actual_points":"NaN"}]
+    try:
+        audit(fpl,onside)
+    except ValueError as exc:
+        assert "finite" in str(exc)
+    else:
+        raise AssertionError("Expected non-finite actual points to be rejected")
