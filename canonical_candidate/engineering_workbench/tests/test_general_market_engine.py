@@ -86,3 +86,11 @@ def test_python_and_javascript_general_market_outputs_are_identical():
     javascript = json.loads(completed.stdout)
     python = recommend_general_market(request())
     assert javascript == python
+
+
+
+def test_null_filters_are_rejected_consistently():
+    payload = request()
+    payload["filters"] = None
+    with pytest.raises(RecommendationContractError, match="filters must be"):
+        recommend_general_market(payload)
