@@ -161,3 +161,40 @@ Both recommendation products now have deterministic Python and JavaScript implem
 - Live ingestion with fixture-scaled minutes and the general-market smoke test: run https://github.com/uasir/CTA-FPL-Model/actions/runs/44253510302 is currently executing; its actual forecast artifact has not yet been inspected.
 
 These are exploratory v0.1 engines. Remaining work includes real FPL snapshot execution through the ingestion workflow, live GW11 locked EO capture, validated historical training data, multi-transfer/chip-aware planning, predictive accuracy testing and validated covariance. No production readiness is claimed.
+
+
+## 7. Live official FPL → baseline forecast → general-market integration
+
+A full live ingestion and baseline ranking run completed successfully:
+
+- Actions run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254087867
+- Commit: `b11cb2307b30f7f202800bab63ee4399c696a05a`
+- Artifact: `cta-fpl-official-44254087867` (ID `14405276623`)
+- Artifact download: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254087867/artifacts/14405276623
+- Artifact expiry: 2027-02-16 06:48:36 UTC.
+
+### Official feed integrity
+- Season: 2026/27; target GW11.
+- 672 players; 380 fixtures; 6,562 player-fixture rows.
+- All 672 player summary requests succeeded; zero summary fetch errors.
+- All 672 players have official `ep_next` and `ep_this` values.
+- 459 players have positive season minutes.
+- No orphan fixtures, unknown IDs, minute reconciliation mismatches or total-points reconciliation mismatches.
+
+### Forecast snapshot
+- Snapshot ID: `c49ad19ac91045b95b0d391be6deab0058ae701c8999dc2e47b59117bf816f92`.
+- 672/672 player forecasts built; no missing `ep_next`, invalid player rows or missing minutes history.
+- 10 target-GW fixtures counted; target fixture counts are used to scale latest completed-GW minutes per fixture.
+- The snapshot was captured at 2026-11-18 06:50:09 UTC, **76.164 hours before the GW11 deadline**. It is therefore marked `STALE_OVER_24H`; the recommendation status remains `EXPLORATORY_ONLY`. The scheduled daily ingestion should produce a fresh pre-deadline snapshot on deadline day.
+
+### General-market engine live smoke test
+- Status: `PASS_EXPLORATORY_GENERAL_MARKET`.
+- All 672 players ranked.
+- The current official `ep_next` top five were N. Jackson (11.0), Konsa (10.7), Gabriel (10.3), Barry (9.0) and Evanilson (8.0).
+- Top value by expected points per £m began with Konsa, Barry and N. Jackson.
+- No EO was present in this snapshot, so no differential ranking was produced.
+- CoVar was not used.
+
+This is the first verified end-to-end FPL data-to-general-market execution. It is **not** a validated CTA prediction: the points baseline is FPL's own `ep_next`, minutes are a proxy, the snapshot is stale, and the historical lagged training report remains `PASS_STRUCTURAL_ONLY` with `point_in_time_status: NOT_VERIFIED`.
+
+The live EO capture remains outstanding for GW11. Its scheduler now checks five minutes before both `:00` and `:30` deadlines, based on the actual FPL deadline calendar, and only fetches picks after the deadline lock.
