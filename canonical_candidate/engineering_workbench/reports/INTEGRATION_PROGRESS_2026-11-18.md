@@ -80,3 +80,30 @@ Next adapter gate:
 - 90-day GitHub artifacts are not durable full-season storage. A private persistent archive is still required.
 
 No full FPL predictive integration or production recommendation engine is claimed complete.
+
+
+## 4. Deadline-locked effective-ownership capture correction
+
+A code review found that the original EO collector fetched manager picks immediately after sampling the pre-deadline rank cohort. That meant late captain, transfer and chip changes could be missed.
+
+The collector has now been changed to a two-stage, single-run design:
+1. Sample the top-10k rank cohort from official overall-league standings before the deadline.
+2. Refuse to continue if the rank sampling starts or finishes after the deadline.
+3. Wait until 60 seconds after the official deadline.
+4. Re-fetch official bootstrap data and verify the event deadline has passed.
+5. Fetch the sampled managers' picks only after that lock check.
+6. Emit `CAPTURED_POST_DEADLINE_PICKS` and `picks_lock_verified: true` only on that path.
+
+The scheduler now checks once per hour at minute 55, rather than launching 288 scheduled runs per day. It proceeds only when the official deadline is within seven minutes, then waits through the lock grace period. Manual dispatch follows the same safety checks; the legacy `force` keyword remains accepted for compatibility but cannot bypass the lock policy.
+
+New tests cover pre-deadline rank sampling, post-deadline pick retrieval, lock timing, weighted cohort output, and out-of-window skipping.
+
+### CI verification of this correction
+- Run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44250932574
+- Commit: `d792d1c0abddc520b93adf10b1bffae6cfe027b1`
+- Result: **success**
+- JavaScript tests: **19 passed**
+- Python tests: **117 passed, plus 3 subtests**
+- Crosswalk validator: executed successfully, but `EMPTY_NOT_READY`; no verified identity rows exist.
+
+This verifies the collector's logic against mocked API responses. It is **not yet a live GW11 lock capture**. The next scheduled run near the 2026-11-21 11:00 UTC deadline is the first live validation opportunity. The capture remains a top-10k weighted sample, not whole-game EO.
