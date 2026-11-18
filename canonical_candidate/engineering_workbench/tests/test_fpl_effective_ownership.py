@@ -82,6 +82,18 @@ class EffectiveOwnershipTests(unittest.TestCase):
         self.assertEqual(report["effective_sample_size"],4.0)
         self.assertTrue(report["confidence_interval"]["intervals_available"])
 
+    def test_includes_zero_exposure_players_from_official_player_universe(self):
+        rows=manager(1,1,weight=1)+manager(2,2,weight=1)
+        output,report=estimate_effective_ownership(rows,player_ids=["99"])
+        zero=next(x for x in output if x["fpl_element_id"]=="99")
+        self.assertEqual(zero["owned_by_pct"],0.0)
+        self.assertEqual(zero["effective_ownership_pct"],0.0)
+        self.assertEqual(zero["owned_by_pct_ci95_low"],0.0)
+        self.assertGreater(zero["owned_by_pct_ci95_high"],0.0)
+        self.assertGreater(zero["effective_ownership_pct_ci95_high"],0.0)
+        self.assertEqual(report["player_universe_size"],16)
+        self.assertEqual(report["players_with_exposure"],15)
+
     def test_requires_fifteen_picks_and_one_captain(self):
         with self.assertRaises(ValueError):
             estimate_effective_ownership(manager(1,1)[:-1])
