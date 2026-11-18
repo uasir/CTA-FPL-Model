@@ -16,6 +16,7 @@ function request() {
 
 function addLockedEoProvenance(payload) {
   Object.assign(payload.forecast_quality.data_coverage, {
+    target_deadline_utc: "2026-11-28T11:00:00+00:00",
     eo_cohort: "overall top-10k rank-stratified sample",
     eo_sample_managers: 100,
     eo_rank_cohort_captured_at_utc: "2026-11-28T10:55:00+00:00",
@@ -84,5 +85,16 @@ test("EO values without locked cohort provenance are rejected", () => {
   assert.throws(
     () => recommendGeneralMarket(payload),
     /verified cohort and post-lock provenance/,
+  );
+});
+
+
+test("EO deadline must match the forecast target deadline", () => {
+  const payload = addLockedEoProvenance(request());
+  payload.player_forecasts[0].effective_ownership_pct = 4.5;
+  payload.forecast_quality.data_coverage.eo_deadline_time_utc = "2026-11-29T11:00:00+00:00";
+  assert.throws(
+    () => recommendGeneralMarket(payload),
+    /does not match the forecast snapshot deadline/,
   );
 });
