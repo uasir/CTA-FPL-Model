@@ -105,3 +105,13 @@ def test_python_and_javascript_personal_squad_outputs_are_identical():
     javascript = json.loads(completed.stdout)
     python = recommend_personal_squad(request())
     assert javascript == python
+
+
+
+def test_personal_squad_stale_snapshot_remains_exploratory():
+    payload = request()
+    payload["forecast_quality"]["validation_status"] = "VALIDATED"
+    payload["forecast_quality"]["point_in_time_status"] = "VERIFIED"
+    payload["forecast_quality"]["data_coverage"]["freshness_status"] = "STALE_OVER_24H"
+    result = recommend_personal_squad(payload)
+    assert result["recommendation_status"] == "EXPLORATORY_ONLY"
