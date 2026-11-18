@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from audit_11footy_fpl_identity_candidates import (
     audit_identity_candidates,
+    _sha256_file,
     normalize_text,
     normalize_team,
 )
@@ -55,10 +56,39 @@ def test_exact_name_team_and_birth_date_candidates_are_high_confidence_not_verif
     assert report["candidate_rows_remaining"] == 3
     assert report["verification_status"] == "CANDIDATES_ONLY_NOT_VERIFIED"
     assert len(candidates) == 3
-    assert all(
-        row["verification_status"] == "HIGH_CONFIDENCE_AUTOMATED_CANDIDATE"
-        for row in candidates
-    )
+    assert sum(row["confidence_level"] == "high" for row in candidates) == 3
+    assert sum(row["confidence_level"] == "review_required" for row in candidates) == 0
+    assert all(row["verification_status"] == "pending" for row in candidates)
+    salah = next(row for row in candidates if row["fpl_element_id"] == 100)
+    assert salah["provider_player_id"] == 1
+    assert salah["fpl_player_code"] == 1000
+    assert salah["provider_player_name"] == "Mohamed Salah"
+    assert salah["fpl_player_name"] == "Mohamed Salah"
+    assert salah["confidence_level"] == "high"
+    assert "awaiting independent identity review" in salah["verification_reason"]
+    assert salah["provider_release_url"].startswith("https://")
+    assert salah["fpl_source_url"].startswith("https://")
+
+
+
+def test_missing_birth_date_keeps_exact_name_team_candidate_pending_for_review():
+    db = _players_db([(7, "Jordan Example", "Arsenal", None)])
+    bootstrap = {
+        "teams": [{"id": 1, "name": "Arsenal"}],
+        "elements": [
+            {"id": 107, "code": 1007, "first_name": "Jordan", "second_name": "Example", "team": 1, "birth_date": None}
+        ],
+    }
+
+    report, candidates = audit_identity_candidates(db, bootstrap)
+
+    assert report["exact_normalized_name_and_team_candidates"] == 1
+    assert report["high_confidence_name_team_birth_date_candidates"] == 0
+    assert report["name_team_candidates_missing_birth_date"] == 1
+    assert len(candidates) == 1
+    assert candidates[0]["confidence_level"] == "review_required"
+    assert candidates[0]["verification_status"] == "pending"
+    assert candidates[0]["match_method"] == "exact_name_team_birth_date_missing"
 
 
 def test_duplicate_provider_identity_is_ambiguous_not_auto_joined():
@@ -96,6 +126,13 @@ def test_birth_date_conflict_excludes_an_otherwise_exact_name_team_match():
     assert report["exact_normalized_name_and_team_candidates"] == 0
     assert report["candidate_rows_remaining"] == 0
     assert candidates == []
+
+
+def test_source_hash_is_stable_and_matches_sha256(tmp_path):
+    source = tmp_path / "source.db.xz"
+    source.write_bytes(b"verified-source-bytes")
+
+    assert _sha256_file(source) == "ba0328929fe82207f3f29c962cd6c1da32ef2bcb7fb2f5eebad6c62542be799a"
 
 
 def test_name_and_team_normalization_handles_accents_and_aliases():

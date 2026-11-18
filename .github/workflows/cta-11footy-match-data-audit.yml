@@ -65,5 +65,6 @@ jobs:
           path: |
             run_artifacts/11footy/output/11footy_premier_league_data_audit.json
             run_artifacts/11footy/output/identity_candidate_summary.json
+            run_artifacts/11footy/output/identity_candidates.csv
           if-no-files-found: error
           retention-days: 90
