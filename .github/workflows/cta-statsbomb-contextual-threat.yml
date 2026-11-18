@@ -5,6 +5,8 @@ on:
     paths:
       - .github/workflows/cta-statsbomb-contextual-threat.yml
       - canonical_candidate/engineering_workbench/scripts/extract_statsbomb_contextual_threat.py
+      - canonical_candidate/engineering_workbench/scripts/infer_statsbomb_attack_directions.py
+      - canonical_candidate/engineering_workbench/tests/test_statsbomb_contextual_threat.py
       - canonical_candidate/data/events/3895320.json
       - canonical_candidate/data/three-sixty/3895320.json
       - canonical_candidate/data/direction_map.csv
@@ -13,6 +15,8 @@ on:
     paths:
       - .github/workflows/cta-statsbomb-contextual-threat.yml
       - canonical_candidate/engineering_workbench/scripts/extract_statsbomb_contextual_threat.py
+      - canonical_candidate/engineering_workbench/scripts/infer_statsbomb_attack_directions.py
+      - canonical_candidate/engineering_workbench/tests/test_statsbomb_contextual_threat.py
       - canonical_candidate/data/events/3895320.json
       - canonical_candidate/data/three-sixty/3895320.json
       - canonical_candidate/data/direction_map.csv
@@ -38,13 +42,21 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Infer attack directions from shot endpoint evidence
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/infer_statsbomb_attack_directions.py \
+            --events ../data/events/3895320.json \
+            --match-id 3895320 \
+            --out-dir ../../run_artifacts/statsbomb_contextual_threat/direction
+
       - name: Extract contextual threat from the verified real StatsBomb match
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/extract_statsbomb_contextual_threat.py \
             --events-dir ../data/events \
             --three-sixty-dir ../data/three-sixty \
-            --direction-map ../data/direction_map.csv \
+            --direction-map ../../run_artifacts/statsbomb_contextual_threat/direction/direction_map.csv \
             --match-id 3895320 \
             --out-dir ../../run_artifacts/statsbomb_contextual_threat
 
@@ -57,11 +69,14 @@ jobs:
 
           root = Path("run_artifacts/statsbomb_contextual_threat")
           report = json.loads((root / "contextual_threat_report.json").read_text())
+          direction_inference = json.loads((root / "direction/direction_inference_report.json").read_text())
           match = report["matches"][0]
           source_root = Path("canonical_candidate/data")
           source_files = {
               "events": source_root / "events/3895320.json",
               "three_sixty": source_root / "three-sixty/3895320.json",
+              "inferred_direction_map": root / "direction/direction_map.csv",
+              "direction_inference_report": root / "direction/direction_inference_report.json",
           }
           source_hashes = {
               name: {
@@ -94,7 +109,10 @@ jobs:
               "matches_processed": report["matches_processed"],
               "event_context_rows": report["event_context_rows"],
               "player_match_rows": report["player_match_rows"],
+              "direction_inference": direction_inference,
               "direction_map_rows": report["direction_map_rows"],
+              "direction_sources": report["direction_sources"],
+              "direction_confidence_counts": report["direction_confidence_counts"],
               "events_with_known_attack_direction": report["events_with_known_attack_direction"],
               "events_missing_attack_direction": report["events_missing_attack_direction"],
               "threat_dimensions": match["threat_dimensions"],
@@ -116,7 +134,9 @@ jobs:
               "publication_policy": "Aggregate-only artifact; raw provider data and player-level feature rows are not uploaded.",
               "limitations": [
                   "StatsBomb 360 is sampled context, not continuous tracking.",
-                  "Directional and receiving-lane metrics are withheld unless an explicit match-period-team direction is supplied; the repository map currently has no verified rows.",
+                  "Attack direction is inferred from goal-line endpoints for Goal/Saved/Post shots; rows are emitted only when evidence is internally consistent and meets the threshold.",
+                  "For the opponent with no direct shot endpoint evidence, the opposite direction follows the two-team period geometry; this is event-derived evidence, not manual video verification.",
+                  "Directional features remain withheld for any match-period-team key that fails the inference threshold.",
                   "This pilot is one Bundesliga match and does not establish FPL predictive value.",
                   "No StatsBomb-to-FPL identity crosswalk is applied."
               ]
