@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from build_opta_lagged_team_features import build_crosswalk, build_team_features, parse_time
@@ -55,7 +56,10 @@ def test_team_features_exclude_current_and_future_match_rows():
         {"season": "2026-27", "matchId": 10, "kickoff": "2026-08-01T12:00:00Z",
          "team_id": 7, "expectedGoals": "0.5", "accuratePass": "80"},
     ]
-    team_rows, player_rows, report = build_team_features(fixtures, bootstrap, provider_rows)
+    team_rows, player_rows, report = build_team_features(
+        fixtures, bootstrap, provider_rows,
+        as_of_time=datetime.fromisoformat("2026-08-01T00:00:00+00:00"),
+    )
     arsenal = next(row for row in team_rows if row["team_id"] == "1")
     brentford = next(row for row in team_rows if row["team_id"] == "2")
     assert arsenal["opta_prior_matches_count"] == 1
@@ -77,9 +81,7 @@ def test_postponed_fixture_without_kickoff_emits_blank_features_not_future_data(
     fixtures = [{"id": 99, "event": None, "kickoff_time": None, "team_h": 1, "team_a": 2}]
     team_rows, player_rows, report = build_team_features(fixtures, bootstrap, [])
     assert len(team_rows) == 2
-    assert len(player_rows) == 1
-    assert player_rows[0]["kickoff_time"] == ""
-    assert player_rows[0]["opta_prior_matches_count"] == 0
+    assert len(player_rows) == 0
     assert report["fixtures_without_kickoff"] == 1
 
 
