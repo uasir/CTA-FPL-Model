@@ -3,7 +3,7 @@
 Date: 2026-11-18  
 Repository: https://github.com/uasir/CTA-FPL-Model  
 Default branch: `main`  
-PR #4 merge commit: `264f2792514d5927cc051d9fad36a6f03a2d3a24`; a documentation-only continuity update was subsequently pushed to `main`.
+PRs #3–#7 and the 18 November documentation updates are merged to `main`. This brief records the current verified state as of 2026-11-18.
 
 This document is the durable project handoff for continuing work in one primary ChatGPT conversation. It supersedes earlier status notes where newer evidence below conflicts with them. It is a continuity aid, not a claim that all integration gates have passed.
 
@@ -54,6 +54,9 @@ Current-turn materialization and checks:
 - GitHub repository: https://github.com/uasir/CTA-FPL-Model
 - PR #3, provider-specific identity crosswalks, merged 2026-11-18: `4183f389f23c2da88e8067928428f84900d7960f`.
 - PR #4, Onside source audit and continuity brief, merged 2026-11-18: `264f2792514d5927cc051d9fad36a6f03a2d3a24`.
+- PR #5, standard EO definition correction, merged: `090cb01f5a3bf6668612e589ebad3f28ae5da4cd`.
+- PR #6, written-permission gate for automated FPL API access, merged: `327c7ac717d0fae389fc866c078629c186176d89`.
+- PR #7, exploratory CoVar workflow from Onside actual points, merged: `0299f37139d2ef39c1da63de2470e1f2e92e1075`.
 - PR #5, standard EO definition correction, merged 2026-11-18: `090cb01f5a3bf6668612e589ebad3f28ae5da4cd`.
 - PR #6, written-permission gate for automated FPL API access, merged 2026-11-18: `327c7ac717d0fae389fc866c078629c186176d89`.
 - PR #7, exploratory CoVar workflow from Onside actual points, merged 2026-11-18: `0299f37139d2ef39c1da63de2470e1f2e92e1075`.
@@ -61,6 +64,7 @@ Current-turn materialization and checks:
 - Permission-gate CI: [44259464265](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259464265), success.
 - CoVar workflow: [44259763220](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220), success; artifact [14407138593](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220/artifacts/14407138593).
 - CoVar branch CI: [44259735610](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259735610), success.
+- Latest main CI after PR #7: [44259849870](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259849870), success; 37 JavaScript tests, 170 Python tests and 3 subtests passed. All three provider crosswalk validators still correctly report `EMPTY_NOT_READY`.
 - GitHub Actions is the verified cloud execution route for Python/Node tests and licensed-source research jobs.
 
 ## 4. Verified engineering milestones
@@ -102,7 +106,7 @@ The official FPL workflow has fetched the 2026/27 roster and fixtures:
 - Python and JavaScript implementations exist for both `general_market` and `personal_squad`.
 - `general_market` has been run against the full 672-player official FPL pool. Its Python and JavaScript outputs were exactly numerically equal across the player pool and output categories. The latest forecast snapshot was stale relative to the target deadline and correctly labelled exploratory.
 - `personal_squad` passed a 672-player scale smoke test using a **synthetic** legal 15-player squad; it evaluated 2,914 legal one-transfer candidates and built a legal 4-3-3. This was not the user's actual squad or a real manager recommendation.
-- A real exploratory CoVar matrix has now been generated from 10 completed 2026/27 gameweeks (Onside actuals only): 350 complete-panel players, 296 non-zero-variance players, 43,956 pair estimates. It remains too short and selected to enable; CoVar stays disabled in `personal_squad` pending longer-window and out-of-sample validation.
+- A real exploratory CoVar matrix has now been generated from 10 completed 2026/27 gameweeks (Onside actuals only): 350 complete-panel players, 296 non-zero-variance players, 43,956 pair estimates. Run [44259763220](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220); artifact [14407138593](https://github.com/uasir/CTA-FPL-Model/actions/runs/44259763220/artifacts/14407138593). It remains too short and selected to enable; CoVar stays disabled in `personal_squad` pending longer-window and out-of-sample validation.
 - The user's manager-specific squad has not been supplied to this engineering run.
 
 ### Effective ownership
@@ -171,7 +175,7 @@ Exploratory comparison on the same 4,954 scored rows:
 ## 8. Immediate next actions
 
 1. Obtain written permission from the FPL/Premier League rights holder for automated API access, private deadline snapshots, research/model development and intended publication. Ask Football DataCo about Opta/PulseLive match data.
-2. After permission, create a private durable archive destination and enable the workflow gate only for the approved scope.
+2. After permission, create a private durable archive destination (private GitHub repository or private cloud folder) and enable the workflow gate only for the approved scope.
 3. Continue Wyscout 2017/18 event-side parsing and numeric identity/fixture reconciliation under CC BY 4.0, but keep FPL target joins blocked until target rights are cleared.
 4. Extend CoVar history beyond 10 gameweeks, test rolling-window stability and run time-ordered out-of-sample validation; keep it disabled in `personal_squad` meanwhile.
 5. Preserve the 34-match StatsBomb engineering benchmark and investigate the quarantined 360 source anomaly without modifying source records.
