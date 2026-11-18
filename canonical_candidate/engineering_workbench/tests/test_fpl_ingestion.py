@@ -9,7 +9,14 @@ class FPLIngestionTests(unittest.TestCase):
             "element_types":[{"id":1,"singular_name":"Goalkeeper"}],
             "elements":[{"id":10,"code":90010,"first_name":"Test","second_name":"Keeper","web_name":"Keeper",
                          "team":1,"element_type":1,"status":"a","minutes":90,"total_points":6,"now_cost":50,
-                         "selected_by_percent":"1.0","chance_of_playing_next_round":100}]
+                         "selected_by_percent":"1.0","chance_of_playing_next_round":100,
+                         "ep_next":"4.8","ep_this":"5.1","form":"3.2","points_per_game":"4.0",
+                         "expected_goals":"0.4","expected_assists":"0.2","expected_goal_involvements":"0.6",
+                         "expected_goals_conceded":"1.1","ict_index":"12.3","influence":"8.1",
+                         "creativity":"2.2","threat":"2.0","starts":1,"bonus":1,"bps":25,
+                         "clean_sheets":1,"goals_scored":0,"assists":0,"saves":3,
+                         "penalties_saved":0,"penalties_missed":0,"yellow_cards":0,"red_cards":0,
+                         "own_goals":0,"goals_conceded":0}]
         }
         self.fixtures=[{"id":100,"event":1,"kickoff_time":"2026-08-15T14:00:00Z","team_h":1,"team_a":2,
                         "finished":True,"finished_provisional":True,"team_h_score":1,"team_a_score":0,
@@ -26,7 +33,12 @@ class FPLIngestionTests(unittest.TestCase):
     def test_normalizes_player_fixture_history(self):
         players,fixtures,history,report=build_tables(self.bootstrap,self.fixtures,self.summaries,"2026-27")
         self.assertEqual(len(players),1); self.assertEqual(players[0]["fpl_element_id"],10)
-        self.assertEqual(players[0]["fpl_player_code"],90010); self.assertEqual(len(fixtures),1)
+        self.assertEqual(players[0]["fpl_player_code"],90010)
+        self.assertEqual(players[0]["ep_next"],"4.8")
+        self.assertEqual(players[0]["ep_this"],"5.1")
+        self.assertEqual(players[0]["expected_goals"],"0.4")
+        self.assertEqual(report["official_ep_next_coverage_count"],1)
+        self.assertEqual(len(fixtures),1)
         self.assertEqual(len(history),1); self.assertEqual(history[0]["fixture_id"],100)
         self.assertEqual(history[0]["minutes"],90); self.assertEqual(history[0]["selected"],500); self.assertEqual(history[0]["value"],50); self.assertEqual(report["status"],"PASS")
 
