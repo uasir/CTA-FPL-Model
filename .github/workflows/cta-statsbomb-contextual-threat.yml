@@ -107,8 +107,15 @@ jobs:
                       "supported_events", "events_with_usable_360_context",
                       "event_context_coverage", "events_with_known_attack_direction",
                       "events_missing_attack_direction", "direction_coverage",
-                      "threat_creation_pass_attempts", "threat_involvement_dangerous_receipts",
-                      "threat_realisation_shots", "unmatched_supported_events_without_frame",
+                      "threat_creation_pass_attempts", "threat_creation_pass_completions",
+                      "progressive_pass_attempts", "progressive_pass_completions", "progressive_carries",
+                      "receiving_options_observed_ahead", "receiving_options_assessed_ahead",
+                      "open_receiving_options_ahead", "dangerous_receiving_options_open",
+                      "blocked_receiving_options_ahead", "events_with_assessed_receiving_options",
+                      "events_with_open_receiving_options", "events_with_dangerous_open_receiving_options",
+                      "events_with_blocked_receiving_options", "threat_involvement_dangerous_receipts",
+                      "threat_realisation_shots", "threat_realisation_xg", "threat_realisation_goals",
+                      "unmatched_supported_events_without_frame",
                       "duplicate_360_event_uuids", "context_rows_without_player_id",
                       "player_match_rows", "status", "prediction_validation"
                   )
