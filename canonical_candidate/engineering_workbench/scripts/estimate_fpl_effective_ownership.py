@@ -264,9 +264,9 @@ def estimate_effective_ownership(rows):
         "sampled_managers_per_rank_stratum":len(managers)//page_count if rank_stratified else None,
         "confidence_interval":{
             "level":0.95,
-            "method":"rank-page-stratified normal approximation with finite population correction" if rank_stratified else "weighted normal approximation",
+            "method":"Wilson intervals for ownership/starting/captain/chip rates; rank-page-stratified normal approximation with finite population correction for EO and scoring exposure" if rank_stratified else "weighted normal approximation",
             "intervals_available":all(row["effective_ownership_pct_ci95_low"] is not None for row in output),
-            "caveat":"Intervals are approximate; within-page sample variance is estimated from the sampled managers and does not model every source of rank-cohort uncertainty.",
+            "caveat":"Intervals are approximate; Wilson rates use effective sample size, while EO/scoring intervals use within-page sample variance and finite population correction. They do not model every source of rank-cohort uncertainty.",
         },
         "players_with_exposure":len(output),
         "status":"SAMPLE_ESTIMATE_NOT_GLOBAL_CENSUS",
