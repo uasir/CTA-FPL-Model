@@ -42,10 +42,12 @@ The original five archives were recovered, SHA-256 checked, extracted non-destru
 Lineage: v1.0 Experimental → v1.0.1 sparse-row CSV writer fix → v1.0.2 StatsBomb possession-direction correction. The Engineering Workbench is a separate parity/contracts/xT support package. The reconstruction scaffold is an earlier minimal baseline.
 
 Current-turn materialization and checks:
+- **All five original ZIPs were re-materialized into `/mnt/data/cta_fpl_original_archives/` and extracted non-destructively into `/mnt/data/cta_fpl_original_archives/extracted/`.** Every SHA-256 matched the recorded value above and all five ZIP integrity checks passed.
+- Original source tests rerun in this Python session: scaffold 3 passed; Engineering Workbench 17 passed (with `PYTHONPATH=src`); v1.0.2 Engineering Build 7 passed; v1.0.1 Engineering Fix 5 passed; v1.0 Experimental 4 passed. **36 original tests passed.** No original archive was modified.
 - `CTA_FPL_Candidate_v1_0_2_plus_Workbench_2026-11-15.zip`: SHA-256 `ad4334228574ccfcc4bdfb6d3d4f7160a680837d58b92147d63b88ecda8b6305`, 70 ZIP entries, integrity passed; original core tests 7 passed and Workbench tests 17 passed.
 - `CTA_FPL_INDEPENDENT_WORKSPACE_2026-11-17.zip`: SHA-256 `c482a282466e36d6eaa8f42f724e0103a29390954b2342d64a855714b6abb7c4`, 118 ZIP entries, integrity passed; provisional patched copy tests 11 core passed and 23 Workbench passed plus 3 subtests.
 - The 17 November independent workspace is explicitly **provisional and not a Replit export**. It contains a synthetic smoke input (match ID 999999); do not treat that as real multi-match evidence or overwrite Replit with it.
-- Earlier recovery logs state that all five original ZIPs were re-materialized and verified on 17 November. The original five ZIPs themselves were not found in the current `/mnt/data/files` directory during the 18 November turn; the materialized candidate archives above were available and verified.
+- The original archives are now available to Python in the current runtime at the paths above.
 
 ## 3. Repository, Replit and execution record
 
