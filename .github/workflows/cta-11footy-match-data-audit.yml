@@ -59,6 +59,8 @@ jobs:
             --input run_artifacts/11footy/source/england.premier-league.db.xz \
             --release 11footy-2026-11-10 \
             --expected-sha256 a74e735c01a0f6da9b871ade0031573e212ba7f8be0698b29d240921aea0485f \
+            --players-input run_artifacts/11footy/source/players.db.xz \\
+            --players-expected-sha256 a0ad11b9f7bb8f845c6f62bc2cacc27639ea7a7f2f9ce861485297bc6db0d0c2 \\
             --out-dir run_artifacts/11footy/output
 
       - name: Upload aggregate-only data audit
