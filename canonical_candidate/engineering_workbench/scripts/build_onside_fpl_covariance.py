@@ -195,7 +195,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default=SOURCE_URL)
     parser.add_argument("--out-dir", type=Path, required=True)
-    parser.add_argument("--window-size", type=int, default=10)
+    parser.add_argument("--window-size", type=int, default=20)
     parser.add_argument("--shrinkage", type=float, default=0.5)
     args = parser.parse_args()
 
