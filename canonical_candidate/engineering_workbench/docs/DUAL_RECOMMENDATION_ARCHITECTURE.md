@@ -149,3 +149,6 @@ Latest full CI verification, including both engine adapters, the JSON numeric-pa
 The live FPL-to-general-market smoke test also passed on 2026-11-18 using all 672 official FPL player forecasts: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254087867. The source snapshot was more than 24 hours before deadline, so the output correctly remained exploratory.
 
 The personal-squad engine also passed a live-pool scale smoke test on 672 forecasts using a synthetic, legal 15-player squad (594 candidate transfers); this is a scale check, not a manager recommendation: https://github.com/uasir/CTA-FPL-Model/actions/runs/44254629419.
+
+
+The live general-market engine has now passed exact numerical Python–JavaScript parity on the official 672-player GW11 forecast pool, not just the synthetic fixture: https://github.com/uasir/CTA-FPL-Model/actions/runs/44255361502. The same run passed the personal-squad scale smoke test with a synthetic legal squad and 2,914 transfer candidates. Both outputs remain explicitly exploratory because the source snapshot was stale and used FPL `ep_next`, not a CTA-trained forecast.
