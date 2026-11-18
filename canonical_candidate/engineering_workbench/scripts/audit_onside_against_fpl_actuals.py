@@ -11,6 +11,7 @@ import argparse
 import csv
 import hashlib
 import json
+import math
 import urllib.request
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -45,6 +46,8 @@ def audit(fpl_rows,onside_rows,*,season="2026-27",source_sha256=None):
             player_id=str(int(row["fpl_element_id"]))
             gw=int(row["gameweek"])
             points=float(row["target_total_points"])
+            if not math.isfinite(points):
+                raise ValueError("FPL target_total_points must be finite")
         except (KeyError,TypeError,ValueError):
             raise ValueError("FPL training rows require numeric fpl_element_id, gameweek and target_total_points")
         key=(player_id,gw)
@@ -60,6 +63,8 @@ def audit(fpl_rows,onside_rows,*,season="2026-27",source_sha256=None):
             points=float(row["actual_points"])
         except (KeyError,TypeError,ValueError):
             continue
+        if not math.isfinite(points):
+            raise ValueError("Onside actual_points must be finite when present")
         if row.get("actual_points") in (None,""):
             continue
         key=(player_id,gw)
@@ -110,6 +115,7 @@ def audit(fpl_rows,onside_rows,*,season="2026-27",source_sha256=None):
         "season":season,
         "status":"PASS_EXACT_MATCH" if matched and exact==len(matched) else ("REVIEW_MISMATCHES" if matched else "NO_OVERLAP"),
         "source":"Onside Arena actual_points vs official FPL player-fixture total_points",
+        "source_license_and_attribution":"Provider-stated CC BY 4.0; attribution to Onside Arena and https://onsidearena.com/data is required.",
         "source_sha256":source_sha256,
         "retrieved_at_utc":datetime.now(timezone.utc).isoformat(),
         "fpl_player_gameweek_rows":len(fpl),
@@ -125,6 +131,8 @@ def audit(fpl_rows,onside_rows,*,season="2026-27",source_sha256=None):
         "unique_fpl_players":len({pid for pid,_ in fpl_keys}),
         "unique_onside_players":len({pid for pid,_ in onside_keys}),
         "unique_matched_players":len({pid for pid,_ in matched}),
+        "fpl_gameweeks":sorted({gw for _,gw in fpl_keys}),
+        "onside_gameweeks":sorted({gw for _,gw in onside_keys}),
         "gameweeks":per_gameweek,
         "mismatch_examples":mismatches[:50],
         "methodology":{
