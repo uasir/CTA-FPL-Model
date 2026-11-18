@@ -73,7 +73,7 @@
         "FWD"
       ],
       "team_id": "Positive integer FPL team ID.",
-      "effective_ownership_pct": "Optional non-negative percentage; values above 100 are valid because captaincy/chip exposure can exceed one unit per manager.",
+      "effective_ownership_pct": "Optional non-negative percentage; values above 100 are valid because captaincy/chip exposure can exceed one unit per manager. If any EO values are supplied, forecast_quality.data_coverage must include cohort, sample size, pre-deadline cohort capture time, target deadline, post-deadline picks capture time and picks_lock_verified=true; the EO deadline must equal the forecast target deadline.",
       "points_variance": "Optional non-negative variance estimate; only use as a decision signal after validation.",
       "availability_probability": "Optional probability in [0,1]."
     }
