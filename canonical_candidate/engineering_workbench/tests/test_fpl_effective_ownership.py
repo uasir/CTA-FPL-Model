@@ -61,6 +61,27 @@ class EffectiveOwnershipTests(unittest.TestCase):
         self.assertEqual(haaland["captain_pct"],75.0)
         self.assertEqual(haaland["effective_ownership_pct"],175.0)
 
+    def test_rank_stratified_sample_reports_confidence_intervals(self):
+        rows=[]
+        for entry,rank,captain in [
+            (1,1,1),(2,25,2),(3,51,1),(4,99,2)
+        ]:
+            sample=manager(entry,captain,weight=25)
+            for row in sample:
+                row["rank_before_deadline"]=str(rank)
+            rows.extend(sample)
+        output,report=estimate_effective_ownership(rows)
+        haaland=next(x for x in output if x["fpl_element_id"]=="1")
+        self.assertEqual(haaland["effective_ownership_pct"],150.0)
+        self.assertLess(haaland["effective_ownership_pct_ci95_low"],150.0)
+        self.assertGreater(haaland["effective_ownership_pct_ci95_high"],150.0)
+        self.assertEqual(haaland["owned_by_pct_ci95_high"],100.0)
+        self.assertTrue(report["rank_stratified"])
+        self.assertEqual(report["rank_strata_count"],2)
+        self.assertEqual(report["sampled_managers_per_rank_stratum"],2)
+        self.assertEqual(report["effective_sample_size"],4.0)
+        self.assertTrue(report["confidence_interval"]["intervals_available"])
+
     def test_requires_fifteen_picks_and_one_captain(self):
         with self.assertRaises(ValueError):
             estimate_effective_ownership(manager(1,1)[:-1])
