@@ -1,0 +1,57 @@
+name: CTA Wyscout EPL 2017/18 event-data audit
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/cta-wyscout-epl-event-audit.yml
+      - canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
+  push:
+    branches: [main, "feat/**"]
+    paths:
+      - .github/workflows/cta-wyscout-epl-event-audit.yml
+      - canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-wyscout-epl-2017-event-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out CTA-FPL-Model
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download the public Wyscout 2017/18 data files
+        run: |
+          set -euo pipefail
+          mkdir -p run_artifacts/wyscout/source run_artifacts/wyscout/output
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 300 https://ndownloader.figshare.com/files/14464685 -o run_artifacts/wyscout/source/events.zip
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 180 https://ndownloader.figshare.com/files/14464622 -o run_artifacts/wyscout/source/matches.zip
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 https://ndownloader.figshare.com/files/15073721 -o run_artifacts/wyscout/source/players.json
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 https://ndownloader.figshare.com/files/15073697 -o run_artifacts/wyscout/source/teams.json
+
+      - name: Audit EPL events, matches, player IDs and spatial coverage
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py --events-zip run_artifacts/wyscout/source/events.zip --matches-zip run_artifacts/wyscout/source/matches.zip --players-json run_artifacts/wyscout/source/players.json --teams-json run_artifacts/wyscout/source/teams.json --out-dir run_artifacts/wyscout/output
+
+      - name: Upload aggregate-only Wyscout audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-wyscout-epl-2017-event-data-audit
+          path: run_artifacts/wyscout/output/wyscout_epl_2017_event_data_audit.json
+          if-no-files-found: error
+          retention-days: 90
