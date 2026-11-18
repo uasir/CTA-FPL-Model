@@ -138,6 +138,7 @@ def test_personal_squad_rejects_non_finite_money_values(bad_value):
         lambda p: p["forecast_quality"].update(point_in_time_status="UNKNOWN"),
         lambda p: p["forecast_quality"].update(data_coverage=[]),
         lambda p: p["forecast_quality"].update(limitations="not-a-list"),
+        lambda p: p["forecast_quality"].pop("limitations"),
     ],
 )
 def test_both_request_types_reject_invalid_forecast_quality(mutation):
