@@ -109,3 +109,13 @@ test("unverified point-in-time data cannot be labelled validated", () => {
   const result = recommendGeneralMarket(payload);
   assert.equal(result.recommendation_status, "EXPLORATORY_ONLY");
 });
+
+
+test("stale pre-deadline snapshots cannot be labelled validated", () => {
+  const payload = request();
+  payload.forecast_quality.validation_status = "VALIDATED";
+  payload.forecast_quality.point_in_time_status = "VERIFIED";
+  payload.forecast_quality.data_coverage.freshness_status = "STALE_OVER_24H";
+  const result = recommendGeneralMarket(payload);
+  assert.equal(result.recommendation_status, "EXPLORATORY_ONLY");
+});
