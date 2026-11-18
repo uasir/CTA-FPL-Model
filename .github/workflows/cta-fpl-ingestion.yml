@@ -15,7 +15,10 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/run_fpl_personal_squad_scale_smoke_test.py"
       - "canonical_candidate/engineering_workbench/scripts/compare_fpl_general_market_outputs.py"
       - "canonical_candidate/engineering_workbench/src/js/general_market_engine.mjs"
+      - "canonical_candidate/engineering_workbench/src/js/personal_squad_engine.mjs"
       - "canonical_candidate/engineering_workbench/tests/js/run_fpl_general_market_snapshot.mjs"
+      - "canonical_candidate/engineering_workbench/tests/js/run_fpl_personal_squad_snapshot.mjs"
+      - "canonical_candidate/engineering_workbench/scripts/compare_fpl_personal_squad_outputs.py"
   schedule:
     - cron: "30 5 * * *"
 permissions:
@@ -119,6 +122,17 @@ jobs:
         run: |
           python canonical_candidate/engineering_workbench/scripts/run_fpl_personal_squad_scale_smoke_test.py \
             --snapshot run_artifacts/fpl_official/fpl_baseline_forecast_snapshot.json \
+            --out-dir run_artifacts/fpl_official
+      - name: Run JavaScript personal-squad engine on the same synthetic roster and live forecast pool
+        run: |
+          node canonical_candidate/engineering_workbench/tests/js/run_fpl_personal_squad_snapshot.mjs \
+            run_artifacts/fpl_official/fpl_personal_squad_request.json \
+            run_artifacts/fpl_official/fpl_personal_squad_scale_smoke_test_js.json
+      - name: Compare live-pool Python and JavaScript personal-squad outputs
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/compare_fpl_personal_squad_outputs.py \
+            --python run_artifacts/fpl_official/fpl_personal_squad_scale_smoke_test.json \
+            --javascript run_artifacts/fpl_official/fpl_personal_squad_scale_smoke_test_js.json \
             --out-dir run_artifacts/fpl_official
 
       - name: Evaluate exploratory FPL rolling-history baselines
