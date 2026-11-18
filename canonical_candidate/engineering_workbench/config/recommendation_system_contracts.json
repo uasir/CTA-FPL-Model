@@ -1,6 +1,20 @@
 {
   "contract_version": "1.0.0",
   "architecture": "dual_recommender_shared_forecast_layer",
+  "implementation_status": {
+    "general_market": "EXPLORATORY_IMPLEMENTED",
+    "personal_squad": "EXPLORATORY_IMPLEMENTED",
+    "shared_forecast": "OFFICIAL_FPL_BASELINE_ADAPTER_IMPLEMENTED",
+    "python_javascript_parity": "CI_TESTED",
+    "production_ready": false,
+    "blockers": [
+      "CTA-trained forecast and out-of-sample validation",
+      "live deadline-locked effective ownership capture",
+      "multi-season point-in-time historical archive",
+      "validated player variance and CoVar",
+      "multi-transfer and chip-aware optimisation"
+    ]
+  },
   "shared_foundation": {
     "required_forecast_metadata": [
       "forecast_snapshot_id",
@@ -88,18 +102,20 @@
         "personal_risk_profile",
         "personal_preferences"
       ],
-      "output_categories": [
+      "implemented_output_categories": [
         "overall",
         "by_position",
         "value",
-        "expected_points",
-        "differentials",
         "captaincy",
+        "differentials_with_verified_sampled_eo"
+      ],
+      "planned_output_categories": [
         "fixture_targets",
         "high_upside",
         "high_risk",
         "sell_or_avoid"
       ],
+      "decision_policy": "Current engine ranks the supplied EV baseline and price; sampled EO is accepted only with a verified pre-deadline cohort, post-deadline picks, sample size and matching target deadline. CoVar is excluded.",
       "invariance": "For identical forecast snapshot, model version, horizon and public filters, output is identical regardless of any manager squad or personal constraints."
     },
     "personal_squad": {
@@ -151,7 +167,21 @@
         "vice_captain",
         "portfolio_risk"
       ],
-      "portfolio_policy": "Evaluate moves against the whole squad and constraints, not incoming-player rank in isolation."
+      "implemented_output_categories": [
+        "single_transfer_candidates",
+        "hold_or_transfer",
+        "starting_xi",
+        "formation",
+        "bench_order",
+        "captain",
+        "vice_captain"
+      ],
+      "planned_output_categories": [
+        "multi_transfer_sequences",
+        "chip_aware_optimisation",
+        "multiweek_portfolio_risk"
+      ],
+      "portfolio_policy": "Evaluate moves against the whole squad and constraints, not incoming-player rank in isolation. Current v0.1 evaluates one transfer and does not use CoVar or apply an unvalidated risk profile."
     }
   },
   "portfolio_risk": {
