@@ -18,6 +18,18 @@ def request():
     return copy.deepcopy(FIXTURE["general_market"])
 
 
+def add_locked_eo_provenance(payload):
+    payload["forecast_quality"]["data_coverage"].update({
+        "eo_cohort": "overall top-10k rank-stratified sample",
+        "eo_sample_managers": 100,
+        "eo_rank_cohort_captured_at_utc": "2026-11-28T10:55:00+00:00",
+        "eo_deadline_time_utc": "2026-11-28T11:00:00+00:00",
+        "eo_picks_captured_at_utc": "2026-11-28T11:01:00+00:00",
+        "eo_picks_lock_verified": True,
+    })
+    return payload
+
+
 def test_general_market_ranks_without_any_personal_squad_context():
     result = recommend_general_market(request())
     assert result["system"] == "general_market"
@@ -38,7 +50,7 @@ def test_general_market_filters_are_public_and_deterministic():
 
 
 def test_differential_category_requires_sampled_eo_and_explicit_threshold():
-    payload = request()
+    payload = add_locked_eo_provenance(request())
     payload["player_forecasts"][0]["effective_ownership_pct"] = 4.5
     payload["player_forecasts"][1]["effective_ownership_pct"] = 55.0
     payload["filters"] = {"differential_eo_max_pct": 10}
@@ -93,4 +105,12 @@ def test_null_filters_are_rejected_consistently():
     payload = request()
     payload["filters"] = None
     with pytest.raises(RecommendationContractError, match="filters must be"):
+        recommend_general_market(payload)
+
+
+
+def test_eo_values_without_lock_provenance_are_rejected():
+    payload = request()
+    payload["player_forecasts"][0]["effective_ownership_pct"] = 4.5
+    with pytest.raises(RecommendationContractError, match="verified cohort and post-lock provenance"):
         recommend_general_market(payload)
