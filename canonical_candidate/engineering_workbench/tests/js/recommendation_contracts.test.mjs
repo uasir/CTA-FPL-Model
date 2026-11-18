@@ -74,6 +74,7 @@ test("personal squad preserves manager constraints", () => {
   assert.equal(result.bank, 4.6);
   assert.equal(result.free_transfers, 1);
   assert.equal(result.formation, "4-3-3");
+  assert.equal(result.forecast_quality.point_in_time_status, "NOT_VERIFIED");
 });
 
 test("personal squad rejects malformed squad and budget constraints", () => {
@@ -114,5 +115,26 @@ test("personal squad rejects non-finite money values", () => {
     const price = personal();
     price.squad_snapshot[0].purchase_price = bad;
     assert.throws(() => validatePersonalSquadRequest(price), /purchase_price/);
+  }
+});
+
+
+test("both request types reject invalid forecast quality metadata", () => {
+  const mutations = [
+    (p) => { p.forecast_quality = null; },
+    (p) => { p.forecast_quality.validation_status = "PRODUCTION_READY"; },
+    (p) => { p.forecast_quality.point_in_time_status = "UNKNOWN"; },
+    (p) => { p.forecast_quality.data_coverage = []; },
+    (p) => { p.forecast_quality.limitations = "not-a-list"; },
+  ];
+  for (const mutate of mutations) {
+    for (const factory of [shared, personal]) {
+      const payload = factory();
+      mutate(payload);
+      const validator = factory === shared
+        ? validateGeneralMarketRequest
+        : validatePersonalSquadRequest;
+      assert.throws(() => validator(payload), /forecast_quality/);
+    }
   }
 });
