@@ -140,27 +140,38 @@ def flatten_matches(matches):
     return out
 
 def audit_360(events, three_sixty_dir):
-    event_ids = {str(e.get("id")) for e in events if e.get("id") is not None}
+    """Audit 360 links using match-scoped (match_id, event_uuid) keys."""
+    event_keys = {
+        (str(event.get("_match_id")), str(event.get("id")))
+        for event in events
+        if event.get("_match_id") is not None and event.get("id") is not None
+    }
     frames = []
     for path in sorted(Path(three_sixty_dir).glob("*.json")):
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
         if isinstance(data, list):
-            for frame in data:
-                if isinstance(frame, dict):
-                    frames.append((path.stem, frame))
-    uuids = [str(frame.get("event_uuid")) for _, frame in frames if frame.get("event_uuid") is not None]
-    counts = Counter(uuids)
-    matched = sum(1 for u in uuids if u in event_ids)
+            frames.extend((str(path.stem), frame) for frame in data if isinstance(frame, dict))
+
+    frame_keys = [
+        (match_id, str(frame.get("event_uuid")))
+        for match_id, frame in frames
+        if frame.get("event_uuid") is not None
+    ]
+    counts = Counter(frame_keys)
+    matched_keys = set(frame_keys) & event_keys
+    matched = sum(key in event_keys for key in frame_keys)
+    unique_uuids = {event_uuid for _, event_uuid in frame_keys}
     return {
         "frames": len(frames),
-        "frames_with_event_uuid": len(uuids),
-        "unique_event_uuids": len(counts),
-        "duplicate_frame_event_uuids": sum(v - 1 for v in counts.values() if v > 1),
+        "frames_with_event_uuid": len(frame_keys),
+        "unique_event_uuids": len(unique_uuids),
+        "unique_match_event_keys": len(set(frame_keys)),
+        "duplicate_frame_event_uuids": sum(count - 1 for count in counts.values() if count > 1),
         "matched_frame_uuids": matched,
-        "unmatched_frame_uuids": len(uuids) - matched,
-        "frame_to_event_join_rate": round(matched / len(uuids), 6) if uuids else None,
-        "event_coverage_with_frame": round(len(set(uuids) & event_ids) / len(event_ids), 6) if event_ids else None
+        "unmatched_frame_uuids": len(frame_keys) - matched,
+        "frame_to_event_join_rate": round(matched / len(frame_keys), 6) if frame_keys else None,
+        "event_coverage_with_frame": round(len(matched_keys) / len(event_keys), 6) if event_keys else None
     }
 
 def fit_xt(events, directions, iterations=1000, tolerance=1e-11):

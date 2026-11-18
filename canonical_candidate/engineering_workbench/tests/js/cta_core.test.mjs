@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
+  audit360,
   completeStatsBombDirections,
   coordinateDiagnostics,
   runCoreEquivalent,
@@ -97,4 +98,18 @@ test("canonical player rows retain sparse missing values as null rather than zer
   assert.ok(player, "fixture should include a player with no shot Counter key");
   assert.ok(Object.hasOwn(player, "shots"));
   assert.equal(player.shots, null);
+});
+
+test("360 audit rejects UUID collisions across different matches", () => {
+  const eventsForMatchB = [
+    { id: "same-uuid", _match_id: "match-B" },
+  ];
+  const framesForMatchA = [
+    { event_uuid: "same-uuid", _match_id: "match-A", freeze_frame: [] },
+  ];
+  const report = audit360(eventsForMatchB, framesForMatchA);
+  assert.equal(report.matched_frame_uuids, 0);
+  assert.equal(report.unmatched_frame_uuids, 1);
+  assert.equal(report.frame_to_event_join_rate, 0);
+  assert.equal(report.event_coverage_with_frame, 0);
 });

@@ -82,6 +82,21 @@ class CTATests(unittest.TestCase):
             result = audit_360(ev, d)
         self.assertEqual(result["frame_to_event_join_rate"], 1.0)
         self.assertEqual(result["event_coverage_with_frame"], 1.0)
+        self.assertEqual(result["unique_match_event_keys"], 2)
+
+    def test_360_audit_rejects_cross_match_uuid_collision(self):
+        ev = flatten_matches([("match-B", self.raw)])
+        import tempfile, json, pathlib
+        with tempfile.TemporaryDirectory() as d:
+            pathlib.Path(d, "match-A.json").write_text(json.dumps([
+                {"event_uuid":"1","freeze_frame":[]},
+                {"event_uuid":"2","freeze_frame":[]}
+            ]))
+            result = audit_360(ev, d)
+        self.assertEqual(result["matched_frame_uuids"], 0)
+        self.assertEqual(result["unmatched_frame_uuids"], 2)
+        self.assertEqual(result["frame_to_event_join_rate"], 0.0)
+        self.assertEqual(result["event_coverage_with_frame"], 0.0)
 
 if __name__ == "__main__":
     unittest.main()
