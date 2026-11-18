@@ -83,3 +83,13 @@ test("personal squad remains exploratory with a stale forecast snapshot", () => 
   const result = recommendPersonalSquad(payload);
   assert.equal(result.recommendation_status, "EXPLORATORY_ONLY");
 });
+
+
+test("personal squad validated status requires fresh verified forecast", () => {
+  const payload = request();
+  payload.forecast_quality.validation_status = "VALIDATED";
+  payload.forecast_quality.point_in_time_status = "VERIFIED";
+  payload.forecast_quality.data_coverage.freshness_status = "FRESH_WITHIN_24H";
+  const result = recommendPersonalSquad(payload);
+  assert.equal(result.recommendation_status, "VALIDATED");
+});
