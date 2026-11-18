@@ -101,7 +101,7 @@ Do not define the cohort using post-gameweek ranks; that would introduce lookahe
 
 ### StatsBomb Open Data
 
-The current StatsBomb Open Data Premier League seasons (2003/04 and 2015/16) do not overlap the commonly used FPL historical archive, which begins in 2016/17. The 34-match parity set remains an engineering benchmark, not an FPL training set.
+The current StatsBomb Open Data Premier League seasons (2003/04 and 2015/16) do not overlap the commonly used FPL historical archive, which begins in 2016/17. The 34-match benchmark (Actions run 44348748561) has now passed end-to-end: 34/34 Python–JavaScript match runs, 125,719 events, 113,373 sequence comparisons, 21,567 player comparisons and 6,528 xT-grid comparisons. The data-quality audit reports 22 usable 360 joins, 11 matches without a 360 source and one quarantined zero-join match (3837706). FPL-name and trusted-minutes coverage remain 0/1,027, so this is an engineering benchmark, not an FPL training set.
 
 ### Wyscout 2017/18
 
