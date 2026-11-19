@@ -26,7 +26,13 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py
       - canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_lagged_verified_features.py
+      - canonical_candidate/engineering_workbench/scripts/build_cta_abc_player_fixture_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_opta_lagged_team_features.py
+      - canonical_candidate/engineering_workbench/scripts/cta_four_layer_pipeline.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_lagged_verified_features.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_abc_player_fixture_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_decision_quality_and_layers.py
+      - canonical_candidate/engineering_workbench/tests/test_opta_lagged_team_features.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_ingestion.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_premier_league_data_audit.py
@@ -209,6 +215,34 @@ jobs:
             --source-metadata run_artifacts/fpl_official/source_metadata.json \
             --identity-crosswalk run_artifacts/11footy/output/verified_identity/validation/verified_provider_fpl_crosswalk.csv \
             --out-dir run_artifacts/11footy/output
+
+      - name: Download pinned Opta/PulseLive team-match context
+        run: |
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 \\
+            https://raw.githubusercontent.com/imadeddine-belkat/Premier-League-Stats/f0f3d40f803c69bc7fac48d0748b49175e2d08ce/pl_stats/_merged/events/2026-27_events_stats.csv \\
+            -o run_artifacts/11footy/input/opta_team_events.csv
+
+      - name: Build deadline-safe Opta team features
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/build_opta_lagged_team_features.py \\
+            --bootstrap ../../run_artifacts/fpl_official/bootstrap-static.json \\
+            --fixtures ../../run_artifacts/fpl_official/fpl_fixtures.json \\
+            --opta-players ../../run_artifacts/11footy/input/opta_players.csv \\
+            --opta-team-events ../../run_artifacts/11footy/input/opta_team_events.csv \\
+            --out-dir ../../run_artifacts/11footy/output/opta_team_features
+
+      - name: Build integrated A/B/C player-fixture panel
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/build_cta_abc_player_fixture_panel.py \\
+            --11footy-lagged ../../run_artifacts/11footy/output/11footy_lagged_verified_upcoming_features.csv \\
+            --opta-team-features ../../run_artifacts/11footy/output/opta_team_features/opta_lagged_team_fixture_features.csv \\
+            --11footy-source-report ../../run_artifacts/11footy/output/11footy_fpl_player_match_integration.json \\
+            --opta-source-report ../../run_artifacts/11footy/output/opta_team_features/opta_fpl_integration_report.json \\
+            --out-dir ../../run_artifacts/11footy/output/cta_abc
 
       - name: Publish aggregate-only verified upcoming CTA feature summary
         if: always()
