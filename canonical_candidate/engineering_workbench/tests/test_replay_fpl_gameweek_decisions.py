@@ -221,3 +221,21 @@ def test_transfer_hit_cost_must_be_multiple_of_four_and_zero_on_free_hit():
     decision["transfer_hit_cost"] = 4
     with pytest.raises(ValueError, match="cannot carry"):
         replay_gameweek(decision, points, mins, positions)
+
+
+def test_reverse_absent_starter_order_is_available_as_separate_research_variant():
+    decision, positions = make_roster()
+    points, mins = outcomes(positions)
+    mins["d1"] = 0
+    mins["f1"] = 0
+    forward = replay_gameweek(decision, points, mins, positions)
+    reverse = replay_gameweek(decision, points, mins, positions, autosub_absence_order="reverse")
+    assert [(item["in"], item["out"]) for item in forward["substitutions"]] == [("d5", "d1"), ("m4", "f1")]
+    assert [(item["in"], item["out"]) for item in reverse["substitutions"]] == [("d5", "f1"), ("m4", "d1")]
+
+
+def test_unknown_autosub_absence_order_is_rejected():
+    decision, positions = make_roster()
+    points, mins = outcomes(positions)
+    with pytest.raises(ValueError, match="autosub_absence_order"):
+        replay_gameweek(decision, points, mins, positions, autosub_absence_order="random")
