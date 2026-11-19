@@ -421,6 +421,8 @@ def score_fold(train, valid, season):
     if len(blend_positive_calibration)<10:
         raise ValueError(f"Insufficient appeared calibration rows for blend selection in {season}")
     blend_conditional_temperature=calibrate_points_temperature(conditional_points_band_model,blend_positive_calibration)
+    # The selection-slice comparator must also be trained without selection labels.
+    blend_conditional_model=fit_ridge_fast(positive_appearance_fit,"actual_points",FEATURES,RIDGE_LAMBDA)
     conditional_model=fit_ridge_fast(positive_train,"actual_points",FEATURES,RIDGE_LAMBDA)
     blend_selection_actual=[]; blend_selection_hurdle=[]; blend_selection_two_part=[]
     for row in blend_selection:
@@ -432,7 +434,7 @@ def score_fold(train, valid, season):
         distribution=combine_appearance_points_distribution(p,conditional_probs)
         hurdle_ep=float(distribution@conditional_points_band_representatives)
         raw_p=min(1.0,max(0.0,score))
-        conditional_ep=max(0.0,predict(conditional_model,row))
+        conditional_ep=max(0.0,predict(blend_conditional_model,row))
         blend_selection_hurdle.append(hurdle_ep)
         blend_selection_two_part.append(raw_p*conditional_ep)
         blend_selection_actual.append(row["actual_points"])
