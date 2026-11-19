@@ -111,6 +111,97 @@ def rank_quality(actual_points: Sequence[float], score: Sequence[float], top_k: 
     }
 
 
+def decision_outcome_metrics(decisions: Sequence[Mapping],
+                             utility_definition: str = "actual_points") -> dict:
+    """Score recommendations against feasible alternatives, independently of forecast error.
+
+    Each decision contains chosen_option_id and an options list. Every option
+    supplies a unique option_id, realised actual_utility and an optional
+    feasible flag (default True). Utility may be player points, net points
+    after transfer hits, or full-squad GW points after FPL rules; callers must
+    use one consistent definition within a report.
+    """
+    if not decisions:
+        raise ValueError("At least one decision is required")
+    if not isinstance(utility_definition, str) or not utility_definition.strip():
+        raise ValueError("utility_definition must be a non-empty string")
+
+    rows = []
+    pairwise_wins = pairwise_ties = pairwise_losses = 0
+    total_selected = total_oracle = total_regret = 0.0
+    optimal_count = 0
+    for index, decision in enumerate(decisions):
+        options = decision.get("options")
+        if not isinstance(options, Sequence) or isinstance(options, (str, bytes)) or len(options) < 2:
+            raise ValueError("Each decision requires at least two alternative options")
+        option_ids = [str(option.get("option_id", "")) for option in options]
+        if any(not value for value in option_ids) or len(set(option_ids)) != len(option_ids):
+            raise ValueError("Option IDs must be non-empty and unique within each decision")
+        chosen_id = str(decision.get("chosen_option_id", ""))
+        if chosen_id not in option_ids:
+            raise ValueError("chosen_option_id must identify one supplied option")
+
+        feasible = []
+        for option, option_id in zip(options, option_ids):
+            is_feasible = option.get("feasible", True)
+            if not isinstance(is_feasible, bool):
+                raise ValueError("Option feasible flags must be booleans")
+            utility = float(option.get("actual_utility"))
+            if not math.isfinite(utility):
+                raise ValueError("Option actual_utility values must be finite")
+            if is_feasible:
+                feasible.append((option_id, utility))
+        selected = next((utility for option_id, utility in feasible if option_id == chosen_id), None)
+        if selected is None:
+            raise ValueError("The recommended option must be feasible")
+
+        best_utility = max(utility for _, utility in feasible)
+        regret = max(0.0, best_utility - selected)
+        alternatives = [utility for option_id, utility in feasible if option_id != chosen_id]
+        wins = sum(selected > value for value in alternatives)
+        ties = sum(selected == value for value in alternatives)
+        losses = sum(selected < value for value in alternatives)
+        pairwise_wins += wins
+        pairwise_ties += ties
+        pairwise_losses += losses
+        total_selected += selected
+        total_oracle += best_utility
+        total_regret += regret
+        is_optimal = regret == 0.0
+        optimal_count += int(is_optimal)
+        rows.append({
+            "decision_id": str(decision.get("decision_id", index)),
+            "chosen_option_id": chosen_id,
+            "selected_actual_utility": selected,
+            "best_feasible_actual_utility": best_utility,
+            "regret": regret,
+            "recommendation_optimal": is_optimal,
+            "pairwise_wins": wins,
+            "pairwise_ties": ties,
+            "pairwise_losses": losses,
+            "feasible_option_count": len(feasible),
+        })
+
+    n = len(rows)
+    comparisons = pairwise_wins + pairwise_ties + pairwise_losses
+    return {
+        "n_decisions": n,
+        "utility_definition": utility_definition,
+        "mean_selected_actual_utility": total_selected / n,
+        "mean_best_feasible_actual_utility": total_oracle / n,
+        "mean_regret_vs_best_feasible": total_regret / n,
+        "total_regret": total_regret,
+        "zero_regret_rate": optimal_count / n,
+        "recommendation_optimal_rate": optimal_count / n,
+        "pairwise_comparisons": comparisons,
+        "pairwise_win_rate": pairwise_wins / comparisons if comparisons else None,
+        "pairwise_tie_rate": pairwise_ties / comparisons if comparisons else None,
+        "pairwise_loss_rate": pairwise_losses / comparisons if comparisons else None,
+        "decisions": rows,
+        "oracle_note": "Best feasible realised outcome is a retrospective regret reference, not an achievable forecast.",
+    }
+
+
 def forecast_band_error_report(actual: Sequence[float], predicted: Sequence[float]) -> dict:
     y, p = _finite(actual), _finite(predicted)
     if len(y) != len(p):
@@ -188,8 +279,15 @@ def prediction_quantile_diagnostics(actual: Sequence[float], predicted: Sequence
 def evaluate_forecast(actual_points: Sequence[float], expected_points: Sequence[float],
                       haul_probabilities: Mapping[int, Sequence[float]] | None = None,
                       ranking_score: Sequence[float] | None = None,
-                      top_k: int = 20) -> dict:
-    """Composite report; no outcome is dropped or winsorised."""
+                      top_k: int = 20,
+                      decision_records: Sequence[Mapping] | None = None,
+                      decision_utility_definition: str = "actual_points") -> dict:
+    """Composite forecast/ranking report with a separate optional decision scorecard.
+
+    Decision records are the recommendation layer's chosen options and feasible
+    alternatives. Their realised utility is scored separately from expected-point
+    errors; a poor point forecast can therefore accompany a successful decision.
+    """
     report = {
         "status": "RESEARCH_ONLY",
         "point_errors": point_error_metrics(actual_points, expected_points),
@@ -202,6 +300,10 @@ def evaluate_forecast(actual_points: Sequence[float], expected_points: Sequence[
         report["haul_probabilities"] = threshold_probability_report(actual_points, haul_probabilities)
     if ranking_score is not None:
         report["ranking"] = rank_quality(actual_points, ranking_score, top_k)
+    if decision_records is not None:
+        report["decision_performance"] = decision_outcome_metrics(
+            decision_records, utility_definition=decision_utility_definition
+        )
     return report
 
 
