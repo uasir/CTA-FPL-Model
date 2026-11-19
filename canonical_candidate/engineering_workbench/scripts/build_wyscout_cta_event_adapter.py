@@ -124,26 +124,30 @@ def normalize_wyscout_events(events, players, teams, match_id):
         switch_after_event_to = None
         boundary_reason = None
 
-        # A dead-ball marker deliberately prevents the foul/offside/interruption
-        # event itself from transferring possession. If a later controlled action
-        # changes team before a recognized restart, retain that ambiguity in the
-        # audit instead of silently treating the sequence as fully resolved.
+        # The foul/offside/interruption event itself does not transfer possession.
+        # Resolve the pending dead-ball state at the first subsequent controlled
+        # action: if that action belongs to the other team, it is the first observed
+        # evidence of resumed control and starts a new inferred possession. If it
+        # belongs to the retained team, possession continues. This prevents a
+        # stale dead-ball flag from suppressing unrelated turnovers for the rest
+        # of the period when a restart row is absent from the provider feed.
         controlled_events = {"Pass", "Shot", "Others on the ball", "Save attempt",
                              "Goalkeeper leaving line"}
         if (pending_dead_ball and period == current_period and not is_restart
-                and event_name in controlled_events
-                and current_possession_team is not None
-                and team_key != current_possession_team):
-            dead_ball_suppressed_team_change_count += 1
-            if len(dead_ball_suppressed_team_change_samples) < 10:
-                dead_ball_suppressed_team_change_samples.append({
-                    "event_id": str(event.get("id", source_index)),
-                    "event_type": event_name,
-                    "event_team": team_names[team_key],
-                    "retained_possession_team": team_names[current_possession_team],
-                    "period": period,
-                    "event_second": round(float(event.get("eventSec") or 0), 3),
-                })
+                and event_name in controlled_events):
+            pending_dead_ball = False
+            if (current_possession_team is not None
+                    and team_key != current_possession_team):
+                dead_ball_suppressed_team_change_count += 1
+                if len(dead_ball_suppressed_team_change_samples) < 10:
+                    dead_ball_suppressed_team_change_samples.append({
+                        "event_id": str(event.get("id", source_index)),
+                        "event_type": event_name,
+                        "event_team": team_names[team_key],
+                        "retained_possession_team": team_names[current_possession_team],
+                        "period": period,
+                        "event_second": round(float(event.get("eventSec") or 0), 3),
+                    })
 
         if current_possession_team is None:
             initial_team = (
