@@ -44,7 +44,7 @@ def build_history_index(rows):
 
 
 def make_windows(target_rows, history_index, max_length=MAX_LENGTH):
-    """Return right-aligned histories ending at each target deadline snapshot."""
+    """Return chronological histories ending at each target deadline snapshot."""
     windows = []
     for target in target_rows:
         key = (target["season"], str(target["fpl_element_id"]))
@@ -100,10 +100,12 @@ def encode_windows(windows, preprocessor, max_length=MAX_LENGTH):
             vector = np.asarray(imputed + missing, dtype=np.float32)
             vector = (vector - preprocessor["means"]) / preprocessor["scales"]
             encoded.append(vector)
-        start = max_length - len(encoded)
         if encoded:
-            values[i, start:] = np.stack(encoded)
-            masks[i, start:] = False
+            # Valid timesteps are left-aligned and padding is on the right.
+            # TwoPMTransformer pools at valid_count - 1, so this preserves the
+            # final observed snapshot rather than pooling a padded position.
+            values[i, :len(encoded)] = np.stack(encoded)
+            masks[i, :len(encoded)] = False
     return values, masks
 
 
