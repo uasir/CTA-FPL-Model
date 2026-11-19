@@ -160,6 +160,7 @@ def evaluate(fpl_rows, opta_rows):
         },
         "features": {"baseline": list(FEATURES), "added_opta": list(OPTA_FEATURES)},
         "missing_feature_policy": "Training-only median imputation with explicit missingness indicators; observed zero remains distinct from missing.",
+        "historical_form_normalization": "Prior gameweek totals and averages are retained; they are not divided by the target gameweek fixture count. Per-fixture forecasts are summed only after prediction.",
         "training_missing_feature_counts": {
             name: sum(1 for row in train if row.get(name) is None)
             for name in FEATURES + OPTA_FEATURES
