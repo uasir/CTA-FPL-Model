@@ -1,6 +1,11 @@
 name: CTA external FPL forecast snapshot capture
 
 on:
+  push:
+    branches: ["feat/four-layer-2pm-transformer-evaluation"]
+    paths:
+      - .github/workflows/cta-external-fpl-forecast-capture.yml
+      - canonical_candidate/engineering_workbench/scripts/capture_external_fpl_forecasts.py
   workflow_dispatch:
     inputs:
       gameweek:
@@ -18,6 +23,8 @@ concurrency:
 jobs:
   capture:
     runs-on: ubuntu-latest
+    env:
+      GAMEWEEK: ${{ inputs.gameweek || '11' }}
     timeout-minutes: 10
     steps:
       - name: Checkout CTA-FPL-Model
@@ -30,12 +37,12 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/capture_external_fpl_forecasts.py \
-            --gameweek "${{ inputs.gameweek }}" \
-            --out-dir "$RUNNER_TEMP/external_fpl_gw${{ inputs.gameweek }}"
+            --gameweek "$GAMEWEEK" \
+            --out-dir "$RUNNER_TEMP/external_fpl_gw$GAMEWEEK"
       - name: Retain immutable raw snapshots and capture manifest
         uses: actions/upload-artifact@v4
         with:
-          name: external-fpl-forecast-gw${{ inputs.gameweek }}-${{ github.run_id }}
-          path: ${{ runner.temp }}/external_fpl_gw${{ inputs.gameweek }}
+          name: external-fpl-forecast-gw$GAMEWEEK-${{ github.run_id }}
+          path: $RUNNER_TEMP/external_fpl_gw$GAMEWEEK
           if-no-files-found: error
           retention-days: 90
