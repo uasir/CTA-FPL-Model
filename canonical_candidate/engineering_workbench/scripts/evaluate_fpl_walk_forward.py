@@ -183,7 +183,7 @@ def score_fold(train, valid, season):
     predicted_minutes=[]; predicted_minutes_raw=[]; predicted_minutes_calibrated=[]
     last_minutes=[]; prior3_minutes=[]; prior5_minutes=[]
     lagged_minutes=[]; conditional_lagged_minutes_raw=[]; conditional_lagged_minutes_calibrated=[]
-    two_part_raw=[]; two_part_calibrated=[]; direct_points=[]; last5_points=[]
+    two_part_raw=[]; two_part_calibrated=[]; band_points_raw=[]; band_points_calibrated=[]; direct_points=[]; last5_points=[]
     for row in valid:
         # All predictions are created before actual labels are read for scoring.
         band_raw=minutes_band_probabilities(minutes_band_model,row)
@@ -199,6 +199,8 @@ def score_fold(train, valid, season):
         conditional=max(0.0,predict(conditional_model,row))
         raw_ep=raw_p*conditional
         calibrated_ep=calibrated_p*conditional
+        band_ep_raw=(1.0-band_raw[0])*conditional
+        band_ep_calibrated=(1.0-band_cal[0])*conditional
         direct_ep=predict(direct_model,row)
         minutes_ep=min(180.0,max(0.0,predict(minutes_model,row)))
         conditional_minutes=min(180.0,max(0.0,predict(conditional_minutes_model,row)))
@@ -230,6 +232,8 @@ def score_fold(train, valid, season):
         conditional_lagged_minutes_calibrated.append(expected_lagged_minutes_calibrated)
         two_part_raw.append(raw_ep)
         two_part_calibrated.append(calibrated_ep)
+        band_points_raw.append(band_ep_raw)
+        band_points_calibrated.append(band_ep_calibrated)
         direct_points.append(direct_ep)
         last5_points.append(baseline_points)
         # Labels are appended only after every forecast for this row is fixed.
@@ -283,6 +287,8 @@ def score_fold(train, valid, season):
         "points":{
             "two_part_calibrated":regression_metrics(actual_points,two_part_calibrated),
             "two_part_raw":regression_metrics(actual_points,two_part_raw),
+            "minutes_band_raw":regression_metrics(actual_points,band_points_raw),
+            "minutes_band_calibrated":regression_metrics(actual_points,band_points_calibrated),
             "direct":regression_metrics(actual_points,direct_points),
             "last5_baseline":regression_metrics(actual_points,last5_points),
         },
@@ -345,7 +351,7 @@ def evaluate_walk_forward(rows):
                 metric:weighted_metric("points",model,metric)
                 for metric in ("mae","rmse","mean_error")
             }
-            for model in ("two_part_calibrated","two_part_raw","direct","last5_baseline")
+            for model in ("two_part_calibrated","two_part_raw","minutes_band_raw","minutes_band_calibrated","direct","last5_baseline")
         },
     }
     return {
