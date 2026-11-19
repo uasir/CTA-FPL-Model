@@ -11,6 +11,7 @@ Prepare the FPL-points predictor for multi-season chronological evaluation. This
 - The ingestion pipeline captures the current bootstrap, fixtures, and each player's element-summary history.
 - Source and normalized-output hashes are recorded in `source_metadata.json`, together with capture time and a deterministic source snapshot ID.
 - A current capture can support a genuinely upcoming deadline when fetched before that deadline.
+- The ingestion workflow currently retains its uploaded FPL snapshot artifact for 90 days. Hashes prove the identity of captured files but do not make the raw snapshots a durable multi-season archive; a long-term archive/manifest retention path is still required.
 - It cannot recreate historical pre-deadline vintages. Earlier player history may have been retrospectively revised, so historical training rows remain `NOT_VERIFIED` for strict point-in-time backtesting.
 - The official API feed is therefore suitable for current-season forward snapshots and as a source of final historical targets, but not as proof that a feature value was available at an old deadline.
 
