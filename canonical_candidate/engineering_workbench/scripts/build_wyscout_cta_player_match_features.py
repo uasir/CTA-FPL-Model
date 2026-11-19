@@ -183,8 +183,9 @@ def build_player_match_features(events, matches, players, teams):
                 counts["shot_attempts"] += 1
                 counts["accurate_shot_attempts"] += int(accurate)
                 counts["shot_opportunity_attempts"] += int(OPPORTUNITY_TAG in tags)
-            counts["goals"] += int(GOAL_TAG in tags)
-            counts["own_goals"] += int(OWN_GOAL_TAG in tags)
+            if event_name == "shot":
+                counts["goals"] += int(GOAL_TAG in tags)
+                counts["own_goals"] += int(OWN_GOAL_TAG in tags)
             counts["assists"] += int(ASSIST_TAG in tags)
             if DANGEROUS_LOSS_TAG in tags:
                 counts["dangerous_ball_losses"] += 1
@@ -246,8 +247,18 @@ def build_player_match_features(events, matches, players, teams):
         if len(scores) == 2:
             matches_with_score += 1
             match_metadata_goals += sum(scores)
-    tagged_goals = sum(1 for event in events if GOAL_TAG in _tags(event))
-    tagged_own_goals = sum(1 for event in events if OWN_GOAL_TAG in _tags(event))
+    goal_tag_types = Counter(
+        str(event.get("eventName") or "UNKNOWN")
+        for event in events if GOAL_TAG in _tags(event)
+    )
+    own_goal_tag_types = Counter(
+        str(event.get("eventName") or "UNKNOWN")
+        for event in events if OWN_GOAL_TAG in _tags(event)
+    )
+    shot_tagged_goals = goal_tag_types.get("Shot", 0)
+    shot_tagged_own_goals = own_goal_tag_types.get("Shot", 0)
+    all_goal_tag_events = sum(goal_tag_types.values())
+    all_own_goal_tag_events = sum(own_goal_tag_types.values())
     report = {
         "provider": "Wyscout",
         "season": "2017/18",
@@ -261,13 +272,17 @@ def build_player_match_features(events, matches, players, teams):
         "goal_reconciliation": {
             "matches_with_two_team_scores": matches_with_score,
             "match_metadata_goals": match_metadata_goals,
-            "event_goal_tag_events": tagged_goals,
-            "event_own_goal_tag_events": tagged_own_goals,
-            "event_goal_tags_total": tagged_goals + tagged_own_goals,
-            "tagged_minus_metadata_goal_delta": tagged_goals + tagged_own_goals - match_metadata_goals,
+            "all_event_goal_tag_events": all_goal_tag_events,
+            "all_event_own_goal_tag_events": all_own_goal_tag_events,
+            "goal_tag_events_by_event_type": dict(goal_tag_types),
+            "own_goal_tag_events_by_event_type": dict(own_goal_tag_types),
+            "shot_event_goal_tag_count": shot_tagged_goals,
+            "shot_event_own_goal_tag_count": shot_tagged_own_goals,
+            "shot_event_tagged_goal_total": shot_tagged_goals + shot_tagged_own_goals,
+            "shot_tagged_minus_metadata_goal_delta": shot_tagged_goals + shot_tagged_own_goals - match_metadata_goals,
             "status": (
                 "PASS_EXACT"
-                if matches_with_score == len(matches) and tagged_goals + tagged_own_goals == match_metadata_goals
+                if matches_with_score == len(matches) and shot_tagged_goals + shot_tagged_own_goals == match_metadata_goals
                 else "REVIEW_REQUIRED"
             ),
         },
