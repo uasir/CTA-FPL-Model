@@ -114,29 +114,31 @@ def test_wyscout_goal_and_own_goal_tags_reconcile_to_match_score():
             "tags": [{"id": 101}, {"id": 1801}],
         },
         {
-            "id": 2, "matchId": 10, "playerId": 200, "teamId": 2,
-            "eventName": "Shot", "subEventName": "Shot",
-            "positions": [{"x": 10, "y": 50}],
-            "tags": [{"id": 102}],
+            "id": 2, "matchId": 10, "playerId": 101, "teamId": 1,
+            "eventName": "Free Kick", "subEventName": "Free Kick",
+            "positions": [{"x": 90, "y": 50}],
+            "tags": [{"id": 101}],
         },
     ]
+    events.insert(2, {"id":3,"matchId":10,"playerId":200,"teamId":2,"eventName":"Others on the ball","subEventName":"Touch","positions":[{"x":10,"y":50}],"tags":[{"id":102}]})
     matches = [{
         "wyId": 10, "dateutc": "2018-04-01 15:00:00",
         "teamsData": {
-            "1": {"teamId": 1, "side": "home", "score": 1},
+            "1": {"teamId": 1, "side": "home", "score": 2},
             "2": {"teamId": 2, "side": "away", "score": 1},
         },
     }]
     rows, report = build_player_match_features(
         events, matches,
-        [{"wyId": 100, "shortName": "Scorer"}, {"wyId": 200, "shortName": "Own goal"}],
+        [{"wyId": 100, "shortName": "Scorer"}, {"wyId": 101, "shortName": "Free kick scorer"}, {"wyId": 200, "shortName": "Own goal"}],
         [{"wyId": 1, "name": "Home FC"}, {"wyId": 2, "name": "Away FC"}],
     )
 
     by_player = {row["provider_player_id"]: row for row in rows}
     assert by_player[100]["goals"] == 1
+    assert by_player[101]["goals"] == 1
     assert by_player[200]["own_goals"] == 1
-    assert report["goal_reconciliation"]["match_metadata_goals"] == 2
-    assert report["goal_reconciliation"]["shot_event_tagged_goal_total"] == 2
-    assert report["goal_reconciliation"]["shot_tagged_minus_metadata_goal_delta"] == 0
+    assert report["goal_reconciliation"]["match_metadata_goals"] == 3
+    assert report["goal_reconciliation"]["player_attributed_goal_total"] == 3
+    assert report["goal_reconciliation"]["player_attributed_minus_metadata_goal_delta"] == 0
     assert report["goal_reconciliation"]["status"] == "PASS_EXACT"
