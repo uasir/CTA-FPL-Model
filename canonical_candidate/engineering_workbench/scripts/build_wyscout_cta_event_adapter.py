@@ -214,7 +214,6 @@ def main():
             "possession_method": "INFERRED_CONTIGUOUS_TEAM_BLOCK",
             "possession_boundary_policy": "period/team changes, restarts, and after shot/offside/foul/interruption",
             "limitations": match_reports[0]["limitations"] if match_reports else [],
-            "per_match_reports": match_reports,
         }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.report.parent.mkdir(parents=True, exist_ok=True)
