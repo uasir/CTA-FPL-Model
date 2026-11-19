@@ -36,3 +36,17 @@ def test_points_representatives_and_8plus_share_use_only_supplied_fit_rows():
     assert reps.shape == (6,)
     assert reps[1] == 0.0
     assert within_band_eight_plus_share(rows) == 0.5
+
+
+def test_encoded_windows_are_left_aligned_for_last_valid_step_pooling():
+    from evaluate_two_pm_transformer_walk_forward import (
+        FEATURES, encode_windows, fit_preprocessor,
+    )
+    rows = [
+        {name: float(i + 1) for i, name in enumerate(FEATURES)},
+        {name: float(i + 2) for i, name in enumerate(FEATURES)},
+    ]
+    preprocessor = fit_preprocessor(rows)
+    encoded, padding = encode_windows([rows], preprocessor, max_length=4)
+    assert padding[0].tolist() == [False, False, True, True]
+    assert encoded.shape == (1, 4, len(FEATURES) * 2)
