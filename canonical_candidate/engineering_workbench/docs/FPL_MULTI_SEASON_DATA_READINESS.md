@@ -51,8 +51,11 @@ Prepare the FPL-points predictor for multi-season chronological evaluation. This
 - Before calibration, two-part expected-points MAE was 1.055221 versus 1.061375 for direct ridge and 1.080018 for the last-five-points baseline. Its RMSE was 2.050783, slightly worse than direct ridge at 2.034614, though better than the last-five baseline at 2.175455.
 - Minutes MAE was 14.055 minutes versus 11.220 for the last-gameweek-minutes baseline; the minutes model did not win this metric.
 - Positive-minute-only comparisons are post-outcome diagnostics and cannot be used to select live players.
-- A subsequent calibration stage reserves a chronological slice from the pre-test training period for Platt calibration, leaving the final test window untouched. CI passed 336 tests and 3 subtests in [run 44503481955](https://github.com/uasir/CTA-FPL-Model/actions/runs/44503481955). The full calibrated research run is queued/pending at [run 44503481951](https://github.com/uasir/CTA-FPL-Model/actions/runs/44503481951).
-- All these results remain research-only because historical source vintages are not verified deadline-time snapshots. Do not promote based on a single holdout.
+- The calibrated evaluation reserves the latest 20% of pre-test training gameweeks for Platt calibration and leaves the final chronological test window untouched. The calibrated appearance model achieved Brier 0.093324 and log loss 0.311468; raw clipped probabilities achieved 0.093148 and 0.327838; the prior-five appearance-rate baseline achieved 0.106510 and 1.365719. Calibration improved log loss but did not improve Brier versus the raw model.
+- Calibrated two-part expected-points MAE/RMSE were 1.059978/2.052511; raw two-part values were 1.057824/2.050414; direct ridge was 1.061375/2.034614. Calibration therefore retains a small MAE advantage over direct ridge but not an RMSE advantage. The raw two-part output has slightly better point MAE/RMSE than its calibrated counterpart.
+- Minutes MAE remains 14.055 minutes versus 11.220 for the last-gameweek-minutes baseline; the minutes model did not win this metric.
+- Calibrated full research run: [GitHub Actions run 44503481951](https://github.com/uasir/CTA-FPL-Model/actions/runs/44503481951), successful. Engineering CI: [run 44503481955](https://github.com/uasir/CTA-FPL-Model/actions/runs/44503481955), 336 tests and 3 subtests passed.
+- Next: evaluate the appearance, minutes, and points components over expanding-season walk-forward folds. Calibration must be fitted independently inside each fold using only earlier data. All results remain research-only because historical source vintages are not verified deadline-time snapshots; a single holdout is not enough for promotion.
 
 ### Existing CTA-linked historical panel
 
