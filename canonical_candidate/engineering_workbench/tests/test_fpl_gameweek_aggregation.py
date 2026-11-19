@@ -34,3 +34,22 @@ class GameweekAggregationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"differs within player"):
             aggregate([first,second])
 if __name__=="__main__":unittest.main()
+
+
+def test_missing_targets_and_fixture_difficulty_are_not_converted_to_zero():
+    first = row(11, 6, 90, True)
+    first["target_expected_goals"] = ""
+    first["opponent_difficulty_snapshot"] = ""
+    rows, _ = aggregate([first])
+    assert rows[0]["target_total_points"] == 6.0
+    assert rows[0]["target_expected_goals"] == ""
+    assert rows[0]["opponent_difficulty_snapshot_avg"] == ""
+
+
+def test_double_gameweek_target_is_missing_if_any_fixture_target_is_missing():
+    first = row(11, 6, 90, True)
+    second = row(12, 4, 45, False)
+    second["target_expected_assists"] = ""
+    rows, _ = aggregate([first, second])
+    assert rows[0]["target_total_points"] == 10.0
+    assert rows[0]["target_expected_assists"] == ""
