@@ -39,7 +39,18 @@ def build_replay_record(picks_payload, live_payload, position_by_player):
 
     ids = [str(int(pick["element"])) for pick in ordered]
     xi = [str(int(pick["element"])) for pick in ordered if int(pick["position"]) <= 11]
-    bench = [str(int(pick["element"])) for pick in ordered if int(pick["position"]) >= 12]
+    bench_slots = [str(int(pick["element"])) for pick in ordered if int(pick["position"]) >= 12]
+    # The historical picks endpoint exposes four bench slots, but the reserve
+    # goalkeeper is not guaranteed to occupy slot 15. Normalize to the replay
+    # contract's three ordered outfield substitutes followed by the goalkeeper,
+    # preserving the relative order of the three outfield slots.
+    bench_outfield = [player_id for player_id in bench_slots
+                      if position_by_player.get(player_id) != "GKP"]
+    bench_goalkeepers = [player_id for player_id in bench_slots
+                         if position_by_player.get(player_id) == "GKP"]
+    if len(bench_outfield) != 3 or len(bench_goalkeepers) != 1:
+        raise ValueError("historical bench must contain three outfield players and one goalkeeper")
+    bench = bench_outfield + bench_goalkeepers
     captain_rows = [pick for pick in ordered if pick.get("is_captain")]
     vice_rows = [pick for pick in ordered if pick.get("is_vice_captain")]
     if len(captain_rows) != 1 or len(vice_rows) != 1:
