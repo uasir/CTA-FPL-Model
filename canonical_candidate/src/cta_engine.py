@@ -185,6 +185,10 @@ def fit_xt(events, directions, iterations=1000, tolerance=1e-11, fit_match_ids=N
         if not fit_match_ids:
             raise ValueError("xT fit match ID subset cannot be empty")
         events = [event for event in events if str(event.get("_match_id")) in fit_match_ids]
+    fit_match_audit = {
+        "xt_fit_match_ids": sorted(fit_match_ids) if fit_match_ids is not None else "ALL_INPUT_MATCHES",
+        "xt_fit_match_count": len({str(event.get("_match_id")) for event in events}),
+    }
     moves = [Counter() for _ in range(GRID_X * GRID_Y)]
     move_n = [0] * (GRID_X * GRID_Y)
     shots = [0] * (GRID_X * GRID_Y)
@@ -213,7 +217,7 @@ def fit_xt(events, directions, iterations=1000, tolerance=1e-11, fit_match_ids=N
     total_shots, total_goals = sum(shots), sum(goals)
     if total_shots == 0:
         return None, {"xt_status": "not_fitted_no_directional_shots",
-                      "xt_shots": 0, "xt_usable_moves": usable_moves}
+                      "xt_shots": 0, "xt_usable_moves": usable_moves, **fit_match_audit}
     global_goal_rate = total_goals / total_shots
     p_shot = []
     p_goal = []
@@ -245,9 +249,7 @@ def fit_xt(events, directions, iterations=1000, tolerance=1e-11, fit_match_ids=N
              "xt_goals": total_goals, "xt_usable_moves": usable_moves,
              "xt_global_goal_per_shot": round(global_goal_rate, 6),
              "xt_grid": f"{GRID_X}x{GRID_Y}",
-             "xt_prior_pseudo_shots": 5,
-             "xt_fit_match_ids": sorted(fit_match_ids) if fit_match_ids is not None else "ALL_INPUT_MATCHES",
-             "xt_fit_match_count": len({str(event.get("_match_id")) for event in events})}
+             "xt_prior_pseudo_shots": 5, **fit_match_audit}
     return values, audit
 
 def build_features(events, directions, xt_values, progressive_threshold=10.0):
@@ -459,7 +461,7 @@ def run(args):
             for i, v in enumerate(xt_values)])
     audit = {
         "model": "CTA-FPL feature pipeline",
-        "version": "1.0.3-experimental",
+        "version": "1.0.4-experimental",
         "matches_processed": len(matches), "events_processed": len(events),
         "sequences_processed": len(sequences), "players_observed": len(players),
         "direction_map_entries": len(directions),
