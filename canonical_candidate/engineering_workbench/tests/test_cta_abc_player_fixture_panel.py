@@ -78,7 +78,9 @@ def test_provider_snapshot_after_deadline_cannot_supply_player_features():
     cta = _cta_row()
     cta["cta_source_snapshot_as_of"] = "2026-11-22T00:00:00Z"
     cta["cta_snapshot_available_as_of_deadline"] = "False"
-    rows, _ = build_panel([cta], _opta_rows(), *_reports())
+    cta_report, opta_report = _reports()
+    cta_report["source_built_at"] = "2026-11-22T00:00:00Z"
+    rows, _ = build_panel([cta], _opta_rows(), cta_report, opta_report)
     row = rows[0]
     assert row["cta_snapshot_available_as_of_deadline"] is False
     assert row["abc_player_key_pass_rate"] == ""
