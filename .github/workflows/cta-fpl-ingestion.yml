@@ -7,6 +7,7 @@ on:
     paths:
       - "canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py"
       - "canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py"
+      - "canonical_candidate/engineering_workbench/tests/test_fpl_baseline_forecast_snapshot.py"
       - "canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py"
       - "canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py"
       - "canonical_candidate/engineering_workbench/scripts/general_market_engine.py"
@@ -90,7 +91,8 @@ jobs:
             tests/test_11footy_fpl_identity_candidates.py \
             tests/test_11footy_player_match_features.py \
             tests/test_11footy_lagged_research_features.py \
-            tests/test_11footy_lagged_verified_features.py
+            tests/test_11footy_lagged_verified_features.py \\
+            tests/test_fpl_baseline_forecast_snapshot.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -290,6 +292,98 @@ jobs:
           safe["publication_policy"] = "Aggregate metrics only; player-level CTA feature rows remain inside the workflow runner."
           target.write_text(json.dumps(safe, indent=2))
           print(json.dumps(safe, indent=2))
+          PY
+
+      - name: Aggregate leakage-safe FPL player-gameweek rows
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py \
+            --input run_artifacts/fpl_official/fpl_lagged_training.csv \
+            --out-dir run_artifacts/fpl_official
+
+      - name: Build official FPL baseline snapshot with CTA research sidecar
+        continue-on-error: true
+        run: |
+          CTA_CSV="run_artifacts/11footy_fpl/output/11footy_lagged_verified_upcoming_features.csv"
+          CTA_REPORT="run_artifacts/11footy_fpl/output/11footy_lagged_verified_upcoming_report.json"
+          OUT="run_artifacts/11footy_fpl/output/cta_decision"
+          if [ -f "$CTA_CSV" ] && [ -f "$CTA_REPORT" ]; then
+            python canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py \
+              --players run_artifacts/fpl_official/fpl_players.csv \
+              --gameweek-rows run_artifacts/fpl_official/fpl_lagged_gameweek.csv \
+              --fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
+              --source-metadata run_artifacts/fpl_official/source_metadata.json \
+              --cta-csv "$CTA_CSV" \
+              --cta-report "$CTA_REPORT" \
+              --out-dir "$OUT"
+          else
+            python canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py \
+              --players run_artifacts/fpl_official/fpl_players.csv \
+              --gameweek-rows run_artifacts/fpl_official/fpl_lagged_gameweek.csv \
+              --fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
+              --source-metadata run_artifacts/fpl_official/source_metadata.json \
+              --out-dir "$OUT"
+          fi
+
+      - name: Run general-market engine on FPL forecast snapshot
+        continue-on-error: true
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/run_fpl_general_market_baseline.py \
+            --snapshot run_artifacts/11footy_fpl/output/cta_decision/fpl_baseline_forecast_snapshot.json \
+            --out-dir run_artifacts/11footy_fpl/output/cta_decision
+
+      - name: Run personal-squad scale smoke test on FPL forecast snapshot
+        continue-on-error: true
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/run_fpl_personal_squad_scale_smoke_test.py \
+            --snapshot run_artifacts/11footy_fpl/output/cta_decision/fpl_baseline_forecast_snapshot.json \
+            --out-dir run_artifacts/11footy_fpl/output/cta_decision
+
+      - name: Publish aggregate-only CTA decision-layer summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("run_artifacts/11footy_fpl/output/cta_decision")
+          target = Path("run_artifacts/fpl_official/cta_decision_summary.json")
+          target.parent.mkdir(parents=True, exist_ok=True)
+          summary = {"status": "CTA_DECISION_LAYER_BUILD_UNAVAILABLE"}
+          baseline = root / "fpl_baseline_forecast_report.json"
+          general = root / "fpl_general_market_baseline_report.json"
+          personal = root / "fpl_personal_squad_scale_report.json"
+          snapshot = root / "fpl_baseline_forecast_snapshot.json"
+          if baseline.exists():
+              report = json.loads(baseline.read_text())
+              snap = json.loads(snapshot.read_text()) if snapshot.exists() else {}
+              coverage = snap.get("forecast_quality", {}).get("data_coverage", {})
+              summary = {
+                  "status": report.get("status"),
+                  "target_gameweek": report.get("target_gameweek"),
+                  "forecast_snapshot_id": report.get("forecast_snapshot_id"),
+                  "forecast_players": report.get("forecast_players"),
+                  "cta_sidecar_integrated": report.get("cta_sidecar_integrated", False),
+                  "cta_players_with_verified_identity": report.get("cta_players_with_verified_identity", 0),
+                  "cta_players_with_prior_history": report.get("cta_players_with_prior_history", 0),
+                  "cta_target_player_fixture_rows": report.get("cta_target_player_fixture_rows", 0),
+                  "cta_features_used_in_expected_points": coverage.get("cta_features_used_in_expected_points", False),
+                  "cta_composite": coverage.get("cta_composite"),
+              }
+          if general.exists():
+              g = json.loads(general.read_text())
+              summary["general_market_status"] = g.get("status")
+              summary["general_market_players_ranked"] = g.get("players_ranked")
+              summary["general_market_covar_used"] = g.get("covar_used")
+          if personal.exists():
+              p = json.loads(personal.read_text())
+              summary["personal_squad_status"] = p.get("status")
+              summary["personal_squad_scope"] = p.get("scope")
+              summary["synthetic_squad_players"] = p.get("synthetic_squad_players")
+              summary["starting_xi_count"] = p.get("starting_xi_count")
+              summary["transfer_candidate_count"] = p.get("transfer_candidate_count")
+          summary["decision_use_status"] = "RESEARCH_ONLY_NOT_IN_BASELINE"
+          summary["publication_policy"] = "Aggregate metrics only; player-level forecast and CTA features remain runner-local."
+          target.write_text(json.dumps(summary, indent=2))
+          print(json.dumps(summary, indent=2))
           PY
 
       - name: Build leakage-safe lagged 11footy CTA research features
