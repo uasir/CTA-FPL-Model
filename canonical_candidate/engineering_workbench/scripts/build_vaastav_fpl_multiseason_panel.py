@@ -67,10 +67,22 @@ def first_value(row, *names):
     return None
 
 
-def source_gameweek(raw):
-    """Prefer the merged file's explicit GW column; fall back to API round."""
+def source_gameweek(raw, season):
+    """Read the source GW label and normalize the 2019-20 COVID-era offset.
+
+    The Vaastav 2019-20 merged export labels the post-lockdown rounds 39-47.
+    These correspond to FPL gameweeks 30-38 (a nine-week offset). Preserve the
+    raw source values in the audit manifest; use normalized 1-38 labels in the
+    model panel. Other seasons are not remapped.
+    """
     explicit_gw = optional_number(raw.get("GW"))
-    return explicit_gw if explicit_gw is not None else optional_number(first_value(raw, "round", "gameweek"))
+    value = explicit_gw if explicit_gw is not None else optional_number(first_value(raw, "round", "gameweek"))
+    if value is None:
+        return None
+    value = int(value)
+    if season == "2019-20" and 39 <= value <= 47:
+        value -= 9
+    return value
 
 def load_season(season, out_dir):
     url = f"{RAW_BASE}/{SOURCE_COMMIT}/data/{season}/gws/merged_gw.csv"
@@ -87,12 +99,13 @@ def load_season(season, out_dir):
     missing = sorted(required - set(source_rows[0]))
     if missing:
         raise ValueError(f"{season}: missing required source columns: {missing}")
-    gameweeks = sorted({int(source_gameweek(row)) for row in source_rows if source_gameweek(row) is not None})
+    gameweeks = sorted({int(source_gameweek(row, season)) for row in source_rows if source_gameweek(row, season) is not None})
     round_gw_mismatches = sum(
         1 for row in source_rows
         if optional_number(row.get("GW")) is not None
         and optional_number(row.get("round")) is not None
-        and int(optional_number(row.get("GW"))) != int(optional_number(row.get("round")))
+        and source_gameweek({"GW": row.get("GW")}, season)
+            != source_gameweek({"round": row.get("round")}, season)
     )
     if gameweeks and (min(gameweeks) < 1 or max(gameweeks) > 38):
         raise ValueError(f"{season}: source gameweek range outside 1-38: {gameweeks}")
@@ -103,6 +116,8 @@ def load_season(season, out_dir):
         "bytes": len(payload),
         "source_rows": len(source_rows),
         "gameweek_source_field": "GW" if any(optional_number(row.get("GW")) is not None for row in source_rows) else "round",
+        "covid_offset_rows": sum(1 for row in source_rows if season == "2019-20" and ((optional_number(row.get("GW")) if optional_number(row.get("GW")) is not None else optional_number(row.get("round"))) or 0) in range(39, 48)),
+        "gameweek_normalization": "2019-20 source labels 39-47 mapped to FPL GW30-38; other seasons unchanged",
         "gameweeks": gameweeks,
         "min_gameweek": min(gameweeks) if gameweeks else None,
         "max_gameweek": max(gameweeks) if gameweeks else None,
@@ -116,7 +131,7 @@ def build_season_rows(season, source_rows):
     grouped = defaultdict(lambda: defaultdict(list))
     for raw in source_rows:
         element = first_value(raw, "element", "id")
-        gameweek = source_gameweek(raw)
+        gameweek = source_gameweek(raw, season)
         if element is None or gameweek is None or gameweek < 1:
             continue
         if gameweek > 38:
