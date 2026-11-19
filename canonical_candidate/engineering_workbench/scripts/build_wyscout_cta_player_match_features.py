@@ -37,6 +37,10 @@ FIELDS = [
     "progressive_carry_attempts", "shot_attempts", "accurate_shot_attempts",
     "goals", "own_goals", "assists", "shot_opportunity_attempts", "dangerous_ball_losses",
     "offside_events", "duel_events", "duels_won", "duels_lost",
+    "ground_defensive_duel_events", "ground_defensive_duels_won",
+    "ground_defensive_duels_lost", "aerial_duel_events",
+    "aerial_duels_won", "aerial_duels_lost", "clearance_events",
+    "foul_events", "interception_events",
     "receiver_identity_status", "xg_status", "feature_scope",
 ]
 
@@ -193,8 +197,23 @@ def build_player_match_features(events, matches, players, teams):
                 counts["offside_events"] += 1
             if event_name == "duel":
                 counts["duel_events"] += 1
-                counts["duels_won"] += int(703 in tags)
-                counts["duels_lost"] += int(701 in tags)
+                won = int(703 in tags)
+                lost = int(701 in tags)
+                counts["duels_won"] += won
+                counts["duels_lost"] += lost
+                if "ground defending duel" in subevent:
+                    counts["ground_defensive_duel_events"] += 1
+                    counts["ground_defensive_duels_won"] += won
+                    counts["ground_defensive_duels_lost"] += lost
+                if "air duel" in subevent:
+                    counts["aerial_duel_events"] += 1
+                    counts["aerial_duels_won"] += won
+                    counts["aerial_duels_lost"] += lost
+            if event_name == "others on the ball":
+                counts["clearance_events"] += int(subevent == "clearance")
+                counts["interception_events"] += int(subevent == "interception")
+            if event_name == "foul":
+                counts["foul_events"] += 1
             if event_name == "others on the ball" and "acceleration" in subevent:
                 counts["progressive_carry_attempts"] += int(bool(start and end and end[0] - start[0] >= 10.0))
 
@@ -225,6 +244,10 @@ def build_player_match_features(events, matches, players, teams):
                 "progressive_carry_attempts", "shot_attempts", "accurate_shot_attempts",
                 "goals", "own_goals", "assists", "shot_opportunity_attempts", "dangerous_ball_losses",
                 "offside_events", "duel_events", "duels_won", "duels_lost",
+                "ground_defensive_duel_events", "ground_defensive_duels_won",
+                "ground_defensive_duels_lost", "aerial_duel_events",
+                "aerial_duels_won", "aerial_duels_lost", "clearance_events",
+                "foul_events", "interception_events",
             )},
             "receiver_identity_status": "NOT_AVAILABLE_IN_PUBLIC_WYSCOUT_EVENT_SCHEMA",
             "xg_status": "NOT_AVAILABLE_IN_PUBLIC_WYSCOUT_EVENT_SCHEMA",
