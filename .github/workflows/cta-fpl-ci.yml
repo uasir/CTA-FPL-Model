@@ -124,3 +124,63 @@ jobs:
         run: |
           echo "Historical source data, player-level sequences and predictions remain runner-local."
           echo "Only aggregate workflow logs are retained; no research artifact is uploaded."
+  position_ablation_research:
+    if: contains(github.event.head_commit.message, '[run-position-ablation]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install position-ablation research dependencies
+        run: |
+          python -m pip install numpy pytest
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Test position features and model architecture
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: python -m pytest -q tests/test_two_pm_transformer.py tests/test_two_pm_transformer_walk_forward.py tests/test_two_pm_position_features.py
+      - name: Build runner-local multi-season panel with position features
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/build_vaastav_fpl_multiseason_panel.py \
+            --out-dir "$RUNNER_TEMP/cta_fpl_position_ablation"
+      - name: Evaluate unchanged base 2PM feature set
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/evaluate_two_pm_transformer_walk_forward.py \
+            --input "$RUNNER_TEMP/cta_fpl_position_ablation/vaastav_fpl_multiseason_panel.csv" \
+            --feature-set base \
+            --predictions-out "$RUNNER_TEMP/cta_fpl_position_ablation/base_predictions.csv" \
+            --out "$RUNNER_TEMP/cta_fpl_position_ablation/base_report.json"
+      - name: Evaluate position-aware 2PM feature set
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/evaluate_two_pm_transformer_walk_forward.py \
+            --input "$RUNNER_TEMP/cta_fpl_position_ablation/vaastav_fpl_multiseason_panel.csv" \
+            --feature-set position \
+            --predictions-out "$RUNNER_TEMP/cta_fpl_position_ablation/position_predictions.csv" \
+            --out "$RUNNER_TEMP/cta_fpl_position_ablation/position_report.json"
+      - name: Compare paired player-gameweek predictions
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/compare_2pm_position_ablation.py \
+            --base-predictions "$RUNNER_TEMP/cta_fpl_position_ablation/base_predictions.csv" \
+            --position-predictions "$RUNNER_TEMP/cta_fpl_position_ablation/position_predictions.csv" \
+            --out "$RUNNER_TEMP/cta_fpl_position_ablation/paired_ablation_report.json"
+      - name: Confirm research panel and player-level predictions remain runner-local
+        run: |
+          echo "Historical source data, panels, predictions and paired player rows remain runner-local."
+          echo "Only aggregate logs are retained; no research artifact is uploaded."
