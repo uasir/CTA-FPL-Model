@@ -15,6 +15,10 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/personal_squad_engine.py"
       - "canonical_candidate/engineering_workbench/scripts/train_fpl_exploratory_ridge.py"
       - "canonical_candidate/engineering_workbench/scripts/run_fpl_personal_squad_scale_smoke_test.py"
+      - "canonical_candidate/engineering_workbench/scripts/personal_squad_engine.py"
+      - "canonical_candidate/engineering_workbench/src/js/personal_squad_engine.mjs"
+      - "canonical_candidate/engineering_workbench/tests/test_personal_squad_engine.py"
+      - "canonical_candidate/engineering_workbench/tests/js/emit_personal_squad_cta_outputs.mjs"
       - "canonical_candidate/engineering_workbench/scripts/compare_fpl_general_market_outputs.py"
       - "canonical_candidate/engineering_workbench/src/js/general_market_engine.mjs"
       - "canonical_candidate/engineering_workbench/src/js/personal_squad_engine.mjs"
@@ -78,7 +82,8 @@ jobs:
             tests/test_fpl_naive_baselines.py \
             tests/test_fpl_covariance.py \
             tests/test_fpl_effective_ownership.py \
-            tests/test_fpl_baseline_forecast_snapshot.py \
+            tests/test_fpl_baseline_forecast_snapshot.py \\
+            tests/test_personal_squad_engine.py \
             tests/test_fpl_general_market_baseline.py \
             tests/test_fpl_personal_squad_scale_smoke_test.py \
             tests/test_fpl_personal_squad_parity.py \
@@ -389,6 +394,8 @@ jobs:
               summary["synthetic_squad_players"] = p.get("synthetic_squad_players")
               summary["starting_xi_count"] = p.get("starting_xi_count")
               summary["transfer_candidate_count"] = p.get("transfer_candidate_count")
+              summary["cta_context_attached_to_starting_xi"] = p.get("cta_context_attached_to_starting_xi", False)
+              summary["cta_context_attached_to_transfer_alternatives"] = p.get("cta_context_attached_to_transfer_alternatives", False)
           summary["decision_use_status"] = "RESEARCH_ONLY_NOT_IN_BASELINE"
           summary["publication_policy"] = "Aggregate metrics only; player-level forecast and CTA features remain runner-local."
           target.write_text(json.dumps(summary, indent=2))

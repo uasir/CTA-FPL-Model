@@ -83,6 +83,9 @@ def run(snapshot):
         "risk_profile_applied":result["portfolio_risk"]["risk_profile_applied"],
         "covar_used":result["portfolio_risk"]["covar_used"],
         "recommendation_status":result["recommendation_status"],
+        "cta_context_attached_to_starting_xi":len(result["squad_plan"].get("starting_xi_cta_context",[]))==len(result["squad_plan"]["starting_xi"]),
+        "cta_context_attached_to_transfer_alternatives":all("cta_context" in candidate for candidate in result["transfer_recommendation"]["alternatives"]),
+        "cta_context_status":result["squad_plan"].get("cta_context_status","UNAVAILABLE"),
     }
     return result,report
 

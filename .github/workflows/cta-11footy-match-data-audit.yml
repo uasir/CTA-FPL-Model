@@ -323,17 +323,21 @@ jobs:
           if coverage.get("cta_features_used_in_expected_points") is not False or coverage.get("cta_composite") is not None:
               raise SystemExit("Unvalidated CTA features must not alter ep_next or create a composite score")
           overall = general.get("categories", {}).get("overall", [])
-          if not overall or "cta" not in overall[0]:
+          if not overall or not isinstance(overall[0], dict) or "cta" not in overall[0]:
               raise SystemExit("General-market engine did not preserve the CTA feature sidecar")
-          starting = personal.get("squad_plan", {}).get("starting_xi", [])
-          if not starting or not any("cta" in player for player in starting):
-              raise SystemExit("Personal-squad engine did not preserve the CTA feature sidecar")
+          starting_context = personal.get("squad_plan", {}).get("starting_xi_cta_context", [])
+          if len(starting_context) != 11 or not all("cta" in player for player in starting_context):
+              raise SystemExit("Personal-squad engine did not preserve CTA context for the starting XI")
+          alternatives = personal.get("transfer_recommendation", {}).get("alternatives", [])
+          if alternatives and not all("cta_context" in candidate for candidate in alternatives):
+              raise SystemExit("Personal-squad engine did not preserve CTA context for transfer alternatives")
           print(json.dumps({
               "cta_sidecar_integrated": baseline.get("cta_sidecar_integrated"),
               "cta_features_used_in_expected_points": coverage.get("cta_features_used_in_expected_points"),
               "cta_composite": coverage.get("cta_composite"),
               "general_market_preserves_cta": True,
               "personal_squad_preserves_cta": True,
+              "personal_squad_transfer_candidates_preserve_cta": True,
           }, indent=2))
           PY
 

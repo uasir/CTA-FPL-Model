@@ -28,6 +28,24 @@ def request():
     return payload
 
 
+
+
+
+def request_with_cta():
+    payload = request()
+    for player in payload["player_forecasts"]:
+        player["cta"] = {
+            "identity_verified": True,
+            "identity_status": "VERIFIED_IDENTITY_AND_PRIOR_CTA_HISTORY",
+            "coverage_status": "HAS_PRIOR_VERIFIED_HISTORY",
+            "source_snapshot_as_of": "2026-11-10T12:21:18+00:00",
+            "composite": None,
+            "decision_use_status": "RESEARCH_ONLY_NOT_IN_BASELINE",
+            "fixtures": [{"fixture_id": "501", "prior_matches_count": 3, "features": {"shots_avg": 2.5}}],
+        }
+    return payload
+
+
 def test_personal_squad_builds_legal_xi_and_transfer_recommendation():
     result = recommend_personal_squad(request())
     assert result["system"] == "personal_squad"
@@ -113,17 +131,7 @@ def test_python_and_javascript_personal_squad_outputs_are_identical():
 
 def test_cta_context_is_exposed_for_squad_and_transfer_candidates_without_changing_scores():
     baseline = recommend_personal_squad(request())
-    payload = request()
-    for player in payload["player_forecasts"]:
-        player["cta"] = {
-            "identity_verified": True,
-            "identity_status": "VERIFIED_IDENTITY_AND_PRIOR_CTA_HISTORY",
-            "coverage_status": "HAS_PRIOR_VERIFIED_HISTORY",
-            "source_snapshot_as_of": "2026-11-10T12:21:18+00:00",
-            "composite": None,
-            "decision_use_status": "RESEARCH_ONLY_NOT_IN_BASELINE",
-            "fixtures": [{"fixture_id": "501", "prior_matches_count": 3, "features": {"shots_avg": 2.5}}],
-        }
+    payload = request_with_cta()
     result = recommend_personal_squad(payload)
     assert result["squad_plan"]["starting_xi"] == baseline["squad_plan"]["starting_xi"]
     assert result["squad_plan"]["expected_starting_points"] == baseline["squad_plan"]["expected_starting_points"]
@@ -135,6 +143,22 @@ def test_cta_context_is_exposed_for_squad_and_transfer_candidates_without_changi
     assert best["cta_context"]["outgoing"]["cta"]["composite"] is None
     assert best["cta_context"]["incoming"]["cta"]["coverage_status"] == "HAS_PRIOR_VERIFIED_HISTORY"
     assert result["squad_plan"]["cta_context_status"] == "RESEARCH_ONLY_NOT_IN_BASELINE"
+
+
+
+def test_python_and_javascript_cta_context_outputs_are_identical():
+    test_dir = Path(__file__).parent
+    runner = test_dir / "js" / "emit_personal_squad_cta_outputs.mjs"
+    completed = subprocess.run(
+        ["node", str(runner)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    javascript = json.loads(completed.stdout)
+    python = recommend_personal_squad(request_with_cta())
+    assert javascript == python
+
 
 def test_personal_squad_stale_snapshot_remains_exploratory():
     payload = request()
