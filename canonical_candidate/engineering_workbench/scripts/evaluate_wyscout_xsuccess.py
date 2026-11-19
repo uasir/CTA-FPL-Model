@@ -14,6 +14,8 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
+
 
 def _features(event):
     positions = event.get("positions") or []
@@ -71,35 +73,31 @@ def _sigmoid(value):
 
 
 def _standardize(train, other=None):
-    width = len(train[0])
-    means = [sum(row[j] for row in train) / len(train) for j in range(width)]
-    scales = []
-    for j in range(width):
-        variance = sum((row[j] - means[j]) ** 2 for row in train) / len(train)
-        scales.append(math.sqrt(variance) if variance > 1e-10 else 1.0)
-    def transform(rows):
-        return [[(row[j] - means[j]) / scales[j] for j in range(width)] for row in rows]
-    return transform(train), transform(other) if other is not None else None, means, scales
+    train_array = np.asarray(train, dtype=float)
+    means = train_array.mean(axis=0)
+    scales = train_array.std(axis=0)
+    scales = np.where(scales > 1e-10, scales, 1.0)
+    train_scaled = (train_array - means) / scales
+    other_scaled = None
+    if other is not None:
+        other_scaled = (np.asarray(other, dtype=float) - means) / scales
+    return train_scaled, other_scaled, means, scales
 
 
-def _fit_logistic(matrix, labels, l2=0.05, iterations=2500, learning_rate=0.08):
-    width = len(matrix[0])
-    weights = [0.0] * (width + 1)
+def _fit_logistic(matrix, labels, l2=0.05, iterations=1000, learning_rate=0.08):
+    matrix = np.asarray(matrix, dtype=float)
+    labels = np.asarray(labels, dtype=float)
+    weights = np.zeros(matrix.shape[1], dtype=float)
+    intercept = 0.0
+    count = len(labels)
     for step in range(iterations):
-        gradients = [0.0] * (width + 1)
-        for row, label in zip(matrix, labels):
-            probability = _sigmoid(weights[0] + sum(w * x for w, x in zip(weights[1:], row)))
-            error = probability - label
-            gradients[0] += error
-            for j, value in enumerate(row, start=1):
-                gradients[j] += error * value
+        logits = np.clip(intercept + matrix @ weights, -30.0, 30.0)
+        probabilities = 1.0 / (1.0 + np.exp(-logits))
+        errors = probabilities - labels
         rate = learning_rate / math.sqrt(1.0 + step / 250.0)
-        count = len(matrix)
-        weights[0] -= rate * gradients[0] / count
-        for j in range(1, width + 1):
-            weights[j] -= rate * (gradients[j] / count + l2 * weights[j] / count)
-    return weights
-
+        intercept -= rate * float(errors.mean())
+        weights -= rate * (matrix.T @ errors / count + l2 * weights)
+    return intercept, weights
 
 def _auc(labels, scores):
     positives, negatives = sum(labels), len(labels) - sum(labels)
@@ -136,9 +134,10 @@ def evaluate(samples, train_fraction=0.7):
     y_train = [s["completed"] for s in train]
     y_test = [s["completed"] for s in test]
     weights = _fit_logistic(x_train, y_train)
-    predictions = [_sigmoid(weights[0] + sum(w * x for w, x in zip(weights[1:], row)))
-                   for row in x_test]
-    base_rate = sum(y_train) / len(y_train)
+    intercept, coefficients = weights
+    logits = np.clip(intercept + x_test @ coefficients, -30.0, 30.0)
+    predictions = (1.0 / (1.0 + np.exp(-logits))).tolist()
+    base_rate = float(sum(y_train) / len(y_train))
     baseline = [base_rate] * len(y_test)
     bins = []
     for lower in (0.0, 0.2, 0.4, 0.6, 0.8):
