@@ -87,7 +87,7 @@ def test_multiseason_evaluation_uses_chronological_season_gameweek_holdout():
 
 
 def test_source_csv_reader_supports_legacy_windows_1252_names():
-    payload = "name,element\\nAndré,10\\n".encode("cp1252")
+    payload = "name,element\nAndré,10\n".encode("cp1252")
     rows, encoding = read_csv_bytes(payload)
     assert encoding == "cp1252"
     assert rows[0]["name"] == "André"
