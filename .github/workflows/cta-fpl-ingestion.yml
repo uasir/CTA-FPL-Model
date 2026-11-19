@@ -154,8 +154,8 @@ jobs:
             --fpl-players run_artifacts/fpl_official/fpl_players.csv \
             --fpl-player-fixture run_artifacts/fpl_official/fpl_player_fixture.csv \
             --candidates run_artifacts/11footy_fpl/identity_candidates.csv \
-            --crosswalk run_artifacts/11footy_fpl/crosswalk_validation/verified_provider_fpl_crosswalk.csv \
-            --crosswalk-validation run_artifacts/11footy_fpl/crosswalk_validation/crosswalk_validation.json \
+            --crosswalk run_artifacts/11footy_fpl/verified_identity/validation/verified_provider_fpl_crosswalk.csv \
+            --crosswalk-validation run_artifacts/11footy_fpl/verified_identity/validation/crosswalk_validation.json \
             --season "$FPL_SEASON" \
             --release 11footy-2026-11-10 \
             --competition-id 1 \
