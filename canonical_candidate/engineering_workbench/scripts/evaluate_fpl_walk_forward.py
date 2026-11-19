@@ -91,11 +91,24 @@ def calibrate_minutes_temperature(model,rows):
     return best[1]
 
 
-def minutes_distribution_metrics(actual,probabilities):
+def fit_minutes_band_representatives(rows):
+    """Estimate each class's mean minutes from training rows only."""
+    values=[[] for _ in range(5)]
+    for row in rows:
+        minutes=float(row["actual_minutes"])
+        values[minutes_band(minutes)].append(minutes)
+    return np.asarray([
+        float(np.mean(group)) if group else float(MINUTES_BAND_REPRESENTATIVES[i])
+        for i,group in enumerate(values)
+    ],dtype=float)
+
+
+def minutes_distribution_metrics(actual,probabilities,representatives=None):
     labels=np.asarray([minutes_band(v) for v in actual],dtype=int)
     probs=np.asarray(probabilities,dtype=float)
     onehot=np.eye(5)[labels]
-    expected=probs@MINUTES_BAND_REPRESENTATIVES
+    reps=MINUTES_BAND_REPRESENTATIVES if representatives is None else np.asarray(representatives,dtype=float)
+    expected=probs@reps
     return {
         "mae":round(mae(actual,expected.tolist()),6),
         "rmse":round(rmse(actual,expected.tolist()),6),
@@ -167,6 +180,7 @@ def score_fold(train, valid, season):
     appearance_model=fit_linear_probability(appearance_fit)
     minutes_band_model=fit_minutes_band_model(appearance_fit)
     minutes_band_temperature=calibrate_minutes_temperature(minutes_band_model,calibration)
+    minutes_band_representatives=fit_minutes_band_representatives(appearance_fit)
     calibration_scores=[predict(appearance_model,r) for r in calibration]
     calibrator=fit_platt(calibration_scores,[r["appeared"] for r in calibration])
     minutes_model=fit_ridge_fast(train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
@@ -275,10 +289,13 @@ def score_fold(train, valid, season):
         },
         "minutes_bands":{
             "temperature":round(minutes_band_temperature,3),
-            "calibrated":minutes_distribution_metrics(actual_minutes,minutes_band_probabilities_calibrated),
-            "raw":minutes_distribution_metrics(actual_minutes,minutes_band_probabilities_raw),
-            "last_gameweek_or_training_prior":minutes_distribution_metrics(actual_minutes,minutes_band_last_gw),
-            "training_class_prior":minutes_distribution_metrics(actual_minutes,minutes_band_train_prior),
+            "training_mean_representatives":minutes_band_representatives.tolist(),
+            "calibrated":minutes_distribution_metrics(actual_minutes,minutes_band_probabilities_calibrated,minutes_band_representatives),
+            "raw":minutes_distribution_metrics(actual_minutes,minutes_band_probabilities_raw,minutes_band_representatives),
+            "fixed_midpoint_calibrated":minutes_distribution_metrics(actual_minutes,minutes_band_probabilities_calibrated),
+            "fixed_midpoint_raw":minutes_distribution_metrics(actual_minutes,minutes_band_probabilities_raw),
+            "last_gameweek_or_training_prior":minutes_distribution_metrics(actual_minutes,minutes_band_last_gw,minutes_band_representatives),
+            "training_class_prior":minutes_distribution_metrics(actual_minutes,minutes_band_train_prior,minutes_band_representatives),
         },
         "minutes":{
             "unconditional_regression":regression_metrics(actual_minutes,predicted_minutes),
@@ -337,7 +354,7 @@ def evaluate_walk_forward(rows):
         "minutes_bands":{
             model:{metric:weighted_metric("minutes_bands",model,metric)
                    for metric in ("mae","rmse","multiclass_log_loss","multiclass_brier","accuracy")}
-            for model in ("calibrated","raw","last_gameweek_or_training_prior","training_class_prior")
+            for model in ("calibrated","raw","fixed_midpoint_calibrated","fixed_midpoint_raw","last_gameweek_or_training_prior","training_class_prior")
         },
         "minutes":{
             "unconditional_regression_mae":weighted_metric("minutes","unconditional_regression","mae"),
