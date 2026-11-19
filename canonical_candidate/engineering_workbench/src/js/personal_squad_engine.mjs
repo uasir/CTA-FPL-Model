@@ -255,6 +255,80 @@ function transferCandidates(request, forecasts) {
   };
 }
 
+function squadSupportMetrics(owned, starting, benchOrder, forecastById, captain) {
+  const benchPlayers = benchOrder.map((id) => forecastById.get(id));
+  const topTwo = [...benchPlayers].sort(playerOrder).slice(0, 2);
+  const eoOwned = owned.filter((player) => typeof player.effective_ownership_pct === "number"
+    && Number.isFinite(player.effective_ownership_pct)).map((player) => player.effective_ownership_pct);
+  const eoStarting = starting.filter((player) => typeof player.effective_ownership_pct === "number"
+    && Number.isFinite(player.effective_ownership_pct)).map((player) => player.effective_ownership_pct);
+  return {
+    bench_depth: {
+      outfield_bench_count: benchPlayers.length,
+      top_two_outfield_bench_ids: topTwo.map((player) => player.fpl_element_id),
+      top_two_outfield_bench_expected_points: Number(topTwo.reduce((sum, player) => sum + player.expected_points, 0).toFixed(6)),
+      top_two_outfield_bench_mean_expected_minutes: topTwo.length
+        ? Number((topTwo.reduce((sum, player) => sum + player.expected_minutes, 0) / topTwo.length).toFixed(6)) : null,
+      policy: "DESCRIPTIVE_ONLY_FIXED_STARTING_XI_NO_ROUTINE_ROTATION",
+      note: "Bench depth is reported separately; it does not displace a higher-EV starting player or trigger routine rotation.",
+    },
+    effective_ownership_context: {
+      owned_players_with_eo: eoOwned.length,
+      owned_player_eo_coverage: eoOwned.length / owned.length,
+      starting_xi_players_with_eo: eoStarting.length,
+      starting_xi_eo_coverage: eoStarting.length / starting.length,
+      mean_owned_eo_pct: eoOwned.length ? eoOwned.reduce((sum, value) => sum + value, 0) / eoOwned.length : null,
+      mean_starting_xi_eo_pct: eoStarting.length ? eoStarting.reduce((sum, value) => sum + value, 0) / eoStarting.length : null,
+      captain_eo_pct: captain.effective_ownership_pct ?? null,
+      decision_role: "FIELD_REFERENCE_ONLY_NOT_A_CTA_PREREQUISITE",
+      missing_eo_policy: "PRESERVE_MISSING_AND_REPORT_COVERAGE",
+    },
+  };
+}
+
+function decisionAudit(request, transfer, starting, captain, vice) {
+  const options = [{ option_id: "HOLD", action: "HOLD", predicted_net_expected_points_gain: 0, feasible: true }];
+  for (const candidate of transfer.alternatives) {
+    options.push({
+      option_id: `TRANSFER:${candidate.transfer_out_id}:${candidate.transfer_in_id}`,
+      action: "TRANSFER",
+      transfer_out_id: candidate.transfer_out_id,
+      transfer_in_id: candidate.transfer_in_id,
+      predicted_net_expected_points_gain: candidate.net_expected_points_gain,
+      feasible: true,
+    });
+  }
+  const chosen = transfer.action === "TRANSFER" && transfer.best_candidate
+    ? `TRANSFER:${transfer.best_candidate.transfer_out_id}:${transfer.best_candidate.transfer_in_id}` : "HOLD";
+  return {
+    decision_record_status: "FROZEN_PRE_DEADLINE_RECOMMENDATION_INPUT_REQUIRED",
+    forecast_snapshot_id: request.forecast_snapshot_id,
+    model_version: request.model_version,
+    target_horizon_gameweeks: request.forecast_horizon_gameweeks,
+    transfer_decision: {
+      chosen_option_id: chosen,
+      options,
+      candidate_universe_count: transfer.candidate_count,
+      recorded_alternative_scope: "HOLD plus top-ranked feasible transfers returned by the optimiser; regret against this shortlist must not be described as global feasible-set regret.",
+      realised_utility: null,
+      scoring_status: "AWAITING_OFFICIAL_GAMEWEEK_OUTCOMES",
+    },
+    starting_xi_decision: {
+      chosen_player_ids: starting.map((player) => player.fpl_element_id),
+      formation: "FIXED_USER_REQUESTED_OR_ENGINE_SELECTED_FORMATION",
+      realised_utility: null,
+      scoring_status: "AWAITING_OFFICIAL_GAMEWEEK_OUTCOMES",
+    },
+    captaincy_decision: {
+      chosen_option_id: String(captain.fpl_element_id),
+      vice_captain_option_id: String(vice.fpl_element_id),
+      options: starting.map((player) => ({ option_id: String(player.fpl_element_id), predicted_points: player.expected_points, feasible: true })),
+      realised_utility: null,
+      scoring_status: "AWAITING_OFFICIAL_GAMEWEEK_OUTCOMES",
+    },
+  };
+}
+
 export function recommendPersonalSquad(payload) {
   const request = validatePersonalSquadRequest(payload);
   const forecasts = request.player_forecasts;
@@ -299,6 +373,8 @@ export function recommendPersonalSquad(payload) {
   const expectedPoints = starting.reduce((sum, player) => sum + player.expected_points, 0)
     + captain.expected_points;
   const transfer = transferCandidates(request, forecasts);
+  const supportMetrics = squadSupportMetrics(owned, starting, benchOrder, forecastById, captain);
+  const audit = decisionAudit(request, transfer, starting, captain, vice);
   const quality = request.forecast_quality;
   return {
     system: "personal_squad",
@@ -326,6 +402,7 @@ export function recommendPersonalSquad(payload) {
       reserve_goalkeeper: reserveGk[0].fpl_element_id,
       bench_order: benchOrder,
       expected_starting_points: expectedPoints,
+      ...supportMetrics,
       ...(hasCtaSidecar ? {
         owned_squad_cta_context: squad.map((row) => playerCtaContext(forecastById.get(row.fpl_element_id))),
         starting_xi_cta_context: starting.map(playerCtaContext),
@@ -334,6 +411,7 @@ export function recommendPersonalSquad(payload) {
         cta_context_status: "RESEARCH_ONLY_NOT_IN_BASELINE",
       } : {}),
     },
+    decision_audit: audit,
     portfolio_risk: {
       covar_used: false,
       risk_profile_applied: false,
