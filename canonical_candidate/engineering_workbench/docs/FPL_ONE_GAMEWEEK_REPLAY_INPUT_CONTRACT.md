@@ -93,16 +93,16 @@ Official rule references:
 
 ## Paired policy comparison
 
-For each deadline, include the same policy set (for example `hold`, `conventional`, `cta_informed`) and the same `starting_state_id`. Each policy may submit a different frozen action, but all actions are evaluated against the same official outcome maps.
+For every unique `(deadline_id, starting_state_id)` pair, include the same policy set (for example `hold`, `conventional`, `cta_informed`). This supports multiple managers or manager states at the same deadline. Each policy may submit a different frozen action, but all actions for that starting state are evaluated against the same official outcome maps.
 
 The evaluator rejects:
-- missing or duplicated policies within a deadline;
-- different policy sets across deadlines;
-- mismatched starting-state IDs;
+- missing or duplicated policies within a manager-deadline starting state;
+- different policy sets across starting states;
+- missing baseline policies;
 - missing or post-deadline decision timestamps;
 - invalid lineups or unverified actions/chips.
 
-Outputs include per-policy net points, mean and total delta versus the baseline, and the proportion of deadlines won/lost/tied against the baseline.
+Outputs aggregate across manager-deadline states and report per-policy net points, mean and total paired delta versus the baseline, positive/negative/tied state rates, and per-deadline means across starting states. The private `starting_state_id` join key is not emitted in the aggregate report. This remains a one-step paired comparison; manager-state trajectories are not linked across deadlines.
 
 ## Important interpretation limits
 
