@@ -72,7 +72,7 @@ def test_affine_expected_points_calibrator_uses_calibration_pairs_and_clips_nega
     assert slope == pytest.approx(2.0)
     assert intercept == pytest.approx(0.0)
     calibrated = apply_affine_expected_points_calibrator([-1.0, 1.0, 2.0], slope, intercept)
-    assert calibrated == [0.0, 2.0, 4.0]
+    assert calibrated == pytest.approx([0.0, 2.0, 4.0])
 
 
 def test_affine_expected_points_calibrator_falls_back_when_calibration_is_degenerate():
