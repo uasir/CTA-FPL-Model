@@ -156,8 +156,16 @@ def replay_gameweek(decision: Mapping, official_points: Mapping,
     free_transfers = int(decision.get("free_transfers", 1))
     if transfers_made < 0 or free_transfers < 0:
         raise ValueError("Transfer counts cannot be negative")
-    hit_transfers = 0 if chip in {"free_hit", "wildcard"} else max(0, transfers_made - free_transfers)
-    hits = hit_transfers * HIT_PER_TRANSFER
+    if "transfer_hit_cost" in decision:
+        hits = _number(decision["transfer_hit_cost"], "Transfer hit cost")
+        if hits < 0 or hits % HIT_PER_TRANSFER != 0:
+            raise ValueError("Transfer hit cost must be a non-negative multiple of four")
+        if chip in {"free_hit", "wildcard"} and hits != 0:
+            raise ValueError("Wildcard and Free Hit decisions cannot carry a transfer hit")
+        hit_transfers = int(hits / HIT_PER_TRANSFER)
+    else:
+        hit_transfers = 0 if chip in {"free_hit", "wildcard"} else max(0, transfers_made - free_transfers)
+        hits = hit_transfers * HIT_PER_TRANSFER
     gross_points = active_score + captain_extra_points
     net_points = gross_points - hits
 
