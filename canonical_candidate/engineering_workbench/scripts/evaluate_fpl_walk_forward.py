@@ -259,6 +259,40 @@ def select_blend_weight(actual, hurdle, two_part, objective="mae"):
     return float(min(weights,key=lambda weight:(loss(weight),float(weight))))
 
 
+def select_group_blend_weights(actual,hurdle,two_part,groups,objective,min_count=100):
+    """Select forecast-band blend weights on calibration only, with global fallback."""
+    y=np.asarray(actual,dtype=float); h=np.asarray(hurdle,dtype=float); t=np.asarray(two_part,dtype=float)
+    labels=np.asarray(groups,dtype=object)
+    if len(y)==0 or not (len(y)==len(h)==len(t)==len(labels)):
+        raise ValueError("Grouped blend-selection arrays must be non-empty and aligned")
+    if min_count<1:
+        raise ValueError("min_count must be positive")
+    global_weight=select_blend_weight(y.tolist(),h.tolist(),t.tolist(),objective)
+    weights={}; counts={}
+    for group in sorted(set(labels.tolist())):
+        mask=labels==group
+        counts[str(group)]=int(mask.sum())
+        weights[str(group)]=(
+            select_blend_weight(y[mask].tolist(),h[mask].tolist(),t[mask].tolist(),objective)
+            if int(mask.sum())>=min_count else global_weight
+        )
+    return {"global_fallback_weight":global_weight,"min_group_count":int(min_count),
+            "weights":weights,"counts":counts}
+
+
+def apply_group_blend(hurdle,two_part,groups,selection):
+    h=np.asarray(hurdle,dtype=float); t=np.asarray(two_part,dtype=float)
+    labels=np.asarray(groups,dtype=object)
+    if len(h)==0 or not (len(h)==len(t)==len(labels)):
+        raise ValueError("Grouped blend inputs must be non-empty and aligned")
+    weights=selection["weights"]; fallback=float(selection["global_fallback_weight"])
+    return [
+        float(weights.get(str(group),fallback))*float(hv)
+        +(1.0-float(weights.get(str(group),fallback)))*float(tv)
+        for hv,tv,group in zip(h,t,labels)
+    ]
+
+
 def points_distribution_metrics(actual,probabilities,representatives=None):
     labels=np.asarray([points_band(v) for v in actual],dtype=int)
     probs=np.asarray(probabilities,dtype=float)
@@ -471,7 +505,7 @@ def score_fold(train, valid, season):
     # The selection-slice comparator must also be trained without selection labels.
     blend_conditional_model=fit_ridge_fast(positive_appearance_fit,"actual_points",FEATURES,RIDGE_LAMBDA)
     conditional_model=fit_ridge_fast(positive_train,"actual_points",FEATURES,RIDGE_LAMBDA)
-    blend_selection_actual=[]; blend_selection_hurdle=[]; blend_selection_two_part=[]
+    blend_selection_actual=[]; blend_selection_hurdle=[]; blend_selection_two_part=[]; blend_selection_groups=[]
     for row in blend_selection:
         if row["last5_baseline_points"] is None:
             continue
@@ -485,8 +519,11 @@ def score_fold(train, valid, season):
         blend_selection_hurdle.append(hurdle_ep)
         blend_selection_two_part.append(raw_p*conditional_ep)
         blend_selection_actual.append(row["actual_points"])
+        blend_selection_groups.append(raw_two_part_forecast_band(raw_p*conditional_ep))
     blend_weight_mae=select_blend_weight(blend_selection_actual,blend_selection_hurdle,blend_selection_two_part,"mae")
     blend_weight_mse=select_blend_weight(blend_selection_actual,blend_selection_hurdle,blend_selection_two_part,"mse")
+    grouped_blend_mae=select_group_blend_weights(blend_selection_actual,blend_selection_hurdle,blend_selection_two_part,blend_selection_groups,"mae",min_count=100)
+    grouped_blend_mse=select_group_blend_weights(blend_selection_actual,blend_selection_hurdle,blend_selection_two_part,blend_selection_groups,"mse",min_count=100)
     minutes_model=fit_ridge_fast(train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
     conditional_minutes_model=fit_ridge_fast(positive_train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
     # A compact, training-only persistence model tests whether recent minutes alone
@@ -518,6 +555,7 @@ def score_fold(train, valid, season):
     hurdle_points_raw_expected=[]; hurdle_points_calibrated_expected=[]; calibrated_appearance_buckets=[]
     blend_points_025=[]; blend_points_050=[]; blend_points_075=[]
     blend_points_selected_mae=[]; blend_points_selected_mse=[]
+    blend_points_grouped_mae=[]; blend_points_grouped_mse=[]
     player_season_clusters=[]
     for row in valid:
         # All predictions are created before actual labels are read for scoring.
@@ -557,6 +595,9 @@ def score_fold(train, valid, season):
         blend_points_075.append(blend_expected_points(hurdle_cal_ep,raw_ep,0.75))
         blend_points_selected_mae.append(blend_expected_points(hurdle_cal_ep,raw_ep,blend_weight_mae))
         blend_points_selected_mse.append(blend_expected_points(hurdle_cal_ep,raw_ep,blend_weight_mse))
+        validation_band=raw_two_part_forecast_band(raw_ep)
+        blend_points_grouped_mae.append(apply_group_blend([hurdle_cal_ep],[raw_ep],[validation_band],grouped_blend_mae)[0])
+        blend_points_grouped_mse.append(apply_group_blend([hurdle_cal_ep],[raw_ep],[validation_band],grouped_blend_mse)[0])
         minutes_band_probabilities_raw.append(band_raw.tolist())
         points_band_probabilities_raw.append(points_raw.tolist())
         points_band_probabilities_calibrated.append(points_cal.tolist())
@@ -612,7 +653,8 @@ def score_fold(train, valid, season):
         "appearance_fit_player_gameweeks":len(appearance_fit),
         "calibration_player_gameweeks":len(calibration),
         "blend_selection_player_gameweeks":len(blend_selection_actual),
-        "blend_selected_weights":{"mae":round(blend_weight_mae,3),"mse":round(blend_weight_mse,3)},
+        "blend_selected_weights":{"mae":round(blend_weight_mae,3),"mse":round(blend_weight_mse,3),
+            "grouped_mae":grouped_blend_mae,"grouped_mse":grouped_blend_mse},
         "calibration_appearance_positive":sum(r["appeared"]==1.0 for r in calibration),
         "calibration_appearance_negative":sum(r["appeared"]==0.0 for r in calibration),
         "calibration_appearance_rate":round(sum(r["appeared"] for r in calibration)/len(calibration),6),
@@ -667,6 +709,8 @@ def score_fold(train, valid, season):
             "blend_half":blend_points_050,
             "blend_selected_mae":blend_points_selected_mae,
             "blend_selected_mse":blend_points_selected_mse,
+            "blend_grouped_mae":blend_points_grouped_mae,
+            "blend_grouped_mse":blend_points_grouped_mse,
             "player_season_clusters":player_season_clusters,
         },
         "paired_points_errors":{
@@ -678,6 +722,8 @@ def score_fold(train, valid, season):
             "blend_half_vs_two_part_raw":paired_error_comparison(actual_points,blend_points_050,two_part_raw),
             "blend_selected_mae_vs_two_part_raw":paired_error_comparison(actual_points,blend_points_selected_mae,two_part_raw),
             "blend_selected_mse_vs_two_part_raw":paired_error_comparison(actual_points,blend_points_selected_mse,two_part_raw),
+            "blend_grouped_mae_vs_two_part_raw":paired_error_comparison(actual_points,blend_points_grouped_mae,two_part_raw),
+            "blend_grouped_mse_vs_two_part_raw":paired_error_comparison(actual_points,blend_points_grouped_mse,two_part_raw),
             "calibrated_hurdle_vs_two_part_raw_by_appearance_probability":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,two_part_raw,calibrated_appearance_buckets)["by_group"],
             "calibrated_hurdle_vs_two_part_raw_by_raw_two_part_forecast_band":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,two_part_raw,[raw_two_part_forecast_band(v) for v in two_part_raw])["by_group"],
         },
@@ -698,6 +744,8 @@ def score_fold(train, valid, season):
             "blend_hurdle_075":regression_metrics(actual_points,blend_points_075),
             "blend_selected_mae":regression_metrics(actual_points,blend_points_selected_mae),
             "blend_selected_mse":regression_metrics(actual_points,blend_points_selected_mse),
+            "blend_grouped_mae":regression_metrics(actual_points,blend_points_grouped_mae),
+            "blend_grouped_mse":regression_metrics(actual_points,blend_points_grouped_mse),
         },
     }
 
@@ -735,6 +783,8 @@ def evaluate_walk_forward(rows):
     pooled_blend_half=[v for item in pooled_bootstrap_inputs for v in item["blend_half"]]
     pooled_blend_selected_mae=[v for item in pooled_bootstrap_inputs for v in item["blend_selected_mae"]]
     pooled_blend_selected_mse=[v for item in pooled_bootstrap_inputs for v in item["blend_selected_mse"]]
+    pooled_blend_grouped_mae=[v for item in pooled_bootstrap_inputs for v in item["blend_grouped_mae"]]
+    pooled_blend_grouped_mse=[v for item in pooled_bootstrap_inputs for v in item["blend_grouped_mse"]]
     pooled_clusters=[v for item in pooled_bootstrap_inputs for v in item["player_season_clusters"]]
 
     # Pool fold-level metric values weighted by their validation player-GW counts.
@@ -788,7 +838,7 @@ def evaluate_walk_forward(rows):
                 metric:weighted_metric("points",model,metric)
                 for metric in ("mae","rmse","mean_error")
             }
-            for model in ("two_part_calibrated","two_part_raw","minutes_band_raw","minutes_band_calibrated","direct","last5_baseline","blend_hurdle_025","blend_hurdle_050","blend_hurdle_075","blend_selected_mae","blend_selected_mse")
+            for model in ("two_part_calibrated","two_part_raw","minutes_band_raw","minutes_band_calibrated","direct","last5_baseline","blend_hurdle_025","blend_hurdle_050","blend_hurdle_075","blend_selected_mae","blend_selected_mse","blend_grouped_mae","blend_grouped_mse")
         },
         "tail_error_diagnostics":{
             "calibrated_hurdle":forecast_error_tail_metrics(pooled_actual,pooled_hurdle),
@@ -800,11 +850,15 @@ def evaluate_walk_forward(rows):
                 metric:round(sum(f["validation_player_gameweeks"]*f["paired_points_errors"][key][metric] for f in folds)/sum(f["validation_player_gameweeks"] for f in folds),6)
                 for metric in ("mean_absolute_error_delta","mean_squared_error_delta","candidate_absolute_error_win_rate","absolute_error_tie_rate")
             } | {"n":sum(f["paired_points_errors"][key]["n"] for f in folds)}
-            for key in ("calibrated_hurdle_vs_two_part_raw","calibrated_hurdle_vs_two_part_calibrated","calibrated_hurdle_vs_direct_ridge","calibrated_hurdle_vs_last5","raw_hurdle_vs_two_part_raw","blend_half_vs_two_part_raw","blend_selected_mae_vs_two_part_raw","blend_selected_mse_vs_two_part_raw")
+            for key in ("calibrated_hurdle_vs_two_part_raw","calibrated_hurdle_vs_two_part_calibrated","calibrated_hurdle_vs_direct_ridge","calibrated_hurdle_vs_last5","raw_hurdle_vs_two_part_raw","blend_half_vs_two_part_raw","blend_selected_mae_vs_two_part_raw","blend_selected_mse_vs_two_part_raw","blend_grouped_mae_vs_two_part_raw","blend_grouped_mse_vs_two_part_raw")
         },
     }
     pooled["paired_points_errors"]["calibrated_hurdle_vs_two_part_raw_by_raw_two_part_forecast_band"]=paired_error_comparison(
         pooled_actual,pooled_hurdle,pooled_two_part,[raw_two_part_forecast_band(v) for v in pooled_two_part])["by_group"]
+    pooled["paired_points_errors"]["blend_grouped_mae_vs_two_part_raw"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
+        pooled_actual,pooled_blend_grouped_mae,pooled_two_part,pooled_clusters,seed=20268119)
+    pooled["paired_points_errors"]["blend_grouped_mse_vs_two_part_raw"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
+        pooled_actual,pooled_blend_grouped_mse,pooled_two_part,pooled_clusters,seed=20269119)
     pooled["paired_points_errors"]["calibrated_hurdle_vs_two_part_raw"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
         pooled_actual,pooled_hurdle,pooled_two_part,pooled_clusters,seed=20263119)
     pooled["paired_points_errors"]["calibrated_hurdle_vs_direct_ridge"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
@@ -820,6 +874,8 @@ def evaluate_walk_forward(rows):
         "mse_mean":round(float(np.mean([f["blend_selected_weights"]["mse"] for f in folds])),3),
         "mae_by_season":{f["season"]:f["blend_selected_weights"]["mae"] for f in folds},
         "mse_by_season":{f["season"]:f["blend_selected_weights"]["mse"] for f in folds},
+        "grouped_mae_by_season":{f["season"]:f["blend_selected_weights"]["grouped_mae"] for f in folds},
+        "grouped_mse_by_season":{f["season"]:f["blend_selected_weights"]["grouped_mse"] for f in folds},
     }
     return {
         "status":"RESEARCH_ONLY",
