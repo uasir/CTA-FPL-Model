@@ -176,7 +176,7 @@ def build_verified_crosswalk(candidate_rows, verified_at=None, opta_crosswalk_ro
                 continue
             if str(row.get("confidence_level") or "").lower() != "review_required":
                 continue
-            if str(row.get("match_method") or "") != "exact_name_team":
+            if str(row.get("match_method") or "") != "exact_name_team_birth_date_missing":
                 continue
             provider_dob = str(row.get("provider_birth_date") or "").strip()
             fpl_dob = str(row.get("fpl_birth_date") or "").strip()

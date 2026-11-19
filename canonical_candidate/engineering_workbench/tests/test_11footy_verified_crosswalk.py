@@ -99,7 +99,7 @@ class Verify11footyCrosswalkTests(unittest.TestCase):
         }]
         opta_report = {"status": "PASS", "source_commit": "abc123", "source_sha256": "c" * 64}
         row = candidate(
-            match_method="exact_name_team",
+            match_method="exact_name_team_birth_date_missing",
             confidence_level="review_required",
             provider_birth_date="",
         )
@@ -126,7 +126,7 @@ class Verify11footyCrosswalkTests(unittest.TestCase):
             "evidence_url": "https://github.com/uasir/Opta-PulseLive/blob/abc/players.csv",
         }]
         opta_report = {"status": "PASS", "source_commit": "abc123", "source_sha256": "c" * 64}
-        row = candidate(match_method="exact_name_team", confidence_level="review_required", provider_birth_date="")
+        row = candidate(match_method="exact_name_team_birth_date_missing", confidence_level="review_required", provider_birth_date="")
         rows, report = build_verified_crosswalk([row], opta_crosswalk_rows=opta, opta_report=opta_report)
         self.assertEqual(rows, [])
         self.assertGreater(report["opta_bridge_exclusions_by_reason"].get("provider_full_name_disagreement", 0), 0)

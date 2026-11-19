@@ -97,16 +97,31 @@ def validate_rows(rows, provider):
                 continue
             provider_dob = (row.get("provider_birth_date") or "").strip()
             fpl_dob = (row.get("fpl_birth_date") or "").strip()
-            if provider_dob:
-                try:
+            try:
+                date.fromisoformat(fpl_dob[:10])
+                if provider_dob:
                     date.fromisoformat(provider_dob[:10])
-                    date.fromisoformat(fpl_dob[:10])
-                except ValueError:
-                    errors.append({"line": line, "error": "invalid_dob_in_opta_bridge_row"})
+            except ValueError:
+                errors.append({"line": line, "error": "invalid_or_missing_dob_in_opta_bridge_row"})
+                continue
+            if provider_dob and provider_dob[:10] != fpl_dob[:10]:
+                errors.append({"line": line, "error": "dob_conflict_in_opta_bridge_row"})
+                continue
+            if not (row.get("source_release") or "").strip():
+                errors.append({"line": line, "error": "opta_bridge_requires_11footy_source_release"})
+                continue
+            for hash_field in ("provider_source_sha256", "fpl_source_sha256"):
+                digest = (row.get(hash_field) or "").strip().lower()
+                if not re.fullmatch(r"[0-9a-f]{64}", digest):
+                    errors.append({"line": line, "error": "opta_bridge_requires_11footy_and_fpl_sha256", "field": hash_field})
+                    break
+            else:
+                digest = (row.get("corroborating_provider_source_sha256") or "").strip().lower()
+                if not re.fullmatch(r"[0-9a-f]{64}", digest):
+                    errors.append({"line": line, "error": "invalid_opta_source_sha256"})
                     continue
-                if provider_dob[:10] != fpl_dob[:10]:
-                    errors.append({"line": line, "error": "dob_conflict_in_opta_bridge_row"})
-                    continue
+            if any(error.get("line") == line for error in errors):
+                continue
             opta_hash = (row.get("corroborating_provider_source_sha256") or "").strip().lower()
             if not re.fullmatch(r"[0-9a-f]{64}", opta_hash):
                 errors.append({"line": line, "error": "invalid_opta_source_sha256"})
