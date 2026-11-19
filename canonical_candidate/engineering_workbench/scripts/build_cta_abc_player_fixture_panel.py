@@ -80,6 +80,7 @@ def build_panel(cta_rows, opta_team_rows, cta_source_report, opta_source_report)
     opta_as_of = parse_time(opta_as_of_value, "Opta source_snapshot_as_of") if opta_as_of_value else None
     cta_source_hashes = cta_source_report.get("source_hashes", {})
     opta_commit = (opta_source_report.get("identity") or {}).get("source_commit", "")
+    opta_provenance = opta_source_report.get("source_provenance", {})
     if not opta_as_of:
         raise ValueError("Opta source report must contain its pinned source snapshot timestamp")
 
@@ -204,9 +205,9 @@ def build_panel(cta_rows, opta_team_rows, cta_source_report, opta_source_report)
 
         layers = [
             LayerResult("A_temporal_football_value", "RESEARCH_ONLY", a, coverage(a),
-                        deadline.isoformat(), f"11footy source hashes={json.dumps(cta_source_hashes, sort_keys=True)}; Opta commit={opta_commit}"),
+                        deadline.isoformat(), f"11footy source hashes={json.dumps(cta_source_hashes, sort_keys=True)}; Opta provenance={json.dumps(opta_provenance, sort_keys=True)}"),
             LayerResult("B_risk_defensive_intelligence", "RESEARCH_ONLY", b, coverage(b),
-                        deadline.isoformat(), f"Opta commit={opta_commit}; 11footy source hashes={json.dumps(cta_source_hashes, sort_keys=True)}"),
+                        deadline.isoformat(), f"Opta provenance={json.dumps(opta_provenance, sort_keys=True)}; 11footy source hashes={json.dumps(cta_source_hashes, sort_keys=True)}"),
             LayerResult("C_player_intelligence", "RESEARCH_ONLY", c, coverage(c),
                         deadline.isoformat(), f"11footy source hashes={json.dumps(cta_source_hashes, sort_keys=True)}; calibrated score withheld"),
         ]
@@ -271,6 +272,7 @@ def build_panel(cta_rows, opta_team_rows, cta_source_report, opta_source_report)
         "identity_policy": "Only exact season-scoped verified 11footy/FPL identities are marked eligible.",
         "target_policy": "No target-fixture outcome fields are copied into the integrated A/B/C feature panel.",
         "provider_attribution": "11footy source release 2026-11-10; Opta/PulseLive pinned commit f0f3d40f803c69bc7fac48d0748b49175e2d08ce.",
+        "source_provenance": {"11footy": cta_source_hashes, "opta_pulselive": opta_provenance},
     }
     return output, report
 
