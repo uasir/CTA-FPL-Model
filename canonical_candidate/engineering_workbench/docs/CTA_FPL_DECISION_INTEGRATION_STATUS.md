@@ -57,6 +57,12 @@ The augmented model uses 84 raw-count and per-90 CTA feature columns. MAE improv
 
 Follow-up refinement added per-90 normalisation using only prior FPL minutes. The target match's minutes and event data are never used as predictors.
 
+## Provider-ID boundary that remains open
+
+The verified counts above are **11footy→FPL** and **Wyscout→11footy→FPL** identities. They do not verify StatsBomb IDs. The canonical StatsBomb-to-FPL crosswalk remains empty; the current StatsBomb CTA engine pilot is a Bundesliga match, not a Premier League player-match training panel. Provider IDs must remain in separate namespaces and must never be assumed interchangeable.
+
+The next core-model task is to adapt the verified Wyscout EPL event stream into the CTA engine's canonical event/possession schema, while recording which sequence boundaries are inferred rather than directly observed. This is required before claiming that the original CTA sequence model—not merely its event-feature sidecar—feeds FPL decisions.
+
 ## Explicit limitations
 
 - The 2017/18 historical FPL archive may contain retrospective corrections; it is not a point-in-time snapshot archive.
