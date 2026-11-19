@@ -32,6 +32,10 @@ def test_expanding_season_walk_forward_never_trains_on_validation_season():
         assert all(training_season < fold["season"] for training_season in fold["training_seasons"])
         assert fold["validation_player_gameweeks"]>0
         assert fold["calibration_player_gameweeks"]>0
+        assert fold["calibration_appearance_positive"] + fold["calibration_appearance_negative"] == fold["calibration_player_gameweeks"]
+        assert fold["calibration_appearance_positive"]>0 and fold["calibration_appearance_negative"]>0
+        assert fold["appearance_fit_last_gameweek"]["season"] < fold["calibration_first_gameweek"]["season"] or (fold["appearance_fit_last_gameweek"]["season"] == fold["calibration_first_gameweek"]["season"] and fold["appearance_fit_last_gameweek"]["gameweek"] < fold["calibration_first_gameweek"]["gameweek"])
+        assert fold["calibration_last_gameweek"]["season"] < fold["season"]
         assert fold["appearance_fit_player_gameweeks"] + fold["calibration_player_gameweeks"] == fold["training_player_gameweeks"]
         assert fold["appearance"]["calibrated"]["brier"]>=0
         assert fold["minutes"]["two_part_calibrated"]["mae"]>=0
