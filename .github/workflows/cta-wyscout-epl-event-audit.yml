@@ -176,6 +176,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cta-11footy-historical-fpl-identity
-          path: run_artifacts/wyscout/output/11footy_historical_fpl_identity_report.json
+          path: |
+            run_artifacts/wyscout/output/11footy_historical_fpl_identity_report.json
+            run_artifacts/wyscout/output/current_11footy/identity_candidate_summary.json
           if-no-files-found: ignore
           retention-days: 90
