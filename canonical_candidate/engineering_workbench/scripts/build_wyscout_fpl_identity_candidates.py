@@ -282,6 +282,7 @@ def build_candidate_review_queue(player_match_rows, players_json, fpl_players,
         own_goals_exact = 0
         assists_exact = 0
         goal_assist_signature_exact = 0
+        goal_assist_signature_zero_only = 0
         team_context_exact = 0
         provider_goal_sum = 0
         provider_own_goal_sum = 0
@@ -313,7 +314,10 @@ def build_candidate_review_queue(player_match_rows, players_json, fpl_players,
                 own_goals_exact += int(w_own == f_own)
                 assists_exact += int(w_assists == f_assists)
                 signature = (w_goals, w_own, w_assists) == (f_goals, f_own, f_assists)
-                goal_assist_signature_exact += int(signature)
+                if signature and (w_goals + w_own + w_assists + f_goals + f_own + f_assists) > 0:
+                    goal_assist_signature_exact += 1
+                elif signature:
+                    goal_assist_signature_zero_only += 1
                 provider_goal_sum += w_goals
                 provider_own_goal_sum += w_own
                 provider_assist_sum += w_assists
@@ -329,7 +333,7 @@ def build_candidate_review_queue(player_match_rows, players_json, fpl_players,
                 if normalize_team(expected_opponent) == normalize_team(fixture.get("opponent_team_name")):
                     team_context_exact += 1
 
-        if candidate and goal_assist_signature_exact >= 3 and team_match and not team_mismatch:
+        if candidate and goal_assist_signature_exact >= 3 and team_match and not team_mismatch and positive_minutes > 0:
             priority = "P1_MULTI_MATCH_TEAM_CORROBORATION"
         elif candidate and goal_assist_signature_exact > 0 and team_match and not team_mismatch:
             priority = "P2_TEAM_AND_STAT_CROSSCHECK"
@@ -368,6 +372,7 @@ def build_candidate_review_queue(player_match_rows, players_json, fpl_players,
             "own_goals_exact_rows": own_goals_exact,
             "assists_exact_rows": assists_exact,
             "goal_assist_signature_exact_rows": goal_assist_signature_exact,
+            "goal_assist_signature_zero_only_rows": goal_assist_signature_zero_only,
             "team_context_exact_rows": team_context_exact,
             "provider_goals_sum": provider_goal_sum,
             "provider_own_goals_sum": provider_own_goal_sum,
