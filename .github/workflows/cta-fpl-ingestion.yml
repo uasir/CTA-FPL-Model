@@ -391,6 +391,10 @@ jobs:
           general = root / "fpl_general_market_baseline_report.json"
           personal = root / "fpl_personal_squad_scale_smoke_report.json"
           snapshot = root / "fpl_baseline_forecast_snapshot.json"
+          identity_path = Path("run_artifacts/11footy_fpl/verified_identity/verified_identity_summary.json")
+          opta_path = Path("run_artifacts/11footy_fpl/output/opta_identity/opta_identity_report.json")
+          identity_report = json.loads(identity_path.read_text()) if identity_path.exists() else {}
+          opta_report = json.loads(opta_path.read_text()) if opta_path.exists() else {}
           if baseline.exists():
               report = json.loads(baseline.read_text())
               snap = json.loads(snapshot.read_text()) if snapshot.exists() else {}
@@ -406,6 +410,10 @@ jobs:
                   "cta_target_player_fixture_rows": report.get("cta_target_player_fixture_rows", 0),
                   "cta_features_used_in_expected_points": coverage.get("cta_features_used_in_expected_points", False),
                   "cta_composite": coverage.get("cta_composite"),
+                  "verified_11footy_identity_rows": identity_report.get("verified_crosswalk_rows", 0),
+                  "verified_11footy_dob_rows": identity_report.get("verified_dob_rows", 0),
+                  "verified_11footy_opta_bridge_rows": identity_report.get("verified_opta_bridge_rows", 0),
+                  "opta_verified_fpl_player_ids": opta_report.get("verified_id_and_team_matches", 0),
               }
           if general.exists():
               g = json.loads(general.read_text())
