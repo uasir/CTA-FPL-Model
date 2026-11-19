@@ -24,7 +24,8 @@ def test_prediction_quantile_diagnostics_is_deterministic_with_tied_predictions(
     first = prediction_quantile_diagnostics([1, 2, 3, 4], [2, 2, 2, 2], bins=2)
     second = prediction_quantile_diagnostics([1, 2, 3, 4], [2, 2, 2, 2], bins=2)
     assert first == second
-    assert [item["n"] for item in first["bins"]] == [2, 2]
+    assert [item["n"] for item in first["bins"]] == [4]
+    assert first["bins"][0]["predicted_mean"] == pytest.approx(2.0)
 
 
 def test_prediction_quantile_diagnostics_validates_alignment_and_bin_count():
