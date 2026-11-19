@@ -410,9 +410,11 @@ def score_fold(train, valid, season):
     # Reserve a later slice of the pre-validation calibration period solely for
     # blend-weight selection. Calibrators used for that selection see only the
     # earlier slice; validation calibrators below still use the full calibration set.
-    blend_fit_count=max(1,int(round(len(calibration)*0.6)))
-    blend_calibration_fit=calibration[:blend_fit_count]
-    blend_selection=calibration[blend_fit_count:]
+    blend_calibration_keys=sorted({(r["season"],r["gameweek"]) for r in calibration})
+    blend_fit_count=max(1,int(round(len(blend_calibration_keys)*0.6)))
+    blend_fit_keys=set(blend_calibration_keys[:blend_fit_count])
+    blend_calibration_fit=[r for r in calibration if (r["season"],r["gameweek"]) in blend_fit_keys]
+    blend_selection=[r for r in calibration if (r["season"],r["gameweek"]) not in blend_fit_keys]
     if not blend_selection:
         raise ValueError(f"Insufficient calibration rows for independent blend selection in {season}")
     blend_scores=[predict(appearance_model,r) for r in blend_calibration_fit]
