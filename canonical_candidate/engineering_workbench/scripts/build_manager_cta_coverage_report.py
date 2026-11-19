@@ -89,6 +89,9 @@ def build_report(entry_id, picks_payload, snapshot):
     )
     if target_gw is None:
         raise ValueError("Forecast snapshot is missing target_gameweek")
+    picks_event = (picks_payload.get("entry_history") or {}).get("event")
+    if picks_event is not None and int(picks_event) != int(target_gw):
+        raise ValueError("Manager picks event does not match the forecast target gameweek")
 
     summaries = []
     for pick in ordered:

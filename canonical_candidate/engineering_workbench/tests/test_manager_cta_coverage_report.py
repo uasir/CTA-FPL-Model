@@ -81,3 +81,15 @@ def test_duplicate_player_ids_fail_closed():
         assert "duplicate FPL element" in str(exc)
     else:
         raise AssertionError("duplicate player IDs must fail closed")
+
+
+
+def test_manager_picks_event_must_match_forecast_gameweek():
+    payload = picks_payload()
+    payload["entry_history"]["event"] = 10
+    try:
+        build_report(421025, payload, snapshot())
+    except ValueError as exc:
+        assert "does not match" in str(exc)
+    else:
+        raise AssertionError("picks from a different gameweek must be rejected")
