@@ -115,7 +115,7 @@ def test_wyscout_goal_and_own_goal_tags_reconcile_to_match_score():
         },
         {
             "id": 2, "matchId": 10, "playerId": 200, "teamId": 2,
-            "eventName": "Free Kick", "subEventName": "Free Kick",
+            "eventName": "Shot", "subEventName": "Shot",
             "positions": [{"x": 10, "y": 50}],
             "tags": [{"id": 102}],
         },
@@ -137,6 +137,6 @@ def test_wyscout_goal_and_own_goal_tags_reconcile_to_match_score():
     assert by_player[100]["goals"] == 1
     assert by_player[200]["own_goals"] == 1
     assert report["goal_reconciliation"]["match_metadata_goals"] == 2
-    assert report["goal_reconciliation"]["event_goal_tags_total"] == 2
-    assert report["goal_reconciliation"]["tagged_minus_metadata_goal_delta"] == 0
+    assert report["goal_reconciliation"]["shot_event_tagged_goal_total"] == 2
+    assert report["goal_reconciliation"]["shot_tagged_minus_metadata_goal_delta"] == 0
     assert report["goal_reconciliation"]["status"] == "PASS_EXACT"
