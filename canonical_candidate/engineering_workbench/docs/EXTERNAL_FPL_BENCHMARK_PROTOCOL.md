@@ -1,6 +1,6 @@
 # External FPL Prediction Benchmark Protocol
 
-Status: RAW CAPTURE VALIDATION IMPLEMENTED / PRIVATE ARCHIVE PENDING / NO PERFORMANCE CLAIM
+Status: PRIVATE ARCHIVE ACTIVE / PROSPECTIVE CAPTURES UNDERWAY / NO PERFORMANCE CLAIM
 
 ## Purpose
 
@@ -17,7 +17,8 @@ Evaluate CTA-FPL models against real, established FPL prediction outputs using a
 | Sideline Quant | Independent player-level FPL points forecast with published uncertainty and event probabilities | Capture its exact GW JSON; retain fixture grain and provider-supplied probabilities separately |
 | FPL Cat | Independent conventional FPL points forecast | Capture its public API output with computed_at, player ID and xP |
 | FPLRogue | Independent player-level FPL points forecast | Capture the accepted release CSV with capture time, engine version and player ID |
-| FPL Cat | Independent conventional FPL points forecast | Capture its public player-level JSON/CSV output and retain computed_at and API version |
+| FPL Wildcard | Independent player-level FPL expected-points forecast with minutes and event probabilities | Capture its published CSV before deadline; retain raw snapshot only in the private archive; do not redistribute raw projections |
+
 | Fantasy Football Scout | Established FPL points forecast, if player-level pre-deadline values are accessible | Archive only the actual pre-deadline output |
 | Fantasy Football Pundit | Established FPL points forecast, if accessible | Archive only the actual pre-deadline output |
 | Fantasy Football Fix | Established FPL points forecast, if accessible | Archive only the actual pre-deadline output |
@@ -38,7 +39,7 @@ The initial market-derived benchmarks are **FPL Forecaster and FPL Lucho**. They
 | Football Meets Data Fantasy Forecasts | Public accuracy page says forecasts are written down before deadline; current GW11 cohort is listed as 514 predictions awaiting outcomes. | Verify whether the complete player-level pre-deadline snapshot is downloadable or otherwise retrievable and preserve its exact cutoff. |
 | FPL Form | Public documentation offers generated CSV exports of predicted points and optional appearance probabilities. | Check account/access requirements and terms; preserve attribution and do not redistribute raw exports. |
 
-The first practical capture candidates are FPL Lucho's published CSV, FPL Review's export where accessible, and Football Meets Data if its archived pre-deadline rows can be retrieved. FPL Forecaster remains a priority market-derived benchmark, but bulk capture is not yet verified. No collector should be implemented against an assumed endpoint.
+The first practical capture candidates are FPL Lucho's published CSV, FPL Wildcard's published CSV, FPL Review's export where accessible, and Football Meets Data if its archived pre-deadline rows can be retrieved. FPL Forecaster remains a priority market-derived benchmark, but bulk capture is not yet verified. No collector should be implemented against an assumed endpoint.
 
 Source availability, terms, paywall access, output granularity, update cadence, and historical archive availability must be checked before implementation. A source is not considered benchmarked merely because its website is known. If a source does not expose a player-level forecast in time, record it as unavailable for that deadline rather than estimating or fabricating its value.
 
@@ -210,3 +211,18 @@ The CSV endpoint and schema have been verified, but this source is **not include
 ### Public-repository artifact handling correction (19 November 2026)
 
 The repository is public. An initial capture workflow uploaded raw third-party forecast CSV/JSON files as public-repository Actions artifacts. Those two artifacts were identified for deletion and the workflow was changed to delete them and upload only the non-player-level manifest. The FPL Wildcard dataset, whose page states that no redistribution licence is granted, was removed from the public capture pipeline entirely. Do not treat the temporary initial artifact as a valid long-term archive. Raw snapshots must remain runner-local until a private archive and provider-specific retention permissions are established.
+
+
+## Private archive implementation update (19 November 2026)
+
+The private repository `uasir/CTA-FPL-Private-Archive` is active. Its manual FPL Wildcard capture workflow completed successfully for 2026/27 GW11.
+
+- Capture time: 2026-11-19T16:15:38Z, before the GW11 deadline.
+- Raw CSV: 5,660 rows spanning GW11–GW20; 566 player rows per gameweek.
+- GW11 slice: 566 rows, 566 unique provider profile URLs, and no missing/non-numeric `xpts` values.
+- Forecast variant: provider-published `xpts`; do not relabel as bookmaker-derived Odds xP.
+- SHA-256: `0cb8f8cdaebfe8f62414551122d31566b4db6329a2bce1d8665954bb0a035264`.
+- Private archive commit: `ba1921a63090076209f38af76b58f0acef095116`.
+- Raw file and manifest remain in the private archive. The public project retains only provenance/hash metadata and aggregate validation findings.
+
+This establishes capture and retention, not forecast accuracy. GW11 outcomes must be joined after completion, and only the GW11 rows from this pre-deadline snapshot should enter the GW11 accuracy cohort. Later gameweeks in the same CSV are prospective snapshots for their respective future deadlines only if the file was genuinely published and frozen before each deadline; the 19 November capture timestamp must remain attached to all of them.
