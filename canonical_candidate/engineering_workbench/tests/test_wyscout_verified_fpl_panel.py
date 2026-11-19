@@ -96,7 +96,7 @@ def test_duplicate_provider_player_match_rows_fail_closed():
     try:
         build_verified_panel(matches, [crosswalk()], fpl, {500: 1000})
     except ValueError as exc:
-        assert "Duplicate Wyscout player-match" in str(exc)
+        assert "Duplicate verified Wyscout player-match" in str(exc)
     else:
         raise AssertionError("duplicate Wyscout player-match rows must fail closed")
 
