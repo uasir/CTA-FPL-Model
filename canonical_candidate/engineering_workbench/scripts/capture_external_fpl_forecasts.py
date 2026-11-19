@@ -31,8 +31,8 @@ def validate_payload(source: str, data: bytes, gameweek: int, content_type: str)
             raise ValueError("Sideline Quant payload gameweek mismatch")
         if not payload.get("generated_at") or not isinstance(payload.get("n_rows"), int):
             raise ValueError("Sideline Quant payload missing generation timestamp or row count")
-        if payload.get("n_players") != payload.get("n_rows"):
-            raise ValueError("Unexpected Sideline Quant player/row counts; inspect fixture-grain structure")
+        if not isinstance(payload.get("n_players"), int):
+            raise ValueError("Sideline Quant payload missing player count")
         return {"row_count": payload["n_rows"], "grain": "player_fixture",
                 "generated_at": payload["generated_at"], "variant": "published_xP"}
     text = data.decode("utf-8-sig")
@@ -41,12 +41,7 @@ def validate_payload(source: str, data: bytes, gameweek: int, content_type: str)
     rows = list(reader)
     if not fields or not rows:
         raise ValueError(f"{source}: CSV has no header or player rows")
-    if source == "fpl_rogue_accepted_xpts_csv":
-        return {"row_count": len(rows), "grain": "verify_from_csv_columns",
-                "variant": "accepted_xpts_v1", "columns": fields}
-    if source == "fpl_lucho_served_xp_csv":
-        return {"row_count": len(rows), "grain": "provider_export_rows",
-                "variant": "served_xP_not_assumed_Odds_xP", "columns": fields}
+    lowered = {x.strip().lower() for x in fields}\n    if source == "fpl_rogue_accepted_xpts_csv":\n        required = {"player_id", "next_gw_xpts", "gameweek", "captured_at", "model_version"}\n        if not required.issubset(lowered):\n            raise ValueError("FPLRogue CSV missing expected player, GW11 xPts or release metadata columns")\n        if any(str(row.get("gameweek")) != str(gameweek) for row in rows):\n            raise ValueError("FPLRogue CSV contains a different target gameweek")\n        return {"row_count": len(rows), "grain": "player_gameweek",\n                "variant": "accepted_xpts_v1", "player_id_column": "player_id",\n                "forecast_column": "next_gw_xpts", "columns": fields}\n    if source == "fpl_lucho_served_xp_csv":\n        player_column = "id"\n        forecast_column = f"xp_gw{gameweek}"\n        if player_column not in lowered or forecast_column not in lowered:\n            raise ValueError("FPL Lucho CSV missing expected player ID or target-GW served-xP column")\n        return {"row_count": len(rows), "grain": "player_gameweek",\n                "variant": "served_xP_not_assumed_Odds_xP",\n                "player_id_column": player_column, "forecast_column": forecast_column,\n                "columns": fields}
     raise ValueError("Unknown source: " + source)
 
 
