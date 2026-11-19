@@ -230,6 +230,89 @@ def _transfer_candidates(request,forecasts):
     }
 
 
+def _squad_support_metrics(owned, starting, bench_order, forecast_by_id, captain):
+    """Descriptive bench-depth and EO coverage; neither silently changes the XI."""
+    bench_players=[forecast_by_id[player_id] for player_id in bench_order]
+    top_two=sorted(bench_players,key=_player_order)[:2]
+    eo_owned=[float(player["effective_ownership_pct"]) for player in owned
+              if isinstance(player.get("effective_ownership_pct"),(int,float))
+              and not isinstance(player.get("effective_ownership_pct"),bool)
+              and math.isfinite(float(player["effective_ownership_pct"]))]
+    eo_starting=[float(player["effective_ownership_pct"]) for player in starting
+                 if isinstance(player.get("effective_ownership_pct"),(int,float))
+                 and not isinstance(player.get("effective_ownership_pct"),bool)
+                 and math.isfinite(float(player["effective_ownership_pct"]))]
+    return {
+        "bench_depth": {
+            "outfield_bench_count":len(bench_players),
+            "top_two_outfield_bench_ids":[player["fpl_element_id"] for player in top_two],
+            "top_two_outfield_bench_expected_points":round(sum(player["expected_points"] for player in top_two),6),
+            "top_two_outfield_bench_mean_expected_minutes":round(sum(player["expected_minutes"] for player in top_two)/len(top_two),6) if top_two else None,
+            "policy":"DESCRIPTIVE_ONLY_FIXED_STARTING_XI_NO_ROUTINE_ROTATION",
+            "note":"Bench depth is reported separately; it does not displace a higher-EV starting player or trigger routine rotation.",
+        },
+        "effective_ownership_context": {
+            "owned_players_with_eo":len(eo_owned),
+            "owned_player_eo_coverage":len(eo_owned)/len(owned) if owned else None,
+            "starting_xi_players_with_eo":len(eo_starting),
+            "starting_xi_eo_coverage":len(eo_starting)/len(starting) if starting else None,
+            "mean_owned_eo_pct":sum(eo_owned)/len(eo_owned) if eo_owned else None,
+            "mean_starting_xi_eo_pct":sum(eo_starting)/len(eo_starting) if eo_starting else None,
+            "captain_eo_pct":captain.get("effective_ownership_pct"),
+            "decision_role":"FIELD_REFERENCE_ONLY_NOT_A_CTA_PREREQUISITE",
+            "missing_eo_policy":"PRESERVE_MISSING_AND_REPORT_COVERAGE",
+        },
+    }
+
+
+def _decision_audit(request, transfer, starting, captain, vice):
+    """Freeze the actual pre-deadline recommendation and its recorded alternatives."""
+    options=[{
+        "option_id":"HOLD",
+        "action":"HOLD",
+        "predicted_net_expected_points_gain":0.0,
+        "feasible":True,
+    }]
+    for candidate in transfer["alternatives"]:
+        options.append({
+            "option_id":f"TRANSFER:{candidate['transfer_out_id']}:{candidate['transfer_in_id']}",
+            "action":"TRANSFER",
+            "transfer_out_id":candidate["transfer_out_id"],
+            "transfer_in_id":candidate["transfer_in_id"],
+            "predicted_net_expected_points_gain":candidate["net_expected_points_gain"],
+            "feasible":True,
+        })
+    chosen=(f"TRANSFER:{transfer['best_candidate']['transfer_out_id']}:{transfer['best_candidate']['transfer_in_id']}"
+            if transfer["action"]=="TRANSFER" and transfer["best_candidate"] else "HOLD")
+    return {
+        "decision_record_status":"FROZEN_PRE_DEADLINE_RECOMMENDATION_INPUT_REQUIRED",
+        "forecast_snapshot_id":request["forecast_snapshot_id"],
+        "model_version":request["model_version"],
+        "target_horizon_gameweeks":request["forecast_horizon_gameweeks"],
+        "transfer_decision":{
+            "chosen_option_id":chosen,
+            "options":options,
+            "candidate_universe_count":transfer["candidate_count"],
+            "recorded_alternative_scope":"HOLD plus top-ranked feasible transfers returned by the optimiser; regret against this shortlist must not be described as global feasible-set regret.",
+            "realised_utility":None,
+            "scoring_status":"AWAITING_OFFICIAL_GAMEWEEK_OUTCOMES",
+        },
+        "starting_xi_decision":{
+            "chosen_player_ids":[player["fpl_element_id"] for player in starting],
+            "formation":"FIXED_USER_REQUESTED_OR_ENGINE_SELECTED_FORMATION",
+            "realised_utility":None,
+            "scoring_status":"AWAITING_OFFICIAL_GAMEWEEK_OUTCOMES",
+        },
+        "captaincy_decision":{
+            "chosen_option_id":str(captain["fpl_element_id"]),
+            "vice_captain_option_id":str(vice["fpl_element_id"]),
+            "options":[{"option_id":str(player["fpl_element_id"]),"predicted_points":player["expected_points"],"feasible":True} for player in starting],
+            "realised_utility":None,
+            "scoring_status":"AWAITING_OFFICIAL_GAMEWEEK_OUTCOMES",
+        },
+    }
+
+
 def recommend_personal_squad(payload):
     request=validate_personal_squad_request(payload)
     forecasts=request["player_forecasts"]
@@ -269,6 +352,8 @@ def recommend_personal_squad(payload):
     vice=captaincy[1]
     expected_points=sum(p["expected_points"] for p in starting)+captain["expected_points"]
     transfer=_transfer_candidates(request,forecasts)
+    support_metrics=_squad_support_metrics(owned,starting,bench_order,forecast_by_id,captain)
+    decision_audit=_decision_audit(request,transfer,starting,captain,vice)
     quality=request["forecast_quality"]
     limitations=[
         "This is an exploratory one-gameweek squad optimiser, not a validated multiweek planner.",
@@ -299,6 +384,7 @@ def recommend_personal_squad(payload):
             "reserve_goalkeeper":reserve_gk[0]["fpl_element_id"],
             "bench_order":bench_order,
             "expected_starting_points":expected_points,
+            **support_metrics,
             **({
                 "owned_squad_cta_context":[_player_cta_context(forecast_by_id[int(row["fpl_element_id"])]) for row in squad],
                 "starting_xi_cta_context":[_player_cta_context(player) for player in starting],
@@ -307,6 +393,7 @@ def recommend_personal_squad(payload):
                 "cta_context_status":"RESEARCH_ONLY_NOT_IN_BASELINE",
             } if has_cta_sidecar else {}),
         },
+        "decision_audit":decision_audit,
         "portfolio_risk":{
             "covar_used":False,"risk_profile_applied":False,
             "status":"NOT_VALIDATED",
