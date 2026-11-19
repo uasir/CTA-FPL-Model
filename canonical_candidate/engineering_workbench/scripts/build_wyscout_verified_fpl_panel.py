@@ -219,6 +219,7 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
                      if parse_kickoff(candidate["kickoff_time_utc"]) < feature_cutoff]
             record = {
                 "fpl_element_id": player_id,
+                "gameweek": target_round if target_round is not None else "",
                 "fixture_id": target["fixture_id"],
                 "provider_match_id": target["provider_match_id"],
                 "provider_team_id": target["provider_team_id"],
