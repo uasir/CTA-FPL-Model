@@ -145,6 +145,44 @@ def paired_error_comparison(actual,candidate,comparator,groups=None):
     return result
 
 
+
+def cluster_bootstrap_paired_errors(actual,candidate,comparator,cluster_ids,n_boot=1000,seed=20261119):
+    """Player-season cluster bootstrap for paired forecast-error differences."""
+    y=np.asarray(actual,dtype=float)
+    a=np.asarray(candidate,dtype=float)
+    b=np.asarray(comparator,dtype=float)
+    clusters=np.asarray(cluster_ids,dtype=object)
+    if not (len(y)==len(a)==len(b)==len(clusters)) or len(y)==0:
+        raise ValueError("Cluster-bootstrap inputs must be non-empty and aligned")
+    _,inverse=np.unique(clusters,return_inverse=True)
+    cluster_count=int(inverse.max())+1
+    if cluster_count<2:
+        raise ValueError("At least two player-season clusters are required")
+    candidate_abs=np.abs(a-y)
+    comparator_abs=np.abs(b-y)
+    counts=np.bincount(inverse,minlength=cluster_count).astype(float)
+    mae_sums=np.bincount(inverse,weights=candidate_abs-comparator_abs,minlength=cluster_count)
+    mse_sums=np.bincount(inverse,weights=(a-y)**2-(b-y)**2,minlength=cluster_count)
+    win_sums=np.bincount(inverse,weights=(candidate_abs<comparator_abs).astype(float),minlength=cluster_count)
+    rng=np.random.default_rng(seed)
+    samples=np.empty((n_boot,3),dtype=float)
+    for index in range(n_boot):
+        draw=rng.integers(0,cluster_count,size=cluster_count)
+        multiplicity=np.bincount(draw,minlength=cluster_count)
+        denominator=float(multiplicity@counts)
+        samples[index,0]=float(multiplicity@mae_sums)/denominator
+        samples[index,1]=float(multiplicity@mse_sums)/denominator
+        samples[index,2]=float(multiplicity@win_sums)/denominator
+    intervals=np.quantile(samples,[0.025,0.975],axis=0)
+    return {
+        "method":"PLAYER_SEASON_CLUSTER_BOOTSTRAP",
+        "clusters":cluster_count,
+        "replicates":int(n_boot),
+        "mean_absolute_error_delta_ci95":[round(float(v),6) for v in intervals[:,0]],
+        "mean_squared_error_delta_ci95":[round(float(v),6) for v in intervals[:,1]],
+        "candidate_absolute_error_win_rate_ci95":[round(float(v),6) for v in intervals[:,2]],
+    }
+
 def appearance_probability_bucket(probability):
     value=float(probability)
     if value<0.5: return "low_<0.50"
@@ -375,6 +413,7 @@ def score_fold(train, valid, season):
     lagged_minutes=[]; conditional_lagged_minutes_raw=[]; conditional_lagged_minutes_calibrated=[]
     two_part_raw=[]; two_part_calibrated=[]; band_points_raw=[]; band_points_calibrated=[]; direct_points=[]; last5_points=[]
     hurdle_points_raw_expected=[]; hurdle_points_calibrated_expected=[]; calibrated_appearance_buckets=[]
+    player_season_clusters=[]
     for row in valid:
         # All predictions are created before actual labels are read for scoring.
         band_raw=minutes_band_probabilities(minutes_band_model,row)
@@ -447,6 +486,7 @@ def score_fold(train, valid, season):
         actual_points.append(row["actual_points"])
         actual_minutes.append(row["actual_minutes"])
         actual_appearance.append(row["appeared"])
+        player_season_clusters.append(f"{row['season']}::{row['fpl_element_id']}")
 
     if not actual_points:
         raise ValueError(f"No scored player-gameweeks in fold {season}")
@@ -507,6 +547,13 @@ def score_fold(train, valid, season):
             "two_part_lagged_feature_ridge_raw":regression_metrics(actual_minutes,conditional_lagged_minutes_raw),
             "two_part_lagged_feature_ridge_calibrated":regression_metrics(actual_minutes,conditional_lagged_minutes_calibrated),
         },
+        "_bootstrap_inputs":{
+            "actual":actual_points,
+            "hurdle_calibrated":hurdle_points_calibrated_expected,
+            "two_part_raw":two_part_raw,
+            "direct_ridge":direct_points,
+            "player_season_clusters":player_season_clusters,
+        },
         "paired_points_errors":{
             "calibrated_hurdle_vs_two_part_raw":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,two_part_raw),
             "calibrated_hurdle_vs_two_part_calibrated":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,two_part_calibrated),
@@ -540,6 +587,23 @@ def evaluate_walk_forward(rows):
         folds.append(score_fold(train,valid,season))
     if not folds:
         raise ValueError("No walk-forward folds could be evaluated")
+
+    # Keep player-level cluster keys and errors runner-local; publish only aggregate intervals.
+    pooled_bootstrap_inputs=[]
+    for fold_index,fold in enumerate(folds):
+        inputs=fold.pop("_bootstrap_inputs")
+        pooled_bootstrap_inputs.append(inputs)
+        fold["paired_points_errors"]["calibrated_hurdle_vs_two_part_raw"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
+            inputs["actual"],inputs["hurdle_calibrated"],inputs["two_part_raw"],
+            inputs["player_season_clusters"],seed=20261119+fold_index)
+        fold["paired_points_errors"]["calibrated_hurdle_vs_direct_ridge"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
+            inputs["actual"],inputs["hurdle_calibrated"],inputs["direct_ridge"],
+            inputs["player_season_clusters"],seed=20262119+fold_index)
+    pooled_actual=[v for item in pooled_bootstrap_inputs for v in item["actual"]]
+    pooled_hurdle=[v for item in pooled_bootstrap_inputs for v in item["hurdle_calibrated"]]
+    pooled_two_part=[v for item in pooled_bootstrap_inputs for v in item["two_part_raw"]]
+    pooled_ridge=[v for item in pooled_bootstrap_inputs for v in item["direct_ridge"]]
+    pooled_clusters=[v for item in pooled_bootstrap_inputs for v in item["player_season_clusters"]]
 
     # Pool fold-level metric values weighted by their validation player-GW counts.
     def weighted_metric(section,key,metric):
@@ -602,6 +666,10 @@ def evaluate_walk_forward(rows):
             for key in ("calibrated_hurdle_vs_two_part_raw","calibrated_hurdle_vs_two_part_calibrated","calibrated_hurdle_vs_direct_ridge","calibrated_hurdle_vs_last5","raw_hurdle_vs_two_part_raw")
         },
     }
+    pooled["paired_points_errors"]["calibrated_hurdle_vs_two_part_raw"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
+        pooled_actual,pooled_hurdle,pooled_two_part,pooled_clusters,seed=20263119)
+    pooled["paired_points_errors"]["calibrated_hurdle_vs_direct_ridge"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
+        pooled_actual,pooled_hurdle,pooled_ridge,pooled_clusters,seed=20264119)
     return {
         "status":"RESEARCH_ONLY",
         "decision":"DO_NOT_PROMOTE",
