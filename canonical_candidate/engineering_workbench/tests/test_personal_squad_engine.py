@@ -178,6 +178,38 @@ def test_python_and_javascript_cta_context_outputs_are_identical():
     assert javascript == python
 
 
+def test_personal_squad_reports_two_strong_bench_options_without_routine_rotation():
+    result = recommend_personal_squad(request())
+    support = result["squad_plan"]["bench_depth"]
+    assert support["outfield_bench_count"] == 3
+    assert len(support["top_two_outfield_bench_ids"]) == 2
+    assert support["policy"] == "DESCRIPTIVE_ONLY_FIXED_STARTING_XI_NO_ROUTINE_ROTATION"
+    assert result["squad_plan"]["formation"] == "4-3-3"
+
+
+def test_personal_squad_preserves_missing_eo_and_reports_coverage():
+    payload = request()
+    payload["player_forecasts"][0]["effective_ownership_pct"] = 42.5
+    payload["player_forecasts"][1]["effective_ownership_pct"] = 18.0
+    result = recommend_personal_squad(payload)
+    eo = result["squad_plan"]["effective_ownership_context"]
+    assert eo["owned_players_with_eo"] == 2
+    assert eo["owned_player_eo_coverage"] == pytest.approx(2 / 18)
+    assert eo["decision_role"] == "FIELD_REFERENCE_ONLY_NOT_A_CTA_PREREQUISITE"
+    assert eo["missing_eo_policy"] == "PRESERVE_MISSING_AND_REPORT_COVERAGE"
+
+
+def test_personal_squad_freezes_transfer_and_captaincy_decision_records():
+    result = recommend_personal_squad(request())
+    audit = result["decision_audit"]
+    assert audit["decision_record_status"] == "FROZEN_PRE_DEADLINE_RECOMMENDATION_INPUT_REQUIRED"
+    assert audit["transfer_decision"]["chosen_option_id"].startswith("TRANSFER:")
+    assert audit["transfer_decision"]["options"][0]["option_id"] == "HOLD"
+    assert audit["transfer_decision"]["realised_utility"] is None
+    assert audit["captaincy_decision"]["chosen_option_id"] == str(result["squad_plan"]["captain"])
+    assert len(audit["captaincy_decision"]["options"]) == 11
+
+
 def test_personal_squad_stale_snapshot_remains_exploratory():
     payload = request()
     payload["forecast_quality"]["validation_status"] = "VALIDATED"
