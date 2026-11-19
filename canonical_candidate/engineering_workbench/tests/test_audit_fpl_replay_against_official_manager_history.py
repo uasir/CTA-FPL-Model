@@ -20,7 +20,7 @@ def fixture_payload():
     payload = {
         "picks": picks,
         "active_chip": "3xc",
-        "entry_history": {"points": 40, "event_transfers": 2, "event_transfers_cost": 4},
+        "entry_history": {"points": 44, "event_transfers": 2, "event_transfers_cost": 4},
         "automatic_subs": [],
     }
     live = {"elements": []}
@@ -45,9 +45,10 @@ def test_build_replay_record_maps_official_pick_slots_and_chip():
 def test_audit_record_matches_official_manager_score():
     payload, live, positions = fixture_payload()
     result = audit_record(payload, live, positions)
-    # XI base: 8 + ten players x 2 = 28; Triple Captain adds 16; one hit = -4.
+    # XI base: 8 + ten players x 2 = 28; Triple Captain adds 16 (gross 44); one hit = -4 (net 40).
     assert result["replay_net_points"] == 40
-    assert result["official_team_points"] == 40
+    assert result["official_team_points"] == 44
+    assert result["gross_point_difference"] == 0
     assert result["net_point_difference"] == 0
     assert result["autosub_pairs_match"] is True
 
