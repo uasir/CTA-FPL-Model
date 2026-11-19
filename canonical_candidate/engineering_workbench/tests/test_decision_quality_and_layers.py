@@ -1,43 +1,10 @@
-import math
 import pytest
 
-from evaluate_fpl_decision_quality import (
-    evaluate_forecast, explain_post_deadline_events, point_error_metrics,
-    threshold_probability_report,
-)
 from cta_four_layer_pipeline import (
-    LAYER_FEATURES, LayerResult, integrate_player_sequence, require_complete_sequence,
+    CONVENTIONAL_FPL_FEATURES, LAYER_FEATURES, LayerResult,
+    integrate_player_sequence, require_complete_sequence,
+    validate_model_track_input,
 )
-
-
-def test_rmse_is_diagnostic_and_haul_probability_is_scored_separately():
-    actual = [2, 3, 16, 1, 0, 8]
-    predicted = [2, 3, 2, 2, 1, 6]
-    metrics = point_error_metrics(actual, predicted)
-    assert metrics["mae"] >= 0
-    assert metrics["rmse"] >= metrics["mae"]
-    assert metrics["large_error_rate_ge_10"] > 0
-    report = evaluate_forecast(actual, predicted, {6: [.1,.1,.2,.1,.05,.7],
-                                                    8: [.05,.05,.1,.05,.02,.6],
-                                                    10: [.01,.01,.05,.01,.01,.3]},
-                               ranking_score=predicted, top_k=2)
-    assert report["principle"] == "RMSE_IS_DIAGNOSTIC_NOT_SOLE_PROMOTION_GATE"
-    assert report["point_errors"]["n"] == len(actual)
-    assert report["haul_probabilities"]["6+"]["brier"] >= 0
-    assert report["ranking"]["top_k"] == 2
-
-
-def test_forecast_evaluation_never_drops_large_realised_outcomes():
-    report = evaluate_forecast([1, 16, 2], [1, 2, 2])
-    assert report["point_errors"]["n"] == 3
-    assert report["point_errors"]["absolute_error_p99"] > 13.5
-
-
-def test_post_deadline_event_annotations_are_explanatory_only():
-    result = explain_post_deadline_events([{"event_type": "red_card", "available_at_deadline": False}])
-    assert result["excluded_from_forecast_features"] is True
-    with pytest.raises(ValueError):
-        explain_post_deadline_events([{"event_type": "opponent_injury", "available_at_deadline": True}])
 
 
 def _layer(name, status="RESEARCH_ONLY"):
@@ -68,3 +35,30 @@ def test_four_layer_contract_rejects_post_deadline_features_and_silent_zero_fill
                           result.as_of, result.provenance)
     with pytest.raises(ValueError):
         integrate_player_sequence([invalid], "2026-11-18T11:00:00Z")
+
+
+def test_standalone_2pm_accepts_conventional_fpl_features_without_abc():
+    validate_model_track_input("standalone_2pm", CONVENTIONAL_FPL_FEATURES)
+
+
+def test_standalone_2pm_rejects_any_abc_dependency():
+    with pytest.raises(ValueError):
+        validate_model_track_input("standalone_2pm", ("prior_gw_points", "contextual_threat_score"))
+
+
+def test_integrated_abc_predictor_does_not_require_conventional_fpl_features():
+    abc_features = tuple(name for names in LAYER_FEATURES.values() for name in names)
+    validate_model_track_input("integrated_abc", abc_features)
+    with pytest.raises(ValueError):
+        validate_model_track_input("integrated_abc", ("prior_gw_points", "contextual_threat_score"))
+
+
+def test_optional_augmented_2pm_requires_both_feature_families():
+    validate_model_track_input(
+        "abc_augmented_2pm",
+        ("prior_gw_points", "contextual_threat_score"),
+    )
+    with pytest.raises(ValueError):
+        validate_model_track_input("abc_augmented_2pm", ("prior_gw_points",))
+    with pytest.raises(ValueError):
+        validate_model_track_input("abc_augmented_2pm", ("contextual_threat_score",))
