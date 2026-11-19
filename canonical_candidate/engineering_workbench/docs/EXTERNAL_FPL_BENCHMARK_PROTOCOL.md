@@ -23,6 +23,18 @@ Evaluate CTA-FPL models against real, established FPL prediction outputs using a
 
 The initial market-derived benchmarks are **FPL Forecaster and FPL Lucho**. They are used as complete, directly relevant FPL implementations. We will not substitute NBA, lottery, generic bookmaker, or other non-FPL odds models, and will not create a separate odds-to-FPL-points converter for this benchmark.
 
+### Initial access audit (19 November 2026)
+
+| Source | What is verified | Remaining limitation / next action |
+|---|---|---|
+| FPL Forecaster | Public GW11 page; player directory states 672 projected players across GW11–15; bookmaker-derived team goals are translated into player xPts. | Public player page is filterable, but a bulk CSV/API export was not verified in this audit. Test whether a complete, timestamped player-level snapshot can be captured reliably before deadline. |
+| FPL Lucho | Player Forecast page explicitly offers a CSV of every player's xP and fixtures for the next four GWs. Performance page separately reports served xP, raw model, Odds xP and FPL ep_next, and says the scored values are the last snapshots before deadline. | The bulk CSV's exact variant needs confirmation: do not assume it contains the separate Odds xP series. Determine whether Odds xP player-level values can be captured or reconstructed from an actual published output without rebuilding the model. |
+| FPL Review | Documentation confirms CSV export with FPL ID, player details, EV and xMins. | Export is documented as a Premium feature. Capture Free only if an actual player-level export is available; keep tiers distinct. |
+| Football Meets Data Fantasy Forecasts | Public accuracy page says forecasts are written down before deadline; current GW11 cohort is listed as 514 predictions awaiting outcomes. | Verify whether the complete player-level pre-deadline snapshot is downloadable or otherwise retrievable and preserve its exact cutoff. |
+| FPL Form | Public documentation offers generated CSV exports of predicted points and optional appearance probabilities. | Check account/access requirements and terms; preserve attribution and do not redistribute raw exports. |
+
+The first practical capture candidates are FPL Lucho's published CSV, FPL Review's export where accessible, and Football Meets Data if its archived pre-deadline rows can be retrieved. FPL Forecaster remains a priority market-derived benchmark, but bulk capture is not yet verified. No collector should be implemented against an assumed endpoint.
+
 Source availability, terms, paywall access, output granularity, update cadence, and historical archive availability must be checked before implementation. A source is not considered benchmarked merely because its website is known. If a source does not expose a player-level forecast in time, record it as unavailable for that deadline rather than estimating or fabricating its value.
 
 ## Forecast freeze and timestamp policy
@@ -113,7 +125,7 @@ Do not set a numerical RMSE target in advance. First collect a sufficiently larg
 ## Initial implementation sequence
 
 1. Add a versioned source registry and normalized snapshot schema.
-2. Audit whether FPL Forecaster, FPL Lucho and FPL Review expose capturable player-level forecasts before the next deadline; record access and coverage limitations.
+2. Complete the source-specific capture audit above, prioritizing FPL Lucho CSV, FPL Review export, Football Meets Data snapshots and a reliable FPL Forecaster player-level capture path.
 3. Build a capture process that saves raw snapshots and normalized rows without modifying prior snapshots.
 4. Add validation for deadline timestamps, duplicate player-fixture keys, missingness, units and player identity.
 5. Join official outcomes only after the gameweek and generate matched-cohort reports.
