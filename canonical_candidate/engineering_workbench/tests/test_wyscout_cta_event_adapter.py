@@ -171,3 +171,19 @@ def test_neutral_duel_does_not_create_a_new_possession():
     )
     assert rows[0]["possession"] == rows[1]["possession"] == rows[2]["possession"]
     assert rows[1]["possession_team"]["name"] == "Home"
+
+
+def test_penalty_restart_is_mapped_to_shot():
+    events = [{
+        "id": 12, "matchPeriod": "2H", "eventSec": 60, "teamId": 1,
+        "playerId": 10, "eventName": "Free Kick", "subEventName": "Penalty",
+        "positions": [{"x": 88, "y": 50}], "tags": [{"id": 101}],
+    }]
+    rows, report = normalize_wyscout_events(
+        events, [{"wyId": 10, "shortName": "A"}],
+        [{"wyId": 1, "name": "Home"}], 104
+    )
+    assert rows[0]["type"]["name"] == "Shot"
+    assert rows[0]["shot"]["outcome"]["name"] == "Goal"
+    assert report["penalties_mapped_to_shot"] == 1
+    assert report["set_piece_shots_mapped_to_shot"] == 1
