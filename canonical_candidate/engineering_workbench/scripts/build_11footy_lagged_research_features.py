@@ -184,7 +184,7 @@ def build_lagged_research_features(cta_rows, fpl_training_rows, fpl_report):
         output.append(row_out)
 
     report = {
-        "status": "PASS_LAGGED_RESEARCH_FEATURES_BUILT",
+        "status": "PASS_LAGGED_RESEARCH_FEATURES_BUILT" if rows_with_prior else "NO_PRIOR_CTA_COVERAGE",
         "rows": len(output),
         "unique_players": len({row["fpl_element_id"] for row in output}),
         "unique_fixtures": len({row["fixture_id"] for row in output}),

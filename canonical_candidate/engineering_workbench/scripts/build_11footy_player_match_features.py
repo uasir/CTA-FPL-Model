@@ -800,6 +800,7 @@ def build_provisional_research_panel(
             "fpl_fixture_id": fixture_id,
             "gameweek": fixture.get("gameweek", ""),
             "match_date": _match_date(source),
+            "match_kickoff_utc": source.get("kickoff_utc", ""),
             "provider_player_id": provider_id,
             "provider_player_name": player_names.get(provider_id, ""),
             "provider_team_id": as_int(source.get("team_id")),

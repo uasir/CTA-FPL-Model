@@ -75,6 +75,7 @@ def test_no_prior_cta_history_is_missing_not_zero_and_research_only():
     assert row["cta_prior3_matches_shots_avg"] == ""
     assert row["identity_status"] == "NO_PROVISIONAL_CTA_HISTORY"
     assert row["research_only"] is True
+    assert report["status"] == "NO_PRIOR_CTA_COVERAGE"
     assert report["rows_without_prior_cta_history"] == 1
 
 
