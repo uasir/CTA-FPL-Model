@@ -14,7 +14,7 @@ def _javascript_features(event):
         'const event = JSON.parse(readFileSync(0, "utf8")); '
         'const directions = new Map([[JSON.stringify(["match-1", 1, "Home"]), true]]); '
         'const result = buildFeatures([event], directions, null); '
-        'process.stdout.write(JSON.stringify(result));'
+        'process.stdout.write(JSON.stringify({ sequenceRows: result.sequenceRows, players: [...result.players.values()] }));'
     )
     completed = subprocess.run(
         ["node", "--input-type=module", "-e", script],
@@ -69,7 +69,7 @@ def test_observed_xg_is_retained_and_counted():
 def test_javascript_missing_provider_xg_is_not_encoded_as_zero():
     result = _javascript_features(_shot_event())
     sequence = result["sequenceRows"][0]
-    player = list(result["players"].values())[0]
+    player = result["players"][0]
     assert sequence["shot_xg_observed_count"] == 0
     assert sequence["shot_xg_reference_only"] == ""
     assert "shot_xg_reference_only" not in player
