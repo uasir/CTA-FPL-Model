@@ -64,3 +64,14 @@ class RankedManagerSampleTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+
+
+
+    def test_select_managers_allows_tied_ranks_on_standings_pages(self):
+        payloads={
+            1:{"standings":{"results":[{"entry":101+i,"rank":1 if i < 3 else i} for i in range(50)]}},
+            2:{"standings":{"results":[{"entry":201+i,"rank":50+i} for i in range(50)]}},
+        }
+        managers=select_managers(payloads,4,100,5)
+        self.assertEqual(len(managers),4)
+        self.assertEqual(len({x["entry_id"] for x in managers}),4)
