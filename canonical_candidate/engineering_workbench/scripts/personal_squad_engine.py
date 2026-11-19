@@ -84,6 +84,53 @@ def _best_starting_xi(owned,by_id,formation_value=None,starting_xi_value=None):
     return ordered,formation
 
 
+def _cta_evidence_summary(cta):
+    fixtures=cta.get("fixtures") if isinstance(cta.get("fixtures"),list) else []
+    available=[row for row in fixtures if isinstance(row,dict) and row.get("snapshot_available_as_of_deadline") is True]
+    source_row=available[0] if available else (fixtures[0] if fixtures and isinstance(fixtures[0],dict) else {})
+    identity_verified=cta.get("identity_verified") is True
+    prior_count=int(source_row.get("prior_matches_count") or 0)
+    prior3_count=int(source_row.get("prior3_matches_count") or 0)
+    features=source_row.get("features") if isinstance(source_row.get("features"),dict) else {}
+    feature_map={
+        "shots_per_match":"cta_prior3_matches_shots_avg",
+        "shots_on_target_per_match":"cta_prior3_matches_shots_on_target_avg",
+        "key_passes_per_match":"cta_prior3_matches_key_passes_avg",
+        "box_attempts_per_match":"cta_prior3_matches_attempts_inside_box_avg",
+        "tracked_xg_per_match":"cta_prior3_matches_tracked_xg_sum_avg",
+        "big_chances_per_match":"cta_prior3_matches_big_chances_avg",
+    }
+    values={}
+    for label,key in feature_map.items():
+        value=features.get(key)
+        try:
+            numeric=float(value)
+        except (TypeError,ValueError):
+            continue
+        if numeric==numeric and abs(numeric)!=float("inf"):
+            values[label]=numeric
+    if not identity_verified:
+        status="UNVERIFIED_IDENTITY"
+    elif prior_count<=0:
+        status="VERIFIED_IDENTITY_NO_PRIOR_HISTORY"
+    elif not values:
+        status="VERIFIED_IDENTITY_NO_FEATURE_VALUES"
+    else:
+        status="RESEARCH_ONLY_EVIDENCE_AVAILABLE"
+    return {
+        "status":status,
+        "source_snapshot_as_of":cta.get("source_snapshot_as_of"),
+        "target_gameweek":cta.get("target_gameweek"),
+        "prior_matches_count":prior_count,
+        "prior3_matches_count":prior3_count,
+        "feature_window":"prior 3 matches",
+        "feature_averages":values,
+        "decision_use_status":"RESEARCH_ONLY_NOT_IN_BASELINE",
+        "decision_weight":0.0,
+        "ranking_effect":"NONE",
+    }
+
+
 def _player_cta_context(player):
     cta=player.get("cta")
     if not isinstance(cta,dict):
@@ -99,6 +146,7 @@ def _player_cta_context(player):
         "fpl_element_id":player["fpl_element_id"],
         "web_name":player.get("web_name",""),
         "cta":cta,
+        "cta_evidence_summary":_cta_evidence_summary(cta),
     }
 
 

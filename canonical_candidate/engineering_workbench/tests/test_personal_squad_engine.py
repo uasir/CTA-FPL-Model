@@ -41,7 +41,19 @@ def request_with_cta():
             "source_snapshot_as_of": "2026-11-10T12:21:18+00:00",
             "composite": None,
             "decision_use_status": "RESEARCH_ONLY_NOT_IN_BASELINE",
-            "fixtures": [{"fixture_id": "501", "prior_matches_count": 3, "features": {"shots_avg": 2.5}}],
+            "target_gameweek": 11,
+            "fixtures": [{
+                "fixture_id": "501",
+                "prior_matches_count": 3,
+                "prior3_matches_count": 3,
+                "snapshot_available_as_of_deadline": True,
+                "identity_verified": True,
+                "features": {
+                    "cta_prior3_matches_shots_avg": 2.5,
+                    "cta_prior3_matches_key_passes_avg": 1.2,
+                    "cta_prior3_matches_tracked_xg_sum_avg": 0.3,
+                },
+            }],
         }
     return payload
 
@@ -142,6 +154,12 @@ def test_cta_context_is_exposed_for_squad_and_transfer_candidates_without_changi
     best = result["transfer_recommendation"]["best_candidate"]
     assert best["cta_context"]["outgoing"]["cta"]["composite"] is None
     assert best["cta_context"]["incoming"]["cta"]["coverage_status"] == "HAS_PRIOR_VERIFIED_HISTORY"
+    evidence = best["cta_context"]["incoming"]["cta_evidence_summary"]
+    assert evidence["status"] == "RESEARCH_ONLY_EVIDENCE_AVAILABLE"
+    assert evidence["feature_averages"]["shots_per_match"] == 2.5
+    assert evidence["feature_averages"]["tracked_xg_per_match"] == 0.3
+    assert evidence["decision_weight"] == 0.0
+    assert evidence["ranking_effect"] == "NONE"
     assert result["squad_plan"]["cta_context_status"] == "RESEARCH_ONLY_NOT_IN_BASELINE"
 
 
@@ -177,3 +195,15 @@ def test_personal_squad_validated_status_requires_fresh_verified_forecast():
     payload["forecast_quality"]["data_coverage"]["freshness_status"] = "FRESH_WITHIN_24H"
     result = recommend_personal_squad(payload)
     assert result["recommendation_status"] == "VALIDATED"
+
+
+
+def test_cta_evidence_summary_does_not_turn_missing_features_into_zero():
+    payload = request_with_cta()
+    for player in payload["player_forecasts"]:
+        player["cta"]["fixtures"][0]["features"] = {}
+    result = recommend_personal_squad(payload)
+    best = result["transfer_recommendation"]["best_candidate"]
+    evidence = best["cta_context"]["incoming"]["cta_evidence_summary"]
+    assert evidence["status"] == "VERIFIED_IDENTITY_NO_FEATURE_VALUES"
+    assert evidence["feature_averages"] == {}

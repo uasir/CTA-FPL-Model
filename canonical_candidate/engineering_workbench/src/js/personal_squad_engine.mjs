@@ -104,6 +104,49 @@ function bestStartingXi(owned, byId, formationValue, startingXiValue) {
   return { starting: ordered, formation };
 }
 
+function ctaEvidenceSummary(cta) {
+  const fixtures = Array.isArray(cta.fixtures) ? cta.fixtures : [];
+  const available = fixtures.filter((row) =>
+    row && typeof row === "object" && row.snapshot_available_as_of_deadline === true);
+  const sourceRow = available[0] ?? fixtures.find((row) => row && typeof row === "object") ?? {};
+  const identityVerified = cta.identity_verified === true;
+  const priorCount = Number(sourceRow.prior_matches_count ?? 0) || 0;
+  const prior3Count = Number(sourceRow.prior3_matches_count ?? 0) || 0;
+  const features = sourceRow.features && typeof sourceRow.features === "object"
+    ? sourceRow.features : {};
+  const featureMap = {
+    shots_per_match: "cta_prior3_matches_shots_avg",
+    shots_on_target_per_match: "cta_prior3_matches_shots_on_target_avg",
+    key_passes_per_match: "cta_prior3_matches_key_passes_avg",
+    box_attempts_per_match: "cta_prior3_matches_attempts_inside_box_avg",
+    tracked_xg_per_match: "cta_prior3_matches_tracked_xg_sum_avg",
+    big_chances_per_match: "cta_prior3_matches_big_chances_avg",
+  };
+  const values = {};
+  for (const [label, key] of Object.entries(featureMap)) {
+    const value = features[key];
+    if (value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value))) {
+      values[label] = Number(value);
+    }
+  }
+  let status = "RESEARCH_ONLY_EVIDENCE_AVAILABLE";
+  if (!identityVerified) status = "UNVERIFIED_IDENTITY";
+  else if (priorCount <= 0) status = "VERIFIED_IDENTITY_NO_PRIOR_HISTORY";
+  else if (Object.keys(values).length === 0) status = "VERIFIED_IDENTITY_NO_FEATURE_VALUES";
+  return {
+    status,
+    source_snapshot_as_of: cta.source_snapshot_as_of ?? null,
+    target_gameweek: cta.target_gameweek ?? null,
+    prior_matches_count: priorCount,
+    prior3_matches_count: prior3Count,
+    feature_window: "prior 3 matches",
+    feature_averages: values,
+    decision_use_status: "RESEARCH_ONLY_NOT_IN_BASELINE",
+    decision_weight: 0,
+    ranking_effect: "NONE",
+  };
+}
+
 function playerCtaContext(player) {
   const cta = player.cta && typeof player.cta === "object" && !Array.isArray(player.cta)
     ? player.cta
@@ -119,6 +162,7 @@ function playerCtaContext(player) {
     fpl_element_id: player.fpl_element_id,
     web_name: player.web_name ?? "",
     cta,
+    cta_evidence_summary: ctaEvidenceSummary(cta),
   };
 }
 
