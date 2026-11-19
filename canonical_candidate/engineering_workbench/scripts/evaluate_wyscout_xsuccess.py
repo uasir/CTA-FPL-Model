@@ -122,9 +122,10 @@ def evaluate(samples, train_fraction=0.7):
     test = [s for s in samples if s["match_date"] >= cutoff]
     if len(train) < 100 or len(test) < 30:
         raise ValueError("xSuccess needs at least 100 training and 30 test labelled passes")
-    categories = sorted({s["subevent"] for s in train})
+    categories = sorted({s.get("subevent", "unknown") for s in train})
     def vector(sample):
-        return sample["features"] + [float(sample["subevent"] == category) for category in categories]
+        subevent = sample.get("subevent", "unknown")
+        return sample["features"] + [float(subevent == category) for category in categories]
     x_train, x_test, means, scales = _standardize(
         [vector(s) for s in train], [vector(s) for s in test]
     )
