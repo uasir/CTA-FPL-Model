@@ -33,6 +33,15 @@ The same-match provider features must **not** be used to predict that same match
 
 Player-level provisional rows and source data remain inside the GitHub Actions runner and are not uploaded. The published integration artifact contains aggregate counts and source hashes only. 11footy is CC BY-NC 4.0 and may be used only for non-commercial purposes under that licence. The FPL underlying data remains owned by Fantasy Premier League; no commercial rights are claimed.
 
+
+## Lagged research feature sidecar
+
+A separate builder now creates `11footy_lagged_research_features.csv` from the provisional panel and the existing FPL lagged target rows. It requires the exact 11footy match kickoff timestamp and uses only CTA rows with `match_kickoff_utc < features_as_of_deadline`. It excludes the target fixture itself and does not use same-match CTA statistics as inputs.
+
+The sidecar computes rolling means over the previous three and five player matches, plus season-to-date sums, for available minutes, goals, assists, shots, key passes, attempts, big chances, fouls and tracked-shot xG fields. Windows are previous player matches, not gameweeks. FPL target points/minutes/goals/assists are carried separately for research and are never part of the CTA feature calculation.
+
+The lagged sidecar remains `research_only`, `production_eligible=false`, and `prediction_training_eligible=false`. The current FPL lagged report explicitly says its retrospective point-in-time status is not verified, and all provider identities remain pending. The workflow publishes only aggregate coverage and validation status; the player-level sidecar remains inside the Actions runner.
+
 ## Current status
 
 The current pipeline writes the isolated panel and publishes only its aggregate row/player/fixture counts. Prediction validation remains not evaluated. The next engineering step is a separate lagged research builder and walk-forward evaluation, not feeding this file into the verified panel or live recommendation engines.
