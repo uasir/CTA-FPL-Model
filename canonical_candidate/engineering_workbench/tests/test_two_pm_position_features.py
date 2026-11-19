@@ -1,5 +1,5 @@
 from build_vaastav_fpl_multiseason_panel import build_season_rows
-from compare_2pm_position_ablation import compare_predictions
+from compare_2pm_position_ablation import compare_predictions, rank_by_deadline
 from evaluate_two_pm_transformer_walk_forward import (
     BASE_TRANSFORMER_FEATURES, POSITION_FEATURES, TRANSFORMER_FEATURE_SETS, available_features,
 )
@@ -52,3 +52,15 @@ def test_position_ablation_requires_identical_actual_points():
         assert "Actual points differ" in str(exc)
     else:
         raise AssertionError("different actual targets must be rejected")
+
+def test_ranking_is_computed_within_each_season_gameweek_deadline():
+    rows = [
+        {"season": "2025-26", "gameweek": 1, "actual": 10.0, "prediction": 10.0},
+        {"season": "2025-26", "gameweek": 1, "actual": 0.0, "prediction": 0.0},
+        {"season": "2025-26", "gameweek": 2, "actual": 0.0, "prediction": 10.0},
+        {"season": "2025-26", "gameweek": 2, "actual": 10.0, "prediction": 0.0},
+    ]
+    summary, deadlines = rank_by_deadline(rows, "prediction", top_k=1)
+    assert summary["n_deadlines"] == 2
+    assert set(deadlines) == {("2025-26", 1), ("2025-26", 2)}
+    assert summary["macro_selected_mean_points"] == 5.0
