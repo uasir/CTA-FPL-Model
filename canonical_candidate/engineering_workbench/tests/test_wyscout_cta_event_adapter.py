@@ -99,3 +99,74 @@ def test_adapter_maps_direct_free_kick_shots_to_shots():
     assert rows[0]["type"]["name"] == "Shot"
     assert rows[0]["shot"]["outcome"]["name"] == "Goal"
     assert report["free_kick_shots_mapped_to_shot"] == 1
+
+
+def test_duel_outcome_tags_prevent_false_possession_switches():
+    events = [
+        {"id": 1, "matchPeriod": "1H", "eventSec": 1, "teamId": 1,
+         "playerId": 10, "eventName": "Pass", "positions": [
+             {"x": 20, "y": 50}, {"x": 30, "y": 50}], "tags": [{"id": 1801}]},
+        {"id": 2, "matchPeriod": "1H", "eventSec": 2, "teamId": 2,
+         "playerId": 20, "eventName": "Duel", "subEventName": "Ground defending duel",
+         "positions": [{"x": 30, "y": 50}, {"x": 31, "y": 50}], "tags": [{"id": 701}]},
+        {"id": 3, "matchPeriod": "1H", "eventSec": 2, "teamId": 1,
+         "playerId": 10, "eventName": "Duel", "subEventName": "Ground attacking duel",
+         "positions": [{"x": 31, "y": 50}, {"x": 32, "y": 50}], "tags": [{"id": 703}]},
+        {"id": 4, "matchPeriod": "1H", "eventSec": 3, "teamId": 1,
+         "playerId": 10, "eventName": "Duel", "subEventName": "Ground attacking duel",
+         "positions": [{"x": 32, "y": 50}, {"x": 33, "y": 50}], "tags": [{"id": 701}]},
+        {"id": 5, "matchPeriod": "1H", "eventSec": 4, "teamId": 2,
+         "playerId": 20, "eventName": "Pass", "positions": [
+             {"x": 33, "y": 50}, {"x": 40, "y": 50}], "tags": [{"id": 1801}]},
+    ]
+    rows, report = normalize_wyscout_events(
+        events, [{"wyId": 10, "shortName": "A"}, {"wyId": 20, "shortName": "B"}],
+        [{"wyId": 1, "name": "Home"}, {"wyId": 2, "name": "Away"}], 101
+    )
+    assert rows[0]["possession"] == rows[1]["possession"] == rows[2]["possession"] == rows[3]["possession"]
+    assert rows[1]["possession_team"]["name"] == "Home"
+    assert rows[1]["team"]["name"] == "Away"
+    assert rows[4]["possession"] != rows[3]["possession"]
+    assert report["possession_boundary_reason_counts"]["duel_lost"] == 1
+
+
+def test_foul_does_not_transfer_possession_to_fouling_team_and_restart_starts_new_one():
+    events = [
+        {"id": 1, "matchPeriod": "1H", "eventSec": 1, "teamId": 1,
+         "playerId": 10, "eventName": "Pass", "positions": [
+             {"x": 20, "y": 50}, {"x": 30, "y": 50}], "tags": [{"id": 1801}]},
+        {"id": 2, "matchPeriod": "1H", "eventSec": 2, "teamId": 2,
+         "playerId": 20, "eventName": "Foul", "subEventName": "Foul",
+         "positions": [{"x": 30, "y": 50}], "tags": []},
+        {"id": 3, "matchPeriod": "1H", "eventSec": 5, "teamId": 1,
+         "playerId": 10, "eventName": "Free Kick", "subEventName": "Free Kick",
+         "positions": [{"x": 30, "y": 50}, {"x": 35, "y": 50}], "tags": [{"id": 1801}]},
+    ]
+    rows, _ = normalize_wyscout_events(
+        events, [{"wyId": 10, "shortName": "A"}, {"wyId": 20, "shortName": "B"}],
+        [{"wyId": 1, "name": "Home"}, {"wyId": 2, "name": "Away"}], 102
+    )
+    assert rows[0]["possession"] == rows[1]["possession"]
+    assert rows[1]["possession_team"]["name"] == "Home"
+    assert rows[2]["possession"] != rows[1]["possession"]
+    assert rows[2]["possession_team"]["name"] == "Home"
+
+
+def test_neutral_duel_does_not_create_a_new_possession():
+    events = [
+        {"id": 1, "matchPeriod": "1H", "eventSec": 1, "teamId": 1,
+         "playerId": 10, "eventName": "Pass", "positions": [
+             {"x": 20, "y": 50}, {"x": 30, "y": 50}], "tags": [{"id": 1801}]},
+        {"id": 2, "matchPeriod": "1H", "eventSec": 2, "teamId": 2,
+         "playerId": 20, "eventName": "Duel", "subEventName": "Ground loose ball duel",
+         "positions": [{"x": 30, "y": 50}, {"x": 31, "y": 50}], "tags": [{"id": 702}]},
+        {"id": 3, "matchPeriod": "1H", "eventSec": 3, "teamId": 1,
+         "playerId": 10, "eventName": "Pass", "positions": [
+             {"x": 31, "y": 50}, {"x": 40, "y": 50}], "tags": [{"id": 1801}]},
+    ]
+    rows, _ = normalize_wyscout_events(
+        events, [{"wyId": 10, "shortName": "A"}, {"wyId": 20, "shortName": "B"}],
+        [{"wyId": 1, "name": "Home"}, {"wyId": 2, "name": "Away"}], 103
+    )
+    assert rows[0]["possession"] == rows[1]["possession"] == rows[2]["possession"]
+    assert rows[1]["possession_team"]["name"] == "Home"
