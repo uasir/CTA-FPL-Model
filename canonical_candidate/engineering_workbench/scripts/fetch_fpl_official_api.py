@@ -203,12 +203,26 @@ def main() -> int:
     snapshot_timing=("PRE_DEADLINE_WITHIN_24H" if hours_to_deadline is not None and hours_to_deadline<=24
                      else "PRE_DEADLINE_OVER_24H" if hours_to_deadline is not None else "NO_FUTURE_DEADLINE")
     def digest(obj): return hashlib.sha256(json.dumps(obj,sort_keys=True).encode()).hexdigest()
+    bootstrap_hash=digest(bootstrap)
+    fixtures_hash=digest(fixtures)
+    summaries_hash=digest({str(key):summaries[key] for key in sorted(summaries)})
+    source_snapshot_id=hashlib.sha256(
+        json.dumps({"bootstrap":bootstrap_hash,"fixtures":fixtures_hash,"element_summaries":summaries_hash},
+                   sort_keys=True,separators=(",",":")).encode("utf-8")
+    ).hexdigest()
+    def file_digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()
     metadata={"source":"Official Fantasy Premier League public API","season":season,"fetched_at_utc":fetched_at.isoformat(),
               "snapshot_timing":snapshot_timing,
+              "point_in_time_status":"CURRENT_CAPTURE_ONLY_HISTORICAL_VINTAGE_UNVERIFIED",
+              "source_snapshot_id":source_snapshot_id,
               "next_deadline_event_id":next_event[1].get("id") if next_event else None,
               "next_deadline_time_utc":next_event[0].isoformat() if next_event else None,
               "hours_until_next_deadline":round(hours_to_deadline,3) if hours_to_deadline is not None else None,"bootstrap_url":bootstrap_url,"fixtures_url":fixtures_url,
-              "bootstrap_sha256":digest(bootstrap),"fixtures_sha256":digest(fixtures),
+              "bootstrap_sha256":bootstrap_hash,"fixtures_sha256":fixtures_hash,
+              "element_summaries_sha256":summaries_hash,
+              "normalized_players_sha256":file_digest(args.out_dir/"fpl_players.csv"),
+              "normalized_fixtures_sha256":file_digest(args.out_dir/"fpl_fixtures.csv"),
+              "normalized_player_fixture_sha256":file_digest(args.out_dir/"fpl_player_fixture.csv"),
               "summary_endpoint":f"{BASE_URL}/element-summary/{{element_id}}/","summary_fetch_count":len(summaries),"summary_fetch_errors":len(errors)}
     (args.out_dir/"source_metadata.json").write_text(json.dumps(metadata,indent=2),encoding="utf-8")
     print(json.dumps(report,indent=2))
