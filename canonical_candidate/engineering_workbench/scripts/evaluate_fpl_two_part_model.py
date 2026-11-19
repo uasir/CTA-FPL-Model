@@ -85,7 +85,7 @@ def regression_metrics(actual, predicted):
 
 
 def evaluate(rows, holdout_fraction=0.2):
-    groups=group_player_gameweeks(rows)
+    groups=[r for r in group_player_gameweeks(rows) if r["gameweek"]>1]
     chronology=sorted({(r["season"],r["gameweek"]) for r in groups})
     if len(chronology)<20: raise ValueError("Insufficient chronological gameweeks")
     n=max(1,math.ceil(len(chronology)*holdout_fraction))
@@ -116,6 +116,7 @@ def evaluate(rows, holdout_fraction=0.2):
     actual=[r["actual_points"] for r in scored]
     actual_app=[r["appeared"] for r in scored]
     probs=[r["p_appearance"] for r in scored]
+    appearance_baseline=[min(1.0,max(0.0,r["prior5_appearance_rate"])) for r in scored]
     two=[r["two_part_points"] for r in scored]
     direct=[r["direct_points"] for r in scored]
     last5=[r["last5_baseline_points"] for r in scored]
@@ -131,7 +132,10 @@ def evaluate(rows, holdout_fraction=0.2):
         idx=[i for i,r in enumerate(scored) if r["season"]==season]
         per_season[season]={
             "player_gameweeks":len(idx),
-            "appearance":binary_metrics([actual_app[i] for i in idx],[probs[i] for i in idx]),
+            "appearance":{
+                "model":binary_metrics([actual_app[i] for i in idx],[probs[i] for i in idx]),
+                "prior5_appearance_rate_baseline":binary_metrics([actual_app[i] for i in idx],[appearance_baseline[i] for i in idx]),
+            },
             "minutes_mae":round(mae([minute_actual[i] for i in idx],[minute_pred[i] for i in idx]),6),
             "two_part_points":regression_metrics([actual[i] for i in idx],[two[i] for i in idx]),
             "direct_points":regression_metrics([actual[i] for i in idx],[direct[i] for i in idx]),
@@ -146,7 +150,10 @@ def evaluate(rows, holdout_fraction=0.2):
         "training_player_gameweeks":len(train),
         "positive_minutes_training_player_gameweeks":len(positive_train),
         "validation_player_gameweeks":len(scored),
-        "appearance":binary_metrics(actual_app,probs),
+        "appearance":{
+            "model":binary_metrics(actual_app,probs),
+            "prior5_appearance_rate_baseline":binary_metrics(actual_app,appearance_baseline),
+        },
         "minutes": {
             "model":regression_metrics(minute_actual,minute_pred),
             "last_gameweek_baseline":regression_metrics(minute_actual,[x for x in minute_base if x is not None])
