@@ -9,7 +9,7 @@ from build_11footy_player_match_features import (
 )
 
 
-def _databases():
+def _databases(xg=0.2):
     main = sqlite3.connect(":memory:")
     main.executescript("""
         CREATE TABLE format_version(built_at TEXT, licence TEXT);
@@ -48,6 +48,8 @@ def _databases():
         );
         INSERT INTO shots VALUES (100, 10, 2, 'tracked', 0.2);
     """)
+
+    main.execute("UPDATE shots SET xg = ?", (xg,))
 
     players = sqlite3.connect(":memory:")
     players.executescript("""
@@ -261,3 +263,45 @@ def test_candidate_review_queue_prioritizes_evidence_without_verifying_identity(
     ]
     assert all(row["verification_status"] == "PENDING" for row in queue)
     assert all("manual review only" in row["review_note"] for row in queue)
+
+
+def _verified_panel(main, players):
+    fixtures, fpl_players, history, candidates = _inputs()
+    crosswalk = [{
+        "season": "2026/27", "competition_id": "1",
+        "provider_player_id": "1", "provider_player_name": "Example Player",
+        "fpl_element_id": "42", "fpl_player_code": "999",
+        "verification_status": "verified", "match_method": "manual_source_verified",
+    }]
+    return build_panel(
+        main, players, fixtures, fpl_players, history,
+        candidates, crosswalk, "2026-27", "1",
+        crosswalk_validation_report={"status": "PASS"},
+    )
+
+
+def test_missing_tracked_shot_xg_stays_missing_not_zero():
+    main, players = _databases(xg=None)
+    try:
+        panel, _, report = _verified_panel(main, players)
+    finally:
+        main.close()
+        players.close()
+    assert report["join_ready"] is True
+    assert len(panel) == 1
+    assert panel[0]["tracked_shots"] == 1
+    assert panel[0]["tracked_shots_with_xg"] == 0
+    assert panel[0]["tracked_xg_sum"] is None
+
+
+def test_observed_zero_tracked_shot_xg_remains_a_valid_zero():
+    main, players = _databases(xg=0.0)
+    try:
+        panel, _, report = _verified_panel(main, players)
+    finally:
+        main.close()
+        players.close()
+    assert report["join_ready"] is True
+    assert len(panel) == 1
+    assert panel[0]["tracked_shots_with_xg"] == 1
+    assert panel[0]["tracked_xg_sum"] == 0.0
