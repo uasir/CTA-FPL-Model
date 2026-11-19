@@ -25,6 +25,7 @@ Current historical evidence is limited to a small, survivorship-biased Wyscout/1
 
 The 2PM-Transformer remains independent and uses conventional FPL history: minutes, appearance, points, xG/xA and related lagged FPL information. It must never consume A/B/C features in its standalone track. Continue its independent architecture, calibration, loss, sequence and tail-error optimization.
 
+**Current controlled experiment:** a position-aware 2PM ablation is implemented as a separate base-vs-position comparison. It adds only four FPL position indicators, uses identical expanding-season folds and seeds, exports predictions runner-locally, and compares exact matched player-GWs with player-season clustered intervals. Its workflow is running; results are pending. The source position labels are retrospective and do not yet constitute deadline-vintage proof.
 ### 4. CTA tool / football-intelligence engine
 
 Optimize the underlying CTA tool independently from both point predictors. Its objectives are correct football-event interpretation and high-quality contextual features: identity-safe event aggregation, sequence construction, direction, xT, pass success, pressure/defensive context, player availability and Python/JavaScript parity.
