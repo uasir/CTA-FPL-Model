@@ -266,6 +266,8 @@ def build_features(events, directions, xt_values, progressive_threshold=10.0):
             typ = event_type(e)
             if typ not in {"Pass", "Carry"}:
                 continue
+            if typ == "Pass" and not completed_pass(e):
+                continue
             start, end = action_locations(e)
             if has_direction:
                 sn, en = orient(start, right), orient(end, right)
@@ -333,7 +335,7 @@ def build_features(events, directions, xt_values, progressive_threshold=10.0):
                 elif typ in {"Ball Receipt*", "Ball Receipt"}:
                     c["receipts"] += 1
                 c["pressured_events"] += int(bool(e.get("under_pressure")))
-                if has_direction and typ in {"Pass", "Carry"}:
+                if has_direction and typ in {"Pass", "Carry"} and (typ == "Carry" or completed_pass(e)):
                     st, en = action_locations(e)
                     stn, enn = orient(st, right), orient(en, right)
                     if enn:
