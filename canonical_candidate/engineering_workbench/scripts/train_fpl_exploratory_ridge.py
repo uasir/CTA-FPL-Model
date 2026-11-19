@@ -130,7 +130,7 @@ def predict(model,row):
     if "source_feature_names" not in model:
         values=[number(row.get(name)) for name in model["feature_names"]]
         vector=[1.0]+[(values[j]-model["means"][j])/model["scales"][j] for j in range(len(values))]
-        return sum(vector[i]*model["coefficients"][i] for i in range(len(vector))]
+        return sum(vector[i]*model["coefficients"][i] for i in range(len(vector)))
     source_names=model["source_feature_names"]
     values=[optional_number(row.get(name)) for name in source_names]
     imputation=model["imputation_values"]
