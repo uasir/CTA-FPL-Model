@@ -232,6 +232,8 @@ def test_reverse_absent_starter_order_is_available_as_separate_research_variant(
     reverse = replay_gameweek(decision, points, mins, positions, autosub_absence_order="reverse")
     assert [(item["in"], item["out"]) for item in forward["substitutions"]] == [("d5", "d1"), ("m4", "f1")]
     assert [(item["in"], item["out"]) for item in reverse["substitutions"]] == [("d5", "f1"), ("m4", "d1")]
+    assert forward["autosub_absence_order"] == "forward"
+    assert reverse["autosub_absence_order"] == "reverse"
 
 
 def test_unknown_autosub_absence_order_is_rejected():
