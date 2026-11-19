@@ -193,3 +193,20 @@ def test_paired_error_comparison_reports_aligned_deltas_and_probability_groups()
     assert result["absolute_error_tie_rate"]==0.25
     assert result["by_group"]["high_>=0.80"]["n"]==2
     assert result["by_group"]["low_<0.50"]["mean_absolute_error_delta"]==-1.0
+
+def test_player_season_cluster_bootstrap_is_reproducible_and_aggregated():
+    from evaluate_fpl_walk_forward import cluster_bootstrap_paired_errors
+    actual=[0.0,2.0,5.0,8.0]
+    candidate=[1.0,1.0,7.0,7.0]
+    comparator=[2.0,3.0,4.0,10.0]
+    clusters=["2024-25::1","2024-25::1","2024-25::2","2024-25::3"]
+    first=cluster_bootstrap_paired_errors(actual,candidate,comparator,clusters,n_boot=200,seed=17)
+    second=cluster_bootstrap_paired_errors(actual,candidate,comparator,clusters,n_boot=200,seed=17)
+    assert first==second
+    assert first["method"]=="PLAYER_SEASON_CLUSTER_BOOTSTRAP"
+    assert first["clusters"]==3
+    assert first["replicates"]==200
+    for key in ("mean_absolute_error_delta_ci95","mean_squared_error_delta_ci95","candidate_absolute_error_win_rate_ci95"):
+        assert len(first[key])==2
+        assert first[key][0]<=first[key][1]
+
