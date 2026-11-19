@@ -105,7 +105,12 @@ def minutes_distribution_metrics(actual,probabilities):
     }
 
 
-def one_hot_minutes_distribution(value):
+def one_hot_minutes_distribution(value, fallback=None):
+    """Use last-GW one-hot when history exists; otherwise use training-only class prior."""
+    if value is None:
+        if fallback is None:
+            raise ValueError("Missing last-GW minutes requires a training-only fallback")
+        return np.asarray(fallback,dtype=float).tolist()
     p=np.zeros(5,dtype=float)
     p[minutes_band(value)]=1.0
     return p.tolist()
@@ -180,6 +185,8 @@ def score_fold(train, valid, season):
     minutes_band_train_prior=[]
     raw_probabilities=[]; calibrated_probabilities=[]; appearance_baseline=[]
     fallback_appearance_rate=sum(r["appeared"] for r in train)/len(train)
+    train_band_counts=np.bincount([minutes_band(r["actual_minutes"]) for r in appearance_fit],minlength=5)
+    train_band_prior=(train_band_counts/train_band_counts.sum()).tolist()
     predicted_minutes=[]; predicted_minutes_raw=[]; predicted_minutes_calibrated=[]
     last_minutes=[]; prior3_minutes=[]; prior5_minutes=[]
     lagged_minutes=[]; conditional_lagged_minutes_raw=[]; conditional_lagged_minutes_calibrated=[]
@@ -190,9 +197,8 @@ def score_fold(train, valid, season):
         band_cal=minutes_band_probabilities(minutes_band_model,row,minutes_band_temperature)
         minutes_band_probabilities_raw.append(band_raw.tolist())
         minutes_band_probabilities_calibrated.append(band_cal.tolist())
-        minutes_band_last_gw.append(one_hot_minutes_distribution(row["last_gw_baseline_minutes"]))
-        train_band_counts=np.bincount([minutes_band(r["actual_minutes"]) for r in appearance_fit],minlength=5)
-        minutes_band_train_prior.append((train_band_counts/train_band_counts.sum()).tolist())
+        minutes_band_last_gw.append(one_hot_minutes_distribution(row["last_gw_baseline_minutes"],train_band_prior))
+        minutes_band_train_prior.append(train_band_prior)
         score=predict(appearance_model,row)
         raw_p=min(1.0,max(0.0,score))
         calibrated_p=calibrated_probability(calibrator,score)
@@ -270,7 +276,7 @@ def score_fold(train, valid, season):
             "temperature":round(minutes_band_temperature,3),
             "calibrated":minutes_distribution_metrics(actual_minutes,minutes_band_probabilities_calibrated),
             "raw":minutes_distribution_metrics(actual_minutes,minutes_band_probabilities_raw),
-            "last_gameweek_one_hot":minutes_distribution_metrics(actual_minutes,minutes_band_last_gw),
+            "last_gameweek_or_training_prior":minutes_distribution_metrics(actual_minutes,minutes_band_last_gw),
             "training_class_prior":minutes_distribution_metrics(actual_minutes,minutes_band_train_prior),
         },
         "minutes":{
@@ -330,7 +336,7 @@ def evaluate_walk_forward(rows):
         "minutes_bands":{
             model:{metric:weighted_metric("minutes_bands",model,metric)
                    for metric in ("mae","rmse","multiclass_log_loss","multiclass_brier","accuracy")}
-            for model in ("calibrated","raw","last_gameweek_one_hot","training_class_prior")
+            for model in ("calibrated","raw","last_gameweek_or_training_prior","training_class_prior")
         },
         "minutes":{
             "unconditional_regression_mae":weighted_metric("minutes","unconditional_regression","mae"),
