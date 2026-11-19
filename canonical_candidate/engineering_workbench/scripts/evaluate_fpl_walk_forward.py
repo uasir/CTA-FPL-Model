@@ -104,6 +104,18 @@ def calibrate_points_temperature(model,rows):
     return best[1]
 
 
+def combine_appearance_points_distribution(appearance_probability, conditional_points_probabilities):
+    """Place non-appearance probability in the zero-points class."""
+    p=min(1.0,max(0.0,float(appearance_probability)))
+    conditional=np.asarray(conditional_points_probabilities,dtype=float)
+    if conditional.shape != (6,):
+        raise ValueError("Conditional points distribution must contain six classes")
+    combined=p*conditional
+    combined[1]+=1.0-p
+    combined/=combined.sum()
+    return combined
+
+
 def points_distribution_metrics(actual,probabilities,representatives=None):
     labels=np.asarray([points_band(v) for v in actual],dtype=int)
     probs=np.asarray(probabilities,dtype=float)
@@ -289,6 +301,12 @@ def score_fold(train, valid, season):
     points_band_model=fit_points_band_model(appearance_fit)
     points_band_temperature=calibrate_points_temperature(points_band_model,calibration)
     points_band_representatives=fit_points_band_representatives(appearance_fit)
+    # Fit conditional points only on the earlier appearance-fit slice.
+    positive_appearance_fit=[r for r in appearance_fit if r["appeared"]==1.0]
+    positive_calibration=[r for r in calibration if r["appeared"]==1.0]
+    conditional_points_band_model=fit_points_band_model(positive_appearance_fit)
+    conditional_points_band_temperature=calibrate_points_temperature(conditional_points_band_model,positive_calibration)
+    conditional_points_band_representatives=fit_points_band_representatives(positive_appearance_fit)
     calibration_scores=[predict(appearance_model,r) for r in calibration]
     calibrator=fit_platt(calibration_scores,[r["appeared"] for r in calibration])
     minutes_model=fit_ridge_fast(train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
@@ -308,6 +326,8 @@ def score_fold(train, valid, season):
     points_band_probabilities_calibrated=[]
     points_band_probabilities_raw=[]
     points_band_train_prior=[]
+    hurdle_points_probabilities_raw=[]
+    hurdle_points_probabilities_calibrated=[]
     raw_probabilities=[]; calibrated_probabilities=[]; appearance_baseline=[]
     fallback_appearance_rate=sum(r["appeared"] for r in train)/len(train)
     train_band_counts=np.bincount([minutes_band(r["actual_minutes"]) for r in appearance_fit],minlength=5)
@@ -324,9 +344,13 @@ def score_fold(train, valid, season):
         band_cal=minutes_band_probabilities(minutes_band_model,row,minutes_band_temperature)
         points_raw=points_band_probabilities(points_band_model,row)
         points_cal=points_band_probabilities(points_band_model,row,points_band_temperature)
+        conditional_hurdle_raw=points_band_probabilities(conditional_points_band_model,row)
+        conditional_hurdle_cal=points_band_probabilities(conditional_points_band_model,row,conditional_points_band_temperature)
         score=predict(appearance_model,row)
         raw_p=min(1.0,max(0.0,score))
         calibrated_p=calibrated_probability(calibrator,score)
+        hurdle_raw=combine_appearance_points_distribution(raw_p,conditional_hurdle_raw)
+        hurdle_cal=combine_appearance_points_distribution(calibrated_p,conditional_hurdle_cal)
         conditional=max(0.0,predict(conditional_model,row))
         raw_ep=raw_p*conditional
         calibrated_ep=calibrated_p*conditional
@@ -349,6 +373,8 @@ def score_fold(train, valid, season):
         points_band_probabilities_raw.append(points_raw.tolist())
         points_band_probabilities_calibrated.append(points_cal.tolist())
         points_band_train_prior.append(train_points_prior)
+        hurdle_points_probabilities_raw.append(hurdle_raw.tolist())
+        hurdle_points_probabilities_calibrated.append(hurdle_cal.tolist())
         minutes_band_probabilities_calibrated.append(band_cal.tolist())
         minutes_band_last_gw.append(one_hot_minutes_distribution(row["last_gw_baseline_minutes"],train_band_prior))
         minutes_band_train_prior.append(train_band_prior)
@@ -411,6 +437,12 @@ def score_fold(train, valid, season):
             "calibrated":points_distribution_metrics(actual_points,points_band_probabilities_calibrated,points_band_representatives),
             "raw":points_distribution_metrics(actual_points,points_band_probabilities_raw,points_band_representatives),
             "training_class_prior":points_distribution_metrics(actual_points,points_band_train_prior,points_band_representatives),
+        },
+        "appearance_hurdle_points_bands":{
+            "conditional_temperature":round(conditional_points_band_temperature,3),
+            "conditional_training_mean_representatives":conditional_points_band_representatives.tolist(),
+            "raw_appearance_probability":points_distribution_metrics(actual_points,hurdle_points_probabilities_raw,conditional_points_band_representatives),
+            "calibrated_appearance_probability":points_distribution_metrics(actual_points,hurdle_points_probabilities_calibrated,conditional_points_band_representatives),
         },
         "minutes_bands":{
             "temperature":round(minutes_band_temperature,3),
@@ -480,6 +512,11 @@ def evaluate_walk_forward(rows):
             model:{metric:weighted_metric("points_bands",model,metric)
                    for metric in ("expected_points_mae","expected_points_rmse","multiclass_log_loss","multiclass_brier","ranked_probability_score","accuracy")}
             for model in ("calibrated","raw","training_class_prior")
+        },
+        "appearance_hurdle_points_bands":{
+            model:{metric:weighted_metric("appearance_hurdle_points_bands",model,metric)
+                   for metric in ("expected_points_mae","expected_points_rmse","multiclass_log_loss","multiclass_brier","ranked_probability_score","accuracy")}
+            for model in ("raw_appearance_probability","calibrated_appearance_probability")
         },
         "minutes_bands":{
             model:{metric:weighted_metric("minutes_bands",model,metric)
