@@ -1,4 +1,5 @@
 name: CTA FPL multi-season historical research
+# Re-run after walk-forward calibration chronology and minutes baselines were extended.
 
 on:
   workflow_dispatch:
