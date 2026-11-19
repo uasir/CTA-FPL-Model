@@ -34,8 +34,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api --method DELETE repos/uasir/CTA-FPL-Model/actions/artifacts/14546548221
-          gh api --method DELETE repos/uasir/CTA-FPL-Model/actions/artifacts/14549690090
+          gh api --method DELETE repos/uasir/CTA-FPL-Model/actions/artifacts/14546548221 || true
+          gh api --method DELETE repos/uasir/CTA-FPL-Model/actions/artifacts/14549690090 || true
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
