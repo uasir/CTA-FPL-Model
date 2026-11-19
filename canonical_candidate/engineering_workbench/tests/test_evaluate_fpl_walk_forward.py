@@ -1,3 +1,4 @@
+import math
 from evaluate_fpl_walk_forward import FEATURES, evaluate_walk_forward, fit_ridge_fast
 from train_fpl_exploratory_ridge import fit_ridge, predict
 
@@ -32,6 +33,9 @@ def test_expanding_season_walk_forward_never_trains_on_validation_season():
         assert fold["validation_player_gameweeks"]>0
         assert fold["appearance"]["calibrated"]["brier"]>=0
         assert fold["points"]["direct"]["mae"]>=0
+    folds=report["folds"]
+    expected_rmse=math.sqrt(sum(f["validation_player_gameweeks"]*f["points"]["direct"]["rmse"]**2 for f in folds)/sum(f["validation_player_gameweeks"] for f in folds))
+    assert abs(report["pooled_weighted_metrics"]["points"]["direct"]["rmse"]-expected_rmse)<1e-6
 
  
 def test_numpy_walk_forward_ridge_matches_canonical_ridge_solver():
