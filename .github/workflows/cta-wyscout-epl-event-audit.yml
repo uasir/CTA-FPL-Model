@@ -43,6 +43,13 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Run Wyscout CTA and identity resolver unit tests
+        run: |
+          python -m pip install pytest
+          PYTHONPATH=canonical_candidate/engineering_workbench/scripts python -m pytest -q \
+            canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py \
+            canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
+
       - name: Download the public Wyscout 2017/18 data files
         run: |
           set -euo pipefail
