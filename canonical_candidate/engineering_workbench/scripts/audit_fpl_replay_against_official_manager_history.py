@@ -105,6 +105,13 @@ def build_replay_record(picks_payload, live_payload, position_by_player):
         "official_team_points": float(official_team_points),
         "official_net_points": float(official_team_points) - hit_cost,
         "official_sub_pairs": official_sub_pairs,
+        "official_sub_pairs_ordered": [
+            (str(int(item["element_in"])), str(int(item["element_out"])))
+            for item in auto_subs
+            if item.get("element_in") is not None and item.get("element_out") is not None
+        ],
+        "starting_xi": xi,
+        "bench_order": bench,
         "event_transfers_cost": hit_cost,
     }
 
@@ -116,6 +123,14 @@ def audit_record(picks_payload, live_payload, position_by_player):
         record["positions"], played_by_player=record["played_by_player"],
     )
     replay_sub_pairs = sorted((item["in"], item["out"]) for item in replay["substitutions"])
+    replay_sub_pairs_ordered = [(item["in"], item["out"]) for item in replay["substitutions"]]
+    positions = record["positions"]
+    bench_slot = {player_id: index + 1 for index, player_id in enumerate(record["bench_order"][:3])}
+    official_ordered = record["official_sub_pairs_ordered"]
+    official_position_pairs = sorted((positions[in_id], positions[out_id]) for in_id, out_id in official_ordered)
+    replay_position_pairs = sorted((positions[in_id], positions[out_id]) for in_id, out_id in replay_sub_pairs_ordered)
+    official_slots = [bench_slot.get(in_id, 0) for in_id, _ in official_ordered]
+    replay_slots = [bench_slot.get(in_id, 0) for in_id, _ in replay_sub_pairs_ordered]
     return {
         "replay_net_points": replay["net_points"],
         "replay_gross_points": replay["gross_points"],
@@ -123,6 +138,14 @@ def audit_record(picks_payload, live_payload, position_by_player):
         "net_point_difference": replay["net_points"] - record["official_net_points"],
         "gross_point_difference": replay["gross_points"] - record["official_team_points"],
         "autosub_pairs_match": replay_sub_pairs == record["official_sub_pairs"],
+"autosub_position_pairs_match": replay_position_pairs == official_position_pairs,
+"autosub_count_match": len(replay_sub_pairs_ordered) == len(official_ordered),
+"official_sub_count": len(official_ordered),
+"replay_sub_count": len(replay_sub_pairs_ordered),
+"official_bench_slots": official_slots,
+"replay_bench_slots": replay_slots,
+"official_position_pairs": official_position_pairs,
+"replay_position_pairs": replay_position_pairs,
         "transfer_hit_cost": record["event_transfers_cost"],
     }
 
@@ -187,6 +210,11 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
     total_autosub_matches = 0
     total_autosub_comparable = 0
     absolute_net_differences = []
+    autosub_position_pair_matches = 0
+    autosub_count_matches = 0
+    official_bench_priority_usage = Counter()
+    replay_bench_priority_usage = Counter()
+    autosub_mismatch_signatures = Counter()
     for event in events:
         event_id = int(event["id"])
         live = live_by_event[event_id]
@@ -204,6 +232,19 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
             if payload.get("automatic_subs") is not None:
                 autosub_comparable += 1
                 autosub_match += int(result["autosub_pairs_match"])
+                autosub_position_pair_matches += int(result["autosub_position_pairs_match"])
+                autosub_count_matches += int(result["autosub_count_match"])
+                official_bench_priority_usage.update(str(slot) for slot in result["official_bench_slots"])
+                replay_bench_priority_usage.update(str(slot) for slot in result["replay_bench_slots"])
+                if not result["autosub_pairs_match"]:
+                    signature = (
+                        f"official_slots={result['official_bench_slots']};"
+                        f"replay_slots={result['replay_bench_slots']};"
+                        f"official_positions={result['official_position_pairs']};"
+                        f"replay_positions={result['replay_position_pairs']};"
+                        f"counts={result['official_sub_count']}:{result['replay_sub_count']}"
+                    )
+                    autosub_mismatch_signatures[signature] += 1
             differences.append(abs(result["net_point_difference"]))
         total_records += n
         total_exact_net += net_exact
@@ -219,6 +260,8 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
             "exact_gross_team_score_matches": gross_exact,
             "autosub_comparisons": autosub_comparable,
             "autosub_exact_match_rate": autosub_match / autosub_comparable if autosub_comparable else None,
+"autosub_position_pair_match_rate": autosub_position_pair_matches / autosub_comparable if autosub_comparable else None,
+"autosub_count_match_rate": autosub_count_matches / autosub_comparable if autosub_comparable else None,
             "mean_absolute_net_score_difference": sum(differences) / len(differences) if differences else None,
         })
 
@@ -237,6 +280,14 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
         "exact_gross_team_score_matches": total_exact_gross,
         "autosub_comparisons": total_autosub_comparable,
         "autosub_exact_match_rate": total_autosub_matches / total_autosub_comparable if total_autosub_comparable else None,
+        "autosub_position_pair_match_rate": autosub_position_pair_matches / total_autosub_comparable if total_autosub_comparable else None,
+        "autosub_count_match_rate": autosub_count_matches / total_autosub_comparable if total_autosub_comparable else None,
+        "official_bench_priority_usage": dict(official_bench_priority_usage),
+        "replay_bench_priority_usage": dict(replay_bench_priority_usage),
+        "top_autosub_mismatch_signatures": [
+            {"signature": signature, "records": count}
+            for signature, count in autosub_mismatch_signatures.most_common(12)
+        ],
         "mean_absolute_net_score_difference": (
             sum(absolute_net_differences) / len(absolute_net_differences)
             if absolute_net_differences else None
