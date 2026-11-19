@@ -13,6 +13,7 @@ on:
       - canonical_candidate/engineering_workbench/src/js/**
       - canonical_candidate/engineering_workbench/tests/**
       - canonical_candidate/engineering_workbench/docs/EXTERNAL_FPL_BENCHMARK_PROTOCOL.md
+      - canonical_candidate/engineering_workbench/docs/TWO_PM_POSITION_ABLATION_PROTOCOL.md
       - canonical_candidate/src/**
       - canonical_candidate/tests/**
       - canonical_candidate/data/11footy_fpl_identity_crosswalk.csv
