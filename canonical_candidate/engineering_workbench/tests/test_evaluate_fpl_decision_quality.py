@@ -11,13 +11,15 @@ def test_prediction_quantile_diagnostics_exposes_upper_tail_underprediction():
     predicted = [0, 1, 2, 3, 4, 5, 5, 5, 5, 5]
     report = prediction_quantile_diagnostics(actual, predicted, bins=5)
 
-    assert len(report["bins"]) == 5
-    assert [item["n"] for item in report["bins"]] == [2, 2, 2, 2, 2]
+    # Five identical high-end forecasts remain together rather than being split
+    # across quantile bins and creating artificial calibration differences.
+    assert len(report["bins"]) == 4
+    assert [item["n"] for item in report["bins"]] == [2, 2, 1, 5]
     upper = report["bins"][-1]
-    assert upper["actual_mean"] == pytest.approx(14.0)
+    assert upper["actual_mean"] == pytest.approx(9.2)
     assert upper["predicted_mean"] == pytest.approx(5.0)
-    assert upper["mean_actual_minus_predicted"] == pytest.approx(9.0)
-    assert upper["actual_10_plus_rate"] == pytest.approx(1.0)
+    assert upper["mean_actual_minus_predicted"] == pytest.approx(4.2)
+    assert upper["actual_10_plus_rate"] == pytest.approx(0.4)
 
 
 def test_prediction_quantile_diagnostics_is_deterministic_with_tied_predictions():
