@@ -191,7 +191,7 @@ A first capture-only implementation now exists:
 - Third-party CSV columns are preserved and inventoried rather than assumed. Their player IDs, point columns, grain and variant must be audited before normalization/scoring.
 - The manual/push-triggered workflow `.github/workflows/cta-external-fpl-forecast-capture.yml` keeps raw bytes on the ephemeral runner for validation and publishes only the non-player-level capture manifest. Raw provider forecasts are not uploaded to this public repository or its Actions artifacts.
 
-**Important retention limitation:** raw provider forecasts are currently captured and hashed on the ephemeral runner but are not durably archived. A durable, access-controlled private research archive is still required. The public manifest records capture provenance and hashes only; it cannot be used to reconstruct raw forecasts.
+**Retention status:** restricted raw provider forecasts are not retained in this public repository or its public Actions artifacts. The access-controlled private archive `uasir/CTA-FPL-Private-Archive` is active for the FPL Wildcard research snapshot. Other providers remain subject to their own source-specific retention checks. The public manifest records capture provenance and hashes only; it cannot be used to reconstruct raw forecasts.
 
 The collector's first automated run is a capture validation, not a performance evaluation. It must fail closed if a source returns HTML, an empty response, an invalid gameweek or malformed data. It does not convert missing rows to zero.
 
@@ -205,7 +205,7 @@ FPL Cat documents `GET https://fplcat.com/api/v1/projections` and `?format=csv`.
 
 FPL Wildcard exposes a direct CSV download at `https://fplwildcard.com/data/projections/current.csv`. Its documentation describes one row per selectable player per projected gameweek, with `gameweek`, `profile_url`, `xpts`, `xmins` and optional probability fields. The page reported GW11, 19 November 15:30 UK projection refresh and model v11. This is a useful additional independent forecast output.
 
-The CSV endpoint and schema have been verified, but this source is **not included in the public capture pipeline**. The source explicitly grants no redistribution licence for the dataset, so raw CSVs/player-level values must not be republished or uploaded into public artifacts. It can only be considered for a future private research archive after provider-specific terms and access are checked. Any external-facing report must use permitted aggregate findings and attribution.
+The CSV endpoint and schema have been verified. FPL Wildcard is captured only into the access-controlled private archive for non-redistributive internal research; it is not included in the public capture pipeline. The source explicitly grants no redistribution licence for the dataset, so raw CSVs/player-level values must not be republished or uploaded into public artifacts. This private-research decision is not a claim that the provider granted permission or that private storage overrides its terms. Any external-facing report must use permitted aggregate findings and attribution.
 
 
 ### Public-repository artifact handling correction (19 November 2026)
@@ -215,7 +215,7 @@ The repository is public. An initial capture workflow uploaded raw third-party f
 
 ## Private archive implementation update (19 November 2026)
 
-The private repository `uasir/CTA-FPL-Private-Archive` is active. Its manual FPL Wildcard capture workflow completed successfully for 2026/27 GW11.
+The private repository `uasir/CTA-FPL-Private-Archive` is active. Its FPL Wildcard capture workflow completed successfully for 2026/27 GW11, and the private identity-normalization workflow has now completed.
 
 - Capture time: 2026-11-19T16:15:38Z, before the GW11 deadline.
 - Raw CSV: 5,660 rows spanning GW11–GW20; 566 player rows per gameweek.
@@ -226,3 +226,21 @@ The private repository `uasir/CTA-FPL-Private-Archive` is active. Its manual FPL
 - Raw file and manifest remain in the private archive. The public project retains only provenance/hash metadata and aggregate validation findings.
 
 This establishes capture and retention, not forecast accuracy. GW11 outcomes must be joined after completion, and only the GW11 rows from this pre-deadline snapshot should enter the GW11 accuracy cohort. Later gameweeks in the same CSV are prospective snapshots for their respective future deadlines only if the file was genuinely published and frozen before each deadline; the 19 November capture timestamp must remain attached to all of them.
+
+
+### Private GW11 identity normalization update (19 November 2026)
+
+The archived GW11 FPL Wildcard slice was resolved against the official FPL
+`bootstrap-static` player/team records using exact normalized full name plus
+team short name only.
+
+- 566/566 source rows resolved to official FPL player IDs.
+- 566 unique IDs; zero duplicate IDs; zero unresolved or ambiguous rows.
+- All 566 xPts and xMins values remained numeric.
+- The private audit records the official bootstrap capture time and SHA-256.
+- Normalized player-level output and its audit remain private; this public
+  repository records only aggregate validation results.
+
+A private evaluator is implemented but deliberately refuses to score until
+the official FPL event is marked finished and the source manifest confirms
+capture before the deadline. No FPL Wildcard accuracy result is claimed yet.
