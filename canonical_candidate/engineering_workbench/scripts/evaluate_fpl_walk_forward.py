@@ -54,7 +54,7 @@ def score_fold(train, valid, season):
             prior_rate=row["season_appearance_rate"]
         if prior_rate is None:
             prior_rate=fallback_appearance_rate
-        appearance_baseline.append(min(1.0,max(0.0,prior_rate))
+        appearance_baseline.append(min(1.0,max(0.0,prior_rate)))
         predicted_minutes.append(minutes_ep)
         last_minutes.append(row["last_gw_baseline_minutes"])
         two_part_raw.append(raw_ep)
