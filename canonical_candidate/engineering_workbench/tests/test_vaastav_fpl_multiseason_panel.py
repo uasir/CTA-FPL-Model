@@ -1,4 +1,4 @@
-from build_vaastav_fpl_multiseason_panel import build_season_rows, evaluate, read_csv_bytes
+from build_vaastav_fpl_multiseason_panel import build_season_rows, evaluate, read_csv_bytes, source_gameweek
 from train_fpl_exploratory_ridge import FEATURES
 
 
@@ -98,3 +98,15 @@ def test_source_csv_reader_supports_legacy_windows_1252_names():
     rows, encoding = read_csv_bytes(payload)
     assert encoding == "cp1252"
     assert rows[0]["name"] == "André"
+
+
+
+def test_2019_20_covid_shifted_source_gameweeks_are_normalized():
+    raw = {"GW": "47", "round": "47"}
+    assert source_gameweek(raw, "2019-20") == 38
+    assert source_gameweek({"GW": "39", "round": "39"}, "2019-20") == 30
+    assert source_gameweek({"GW": "29", "round": "29"}, "2019-20") == 29
+
+
+def test_covid_gameweek_normalization_does_not_apply_to_other_seasons():
+    assert source_gameweek({"GW": "47", "round": "47"}, "2020-21") == 47
