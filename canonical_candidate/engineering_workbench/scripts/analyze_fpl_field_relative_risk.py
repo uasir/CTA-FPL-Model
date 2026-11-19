@@ -19,9 +19,15 @@ class FieldRiskInputError(ValueError):
 
 
 def _finite(value, name):
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+    if isinstance(value, bool) or value is None or value == "":
         raise FieldRiskInputError(f"{name} must be a finite number")
-    return float(value)
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        raise FieldRiskInputError(f"{name} must be a finite number")
+    if not math.isfinite(numeric):
+        raise FieldRiskInputError(f"{name} must be a finite number")
+    return numeric
 
 
 def _pair_key(left, right):
@@ -68,6 +74,12 @@ def analyze_field_relative_risk(
                 "used_for_recommendation": False}
 
     universe = sorted(forecasts, key=lambda value: (0, value) if isinstance(value, int) else (1, str(value)))
+    try:
+        sample_size = int(metadata["eo_sample_size"])
+    except (TypeError, ValueError):
+        raise FieldRiskInputError("eo_sample_size must be a positive integer")
+    if sample_size < 1 or isinstance(metadata["eo_sample_size"], bool):
+        raise FieldRiskInputError("eo_sample_size must be a positive integer")
     eo = {}
     for player_id in universe:
         raw = field_eo_by_player.get(player_id, field_eo_by_player.get(str(player_id)))
@@ -96,9 +108,13 @@ def analyze_field_relative_risk(
             raise FieldRiskInputError(f"duplicate covariance pair {key}")
         covariance[key] = value
 
+    # Players with both zero own exposure and zero field EO cannot affect any
+    # of the three portfolio moments, so no covariance estimate is required.
+    active_universe = [player_id for player_id in universe
+                       if abs(own[player_id]) > 1e-12 or abs(eo[player_id]) > 1e-12]
     missing_pairs = []
-    for i, left in enumerate(universe):
-        for right in universe[i:]:
+    for i, left in enumerate(active_universe):
+        for right in active_universe[i:
             if _pair_key(left, right) not in covariance:
                 missing_pairs.append([left, right])
                 if len(missing_pairs) >= 20:
@@ -109,10 +125,10 @@ def analyze_field_relative_risk(
         return {"status": "INCOMPLETE_COVARIANCE_MATRIX", "missing_pair_examples": missing_pairs,
                 "decision_weight": 0.0, "used_for_recommendation": False}
 
-    matrix = np.empty((len(universe), len(universe)), dtype=float)
-    for i, left in enumerate(universe):
-        for j in range(i, len(universe)):
-            value = covariance[_pair_key(left, universe[j])]
+    matrix = np.empty((len(active_universe), len(active_universe)), dtype=float)
+    for i, left in enumerate(active_universe):
+        for j in range(i, len(active_universe)):
+            value = covariance[_pair_key(left, active_universe[j])]
             matrix[i, j] = value
             matrix[j, i] = value
     eigen_min = float(np.linalg.eigvalsh(matrix).min())
@@ -121,8 +137,8 @@ def analyze_field_relative_risk(
         return {"status": "NON_PSD_COVARIANCE_MATRIX", "minimum_eigenvalue": eigen_min,
                 "decision_weight": 0.0, "used_for_recommendation": False}
 
-    own_vector = np.array([own[player_id] for player_id in universe], dtype=float)
-    field_vector = np.array([eo[player_id] for player_id in universe], dtype=float)
+    own_vector = np.array([own[player_id] for player_id in active_universe], dtype=float)
+    field_vector = np.array([eo[player_id] for player_id in active_universe], dtype=float)
     diff_vector = own_vector - field_vector
     points_vector = np.array([forecasts[player_id] for player_id in universe], dtype=float)
     own_variance = float(own_vector @ matrix @ own_vector)
@@ -135,7 +151,7 @@ def analyze_field_relative_risk(
     relative_variance = max(0.0, relative_variance)
 
     contributions = []
-    for i, player_id in enumerate(universe):
+    for i, player_id in enumerate(active_universe):
         contribution = float(diff_vector[i] * (matrix[i, :] @ diff_vector))
         if abs(contribution) > 1e-12:
             contributions.append({"fpl_element_id": player_id, "variance_contribution": contribution,
@@ -148,9 +164,10 @@ def analyze_field_relative_risk(
         "target_deadline": metadata["target_deadline"],
         "eo_deadline": metadata["eo_deadline"],
         "eo_cohort": metadata["eo_cohort"],
-        "eo_sample_size": int(metadata["eo_sample_size"]),
+        "eo_sample_size": sample_size,
         "eo_captured_at": metadata["eo_captured_at"],
         "player_universe_size": len(universe),
+        "covariance_active_player_count": len(active_universe),
         "eo_universe_coverage": 1.0,
         "covariance_window_gameweeks": metadata.get("covariance_window_gameweeks"),
         "covariance_source": metadata.get("covariance_source", "historical_realised_fpl_points"),
