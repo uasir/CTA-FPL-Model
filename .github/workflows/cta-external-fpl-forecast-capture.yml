@@ -36,6 +36,7 @@ jobs:
         run: |
           gh api --method DELETE repos/uasir/CTA-FPL-Model/actions/artifacts/14546548221 || true
           gh api --method DELETE repos/uasir/CTA-FPL-Model/actions/artifacts/14549690090 || true
+          gh api --method DELETE repos/uasir/CTA-FPL-Model/actions/artifacts/14550380461 || true
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
