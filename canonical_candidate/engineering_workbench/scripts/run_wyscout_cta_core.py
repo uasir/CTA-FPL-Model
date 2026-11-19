@@ -154,6 +154,8 @@ def run(events_path: Path, out_dir: Path) -> dict:
         "xt_fit": xt_report,
         "coordinate_policy": "Wyscout attacking-team-relative percentages scaled to CTA 120x80; no direction flip.",
         "possession_policy": "INFERRED_EVENT_STATE_WITH_DUEL_OUTCOME_TAGS; not yet manually validated against video.",
+        "possession_quality_status": "INFERRED_NOT_MANUALLY_VALIDATED",
+        "manual_review_required": True,
         "validation_status": "STRUCTURAL_EXECUTION_ONLY",
         "predictive_validation": "NOT_EVALUATED",
         "point_in_time_status": "RETROSPECTIVE_FULL_SEASON_XT_FIT_NOT_POINT_IN_TIME_SAFE",
@@ -162,7 +164,7 @@ def run(events_path: Path, out_dir: Path) -> dict:
         "cta_ranking_effect": "NONE",
         "publication_policy": "Aggregate report only; player and sequence feature rows remain runner-local.",
         "limitations": [
-            "Possession boundaries are inferred from event continuity, team/period changes, restarts and terminal events.",
+            "Possession boundaries are inferred from controlled-team changes, duel outcome tags, restarts and dead-ball state transitions; no provider possession IDs are available.",
             "Coordinates and possession segments require independent sample review before football-validity claims.",
             "The full-season xT grid is retrospective and must be refit within each training fold for predictive validation.",
             "Wyscout has no pass-recipient IDs, pressure flags, tracking/360 or xG in this public schema.",
