@@ -79,7 +79,8 @@ def normalize_wyscout_events(events, players, teams, match_id):
 
         event_name = str(event.get("eventName") or "")
         if event_name not in {"Pass", "Shot", "Others on the ball", "Duel",
-                              "Foul", "Offside", "Free Kick", "Save attempt",
+                              "Foul", "Offside", "Free Kick", "Corner", "Throw in",
+                              "Goal kick", "Penalty", "Save attempt",
                               "Interruption", "Goalkeeper leaving line"}:
             skipped["unmapped_event_type"] += 1
             continue
@@ -137,7 +138,7 @@ def normalize_wyscout_events(events, players, teams, match_id):
         elif kind == "Carry" and end is not None:
             row["carry"] = {"end_location": end}
         elif kind == "Shot":
-            row["shot"] = {}
+            row["shot"] = {"outcome": {"name": "Goal" if 101 in tags else "Unknown"}}
         normalized.append(row)
 
     report = {
