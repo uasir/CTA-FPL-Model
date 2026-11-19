@@ -1,6 +1,6 @@
 {
   "contract_version": "1.0.0",
-  "architecture": "dual_recommender_shared_forecast_layer",
+  "architecture": "three_output_recommender_shared_forecast_layer",
   "implementation_status": {
     "general_market": "EXPLORATORY_IMPLEMENTED",
     "personal_squad": "EXPLORATORY_IMPLEMENTED",
@@ -186,7 +186,12 @@
   },
   "portfolio_risk": {
     "covariance_policy": "Exploratory CoVar is excluded from production decisions until stability and out-of-sample validation gates pass.",
-    "scope": "CoVar may inform personal portfolio decisions after validation; it is not a required component of general player rankings."
+    "scope": "CoVar may inform personal portfolio decisions after validation; it is not a required component of general player rankings.",
+    "field_relative_covar_module": {
+      "implementation": "RESEARCH_ONLY_ZERO_WEIGHT",
+      "module": "scripts/analyze_fpl_field_relative_risk.py",
+      "policy": "Requires complete deadline-matched LiveFPL EO and a complete PSD covariance matrix; missing values are not imputed; no recommendation effect before out-of-sample validation."
+    }
   },
   "acceptance_tests": [
     "General mode validates and runs without any squad input.",
@@ -198,5 +203,22 @@
     "Both modes record forecast snapshot, model version and horizon.",
     "Missing or unvalidated forecast fields are surfaced, not invented.",
     "Exploratory covariance is not used as a production decision signal."
-  ]
+  ],
+  "user_facing_outputs": {
+    "conventional_personal_squad": {
+      "implementation": "EXPLORATORY_IMPLEMENTED",
+      "engine": "personal_squad",
+      "purpose": "Expected-points optimization for the manager's actual squad; evaluate against deadline-matched LiveFPL EO and coverage; CoVar remains separate until validated."
+    },
+    "cta_informed_personal_squad": {
+      "implementation": "RESEARCH_ONLY_CTA_SIDECAR_ZERO_WEIGHT",
+      "engine": "planned_separate_personal_squad_cta_output",
+      "purpose": "CTA-informed recommendations for the same actual squad, evaluated on the same constraints and field context as the conventional baseline."
+    },
+    "general_cta_player_recommendations": {
+      "implementation": "RESEARCH_ONLY_NOT_YET_VALIDATED",
+      "engine": "planned_squad_independent_cta_market_output",
+      "purpose": "CTA player rankings and opportunities independent of the manager's squad."
+    }
+  }
 }
