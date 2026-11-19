@@ -488,7 +488,8 @@ def evaluate(rows, feature_set="base"):
         "status": "RESEARCH_ONLY",
         "decision": "DO_NOT_PROMOTE",
         "model_track": "STANDALONE_CONVENTIONAL_FPL_2PM_TRANSFORMER",
-        "feature_set_name": feature_set,\n        "feature_set": list(feature_candidates),
+        "feature_set_name": feature_set,
+        "feature_set": list(feature_candidates),
         "sequence_length": MAX_LENGTH,
         "training": {
             "epochs": EPOCHS, "batch_size": BATCH_SIZE, "width": WIDTH,
