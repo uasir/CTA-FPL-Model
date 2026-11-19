@@ -244,3 +244,18 @@ team short name only.
 A private evaluator is implemented but deliberately refuses to score until
 the official FPL event is marked finished and the source manifest confirms
 capture before the deadline. No FPL Wildcard accuracy result is claimed yet.
+
+
+### Private historical FPL Wildcard archive (GW1–GW10, 19 November 2026)
+
+The private archive collector retrieved all ten frozen public gameweek pages and retained the normalized player-level rows privately. The public ledger records only each page's SHA-256, source forecast timestamp and aggregate row count; no raw or derived player-level projection rows are published.
+
+- 50 ranked rows are exposed by each archived gameweek page: 500 player-GW forecasts in total.
+- 497/500 rows resolved to official FPL IDs and had numeric actual points; three unresolved identities remain unscored.
+- GW1–GW3 pages identify Model v10; GW4–GW10 identify Model v11.
+- The pages explicitly label the forecasts as saved before deadline and frozen after deadline. The source page update timestamps were preserved.
+- The private pooled top-50 subset result is MAE 3.055, RMSE 3.799, forecast-minus-actual bias -0.403, Spearman 0.096 and top-10 overlap 2.
+
+**Critical coverage qualification:** these are provider-selected top-50 rows, not the complete player universe. They must not be compared directly with the provider's all-player scorecard or with an all-player CTA/2PM metric. The next comparison must intersect our model's point-in-time forecasts with the exact same resolved player-GW rows and report the matched sample. A separate all-player comparison remains pending until full historical provider coverage is verified.
+
+The private archive now contains the acquired rows, per-gameweek source hashes/audits, pooled/per-gameweek scorecard and an identical-cohort comparison script. The comparator expects model predictions with `model,gameweek,fpl_player_id,predicted_points` and reports both model and FPL Wildcard on identical rows, including player-cluster bootstrap intervals. CTA/2PM comparison is pending model forecast export; no model-versus-provider result is claimed yet.
