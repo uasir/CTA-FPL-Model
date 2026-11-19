@@ -5,7 +5,7 @@ Every feature for a gameweek uses only earlier gameweeks whose actual kickoffs
 precede the target gameweek deadline. Double-gameweek fixtures share one snapshot.
 """
 from __future__ import annotations
-import argparse, csv, json
+import argparse, csv, json, math
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,8 +28,26 @@ def num(v):
         return 0.0
 def read_csv(path):
     with path.open(newline="",encoding="utf-8-sig") as h: return list(csv.DictReader(h))
+def optional_num(value):
+    if value is None or str(value).strip() == "":
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
+
+def sum_complete(values):
+    if not values:
+        return 0.0
+    parsed = [optional_num(value) for value in values]
+    return sum(parsed) if all(value is not None for value in parsed) else ""
+
 def mean(values):
-    return sum(values)/len(values) if values else ""
+    if not values:
+        return ""
+    parsed = [optional_num(value) for value in values]
+    return sum(parsed) / len(parsed) if all(value is not None for value in parsed) else ""
 def parse_time(value):
     if not value: raise ValueError("Missing timestamp in FPL history/deadline data")
     parsed=datetime.fromisoformat(str(value).replace("Z","+00:00"))
@@ -72,10 +90,10 @@ def build_dataset(players,fixtures,history,bootstrap):
                 selected_count=num(selected_raw) if selected_raw not in ("",None) else ""
                 ranked=ranked_counts.get(prior_gw,0)
                 selected_pct=(float(selected_count)/ranked*100.0) if selected_count!="" and ranked>0 else ""
-                prior.append({**{field:sum(num(x.get(field)) for x in gw_rows) for field in AGG_FIELDS},
+                prior.append({**{field:sum_complete([x.get(field) for x in gw_rows]) for field in AGG_FIELDS},
                               "selected_count":selected_count,"selected_pct":selected_pct})
             prior3=prior[-3:];prior5=prior[-5:]
-            sum_prior={field:sum(x[field] for x in prior) for field in AGG_FIELDS}
+            sum_prior={field:sum_complete([x[field] for x in prior]) for field in AGG_FIELDS}
             last=prior[-1] if prior else None
             for row in sorted(current_rows,key=lambda x:(x.get("kickoff_time") or "",str(x.get("fixture_id")))):
                 fx=fixture_map[str(row["fixture_id"])]
@@ -102,7 +120,7 @@ def build_dataset(players,fixtures,history,bootstrap):
                     "season_to_date_minutes":sum_prior["minutes"],
                     "season_to_date_xg":sum_prior["expected_goals"],
                     "season_to_date_xa":sum_prior["expected_assists"],
-                    "season_to_date_points_per90":(sum_prior["total_points"]*90/sum_prior["minutes"]) if sum_prior["minutes"]>0 else "",
+                    "season_to_date_points_per90":(sum_prior["total_points"]*90/sum_prior["minutes"]) if isinstance(sum_prior["total_points"], (int, float)) and isinstance(sum_prior["minutes"], (int, float)) and sum_prior["minutes"]>0 else "",
                     "prior_gw_selected_count":last["selected_count"] if last else "",
                     "prior_gw_selected_pct":last["selected_pct"] if last else "",
                     "prior3_gw_selected_pct_avg":mean([x["selected_pct"] for x in prior3 if x["selected_pct"]!=""]),
