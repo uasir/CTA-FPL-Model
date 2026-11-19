@@ -1,4 +1,4 @@
-from build_wyscout_fpl_identity_candidates import build_candidate_review_queue
+from build_wyscout_fpl_identity_candidates import build_candidate_review_queue, read_csv
 
 
 def _teams():
@@ -130,3 +130,10 @@ def test_zero_goal_assist_agreement_does_not_create_strong_identity_priority():
     assert row["goal_assist_signature_zero_only_rows"] == 3
     assert row["review_priority"] == "P3_HISTORY_REVIEW"
     assert row["verification_status"] == "PENDING"
+
+
+def test_historical_fpl_csv_reader_falls_back_to_windows_1252(tmp_path):
+    source = tmp_path / "players.csv"
+    source.write_bytes(b"first_name,second_name\\nSadio,Man\\xe9\\n")
+    rows = read_csv(source)
+    assert rows == [{"first_name": "Sadio", "second_name": "Mané"}]
