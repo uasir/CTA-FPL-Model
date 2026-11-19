@@ -244,6 +244,38 @@ jobs:
             --opta-source-report ../../run_artifacts/11footy/output/opta_team_features/opta_fpl_integration_report.json \
             --out-dir ../../run_artifacts/11footy/output/cta_abc
 
+      - name: Publish aggregate-only integrated A/B/C summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = Path("run_artifacts/11footy/output/cta_abc/cta_abc_integration_report.json")
+          target = Path("run_artifacts/fpl_official/cta_abc_integration_summary.json")
+          target.parent.mkdir(parents=True, exist_ok=True)
+          if source.exists():
+              report = json.loads(source.read_text())
+              safe = {
+                  key: report.get(key) for key in (
+                      "status", "rows", "verified_identity_rows",
+                      "cta_snapshot_available_rows", "opta_snapshot_available_rows",
+                      "opta_deadline_cutoff_rows", "research_eligible_rows",
+                      "layer_feature_observed_row_counts", "model_training_eligible",
+                      "prediction_validation", "status_limitation", "deadline_policy",
+                      "identity_policy", "target_policy", "provider_attribution"
+                  )
+              }
+          else:
+              safe = {
+                  "status": "ABC_PANEL_BUILD_UNAVAILABLE_OR_FAILED",
+                  "model_training_eligible": False,
+                  "prediction_validation": "NOT_EVALUATED"
+              }
+          safe["publication_policy"] = "Aggregate feature coverage and provenance only; no player-level A/B/C rows are uploaded."
+          target.write_text(json.dumps(safe, indent=2))
+          print(json.dumps(safe, indent=2))
+          PY
+
       - name: Publish aggregate-only verified upcoming CTA feature summary
         if: always()
         run: |
@@ -543,6 +575,7 @@ jobs:
             run_artifacts/11footy/output/verified_cta_fpl_integration_summary.json
             run_artifacts/fpl_official/fpl_lagged_training_report.json
             run_artifacts/fpl_official/11footy_lagged_verified_upcoming_summary.json
+            run_artifacts/fpl_official/cta_abc_integration_summary.json
             run_artifacts/fpl_official/cta_decision_summary.json
           if-no-files-found: warn
           retention-days: 90
