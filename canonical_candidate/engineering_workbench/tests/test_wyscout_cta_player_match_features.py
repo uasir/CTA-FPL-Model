@@ -121,6 +121,7 @@ def test_wyscout_goal_and_own_goal_tags_reconcile_to_match_score():
         },
     ]
     events.insert(2, {"id":3,"matchId":10,"playerId":200,"teamId":2,"eventName":"Others on the ball","subEventName":"Touch","positions":[{"x":10,"y":50}],"tags":[{"id":102}]})
+    events.insert(3, {"id":4,"matchId":10,"playerId":300,"teamId":2,"eventName":"Save attempt","subEventName":"Save attempt","positions":[{"x":10,"y":50}],"tags":[{"id":101}]})
     matches = [{
         "wyId": 10, "dateutc": "2018-04-01 15:00:00",
         "teamsData": {
@@ -130,7 +131,7 @@ def test_wyscout_goal_and_own_goal_tags_reconcile_to_match_score():
     }]
     rows, report = build_player_match_features(
         events, matches,
-        [{"wyId": 100, "shortName": "Scorer"}, {"wyId": 101, "shortName": "Free kick scorer"}, {"wyId": 200, "shortName": "Own goal"}],
+        [{"wyId": 100, "shortName": "Scorer"}, {"wyId": 101, "shortName": "Free kick scorer"}, {"wyId": 200, "shortName": "Own goal"}, {"wyId": 300, "shortName": "Goalkeeper"}],
         [{"wyId": 1, "name": "Home FC"}, {"wyId": 2, "name": "Away FC"}],
     )
 
@@ -138,6 +139,7 @@ def test_wyscout_goal_and_own_goal_tags_reconcile_to_match_score():
     assert by_player[100]["goals"] == 1
     assert by_player[101]["goals"] == 1
     assert by_player[200]["own_goals"] == 1
+    assert by_player[300]["goals"] == 0
     assert report["goal_reconciliation"]["match_metadata_goals"] == 3
     assert report["goal_reconciliation"]["player_attributed_goal_total"] == 3
     assert report["goal_reconciliation"]["player_attributed_minus_metadata_goal_delta"] == 0
