@@ -198,3 +198,26 @@ def test_zero_minute_card_appearance_can_prevent_autosub_and_trigger_captaincy()
     result = replay_gameweek(decision, points, mins, positions, played_by_player=played)
     assert result["substitutions"] == []
     assert "d1" in result["final_active_xi"]
+
+
+def test_historical_transfer_hit_cost_can_be_replayed_exactly():
+    decision, positions = make_roster()
+    decision["transfer_hit_cost"] = 12
+    points, mins = outcomes(positions)
+    result = replay_gameweek(decision, points, mins, positions)
+    assert result["transfer_hit_points"] == 12
+    assert result["hit_transfers"] == 3
+    assert result["net_points"] == 12
+
+
+def test_transfer_hit_cost_must_be_multiple_of_four_and_zero_on_free_hit():
+    decision, positions = make_roster()
+    decision["transfer_hit_cost"] = 2
+    points, mins = outcomes(positions)
+    with pytest.raises(ValueError, match="multiple of four"):
+        replay_gameweek(decision, points, mins, positions)
+    decision["chip"] = "free_hit"
+    decision["chip_legality_verified"] = True
+    decision["transfer_hit_cost"] = 4
+    with pytest.raises(ValueError, match="cannot carry"):
+        replay_gameweek(decision, points, mins, positions)
