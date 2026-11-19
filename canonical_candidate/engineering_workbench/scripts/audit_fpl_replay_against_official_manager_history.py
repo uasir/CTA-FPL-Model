@@ -208,6 +208,7 @@ def audit_record(picks_payload, live_payload, position_by_player):
         "initial_formation": initial_formation,
         "official_final_formation": official_final_formation,
         "transfer_hit_cost": record["event_transfers_cost"],
+        "chip": record["decision"]["chip"],
     }
 
 
@@ -327,7 +328,8 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
                         f"minutes={result['official_pair_minutes']};"
                         f"cards={result['official_pair_cards']};"
                         f"formations={result['initial_formation']}->{result['official_final_formation']};"
-                        f"counts={result['official_sub_count']}:{result['replay_sub_count']}"
+                        f"counts={result['official_sub_count']}:{result['replay_sub_count']};"
+                        f"chip={result['chip']}"
                     )
                     autosub_mismatch_signatures[signature] += 1
             differences.append(abs(result["net_point_difference"]))
