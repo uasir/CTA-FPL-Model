@@ -79,6 +79,63 @@ class Verify11footyCrosswalkTests(unittest.TestCase):
         self.assertEqual(rows, [])
         self.assertEqual(report["excluded_rows_by_reason"]["not_exact_name_team_birth_date_method"], 1)
 
+
+    def test_missing_provider_dob_can_be_verified_by_optas_numeric_fpl_code_and_team_bridge(self):
+        opta = [{
+            "season": "2026-27",
+            "provider_player_id": "12345",
+            "provider_player_name": "Example Player",
+            "provider_team_id": "1",
+            "provider_team_name": "Arsenal",
+            "fpl_element_id": "42",
+            "fpl_player_code": "12345",
+            "fpl_player_name": "Example Player",
+            "fpl_team_id": "1",
+            "fpl_team_code": "1",
+            "fpl_team_name": "Arsenal",
+            "verification_status": "verified",
+            "match_method": "provider_id_crosswalk",
+            "evidence_url": "https://github.com/uasir/Opta-PulseLive/blob/abc/2026-2027/players.csv",
+        }]
+        opta_report = {"status": "PASS", "source_commit": "abc123", "source_sha256": "c" * 64}
+        row = candidate(
+            match_method="exact_name_team",
+            confidence_level="review_required",
+            provider_birth_date="",
+        )
+        rows, report = build_verified_crosswalk(
+            [row], verified_at="2026-11-19T00:00:00Z",
+            opta_crosswalk_rows=opta, opta_report=opta_report,
+        )
+        self.assertEqual(report["verified_dob_rows"], 0)
+        self.assertEqual(report["verified_opta_bridge_rows"], 1)
+        self.assertEqual(rows[0]["match_method"], "exact_name_team_opta_numeric_fpl_code_and_team")
+        self.assertEqual(rows[0]["corroborating_provider_player_id"], "12345")
+        accepted, validation = validate_rows(rows, "11footy")
+        self.assertEqual(validation["status"], "PASS")
+        self.assertEqual(len(accepted), 1)
+
+    def test_opta_bridge_rejects_provider_fpl_name_or_team_mismatch(self):
+        opta = [{
+            "provider_player_id": "12345", "provider_player_name": "Other Player",
+            "provider_team_id": "1", "provider_team_name": "Arsenal",
+            "fpl_element_id": "42", "fpl_player_code": "12345",
+            "fpl_player_name": "Example Player", "fpl_team_id": "1",
+            "fpl_team_code": "1", "fpl_team_name": "Arsenal",
+            "verification_status": "verified", "match_method": "provider_id_crosswalk",
+            "evidence_url": "https://github.com/uasir/Opta-PulseLive/blob/abc/players.csv",
+        }]
+        opta_report = {"status": "PASS", "source_commit": "abc123", "source_sha256": "c" * 64}
+        row = candidate(match_method="exact_name_team", confidence_level="review_required", provider_birth_date="")
+        rows, report = build_verified_crosswalk([row], opta_crosswalk_rows=opta, opta_report=opta_report)
+        self.assertEqual(rows, [])
+        self.assertGreater(report["opta_bridge_exclusions_by_reason"].get("provider_full_name_disagreement", 0), 0)
+
+    def test_opta_bridge_requires_validated_opta_report(self):
+        row = candidate(match_method="exact_name_team", confidence_level="review_required", provider_birth_date="")
+        with self.assertRaisesRegex(ValueError, "not validated"):
+            build_verified_crosswalk([row], opta_crosswalk_rows=[], opta_report={"status": "REVIEW_REQUIRED", "source_sha256": "c" * 64})
+
     def test_provider_to_fpl_collisions_are_all_excluded(self):
         rows, report = build_verified_crosswalk([
             candidate(fpl_element_id="42"),

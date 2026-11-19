@@ -86,6 +86,12 @@ def validate_rows(rows, provider):
             if _normalize_player_name(row.get("corroborating_provider_name")) != _normalize_player_name(row.get("provider_player_name")):
                 errors.append({"line": line, "error": "opta_and_11footy_full_names_do_not_match"})
                 continue
+            if _normalize_player_name(row.get("provider_player_name")) != _normalize_player_name(row.get("fpl_player_name")):
+                errors.append({"line": line, "error": "11footy_and_fpl_full_names_do_not_match"})
+                continue
+            if (row.get("fpl_team_code") or "").strip() != (row.get("corroborating_provider_fpl_team_code") or "").strip():
+                errors.append({"line": line, "error": "fpl_team_code_and_opta_team_code_disagree"})
+                continue
             if _normalize_team_name(row.get("corroborating_provider_team_name")) != _normalize_team_name(row.get("provider_team_name")):
                 errors.append({"line": line, "error": "opta_and_11footy_team_names_do_not_match"})
                 continue

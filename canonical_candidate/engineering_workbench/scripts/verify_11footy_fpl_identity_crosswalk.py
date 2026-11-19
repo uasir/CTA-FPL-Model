@@ -155,9 +155,16 @@ def build_verified_crosswalk(candidate_rows, verified_at=None, opta_crosswalk_ro
     if opta_crosswalk_rows is not None or opta_report is not None:
         if opta_crosswalk_rows is None or opta_report is None:
             raise ValueError("Opta crosswalk rows and report must be supplied together")
+        if opta_report.get("status") != "PASS":
+            raise ValueError("Opta numeric-ID crosswalk report is not validated")
+        if not re.fullmatch(r"[0-9a-fA-F]{64}", str(opta_report.get("source_sha256") or "")):
+            raise ValueError("Opta source SHA-256 provenance is missing or invalid")
         opta_by_code = defaultdict(list)
         for opta_row in opta_crosswalk_rows:
-            if str(opta_row.get("verification_status") or "").lower() != "verified":
+            if (
+                str(opta_row.get("verification_status") or "").lower() != "verified"
+                or str(opta_row.get("match_method") or "") != "provider_id_crosswalk"
+            ):
                 continue
             code = str(opta_row.get("fpl_player_code") or "").strip()
             if code:
@@ -191,6 +198,7 @@ def build_verified_crosswalk(candidate_rows, verified_at=None, opta_crosswalk_ro
                 (fpl_id == str(opta.get("fpl_element_id") or "").strip(), "fpl_element_id_disagreement"),
                 (code == str(opta.get("fpl_player_code") or "").strip(), "fpl_code_disagreement"),
                 (str(row.get("fpl_team_id") or "").strip() == str(opta.get("fpl_team_id") or "").strip(), "fpl_team_id_disagreement"),
+                (normalize_text(row.get("provider_player_name")) == normalize_text(row.get("fpl_player_name")), "11footy_fpl_full_name_disagreement"),
                 (normalize_text(row.get("provider_player_name")) == normalize_text(opta.get("provider_player_name")), "provider_full_name_disagreement"),
                 (normalize_team(row.get("provider_team_name")) == normalize_team(opta.get("provider_team_name")), "provider_team_disagreement"),
                 (normalize_text(row.get("fpl_player_name")) == normalize_text(opta.get("fpl_player_name")), "fpl_full_name_disagreement"),
@@ -211,6 +219,9 @@ def build_verified_crosswalk(candidate_rows, verified_at=None, opta_crosswalk_ro
                 "provider_release_url", "fpl_source_url"
             )):
                 opta_exclusions["missing_source_provenance"] += 1
+                continue
+            if not _valid_iso_date(fpl_dob):
+                opta_exclusions["missing_or_invalid_fpl_birth_date"] += 1
                 continue
             if not str(opta_report.get("source_sha256") or "").strip():
                 opta_exclusions["missing_opta_source_hash"] += 1
