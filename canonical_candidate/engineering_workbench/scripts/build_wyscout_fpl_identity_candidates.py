@@ -282,6 +282,7 @@ def build_candidate_review_queue(player_match_rows, players_json, fpl_players,
 
         fixture_rows = 0
         history_missing = 0
+        history_ambiguous = 0
         positive_minutes = 0
         goals_exact = 0
         own_goals_exact = 0
@@ -302,7 +303,11 @@ def build_candidate_review_queue(player_match_rows, players_json, fpl_players,
                 if fixture_id is None:
                     continue
                 fixture_rows += 1
-                history = fpl_history_by_key.get((candidate["fpl_element_id"], fixture_id))
+                history_key = (candidate["fpl_element_id"], fixture_id)
+                if history_key in duplicate_fpl_keys:
+                    history_ambiguous += 1
+                    continue
+                history = fpl_history_by_key.get(history_key)
                 if history is None:
                     history_missing += 1
                     continue
@@ -372,6 +377,7 @@ def build_candidate_review_queue(player_match_rows, players_json, fpl_players,
             "fixture_mapped_rows": fixture_rows,
             "fpl_history_overlap_rows": fixture_rows - history_missing,
             "fpl_history_missing_rows": history_missing,
+            "fpl_history_ambiguous_rows": history_ambiguous,
             "fpl_positive_minutes_rows": positive_minutes,
             "goals_exact_rows": goals_exact,
             "own_goals_exact_rows": own_goals_exact,
