@@ -157,11 +157,12 @@ No arbitrary target rank or unattainable prediction benchmark should be used as 
 ## 10. Immediate implementation sequence
 
 1. Keep the existing forecast scorecards and standalone model tracks running independently.
-2. Build a frozen-deadline decision replay dataset with official outcomes and exact starting squad state.
-3. Implement a deterministic FPL scoring/replay layer for transfers, hits, captaincy, bench order, autosubs and chips.
-4. Compare hold, conventional and CTA-informed policies on identical states.
-5. Add feasible-set regret and distinguish shortlist regret from exhaustive global regret.
-6. Add sequential multi-gameweek replay after one-step scoring is verified.
-7. Integrate LiveFPL field context and CoVar only in their separate downstream evaluation layers.
+2. **In progress:** build a frozen-deadline decision replay dataset with official outcomes and exact starting squad state; no historical replay cohort has been assembled yet.
+3. **Exploratory v0.1 implemented:** a deterministic one-gameweek scorer handles legal XI/bench structure, formation-aware autosubs, captain/vice, Triple Captain, Bench Boost and transfer hits. It requires externally verified action/chip legality and does not yet transition squad or budget state. See [FPL_ONE_GAMEWEEK_REPLAY_INPUT_CONTRACT.md](FPL_ONE_GAMEWEEK_REPLAY_INPUT_CONTRACT.md).
+4. **Implemented, not yet empirically validated:** paired policy comparison enforces identical starting-state IDs, identical policy sets across deadlines and pre-deadline decision freeze timestamps.
+5. Add complete feasible-set regret and distinguish shortlist regret from exhaustive global regret.
+6. Validate the replay scorer against known official FPL team histories and edge cases, then assemble a point-in-time historical decision archive.
+7. Add sequential multi-gameweek state transitions after one-step replay is verified.
+8. Integrate LiveFPL field context and CoVar only in their separate downstream evaluation layers.
 
 This protocol defines what must be measured. It does not claim that any current model or optimizer has already demonstrated decision-value improvement.
