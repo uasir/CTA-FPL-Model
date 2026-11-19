@@ -17,27 +17,20 @@ from pathlib import Path
 import numpy as np
 
 
-def _features(event):
+def _pre_action_features(event):
+    """Features observable at pass initiation; never use the eventual endpoint."""
     positions = event.get("positions") or []
-    if len(positions) < 2:
+    if not positions:
         return None
     try:
         sx, sy = float(positions[0]["x"]), float(positions[0]["y"])
-        ex, ey = float(positions[1]["x"]), float(positions[1]["y"])
+        elapsed = float(event.get("eventSec", 0.0))
     except (KeyError, TypeError, ValueError):
         return None
-    values = (sx, sy, ex, ey)
-    if not all(math.isfinite(v) and 0 <= v <= 100 for v in values):
+    if not (math.isfinite(sx) and math.isfinite(sy) and 0 <= sx <= 100 and 0 <= sy <= 100
+            and math.isfinite(elapsed) and elapsed >= 0):
         return None
-    dx, dy = ex - sx, ey - sy
-    distance = math.hypot(dx, dy)
-    return [
-        sx / 100.0, sy / 100.0, ex / 100.0, ey / 100.0,
-        dx / 100.0, dy / 100.0, distance / math.sqrt(20000.0),
-        max(dx, 0.0) / 100.0, float(ex >= 66.667),
-        float(ex >= 80.0 and 20.0 <= ey <= 80.0),
-    ]
-
+    return [sx / 100.0, sy / 100.0, min(elapsed / 2700.0, 1.0)]
 
 def build_pass_samples(events, match_dates):
     samples = []
@@ -55,13 +48,14 @@ def build_pass_samples(events, match_dates):
         match_id = str(event.get("matchId", ""))
         if match_id not in match_dates:
             continue
-        features = _features(event)
+        features = _pre_action_features(event)
         if features is None:
             continue
         samples.append({
             "match_id": match_id,
             "match_date": match_dates[match_id],
             "features": features,
+            "subevent": str(event.get("subEventName") or "Unknown").strip().casefold(),
             "completed": label,
         })
     return samples
@@ -128,8 +122,11 @@ def evaluate(samples, train_fraction=0.7):
     test = [s for s in samples if s["match_date"] >= cutoff]
     if len(train) < 100 or len(test) < 30:
         raise ValueError("xSuccess needs at least 100 training and 30 test labelled passes")
+    categories = sorted({s["subevent"] for s in train})
+    def vector(sample):
+        return sample["features"] + [float(sample["subevent"] == category) for category in categories]
     x_train, x_test, means, scales = _standardize(
-        [s["features"] for s in train], [s["features"] for s in test]
+        [vector(s) for s in train], [vector(s) for s in test]
     )
     y_train = [s["completed"] for s in train]
     y_test = [s["completed"] for s in test]
@@ -167,9 +164,9 @@ def evaluate(samples, train_fraction=0.7):
             "observed_completion_rate": sum(y_test) / len(y_test),
             "calibration_bins": bins,
         },
-        "features": ["start_x", "start_y", "end_x", "end_y", "delta_x", "delta_y",
-                     "distance", "forward_progress", "final_third_destination",
-                     "central_danger_zone_destination"],
+        "features": ["pass_start_x", "pass_start_y", "elapsed_time_in_period"] +
+                    [f"subevent:{category}" for category in categories],
+        "endpoint_leakage_guard": "Actual pass endpoint and post-action coordinates are excluded from all predictor features.",
         "fit_policy": "Feature scaling and model fitting use training matches only.",
         "unknown_outcome_policy": "Only explicit Wyscout accurate (1801) and inaccurate (1802) pass tags are labelled.",
         "decision_use_status": "RESEARCH_ONLY_NOT_IN_BASELINE",
