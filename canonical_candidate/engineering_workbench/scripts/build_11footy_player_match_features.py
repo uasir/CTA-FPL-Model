@@ -22,7 +22,7 @@ from audit_11footy_fpl_identity_candidates import normalize_team
 
 PANEL_FIELDS = [
     "season", "competition_id", "provider", "provider_match_id", "fpl_fixture_id",
-    "gameweek", "match_date", "provider_player_id", "provider_player_name",
+    "gameweek", "match_date", "match_kickoff_utc", "provider_player_id", "provider_player_name",
     "provider_team_id", "provider_team_name", "fpl_element_id", "fpl_player_code",
     "fpl_player_name", "fpl_team_id_at_fixture", "minutes_played", "goals",
     "assists", "own_goals", "shots", "shots_on_target", "key_passes",
@@ -539,6 +539,7 @@ def build_panel(
             "fpl_fixture_id": fixture_id,
             "gameweek": fixture.get("gameweek", ""),
             "match_date": _match_date(source),
+            "match_kickoff_utc": source.get("kickoff_utc", ""),
             "provider_player_id": provider_id,
             "provider_player_name": player_names.get(provider_id, ""),
             "provider_team_id": as_int(source.get("team_id")),

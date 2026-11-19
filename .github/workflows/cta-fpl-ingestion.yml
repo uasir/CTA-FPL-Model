@@ -25,9 +25,11 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/train_fpl_nested_tuned_ridge.py"
       - "canonical_candidate/engineering_workbench/scripts/audit_11footy_fpl_identity_candidates.py"
       - "canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py"
+      - "canonical_candidate/engineering_workbench/scripts/build_11footy_lagged_research_features.py"
       - "canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py"
       - "canonical_candidate/engineering_workbench/tests/test_11footy_fpl_identity_candidates.py"
       - "canonical_candidate/engineering_workbench/tests/test_11footy_player_match_features.py"
+      - "canonical_candidate/engineering_workbench/tests/test_11footy_lagged_research_features.py"
       - "canonical_candidate/engineering_workbench/tests/test_provider_identity_crosswalk.py"
       - "canonical_candidate/data/11footy_fpl_identity_crosswalk.csv"
       - "canonical_candidate/engineering_workbench/scripts/audit_onside_against_fpl_actuals.py"
@@ -82,7 +84,8 @@ jobs:
             tests/test_fpl_nested_tuned_ridge.py \
             tests/test_onside_fpl_actuals_cross_audit.py \
             tests/test_11footy_fpl_identity_candidates.py \
-            tests/test_11footy_player_match_features.py
+            tests/test_11footy_player_match_features.py \
+            tests/test_11footy_lagged_research_features.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -225,6 +228,48 @@ jobs:
             --history run_artifacts/fpl_official/fpl_player_fixture.csv \
             --bootstrap run_artifacts/fpl_official/bootstrap-static.json \
             --out-dir run_artifacts/fpl_official
+
+      - name: Build leakage-safe lagged 11footy CTA research features
+        continue-on-error: true
+        run: |
+          PANEL="run_artifacts/11footy_fpl/output/provisional_research_only_player_match_panel.csv"
+          if [ -f "$PANEL" ]; then
+            python canonical_candidate/engineering_workbench/scripts/build_11footy_lagged_research_features.py \
+              --cta-panel "$PANEL" \
+              --fpl-training run_artifacts/fpl_official/fpl_lagged_training.csv \
+              --fpl-report run_artifacts/fpl_official/fpl_lagged_training_report.json \
+              --out-dir run_artifacts/11footy_fpl/output || echo "WARNING: lagged CTA research feature build failed"
+          else
+            echo "WARNING: provisional CTA research panel is unavailable"
+          fi
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = Path("run_artifacts/11footy_fpl/output/11footy_lagged_research_report.json")
+          target = Path("run_artifacts/fpl_official/11footy_lagged_research_summary.json")
+          if source.exists():
+              report = json.loads(source.read_text())
+              safe = {
+                  key: report[key] for key in (
+                      "status", "rows", "unique_players", "unique_fixtures", "gameweeks",
+                      "rows_with_prior_cta_history", "rows_without_prior_cta_history",
+                      "players_with_prior_cta_history", "coverage_by_gameweek",
+                      "prior_feature_coverage_rows", "source_cta_rows_skipped",
+                      "temporal_policy", "rolling_window_unit", "fpl_point_in_time_status",
+                      "prediction_training_eligible", "production_eligible", "eligibility_reason"
+                  )
+              }
+          else:
+              safe = {
+                  "status": "CTA_LAGGED_RESEARCH_FEATURES_UNAVAILABLE",
+                  "rows": 0,
+                  "prediction_training_eligible": False,
+                  "production_eligible": False
+              }
+          safe["publication_policy"] = "Aggregate metrics only; player-level lagged research rows remain inside the Actions runner."
+          target.write_text(json.dumps(safe, indent=2))
+          print(json.dumps(safe, indent=2))
+          PY
 
       - name: Fetch pinned Opta/PulseLive team context sources
         run: |
