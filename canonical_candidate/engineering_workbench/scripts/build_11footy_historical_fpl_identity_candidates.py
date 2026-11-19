@@ -395,6 +395,13 @@ def attach_current_candidates(historical_candidates, current_candidates):
                 cross_priority = "P2_HISTORICAL_AND_CURRENT_HIGH"
             else:
                 cross_priority = "P3_CURRENT_HIGH_HISTORICAL_REVIEW"
+        elif row["current_candidate_status"] == "REVIEW_REQUIRED_PENDING":
+            if row["review_priority"] == "P1_MULTI_MATCH_TEAM_SIGNATURE":
+                cross_priority = "P2_HISTORICAL_P1_CURRENT_REVIEW"
+            elif row["review_priority"] == "P2_TEAM_AND_FULL_SIGNATURE":
+                cross_priority = "P3_HISTORICAL_P2_CURRENT_REVIEW"
+            else:
+                cross_priority = "P4_HISTORICAL_AND_CURRENT_REVIEW"
         elif row["review_priority"] == "P1_MULTI_MATCH_TEAM_SIGNATURE":
             cross_priority = "P2_HISTORICAL_P1_CURRENT_NOT_HIGH"
         elif row["current_candidate_status"] == "AMBIGUOUS":
