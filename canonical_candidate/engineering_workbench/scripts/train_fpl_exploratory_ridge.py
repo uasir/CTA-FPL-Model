@@ -35,6 +35,24 @@ def number(value,default=0.0):
     return result if math.isfinite(result) else default
 
 
+def optional_number(value):
+    if value is None or str(value).strip()=="":
+        return None
+    try:
+        result=float(value)
+    except (TypeError,ValueError):
+        return None
+    return result if math.isfinite(result) else None
+
+
+def median(values):
+    ordered=sorted(values)
+    middle=len(ordered)//2
+    if len(ordered)%2:
+        return ordered[middle]
+    return (ordered[middle-1]+ordered[middle])/2.0
+
+
 def bool_number(value):
     if isinstance(value,bool): return 1.0 if value else 0.0
     return 1.0 if str(value).strip().lower() in {"true","1","yes","y"} else 0.0
@@ -59,18 +77,34 @@ def solve_linear_system(matrix,vector):
 
 
 def fit_ridge(rows,target_key,feature_names=FEATURES,ridge_lambda=RIDGE_LAMBDA):
-    raw=[[number(row.get(name)) for name in feature_names] for row in rows]
-    targets=[number(row.get(target_key)) for row in rows]
+    raw=[[optional_number(row.get(name)) for name in feature_names] for row in rows]
+    targets=[optional_number(row.get(target_key)) for row in rows]
+    if any(value is None for value in targets):
+        raise ValueError(f"Missing/non-finite training target: {target_key}")
     if len(raw)<len(feature_names)+2:
         raise ValueError("Not enough training rows for exploratory ridge fit")
-    means=[sum(row[j] for row in raw)/len(raw) for j in range(len(feature_names))]
-    variances=[sum((row[j]-means[j])**2 for row in raw)/len(raw) for j in range(len(feature_names))]
+    imputation_values=[]
+    for index,name in enumerate(feature_names):
+        observed=[row[index] for row in raw if row[index] is not None]
+        if not observed:
+            raise ValueError(f"Feature has no observed training values and cannot be imputed: {name}")
+        imputation_values.append(median(observed))
+    # Fit imputation values on training rows only. Missingness indicators retain
+    # the distinction between an observed zero and an unavailable provider metric.
+    design_names=list(feature_names)+[f"{name}__missing" for name in feature_names]
+    design=[]
+    for row in raw:
+        imputed=[imputation_values[j] if row[j] is None else row[j] for j in range(len(feature_names))]
+        indicators=[1.0 if row[j] is None else 0.0 for j in range(len(feature_names))]
+        design.append(imputed+indicators)
+    means=[sum(row[j] for row in design)/len(design) for j in range(len(design_names))]
+    variances=[sum((row[j]-means[j])**2 for row in design)/len(design) for j in range(len(design_names))]
     scales=[math.sqrt(value) if value>1e-12 else 1.0 for value in variances]
-    matrix_size=len(feature_names)+1
+    matrix_size=len(design_names)+1
     gram=[[0.0]*matrix_size for _ in range(matrix_size)]
     cross=[0.0]*matrix_size
-    for raw_row,target in zip(raw,targets):
-        vector=[1.0]+[(raw_row[j]-means[j])/scales[j] for j in range(len(feature_names))]
+    for raw_row,target in zip(design,targets):
+        vector=[1.0]+[(raw_row[j]-means[j])/scales[j] for j in range(len(design_names))]
         for i in range(matrix_size):
             cross[i]+=vector[i]*target
             for j in range(matrix_size):
@@ -79,7 +113,10 @@ def fit_ridge(rows,target_key,feature_names=FEATURES,ridge_lambda=RIDGE_LAMBDA):
         gram[i][i]+=ridge_lambda
     coefficients=solve_linear_system(gram,cross)
     return {
-        "feature_names":list(feature_names),
+        "feature_names":design_names,
+        "source_feature_names":list(feature_names),
+        "imputation_values":imputation_values,
+        "missing_value_policy":"TRAINING_MEDIAN_PLUS_MISSINGNESS_INDICATOR",
         "means":means,
         "scales":scales,
         "coefficients":coefficients,
@@ -88,8 +125,13 @@ def fit_ridge(rows,target_key,feature_names=FEATURES,ridge_lambda=RIDGE_LAMBDA):
 
 
 def predict(model,row):
-    values=[number(row.get(name)) for name in model["feature_names"]]
-    vector=[1.0]+[(values[j]-model["means"][j])/model["scales"][j] for j in range(len(values))]
+    source_names=model.get("source_feature_names",model["feature_names"])
+    values=[optional_number(row.get(name)) for name in source_names]
+    imputation=model.get("imputation_values",[0.0]*len(source_names))
+    imputed=[imputation[j] if values[j] is None else values[j] for j in range(len(source_names))]
+    indicators=[1.0 if values[j] is None else 0.0 for j in range(len(source_names))]
+    design=imputed+indicators
+    vector=[1.0]+[(design[j]-model["means"][j])/model["scales"][j] for j in range(len(design))]
     return sum(vector[i]*model["coefficients"][i] for i in range(len(vector)))
 
 
@@ -161,18 +203,20 @@ def train_and_evaluate(rows):
         item["fixture_count"]=float(count)
         for feature in FEATURES:
             if feature=="fixture_count": continue
-            value=number(row.get(feature))
-            if feature in {"prior_gw_points","prior3_gw_points_avg","prior5_gw_points_avg",
+            value=optional_number(row.get(feature))
+            if value is not None and feature in {"prior_gw_points","prior3_gw_points_avg","prior5_gw_points_avg",
                            "prior3_gw_minutes_avg","prior5_gw_minutes_avg",
                            "prior3_gw_xg_avg","prior3_gw_xa_avg"}:
                 value=value/count
             elif feature=="was_home":
                 value=bool_number(row.get(feature))
-            elif feature in {"team_difficulty_snapshot","opponent_difficulty_snapshot"}:
+            elif value is not None and feature in {"team_difficulty_snapshot","opponent_difficulty_snapshot"}:
                 value=value/5.0
             item[feature]=value
-        item["target_total_points"]=number(row.get("target_total_points"))
-        item["target_minutes"]=number(row.get("target_minutes"))
+        item["target_total_points"]=optional_number(row.get("target_total_points"))
+        item["target_minutes"]=optional_number(row.get("target_minutes"))
+        if item["target_total_points"] is None or item["target_minutes"] is None:
+            raise ValueError("Missing/non-finite FPL target; refusing to encode target as zero")
         normalized.append(item)
     gameweeks=sorted({int(row["gameweek"]) for row in normalized})
     if len(gameweeks)<7:
@@ -204,6 +248,8 @@ def train_and_evaluate(rows):
         "validation_player_gameweek_rows":len(predictions),
         "ridge_lambda":RIDGE_LAMBDA,
         "features":list(FEATURES),
+        "missing_feature_policy":"Training-only median imputation with explicit missingness indicators; observed zero remains distinct from missing.",
+        "points_missing_feature_counts":{name:sum(1 for row in train_rows if row.get(name) is None) for name in FEATURES},
         "points_metrics":points_metrics,
         "minutes_metrics":minutes_metrics,
         "decision":"DO_NOT_PROMOTE",
