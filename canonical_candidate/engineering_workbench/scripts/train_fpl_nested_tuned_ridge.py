@@ -14,7 +14,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from train_fpl_exploratory_ridge import (
-    FEATURES, fit_ridge, aggregate_predictions, metrics, number, bool_number,
+    FEATURES, fit_ridge, aggregate_predictions, metrics, number, optional_number, bool_number,
 )
 
 ALPHA_GRID = (0.1, 1.0, 3.0, 10.0, 30.0, 100.0, 300.0)
@@ -42,20 +42,22 @@ def normalize_rows(rows):
         for feature in FEATURES:
             if feature == "fixture_count":
                 continue
-            value = number(row.get(feature))
+            value = optional_number(row.get(feature))
             if feature in {
                 "prior_gw_points", "prior3_gw_points_avg", "prior5_gw_points_avg",
                 "prior3_gw_minutes_avg", "prior5_gw_minutes_avg",
                 "prior3_gw_xg_avg", "prior3_gw_xa_avg",
             }:
-                value = value / count
+                value = value / count if value is not None else None
             elif feature == "was_home":
                 value = bool_number(row.get(feature))
             elif feature in {"team_difficulty_snapshot", "opponent_difficulty_snapshot"}:
-                value = value / 5.0
+                value = value / 5.0 if value is not None else None
             item[feature] = value
-        item["target_total_points"] = number(row.get("target_total_points"))
-        item["target_minutes"] = number(row.get("target_minutes"))
+        item["target_total_points"] = optional_number(row.get("target_total_points"))
+        item["target_minutes"] = optional_number(row.get("target_minutes"))
+        if item["target_total_points"] is None or item["target_minutes"] is None:
+            raise ValueError("Missing/non-finite FPL target; refusing to encode target as zero")
         normalized.append(item)
     return normalized
 
