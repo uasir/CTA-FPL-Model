@@ -11,7 +11,7 @@ Improve FPL decisions, squad optimization and competitive outcomes. Point predic
 - Standalone conventional-FPL model; no CTA A/B/C features enter this track.
 - A time-safe expanding calibration diagnostic on the matched GW4–GW7 cohort (2,647 player-gameweeks) reduced retrospective MAE from 1.6340 to 1.3226 and RMSE from 2.2754 to 2.1665. EVMax remained stronger on this cohort (MAE 1.1344, RMSE 2.1084).
 - The diagnostic is archived privately and is not a promotion result: source forecasts are retrospective reconstructions, the cohort is short and restricted to EVMax coverage, and clustered uncertainty intervals are not included.
-- A controlled base-versus-position ablation is running on identical expanding-season folds. The base arm has completed; the position-aware arm is training. The comparison uses exact player-gameweek matching and runner-local player-level predictions.
+- The first controlled base-versus-position run completed on 214,956 matched player-gameweeks. Preliminary point errors did not improve with position features. Its pooled top-K statistic was invalid across mixed deadlines and is excluded. A source chronology anomaly (gameweek labels extending to 47) was also detected; the panel builder now prefers explicit `GW`, records `GW`/`round` disagreements and enforces the 1–38 range. The experiment is being rerun with this corrected panel and deadline-local ranking metrics.
 - Position features are retrospective source fields; point-in-time position vintage is not verified.
 
 ### Independent CTA A/B/C predictor
