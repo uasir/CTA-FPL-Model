@@ -438,6 +438,7 @@ def main():
     parser.add_argument("--fpl-player-idlist", type=Path, required=True)
     parser.add_argument("--fpl-gameweek-history", type=Path, required=True)
     parser.add_argument("--fpl-team-list", type=Path, required=True)
+    parser.add_argument("--fpl-source-commit", required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
 
@@ -451,6 +452,7 @@ def main():
         read_csv(args.fpl_gameweek_history),
         read_csv(args.fpl_team_list),
     )
+    report["historical_fpl_source_commit"] = args.fpl_source_commit
     report["source_hashes"] = {
         "wyscout_player_match_sha256": sha256(args.wyscout_player_match),
         "wyscout_players_sha256": sha256(args.wyscout_players),
