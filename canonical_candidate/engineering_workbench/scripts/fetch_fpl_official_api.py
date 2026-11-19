@@ -6,7 +6,7 @@ onto StatsBomb identities. Cross-provider identity requires a separately
 verified alias/ID crosswalk.
 """
 from __future__ import annotations
-import argparse, csv, hashlib, json, time, urllib.error, urllib.request
+import argparse, csv, hashlib, json, os, time, urllib.error, urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -215,6 +215,10 @@ def main() -> int:
               "snapshot_timing":snapshot_timing,
               "point_in_time_status":"CURRENT_CAPTURE_ONLY_HISTORICAL_VINTAGE_UNVERIFIED",
               "source_snapshot_id":source_snapshot_id,
+"pipeline_git_commit":os.environ.get("GITHUB_SHA"),
+"workflow_run_id":os.environ.get("GITHUB_RUN_ID"),
+"workflow_ref":os.environ.get("GITHUB_WORKFLOW_REF"),
+"ingestion_script_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
               "next_deadline_event_id":next_event[1].get("id") if next_event else None,
               "next_deadline_time_utc":next_event[0].isoformat() if next_event else None,
               "hours_until_next_deadline":round(hours_to_deadline,3) if hours_to_deadline is not None else None,"bootstrap_url":bootstrap_url,"fixtures_url":fixtures_url,
