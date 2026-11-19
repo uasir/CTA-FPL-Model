@@ -304,15 +304,15 @@ jobs:
           GW=$(python -c 'import json; print(json.load(open("run_artifacts/11footy/output/cta_decision/fpl_baseline_forecast_snapshot.json"))["forecast_quality"]["data_coverage"]["target_gameweek"])')
           curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 60 \
             -H "User-Agent: CTA-FPL-Model/1.0" \
-            "https://fantasy.premierleague.com/api/entry/421025/event/\${GW}/picks/" \
-            -o "run_artifacts/fpl_official/manager_421025_gw\${GW}_picks.json"
+            "https://fantasy.premierleague.com/api/entry/421025/event/${GW}/picks/" \
+            -o "run_artifacts/fpl_official/manager_421025_gw${GW}_picks.json"
 
       - name: Build aggregate-only CTA evidence coverage for manager 421025
         if: always()
         continue-on-error: true
         run: |
           GW=$(python -c 'import json; print(json.load(open("run_artifacts/11footy/output/cta_decision/fpl_baseline_forecast_snapshot.json"))["forecast_quality"]["data_coverage"]["target_gameweek"])')
-          PICKS="run_artifacts/fpl_official/manager_421025_gw\${GW}_picks.json"
+          PICKS="run_artifacts/fpl_official/manager_421025_gw${GW}_picks.json"
           SNAPSHOT="run_artifacts/11footy/output/cta_decision/fpl_baseline_forecast_snapshot.json"
           REPORT="run_artifacts/fpl_official/manager_421025_cta_coverage_report.json"
           if [ -f "$PICKS" ] && [ -f "$SNAPSHOT" ]; then
