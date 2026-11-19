@@ -168,6 +168,10 @@ def normalize_wyscout_events(events, players, teams, match_id):
         "normalized_event_count": len(normalized),
         "skipped_event_counts": skipped,
         "possession_boundary_reason_counts": dict(boundary_counts),
+        "free_kick_shots_mapped_to_shot": sum(
+            row.get("_provider_subevent_name", "").casefold() == "free kick shot"
+            and row["type"]["name"] == "Shot" for row in normalized
+        ),
         "player_id_namespace": "wyscout: prefix retained; never interpreted as StatsBomb or FPL ID",
         "coordinate_conversion": "attacking-relative percentage x,y -> CTA pitch x*1.2,y*0.8; no direction flip",
         "possession_method": "INFERRED_CONTIGUOUS_TEAM_BLOCK",
