@@ -8,9 +8,11 @@ on:
       - canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
   push:
     branches: [main, "feat/**"]
     paths:
@@ -43,12 +45,13 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run Wyscout CTA and identity resolver unit tests
+      - name: Run Wyscout and 11footy identity resolver unit tests
         run: |
           python -m pip install pytest
           PYTHONPATH=canonical_candidate/engineering_workbench/scripts python -m pytest -q \
             canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py \
-            canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
+            canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py \
+            canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
 
       - name: Download the public Wyscout 2017/18 data files
         run: |
@@ -96,6 +99,35 @@ jobs:
             --fpl-gameweek-history run_artifacts/wyscout/source/fpl_merged_gw.csv \
             --fpl-team-list run_artifacts/wyscout/source/fpl_master_team_list.csv \
             --fpl-source-commit "d7b05b51d137bfefef4b692386d18c610975b9b9" \
+            --out-dir run_artifacts/wyscout/output
+
+      - name: Download pinned 11footy databases for historical identity corroboration
+        id: download_11footy
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p run_artifacts/wyscout/source
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 300 \
+            https://github.com/fm-devlab/11footy-dataset/releases/download/11footy-2026-11-10/england.premier-league.db.xz \
+            -o run_artifacts/wyscout/source/11footy-england.premier-league.db.xz
+          echo "a74e735c01a0f6da9b871ade0031573e212ba7f8be0698b29d240921aea0485f  run_artifacts/wyscout/source/11footy-england.premier-league.db.xz" | sha256sum --check
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 \
+            https://github.com/fm-devlab/11footy-dataset/releases/download/11footy-2026-11-10/players.db.xz \
+            -o run_artifacts/wyscout/source/11footy-players.db.xz
+          echo "a0ad11b9f7bb8f845c6f62bc2cacc27639ea7a7f2f9ce861485297bc6db0d0c2  run_artifacts/wyscout/source/11footy-players.db.xz" | sha256sum --check
+
+      - name: Build pending-only 11footy to historical FPL identity review queue
+        if: steps.download_11footy.outcome == 'success'
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py \
+            --database run_artifacts/wyscout/source/11footy-england.premier-league.db.xz \
+            --players-database run_artifacts/wyscout/source/11footy-players.db.xz \
+            --fpl-players run_artifacts/wyscout/source/fpl_players_raw.csv \
+            --fpl-player-idlist run_artifacts/wyscout/source/fpl_player_idlist.csv \
+            --fpl-gameweek-history run_artifacts/wyscout/source/fpl_merged_gw.csv \
+            --fpl-team-list run_artifacts/wyscout/source/fpl_master_team_list.csv \
+            --fpl-source-commit "d7b05b51d137bfefef4b692386d18c610975b9b9" \
+            --11footy-release "11footy-2026-11-10" \
             --out-dir run_artifacts/wyscout/output
 
       - name: Upload aggregate-only Wyscout audit, CTA and identity reports
