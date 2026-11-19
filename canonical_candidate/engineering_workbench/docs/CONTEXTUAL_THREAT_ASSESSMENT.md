@@ -210,7 +210,13 @@ and within 35 pitch units. A lane is considered blocked when a visible defender
 occupies the actor-to-receiver corridor; receiver pressure is estimated from
 visible opponent distance to the receiver. These are observable-frame
 opportunity indicators, not proof that the entire pitch is open or that a pass
-was actually available to the player.
+was actually available to the player. The 360 freeze-frame does not expose stable
+player IDs for every visible teammate. Consequently, player-match receiving-option
+aggregates are explicitly attributed to the **event actor's possession context**,
+not to the unnamed potential receivers. Actual dangerous receipt involvement is
+attributed separately to the identified actor on a Ball Receipt event. The
+player-match export carries machine-readable attribution-status fields so
+downstream models cannot silently treat actor context as receiver-level evidence.
 
 
 ## Threat dimensions and non-shot opportunities
