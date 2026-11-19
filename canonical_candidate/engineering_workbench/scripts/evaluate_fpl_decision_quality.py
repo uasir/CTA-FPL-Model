@@ -129,6 +129,49 @@ def forecast_band_error_report(actual: Sequence[float], predicted: Sequence[floa
     return report
 
 
+def prediction_quantile_diagnostics(actual: Sequence[float], predicted: Sequence[float],
+                                    bins: int = 10) -> dict:
+    """Show where a forecast compresses or misses the upper tail.
+
+    Rows are sorted by predicted expected points and split into near-equal
+    count bins. Ties are kept deterministic by original row order. These are
+    diagnostics only; they do not change forecasts or model selection.
+    """
+    y, p = _finite(actual), _finite(predicted)
+    if len(y) != len(p):
+        raise ValueError("actual and predicted must be aligned")
+    if bins < 1:
+        raise ValueError("bins must be positive")
+    count = min(int(bins), len(y))
+    order = sorted(range(len(p)), key=lambda i: (p[i], i))
+    report = []
+    for b in range(count):
+        start = b * len(order) // count
+        end = (b + 1) * len(order) // count
+        indices = order[start:end]
+        actual_bin = [y[i] for i in indices]
+        predicted_bin = [p[i] for i in indices]
+        errors = [a - f for a, f in zip(actual_bin, predicted_bin)]
+        report.append({
+            "bin": b + 1,
+            "n": len(indices),
+            "predicted_mean": sum(predicted_bin) / len(indices),
+            "actual_mean": sum(actual_bin) / len(indices),
+            "mean_actual_minus_predicted": sum(errors) / len(errors),
+            "mae": sum(abs(e) for e in errors) / len(errors),
+            "rmse": math.sqrt(sum(e * e for e in errors) / len(errors)),
+            "actual_8_plus_rate": sum(a >= 8 for a in actual_bin) / len(indices),
+            "actual_10_plus_rate": sum(a >= 10 for a in actual_bin) / len(indices),
+        })
+    return {
+        "method": "EQUAL_COUNT_BINS_SORTED_BY_PREDICTED_EXPECTED_POINTS",
+        "bins": report,
+        "overall_actual_mean": sum(y) / len(y),
+        "overall_predicted_mean": sum(p) / len(p),
+        "overall_mean_actual_minus_predicted": sum(a - f for a, f in zip(y, p)) / len(y),
+    }
+
+
 def evaluate_forecast(actual_points: Sequence[float], expected_points: Sequence[float],
                       haul_probabilities: Mapping[int, Sequence[float]] | None = None,
                       ranking_score: Sequence[float] | None = None,
@@ -138,6 +181,7 @@ def evaluate_forecast(actual_points: Sequence[float], expected_points: Sequence[
         "status": "RESEARCH_ONLY",
         "point_errors": point_error_metrics(actual_points, expected_points),
         "forecast_band_errors": forecast_band_error_report(actual_points, expected_points),
+        "prediction_quantile_diagnostics": prediction_quantile_diagnostics(actual_points, expected_points),
         "principle": "RMSE_IS_DIAGNOSTIC_NOT_SOLE_PROMOTION_GATE",
         "large_outcomes_policy": "RETAIN_ALL_OUTCOMES; assess haul probabilities and ranking separately",
     }
