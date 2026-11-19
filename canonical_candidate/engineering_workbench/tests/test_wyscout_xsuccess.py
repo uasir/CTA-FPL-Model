@@ -12,6 +12,15 @@ class XSuccessTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["completed"], 1)
 
+    def test_actual_endpoint_is_excluded_from_pre_action_features(self):
+        common = {"eventName": "Pass", "matchId": 1, "eventSec": 120,
+                  "subEventName": "Simple pass", "tags": [{"id": 1801}]}
+        first = dict(common, positions=[{"x": 20, "y": 30}, {"x": 35, "y": 40}])
+        second = dict(common, positions=[{"x": 20, "y": 30}, {"x": 95, "y": 90}])
+        rows = build_pass_samples([first, second], {"1": "2017-08-01"})
+        self.assertEqual(rows[0]["features"], rows[1]["features"])
+        self.assertEqual(rows[0]["subevent"], rows[1]["subevent"])
+
     def test_chronological_evaluation(self):
         samples = []
         for match in range(1, 9):
