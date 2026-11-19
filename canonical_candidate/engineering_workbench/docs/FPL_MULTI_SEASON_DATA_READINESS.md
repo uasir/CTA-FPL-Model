@@ -93,3 +93,15 @@ The model-quality gates remain:
 5. reproducible identity mapping where cross-provider joins are used.
 
 Data can be used for exploratory experiments before all point-in-time conditions are proven, but those results must remain labelled research-only. Do not promote the ridge baseline, the two-part model, the 2PM-Transformer candidate, or CTA features into recommendation decisions without stronger chronological validation.
+
+### Updated walk-forward verification — 19 November 2026
+
+- Latest evaluator commit: `f3838089f2d8ff87ebd0929cd8dbbed500e4139b`.
+- Full multi-season walk-forward run: [GitHub Actions run 44508165247](https://github.com/uasir/CTA-FPL-Model/actions/runs/44508165247), successful. It completed all 9 expanding-season folds (2017/18 through 2025/26) and scored 214,956 player-gameweeks.
+- Engineering CI for the same code commit: [GitHub Actions run 44508165350](https://github.com/uasir/CTA-FPL-Model/actions/runs/44508165350), successful; 338 tests and 3 subtests passed.
+- Appearance: calibrated Brier/log loss 0.105105/0.345895; raw clipped 0.104476/0.383109; prior-five appearance-rate baseline 0.119955/1.508366. Calibration improves log loss but is marginally worse on Brier than raw probabilities.
+- Points: calibrated two-part MAE/RMSE 1.160736/2.151449; raw two-part 1.160585/2.151055; direct ridge 1.168723/2.147811; last-five-points baseline 1.190693/2.301198. Two-part improves pooled MAE over direct ridge and last-five baseline, but direct ridge retains the best RMSE. Raw two-part is marginally better than calibrated two-part on both point metrics.
+- Minutes: calibrated two-part MAE 16.268 minutes; raw two-part 16.638; unconditional regression 16.518; last-gameweek baseline 13.728; prior-three-gameweek baseline 14.727; prior-five-gameweek baseline 15.676. The latest diagnostics confirm the minutes component remains weaker than simple persistence baselines.
+- Calibration chronology is now explicit in every fold report: appearance-fit last gameweek, calibration first/last gameweeks, calibration positive/negative counts and appearance rate. The tests verify that the appearance-fit and calibration periods are disjoint, ordered, and entirely before the validation season.
+- Decision remains `RESEARCH_ONLY / DO_NOT_PROMOTE`. Do not assign CTA weight or connect this model to live recommendations. The source-vintage limitation remains: historical exports are not verified pre-deadline snapshots.
+- Next predictor task: improve minutes/availability estimation using training-only model selection and identical expanding-season folds. Candidate directions include an appearance-conditioned minutes distribution and minutes bands; compare them against last-GW, prior-three-GW and prior-five-GW baselines. Keep point-prediction model comparisons separate so a better minutes submodel is not assumed to improve expected points without evidence.
