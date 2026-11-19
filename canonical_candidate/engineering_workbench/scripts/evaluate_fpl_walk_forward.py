@@ -487,11 +487,6 @@ def score_fold(train, valid, season):
         hurdle_cal_ep=float(hurdle_cal@conditional_points_band_representatives)
         conditional=max(0.0,predict(conditional_model,row))
         raw_ep=raw_p*conditional
-        blend_points_025.append(blend_expected_points(hurdle_cal_ep,raw_ep,0.25))
-        blend_points_050.append(blend_expected_points(hurdle_cal_ep,raw_ep,0.50))
-        blend_points_075.append(blend_expected_points(hurdle_cal_ep,raw_ep,0.75))
-        blend_points_selected_mae.append(blend_expected_points(hurdle_cal_ep,raw_ep,blend_weight_mae))
-        blend_points_selected_mse.append(blend_expected_points(hurdle_cal_ep,raw_ep,blend_weight_mse))
         calibrated_ep=calibrated_p*conditional
         band_ep_raw=(1.0-band_raw[0])*conditional
         band_ep_calibrated=(1.0-band_cal[0])*conditional
@@ -508,6 +503,11 @@ def score_fold(train, valid, season):
         if baseline_points is None:
             continue
         # Keep every metric on the same scored validation cohort.
+        blend_points_025.append(blend_expected_points(hurdle_cal_ep,raw_ep,0.25))
+        blend_points_050.append(blend_expected_points(hurdle_cal_ep,raw_ep,0.50))
+        blend_points_075.append(blend_expected_points(hurdle_cal_ep,raw_ep,0.75))
+        blend_points_selected_mae.append(blend_expected_points(hurdle_cal_ep,raw_ep,blend_weight_mae))
+        blend_points_selected_mse.append(blend_expected_points(hurdle_cal_ep,raw_ep,blend_weight_mse))
         minutes_band_probabilities_raw.append(band_raw.tolist())
         points_band_probabilities_raw.append(points_raw.tolist())
         points_band_probabilities_calibrated.append(points_cal.tolist())
