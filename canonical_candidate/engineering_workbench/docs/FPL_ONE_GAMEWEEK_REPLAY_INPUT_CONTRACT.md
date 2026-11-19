@@ -57,7 +57,7 @@ Decision fields:
 - Exactly 11 distinct starting players and four distinct bench players, forming a legal 15-player squad (2 GKP, 5 DEF, 5 MID, 3 FWD).
 - One goalkeeper in the XI; legal outfield formation; three outfield bench players followed by the reserve goalkeeper.
 - Distinct captain and vice-captain, both in the starting XI.
-- Transfer count and free-transfer count; optional chip.
+- Transfer count and free-transfer count; optional exact `transfer_hit_cost` override for historical official records; optional chip.
 - Explicit upstream legality verification flags.
 
 Optional outcome/context fields:
@@ -74,7 +74,17 @@ Optional outcome/context fields:
 - Bench Boost inclusion of all four substitutes.
 - Four-point hits for transfers beyond the available free transfers; Wildcard and Free Hit waive transfer hits for that Gameweek.
 
+For historical official manager-score validation, `transfer_hit_cost` can carry the exact points deduction reported by the FPL event-history API. If omitted, the engine derives hits from transfers made minus free transfers. The exact override must be a non-negative multiple of four and must be zero with Wildcard/Free Hit.
+
 The scorer uses official total points as supplied; it does not reconstruct goals, assists, clean sheets, bonus or defensive-contribution scoring from raw events.
+
+## Official-history scoring audit
+
+`scripts/audit_fpl_replay_against_official_manager_history.py` samples a stratified cohort of currently ranked managers and replays their completed current-season Gameweeks against official event-live player points and each manager's official event-history score. It also compares autosub pairs when the endpoint supplies them.
+
+The audit writes aggregate metrics only. Manager identifiers, raw picks and player-level outcomes remain in runner memory and are not uploaded or committed. Current-rank sampling is survivor/rank conditioned, so this is a scoring-engine verification sample—not a representative manager cohort and not a test of recommendation quality.
+
+Workflow: [FPL decision replay validation](../../../../.github/workflows/cta-fpl-decision-replay-audit.yml).
 
 Official rule references:
 - [Fantasy Premier League Help and FAQs](https://fantasy.premierleague.com/help/faqs) — captain/vice, chips, transfer deductions, appearances and automatic substitutions.
