@@ -77,7 +77,8 @@ def _validate_roster(decision: Mapping, positions: Mapping[str, str]) -> tuple[l
 
 def replay_gameweek(decision: Mapping, official_points: Mapping,
                     minutes: Mapping, positions: Mapping,
-                    team_by_player: Mapping | None = None) -> dict:
+                    team_by_player: Mapping | None = None,
+                    played_by_player: Mapping | None = None) -> dict:
     """Score one frozen legal lineup against official player outcomes.
 
     action_legality_verified must be true: this scorer does not validate
@@ -104,7 +105,11 @@ def replay_gameweek(decision: Mapping, official_points: Mapping,
     mins = {p: _number(_lookup(minutes, p, "minutes"), "Minutes") for p in squad}
     if any(value < 0 for value in mins.values()):
         raise ValueError("Minutes cannot be negative")
-    played = {p: mins[p] > 0 for p in squad}
+    played = {
+        p: bool(_lookup(played_by_player, p, "played status")) if played_by_player is not None
+        else mins[p] > 0
+        for p in squad
+    }
 
     starting_keeper = next(p for p in xi if pos[p] == "GKP")
     bench_keeper = bench[3]
@@ -141,9 +146,9 @@ def replay_gameweek(decision: Mapping, official_points: Mapping,
     if captain not in xi or vice not in xi or captain == vice:
         raise ValueError("Captain and vice-captain must be distinct starting XI players")
     effective_captain = captain if played[captain] else vice if played[vice] else None
-    # Triple Captain triples the originally selected captain only. If that
-    # player does not play, the vice inherits ordinary double-captain scoring.
-    captain_extra_multiplier = 2 if chip == "triple_captain" and played[captain] else 1
+    # Official FPL FAQ: the Triple Captain bonus passes to the vice if
+    # the selected captain records no appearance in the Gameweek.
+    captain_extra_multiplier = 2 if chip == "triple_captain" else 1
     captain_extra_points = (pts[effective_captain] * captain_extra_multiplier
                             if effective_captain is not None else 0.0)
 
@@ -230,7 +235,7 @@ def compare_policy_replays(rows: Sequence[Mapping], baseline_policy: str = "hold
         for policy, row in policies.items():
             result = replay_gameweek(
                 row["decision"], row["official_points"], row["minutes"], row["positions"],
-                row.get("team_by_player")
+                row.get("team_by_player"), row.get("played_by_player")
             )
             scores[policy] = result["net_points"]
             policy_totals[policy].append(result["net_points"])
