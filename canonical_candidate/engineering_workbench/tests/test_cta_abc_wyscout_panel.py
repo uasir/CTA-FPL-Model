@@ -77,3 +77,11 @@ def test_missing_provider_features_remain_null_not_zero():
     rows, _ = build_panel([source], {})
     assert rows[0]["abc_progressive_passes"] == ""
     assert rows[0]["abc_opponent_threat_allowed"] == ""
+
+
+def test_first_fixture_in_gameweek_can_use_equal_exclusive_cutoff():
+    source = _row()
+    source["feature_cutoff_time_utc"] = source["kickoff_time_utc"]
+    rows, _ = build_panel([source], {})
+    assert rows[0]["feature_cutoff_policy"] == "CONSERVATIVE_EARLIEST_GAMEWEEK_KICKOFF"
+    assert rows[0]["research_eligible_for_analysis"] is True
