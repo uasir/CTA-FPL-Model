@@ -1,0 +1,5 @@
+season,gameweek,source,variant,rows,grain,captured_at_utc,provider_timestamp,sha256,artifact_id,artifact_name,retention_days,comparison_status
+2026-27,11,FPL Cat,published_xP,672,player_gameweek,2026-11-19T15:57:32Z,2026-11-19T14:50:07.688Z,423e19a26e53d67c02c89a4201dd903777cce575fa657bdbe2d36a6e3e93d097,14549690090,external-fpl-forecast-gw11-44560612496,90,NOT_YET_EVALUATED
+2026-27,11,Sideline Quant,published_xP,672,player_fixture,2026-11-19T15:57:32Z,2026-11-18T03:33:09Z,9e47b20962f04d6ae607de809e91f9c6681cea6dde2c690ad66ffbb518f04b5a,14549690090,external-fpl-forecast-gw11-44560612496,90,NOT_YET_EVALUATED
+2026-27,11,FPLRogue,accepted_xpts_v1,672,player_gameweek,2026-11-19T15:57:32Z,2026-11-19T09:45:00Z,bd63ab6ecafc84cbd94abde8d407869efe4036296c48c1f854a897047dc740f4,14549690090,external-fpl-forecast-gw11-44560612496,90,NOT_YET_EVALUATED
+2026-27,11,FPL Lucho,served_xP_not_assumed_Odds_xP,672,player_gameweek,2026-11-19T15:57:32Z,2026-11-19T15:47:00Z page build; model calculated 2026-11-18T18:26:00Z,6c26ced90560eb66a02d717415c8e16d6576f51ffc8015a00a3b849cc51de8ef,14549690090,external-fpl-forecast-gw11-44560612496,90,NOT_YET_EVALUATED
