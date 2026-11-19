@@ -277,9 +277,9 @@ jobs:
           LAGGED="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_lagged_fpl_research_features.csv"
           REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
           if [ -f "$LAGGED" ] && [ -f "$REPORT" ]; then
-            python canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py \\
-              --lagged-features "$LAGGED" \\
-              --source-report "$REPORT" \\
+            python canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py \
+              --lagged-features "$LAGGED" \
+              --source-report "$REPORT" \
               --out-dir run_artifacts/wyscout/output/verified_fpl_panel/cta_abc
           else
             echo "WARNING: verified historical Wyscout/FPL lagged panel unavailable"
@@ -292,9 +292,9 @@ jobs:
           PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
           REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
           if [ -f "$PANEL" ] && [ -f "$REPORT" ]; then
-            python canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_wyscout.py \\
-              --abc-panel "$PANEL" \\
-              --source-report "$REPORT" \\
+            python canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_wyscout.py \
+              --abc-panel "$PANEL" \
+              --source-report "$REPORT" \
               --out run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_evaluation_report.json
           else
             echo "WARNING: integrated historical A/B/C panel unavailable"
