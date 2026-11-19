@@ -300,6 +300,17 @@ jobs:
             echo "WARNING: integrated historical A/B/C panel unavailable"
           fi
 
+      - name: Upload aggregate-only historical A/B/C integration and evaluation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-wyscout-abc-research
+          path: |
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_integration_report.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_evaluation_report.json
+          if-no-files-found: ignore
+          retention-days: 90
+
       - name: Evaluate incremental Wyscout CTA signal against prior FPL form
         if: always()
         continue-on-error: true
