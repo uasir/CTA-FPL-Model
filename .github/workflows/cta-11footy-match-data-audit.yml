@@ -271,7 +271,7 @@ jobs:
           summary = {"status": "CTA_DECISION_LAYER_BUILD_UNAVAILABLE"}
           baseline = root / "fpl_baseline_forecast_report.json"
           general = root / "fpl_general_market_baseline_report.json"
-          personal = root / "fpl_personal_squad_scale_report.json"
+          personal = root / "fpl_personal_squad_scale_smoke_report.json"
           snapshot = root / "fpl_baseline_forecast_snapshot.json"
           if baseline.exists():
               report = json.loads(baseline.read_text())

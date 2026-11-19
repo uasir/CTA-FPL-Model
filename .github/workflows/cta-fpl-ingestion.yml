@@ -89,6 +89,7 @@ jobs:
             tests/test_fpl_nested_tuned_ridge.py \
             tests/test_onside_fpl_actuals_cross_audit.py \
             tests/test_11footy_fpl_identity_candidates.py \
+            tests/test_11footy_verified_crosswalk.py \
             tests/test_11footy_player_match_features.py \
             tests/test_11footy_lagged_research_features.py \
             tests/test_11footy_lagged_verified_features.py \
@@ -358,7 +359,7 @@ jobs:
           summary = {"status": "CTA_DECISION_LAYER_BUILD_UNAVAILABLE"}
           baseline = root / "fpl_baseline_forecast_report.json"
           general = root / "fpl_general_market_baseline_report.json"
-          personal = root / "fpl_personal_squad_scale_report.json"
+          personal = root / "fpl_personal_squad_scale_smoke_report.json"
           snapshot = root / "fpl_baseline_forecast_snapshot.json"
           if baseline.exists():
               report = json.loads(baseline.read_text())
