@@ -161,8 +161,8 @@ No arbitrary target rank or unattainable prediction benchmark should be used as 
 3. **Exploratory v0.1 implemented:** a deterministic one-gameweek scorer handles legal XI/bench structure, formation-aware autosubs, captain/vice, Triple Captain, Bench Boost and transfer hits. It requires externally verified action/chip legality and does not yet transition squad or budget state. See [FPL_ONE_GAMEWEEK_REPLAY_INPUT_CONTRACT.md](FPL_ONE_GAMEWEEK_REPLAY_INPUT_CONTRACT.md).
 4. **Implemented, not yet empirically validated:** paired policy comparison enforces identical starting-state IDs, identical policy sets across deadlines and pre-deadline decision freeze timestamps.
 5. Add complete feasible-set regret and distinguish shortlist regret from exhaustive global regret.
-6. **In progress:** validate the replay scorer against official FPL manager histories and autosub outputs. The aggregate-only audit workflow is implemented; it is a scoring-engine check, not a recommendation-performance test.
-7. Assemble a point-in-time historical decision archive after scoring parity is established.
+6. **Scoring arithmetic matched; autosub pair validation remains in progress:** an aggregate-only official-history audit of 100 managers across GW1–GW10 produced 1,000/1,000 exact gross and net team-score matches. The default forward-order autosub algorithm matched 991/1,000 exact official substitution pairs (99.1%); a reverse outgoing-starter variant matched 986/1,000 (98.6%), so the default was retained. The remaining nine pair mismatches are being investigated. This current-rank top-1,000 sample is rank-conditioned and is not a representative manager panel. It validates scoring reconstruction, not recommendation or strategy performance.
+7. The private pre-deadline archive validator is implemented and tested. Assemble a fixed, point-in-time historical decision archive only after the residual autosub differences are resolved or explicitly bounded.
 8. Add sequential multi-gameweek state transitions after one-step replay is verified.
 9. Integrate LiveFPL field context and CoVar only in their separate downstream evaluation layers.
 
