@@ -145,7 +145,7 @@ def audit_record(picks_payload, live_payload, position_by_player):
     replay_sub_pairs = sorted((item["in"], item["out"]) for item in replay["substitutions"])
     replay_sub_pairs_ordered = [(item["in"], item["out"]) for item in replay["substitutions"]]
     positions = record["positions"]
-    bench_slot = {player_id: index + 1 for index, player_id in enumerate(record["bench_order"][:3])}
+    bench_slot = {player_id: index + 1 for index, player_id in enumerate(record["bench_order"])}
     official_ordered = record["official_sub_pairs_ordered"]
     official_position_pairs = sorted((positions[in_id], positions[out_id]) for in_id, out_id in official_ordered)
     replay_position_pairs = sorted((positions[in_id], positions[out_id]) for in_id, out_id in replay_sub_pairs_ordered)
