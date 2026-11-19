@@ -19,6 +19,7 @@ def synthetic_rows(gameweeks=10, players=20):
                 "prior_gw_points": str(prior),
                 "prior3_gw_points_avg": str(prior + 0.3),
                 "prior5_gw_points_avg": str(prior + 0.1),
+                "prior_gw_minutes": str(minutes),
                 "prior3_gw_minutes_avg": str(minutes),
                 "prior5_gw_minutes_avg": str(minutes - 2),
                 "prior3_gw_xg_avg": "0.4",
