@@ -54,7 +54,7 @@ def test_captaincy_passes_to_vice_when_captain_does_not_play():
     points["m1"] = 7
     result = replay_gameweek(decision, points, mins, positions)
     assert result["effective_captain"] == "m1"
-    assert result["captain_extra_points"] == 7
+    assert result["captain_extra_points"] == 14
 
 
 def test_triple_captain_adds_two_extra_copies():
@@ -184,3 +184,28 @@ def test_triple_captain_falls_back_to_ordinary_vice_captain_double():
     result = replay_gameweek(decision, points, mins, positions)
     assert result["effective_captain"] == "m1"
     assert result["captain_extra_points"] == 7
+
+
+
+def test_zero_minute_card_appearance_can_prevent_autosub_and_trigger_captaincy():
+    decision, positions = make_roster()
+    points, mins = outcomes(positions)
+    mins["d1"] = 0
+    points["d1"] = -1
+    played = {p: True for p in positions}
+    played["d1"] = True  # e.g. card recorded despite zero official minutes
+    result = replay_gameweek(decision, points, mins, positions, played_by_player=played)
+    assert result["substitutions"] == []
+    assert "d1" in result["final_active_xi"]
+
+
+def test_triple_captain_bonus_passes_to_vice_when_selected_captain_has_no_appearance():
+    decision, positions = make_roster()
+    decision["chip"] = "triple_captain"
+    decision["chip_legality_verified"] = True
+    points, mins = outcomes(positions)
+    mins["f1"] = 0
+    points["m1"] = 7
+    result = replay_gameweek(decision, points, mins, positions)
+    assert result["effective_captain"] == "m1"
+    assert result["captain_extra_points"] == 14
