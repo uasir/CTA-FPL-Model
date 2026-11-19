@@ -1,4 +1,5 @@
 from build_vaastav_fpl_multiseason_panel import build_season_rows
+from compare_2pm_position_ablation import compare_predictions
 from evaluate_two_pm_transformer_walk_forward import (
     BASE_TRANSFORMER_FEATURES, POSITION_FEATURES, TRANSFORMER_FEATURE_SETS, available_features,
 )
@@ -29,3 +30,25 @@ def test_position_ablation_is_separate_from_unchanged_base_feature_set():
     with_position = available_features([row], TRANSFORMER_FEATURE_SETS["position"])
     assert not any(feature in base for feature in POSITION_FEATURES)
     assert all(feature in with_position for feature in POSITION_FEATURES)
+
+def test_position_ablation_requires_exact_same_player_gameweek_keys():
+    base = {("2025-26", "101", 1): {"actual": 2.0, "raw": 1.0, "calibrated": 1.0}}
+    position = {("2025-26", "101", 1): {"actual": 2.0, "raw": 1.2, "calibrated": 1.2},
+                ("2025-26", "102", 1): {"actual": 3.0, "raw": 1.0, "calibrated": 1.0}}
+    try:
+        compare_predictions(base, position)
+    except ValueError as exc:
+        assert "identical player-gameweek keys" in str(exc)
+    else:
+        raise AssertionError("non-identical cohorts must be rejected")
+
+
+def test_position_ablation_requires_identical_actual_points():
+    base = {("2025-26", "101", 1): {"actual": 2.0, "raw": 1.0, "calibrated": 1.0}}
+    position = {("2025-26", "101", 1): {"actual": 3.0, "raw": 1.2, "calibrated": 1.2}}
+    try:
+        compare_predictions(base, position)
+    except ValueError as exc:
+        assert "Actual points differ" in str(exc)
+    else:
+        raise AssertionError("different actual targets must be rejected")
