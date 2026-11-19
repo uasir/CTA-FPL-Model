@@ -339,6 +339,14 @@ def main():
             row.get("_provider_subevent_name", "").casefold() == "free kick shot"
             and row["type"]["name"] == "Shot" for row in normalized
         ),
+        "penalties_mapped_to_shot": sum(
+            row.get("_provider_subevent_name", "").casefold() == "penalty"
+            and row["type"]["name"] == "Shot" for row in normalized
+        ),
+        "set_piece_shots_mapped_to_shot": sum(
+            row.get("_provider_subevent_name", "").casefold() in {"free kick shot", "penalty"}
+            and row["type"]["name"] == "Shot" for row in normalized
+        ),
     })
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.report.parent.mkdir(parents=True, exist_ok=True)
