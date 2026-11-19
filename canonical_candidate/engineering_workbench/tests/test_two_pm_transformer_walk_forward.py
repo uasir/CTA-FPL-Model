@@ -78,3 +78,12 @@ def test_affine_expected_points_calibrator_uses_calibration_pairs_and_clips_nega
 def test_affine_expected_points_calibrator_falls_back_when_calibration_is_degenerate():
     from evaluate_two_pm_transformer_walk_forward import fit_affine_expected_points_calibrator
     assert fit_affine_expected_points_calibrator([2.0, 2.0, 2.0], [1.0, 2.0, 3.0]) == (1.0, 0.0)
+
+
+def test_affine_expected_points_calibrator_never_reverses_prediction_order():
+    from evaluate_two_pm_transformer_walk_forward import fit_affine_expected_points_calibrator
+    slope, intercept = fit_affine_expected_points_calibrator(
+        [1.0, 2.0, 3.0, 4.0], [8.0, 6.0, 4.0, 2.0]
+    )
+    assert slope == 0.0
+    assert intercept == pytest.approx(5.0)
