@@ -71,3 +71,23 @@ def test_capture_writes_exact_raw_bytes_and_hashes(tmp_path):
 def test_html_response_is_not_misclassified_as_forecast_data():
     with pytest.raises(ValueError, match="HTML"):
         validate_payload("fpl_lucho_served_xp_csv", b"<html/>", 11, "text/html")
+
+
+def test_fpl_cat_json_checks_player_ids_xp_and_gameweek():
+    payload = {
+        "gameweek": 11, "deadline": "2026-11-21T11:00:00Z",
+        "computed_at": "2026-11-19T04:45:06Z",
+        "players": [{"id": 411, "xp": 6.42, "expected_minutes": 82}],
+    }
+    result = validate_payload(
+        "fpl_cat_player_xp", json.dumps(payload).encode(),
+        11, "application/json",
+    )
+    assert result["row_count"] == 1
+    assert result["player_id_column"] == "id"
+    assert result["forecast_column"] == "xp"
+    with pytest.raises(ValueError, match="gameweek mismatch"):
+        validate_payload(
+            "fpl_cat_player_xp", json.dumps(payload).encode(),
+            12, "application/json",
+        )
