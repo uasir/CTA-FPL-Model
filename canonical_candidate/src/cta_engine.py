@@ -174,8 +174,17 @@ def audit_360(events, three_sixty_dir):
         "event_coverage_with_frame": round(len(matched_keys) / len(event_keys), 6) if event_keys else None
     }
 
-def fit_xt(events, directions, iterations=1000, tolerance=1e-11):
-    """Conventional action-based xT; fit only on direction-normalised actions."""
+def fit_xt(events, directions, iterations=1000, tolerance=1e-11, fit_match_ids=None):
+    """Conventional action-based xT; optionally fit on an explicit training-match subset."""
+    if fit_match_ids is not None:
+        fit_match_ids = {str(value) for value in fit_match_ids}
+        available_match_ids = {str(event.get("_match_id")) for event in events}
+        unknown = fit_match_ids - available_match_ids
+        if unknown:
+            raise ValueError(f"xT fit match IDs are absent from input: {sorted(unknown)}")
+        if not fit_match_ids:
+            raise ValueError("xT fit match ID subset cannot be empty")
+        events = [event for event in events if str(event.get("_match_id")) in fit_match_ids]
     moves = [Counter() for _ in range(GRID_X * GRID_Y)]
     move_n = [0] * (GRID_X * GRID_Y)
     shots = [0] * (GRID_X * GRID_Y)
@@ -236,7 +245,9 @@ def fit_xt(events, directions, iterations=1000, tolerance=1e-11):
              "xt_goals": total_goals, "xt_usable_moves": usable_moves,
              "xt_global_goal_per_shot": round(global_goal_rate, 6),
              "xt_grid": f"{GRID_X}x{GRID_Y}",
-             "xt_prior_pseudo_shots": 5}
+             "xt_prior_pseudo_shots": 5,
+             "xt_fit_match_ids": sorted(fit_match_ids) if fit_match_ids is not None else "ALL_INPUT_MATCHES",
+             "xt_fit_match_count": len({str(event.get("_match_id")) for event in events})}
     return values, audit
 
 def build_features(events, directions, xt_values, progressive_threshold=10.0):
@@ -414,7 +425,10 @@ def run(args):
     events = flatten_matches(matches)
     directions = complete_statsbomb_directions(
         events, load_directions(args.direction_map))
-    xt_values, xt_audit = fit_xt(events, directions)
+    requested_fit_ids = [value.strip() for value in str(args.xt_fit_match_ids or "").split(",") if value.strip()]
+    xt_values, xt_audit = fit_xt(
+        events, directions, fit_match_ids=requested_fit_ids or None
+    )
     sequences, players = build_features(events, directions, xt_values)
     player_rows = []
     for statsbomb_player_id, counts in sorted(players.items()):
@@ -437,7 +451,7 @@ def run(args):
         player_rows.append(row)
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
-    write_csv(out / "sequences.csv", sequence_rows=sequences) if False else write_csv(out / "sequences.csv", sequences)
+    write_csv(out / "sequences.csv", sequences)
     write_csv(out / "player_features.csv", player_rows)
     if xt_values is not None:
         write_csv(out / "xt_grid.csv", [
@@ -475,6 +489,8 @@ def main():
     p.add_argument("--player-map", default="data/player_id_map.csv")
     p.add_argument("--minutes", default="data/player_minutes.csv")
     p.add_argument("--output-dir", default="outputs")
+    p.add_argument("--xt-fit-match-ids", default="",
+                   help="Optional comma-separated training match IDs used to fit xT; features are still extracted for all input matches.")
     run(p.parse_args())
 
 if __name__ == "__main__":
