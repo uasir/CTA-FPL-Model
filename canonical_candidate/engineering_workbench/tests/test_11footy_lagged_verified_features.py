@@ -63,7 +63,7 @@ def test_verified_cta_features_use_only_prior_matches_and_verified_rows():
     gw2 = by_fixture["501"]
     assert gw2["cta_prior_matches_count"] == 2
     assert gw2["cta_prior3_matches_shots_avg"] == 3.0
-    assert gw2["identity_status"] == "VERIFIED_IDENTITY_AND_FIXTURE"
+    assert gw2["identity_status"] == "VERIFIED_IDENTITY_AND_PRIOR_CTA_HISTORY"
     gw3 = by_fixture["502"]
     assert gw3["cta_prior_matches_count"] == 4
     assert gw3["cta_prior3_matches_shots_avg"] == 6.0
