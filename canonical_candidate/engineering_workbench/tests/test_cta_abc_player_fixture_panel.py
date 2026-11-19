@@ -35,6 +35,7 @@ def _opta_rows(policy="OFFICIAL_FPL_DEADLINE"):
         "opta_prior3_ballRecovery_avg": "6",
         "opta_prior3_recoveries_avg": "7",
         "opta_prior3_duelWon_avg": "9",
+        "opta_prior3_possessionPercentage_avg": "55",
     }
     return [
         {"fixture_id": "101", "team_id": "1", **common},
@@ -57,6 +58,7 @@ def test_integrates_a_b_c_with_explicit_missingness_and_deadline_guards():
     assert row["abc_team_final_third_entries"] == 15.0
     assert row["abc_opponent_threat_allowed"] == 1.2
     assert row["abc_opponent_box_attempts_allowed"] == 5.0
+    assert row["abc_defensive_exposure"] == 55.0
     assert row["abc_minutes_trend"] == 10.0
     assert abs(row["abc_threat_realisation_rate"] - (2 / 3)) < 1e-9
     assert row["abc_progressive_passes"] == ""
