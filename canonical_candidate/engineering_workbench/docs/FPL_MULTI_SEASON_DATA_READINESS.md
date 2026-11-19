@@ -41,6 +41,19 @@ Prepare the FPL-points predictor for multi-season chronological evaluation. This
 - The next predictor-specific task is a two-part evaluation: forecast appearance/minutes from pre-deadline information, then forecast points conditional on playing, and combine them into an unconditional points distribution. Keep the direct points model as a comparator. Do not filter live recommendations using actual minutes or promote this retrospective result.
 - The resulting scores remain exploratory: source vintages are retrospective, not verified deadline-time snapshots.
 
+### Two-part availability and conditional-points experiment
+
+- Evaluator: `scripts/evaluate_fpl_two_part_model.py`.
+- The experiment predicts appearance probability and minutes separately, trains conditional points only on positive-minute training labels, and combines appearance probability with conditional points for unconditional expected points.
+- It aggregates double-gameweek labels at player-gameweek level and never filters validation rows using actual minutes.
+- Corrected full multi-season run: [GitHub Actions run 44502848341](https://github.com/uasir/CTA-FPL-Model/actions/runs/44502848341), successful. It used the same 80/20 chronological split and 54,924 validation player-gameweeks as the direct model.
+- Before probability calibration, the appearance model achieved Brier 0.088220 and log loss 0.313398, versus 0.106510 and 1.365719 for the prior-five appearance-rate baseline.
+- Before calibration, two-part expected-points MAE was 1.055221 versus 1.061375 for direct ridge and 1.080018 for the last-five-points baseline. Its RMSE was 2.050783, slightly worse than direct ridge at 2.034614, though better than the last-five baseline at 2.175455.
+- Minutes MAE was 14.055 minutes versus 11.220 for the last-gameweek-minutes baseline; the minutes model did not win this metric.
+- Positive-minute-only comparisons are post-outcome diagnostics and cannot be used to select live players.
+- A subsequent calibration stage reserves a chronological slice from the pre-test training period for Platt calibration, leaving the final test window untouched. CI passed 336 tests and 3 subtests in [run 44503481955](https://github.com/uasir/CTA-FPL-Model/actions/runs/44503481955). The full calibrated research run is queued/pending at [run 44503481951](https://github.com/uasir/CTA-FPL-Model/actions/runs/44503481951).
+- All these results remain research-only because historical source vintages are not verified deadline-time snapshots. Do not promote based on a single holdout.
+
 ### Existing CTA-linked historical panel
 
 - The existing Wyscout/11footy/FPL research panel covers 2017/18 only.
@@ -59,14 +72,15 @@ Prepare the FPL-points predictor for multi-season chronological evaluation. This
 - FPL `xP` is excluded from historical features because the inspected dataset warns of possible post-match leakage.
 - Historical FPL player statistics are structurally lagged by kickoff/deadline, but source-vintage revisions remain an explicit limitation.
 
-## Eligibility gate
+## Data and experiment eligibility
 
-Multi-season model evaluation remains blocked until a source is identified with:
-1. clear reuse rights compatible with the intended project;
-2. stable season, player, fixture, and gameweek identifiers;
-3. complete gameweek-level FPL targets and usable prior-gameweek features;
-4. capture timestamps or archived snapshots sufficient to establish deadline-time availability;
-5. durable source commit/version and file hashes; and
-6. a reproducible cross-season player identity mapping.
+Data discovery is driven by predictive usefulness, coverage, quality, temporal structure, and reproducibility. An unclear or non-commercial repository licence label is not, by itself, a reason to exclude a useful dataset from user-directed internal research. Preserve source attribution, repository revision, file hashes, and provenance; do not claim authorship or ownership of third-party data. The project is not planning dataset distribution.
 
-Until then, keep the current 2017/18 and current-season experiments research-only. Do not promote the ridge baseline, the 2PM-Transformer candidate, or CTA features into recommendation decisions on the basis of these limited experiments.
+The model-quality gates remain:
+1. stable season, player, fixture, and gameweek identifiers;
+2. complete and correctly aggregated FPL targets;
+3. features that are available before the target deadline, or an explicit warning where historical point-in-time availability cannot be verified;
+4. durable source revision and file hashes; and
+5. reproducible identity mapping where cross-provider joins are used.
+
+Data can be used for exploratory experiments before all point-in-time conditions are proven, but those results must remain labelled research-only. Do not promote the ridge baseline, the two-part model, the 2PM-Transformer candidate, or CTA features into recommendation decisions without stronger chronological validation.
