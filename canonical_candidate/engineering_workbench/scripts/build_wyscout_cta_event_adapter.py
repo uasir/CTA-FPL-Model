@@ -66,8 +66,8 @@ def normalize_wyscout_events(events, players, teams, match_id):
     actor_quality = {"missing_player_id": 0, "unresolved_player_metadata": 0}
     boundary_counts = Counter()
     duel_outcome_counts = Counter()
-    dead_ball_suppressed_team_change_count = 0
-    dead_ball_suppressed_team_change_samples = []
+    dead_ball_resolved_team_change_count = 0
+    dead_ball_resolved_team_change_samples = []
     match_team_ids = sorted({
         str(event.get("teamId")) for event in events if event.get("teamId") is not None
     })
@@ -138,9 +138,9 @@ def normalize_wyscout_events(events, players, teams, match_id):
             pending_dead_ball = False
             if (current_possession_team is not None
                     and team_key != current_possession_team):
-                dead_ball_suppressed_team_change_count += 1
-                if len(dead_ball_suppressed_team_change_samples) < 10:
-                    dead_ball_suppressed_team_change_samples.append({
+                dead_ball_resolved_team_change_count += 1
+                if len(dead_ball_resolved_team_change_samples) < 10:
+                    dead_ball_resolved_team_change_samples.append({
                         "event_id": str(event.get("id", source_index)),
                         "event_type": event_name,
                         "event_team": team_names[team_key],
@@ -262,8 +262,8 @@ def normalize_wyscout_events(events, players, teams, match_id):
         "actor_quality_counts": actor_quality,
         "possession_boundary_reason_counts": dict(boundary_counts),
         "duel_outcome_tag_counts": dict(duel_outcome_counts),
-        "dead_ball_suppressed_team_change_count": dead_ball_suppressed_team_change_count,
-        "dead_ball_suppressed_team_change_samples": dead_ball_suppressed_team_change_samples,
+        "dead_ball_resolved_team_change_count": dead_ball_resolved_team_change_count,
+        "dead_ball_resolved_team_change_samples": dead_ball_resolved_team_change_samples,
         "dead_ball_pending_at_match_end": pending_dead_ball,
         "free_kick_shots_mapped_to_shot": sum(
             row.get("_provider_subevent_name", "").casefold() == "free kick shot"
@@ -328,9 +328,9 @@ def main():
         actor_quality = Counter()
         boundary_counts = Counter()
         duel_outcome_counts = Counter()
-        dead_ball_suppressed_team_change_count = 0
+        dead_ball_resolved_team_change_count = 0
         dead_ball_pending_at_match_end_count = 0
-        dead_ball_suppressed_team_change_samples = []
+        dead_ball_resolved_team_change_samples = []
         match_reports = []
         for match_id, match_events in sorted(grouped.items()):
             rows, match_report = normalize_wyscout_events(match_events, players, teams, match_id)
@@ -339,12 +339,12 @@ def main():
             actor_quality.update(match_report["actor_quality_counts"])
             boundary_counts.update(match_report["possession_boundary_reason_counts"])
             duel_outcome_counts.update(match_report["duel_outcome_tag_counts"])
-            dead_ball_suppressed_team_change_count += match_report["dead_ball_suppressed_team_change_count"]
+            dead_ball_resolved_team_change_count += match_report["dead_ball_resolved_team_change_count"]
             dead_ball_pending_at_match_end_count += int(match_report["dead_ball_pending_at_match_end"])
-            if len(dead_ball_suppressed_team_change_samples) < 25:
-                dead_ball_suppressed_team_change_samples.extend(
+            if len(dead_ball_resolved_team_change_samples) < 25:
+                dead_ball_resolved_team_change_samples.extend(
                     {"match_id": str(match_id), **sample}
-                    for sample in match_report["dead_ball_suppressed_team_change_samples"]
+                    for sample in match_report["dead_ball_resolved_team_change_samples"]
                 )
             match_reports.append(match_report)
         report = {
@@ -356,8 +356,8 @@ def main():
             "actor_quality_counts": dict(actor_quality),
             "possession_boundary_reason_counts": dict(boundary_counts),
             "duel_outcome_tag_counts": dict(duel_outcome_counts),
-            "dead_ball_suppressed_team_change_count": dead_ball_suppressed_team_change_count,
-            "dead_ball_suppressed_team_change_samples": dead_ball_suppressed_team_change_samples,
+            "dead_ball_resolved_team_change_count": dead_ball_resolved_team_change_count,
+            "dead_ball_resolved_team_change_samples": dead_ball_resolved_team_change_samples,
             "matches_ending_with_dead_ball_pending": dead_ball_pending_at_match_end_count,
             "player_id_namespace": "wyscout: prefix retained; never interpreted as StatsBomb or FPL ID",
             "coordinate_conversion": "attacking-relative percentage x,y -> CTA pitch x*1.2,y*0.8; no direction flip",
