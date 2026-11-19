@@ -45,3 +45,36 @@ Improve FPL decisions, squad optimization and competitive outcomes. Point predic
 - Private manager-state archive: `uasir/CTA-FPL-Private-Archive`.
 - PR #47 remains open and unmerged. No branch has been merged.
 - Raw manager IDs, picks, starting states and player-level counterfactuals remain private or runner-local; public outputs are aggregate only.
+
+---
+
+# Engineering continuation — 2026-11-20
+
+## 2PM chronology correction
+
+The 2019/20 source's post-lockdown rows use source labels 39–47 for FPL's rescheduled GW30+–GW38+ period. The panel builder now subtracts nine from labels 39–47 for 2019/20 only, preserves the raw-label audit count, compares explicit `GW` and `round` after normalization, and rejects any remaining out-of-range labels. The official Premier League described the rescheduled period as GW30+ through GW38+; an independent Vaastav-data processing example documents the 39–47 to 30–38 mapping.
+
+- Panel-builder and normalization tests passed in the research CI.
+- Corrected position-ablation run: [44636657035](https://github.com/uasir/CTA-FPL-Model/actions/runs/44636657035).
+- The corrected panel build passed. The base 2PM training arm was still running at the time of this update; the position arm and paired comparison have not yet completed.
+- The previous position-ablation results remain preliminary and must not be promoted.
+
+## ABC evaluation correction
+
+The independent ABC walk-forward evaluator now reports ranking quality within each FPL gameweek rather than pooling player scores across deadlines. It reports deadline-local Spearman and top-20 selection quality with macro-averages, while keeping point-error metrics separate. The one-season 2017/18 ABC evaluation is the current scope, so its gameweek grouping is appropriate; future multi-season evaluations must group by season and gameweek.
+
+- ABC evaluator change and deadline-local ranking test passed in engineering CI.
+- Latest confirmed engineering test suite: **429 passed, 1 skipped, 3 subtests passed** ([run 44637507662](https://github.com/uasir/CTA-FPL-Model/actions/runs/44637507662)).
+- This is an evaluation correction, not evidence that ABC forecast or decision quality has improved.
+
+## Replay audit diagnostic refinement
+
+The chip-aware follow-up audit exposed Bench Boost records among the apparent autosub-pair mismatches. Because Bench Boost scores all 15 players, the official autosub pair mapping is not a scoring-relevant substitution decision for those records. The audit now excludes Bench Boost records from autosub-pair accuracy denominators while retaining them in gross/net team-score parity. A unit test covers this exclusion.
+
+- Earlier chip-aware diagnostic run: [44636777670](https://github.com/uasir/CTA-FPL-Model/actions/runs/44636777670).
+- Corrected audit rerun: [44637507732](https://github.com/uasir/CTA-FPL-Model/actions/runs/44637507732), pending at the time of this update.
+- Non-Bench-Boost cases with the right substitution count and position-pair pattern but different incoming-to-outgoing assignments remain under investigation.
+
+## Decision-value status
+
+No strategy-value conclusion is available yet. Forecast accuracy and deadline-local ranking are being improved as supporting layers, but the core downstream test remains paired recommendations on identical private pre-deadline manager states: hold, conventional FPL and CTA-informed. The private archive validator exists; the stable manager panel and sequential state replay have not yet been completed.
