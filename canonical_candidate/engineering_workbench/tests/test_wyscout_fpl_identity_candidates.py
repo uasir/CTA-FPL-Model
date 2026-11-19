@@ -93,3 +93,40 @@ def test_wyscout_fpl_identity_candidates_keep_ambiguous_names_unresolved():
     assert candidates[0]["verification_status"] == "AMBIGUOUS"
     assert report["ambiguous_name_candidate_count"] == 1
     assert report["exact_name_unique_candidate_count"] == 0
+
+
+def test_zero_goal_assist_agreement_does_not_create_strong_identity_priority():
+    dates = ["2018-04-01", "2018-04-08", "2018-04-15"]
+    player_match_rows = []
+    fpl_history = []
+    for index, date in enumerate(dates):
+        match_id = 500 + index
+        fixture_id = 900 + index
+        player_match_rows.append({
+            "provider_match_id": match_id, "match_date": date,
+            "provider_player_id": 100, "provider_player_name": "Player A",
+            "provider_team_name": "Arsenal", "opponent_team_name": "Bournemouth",
+            "home_away": "home", "goals": 0, "own_goals": 0, "assists": 0,
+        })
+        fpl_history.extend([
+            {"element": 10, "fixture": fixture_id, "kickoff_time": date + "T15:00:00Z",
+             "opponent_team": 2, "was_home": "True", "minutes": 90,
+             "goals_scored": 0, "own_goals": 0, "assists": 0},
+            {"element": 99, "fixture": fixture_id, "kickoff_time": date + "T15:00:00Z",
+             "opponent_team": 1, "was_home": "False", "minutes": 90,
+             "goals_scored": 0, "own_goals": 0, "assists": 0},
+        ])
+    candidates, report = build_candidate_review_queue(
+        player_match_rows,
+        [{"wyId": 100, "firstName": "Player", "lastName": "A"}],
+        [{"id": 10, "code": 1000, "first_name": "Player", "second_name": "A", "team": 1}],
+        [{"id": 10, "first_name": "Player", "second_name": "A"}],
+        fpl_history,
+        _teams(),
+    )
+
+    row = candidates[0]
+    assert row["goal_assist_signature_exact_rows"] == 0
+    assert row["goal_assist_signature_zero_only_rows"] == 3
+    assert row["review_priority"] == "P3_HISTORY_REVIEW"
+    assert row["verification_status"] == "PENDING"
