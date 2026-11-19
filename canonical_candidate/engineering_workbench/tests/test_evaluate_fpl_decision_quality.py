@@ -38,3 +38,9 @@ def test_composite_forecast_report_includes_distribution_diagnostics():
     report = evaluate_forecast([0, 2, 8, 12], [0, 2, 4, 4])
     assert "prediction_quantile_diagnostics" in report
     assert report["prediction_quantile_diagnostics"]["overall_mean_actual_minus_predicted"] == pytest.approx(3.0)
+
+
+def test_prediction_quantile_diagnostics_caps_bin_count_at_sample_size():
+    report = prediction_quantile_diagnostics([1, 2, 3], [1, 2, 3], bins=10)
+    assert len(report["bins"]) == 3
+    assert [item["n"] for item in report["bins"]] == [1, 1, 1]
