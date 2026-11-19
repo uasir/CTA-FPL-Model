@@ -100,3 +100,31 @@ class CTATests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_xt_can_be_fitted_on_training_matches_only(self):
+        training_shot = {
+            "id": "train-shot", "type": {"name": "Shot"},
+            "team": {"name": "A"}, "possession_team": {"name": "A"},
+            "period": 1, "location": [110, 40],
+            "shot": {"outcome": {"name": "Goal"}},
+        }
+        heldout_shot = {
+            "id": "heldout-shot", "type": {"name": "Shot"},
+            "team": {"name": "B"}, "possession_team": {"name": "B"},
+            "period": 1, "location": [110, 40],
+            "shot": {"outcome": {"name": "Off T"}},
+        }
+        ev = flatten_matches([("train", [training_shot]), ("heldout", [heldout_shot])])
+        directions = complete_statsbomb_directions(ev, {})
+        values, audit = fit_xt(ev, directions, fit_match_ids=["train"])
+        self.assertIsNotNone(values)
+        self.assertEqual(audit["xt_shots"], 1)
+        self.assertEqual(audit["xt_goals"], 1)
+        self.assertEqual(audit["xt_fit_match_ids"], ["train"])
+        self.assertEqual(audit["xt_fit_match_count"], 1)
+
+    def test_xt_training_match_subset_rejects_unknown_ids(self):
+        ev = flatten_matches([("train", self.raw)])
+        with self.assertRaisesRegex(ValueError, "absent from input"):
+            fit_xt(ev, complete_statsbomb_directions(ev, {}), fit_match_ids=["missing"])
