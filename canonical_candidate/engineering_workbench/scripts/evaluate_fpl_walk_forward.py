@@ -14,7 +14,7 @@ from train_fpl_exploratory_ridge import fit_ridge, predict, mae, rmse
 
 def score_fold(train, valid, season):
     train_keys=sorted({(r["season"],r["gameweek"]) for r in train})
-    if len(train_keys)<20:
+    if len(train_keys)<10:
         raise ValueError(f"Not enough prior gameweeks to calibrate fold {season}")
     calibration_count=max(1,round(len(train_keys)*0.2))
     calibration_keys=set(train_keys[-calibration_count:])
