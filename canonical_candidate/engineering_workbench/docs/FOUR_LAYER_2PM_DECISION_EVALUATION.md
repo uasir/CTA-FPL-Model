@@ -66,14 +66,17 @@ Current provider constraints:
 
 - `scripts/evaluate_fpl_decision_quality.py`: full-cohort point-error metrics, forecast bands, threshold probability calibration, ranking metrics and explanatory-only post-deadline annotations.
 - `scripts/cta_four_layer_pipeline.py`: A/B/C schema, provenance, coverage and deadline contracts; explicit independent model-track input contracts.
+- `scripts/build_cta_abc_player_fixture_panel.py`: integrates verified 11footy player history with deadline-cutoff Opta/PulseLive team context into a prospective A/B/C player-fixture panel. It preserves nulls, records exact source hashes and excludes unverified identities from research eligibility.
 - `scripts/two_pm_transformer.py`: optional PyTorch shared temporal encoder with separate minutes and conditional-points heads.
 - `scripts/evaluate_two_pm_transformer_walk_forward.py`: standalone conventional-FPL sequence construction, training-only preprocessing, fold-specific feature availability (including xG/xA only when observed in that fold's fit block), separate minutes/conditional-points losses, calibration-only temperature selection, expanding-season folds and matched Ridge/two-part/persistence comparisons. The input histories are left-aligned with right padding so the encoder pools the last valid timestep.
 - Tests cover haul retention, probability scoring, ranking diagnostics, deadline leakage rejection, explicit missingness and Transformer outputs.
 
 ## Not yet completed
 
-- A/B/C are not yet populated by a verified common multi-season player-fixture panel; feature contracts exist but provider adapters are not fully wired into one panel.
-- The standalone 2PM-Transformer has architecture and forward-pass tests, but no trained walk-forward experiment, calibration, hyperparameter selection or paired cluster-bootstrap report.
+- A/B/C panel construction is now wired for the 2026/27 prospective snapshot: 11footy supplies verified player-match history and Opta/PulseLive supplies team progression/defensive context. The initial source audit recorded 3,011 verified player-match joins, 416 verified identities and 392 players with prior provider history. The integrated panel workflow is still running on this branch; its aggregate coverage report must be inspected before claiming a completed build.
+- Current A/B/C coverage is intentionally partial: player-level progressive passes/carries, dangerous receipts, event-level pressure/turnovers and role stability are unavailable in the current joined sources; contextual threat score remains uncalibrated and null. Available player threat/minutes features and team-level progression/defensive context are kept separately named.
+- The standalone 2PM-Transformer has architecture and forward-pass tests, but its first historical walk-forward job was cancelled when later branch commits superseded it. A fresh run is required before reporting training performance, calibration, hyperparameter selection or paired cluster-bootstrap results.
+- The current A/B/C integration is a single 2026/27 prospective snapshot, not a multi-season archived pre-deadline panel; it is not eligible for model training or predictive validation.
 - The optional A/B/C-augmented Transformer experiment has not been run.
 - The decision-quality evaluator is a standalone module; the existing historical walk-forward report has not yet been migrated to emit all its outputs. Existing historical results remain unchanged and authoritative.
 - Current multi-season FPL history is retrospective, not a verified pre-deadline snapshot; this limits the strength of point-in-time claims.
