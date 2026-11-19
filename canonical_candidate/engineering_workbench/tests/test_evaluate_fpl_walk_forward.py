@@ -212,6 +212,21 @@ def test_player_season_cluster_bootstrap_is_reproducible_and_aggregated():
 
 
 
+def test_grouped_blend_weights_use_calibration_groups_and_global_fallback():
+    from evaluate_fpl_walk_forward import select_group_blend_weights, apply_group_blend
+    actual=[0.0,1.0,2.0,8.0,10.0,4.0]
+    hurdle=[0.5,1.5,2.5,7.0,9.0,3.0]
+    two_part=[0.0,0.0,1.0,10.0,12.0,4.0]
+    groups=["low","low","low","high","high","sparse"]
+    selected=select_group_blend_weights(actual,hurdle,two_part,groups,"mae",min_count=2)
+    assert selected["counts"]=={"high":2,"low":3,"sparse":1}
+    assert selected["weights"]["sparse"]==selected["global_fallback_weight"]
+    predictions=apply_group_blend([8.0,2.0],[4.0,0.0],["high","unknown"],selected)
+    assert len(predictions)==2
+    assert predictions[0]==selected["weights"]["high"]*8.0+(1-selected["weights"]["high"])*4.0
+    assert predictions[1]==selected["global_fallback_weight"]*2.0
+
+
 def test_forecast_error_tail_metrics_and_forecast_time_bands():
     import pytest
     from evaluate_fpl_walk_forward import forecast_error_tail_metrics, raw_two_part_forecast_band
