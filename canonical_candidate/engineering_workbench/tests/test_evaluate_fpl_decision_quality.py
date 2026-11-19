@@ -45,3 +45,79 @@ def test_prediction_quantile_diagnostics_caps_bin_count_at_sample_size():
     report = prediction_quantile_diagnostics([1, 2, 3], [1, 2, 3], bins=10)
     assert len(report["bins"]) == 3
     assert [item["n"] for item in report["bins"]] == [1, 1, 1]
+
+
+def test_correct_recommendation_can_coexist_with_inaccurate_point_forecast():
+    report = evaluate_forecast(
+        actual_points=[2, 15],
+        expected_points=[2, 8],
+        decision_records=[{
+            "decision_id": "choose-between-A-and-B",
+            "chosen_option_id": "B",
+            "options": [
+                {"option_id": "A", "actual_utility": 2},
+                {"option_id": "B", "actual_utility": 15},
+            ],
+        }],
+    )
+    assert report["point_errors"]["mae"] == pytest.approx(3.5)
+    assert report["decision_performance"]["mean_regret_vs_best_feasible"] == 0
+    assert report["decision_performance"]["recommendation_optimal_rate"] == 1
+    assert report["decision_performance"]["decisions"][0]["chosen_option_id"] == "B"
+
+
+def test_decision_regret_penalises_selecting_the_inferior_feasible_option():
+    from evaluate_fpl_decision_quality import decision_outcome_metrics
+
+    report = decision_outcome_metrics([{
+        "chosen_option_id": "A",
+        "options": [
+            {"option_id": "A", "actual_utility": 2},
+            {"option_id": "B", "actual_utility": 15},
+        ],
+    }])
+    assert report["mean_regret_vs_best_feasible"] == pytest.approx(13)
+    assert report["recommendation_optimal_rate"] == 0
+    assert report["pairwise_loss_rate"] == 1
+
+
+def test_decision_regret_respects_feasibility_constraints():
+    from evaluate_fpl_decision_quality import decision_outcome_metrics
+
+    report = decision_outcome_metrics([{
+        "chosen_option_id": "A",
+        "options": [
+            {"option_id": "A", "actual_utility": 7},
+            {"option_id": "B", "actual_utility": 20, "feasible": False},
+            {"option_id": "C", "actual_utility": 5},
+        ],
+    }], utility_definition="net_gw_points_after_fpl_constraints")
+    assert report["mean_regret_vs_best_feasible"] == 0
+    assert report["pairwise_comparisons"] == 1
+    assert report["utility_definition"] == "net_gw_points_after_fpl_constraints"
+
+
+def test_decision_metrics_reject_an_infeasible_recommendation():
+    from evaluate_fpl_decision_quality import decision_outcome_metrics
+
+    with pytest.raises(ValueError, match="must be feasible"):
+        decision_outcome_metrics([{
+            "chosen_option_id": "B",
+            "options": [
+                {"option_id": "A", "actual_utility": 7},
+                {"option_id": "B", "actual_utility": 20, "feasible": False},
+            ],
+        }])
+
+
+def test_decision_metrics_reject_duplicate_option_ids():
+    from evaluate_fpl_decision_quality import decision_outcome_metrics
+
+    with pytest.raises(ValueError, match="unique"):
+        decision_outcome_metrics([{
+            "chosen_option_id": "A",
+            "options": [
+                {"option_id": "A", "actual_utility": 2},
+                {"option_id": "A", "actual_utility": 15},
+            ],
+        }])
