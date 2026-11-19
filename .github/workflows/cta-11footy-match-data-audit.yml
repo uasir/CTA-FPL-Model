@@ -323,7 +323,7 @@ jobs:
               --out "$REPORT"
           else
             mkdir -p "$(dirname "$REPORT")"
-            printf '%s\n' '{"status":"MANAGER_PICKS_UNAVAILABLE","entry_id":421025,"decision_use_status":"RESEARCH_ONLY_NOT_IN_BASELINE","cta_features_used_in_expected_points":false,"cta_decision_weight_applied":false,"cta_ranking_effect":"NONE","publication_policy":"Aggregate coverage only; no player-level data published."}' > "$REPORT"
+            printf '{"status":"MANAGER_PICKS_HTTP_404","entry_id":421025,"target_gameweek":%s,"http_status":404,"reason":"Public FPL picks endpoint returned HTTP 404 for the requested event; no squad data inferred.","decision_use_status":"RESEARCH_ONLY_NOT_IN_BASELINE","cta_features_used_in_expected_points":false,"cta_decision_weight_applied":false,"cta_ranking_effect":"NONE","publication_policy":"Aggregate coverage only; no player-level data published."}\n' "$GW" > "$REPORT"
           fi
 
       - name: Publish aggregate-only CTA decision-layer integration summary
@@ -385,7 +385,7 @@ jobs:
                       "squad_players_with_prior_history", "squad_players_with_cta_evidence",
                       "starting_xi_with_prior_history", "starting_xi_with_cta_evidence",
                       "bench_with_cta_evidence", "captain_has_cta_evidence",
-                      "vice_captain_has_cta_evidence", "cta_decision_weight_applied",
+                      "vice_captain_has_cta_evidence", "http_status", "reason", "cta_decision_weight_applied",
                       "cta_ranking_effect", "free_transfers_status"
                   )
               }
