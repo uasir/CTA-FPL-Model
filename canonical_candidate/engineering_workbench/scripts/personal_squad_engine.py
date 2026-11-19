@@ -265,7 +265,7 @@ def _squad_support_metrics(owned, starting, bench_order, forecast_by_id, captain
     }
 
 
-def _decision_audit(request, transfer, starting, captain, vice):
+def _decision_audit(request, transfer, starting, formation, captain, vice):
     """Freeze the actual pre-deadline recommendation and its recorded alternatives."""
     options=[{
         "option_id":"HOLD",
@@ -285,10 +285,14 @@ def _decision_audit(request, transfer, starting, captain, vice):
     chosen=(f"TRANSFER:{transfer['best_candidate']['transfer_out_id']}:{transfer['best_candidate']['transfer_in_id']}"
             if transfer["action"]=="TRANSFER" and transfer["best_candidate"] else "HOLD")
     return {
-        "decision_record_status":"FROZEN_PRE_DEADLINE_RECOMMENDATION_INPUT_REQUIRED",
+        "decision_record_status":"AUDIT_PAYLOAD_READY_AWAITING_DEADLINE_LOCK_AND_ARCHIVAL",
         "forecast_snapshot_id":request["forecast_snapshot_id"],
         "model_version":request["model_version"],
         "target_horizon_gameweeks":request["forecast_horizon_gameweeks"],
+        "target_deadline":request["forecast_quality"]["data_coverage"].get("target_deadline"),
+        "squad_snapshot":[{"fpl_element_id":row["fpl_element_id"],"purchase_price":row["purchase_price"]} for row in request["squad_snapshot"]],
+        "bank":request["bank"],
+        "free_transfers":request["free_transfers"],
         "transfer_decision":{
             "chosen_option_id":chosen,
             "options":options,
@@ -299,7 +303,7 @@ def _decision_audit(request, transfer, starting, captain, vice):
         },
         "starting_xi_decision":{
             "chosen_player_ids":[player["fpl_element_id"] for player in starting],
-            "formation":"FIXED_USER_REQUESTED_OR_ENGINE_SELECTED_FORMATION",
+            "formation":"-".join(map(str,formation)),
             "realised_utility":None,
             "scoring_status":"AWAITING_OFFICIAL_GAMEWEEK_OUTCOMES",
         },
@@ -353,7 +357,7 @@ def recommend_personal_squad(payload):
     expected_points=sum(p["expected_points"] for p in starting)+captain["expected_points"]
     transfer=_transfer_candidates(request,forecasts)
     support_metrics=_squad_support_metrics(owned,starting,bench_order,forecast_by_id,captain)
-    decision_audit=_decision_audit(request,transfer,starting,captain,vice)
+    decision_audit=_decision_audit(request,transfer,starting,formation,captain,vice)
     quality=request["forecast_quality"]
     limitations=[
         "This is an exploratory one-gameweek squad optimiser, not a validated multiweek planner.",
