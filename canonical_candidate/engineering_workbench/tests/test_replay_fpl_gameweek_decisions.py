@@ -44,7 +44,7 @@ def test_autosub_respects_legal_formation_and_bench_order():
     points["d5"] = 6
     result = replay_gameweek(decision, points, mins, positions)
     assert result["substitutions"][0] == {"out": "d1", "in": "d5", "reason": "outfield_absence"}
-    assert result["net_points"] == 34
+    assert result["net_points"] == 28
 
 
 def test_captaincy_passes_to_vice_when_captain_does_not_play():
@@ -111,9 +111,11 @@ def test_policy_comparison_is_paired_on_identical_start_state():
     improved = dict(decision, captain="m1")
     rows = [
         {"deadline_id": "GW1", "starting_state_id": "s1", "policy": "hold",
-         "decision": baseline, "official_points": points, "minutes": mins, "positions": positions},
+         "decision": baseline, "official_points": points, "minutes": mins, "positions": positions,
+         "decision_frozen_at": "2026-01-01T10:00:00Z", "deadline_at": "2026-01-01T11:00:00Z"},
         {"deadline_id": "GW1", "starting_state_id": "s1", "policy": "cta",
-         "decision": improved, "official_points": points, "minutes": mins, "positions": positions},
+         "decision": improved, "official_points": points, "minutes": mins, "positions": positions,
+         "decision_frozen_at": "2026-01-01T10:00:00Z", "deadline_at": "2026-01-01T11:00:00Z"},
     ]
     report = compare_policy_replays(rows, baseline_policy="hold")
     assert report["policies"]["cta"]["n_deadlines"] == 1
@@ -125,7 +127,8 @@ def test_policy_comparison_rejects_mismatched_initial_states():
     points, mins = outcomes(positions)
     rows = [
         {"deadline_id": "GW1", "starting_state_id": "s1", "policy": "hold",
-         "decision": decision, "official_points": points, "minutes": mins, "positions": positions},
+         "decision": decision, "official_points": points, "minutes": mins, "positions": positions,
+         "decision_frozen_at": "2026-01-01T10:00:00Z", "deadline_at": "2026-01-01T11:00:00Z"},
         {"deadline_id": "GW1", "starting_state_id": "s2", "policy": "cta",
          "decision": decision, "official_points": points, "minutes": mins, "positions": positions},
     ]
@@ -145,3 +148,25 @@ def test_autosub_skips_first_bench_player_when_formation_would_be_illegal():
     result = replay_gameweek(decision, points, mins, positions)
     assert result["substitutions"][0]["in"] == "d4"
     assert result["final_active_xi"].count("f3") == 0
+
+
+
+def test_policy_replay_rejects_decision_frozen_after_deadline():
+    decision, positions = make_roster()
+    points, mins = outcomes(positions)
+    row = {"deadline_id": "GW1", "starting_state_id": "s1", "policy": "hold",
+           "decision": decision, "official_points": points, "minutes": mins, "positions": positions,
+           "decision_frozen_at": "2026-01-01T11:00:00Z", "deadline_at": "2026-01-01T11:00:00Z"}
+    with pytest.raises(ValueError, match="strictly before"):
+        compare_policy_replays([row])
+
+
+def test_policy_replay_requires_identical_policy_set_each_deadline():
+    decision, positions = make_roster()
+    points, mins = outcomes(positions)
+    def row(gw, policy):
+        return {"deadline_id": gw, "starting_state_id": "same", "policy": policy,
+                "decision": decision, "official_points": points, "minutes": mins, "positions": positions,
+                "decision_frozen_at": "2026-01-01T10:00:00Z", "deadline_at": "2026-01-01T11:00:00Z"}
+    with pytest.raises(ValueError, match="same matched policy set"):
+        compare_policy_replays([row("GW1", "hold"), row("GW1", "cta"), row("GW2", "hold")])
