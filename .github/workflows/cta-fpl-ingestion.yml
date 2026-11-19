@@ -429,6 +429,11 @@ jobs:
               summary["transfer_candidate_count"] = p.get("transfer_candidate_count")
               summary["cta_context_attached_to_starting_xi"] = p.get("cta_context_attached_to_starting_xi", False)
               summary["cta_context_attached_to_transfer_alternatives"] = p.get("cta_context_attached_to_transfer_alternatives", False)
+              summary["cta_evidence_summary_attached_to_starting_xi"] = p.get("cta_evidence_summary_attached_to_starting_xi", False)
+              summary["cta_evidence_summary_attached_to_transfer_alternatives"] = p.get("cta_evidence_summary_attached_to_transfer_alternatives", False)
+              summary["starting_xi_players_with_cta_evidence"] = p.get("starting_xi_players_with_cta_evidence", 0)
+              summary["cta_decision_weight_applied"] = p.get("cta_decision_weight_applied", False)
+              summary["cta_ranking_effect"] = p.get("cta_ranking_effect", "UNKNOWN")
           summary["decision_use_status"] = "RESEARCH_ONLY_NOT_IN_BASELINE"
           summary["publication_policy"] = "Aggregate metrics only; player-level forecast and CTA features remain runner-local."
           target.write_text(json.dumps(summary, indent=2))
