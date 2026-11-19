@@ -202,10 +202,12 @@ def test_personal_squad_preserves_missing_eo_and_reports_coverage():
 def test_personal_squad_freezes_transfer_and_captaincy_decision_records():
     result = recommend_personal_squad(request())
     audit = result["decision_audit"]
-    assert audit["decision_record_status"] == "FROZEN_PRE_DEADLINE_RECOMMENDATION_INPUT_REQUIRED"
+    assert audit["decision_record_status"] == "AUDIT_PAYLOAD_READY_AWAITING_DEADLINE_LOCK_AND_ARCHIVAL"
     assert audit["transfer_decision"]["chosen_option_id"].startswith("TRANSFER:")
     assert audit["transfer_decision"]["options"][0]["option_id"] == "HOLD"
     assert audit["transfer_decision"]["realised_utility"] is None
+    assert audit["squad_snapshot"] and len(audit["squad_snapshot"]) == 15
+    assert audit["starting_xi_decision"]["formation"] == "4-3-3"
     assert audit["captaincy_decision"]["chosen_option_id"] == str(result["squad_plan"]["captain"])
     assert len(audit["captaincy_decision"]["options"]) == 11
 
