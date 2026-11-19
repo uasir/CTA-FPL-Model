@@ -75,10 +75,71 @@ def aggregate_player_gameweek(rows, predictions):
     return result
 
 
+def _average_ranks(values):
+    ordered = sorted(range(len(values)), key=lambda i: values[i])
+    ranks = [0.0] * len(values)
+    cursor = 0
+    while cursor < len(ordered):
+        end = cursor + 1
+        while end < len(ordered) and values[ordered[end]] == values[ordered[cursor]]:
+            end += 1
+        average_rank = (cursor + 1 + end) / 2.0
+        for offset in range(cursor, end):
+            ranks[ordered[offset]] = average_rank
+        cursor = end
+    return ranks
+
+
+def _spearman(actual, predicted):
+    if len(actual) < 2:
+        return None
+    a, p = _average_ranks(actual), _average_ranks(predicted)
+    mean_a, mean_p = sum(a) / len(a), sum(p) / len(p)
+    cov = sum((x - mean_a) * (y - mean_p) for x, y in zip(a, p))
+    var_a = sum((x - mean_a) ** 2 for x in a)
+    var_p = sum((y - mean_p) ** 2 for y in p)
+    if var_a <= 0 or var_p <= 0:
+        return None
+    return cov / math.sqrt(var_a * var_p)
+
+
+def deadline_local_ranking(records, top_k=20):
+    from evaluate_fpl_decision_quality import rank_quality
+
+    grouped = defaultdict(list)
+    for row in records:
+        grouped[int(row["gameweek"])].append(row)
+    by_gameweek = {}
+    for gameweek, rows in sorted(grouped.items()):
+        actual = [float(row["actual"]) for row in rows]
+        predicted = [float(row["predicted"]) for row in rows]
+        quality = rank_quality(actual, predicted, top_k=top_k)
+        by_gameweek[str(gameweek)] = {
+            **quality,
+            "spearman": _spearman(actual, predicted),
+        }
+    def macro(field):
+        values = [row[field] for row in by_gameweek.values() if row.get(field) is not None]
+        return sum(values) / len(values) if values else None
+    spearman_values = [row["spearman"] for row in by_gameweek.values() if row["spearman"] is not None]
+    return {
+        "method": "RANK_WITHIN_EACH_FPL_GAMEWEEK_THEN_MACRO_AVERAGE",
+        "n_deadlines": len(by_gameweek),
+        "top_k_per_deadline": top_k,
+        "macro_spearman": sum(spearman_values) / len(spearman_values) if spearman_values else None,
+        "macro_selected_mean_points": macro("selected_mean_points"),
+        "macro_universe_mean_points": macro("universe_mean_points"),
+        "macro_oracle_top_k_mean_points": macro("oracle_top_k_mean_points"),
+        "macro_top_k_lift_over_universe": macro("top_k_lift_over_universe"),
+        "macro_top_k_regret_vs_oracle": macro("top_k_regret_vs_oracle"),
+        "by_gameweek": by_gameweek,
+    }
+
+
 def metrics(records, top_k=20):
     actual = [r["actual"] for r in records]
     predicted = [r["predicted"] for r in records]
-    report = evaluate_forecast(actual, predicted, ranking_score=predicted, top_k=top_k)
+    report = evaluate_forecast(actual, predicted)
     errors = [abs(p - y) for p, y in zip(predicted, actual)]
     signed = [p - y for p, y in zip(predicted, actual)]
     ordered = sorted(errors)
@@ -88,6 +149,7 @@ def metrics(records, top_k=20):
         return ordered[min(len(ordered) - 1, int(math.ceil(q * len(ordered)) - 1))]
     return {
         "forecast": report,
+        "deadline_local_ranking": deadline_local_ranking(records, top_k=top_k),
         "n_player_gameweeks": len(records),
         "n_unique_players": len({r["player_id"] for r in records}),
         "mean_signed_error_predicted_minus_actual": sum(signed) / len(signed) if signed else None,
@@ -96,7 +158,7 @@ def metrics(records, top_k=20):
         "absolute_error_p95": quantile(0.95),
         "large_error_rate_ge_6": sum(e >= 6 for e in errors) / len(errors) if errors else None,
         "large_error_rate_ge_10": sum(e >= 10 for e in errors) / len(errors) if errors else None,
-        "top_k": top_k,
+        "top_k_per_deadline": top_k,
     }
 
 
