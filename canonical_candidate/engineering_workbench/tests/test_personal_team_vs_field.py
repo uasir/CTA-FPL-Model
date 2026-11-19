@@ -42,7 +42,7 @@ def field_rows():
     return rows
 
 
-class PersonalTeamVsFieldTests:
+class TestPersonalTeamVsField:
     def test_locked_event_requires_deadline_and_grace_to_pass(self):
         deadline = datetime(2026, 11, 21, 11, 0, tzinfo=timezone.utc)
         bootstrap = {"events": [{"id": 11, "deadline_time": deadline.isoformat()}]}
