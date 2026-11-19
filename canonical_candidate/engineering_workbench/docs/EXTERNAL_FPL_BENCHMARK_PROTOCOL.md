@@ -277,3 +277,28 @@ The Transformer MAE difference versus Wildcard is -0.084 (paired player-cluster 
 
 
 A second GW11 full-player capture was completed at 2026-11-19T16:49:46Z (566 GW11 rows; 5,660 rows across GW11–GW20; SHA-256 `87561803e2d7632a2fb7103b6de742dab1b3aef8dea2a607f22818aff15de39d`). All 566 GW11 player identities resolved against the official FPL bootstrap. Raw and normalized player-level rows remain private. An automated private workflow now checks every six hours and captures the next FPL gameweek when it is within 48 hours of deadline; unchanged source hashes are skipped. This is a prospective capture process, not yet a forecast-accuracy result.
+
+
+### evmax full-player benchmark (GW4–GW7, captured 19 November 2026)
+
+Source: [evmax open FPL dataset](https://evmax.ai/data/) and its [public accuracy ledger](https://evmax.ai/fpl/accuracy/). The dataset publishes every projected player with official FPL element IDs, xPoints, and full simulated point distributions; the provider states projections are frozen before deadline and licenses the data CC BY 4.0 with attribution. Attribution: `Data: evmax (https://evmax.ai), CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/`.
+
+Private archive capture:
+- GW4: 655 players; source generated 2026-09-12T10:47:57Z; SHA-256 `d8ee41e1a954de1c2058b15bdf7f922a3f7aa33b8ae3dd6cdd17a9054d90fc4f`.
+- GW5: 659 players; source generated 2026-09-17T13:12:25Z; SHA-256 `594a374adab9616bc726b990bc45af38960ceb0707b19b0594b5fc0c575900c8`.
+- GW6: 667 players; source generated 2026-10-09T14:26:59Z; SHA-256 `fb44ea1dbfcda752f3d32bdd739a073d136739bcc04cf0519f7aa680aef0b7f4`.
+- GW7: 667 players; source generated 2026-10-14T15:08:42Z; SHA-256 `279bb9664a494b98486fd2f0fc014cf685403ace56ea3a9407a4bd214e67a220`.
+- 2,648 forecast rows; all 2,648 official FPL IDs resolved. Original projections and accuracy JSON remain in the private archive.
+
+The independent evaluator uses official FPL `event/{gw}/live/` points only after the event is finished. Its MAE reproduces the provider's published per-week scorecard to rounding: GW4 1.207, GW5 1.148, GW6 1.103, GW7 1.080. Pooled: 2,648 player-GWs, MAE 1.1343, RMSE 2.1080, bias -0.1619, Spearman 0.6914. The provider's captured FPL `ep_next` baseline has MAE 1.2150 on 2,631 exact-name matched rows.
+
+First identical all-player comparison against the retrospective 2PM reconstruction (2,647 common player-GWs):
+- EVMax: MAE 1.1344, RMSE 2.1084.
+- 2PM-Transformer: MAE 1.6340, RMSE 2.2754; model-minus-EVMax MAE delta +0.500 (95% player-cluster bootstrap CI +0.451 to +0.549), RMSE delta +0.167 (CI +0.118 to +0.216).
+- Conventional two-part: MAE 1.1776, RMSE 2.3095.
+- Direct Ridge: MAE 1.2345, RMSE 2.1796.
+- Last-five persistence: MAE 1.2437, RMSE 2.2843.
+
+This is a retrospective reconstruction from the current official FPL API, not an archived CTA pre-deadline forecast. No model is promoted from this result. The provider's full-player coverage makes this a much stronger comparison cohort than FPL Wildcard's historical top-50 pages.
+
+**Distribution-count audit:** GW4–GW6 player distributions each contain 50,000 counts; GW7 distributions contain 10,000 counts per player, although the provider's method description says 50,000 simulations per gameweek. The evaluator normalizes each distribution by its own count total and records the count; the GW7 discrepancy is flagged for source clarification rather than silently assuming equal simulation counts.
