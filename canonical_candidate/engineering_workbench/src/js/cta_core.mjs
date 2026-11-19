@@ -18,6 +18,7 @@ export const SEQUENCE_FEATURES = [
   "final_third_entries",
   "progressive_actions",
   "shot_count",
+  "shot_xg_observed_count",
   "shot_xg_reference_only",
   "mean_action_xt_gain",
   "positive_action_xt_gain_sum",
@@ -371,7 +372,14 @@ export function buildFeatures(events, directions, xtValues, progressiveThreshold
       (sum, event) => sum + Number(Boolean(event.under_pressure)),
       0,
     );
-    const shotXg = shots.reduce((sum, event) => sum + numberOrZero(event.shot?.statsbomb_xg), 0);
+    const observedShotXg = shots
+      .map((event) => event.shot?.statsbomb_xg)
+      .filter((value) => value !== null && value !== undefined && value !== "")
+      .map(Number)
+      .filter(Number.isFinite);
+    const shotXg = observedShotXg.length
+      ? observedShotXg.reduce((sum, value) => sum + value, 0)
+      : null;
     const nonShotCandidate = shots.length === 0
       && hasDirection
       && (boxEntries >= 1 || (finalThirdEntries >= 2 && pressuredReceipts >= 1));
@@ -406,7 +414,8 @@ export function buildFeatures(events, directions, xtValues, progressiveThreshold
       final_third_entries: hasDirection ? finalThirdEntries : null,
       progressive_actions: hasDirection ? progressiveActions : null,
       shot_count: shots.length,
-      shot_xg_reference_only: roundHalfEven(shotXg, 6),
+      shot_xg_observed_count: observedShotXg.length,
+      shot_xg_reference_only: shotXg === null ? "" : roundHalfEven(shotXg, 6),
       mean_action_xt_gain: xtGains.length
         ? roundHalfEven(xtGains.reduce((sum, value) => sum + value, 0) / xtGains.length, 6)
         : null,
@@ -430,7 +439,14 @@ export function buildFeatures(events, directions, xtValues, progressiveThreshold
           increment(counter, "carries");
         } else if (type === "Shot") {
           increment(counter, "shots");
-          increment(counter, "shot_xg_reference_only", numberOrZero(event.shot?.statsbomb_xg));
+          const rawXg = event.shot?.statsbomb_xg;
+          if (rawXg !== null && rawXg !== undefined && rawXg !== "") {
+            const observedXg = Number(rawXg);
+            if (Number.isFinite(observedXg)) {
+              increment(counter, "shot_xg_reference_only", observedXg);
+              increment(counter, "shot_xg_observed_count");
+            }
+          }
         } else if (RECEIPT_TYPES.has(type)) {
           increment(counter, "receipts");
         }
