@@ -284,8 +284,8 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
             "exact_gross_team_score_matches": gross_exact,
             "autosub_comparisons": autosub_comparable,
             "autosub_exact_match_rate": autosub_match / autosub_comparable if autosub_comparable else None,
-"autosub_position_pair_match_rate": autosub_position_pair_matches / autosub_comparable if autosub_comparable else None,
-"autosub_count_match_rate": autosub_count_matches / autosub_comparable if autosub_comparable else None,
+"autosub_position_pair_match_rate": event_position_pair_matches / autosub_comparable if autosub_comparable else None,
+            "autosub_count_match_rate": event_count_matches / autosub_comparable if autosub_comparable else None,
             "mean_absolute_net_score_difference": sum(differences) / len(differences) if differences else None,
         })
 
