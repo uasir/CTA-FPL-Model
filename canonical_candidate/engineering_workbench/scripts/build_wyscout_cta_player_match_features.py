@@ -130,6 +130,11 @@ def build_player_match_features(events, matches, players, teams):
         for t in teams if t.get("wyId") is not None
     }
     match_context = _match_context(matches, teams)
+    interception_subtype_observed = any(
+        str(event.get("eventName") or "").strip().casefold() == "others on the ball"
+        and str(event.get("subEventName") or "").strip().casefold() == "interception"
+        for event in events
+    )
     grouped = defaultdict(list)
     missing_player_rows = 0
     unmatched_match_rows = 0
@@ -253,6 +258,8 @@ def build_player_match_features(events, matches, players, teams):
             "xg_status": "NOT_AVAILABLE_IN_PUBLIC_WYSCOUT_EVENT_SCHEMA",
             "feature_scope": "EVENT_LEVEL_PLAYER_MATCH_COUNTS_NOT_TRACKING",
         }
+        if not interception_subtype_observed:
+            row["interception_events"] = None
         output.append(row)
         totals.update(counts)
     match_metadata_goals = 0
@@ -319,6 +326,7 @@ def build_player_match_features(events, matches, players, teams):
         "identity_mapping_status": "NOT_MAPPED_TO_FPL",
         "receiver_identity_status": "NOT_AVAILABLE_IN_PUBLIC_WYSCOUT_EVENT_SCHEMA",
         "xg_status": "NOT_AVAILABLE_IN_PUBLIC_WYSCOUT_EVENT_SCHEMA",
+        "interception_subtype_observed": interception_subtype_observed,
         "coordinate_basis": "Wyscout event coordinates are attacking-team-relative percentages; x increases toward opponent goal.",
         "feature_definitions": {
             "progressive_pass": "Pass end x minus start x is at least 10 percentage points.",
