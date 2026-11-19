@@ -256,6 +256,7 @@ def train_and_evaluate(rows):
         "ridge_lambda":RIDGE_LAMBDA,
         "features":list(FEATURES),
         "missing_feature_policy":"Training-only median imputation with explicit missingness indicators; observed zero remains distinct from missing.",
+        "historical_form_normalization": "Prior gameweek totals and averages are retained; they are not divided by the target gameweek fixture count. Per-fixture forecasts are summed only after prediction.",
         "excluded_unverified_features":["team_difficulty_snapshot","opponent_difficulty_snapshot","fixture_count"],
         "points_missing_feature_counts":{name:sum(1 for row in train_rows if row.get(name) is None) for name in FEATURES},
         "points_metrics":points_metrics,
