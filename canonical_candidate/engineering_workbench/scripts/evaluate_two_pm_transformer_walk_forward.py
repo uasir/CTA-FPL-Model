@@ -235,6 +235,22 @@ def probabilities_from_logits(minutes_logits, points_logits, minutes_temp, point
     return expected.tolist(), {key: value.tolist() for key, value in haul.items()}
 
 
+def fit_affine_expected_points_calibrator(calibration_predictions, calibration_actual):
+    """Fit a two-parameter expected-points map on a held-out calibration block."""
+    x = np.asarray(calibration_predictions, dtype=np.float64)
+    y = np.asarray(calibration_actual, dtype=np.float64)
+    if len(x) != len(y) or len(x) < 2 or float(np.var(x)) <= 1e-10:
+        return 1.0, 0.0
+    slope, intercept = np.polyfit(x, y, 1)
+    return float(slope), float(intercept)
+
+
+def apply_affine_expected_points_calibrator(predictions, slope, intercept):
+    """Apply the frozen calibration map; expected points cannot be negative."""
+    values = np.asarray(predictions, dtype=np.float64)
+    return np.maximum(0.0, intercept + slope * values).tolist()
+
+
 def evaluate_fold(all_rows, season, torch, seed_offset=0):
     train = [r for r in all_rows if r["season"] < season]
     valid = [r for r in all_rows if r["season"] == season]
@@ -288,15 +304,13 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
         cal_minutes_logits, cal_points_logits, minutes_temp, points_temp,
         representatives, eight_share,
     )
-    calibration_x = np.asarray(calibration_prediction, dtype=np.float64)
-    calibration_y = np.asarray([r["actual_points"] for r in calibration_rows], dtype=np.float64)
-    if len(calibration_x) >= 2 and float(np.var(calibration_x)) > 1e-10:
-        affine_slope, affine_intercept = np.polyfit(calibration_x, calibration_y, 1)
-    else:
-        affine_slope, affine_intercept = 1.0, 0.0
-    transformer_affine_prediction = np.maximum(
-        0.0, affine_intercept + affine_slope * np.asarray(transformer_prediction, dtype=np.float64)
-    ).tolist()
+    calibration_y = [r["actual_points"] for r in calibration_rows]
+    affine_slope, affine_intercept = fit_affine_expected_points_calibrator(
+        calibration_prediction, calibration_y
+    )
+    transformer_affine_prediction = apply_affine_expected_points_calibrator(
+        transformer_prediction, affine_slope, affine_intercept
+    )
 
     appearance_model = fit_ridge(fit_rows, "appeared", fold_features, 10.0)
     calibration_scores = [appearance_model_prediction(appearance_model, r) for r in calibration_rows]
