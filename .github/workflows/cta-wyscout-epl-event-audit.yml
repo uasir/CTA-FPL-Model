@@ -18,11 +18,13 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_wyscout.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py
       - canonical_candidate/engineering_workbench/scripts/cta_four_layer_pipeline.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_decision_quality.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_walk_forward.py
       - canonical_candidate/engineering_workbench/scripts/train_fpl_exploratory_ridge.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_xsuccess.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_xsuccess.py
@@ -38,7 +40,9 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py
       - canonical_candidate/engineering_workbench/tests/test_cta_abc_wyscout_panel.py
       - canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_wyscout.py
+      - canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_walk_forward.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py
+      - canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_walk_forward.py
   push:
     branches: [main, "feat/**"]
     paths:
@@ -104,6 +108,7 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py \
+            canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_walk_forward.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_temporal_xt.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_xsuccess.py
 
@@ -301,6 +306,21 @@ jobs:
           fi
 
       - name: Upload aggregate-only historical A/B/C integration and evaluation reports
+      - name: Evaluate independent A/B/C variants with expanding gameweek folds
+        if: always()
+        continue-on-error: true
+        run: |
+          PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
+          if [ -f "$PANEL" ] && [ -f "$REPORT" ]; then
+            python canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py \
+              --abc-panel "$PANEL" \
+              --source-report "$REPORT" \
+              --out run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_walk_forward_report.json
+          else
+            echo "WARNING: integrated historical A/B/C panel unavailable for walk-forward evaluation"
+          fi
+
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -308,6 +328,7 @@ jobs:
           path: |
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_integration_report.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_evaluation_report.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_walk_forward_report.json
           if-no-files-found: ignore
           retention-days: 90
 
