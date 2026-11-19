@@ -187,3 +187,26 @@ def test_penalty_restart_is_mapped_to_shot():
     assert rows[0]["shot"]["outcome"]["name"] == "Goal"
     assert report["penalties_mapped_to_shot"] == 1
     assert report["set_piece_shots_mapped_to_shot"] == 1
+
+
+def test_unresolved_dead_ball_team_change_is_exposed_in_audit():
+    events = [
+        {"id": 1, "matchPeriod": "1H", "eventSec": 1, "teamId": 1,
+         "playerId": 10, "eventName": "Pass", "positions": [
+             {"x": 20, "y": 50}, {"x": 30, "y": 50}], "tags": [{"id": 1801}]},
+        {"id": 2, "matchPeriod": "1H", "eventSec": 2, "teamId": 2,
+         "playerId": 20, "eventName": "Foul", "subEventName": "Foul",
+         "positions": [{"x": 30, "y": 50}], "tags": []},
+        # No recognized restart is present before the opposing controlled action.
+        {"id": 3, "matchPeriod": "1H", "eventSec": 5, "teamId": 2,
+         "playerId": 20, "eventName": "Pass", "positions": [
+             {"x": 30, "y": 50}, {"x": 40, "y": 50}], "tags": [{"id": 1801}]},
+    ]
+    rows, report = normalize_wyscout_events(
+        events, [{"wyId": 10, "shortName": "A"}, {"wyId": 20, "shortName": "B"}],
+        [{"wyId": 1, "name": "Home"}, {"wyId": 2, "name": "Away"}], 105
+    )
+    assert rows[2]["possession_team"]["name"] == "Home"
+    assert report["dead_ball_suppressed_team_change_count"] == 1
+    assert report["dead_ball_suppressed_team_change_samples"][0]["event_id"] == "3"
+    assert report["dead_ball_pending_at_match_end"] is True
