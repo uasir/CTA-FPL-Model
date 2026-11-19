@@ -1,4 +1,6 @@
-from audit_fpl_replay_against_official_manager_history import (\n    build_replay_record, audit_record, autosub_pairs_are_scoring_relevant,\n)
+from audit_fpl_replay_against_official_manager_history import (
+    build_replay_record, audit_record, autosub_pairs_are_scoring_relevant,
+)
 
 
 def fixture_payload():
