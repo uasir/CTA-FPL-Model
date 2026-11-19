@@ -93,6 +93,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Confirm standalone model-track isolation
+        run: echo "Training the conventional-FPL 2PM-Transformer without A/B/C features."
       - name: Install standalone Transformer research dependencies
         run: python -m pip install numpy pytest torch
       - name: Run Transformer architecture and sequence tests
