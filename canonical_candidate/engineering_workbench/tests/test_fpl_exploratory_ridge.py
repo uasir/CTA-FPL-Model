@@ -22,6 +22,7 @@ def test_ridge_pipeline_uses_temporal_holdout_and_stays_exploratory():
                 "prior_gw_points": str(prior_points),
                 "prior3_gw_points_avg": str(prior_points + 0.2),
                 "prior5_gw_points_avg": str(prior_points + 0.4),
+                "prior_gw_minutes": str(prior_minutes),
                 "prior3_gw_minutes_avg": str(prior_minutes),
                 "prior5_gw_minutes_avg": str(prior_minutes + 1),
                 "prior3_gw_xg_avg": "0.5",
