@@ -65,6 +65,7 @@ def normalize_wyscout_events(events, players, teams, match_id):
     skipped = {"missing_team": 0, "unmapped_event_type": 0}
     actor_quality = {"missing_player_id": 0, "unresolved_player_metadata": 0}
     boundary_counts = Counter()
+    duel_outcome_counts = Counter()
     match_team_ids = sorted({
         str(event.get("teamId")) for event in events if event.get("teamId") is not None
     })
@@ -102,6 +103,13 @@ def normalize_wyscout_events(events, players, teams, match_id):
         event_name = str(event.get("eventName") or "")
         sub_event_name = str(event.get("subEventName") or "")
         tags = _tags(event)
+        if event_name == "Duel":
+            if DUEL_LOST_TAG in tags:
+                duel_outcome_counts["lost"] += 1
+            if DUEL_NEUTRAL_TAG in tags:
+                duel_outcome_counts["neutral"] += 1
+            if DUEL_WON_TAG in tags:
+                duel_outcome_counts["won"] += 1
         if event_name not in {"Pass", "Shot", "Others on the ball", "Duel",
                               "Foul", "Offside", "Free Kick", "Corner", "Throw in",
                               "Goal kick", "Penalty", "Save attempt",
@@ -226,6 +234,7 @@ def normalize_wyscout_events(events, players, teams, match_id):
         "skipped_event_counts": skipped,
         "actor_quality_counts": actor_quality,
         "possession_boundary_reason_counts": dict(boundary_counts),
+        "duel_outcome_tag_counts": dict(duel_outcome_counts),
         "free_kick_shots_mapped_to_shot": sum(
             row.get("_provider_subevent_name", "").casefold() == "free kick shot"
             and row["type"]["name"] == "Shot" for row in normalized
@@ -280,6 +289,7 @@ def main():
         skipped = Counter()
         actor_quality = Counter()
         boundary_counts = Counter()
+        duel_outcome_counts = Counter()
         match_reports = []
         for match_id, match_events in sorted(grouped.items()):
             rows, match_report = normalize_wyscout_events(match_events, players, teams, match_id)
@@ -287,6 +297,7 @@ def main():
             skipped.update(match_report["skipped_event_counts"])
             actor_quality.update(match_report["actor_quality_counts"])
             boundary_counts.update(match_report["possession_boundary_reason_counts"])
+            duel_outcome_counts.update(match_report["duel_outcome_tag_counts"])
             match_reports.append(match_report)
         report = {
             "status": "PASS_WYSCOUT_EVENTS_NORMALIZED" if normalized else "NO_NORMALIZED_EVENTS",
@@ -296,6 +307,7 @@ def main():
             "skipped_event_counts": dict(skipped),
             "actor_quality_counts": dict(actor_quality),
             "possession_boundary_reason_counts": dict(boundary_counts),
+            "duel_outcome_tag_counts": dict(duel_outcome_counts),
             "player_id_namespace": "wyscout: prefix retained; never interpreted as StatsBomb or FPL ID",
             "coordinate_conversion": "attacking-relative percentage x,y -> CTA pitch x*1.2,y*0.8; no direction flip",
             "possession_method": "INFERRED_EVENT_STATE_WITH_DUEL_OUTCOME_TAGS",
