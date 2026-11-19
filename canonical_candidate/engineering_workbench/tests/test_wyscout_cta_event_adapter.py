@@ -128,6 +128,7 @@ def test_duel_outcome_tags_prevent_false_possession_switches():
     assert rows[1]["team"]["name"] == "Away"
     assert rows[4]["possession"] != rows[3]["possession"]
     assert report["possession_boundary_reason_counts"]["duel_lost"] == 1
+    assert report["duel_outcome_tag_counts"] == {"lost": 2, "won": 1}
 
 
 def test_foul_does_not_transfer_possession_to_fouling_team_and_restart_starts_new_one():
