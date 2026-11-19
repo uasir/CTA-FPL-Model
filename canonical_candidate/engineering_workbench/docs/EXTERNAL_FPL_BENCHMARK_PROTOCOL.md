@@ -328,3 +328,8 @@ The captured official FPL `ep_next` baseline has MAE 1.2153 and RMSE 2.3497 on 2
 ### Expanding season-adaptive 2PM calibration on FPL Wildcard
 
 The private reconstruction now includes a prequential affine calibration variant: for each target GW, calibration is fitted only on earlier current-season player-GWs (GW2 falls back to prior-season calibration). On the 449-row Wildcard common top-50 cohort, season-adaptive MAE/RMSE are 3.028/3.914 versus Wildcard 3.066/3.843. Paired player-cluster intervals for model-minus-Wildcard are MAE [-0.124, +0.045] and RMSE [-0.028, +0.172], both including zero. It closes much of the RMSE gap but does not establish superiority. Keep research-only. Its all-player EVMax comparison is pending.
+
+
+### Season-adaptive 2PM calibration on EVMax all-player cohort
+
+On 2,647 common player-GWs, the expanding calibration variant scored MAE 1.3117 and RMSE 2.1314 versus EVMax 1.1344/2.1084. Paired player-cluster bootstrap for model-minus-EVMax: MAE delta +0.177 (95% CI +0.144 to +0.211); RMSE delta +0.023 (CI -0.017 to +0.063). It is significantly worse on MAE but statistically indistinguishable on RMSE in this four-GW sample. It improves substantially over raw Transformer (1.6340/2.2754) and prior-season affine (1.6748/2.2820), while conventional two-part remains better on MAE (1.1776) but worse on RMSE (2.3095). This remains a retrospective reconstruction; no promotion. Future frozen prospective forecasts are required.
