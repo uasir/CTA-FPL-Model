@@ -211,3 +211,30 @@ def test_unresolved_dead_ball_state_resolves_on_first_controlled_action():
     assert report["dead_ball_resolved_team_change_count"] == 1
     assert report["dead_ball_resolved_team_change_samples"][0]["event_id"] == "3"
     assert report["dead_ball_pending_at_match_end"] is False
+
+
+def test_dead_ball_state_clears_when_retained_team_resumes_then_later_turnover_counts():
+    events = [
+        {"id": 1, "matchPeriod": "1H", "eventSec": 1, "teamId": 1,
+         "playerId": 10, "eventName": "Pass", "positions": [
+             {"x": 20, "y": 50}, {"x": 30, "y": 50}], "tags": [{ "id": 1801 }]},
+        {"id": 2, "matchPeriod": "1H", "eventSec": 2, "teamId": 2,
+         "playerId": 20, "eventName": "Foul", "subEventName": "Foul",
+         "positions": [{"x": 30, "y": 50}], "tags": []},
+        # The retained team resumes control without a separately tagged restart.
+        {"id": 3, "matchPeriod": "1H", "eventSec": 5, "teamId": 1,
+         "playerId": 10, "eventName": "Pass", "positions": [
+             {"x": 30, "y": 50}, {"x": 40, "y": 50}], "tags": [{ "id": 1801 }]},
+        # A later ordinary turnover must still be recognized.
+        {"id": 4, "matchPeriod": "1H", "eventSec": 8, "teamId": 2,
+         "playerId": 20, "eventName": "Pass", "positions": [
+             {"x": 40, "y": 50}, {"x": 45, "y": 50}], "tags": [{ "id": 1801 }]},
+    ]
+    rows, report = normalize_wyscout_events(
+        events, [{"wyId": 10, "shortName": "A"}, {"wyId": 20, "shortName": "B"}],
+        [{"wyId": 1, "name": "Home"}, {"wyId": 2, "name": "Away"}], 106
+    )
+    assert rows[0]["possession"] == rows[1]["possession"] == rows[2]["possession"]
+    assert rows[3]["possession"] != rows[2]["possession"]
+    assert rows[3]["possession_team"]["name"] == "Away"
+    assert report["dead_ball_pending_at_match_end"] is False
