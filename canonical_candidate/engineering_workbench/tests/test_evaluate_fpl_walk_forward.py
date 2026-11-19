@@ -41,7 +41,7 @@ def test_numpy_walk_forward_ridge_matches_canonical_ridge_solver():
             minutes=0 if (gw+player)%5==0 else 90
             points=0 if minutes==0 else ((gw*player)%9)+2
             rows.append(row("2024-25",gw,player,points,minutes,prior=(gw%6)+1))
-    canonical=fit_ridge(rows,"actual_points",FEATURES,10.0)
-    accelerated=fit_ridge_fast(rows,"actual_points",FEATURES,10.0)
+    canonical=fit_ridge(rows,"target_total_points",FEATURES,10.0)
+    accelerated=fit_ridge_fast(rows,"target_total_points",FEATURES,10.0)
     for item in rows[:10]:
         assert abs(predict(canonical,item)-predict(accelerated,item))<1e-7
