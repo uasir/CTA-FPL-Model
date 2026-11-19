@@ -96,7 +96,9 @@ jobs:
       - name: Confirm standalone model-track isolation
         run: echo "Training the conventional-FPL 2PM-Transformer without A/B/C features."
       - name: Install standalone Transformer research dependencies
-        run: python -m pip install numpy pytest torch
+        run: |
+          python -m pip install numpy pytest
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Run Transformer architecture and sequence tests
         working-directory: canonical_candidate/engineering_workbench
         env:
