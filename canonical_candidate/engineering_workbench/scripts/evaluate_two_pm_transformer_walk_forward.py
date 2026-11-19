@@ -99,7 +99,7 @@ def encode_windows(windows, preprocessor, max_length=MAX_LENGTH):
     for i, window in enumerate(windows):
         encoded = []
         for row in window:
-            raw = [number(row.get(feature)) for feature in FEATURES]
+            raw = [number(row.get(feature)) for feature in TRANSFORMER_FEATURES]
             imputed = [preprocessor["medians"][j] if v is None else v for j, v in enumerate(raw)]
             missing = [1.0 if v is None else 0.0 for v in raw]
             vector = np.asarray(imputed + missing, dtype=np.float32)
@@ -233,7 +233,7 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
     calibration_keys = set(train_keys[-calibration_count:])
     fit_rows = [r for r in train if (r["season"], r["gameweek"]) not in calibration_keys]
     calibration_rows = [r for r in train if (r["season"], r["gameweek"]) in calibration_keys]
-    if len(fit_rows) < len(FEATURES) + 10:
+    if len(fit_rows) < len(TRANSFORMER_FEATURES) + 10:
         raise ValueError("Insufficient transformer fitting rows")
     # The same pre-validation chronological split is used for the neural model
     # and its conventional two-part baseline.
