@@ -47,6 +47,8 @@ def test_expanding_season_walk_forward_never_trains_on_validation_season():
         assert fold["minutes"]["two_part_lagged_feature_ridge_raw"]["mae"]>=0
         assert fold["minutes"]["two_part_lagged_feature_ridge_calibrated"]["mae"]>=0
         assert fold["points"]["direct"]["mae"]>=0
+        assert fold["appearance_hurdle_points_bands"]["calibrated_appearance_probability"]["expected_points_mae"]>=0
+        assert fold["appearance_hurdle_points_bands"]["raw_appearance_probability"]["multiclass_log_loss"]>=0
     folds=report["folds"]
     expected_rmse=math.sqrt(sum(f["validation_player_gameweeks"]*f["points"]["direct"]["rmse"]**2 for f in folds)/sum(f["validation_player_gameweeks"] for f in folds))
     assert abs(report["pooled_weighted_metrics"]["points"]["direct"]["rmse"]-expected_rmse)<1e-6
@@ -161,3 +163,16 @@ def test_points_band_model_distribution_and_training_only_representatives():
     ],[-1,0,2,4,8,12])
     assert metrics["expected_points_mae"]==0.0
     assert metrics["ranked_probability_score"]>=0.0
+
+
+def test_appearance_hurdle_distribution_places_nonappearance_mass_in_zero_class():
+    from evaluate_fpl_walk_forward import combine_appearance_points_distribution
+    conditional=[0.1,0.2,0.1,0.2,0.2,0.2]
+    absent=combine_appearance_points_distribution(0.0,conditional)
+    assert absent == [0.0,1.0,0.0,0.0,0.0,0.0]
+    present=combine_appearance_points_distribution(1.0,conditional)
+    assert all(abs(a-b)<1e-12 for a,b in zip(present,conditional))
+    mixed=combine_appearance_points_distribution(0.75,conditional)
+    assert abs(sum(mixed)-1.0)<1e-12
+    assert abs(mixed[1]-(0.25+0.75*conditional[1]))<1e-12
+    assert all(p>=0.0 for p in mixed)
