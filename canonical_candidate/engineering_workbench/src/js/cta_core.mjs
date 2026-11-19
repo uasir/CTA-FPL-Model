@@ -306,7 +306,7 @@ function numberOrZero(value) {
   return Number(value || 0);
 }
 
-export function buildFeatures(events, directions, xtValues) {
+export function buildFeatures(events, directions, xtValues, progressiveThreshold = 10) {
   const possessions = new Map();
   for (const event of events) {
     if (event.possession === null || event.possession === undefined) continue;
@@ -348,6 +348,7 @@ export function buildFeatures(events, directions, xtValues) {
     for (const event of sequence) {
       const type = eventType(event);
       if (!ACTION_TYPES.has(type)) continue;
+      if (type === "Pass" && !completedPass(event)) continue;
       const [start, end] = actionLocations(event);
       if (hasDirection) {
         const startOriented = orient(start, attacksRight);
@@ -356,7 +357,7 @@ export function buildFeatures(events, directions, xtValues) {
           if (endOriented[0] >= 102 && endOriented[1] >= 18 && endOriented[1] <= 62) boxEntries += 1;
           if (endOriented[0] >= 80) finalThirdEntries += 1;
         }
-        if (startOriented && endOriented && endOriented[0] - startOriented[0] >= 10) progressiveActions += 1;
+        if (startOriented && endOriented && endOriented[0] - startOriented[0] >= progressiveThreshold) progressiveActions += 1;
         if (xtValues) {
           const source = gridCell(startOriented);
           const destination = gridCell(endOriented);
@@ -435,7 +436,7 @@ export function buildFeatures(events, directions, xtValues) {
         }
         increment(counter, "pressured_events", Number(Boolean(event.under_pressure)));
 
-        if (hasDirection && ACTION_TYPES.has(type)) {
+        if (hasDirection && ACTION_TYPES.has(type) && (type === "Carry" || completedPass(event))) {
           const [start, end] = actionLocations(event);
           const startOriented = orient(start, attacksRight);
           const endOriented = orient(end, attacksRight);
@@ -444,7 +445,7 @@ export function buildFeatures(events, directions, xtValues) {
             increment(counter, "final_third_entries", Number(endOriented[0] >= 80));
           }
           increment(counter, "progressive_actions", Number(Boolean(
-            startOriented && endOriented && endOriented[0] - startOriented[0] >= 10,
+            startOriented && endOriented && endOriented[0] - startOriented[0] >= progressiveThreshold,
           )));
           if (xtValues) {
             const source = gridCell(startOriented);
