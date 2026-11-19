@@ -200,6 +200,7 @@ def build_panel(rows, source_report):
         record = {
             "season": "2017/18",
             "fpl_element_id": row.get("fpl_element_id", ""),
+            "gameweek": row.get("gameweek", ""),
             "fixture_id": row.get("fixture_id", ""),
             "kickoff_time_utc": kickoff.isoformat(),
             "feature_cutoff_time_utc": cutoff.isoformat(),
