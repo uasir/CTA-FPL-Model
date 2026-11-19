@@ -156,7 +156,7 @@ def build_panel(cta_rows, opta_team_rows, cta_source_report, opta_source_report)
             "defensive_actions": None,
             "turnovers_under_pressure": None,
             "opponent_threat_allowed": opta_value(own_team, "opponentExpectedGoals") if opta_cutoff_ok else None,
-            "defensive_exposure": opta_value(own_team, "opponentAttemptsIbox") if opta_cutoff_ok else None,
+            "defensive_exposure": opta_value(opponent_team, "possessionPercentage") if opta_cutoff_ok else None,
             "team_interceptions": opta_value(own_team, "interception") if opta_cutoff_ok else None,
             "team_tackles_won": opta_value(own_team, "tacklesWon") if opta_cutoff_ok else None,
             "team_ball_recoveries": opta_value(own_team, "ballRecovery") if opta_cutoff_ok else None,
