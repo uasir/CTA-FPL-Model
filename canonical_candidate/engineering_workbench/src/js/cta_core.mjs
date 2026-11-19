@@ -44,6 +44,7 @@ export const PLAYER_FEATURES = [
   "shot_linked_sequences",
   "non_shot_candidate_sequences",
   "shots",
+  "shot_xg_observed_count",
   "shot_xg_reference_only",
   "mean_action_xt_gain",
   "pressured_receipts",
