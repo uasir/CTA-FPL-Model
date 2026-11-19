@@ -63,16 +63,6 @@ def validate_payload(source: str, data: bytes, gameweek: int, content_type: str)
         return {"row_count": len(rows), "grain": "player_gameweek",
                 "variant": "accepted_xpts_v1", "player_id_column": "player_id",
                 "forecast_column": "next_gw_xpts", "columns": fields}
-    if source == "fpl_wildcard_public_xpts_csv":
-        required = {"gameweek", "player", "profile_url", "xpts"}
-        if not required.issubset(lowered):
-            raise ValueError("FPL Wildcard CSV missing documented player/GW/xPts fields")
-        if any(str(row.get("gameweek")) != str(gameweek) for row in rows):
-            raise ValueError("FPL Wildcard CSV contains a different target gameweek")
-        return {"row_count": len(rows), "grain": "player_gameweek",
-                "variant": "published_xpts_v11_or_current",
-                "player_key_column": "profile_url", "forecast_column": "xpts",
-                "columns": fields, "redistribution_status": "NOT_LICENSED_INTERNAL_RESEARCH_ONLY"}
     if source == "fpl_lucho_served_xp_csv":
         player_column = "id"
         forecast_column = f"xp_gw{gameweek}"
@@ -102,8 +92,6 @@ def capture(gameweek: int, out_dir: Path, fetcher=fetch):
          "https://www.fplrogue.com/research/projections.csv", "csv"),
         ("fpl_lucho_served_xp_csv",
          "https://fpllucho.pythonanywhere.com/export/predictions.csv", "csv"),
-        ("fpl_wildcard_public_xpts_csv",
-         "https://fplwildcard.com/data/projections/current.csv", "csv"),
     ]
     manifest = {
         "schema_version": "1.0",
