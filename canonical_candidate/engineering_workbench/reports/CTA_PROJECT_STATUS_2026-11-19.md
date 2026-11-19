@@ -78,3 +78,11 @@ The chip-aware follow-up audit exposed Bench Boost records among the apparent au
 ## Decision-value status
 
 No strategy-value conclusion is available yet. Forecast accuracy and deadline-local ranking are being improved as supporting layers, but the core downstream test remains paired recommendations on identical private pre-deadline manager states: hold, conventional FPL and CTA-informed. The private archive validator exists; the stable manager panel and sequential state replay have not yet been completed.
+
+## Cohort-level one-step policy replay — 2026-11-20
+
+The one-step paired policy evaluator now supports multiple manager-deadline starting states at the same FPL deadline. It requires the same policy set for each unique `(deadline_id, starting_state_id)`, checks pre-deadline timestamps and common starting states, aggregates scores and paired deltas across states, and omits private starting-state IDs from the aggregate report. A synthetic two-manager test verifies the cohort aggregation and state-ID privacy.
+
+- Engineering CI passed: **430 passed, 1 skipped, 3 subtests passed** ([run 44637806183](https://github.com/uasir/CTA-FPL-Model/actions/runs/44637806183)).
+- This closes the evaluator's single-manager-per-deadline limitation, but does not create the manager archive or solve sequential squad/bank/free-transfer/chip state transitions.
+- Statistical uncertainty and field-relative rank effects remain outside this deterministic one-step scorer.
