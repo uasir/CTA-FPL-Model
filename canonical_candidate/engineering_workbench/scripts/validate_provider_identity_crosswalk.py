@@ -15,6 +15,10 @@ FIELDS = [
     "evidence_source", "evidence_url", "verified_by", "verified_at",
     "provider_birth_date", "fpl_birth_date", "source_release",
     "provider_source_sha256", "fpl_source_sha256", "confidence_level", "review_notes",
+    "corroborating_provider", "corroborating_provider_player_id", "corroborating_provider_name",
+    "corroborating_provider_team_id", "corroborating_provider_team_name",
+    "corroborating_provider_fpl_team_code", "corroborating_provider_source_commit",
+    "corroborating_provider_source_sha256",
 ]
 REQUIRED = [
     "season", "competition_id", "provider_player_id", "provider_player_name",
@@ -23,7 +27,7 @@ REQUIRED = [
     "match_method", "evidence_source", "evidence_url", "verified_by", "verified_at",
 ]
 STATUSES = {"verified", "pending", "ambiguous", "rejected"}
-METHODS = {"provider_id_crosswalk", "official_alias", "club_roster_crosscheck", "manual_source_verified", "exact_name_team_birth_date"}
+METHODS = {"provider_id_crosswalk", "official_alias", "club_roster_crosscheck", "manual_source_verified", "exact_name_team_birth_date", "exact_name_team_opta_numeric_fpl_code_and_team"}
 
 def validate_rows(rows, provider):
     errors, accepted, statuses = [], [], Counter()
@@ -55,6 +59,51 @@ def validate_rows(rows, provider):
                 continue
             if _normalize_team_name(row.get("provider_team_name")) != _normalize_team_name(row.get("fpl_team_name")):
                 errors.append({"line": line, "error": "11footy_provider_and_fpl_team_names_do_not_match"})
+                continue
+        if method == "exact_name_team_opta_numeric_fpl_code_and_team":
+            if provider != "11footy":
+                errors.append({"line": line, "error": "opta_numeric_bridge_method_is_11footy_only"})
+                continue
+            required_bridge = (
+                "corroborating_provider", "corroborating_provider_player_id",
+                "corroborating_provider_name", "corroborating_provider_team_id",
+                "corroborating_provider_team_name", "corroborating_provider_fpl_team_code",
+                "corroborating_provider_source_commit", "corroborating_provider_source_sha256",
+            )
+            missing_bridge = [field for field in required_bridge if not (row.get(field) or "").strip()]
+            if missing_bridge:
+                errors.append({"line": line, "error": "missing_opta_corroboration_fields", "fields": missing_bridge})
+                continue
+            if row.get("corroborating_provider") != "opta_pulselive":
+                errors.append({"line": line, "error": "wrong_corroborating_provider"})
+                continue
+            if (row.get("corroborating_provider_player_id") or "").strip() != (row.get("fpl_player_code") or "").strip():
+                errors.append({"line": line, "error": "opta_numeric_player_id_does_not_equal_fpl_code"})
+                continue
+            if (row.get("corroborating_provider_team_id") or "").strip() != (row.get("corroborating_provider_fpl_team_code") or "").strip():
+                errors.append({"line": line, "error": "opta_team_id_does_not_equal_fpl_team_code"})
+                continue
+            if _normalize_player_name(row.get("corroborating_provider_name")) != _normalize_player_name(row.get("provider_player_name")):
+                errors.append({"line": line, "error": "opta_and_11footy_full_names_do_not_match"})
+                continue
+            if _normalize_team_name(row.get("corroborating_provider_team_name")) != _normalize_team_name(row.get("provider_team_name")):
+                errors.append({"line": line, "error": "opta_and_11footy_team_names_do_not_match"})
+                continue
+            provider_dob = (row.get("provider_birth_date") or "").strip()
+            fpl_dob = (row.get("fpl_birth_date") or "").strip()
+            if provider_dob:
+                try:
+                    date.fromisoformat(provider_dob[:10])
+                    date.fromisoformat(fpl_dob[:10])
+                except ValueError:
+                    errors.append({"line": line, "error": "invalid_dob_in_opta_bridge_row"})
+                    continue
+                if provider_dob[:10] != fpl_dob[:10]:
+                    errors.append({"line": line, "error": "dob_conflict_in_opta_bridge_row"})
+                    continue
+            opta_hash = (row.get("corroborating_provider_source_sha256") or "").strip().lower()
+            if not re.fullmatch(r"[0-9a-f]{64}", opta_hash):
+                errors.append({"line": line, "error": "invalid_opta_source_sha256"})
                 continue
         if method == "exact_name_team_birth_date":
             if provider != "11footy":
