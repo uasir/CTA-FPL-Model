@@ -150,6 +150,16 @@ def build_season_rows(season, source_rows):
 
             season_points = complete_sum([{"total_points": complete_sum(gw["fixtures"], "total_points")} for gw in history], "total_points") if history else None
             season_minutes = complete_sum([{"minutes": complete_sum(gw["fixtures"], "minutes")} for gw in history], "minutes") if history else None
+            prior5_appearance_rate = (
+                sum(1 for gw in prior5 if complete_sum(gw["fixtures"], "minutes") is not None
+                    and complete_sum(gw["fixtures"], "minutes") > 0) / len(prior5)
+                if prior5 else None
+            )
+            season_appearance_rate = (
+                sum(1 for gw in history if complete_sum(gw["fixtures"], "minutes") is not None
+                    and complete_sum(gw["fixtures"], "minutes") > 0) / len(history)
+                if history else None
+            )
             season_points_per90 = (
                 season_points * 90.0 / season_minutes
                 if season_points is not None and season_minutes is not None and season_minutes > 0
@@ -168,6 +178,9 @@ def build_season_rows(season, source_rows):
                     "prior5_gw_points_avg": avg(prior5_points),
                     "prior3_gw_minutes_avg": avg(prior3_minutes),
                     "prior5_gw_minutes_avg": avg(prior5_minutes),
+                    "prior5_appearance_rate": prior5_appearance_rate,
+                    "season_appearance_rate": season_appearance_rate,
+                    "season_to_date_minutes": season_minutes,
                     "prior3_gw_xg_avg": avg(prior3_xg),
                     "prior3_gw_xa_avg": avg(prior3_xa),
                     "season_to_date_points_per90": season_points_per90,
