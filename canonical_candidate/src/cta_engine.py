@@ -427,7 +427,7 @@ def run(args):
     events = flatten_matches(matches)
     directions = complete_statsbomb_directions(
         events, load_directions(args.direction_map))
-    requested_fit_ids = [value.strip() for value in str(args.xt_fit_match_ids or "").split(",") if value.strip()]
+    requested_fit_ids = [value.strip() for value in str(getattr(args, "xt_fit_match_ids", "") or "").split(",") if value.strip()]
     xt_values, xt_audit = fit_xt(
         events, directions, fit_match_ids=requested_fit_ids or None
     )
