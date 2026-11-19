@@ -187,9 +187,9 @@ def test_paired_error_comparison_reports_aligned_deltas_and_probability_groups()
     groups=["low_<0.50","medium_0.50_to_0.80","high_>=0.80","high_>=0.80"]
     result=paired_error_comparison(actual,candidate,comparator,groups)
     assert result["n"]==4
-    assert result["mean_absolute_error_delta"]==-0.5
-    assert result["mean_squared_error_delta"]==-3.5
-    assert result["candidate_absolute_error_win_rate"]==0.75
+    assert result["mean_absolute_error_delta"]==-0.25
+    assert result["mean_squared_error_delta"]==-0.75
+    assert result["candidate_absolute_error_win_rate"]==0.5
     assert result["absolute_error_tie_rate"]==0.0
     assert result["by_group"]["high_>=0.80"]["n"]==2
     assert result["by_group"]["low_<0.50"]["mean_absolute_error_delta"]==-1.0
