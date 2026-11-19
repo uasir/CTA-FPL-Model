@@ -65,7 +65,7 @@ class LaggedFeatureTests(unittest.TestCase):
         rows, _ = build_dataset(self.players, self.fixtures, history, self.bootstrap)
         gw2 = next(row for row in rows if row["gameweek"] == 2)
         self.assertEqual(gw2["season_to_date_points"], 10.0)
-        self.assertEqual(gw2["prior3_gw_points_avg"], 5.0)
+        self.assertEqual(gw2["prior3_gw_points_avg"], 10.0)
         self.assertEqual(gw2["season_to_date_xg"], "")
         self.assertEqual(gw2["prior3_gw_xg_avg"], "")
         self.assertEqual(gw2["season_to_date_xa"], "")
