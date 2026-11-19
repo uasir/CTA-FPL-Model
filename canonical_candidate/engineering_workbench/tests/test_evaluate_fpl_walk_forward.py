@@ -1,5 +1,5 @@
 import math
-from evaluate_fpl_walk_forward import FEATURES, evaluate_walk_forward, fit_ridge_fast
+from evaluate_fpl_walk_forward import FEATURES, evaluate_walk_forward, fit_ridge_fast, fit_minutes_band_model, minutes_band_probabilities, minutes_band, minutes_distribution_metrics
 from train_fpl_exploratory_ridge import fit_ridge, predict
 
 
@@ -63,3 +63,48 @@ def test_numpy_walk_forward_ridge_matches_canonical_ridge_solver():
     accelerated=fit_ridge_fast(rows,"target_total_points",FEATURES,10.0)
     for item in rows[:10]:
         assert abs(predict(canonical,item)-predict(accelerated,item))<1e-7
+
+
+
+def test_minutes_band_model_probabilities_are_valid_and_training_only():
+    rows=[]
+    for gw in range(1,19):
+        for player in range(1,20):
+            minutes=(0 if (gw+player)%5==0 else
+                     15 if (gw+player)%5==1 else
+                     45 if (gw+player)%5==2 else
+                     75 if (gw+player)%5==3 else 90)
+            points=0 if minutes==0 else 2+(gw*player)%10
+            rows.append(row("2024-25",gw,player,points,minutes,prior=(gw%6)+1))
+    train=rows[:250]
+    model=fit_minutes_band_model(train,iterations=250)
+    probs=minutes_band_probabilities(model,rows[260])
+    assert len(probs)==5
+    assert all(0.0<=p<=1.0 for p in probs)
+    assert abs(sum(probs)-1.0)<1e-9
+    assert [minutes_band(v) for v in (0,1,29,30,59,60,89,90)] == [0,1,1,2,2,3,3,4]
+    metrics=minutes_distribution_metrics([0,15,45,75,90],[ [1,0,0,0,0],[0,1,0,0,0],[0,0,1,0,0],[0,0,0,1,0],[0,0,0,0,1] ])
+    assert metrics["mae"]==0.0
+    assert metrics["multiclass_log_loss"]>=0.0
+
+
+def test_walk_forward_report_includes_minutes_distribution_metrics():
+    rows=[]
+    seasons=("2022-23","2023-24","2024-25","2025-26")
+    for season_index,season in enumerate(seasons):
+        for gw in range(1,17):
+            for player in range(1,15):
+                minutes=(0 if (gw+player)%5==0 else
+                         15 if (gw+player)%5==1 else
+                         45 if (gw+player)%5==2 else
+                         75 if (gw+player)%5==3 else 90)
+                points=0 if minutes==0 else ((gw*player+season_index)%9)+2
+                rows.append(row(season,gw,player,points,minutes,prior=(gw%6)+1))
+    report=evaluate_walk_forward(rows)
+    assert "minutes_bands" in report["pooled_weighted_metrics"]
+    for fold in report["folds"]:
+        bands=fold["minutes_bands"]
+        assert bands["calibrated"]["mae"]>=0
+        assert bands["calibrated"]["multiclass_log_loss"]>=0
+        assert bands["raw"]["multiclass_brier"]>=0
+        assert bands["last_gameweek_one_hot"]["accuracy"]>=0
