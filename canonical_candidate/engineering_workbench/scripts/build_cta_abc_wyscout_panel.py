@@ -61,8 +61,10 @@ def build_panel(rows, source_report):
     for row in rows:
         kickoff = parse_time(row.get("kickoff_time_utc"), "kickoff_time_utc")
         cutoff = parse_time(row.get("feature_cutoff_time_utc"), "feature_cutoff_time_utc")
-        if cutoff >= kickoff:
-            raise ValueError("Historical feature cutoff must precede target kickoff")
+        if cutoff > kickoff:
+            raise ValueError("Historical feature cutoff cannot be after target kickoff")
+        # For the first fixture in a gameweek, the conservative round cutoff
+        # equals its kickoff; all features remain strictly before that boundary.
         cutoff_policy = str(row.get("feature_cutoff_policy") or "")
         conservative_cutoff = cutoff_policy == "CONSERVATIVE_EARLIEST_GAMEWEEK_KICKOFF"
         prior_matches = int(number(row.get("prior_matches_count")) or 0)
