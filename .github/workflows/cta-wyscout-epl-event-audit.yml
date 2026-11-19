@@ -10,11 +10,13 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/verify_cross_provider_fpl_identity.py
+      - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py
   push:
     branches: [main, "feat/**"]
     paths:
@@ -56,7 +58,8 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py \
             canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py \
-            canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py
+            canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py \\
+            canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py
 
       - name: Download the public Wyscout 2017/18 data files
         run: |
@@ -175,6 +178,31 @@ jobs:
           else
             echo "WARNING: one or both historical provider candidate queues are unavailable"
           fi
+
+      - name: Build verified Wyscout-to-FPL player-match and strictly lagged research panel
+        if: steps.download_11footy.outcome == 'success'
+        continue-on-error: true
+        run: |
+          CROSSWALK="run_artifacts/wyscout/output/cross_provider_identity/verified_wyscout_fpl_identity_crosswalk.csv"
+          if [ -f "$CROSSWALK" ]; then
+            python canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py \
+              --wyscout-player-match run_artifacts/wyscout/output/wyscout_cta_player_match.csv \
+              --cross-provider-crosswalk "$CROSSWALK" \
+              --fpl-gameweek-history run_artifacts/wyscout/source/fpl_merged_gw.csv \
+              --fpl-team-list run_artifacts/wyscout/source/fpl_master_team_list.csv \
+              --out-dir run_artifacts/wyscout/output/verified_fpl_panel
+          else
+            echo "WARNING: no cross-provider verified identity file; Wyscout player-level panel not built"
+          fi
+
+      - name: Upload aggregate-only verified Wyscout-FPL panel report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-wyscout-verified-fpl-panel
+          path: run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json
+          if-no-files-found: ignore
+          retention-days: 90
 
       - name: Upload aggregate-only cross-provider identity report
         if: always()
