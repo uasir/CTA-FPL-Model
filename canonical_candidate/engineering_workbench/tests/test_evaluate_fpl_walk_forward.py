@@ -1,5 +1,5 @@
-from evaluate_fpl_walk_forward import evaluate_walk_forward, fit_ridge_fast
-from train_fpl_exploratory_ridge import FEATURES, fit_ridge, predict
+from evaluate_fpl_walk_forward import FEATURES, evaluate_walk_forward, fit_ridge_fast
+from train_fpl_exploratory_ridge import fit_ridge, predict
 
 
 def row(season, gw, player, points, minutes, prior=4.0):
