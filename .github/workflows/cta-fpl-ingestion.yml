@@ -84,7 +84,8 @@ jobs:
             tests/test_fpl_nested_tuned_ridge.py \
             tests/test_onside_fpl_actuals_cross_audit.py \
             tests/test_11footy_fpl_identity_candidates.py \
-            tests/test_11footy_player_match_features.py
+            tests/test_11footy_player_match_features.py \
+            tests/test_11footy_lagged_research_features.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
