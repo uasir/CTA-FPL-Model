@@ -105,3 +105,7 @@ def test_audit_reconstructs_deadline_xi_and_bench_from_post_autosub_picks():
     assert result["replay_bench_slots"] == [1]
     assert result["official_out_starting_slots"] == [5]
     assert result["replay_out_starting_slots"] == [5]
+    assert result["official_pair_played"] == [(True, False)]
+    assert result["official_pair_minutes"] == [(90.0, 0.0)]
+    assert result["initial_formation"] == "4-3-3"
+    assert result["official_final_formation"] == "4-3-3"
