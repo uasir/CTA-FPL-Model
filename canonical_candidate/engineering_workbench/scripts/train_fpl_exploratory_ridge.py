@@ -160,20 +160,28 @@ def aggregate_predictions(rows,points_model,minutes_model):
             "fixture_count":len(items),
             "actual_points":sum(number(row.get("target_total_points")) for row in items),
             "predicted_points":predicted_points,
-            "baseline_last5_points":number(items[0].get("prior5_gw_points_avg")),
+            "baseline_last5_points":optional_number(items[0].get("prior5_gw_points_avg")),
             "actual_minutes":sum(number(row.get("target_minutes")) for row in items),
             "predicted_minutes":predicted_minutes,
-            "baseline_last_gw_minutes":number(items[0].get("prior_gw_minutes")),
+            "baseline_last_gw_minutes":optional_number(items[0].get("prior_gw_minutes")),
         })
     return result
 
 
 def metrics(records,actual_key,predicted_key,baseline_key):
-    actual=[row[actual_key] for row in records]
-    predicted=[row[predicted_key] for row in records]
-    baseline=[row[baseline_key] for row in records]
+    scored=[row for row in records if all(
+        optional_number(row.get(key)) is not None
+        for key in (actual_key,predicted_key,baseline_key)
+    )]
+    if not scored:
+        raise ValueError(f"No complete rows available for metrics: {actual_key}, {predicted_key}, {baseline_key}")
+    actual=[row[actual_key] for row in scored]
+    predicted=[row[predicted_key] for row in scored]
+    baseline=[row[baseline_key] for row in scored]
     return {
-        "rows":len(records),
+        "rows":len(scored),
+        "candidate_rows":len(records),
+        "rows_excluded_for_missing_metrics":len(records)-len(scored),
         "model_mae":round(mae(actual,predicted),6),
         "model_rmse":round(rmse(actual,predicted),6),
         "baseline_mae":round(mae(actual,baseline),6),
