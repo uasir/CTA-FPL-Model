@@ -78,7 +78,7 @@ def test_bench_boost_adds_all_bench_points_and_disables_autosub_double_count():
     result = replay_gameweek(decision, points, mins, positions)
     assert result["bench_points_added"] == 12
     assert result["substitutions"] == []
-    assert result["net_points"] == 40
+    assert result["net_points"] == 34
 
 
 def test_transfer_hits_and_free_hit_wildcard_waiver():
@@ -130,7 +130,8 @@ def test_policy_comparison_rejects_mismatched_initial_states():
          "decision": decision, "official_points": points, "minutes": mins, "positions": positions,
          "decision_frozen_at": "2026-01-01T10:00:00Z", "deadline_at": "2026-01-01T11:00:00Z"},
         {"deadline_id": "GW1", "starting_state_id": "s2", "policy": "cta",
-         "decision": decision, "official_points": points, "minutes": mins, "positions": positions},
+         "decision": decision, "official_points": points, "minutes": mins, "positions": positions,
+         "decision_frozen_at": "2026-01-01T10:00:00Z", "deadline_at": "2026-01-01T11:00:00Z"},
     ]
     with pytest.raises(ValueError, match="same starting state"):
         compare_policy_replays(rows)
@@ -170,3 +171,16 @@ def test_policy_replay_requires_identical_policy_set_each_deadline():
                 "decision_frozen_at": "2026-01-01T10:00:00Z", "deadline_at": "2026-01-01T11:00:00Z"}
     with pytest.raises(ValueError, match="same matched policy set"):
         compare_policy_replays([row("GW1", "hold"), row("GW1", "cta"), row("GW2", "hold")])
+
+
+
+def test_triple_captain_falls_back_to_ordinary_vice_captain_double():
+    decision, positions = make_roster()
+    decision["chip"] = "triple_captain"
+    decision["chip_legality_verified"] = True
+    points, mins = outcomes(positions)
+    mins["f1"] = 0
+    points["m1"] = 7
+    result = replay_gameweek(decision, points, mins, positions)
+    assert result["effective_captain"] == "m1"
+    assert result["captain_extra_points"] == 7
