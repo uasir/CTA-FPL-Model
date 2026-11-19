@@ -140,3 +140,12 @@ jobs:
             run_artifacts/wyscout/output/wyscout_fpl_identity_candidate_report.json
           if-no-files-found: error
           retention-days: 90
+ 
+      - name: Upload aggregate-only 11footy historical identity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-11footy-historical-fpl-identity
+          path: run_artifacts/wyscout/output/11footy_historical_fpl_identity_report.json
+          if-no-files-found: ignore
+          retention-days: 90
