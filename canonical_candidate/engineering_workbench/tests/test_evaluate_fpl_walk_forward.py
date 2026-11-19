@@ -169,7 +169,7 @@ def test_appearance_hurdle_distribution_places_nonappearance_mass_in_zero_class(
     from evaluate_fpl_walk_forward import combine_appearance_points_distribution
     conditional=[0.1,0.2,0.1,0.2,0.2,0.2]
     absent=combine_appearance_points_distribution(0.0,conditional)
-    assert absent == [0.0,1.0,0.0,0.0,0.0,0.0]
+    assert absent.tolist() == [0.0,1.0,0.0,0.0,0.0,0.0]
     present=combine_appearance_points_distribution(1.0,conditional)
     assert all(abs(a-b)<1e-12 for a,b in zip(present,conditional))
     mixed=combine_appearance_points_distribution(0.75,conditional)
