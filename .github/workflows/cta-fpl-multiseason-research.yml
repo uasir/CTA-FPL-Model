@@ -8,6 +8,8 @@ on:
       - .github/workflows/cta-fpl-multiseason-research.yml
       - canonical_candidate/engineering_workbench/scripts/build_vaastav_fpl_multiseason_panel.py
       - canonical_candidate/engineering_workbench/tests/test_vaastav_fpl_multiseason_panel.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_two_part_model.py
+      - canonical_candidate/engineering_workbench/tests/test_evaluate_fpl_two_part_model.py
 
 permissions:
   contents: read
