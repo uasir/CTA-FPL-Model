@@ -185,9 +185,9 @@ A first capture-only implementation now exists:
 - The Lucho export is explicitly labelled **served xP, not assumed Odds xP**. The collector does not derive Odds xP or translate bookmaker markets.
 - Sideline Quant rows remain fixture-grain; no player-GW aggregation is performed during capture.
 - Third-party CSV columns are preserved and inventoried rather than assumed. Their player IDs, point columns, grain and variant must be audited before normalization/scoring.
-- The manual/push-triggered workflow `.github/workflows/cta-external-fpl-forecast-capture.yml` retains raw snapshots and manifest as a GitHub Actions artifact for 90 days.
+- The manual/push-triggered workflow `.github/workflows/cta-external-fpl-forecast-capture.yml` keeps raw bytes on the ephemeral runner for validation and publishes only the non-player-level capture manifest. Raw provider forecasts are not uploaded to this public repository or its Actions artifacts.
 
-**Important retention limitation:** a 90-day Actions artifact is a capture/transport mechanism, not a permanent archive. Before the retention window expires, valid snapshots must be moved into a durable, access-controlled research archive with immutable object/version retention. Do not claim long-term preservation until that archive is in place.
+**Important retention limitation:** raw provider forecasts are currently captured and hashed on the ephemeral runner but are not durably archived. A durable, access-controlled private research archive is still required. The public manifest records capture provenance and hashes only; it cannot be used to reconstruct raw forecasts.
 
 The collector's first automated run is a capture validation, not a performance evaluation. It must fail closed if a source returns HTML, an empty response, an invalid gameweek or malformed data. It does not convert missing rows to zero.
 
@@ -202,3 +202,8 @@ FPL Cat documents `GET https://fplcat.com/api/v1/projections` and `?format=csv`.
 FPL Wildcard exposes a direct CSV download at `https://fplwildcard.com/data/projections/current.csv`. Its documentation describes one row per selectable player per projected gameweek, with `gameweek`, `profile_url`, `xpts`, `xmins` and optional probability fields. The page reported GW11, 19 November 15:30 UK projection refresh and model v11. This is a useful additional independent forecast output.
 
 The collector now captures the CSV as a separate variant and records it as **internal research only**. The source explicitly grants no redistribution licence for the dataset, so raw CSVs/player-level values must not be republished or uploaded into public artifacts. Any future external-facing report must use permitted aggregate findings and attribution, and should be checked against the provider's terms.
+
+
+### Public-repository artifact handling correction (19 November 2026)
+
+The repository is public. An initial capture workflow uploaded raw third-party forecast CSV/JSON files as public-repository Actions artifacts. Those two artifacts were identified for deletion and the workflow was changed to delete them and upload only the non-player-level manifest. The FPL Wildcard dataset, whose page states that no redistribution licence is granted, was removed from the public capture pipeline entirely. Do not treat the temporary initial artifact as a valid long-term archive. Raw snapshots must remain runner-local until a private archive and provider-specific retention permissions are established.
