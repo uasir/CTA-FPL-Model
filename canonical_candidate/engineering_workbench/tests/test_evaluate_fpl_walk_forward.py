@@ -76,7 +76,7 @@ def test_minutes_band_model_probabilities_are_valid_and_training_only():
                      75 if (gw+player)%5==3 else 90)
             points=0 if minutes==0 else 2+(gw*player)%10
             rows.append(row("2024-25",gw,player,points,minutes,prior=(gw%6)+1))
-    train=rows[:250]
+    train=[{**item,"actual_minutes":item["target_minutes"]} for item in rows[:250]]
     model=fit_minutes_band_model(train,iterations=250)
     probs=minutes_band_probabilities(model,rows[260])
     assert len(probs)==5
