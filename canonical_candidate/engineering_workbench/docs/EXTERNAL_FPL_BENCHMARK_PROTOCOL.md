@@ -99,16 +99,24 @@ Do not invent probability distributions from a single expected-points number and
 - Track sample size, coverage and confidence intervals. A small early-season lead is descriptive, not evidence of durable superiority.
 - Avoid choosing a winning model from a single metric or a single gameweek.
 
+## Meaning of conventional historical FPL prediction
+
+In this project, **conventional historical FPL prediction** means the established family of FPL points prediction methods used by specialist tools such as FPL Review and other established FPL forecasting services. It is not a requirement that we create a separate in-house model and call that the conventional benchmark.
+
+This family generally uses historical FPL/player performance and availability information (for example points, minutes, appearances, goals, assists, xG/xA where available), plus relevant fixture, team and role context. Some services additionally incorporate bookmaker markets or other external information. The exact inputs differ by provider and must not be assumed without provider-specific documentation. FPL Forecaster and FPL Lucho are the direct market-derived examples in our benchmark set.
+
+Our conventional 2PM-Transformer is **our own experimental implementation** of a conventional-history-based FPL predictor. It must be evaluated against the external services; it is not itself the external benchmark. The previously developed in-house statistical model may remain as a legacy internal comparator, but it should not be confused with the conventional approach used by established services.
+
 ## Relationship to our model tracks
 
 Keep these as independent rows in the benchmark:
 
-1. Conventional persistence baselines (last GW, prior-3/prior-5 averages, and other justified simple baselines).
-2. Existing conventional FPL statistical model.
-3. Standalone integrated CTA A+B+C predictor.
-4. Standalone conventional 2PM-Transformer.
-5. Optional A/B/C-augmented 2PM-Transformer, only after tracks 3 and 4 have independently established results.
-6. External FPL services listed above.
+1. Simple persistence baselines (last GW, prior-3/prior-5 averages, and other justified simple baselines).
+2. Legacy in-house conventional statistical model, retained as an internal comparator where useful.
+3. External conventional FPL prediction services, including FPL Review and other accessible player-level forecasts.
+4. Standalone integrated CTA A+B+C predictor.
+5. Standalone conventional-history 2PM-Transformer.
+6. Optional A/B/C-augmented 2PM-Transformer, only after tracks 4 and 5 have independently established results.
 
 FPL Forecaster and FPL Lucho are external benchmarks, not components of CTA or 2PM. Do not blend their predictions into our model unless a separate, pre-registered experiment later demonstrates incremental value on a strictly held-out chronological sample.
 
