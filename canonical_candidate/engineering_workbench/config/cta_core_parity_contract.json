@@ -239,12 +239,12 @@
           "python_column": "shot_xg_reference_only",
           "javascript_column": "shot_xg_reference_only",
           "type": "numeric",
-          "nullable": false,
+          "nullable": true,
           "unit": "xG",
           "tolerance_class": "rounded_6dp",
-          "definition_version": "core-1.0.2",
-          "definition": "Sum of StatsBomb shot.statsbomb_xg values; missing/falsy values contribute zero; rounded to six decimals.",
-          "aggregation": "Sum over Shot events in the possession; reference only, not a pre-shot feature."
+          "definition_version": "core-1.0.4",
+          "definition": "Sum of observed StatsBomb shot.statsbomb_xg values; null when none are supplied.",
+          "aggregation": "Sum only observed xG over Shot events; reference only, not a pre-shot feature."
         },
         "mean_action_xt_gain": {
           "python_column": "mean_action_xt_gain",
@@ -289,6 +289,17 @@
           "definition_version": "core-1.0.2",
           "definition": "shot_linked if any shot; otherwise non_shot_candidate when the core's spatial/pressure rule passes; otherwise other_possession.",
           "aggregation": "One rule-based class per possession; not a human-validated danger label."
+        },
+        "shot_xg_observed_count": {
+          "python_column": "shot_xg_observed_count",
+          "javascript_column": "shot_xg_observed_count",
+          "type": "integer",
+          "nullable": false,
+          "unit": "shots_with_observed_xG",
+          "tolerance_class": "exact",
+          "definition_version": "core-1.0.4",
+          "definition": "Number of shot events with a non-null, numeric StatsBomb xG value.",
+          "aggregation": "Count observed xG values over Shot events; missing values are not zero."
         }
       },
       "unsupported_features": [
@@ -497,9 +508,9 @@
           "nullable": true,
           "unit": "xG",
           "tolerance_class": "rounded_6dp",
-          "definition_version": "core-1.0.2",
-          "definition": "Actor-attributed StatsBomb shot xG; missing/falsy xG contributes zero.",
-          "aggregation": "Sum over actor shot events; reference only."
+          "definition_version": "core-1.0.4",
+          "definition": "Actor-attributed sum of observed StatsBomb shot xG; null when none are supplied.",
+          "aggregation": "Sum observed xG only; reference only."
         },
         "mean_action_xt_gain": {
           "python_column": "mean_action_xt_gain",
@@ -533,6 +544,17 @@
           "definition_version": "core-1.0.3",
           "definition": "Display name attached to the numeric StatsBomb player ID in the source event; never used as the identity key.",
           "aggregation": "One display name per StatsBomb player ID within the isolated match run; conflicting names for one ID are rejected."
+        },
+        "shot_xg_observed_count": {
+          "python_column": "shot_xg_observed_count",
+          "javascript_column": "shot_xg_observed_count",
+          "type": "integer",
+          "nullable": true,
+          "unit": "shots_with_observed_xG",
+          "tolerance_class": "exact",
+          "definition_version": "core-1.0.4",
+          "definition": "Number of actor-attributed shot events with observed numeric StatsBomb xG.",
+          "aggregation": "Count only observed xG values; null when no xG is supplied for the player."
         }
       },
       "unsupported_features": [
