@@ -7,8 +7,12 @@ on:
       - .github/workflows/cta-11footy-match-data-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_11footy_premier_league_data.py
       - canonical_candidate/engineering_workbench/scripts/audit_11footy_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/scripts/verify_11footy_fpl_identity_crosswalk.py
+      - canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_premier_league_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/tests/test_11footy_verified_crosswalk.py
+      - canonical_candidate/engineering_workbench/tests/test_provider_identity_crosswalk.py
       - canonical_candidate/engineering_workbench/docs/CONTEXTUAL_THREAT_ASSESSMENT.md
   push:
     branches: [main, "feat/**"]
@@ -16,8 +20,12 @@ on:
       - .github/workflows/cta-11footy-match-data-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_11footy_premier_league_data.py
       - canonical_candidate/engineering_workbench/scripts/audit_11footy_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/scripts/verify_11footy_fpl_identity_crosswalk.py
+      - canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_premier_league_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/tests/test_11footy_verified_crosswalk.py
+      - canonical_candidate/engineering_workbench/tests/test_provider_identity_crosswalk.py
   workflow_dispatch:
 
 permissions:
@@ -58,6 +66,36 @@ jobs:
         run: |
           python canonical_candidate/engineering_workbench/scripts/audit_11footy_fpl_identity_candidates.py --players-input run_artifacts/11footy/source/players.db.xz --fpl-bootstrap run_artifacts/11footy/source/fpl-bootstrap.json --out-dir run_artifacts/11footy/output
 
+      - name: Build exact, one-to-one 11footy to FPL verified identity crosswalk
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/verify_11footy_fpl_identity_crosswalk.py \
+            --candidates run_artifacts/11footy/output/identity_candidates.csv \
+            --out-dir run_artifacts/11footy/output/verified_identity
+
+      - name: Validate verified 11footy to FPL crosswalk
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py \
+            --provider 11footy \
+            --input run_artifacts/11footy/output/verified_identity/verified_11footy_fpl_identity_crosswalk.csv \
+            --out-dir run_artifacts/11footy/output/verified_identity/validation
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("run_artifacts/11footy/output/verified_identity")
+          built = json.loads((root / "verified_identity_summary.json").read_text())
+          validated = json.loads((root / "validation/crosswalk_validation.json").read_text())
+          if built["status"] != "PASS" or built["verified_crosswalk_rows"] < 1:
+              raise SystemExit("No exact one-to-one 11footy/FPL identities were verified")
+          if validated["status"] != "PASS" or not validated["join_ready"]:
+              raise SystemExit("Strict 11footy/FPL crosswalk validation failed")
+          print(json.dumps({
+              "verified_crosswalk_rows": built["verified_crosswalk_rows"],
+              "validation_status": validated["status"],
+              "join_ready": validated["join_ready"],
+              "policy": built["verification_method"],
+          }, indent=2))
+          PY
+
       - name: Upload aggregate-only data audit
         uses: actions/upload-artifact@v4
         with:
@@ -65,6 +103,7 @@ jobs:
           path: |
             run_artifacts/11footy/output/11footy_premier_league_data_audit.json
             run_artifacts/11footy/output/identity_candidate_summary.json
-            run_artifacts/11footy/output/identity_candidates.csv
+            run_artifacts/11footy/output/verified_identity/verified_identity_summary.json
+            run_artifacts/11footy/output/verified_identity/validation/crosswalk_validation.json
           if-no-files-found: error
           retention-days: 90

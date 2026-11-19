@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse, csv, json, re, unicodedata
 from collections import Counter, defaultdict
+from datetime import date
 from pathlib import Path
 
 FIELDS = [
@@ -21,7 +22,7 @@ REQUIRED = [
     "match_method", "evidence_source", "evidence_url", "verified_by", "verified_at",
 ]
 STATUSES = {"verified", "pending", "ambiguous", "rejected"}
-METHODS = {"provider_id_crosswalk", "official_alias", "club_roster_crosscheck", "manual_source_verified"}
+METHODS = {"provider_id_crosswalk", "official_alias", "club_roster_crosscheck", "manual_source_verified", "exact_name_team_birth_date"}
 
 def _normalize_team_name(value):
     text = unicodedata.normalize("NFKD", str(value or ""))
@@ -71,6 +72,24 @@ def validate_rows(rows, provider):
                 continue
             if _normalize_team_name(row.get("provider_team_name")) != _normalize_team_name(row.get("fpl_team_name")):
                 errors.append({"line": line, "error": "11footy_provider_and_fpl_team_names_do_not_match"})
+                continue
+        if method == "exact_name_team_birth_date":
+            if provider != "11footy":
+                errors.append({"line": line, "error": "exact_name_team_birth_date_method_is_11footy_only"})
+                continue
+            provider_dob = (row.get("provider_birth_date") or "").strip()
+            fpl_dob = (row.get("fpl_birth_date") or "").strip()
+            try:
+                date.fromisoformat(provider_dob[:10])
+                date.fromisoformat(fpl_dob[:10])
+            except ValueError:
+                errors.append({"line": line, "error": "exact_name_team_birth_date_requires_valid_iso_dates"})
+                continue
+            if provider_dob[:10] != fpl_dob[:10]:
+                errors.append({"line": line, "error": "exact_name_team_birth_date_mismatch"})
+                continue
+            if _normalize_team_name(row.get("provider_player_name")) != _normalize_team_name(row.get("fpl_player_name")):
+                errors.append({"line": line, "error": "exact_name_team_birth_date_full_names_do_not_match"})
                 continue
         if not (row.get("evidence_url") or "").strip().startswith(("https://", "http://")):
             errors.append({"line": line, "error": "evidence_url_must_be_http"})
