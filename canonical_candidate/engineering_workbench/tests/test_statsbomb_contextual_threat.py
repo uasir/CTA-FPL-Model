@@ -349,6 +349,12 @@ def test_player_match_aggregation_is_scoped_to_sampled_360_events():
     assert player_rows[0]["shot_context_events"] == 1
     assert player_rows[0]["pass_context_events"] == 1
     assert player_rows[0]["feature_scope"] == "360_sampled_events_only_not_full_match_totals"
+    assert player_rows[0]["receiving_option_attribution_status"] == (
+        "ACTOR_POSSESSION_CONTEXT_ONLY_VISIBLE_RECEIVER_IDENTITIES_UNAVAILABLE"
+    )
+    assert player_rows[0]["dangerous_receipt_attribution_status"] == (
+        "BALL_RECEIPT_EVENT_ACTOR_IDENTITY"
+    )
     assert report["player_match_rows"] == 1
     assert report["prediction_validation"] == "NOT_EVALUATED"
 
