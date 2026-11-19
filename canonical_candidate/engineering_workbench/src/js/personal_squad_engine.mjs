@@ -104,6 +104,24 @@ function bestStartingXi(owned, byId, formationValue, startingXiValue) {
   return { starting: ordered, formation };
 }
 
+function playerCtaContext(player) {
+  const cta = player.cta && typeof player.cta === "object" && !Array.isArray(player.cta)
+    ? player.cta
+    : {
+      identity_verified: false,
+      identity_status: "NO_CTA_SIDECAR",
+      coverage_status: "NO_CTA_SIDECAR",
+      composite: null,
+      decision_use_status: "UNAVAILABLE",
+      fixtures: [],
+    };
+  return {
+    fpl_element_id: player.fpl_element_id,
+    web_name: player.web_name ?? "",
+    cta,
+  };
+}
+
 function sellingPrice(currentPrice, purchasePrice) {
   const currentTenths = Math.round(currentPrice * 10);
   const purchaseTenths = Math.round(purchasePrice * 10);
@@ -169,6 +187,16 @@ function transferCandidates(request, forecasts) {
     || a.transfer_out_id - b.transfer_out_id
     || a.transfer_in_id - b.transfer_in_id);
   const alternatives = candidates.slice(0, maxAlternatives);
+  const hasCtaSidecar = forecasts.some((player) =>
+    player.cta && typeof player.cta === "object" && !Array.isArray(player.cta));
+  if (hasCtaSidecar) {
+    for (const candidate of alternatives) {
+      candidate.cta_context = {
+        outgoing: playerCtaContext(forecastById.get(candidate.transfer_out_id)),
+        incoming: playerCtaContext(forecastById.get(candidate.transfer_in_id)),
+      };
+    }
+  }
   const bestCandidate = alternatives[0] ?? null;
   return {
     action: bestCandidate && bestCandidate.net_expected_points_gain > minGain
@@ -190,6 +218,8 @@ export function recommendPersonalSquad(payload) {
   const squad = request.squad_snapshot;
   const ownedIds = new Set(squad.map((player) => player.fpl_element_id));
   const owned = [...ownedIds].map((id) => forecastById.get(id));
+  const hasCtaSidecar = forecasts.some((player) =>
+    player.cta && typeof player.cta === "object" && !Array.isArray(player.cta));
   const preferences = request.personal_preferences ?? {};
   if (preferences === null || typeof preferences !== "object" || Array.isArray(preferences)) {
     throw new RecommendationContractError("personal_preferences must be an object");
@@ -252,6 +282,13 @@ export function recommendPersonalSquad(payload) {
       reserve_goalkeeper: reserveGk[0].fpl_element_id,
       bench_order: benchOrder,
       expected_starting_points: expectedPoints,
+      ...(hasCtaSidecar ? {
+        owned_squad_cta_context: squad.map((row) => playerCtaContext(forecastById.get(row.fpl_element_id))),
+        starting_xi_cta_context: starting.map(playerCtaContext),
+        bench_cta_context: benchOrder.map((playerId) => playerCtaContext(forecastById.get(playerId))),
+        reserve_goalkeeper_cta_context: playerCtaContext(reserveGk[0]),
+        cta_context_status: "RESEARCH_ONLY_NOT_IN_BASELINE",
+      } : {}),
     },
     portfolio_risk: {
       covar_used: false,

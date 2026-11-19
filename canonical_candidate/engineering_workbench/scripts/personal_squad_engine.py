@@ -84,6 +84,24 @@ def _best_starting_xi(owned,by_id,formation_value=None,starting_xi_value=None):
     return ordered,formation
 
 
+def _player_cta_context(player):
+    cta=player.get("cta")
+    if not isinstance(cta,dict):
+        cta={
+            "identity_verified":False,
+            "identity_status":"NO_CTA_SIDECAR",
+            "coverage_status":"NO_CTA_SIDECAR",
+            "composite":None,
+            "decision_use_status":"UNAVAILABLE",
+            "fixtures":[],
+        }
+    return {
+        "fpl_element_id":player["fpl_element_id"],
+        "web_name":player.get("web_name",""),
+        "cta":cta,
+    }
+
+
 def _selling_price(current_price,purchase_price):
     current_tenths=int(round(float(current_price)*10))
     purchase_tenths=int(round(float(purchase_price)*10))
@@ -143,6 +161,13 @@ def _transfer_candidates(request,forecasts):
             })
     candidates.sort(key=lambda x:(-x["net_expected_points_gain"],-x["expected_points_delta"],x["transfer_out_id"],x["transfer_in_id"]))
     top=candidates[:max_alternatives]
+    has_cta_sidecar=any(isinstance(player.get("cta"),dict) for player in forecasts)
+    if has_cta_sidecar:
+        for candidate in top:
+            candidate["cta_context"]={
+                "outgoing":_player_cta_context(forecast_by_id[candidate["transfer_out_id"]]),
+                "incoming":_player_cta_context(forecast_by_id[candidate["transfer_in_id"]]),
+            }
     best=top[0] if top else None
     action="TRANSFER" if best and best["net_expected_points_gain"]>min_gain else "HOLD"
     return {
@@ -164,6 +189,7 @@ def recommend_personal_squad(payload):
     squad=request["squad_snapshot"]
     owned_ids={int(p["fpl_element_id"]) for p in squad}
     owned=[forecast_by_id[player_id] for player_id in owned_ids]
+    has_cta_sidecar=any(isinstance(player.get("cta"),dict) for player in forecasts)
     preferences=request.get("personal_preferences", {})
     if preferences is None:
         preferences={}
@@ -225,6 +251,13 @@ def recommend_personal_squad(payload):
             "reserve_goalkeeper":reserve_gk[0]["fpl_element_id"],
             "bench_order":bench_order,
             "expected_starting_points":expected_points,
+            **({
+                "owned_squad_cta_context":[_player_cta_context(forecast_by_id[int(row["fpl_element_id"])]) for row in squad],
+                "starting_xi_cta_context":[_player_cta_context(player) for player in starting],
+                "bench_cta_context":[_player_cta_context(forecast_by_id[int(player_id)]) for player_id in bench_order],
+                "reserve_goalkeeper_cta_context":_player_cta_context(reserve_gk[0]),
+                "cta_context_status":"RESEARCH_ONLY_NOT_IN_BASELINE",
+            } if has_cta_sidecar else {}),
         },
         "portfolio_risk":{
             "covar_used":False,"risk_profile_applied":False,
