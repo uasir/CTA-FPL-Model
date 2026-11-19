@@ -126,6 +126,17 @@ def evaluate(rows, holdout_fraction=0.2):
         return regression_metrics(actual,pred)
     # Post-outcome positive-minute strata are diagnostics only, never prediction filters.
     appeared=[i for i,r in enumerate(scored) if r["appeared"]==1.0]
+    per_season={}
+    for season in sorted({r["season"] for r in scored}):
+        idx=[i for i,r in enumerate(scored) if r["season"]==season]
+        per_season[season]={
+            "player_gameweeks":len(idx),
+            "appearance":binary_metrics([actual_app[i] for i in idx],[probs[i] for i in idx]),
+            "minutes_mae":round(mae([minute_actual[i] for i in idx],[minute_pred[i] for i in idx]),6),
+            "two_part_points":regression_metrics([actual[i] for i in idx],[two[i] for i in idx]),
+            "direct_points":regression_metrics([actual[i] for i in idx],[direct[i] for i in idx]),
+            "last5_points":regression_metrics([actual[i] for i in idx],[last5[i] for i in idx]),
+        }
     return {
         "status":"RESEARCH_ONLY",
         "point_in_time_status":"NOT_VERIFIED_RETROSPECTIVE_SOURCE_VINTAGES",
@@ -155,6 +166,7 @@ def evaluate(rows, holdout_fraction=0.2):
             } if appeared else None,
         },
         "validation_seasons":sorted({r["season"] for r in scored}),
+        "per_season_validation_metrics":per_season,
         "features":list(FEATURES),
         "construction":"P(appearance) from all training player-GWs; conditional points trained only on positive-minute training labels; expected points = probability × conditional points.",
         "leakage_controls":[
