@@ -259,12 +259,19 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
     official_bench_priority_usage = Counter()
     replay_bench_priority_usage = Counter()
     autosub_mismatch_signatures = Counter()
+    total_autosub_matches_reverse = 0
+    autosub_position_pair_matches_reverse = 0
+    autosub_count_matches_reverse = 0
+    reverse_exact_net = 0
     for event in events:
         event_id = int(event["id"])
         live = live_by_event[event_id]
         n = net_exact = gross_exact = autosub_match = autosub_comparable = 0
         event_position_pair_matches = 0
         event_count_matches = 0
+        event_reverse_matches = 0
+        event_reverse_position_matches = 0
+        event_reverse_count_matches = 0
         differences = []
         for payload in by_event[event_id]:
             try:
@@ -282,6 +289,13 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
                 autosub_count_matches += int(result["autosub_count_match"])
                 event_position_pair_matches += int(result["autosub_position_pairs_match"])
                 event_count_matches += int(result["autosub_count_match"])
+                total_autosub_matches_reverse += int(result["autosub_pairs_match_reverse"])
+                autosub_position_pair_matches_reverse += int(result["autosub_position_pairs_match_reverse"])
+                autosub_count_matches_reverse += int(result["autosub_count_match_reverse"])
+                reverse_exact_net += int(result["replay_reverse_net_point_difference"] == 0)
+                event_reverse_matches += int(result["autosub_pairs_match_reverse"])
+                event_reverse_position_matches += int(result["autosub_position_pairs_match_reverse"])
+                event_reverse_count_matches += int(result["autosub_count_match_reverse"])
                 official_bench_priority_usage.update(str(slot) for slot in result["official_bench_slots"])
                 replay_bench_priority_usage.update(str(slot) for slot in result["replay_bench_slots"])
                 if not result["autosub_pairs_match"]:
@@ -312,6 +326,9 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
             "autosub_exact_match_rate": autosub_match / autosub_comparable if autosub_comparable else None,
 "autosub_position_pair_match_rate": event_position_pair_matches / autosub_comparable if autosub_comparable else None,
             "autosub_count_match_rate": event_count_matches / autosub_comparable if autosub_comparable else None,
+            "autosub_reverse_exact_match_rate": event_reverse_matches / autosub_comparable if autosub_comparable else None,
+            "autosub_reverse_position_pair_match_rate": event_reverse_position_matches / autosub_comparable if autosub_comparable else None,
+            "autosub_reverse_count_match_rate": event_reverse_count_matches / autosub_comparable if autosub_comparable else None,
             "mean_absolute_net_score_difference": sum(differences) / len(differences) if differences else None,
         })
 
@@ -332,6 +349,10 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
         "autosub_exact_match_rate": total_autosub_matches / total_autosub_comparable if total_autosub_comparable else None,
         "autosub_position_pair_match_rate": autosub_position_pair_matches / total_autosub_comparable if total_autosub_comparable else None,
         "autosub_count_match_rate": autosub_count_matches / total_autosub_comparable if total_autosub_comparable else None,
+        "autosub_reverse_exact_match_rate": total_autosub_matches_reverse / total_autosub_comparable if total_autosub_comparable else None,
+        "autosub_reverse_position_pair_match_rate": autosub_position_pair_matches_reverse / total_autosub_comparable if total_autosub_comparable else None,
+        "autosub_reverse_count_match_rate": autosub_count_matches_reverse / total_autosub_comparable if total_autosub_comparable else None,
+        "reverse_algorithm_exact_net_score_matches": reverse_exact_net,
         "official_bench_priority_usage": dict(official_bench_priority_usage),
         "replay_bench_priority_usage": dict(replay_bench_priority_usage),
         "top_autosub_mismatch_signatures": [
