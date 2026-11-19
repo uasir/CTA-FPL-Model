@@ -282,6 +282,21 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
         val_minutes_logits, val_points_logits, minutes_temp, points_temp,
         representatives, eight_share,
     )
+    # Expected-points affine calibration is fitted only on the held-out,
+    # pre-validation calibration block; the validation season is untouched.
+    calibration_prediction, _ = probabilities_from_logits(
+        cal_minutes_logits, cal_points_logits, minutes_temp, points_temp,
+        representatives, eight_share,
+    )
+    calibration_x = np.asarray(calibration_prediction, dtype=np.float64)
+    calibration_y = np.asarray([r["actual_points"] for r in calibration_rows], dtype=np.float64)
+    if len(calibration_x) >= 2 and float(np.var(calibration_x)) > 1e-10:
+        affine_slope, affine_intercept = np.polyfit(calibration_x, calibration_y, 1)
+    else:
+        affine_slope, affine_intercept = 1.0, 0.0
+    transformer_affine_prediction = np.maximum(
+        0.0, affine_intercept + affine_slope * np.asarray(transformer_prediction, dtype=np.float64)
+    ).tolist()
 
     appearance_model = fit_ridge(fit_rows, "appeared", fold_features, 10.0)
     calibration_scores = [appearance_model_prediction(appearance_model, r) for r in calibration_rows]
@@ -306,6 +321,10 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
         actual, transformer_prediction, transformer_haul_probs,
         ranking_score=transformer_prediction, top_k=100,
     )
+    transformer_affine_report = evaluate_forecast(
+        actual, transformer_affine_prediction, transformer_haul_probs,
+        ranking_score=transformer_affine_prediction, top_k=100,
+    )
     raw_report = evaluate_forecast(actual, baseline_raw, ranking_score=baseline_raw, top_k=100)
     calibrated_report = evaluate_forecast(actual, baseline_calibrated, ranking_score=baseline_calibrated, top_k=100)
     direct_report = evaluate_forecast(actual, baseline_direct, ranking_score=baseline_direct, top_k=100)
@@ -328,6 +347,12 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
         "minutes_temperature": minutes_temp,
         "conditional_points_temperature": points_temp,
         "transformer": transformer_report,
+        "transformer_expected_points_affine_calibrated": transformer_affine_report,
+        "transformer_expected_points_affine_calibration": {
+            "fit_source": "held-out latest 20% of prior training gameweeks only",
+            "slope": float(affine_slope),
+            "intercept": float(affine_intercept),
+        },
         "conventional_two_part_raw": raw_report,
         "conventional_two_part_calibrated": calibrated_report,
         "direct_ridge": direct_report,
@@ -337,6 +362,7 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
         "_aggregate": {
             "actual": actual,
             "transformer": transformer_prediction,
+            "transformer_affine_calibrated": transformer_affine_prediction,
             "transformer_haul_probabilities": transformer_haul_probs,
             "two_part_calibrated": baseline_calibrated,
             "direct_ridge": baseline_direct,
@@ -369,7 +395,7 @@ def evaluate(rows):
     grouped = [r for r in grouped if r["gameweek"] > 1]
     seasons = sorted({r["season"] for r in grouped})
     folds = []
-    pooled_actual, pooled_transformer, pooled_baseline, pooled_direct, pooled_last5, pooled_clusters = [], [], [], [], [], []
+    pooled_actual, pooled_transformer, pooled_transformer_affine, pooled_baseline, pooled_direct, pooled_last5, pooled_clusters = [], [], [], [], [], [], []
     pooled_haul = {6: [], 8: [], 10: []}
     for index, season in enumerate(seasons):
         if index == 0:
@@ -379,6 +405,7 @@ def evaluate(rows):
         folds.append(fold)
         pooled_actual.extend(aggregate["actual"])
         pooled_transformer.extend(aggregate["transformer"])
+        pooled_transformer_affine.extend(aggregate["transformer_affine_calibrated"])
         pooled_baseline.extend(aggregate["two_part_calibrated"])
         pooled_direct.extend(aggregate["direct_ridge"])
         pooled_last5.extend(aggregate["last5"])
@@ -395,6 +422,10 @@ def evaluate(rows):
     pooled_report = evaluate_forecast(
         pooled_actual, pooled_transformer, pooled_haul,
         ranking_score=pooled_transformer, top_k=100,
+    )
+    pooled_transformer_affine_report = evaluate_forecast(
+        pooled_actual, pooled_transformer_affine,
+        ranking_score=pooled_transformer_affine, top_k=100,
     )
     pooled_baseline_report = evaluate_forecast(
         pooled_actual, pooled_baseline,
@@ -432,6 +463,7 @@ def evaluate(rows):
         "fold_count": len(folds),
         "folds": folds,
         "pooled_transformer": pooled_report,
+        "pooled_transformer_expected_points_affine_calibrated": pooled_transformer_affine_report,
         "pooled_conventional_two_part_calibrated": pooled_baseline_report,
         "pooled_direct_ridge": pooled_direct_report,
         "pooled_last5_points_persistence": pooled_last5_report,
