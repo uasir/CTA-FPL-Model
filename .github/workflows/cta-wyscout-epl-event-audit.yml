@@ -20,9 +20,11 @@ on:
       - canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
   workflow_dispatch:
 
 permissions:
