@@ -19,7 +19,7 @@ The player-match layer separates:
 
 - **Threat creation:** pass attempts and completions; progressive passes; final-third entries; provisional danger-zone entries; key, smart, through and opportunity passes.
 - **Threat involvement/reception:** not attributed in this source because the public event schema does not provide a pass-recipient identity. The event actor is not assumed to be the receiver.
-- **Threat realisation:** shot attempts, accurate shot attempts, goals and shot-opportunity tags. No xG is supplied by this release.
+- **Threat realisation:** shot attempts, accurate shot attempts, goals, own goals and shot-opportunity tags. Goal and own-goal event tags are reconciled against the sum of both teams' match metadata scores. No xG is supplied by this release.
 - **Supporting context:** progressive acceleration/carry events, dangerous-ball-loss tags, offsides and duel outcomes.
 
 Threat-creation pass attempts use the union of the relevant indicators and are counted once per pass event, even when several indicators apply. Attempted and completed actions remain separate.
