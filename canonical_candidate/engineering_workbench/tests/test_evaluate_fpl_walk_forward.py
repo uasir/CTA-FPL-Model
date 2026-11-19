@@ -213,6 +213,7 @@ def test_player_season_cluster_bootstrap_is_reproducible_and_aggregated():
 
 
 def test_hurdle_two_part_blend_and_calibration_weight_selection():
+    import pytest
     from evaluate_fpl_walk_forward import blend_expected_points, select_blend_weight
     actual=[0.0,1.0,2.0,8.0,10.0]
     hurdle=[0.5,1.5,2.5,7.0,9.0]
