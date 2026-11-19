@@ -384,6 +384,10 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
             "two_part_calibrated": baseline_calibrated,
             "direct_ridge": baseline_direct,
             "last5": baseline_last5,
+            "keys": [
+                {"season": str(r["season"]), "fpl_element_id": str(r["fpl_element_id"]), "gameweek": int(r["gameweek"])}
+                for r in validation_rows
+            ],
         },
     }
 
