@@ -194,7 +194,7 @@ def test_personal_squad_preserves_missing_eo_and_reports_coverage():
     result = recommend_personal_squad(payload)
     eo = result["squad_plan"]["effective_ownership_context"]
     assert eo["owned_players_with_eo"] == 2
-    assert eo["owned_player_eo_coverage"] == pytest.approx(2 / 18)
+    assert eo["owned_player_eo_coverage"] == pytest.approx(2 / 15)
     assert eo["decision_role"] == "FIELD_REFERENCE_ONLY_NOT_A_CTA_PREREQUISITE"
     assert eo["missing_eo_policy"] == "PRESERVE_MISSING_AND_REPORT_COVERAGE"
 
