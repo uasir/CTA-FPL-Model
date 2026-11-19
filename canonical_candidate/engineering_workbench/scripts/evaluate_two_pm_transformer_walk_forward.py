@@ -3,9 +3,10 @@
 
 The model sees only lagged conventional FPL features. A/B/C features are
 intentionally excluded. The base and position feature sets support a paired
-position ablation on identical folds and player-gameweek rows. Calibration is
-fitted on a later pre-validation chronological slice; all folds retain the
-common last-five-baseline cohort.
+position ablation on identical folds and player-gameweek rows. Downstream
+ranking comparisons must be computed within each season-gameweek deadline.
+Calibration is fitted on a later pre-validation chronological slice; all folds
+retain the common last-five-baseline cohort.
 """
 from __future__ import annotations
 
