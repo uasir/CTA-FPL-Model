@@ -274,3 +274,6 @@ A retrospective model reconstruction was run against the provider's frozen GW2â€
 | Last-five persistence | 3.567 | 4.525 |
 
 The Transformer MAE difference versus Wildcard is -0.084 (paired player-cluster bootstrap 95% CI -0.202 to +0.042; inconclusive). Its RMSE difference is +0.256 (95% CI +0.147 to +0.369; worse). No promotion decision is supported. Provider top-50 selection makes this a conditional cohort only; it is not an all-player ranking benchmark. Raw and derived player-level rows remain private.
+
+
+A second GW11 full-player capture was completed at 2026-11-19T16:49:46Z (566 GW11 rows; 5,660 rows across GW11â€“GW20; SHA-256 `87561803e2d7632a2fb7103b6de742dab1b3aef8dea2a607f22818aff15de39d`). All 566 GW11 player identities resolved against the official FPL bootstrap. Raw and normalized player-level rows remain private. An automated private workflow now checks every six hours and captures the next FPL gameweek when it is within 48 hours of deadline; unchanged source hashes are skipped. This is a prospective capture process, not yet a forecast-accuracy result.
