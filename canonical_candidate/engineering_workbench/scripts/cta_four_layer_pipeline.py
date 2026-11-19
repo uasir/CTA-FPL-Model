@@ -58,13 +58,10 @@ MODEL_TRACKS = {
 # Features available to the conventional track. These are pre-deadline
 # historical FPL aggregates and fixture context, never target-fixture outcomes.
 CONVENTIONAL_FPL_FEATURES = (
-    "prior_gw_points", "prior_gw_minutes",
-    "prior3_gw_points_avg", "prior3_gw_minutes_avg",
-    "prior3_gw_xg_avg", "prior3_gw_xa_avg",
-    "prior5_gw_points_avg", "prior5_gw_minutes_avg",
+    "prior_gw_points", "prior3_gw_points_avg", "prior5_gw_points_avg",
+    "prior_gw_minutes", "prior3_gw_minutes_avg", "prior5_gw_minutes_avg",
     "prior5_appearance_rate", "season_appearance_rate",
-    "season_to_date_minutes", "season_to_date_points_per90",
-    "was_home",
+    "season_to_date_minutes", "season_to_date_points_per90", "was_home",
 )
 
 
