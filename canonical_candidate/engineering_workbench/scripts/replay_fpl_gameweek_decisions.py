@@ -196,37 +196,48 @@ def replay_gameweek(decision: Mapping, official_points: Mapping,
 
 
 def compare_policy_replays(rows: Sequence[Mapping], baseline_policy: str = "hold") -> dict:
-    """Paired policy comparison; each policy must share the deadline's start state.
+    """Paired policy comparison across manager-deadline starting states.
+
+    Each unique (deadline_id, starting_state_id) must contain the same policy
+    set. starting_state_id is used only as a private join key and is not emitted
+    in the aggregate report.
 
     Row schema: deadline_id, starting_state_id, policy, decision,
     official_points, minutes, positions, and optional team_by_player.
     """
     if not rows:
         raise ValueError("At least one replay row is required")
-    by_deadline = defaultdict(dict)
+    by_state = defaultdict(dict)
     for row in rows:
         deadline = str(row.get("deadline_id", "")).strip()
         state = str(row.get("starting_state_id", "")).strip()
         policy = str(row.get("policy", "")).strip()
         if not deadline or not state or not policy:
             raise ValueError("Every row requires deadline_id, starting_state_id and policy")
-        if policy in by_deadline[deadline]:
-            raise ValueError(f"Duplicate policy {policy} for deadline {deadline}")
-        by_deadline[deadline][policy] = row
+        state_key = (deadline, state)
+        if policy in by_state[state_key]:
+            raise ValueError(f"Duplicate policy {policy} for deadline/state {state_key}")
+        by_state[state_key][policy] = row
 
     policy_totals = defaultdict(list)
     paired_deltas = defaultdict(list)
-    deadline_reports = []
+    deadline_accumulators = defaultdict(lambda: {
+        "scores": defaultdict(list),
+        "deltas": defaultdict(list),
+    })
     expected_policy_set = None
-    for deadline in sorted(by_deadline):
-        policies = by_deadline[deadline]
+
+    for (deadline, state), policies in sorted(by_state.items()):
         current_policy_set = set(policies)
         if expected_policy_set is None:
             expected_policy_set = current_policy_set
         elif current_policy_set != expected_policy_set:
-            raise ValueError("All deadlines must contain the same matched policy set")
+            raise ValueError(
+                f"Policies do not share the same starting state and matched policy set for {deadline}"
+            )
         if baseline_policy not in policies:
             raise ValueError(f"Missing baseline policy {baseline_policy} for {deadline}")
+
         for row in policies.values():
             decision_time = str(row.get("decision_frozen_at", "")).replace("Z", "+00:00")
             deadline_time = str(row.get("deadline_at", "")).replace("Z", "+00:00")
@@ -241,9 +252,7 @@ def compare_policy_replays(rows: Sequence[Mapping], baseline_policy: str = "hold
                 raise ValueError("Decision and deadline timestamps must include timezone offsets")
             if frozen_at >= deadline_at:
                 raise ValueError("Decision must be frozen strictly before the deadline")
-        states = {str(row["starting_state_id"]) for row in policies.values()}
-        if len(states) != 1:
-            raise ValueError(f"Policies do not share the same starting state for {deadline}")
+
         scores = {}
         for policy, row in policies.items():
             result = replay_gameweek(
@@ -252,33 +261,60 @@ def compare_policy_replays(rows: Sequence[Mapping], baseline_policy: str = "hold
             )
             scores[policy] = result["net_points"]
             policy_totals[policy].append(result["net_points"])
+
         baseline_score = scores[baseline_policy]
         for policy, score in scores.items():
-            paired_deltas[policy].append(score - baseline_score)
-        deadline_reports.append({
-            "deadline_id": deadline,
-            "starting_state_id": next(iter(states)),
-            "net_points_by_policy": scores,
-            "delta_vs_baseline": {p: score - baseline_score for p, score in scores.items()},
-        })
+            delta = score - baseline_score
+            paired_deltas[policy].append(delta)
+            deadline_accumulators[deadline]["scores"][policy].append(score)
+            deadline_accumulators[deadline]["deltas"][policy].append(delta)
 
     summaries = {}
     for policy, scores in sorted(policy_totals.items()):
         deltas = paired_deltas[policy]
         summaries[policy] = {
-            "n_deadlines": len(scores),
-            "mean_net_points": sum(scores) / len(scores),
-            "total_net_points": sum(scores),
+            "n_manager_deadline_states": len(scores),
+            "n_deadlines": len({
+                deadline for deadline, _ in by_state
+            }),
+            "mean_net_points_per_state": sum(scores) / len(scores),
+            "total_net_points_across_states": sum(scores),
             "mean_delta_vs_baseline": sum(deltas) / len(deltas),
             "total_delta_vs_baseline": sum(deltas),
-            "positive_deadline_rate_vs_baseline": sum(value > 0 for value in deltas) / len(deltas),
-            "negative_deadline_rate_vs_baseline": sum(value < 0 for value in deltas) / len(deltas),
-            "tie_deadline_rate_vs_baseline": sum(value == 0 for value in deltas) / len(deltas),
+            "positive_state_rate_vs_baseline": sum(value > 0 for value in deltas) / len(deltas),
+            "negative_state_rate_vs_baseline": sum(value < 0 for value in deltas) / len(deltas),
+            "tie_state_rate_vs_baseline": sum(value == 0 for value in deltas) / len(deltas),
         }
+
+    deadline_reports = []
+    for deadline, accumulator in sorted(deadline_accumulators.items()):
+        state_count = len(next(iter(accumulator["scores"].values()), []))
+        mean_scores = {
+            policy: sum(values) / len(values)
+            for policy, values in sorted(accumulator["scores"].items())
+        }
+        mean_deltas = {
+            policy: sum(values) / len(values)
+            for policy, values in sorted(accumulator["deltas"].items())
+        }
+        positive_rates = {
+            policy: sum(value > 0 for value in values) / len(values)
+            for policy, values in sorted(accumulator["deltas"].items())
+        }
+        deadline_reports.append({
+            "deadline_id": deadline,
+            "n_starting_states": state_count,
+            "mean_net_points_by_policy": mean_scores,
+            "mean_delta_vs_baseline": mean_deltas,
+            "positive_state_rate_vs_baseline": positive_rates,
+        })
+
     return {
         "status": "RESEARCH_ONLY_PAIRED_ONE_STEP_REPLAY",
+        "unit_of_analysis": "manager-deadline starting state",
         "baseline_policy": baseline_policy,
         "n_deadlines": len(deadline_reports),
+        "n_manager_deadline_states": len(by_state),
         "policies": summaries,
         "deadlines": deadline_reports,
         "limitations": [
@@ -289,7 +325,6 @@ def compare_policy_replays(rows: Sequence[Mapping], baseline_policy: str = "hold
             "No statistical uncertainty interval is calculated by this deterministic scorer.",
         ],
     }
-
 
 
 def main():
