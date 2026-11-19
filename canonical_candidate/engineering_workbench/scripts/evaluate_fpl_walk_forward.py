@@ -195,10 +195,6 @@ def score_fold(train, valid, season):
         # All predictions are created before actual labels are read for scoring.
         band_raw=minutes_band_probabilities(minutes_band_model,row)
         band_cal=minutes_band_probabilities(minutes_band_model,row,minutes_band_temperature)
-        minutes_band_probabilities_raw.append(band_raw.tolist())
-        minutes_band_probabilities_calibrated.append(band_cal.tolist())
-        minutes_band_last_gw.append(one_hot_minutes_distribution(row["last_gw_baseline_minutes"],train_band_prior))
-        minutes_band_train_prior.append(train_band_prior)
         score=predict(appearance_model,row)
         raw_p=min(1.0,max(0.0,score))
         calibrated_p=calibrated_probability(calibrator,score)
@@ -219,6 +215,11 @@ def score_fold(train, valid, season):
         baseline_points=row["last5_baseline_points"]
         if baseline_points is None:
             continue
+        # Keep every metric on the same scored validation cohort.
+        minutes_band_probabilities_raw.append(band_raw.tolist())
+        minutes_band_probabilities_calibrated.append(band_cal.tolist())
+        minutes_band_last_gw.append(one_hot_minutes_distribution(row["last_gw_baseline_minutes"],train_band_prior))
+        minutes_band_train_prior.append(train_band_prior)
         raw_probabilities.append(raw_p)
         calibrated_probabilities.append(calibrated_p)
         prior_rate=row["prior5_appearance_rate"]
