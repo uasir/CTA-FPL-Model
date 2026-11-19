@@ -78,12 +78,15 @@ def _validate_roster(decision: Mapping, positions: Mapping[str, str]) -> tuple[l
 def replay_gameweek(decision: Mapping, official_points: Mapping,
                     minutes: Mapping, positions: Mapping,
                     team_by_player: Mapping | None = None,
-                    played_by_player: Mapping | None = None) -> dict:
+                    played_by_player: Mapping | None = None,
+                    autosub_absence_order: str = "forward") -> dict:
     """Score one frozen legal lineup against official player outcomes.
 
     action_legality_verified must be true: this scorer does not validate
     transfers, prices, team limits, or chip availability.
     """
+    if autosub_absence_order not in {"forward", "reverse"}:
+        raise ValueError("autosub_absence_order must be 'forward' or 'reverse'")
     if decision.get("action_legality_verified") is not True:
         raise ValueError("Decision must be explicitly marked action_legality_verified")
     chip = decision.get("chip")
@@ -125,7 +128,8 @@ def replay_gameweek(decision: Mapping, official_points: Mapping,
             if not played[substitute]:
                 continue
             replacement = None
-            for absent in active_xi:
+            absent_candidates = active_xi if autosub_absence_order == "forward" else list(reversed(active_xi))
+            for absent in absent_candidates:
                 if pos[absent] == "GKP" or played[absent]:
                     continue
                 candidate_xi = [substitute if p == absent else p for p in active_xi]
