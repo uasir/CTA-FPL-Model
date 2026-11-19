@@ -12,6 +12,8 @@ from evaluate_fpl_two_part_model import (
 )
 from train_fpl_exploratory_ridge import fit_ridge, optional_number, predict, mae, rmse
 
+MINUTES_BASELINE_FEATURES = ("prior_gw_minutes", "prior3_gw_minutes_avg", "prior5_gw_minutes_avg")
+
 
 def fit_ridge_fast(rows, target_key, feature_names=FEATURES, ridge_lambda=RIDGE_LAMBDA):
     """NumPy implementation equivalent to the canonical training-only ridge transform."""
@@ -66,6 +68,10 @@ def score_fold(train, valid, season):
     calibrator=fit_platt(calibration_scores,[r["appeared"] for r in calibration])
     minutes_model=fit_ridge_fast(train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
     conditional_minutes_model=fit_ridge_fast(positive_train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
+    # A compact, training-only persistence model tests whether recent minutes alone
+    # generalize better than the full feature set for this target.
+    lagged_minutes_model=fit_ridge_fast(train,"actual_minutes",MINUTES_BASELINE_FEATURES,RIDGE_LAMBDA)
+    conditional_lagged_minutes_model=fit_ridge_fast(positive_train,"actual_minutes",MINUTES_BASELINE_FEATURES,RIDGE_LAMBDA)
     conditional_model=fit_ridge_fast(positive_train,"actual_points",FEATURES,RIDGE_LAMBDA)
     direct_model=fit_ridge_fast(train,"actual_points",FEATURES,RIDGE_LAMBDA)
 
@@ -74,6 +80,7 @@ def score_fold(train, valid, season):
     fallback_appearance_rate=sum(r["appeared"] for r in train)/len(train)
     predicted_minutes=[]; predicted_minutes_raw=[]; predicted_minutes_calibrated=[]
     last_minutes=[]; prior3_minutes=[]; prior5_minutes=[]
+    lagged_minutes=[]; conditional_lagged_minutes_raw=[]; conditional_lagged_minutes_calibrated=[]
     two_part_raw=[]; two_part_calibrated=[]; direct_points=[]; last5_points=[]
     for row in valid:
         # All predictions are created before actual labels are read for scoring.
@@ -88,6 +95,10 @@ def score_fold(train, valid, season):
         conditional_minutes=min(180.0,max(0.0,predict(conditional_minutes_model,row)))
         expected_minutes_raw=raw_p*conditional_minutes
         expected_minutes_calibrated=calibrated_p*conditional_minutes
+        lagged_minutes_ep=min(180.0,max(0.0,predict(lagged_minutes_model,row)))
+        conditional_lagged_minutes=min(180.0,max(0.0,predict(conditional_lagged_minutes_model,row)))
+        expected_lagged_minutes_raw=raw_p*conditional_lagged_minutes
+        expected_lagged_minutes_calibrated=calibrated_p*conditional_lagged_minutes
         baseline_points=row["last5_baseline_points"]
         if baseline_points is None:
             continue
@@ -105,6 +116,9 @@ def score_fold(train, valid, season):
         last_minutes.append(row["last_gw_baseline_minutes"])
         prior3_minutes.append(row.get("prior3_gw_minutes_avg"))
         prior5_minutes.append(row.get("prior5_gw_minutes_avg"))
+        lagged_minutes.append(lagged_minutes_ep)
+        conditional_lagged_minutes_raw.append(expected_lagged_minutes_raw)
+        conditional_lagged_minutes_calibrated.append(expected_lagged_minutes_calibrated)
         two_part_raw.append(raw_ep)
         two_part_calibrated.append(calibrated_ep)
         direct_points.append(direct_ep)
@@ -146,6 +160,9 @@ def score_fold(train, valid, season):
             "last_gameweek_baseline":last_minutes_metrics,
             "prior3_gameweeks_baseline":prior3_minutes_metrics,
             "prior5_gameweeks_baseline":prior5_minutes_metrics,
+            "lagged_feature_ridge":regression_metrics(actual_minutes,lagged_minutes),
+            "two_part_lagged_feature_ridge_raw":regression_metrics(actual_minutes,conditional_lagged_minutes_raw),
+            "two_part_lagged_feature_ridge_calibrated":regression_metrics(actual_minutes,conditional_lagged_minutes_calibrated),
         },
         "points":{
             "two_part_calibrated":regression_metrics(actual_points,two_part_calibrated),
@@ -198,6 +215,9 @@ def evaluate_walk_forward(rows):
                 if all(f["minutes"]["prior3_gameweeks_baseline"] is not None for f in folds) else None,
             "prior5_gameweeks_baseline_mae":weighted_metric("minutes","prior5_gameweeks_baseline","mae")
                 if all(f["minutes"]["prior5_gameweeks_baseline"] is not None for f in folds) else None,
+            "lagged_feature_ridge_mae":weighted_metric("minutes","lagged_feature_ridge","mae"),
+            "two_part_lagged_feature_ridge_raw_mae":weighted_metric("minutes","two_part_lagged_feature_ridge_raw","mae"),
+            "two_part_lagged_feature_ridge_calibrated_mae":weighted_metric("minutes","two_part_lagged_feature_ridge_calibrated","mae"),
         },
         "points":{
             model:{
