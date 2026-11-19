@@ -140,3 +140,35 @@ Do not set a numerical RMSE target in advance. First collect a sufficiently larg
 6. Expand to other sources only where actual pre-deadline forecasts can be captured reliably.
 
 No external benchmark score or model promotion is claimed until this process has run prospectively.
+
+
+## Follow-up live-output access audit (19 November 2026, 15:47 UTC)
+
+This follow-up checks the actual public forecast outputs and capture surfaces, not inferred model methodologies.
+
+| Source | Actual output/access verified | Capture status and next action |
+|---|---|---|
+| FPL Lucho — served xP | The Player Forecast page exposes a direct all-player CSV export at `/export/predictions.csv`; its page says the CSV contains the same served xP values shown on the site for each player and fixture over four GWs. The performance page distinguishes this served Lucho xP from Raw, Odds xP and FPL ep_next. | **Output surface verified; automated raw capture not yet validated.** The CSV endpoint was identified, but the browser fetch could not render its `text/csv` response. Test direct HTTP retrieval in the collector. Treat the CSV as the served Lucho xP series only. Do not label it Odds xP. The performance page's Odds xP series is a distinct forecast variant; its player-level export path remains unverified. |
+| FPL Forecaster | Public GW11 player page lists 672 projected players over GW11–15 and exposes individual player expected-points outputs. | **Bulk capture unverified.** The public player page is available, but no bulk CSV/API was established in this audit. Do not scrape a partial visible ranking and call it the full player universe. |
+| Sideline Quant | Public GW11 JSON endpoint returns all 672 player-fixture rows, FPL player and fixture IDs, expected points, uncertainty, minutes/start probabilities and other forecast fields. Payload includes `generated_at=2026-11-18T03:33:09Z`, GW11 deadline `2026-11-21T11:00:00Z`, and 10,000 simulations. The provider page says each GW has a dedicated URL and old live feeds are removed after the feed advances. | **Strong capture candidate; immediate immutable archiving required.** Capture the raw JSON now and on each future GW before deadline; record the exact retrieval time and SHA-256. Preserve the provider's player-fixture grain and sum fixtures to player-GW only under an explicit aggregation rule. Keep provider's own stated eligible populations separate from our common-cohort scoring. |
+| FPLRogue | Current accepted GW11 release exposes a downloadable 672-player CSV and a capture/update timestamp (19 Nov 2026, 09:45 GMT), plus a browseable archive page describing append-only frozen releases. The archive currently lists 13 releases from GW3–9 with dated CSV links. | **Strong capture candidate.** Download the current GW11 CSV and test its columns/player IDs. Archive page confirms historical release snapshots exist, but GW11 archive availability and exact pre-deadline timestamp semantics must be verified. Keep engine/version and each release distinct. |
+| FPL Wildcard | Projection dataset page exposes a downloadable player-GW CSV with xPts, xMins and optional start/appearance/blank/haul probabilities; its data page reports a 19 Nov 2026 14:45 UK update and model v11. | **Capture candidate; snapshot policy needs verification.** Confirm the GW11 CSV's actual timestamp and whether dated immutable archives are available. Terms currently state no redistribution licence; retain only what is necessary for internal research and attribution/provenance. |
+| FPL Vault | Public xPts page exposes an export CSV and a current table of 459 players; page describes the forecast as FPL-data-driven and not betting-odds-based. | **Secondary capture candidate.** Verify complete player coverage, forecast timestamp, and whether a stable pre-deadline snapshot can be frozen. |
+| FPL Form | Existing documentation confirms predicted-points CSV export with optional appearance probabilities and clarifies the probability-adjusted forecast column. | Access, timestamp and complete player-GW capture still need verification. |
+
+### Variant and comparison rules clarified by the audit
+
+- A source's published CSV is benchmarked as the exact forecast it contains. Do not infer that a CSV includes a second variant merely because the website displays one elsewhere.
+- FPL Lucho's served xP, raw model, and Odds xP are separate series. The served CSV is not evidence that the separate Odds xP series is exportable.
+- Sideline Quant publishes fixture-grain forecasts; preserve those rows as supplied and document any player-GW aggregation. Do not compare fixture-grain and player-GW values without a consistent aggregation.
+- Public performance scorecards are useful source context, not substitutes for our own matched-cohort evaluation. Their populations, thresholds and exclusions may differ.
+- A visible forecast is not yet a valid benchmark observation until its exact raw output, generation/retrieval timestamp, deadline, player mapping, variant and hash are archived.
+- The newly identified Sideline Quant and FPLRogue outputs expand the practical benchmark candidate set. They do not replace the specifically approved FPL Forecaster and FPL Lucho market-derived benchmarks.
+
+### Immediate capture priority
+
+1. Freeze the current Sideline Quant GW11 JSON and FPLRogue GW11 CSV while their published releases are still available.
+2. Validate and freeze the FPL Lucho served-xP CSV; separately investigate whether its published Odds xP player rows can be retrieved.
+3. Re-test FPL Forecaster for a complete player-level bulk output path; if none exists, record it as visible but not yet machine-capturable.
+4. Add the remaining candidate sources only after confirming complete player-level coverage and pre-deadline snapshot reproducibility.
+5. Do not calculate or report our own comparative scores until the captured snapshots have been joined to official realized points on matched player-GW cohorts.
