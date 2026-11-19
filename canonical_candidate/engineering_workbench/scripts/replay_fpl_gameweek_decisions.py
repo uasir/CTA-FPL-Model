@@ -141,7 +141,9 @@ def replay_gameweek(decision: Mapping, official_points: Mapping,
     if captain not in xi or vice not in xi or captain == vice:
         raise ValueError("Captain and vice-captain must be distinct starting XI players")
     effective_captain = captain if played[captain] else vice if played[vice] else None
-    captain_extra_multiplier = 2 if chip == "triple_captain" else 1
+    # Triple Captain triples the originally selected captain only. If that
+    # player does not play, the vice inherits ordinary double-captain scoring.
+    captain_extra_multiplier = 2 if chip == "triple_captain" and played[captain] else 1
     captain_extra_points = (pts[effective_captain] * captain_extra_multiplier
                             if effective_captain is not None else 0.0)
 
