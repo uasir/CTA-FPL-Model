@@ -38,7 +38,7 @@ def test_cta_features_use_only_matches_strictly_before_each_deadline():
         cta_row(101, "2026-08-10T10:00:00Z", 4),
         cta_row(102, "2026-08-20T11:00:00Z", 6),  # exactly at GW2 deadline
         cta_row(103, "2026-08-29T10:00:00Z", 8),
-        cta_row(500, "2026-08-30T13:00:00Z", 99),  # target fixture itself
+        cta_row(502, "2026-08-30T13:00:00Z", 99),  # target fixture itself
     ]
     targets = [
         fpl_target(501, 2, "2026-08-20T11:00:00Z", "2026-08-20T13:00:00Z", 8),
