@@ -20,9 +20,6 @@ FEATURES=(
     "prior3_gw_xa_avg",
     "season_to_date_points_per90",
     "was_home",
-    "team_difficulty_snapshot",
-    "opponent_difficulty_snapshot",
-    "fixture_count",
 )
 RIDGE_LAMBDA=10.0
 
@@ -263,12 +260,14 @@ def train_and_evaluate(rows):
         "ridge_lambda":RIDGE_LAMBDA,
         "features":list(FEATURES),
         "missing_feature_policy":"Training-only median imputation with explicit missingness indicators; observed zero remains distinct from missing.",
+        "excluded_unverified_features":["team_difficulty_snapshot","opponent_difficulty_snapshot","fixture_count"],
         "points_missing_feature_counts":{name:sum(1 for row in train_rows if row.get(name) is None) for name in FEATURES},
         "points_metrics":points_metrics,
         "minutes_metrics":minutes_metrics,
         "decision":"DO_NOT_PROMOTE",
         "limitations":[
             "Historical source revisions mean point-in-time status is not verified.",
+            "Fixture difficulty and target-gameweek fixture count are excluded because no archived pre-deadline fixture snapshot proves their historical values.",
             "This is one-season exploratory data with a four-gameweek temporal holdout.",
             "The model is not connected to either recommendation engine.",
             "Ridge regularisation is fixed in advance; no hyperparameter tuning is performed on the holdout.",
