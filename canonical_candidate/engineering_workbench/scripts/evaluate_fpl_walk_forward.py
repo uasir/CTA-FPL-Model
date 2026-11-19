@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Expanding-season walk-forward validation for the two-part FPL predictor."""
 from __future__ import annotations
-import argparse, csv, json
+import argparse, csv, json, math
 import numpy as np
 from pathlib import Path
 
@@ -149,14 +149,12 @@ def evaluate_walk_forward(rows):
     if not folds:
         raise ValueError("No walk-forward folds could be evaluated")
 
-    def pool(section, key):
-        values=[fold[section][key] for fold in folds]
-        return values
-
     # Pool fold-level metric values weighted by their validation player-GW counts.
     def weighted_metric(section,key,metric):
         weights=[fold["validation_player_gameweeks"] for fold in folds]
         values=[fold[section][key][metric] for fold in folds]
+        if metric=="rmse":
+            return round(math.sqrt(sum(w*v*v for w,v in zip(weights,values))/sum(weights)),6)
         return round(sum(w*v for w,v in zip(weights,values))/sum(weights),6)
 
     pooled={
