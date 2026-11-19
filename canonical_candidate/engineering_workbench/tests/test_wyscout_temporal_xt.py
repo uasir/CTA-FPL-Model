@@ -22,9 +22,12 @@ class TemporalXTTests(unittest.TestCase):
             event(1, 2, 7, "Pass", possession=2),
         ]
         samples = build_temporal_samples(events, {"1": "2017-08-01"})
-        self.assertEqual(len(samples), 1)
-        self.assertEqual(samples[0]["labels"]["5"]["goal"], 1)
-        self.assertEqual(samples[0]["labels"]["5"]["shot"], 1)
+        self.assertEqual(len(samples), 2)
+        first_possession_sample = next(s for s in samples if s["zone"] == (6, 4))
+        self.assertEqual(first_possession_sample["labels"]["5"]["goal"], 1)
+        self.assertEqual(first_possession_sample["labels"]["5"]["shot"], 1)
+        second_possession_sample = next(s for s in samples if s["labels"]["5"]["goal"] == 0)
+        self.assertEqual(second_possession_sample["labels"]["5"]["goal"], 0)
 
     def test_goal_outside_horizon_is_not_positive(self):
         events = [event(1, 0, 1, "Carry"), event(1, 1, 20, "Shot", outcome="Goal")]
