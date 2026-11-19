@@ -132,7 +132,7 @@ def run(events_path: Path, out_dir: Path) -> dict:
         },
         "xt_fit": xt_report,
         "coordinate_policy": "Wyscout attacking-team-relative percentages scaled to CTA 120x80; no direction flip.",
-        "possession_policy": "INFERRED_CONTIGUOUS_TEAM_BLOCK; not yet manually validated against video.",
+        "possession_policy": "INFERRED_EVENT_STATE_WITH_DUEL_OUTCOME_TAGS; not yet manually validated against video.",
         "validation_status": "STRUCTURAL_EXECUTION_ONLY",
         "predictive_validation": "NOT_EVALUATED",
         "point_in_time_status": "RETROSPECTIVE_FULL_SEASON_XT_FIT_NOT_POINT_IN_TIME_SAFE",
