@@ -41,7 +41,7 @@ Uncertainty: player-season-clustered bootstrap intervals for position-minus-base
 
 ## Gameweek chronology validation
 
-The panel builder now prefers the merged source's explicit `GW` field over `round`, records disagreements between the two fields, and rejects gameweek labels outside 1–38. This is important because the first pooled ablation report exposed a gameweek-label union extending to 47. The first ablation's metrics are preliminary until the model is rerun on the validated panel.
+The panel builder reads the merged source's explicit `GW` field when present and falls back to `round`. The 2019/20 COVID-interrupted season requires a known source-specific normalization: labels 39–47 map to FPL gameweeks 30–38 (subtract nine); this is a source-label offset, not nine additional FPL deadlines. The builder now applies that mapping only to 2019/20, records the number of normalized rows, compares `GW` and `round` after normalization, and rejects any remaining labels outside 1–38. This mapping is consistent with published handling of the Vaastav 2019/20 export ([example normalization](https://github.com/saheedniyi02/fpl-ai/blob/master/fpl/process.py)). The first ablation's metrics are preliminary until the model is rerun on the corrected panel.
 ## Point-in-time limitation
 
 The historical source contains retrospective season exports. Position labels are not guaranteed to be frozen as of each historical deadline. This ablation therefore tests whether the position signal is useful under this retrospective panel, not whether the complete feature pipeline has been point-in-time verified.
