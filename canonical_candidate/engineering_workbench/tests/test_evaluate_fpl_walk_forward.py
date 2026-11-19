@@ -108,3 +108,4 @@ def test_walk_forward_report_includes_minutes_distribution_metrics():
         assert bands["calibrated"]["multiclass_log_loss"]>=0
         assert bands["raw"]["multiclass_brier"]>=0
         assert bands["last_gameweek_one_hot"]["accuracy"]>=0
+        assert fold["points"]["minutes_band_calibrated"]["mae"]>=0
