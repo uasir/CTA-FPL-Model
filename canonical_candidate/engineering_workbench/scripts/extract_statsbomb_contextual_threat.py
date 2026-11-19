@@ -523,6 +523,8 @@ def extract_contextual_threat(
             "carry_context_events": sum(r["event_type"] in {"Carry", "Dribble"} for r in rows),
             "receipt_context_events": sum(r["event_type"] in {"Ball Receipt*", "Ball Receipt"} for r in rows),
             "under_pressure_rate": round(sum(r["under_pressure"] for r in rows) / len(rows), 6),
+            "receiving_option_attribution_status": "ACTOR_POSSESSION_CONTEXT_ONLY_VISIBLE_RECEIVER_IDENTITIES_UNAVAILABLE",
+            "dangerous_receipt_attribution_status": "BALL_RECEIPT_EVENT_ACTOR_IDENTITY",
             "feature_scope": "360_sampled_events_only_not_full_match_totals",
         })
 
