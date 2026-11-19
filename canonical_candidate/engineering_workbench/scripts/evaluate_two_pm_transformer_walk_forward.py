@@ -447,6 +447,10 @@ def evaluate(rows):
         pooled_actual, pooled_transformer, pooled_direct, pooled_clusters,
         n_boot=1000, seed=SEED + 200,
     )
+    affine_bootstrap = cluster_bootstrap_paired_errors(
+        pooled_actual, pooled_transformer_affine, pooled_baseline, pooled_clusters,
+        n_boot=1000, seed=SEED + 300,
+    )
     return {
         "status": "RESEARCH_ONLY",
         "decision": "DO_NOT_PROMOTE",
@@ -468,6 +472,7 @@ def evaluate(rows):
         "pooled_direct_ridge": pooled_direct_report,
         "pooled_last5_points_persistence": pooled_last5_report,
         "paired_transformer_vs_conventional_two_part_cluster_bootstrap": bootstrap,
+        "paired_transformer_affine_vs_conventional_two_part_cluster_bootstrap": affine_bootstrap,
         "paired_transformer_vs_direct_ridge_cluster_bootstrap": direct_bootstrap,
         "limitations": [
             "Historical FPL source vintages are retrospective, not archived pre-deadline snapshots.",
