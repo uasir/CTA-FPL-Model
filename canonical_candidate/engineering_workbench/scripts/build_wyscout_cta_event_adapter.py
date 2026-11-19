@@ -149,7 +149,8 @@ def normalize_wyscout_events(events, players, teams, match_id):
         "skipped_event_counts": skipped,
         "player_id_namespace": "wyscout: prefix retained; never interpreted as StatsBomb or FPL ID",
         "coordinate_conversion": "attacking-relative percentage x,y -> CTA pitch x*1.2,y*0.8; no direction flip",
-        "possession_method": "INFERRED_CONTIGUOUS_TEAM_BLOCK; boundaries at period/team changes, restarts, and after shot/offside/foul/interruption",
+        "possession_method": "INFERRED_CONTIGUOUS_TEAM_BLOCK",
+        "possession_boundary_policy": "period/team changes, restarts, and after shot/offside/foul/interruption",
         "limitations": [
             "Wyscout does not supply possession IDs in this public event schema; inferred segments are provisional.",
             "No pass recipient, pressure flag, StatsBomb xG or 360 context is synthesized.",
