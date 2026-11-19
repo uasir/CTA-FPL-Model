@@ -104,6 +104,23 @@ class ProviderCrosswalkTests(unittest.TestCase):
         self.assertEqual(report["status"], "PASS")
         self.assertEqual(len(accepted), 1)
 
+    def test_11footy_team_aliases_match_candidate_builder_normalization(self):
+        accepted, report = MODULE.validate_rows(
+            [row(
+                season="2026/27", competition_id="1", provider_player_id="10790",
+                provider_player_name="Example Player", fpl_element_id="42",
+                fpl_player_name="Example Player", provider_team_id="1",
+                provider_team_name="Nott'm Forest", fpl_team_id="1",
+                fpl_team_name="Nottingham Forest",
+                verification_status="verified", match_method="manual_source_verified",
+                evidence_source="Independent source cross-check",
+                evidence_url="https://example.org/player-profile",
+            )],
+            "11footy",
+        )
+        self.assertEqual(report["status"], "PASS")
+        self.assertEqual(len(accepted), 1)
+
     def test_11footy_exact_name_team_birth_date_mismatch_is_blocked(self):
         accepted, report = MODULE.validate_rows(
             [row(
