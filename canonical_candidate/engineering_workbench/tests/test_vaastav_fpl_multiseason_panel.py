@@ -84,6 +84,8 @@ def test_multiseason_evaluation_uses_chronological_season_gameweek_holdout():
     assert report["validation_first_gameweek"][0] == "2024-25"
     assert report["validation_last_gameweek"][0] == "2024-25"
     assert report["scored_player_gameweeks"] > 0
+    assert report["per_season_validation_metrics"].keys() == {"2024-25"}
+    assert "zero_minute_player_gameweek_share" in report
 
 
 def test_source_csv_reader_supports_legacy_windows_1252_names():
