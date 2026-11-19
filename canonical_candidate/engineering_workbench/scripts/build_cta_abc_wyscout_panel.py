@@ -93,19 +93,14 @@ def build_panel(rows, source_report):
             if ground_won is not None and defensive_duel_total is not None
             and defensive_duel_total > 0 else None
         )
-        defensive_actions = [
-            average(row, feature, 3)
+        defensive_action_rates = [
+            per90(row, feature, 3)
             for feature in ("ground_defensive_duel_events", "aerial_duel_events",
                             "clearance_events", "interception_events")
         ]
-        defensive_actions = (
-            sum(value for value in defensive_actions if value is not None)
-            if any(value is not None for value in defensive_actions) else None
-        )
         defensive_actions_per90 = (
-            defensive_actions * 90.0 / minutes3
-            if defensive_actions is not None and minutes3 is not None and minutes3 > 0
-            else None
+            sum(value for value in defensive_action_rates if value is not None)
+            if any(value is not None for value in defensive_action_rates) else None
         )
         team_ground_won = number(row.get("team_ground_defensive_duels_won_prior_3_avg"))
         team_aerial_won = number(row.get("team_aerial_duels_won_prior_3_avg"))
