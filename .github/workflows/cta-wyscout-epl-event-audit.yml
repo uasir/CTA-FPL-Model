@@ -11,12 +11,14 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/verify_cross_provider_fpl_identity.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py
   push:
     branches: [main, "feat/**"]
     paths:
@@ -26,11 +28,13 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py
   workflow_dispatch:
 
 permissions:
@@ -196,6 +200,29 @@ jobs:
           else
             echo "WARNING: no cross-provider verified identity file; Wyscout player-level panel not built"
           fi
+
+      - name: Evaluate incremental Wyscout CTA signal against prior FPL form
+        if: always()
+        continue-on-error: true
+        run: |
+          FEATURES="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_lagged_fpl_research_features.csv"
+          if [ -f "$FEATURES" ]; then
+            python -m pip install numpy
+            python canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py \
+              --lagged-features "$FEATURES" \
+              --out-dir run_artifacts/wyscout/output/verified_fpl_panel
+          else
+            echo "WARNING: verified lagged Wyscout-FPL feature panel is unavailable"
+          fi
+
+      - name: Upload aggregate-only Wyscout CTA incremental-value report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-wyscout-incremental-value-audit
+          path: run_artifacts/wyscout/output/verified_fpl_panel/wyscout_cta_incremental_value_report.json
+          if-no-files-found: ignore
+          retention-days: 90
 
       - name: Upload aggregate-only verified Wyscout-FPL panel report
         if: always()
