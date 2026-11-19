@@ -49,6 +49,19 @@ def test_prediction_quantile_diagnostics_caps_bin_count_at_sample_size():
     assert [item["n"] for item in report["bins"]] == [1, 1, 1]
 
 
+def test_point_error_metrics_report_plus_one_plus_two_and_signed_bias():
+    from evaluate_fpl_decision_quality import point_error_metrics
+
+    report = point_error_metrics([2, 15], [2, 8])
+    assert report["mae"] == pytest.approx(3.5)
+    assert report["rmse"] == pytest.approx((49 / 2) ** 0.5)
+    assert report["mean_signed_error_actual_minus_predicted"] == pytest.approx(3.5)
+    assert report["within_1_point_count"] == 1
+    assert report["within_1_point_rate"] == pytest.approx(0.5)
+    assert report["within_2_points_count"] == 1
+    assert report["within_2_points_rate"] == pytest.approx(0.5)
+
+
 def test_correct_recommendation_can_coexist_with_inaccurate_point_forecast():
     report = evaluate_forecast(
         actual_points=[2, 15],
