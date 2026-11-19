@@ -59,19 +59,16 @@ def select_managers(page_payloads,sample_size,rank_limit,seed):
         raise ValueError("Every rank page must be captured before manager sampling")
     managers=[]
     for page,payload in sorted(page_payloads.items()):
-        first_rank=(page-1)*PAGE_SIZE+1
-        last_rank=min(rank_limit,page*PAGE_SIZE)
         results=payload.get("standings",{}).get("results",[])
         eligible=[
             x for x in results
-            if first_rank<=int(x.get("rank") or 0)<=last_rank
-            and int(x.get("entry") or 0)>0
+            if int(x.get("rank") or 0)>0 and int(x.get("entry") or 0)>0
         ]
-        expected_population=last_rank-first_rank+1
-        observed_ranks=[int(x.get("rank") or 0) for x in eligible]
-        if len(eligible)!=expected_population or len(set(observed_ranks))!=expected_population:
+        expected_population=min(PAGE_SIZE,rank_limit-(page-1)*PAGE_SIZE)
+        entry_ids=[int(x["entry"]) for x in eligible]
+        if len(eligible)!=expected_population or len(set(entry_ids))!=expected_population:
             raise ValueError(
-                f"Rank page {page} is incomplete: expected {expected_population} unique ranks, found {len(eligible)}"
+                f"Rank page {page} is incomplete: expected {expected_population} unique managers, found {len(eligible)}"
             )
         if len(eligible)<per_page:
             raise ValueError(f"Rank page {page} has {len(eligible)} eligible managers; need {per_page}")
