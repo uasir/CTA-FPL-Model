@@ -153,7 +153,7 @@ def build_upcoming_targets(players, fixtures, bootstrap, source_metadata, target
 
 
 def build_lagged_verified_features(
-    cta_rows, targets, source_report, fpl_source_metadata=None
+    cta_rows, targets, source_report, fpl_source_metadata=None, verified_fpl_element_ids=None
 ):
     if not targets:
         raise ValueError("Upcoming FPL target fixture rows are empty")
@@ -201,8 +201,11 @@ def build_lagged_verified_features(
             key=lambda row: (row["_kickoff_ts"], str(row.get("fpl_fixture_id", "")))
         )
 
+    verified_ids = set(str(value) for value in (verified_fpl_element_ids or history_by_player.keys()))
     output = []
     rows_with_prior = 0
+    target_rows_verified_identity = 0
+    target_rows_unverified_identity = 0
     rows_snapshot_available = 0
     players_with_prior = set()
     coverage_by_gw = Counter()
@@ -235,6 +238,11 @@ def build_lagged_verified_features(
         else:
             rows_snapshot_unavailable += 1
 
+        identity_verified = player_id in verified_ids
+        if identity_verified:
+            target_rows_verified_identity += 1
+        else:
+            target_rows_unverified_identity += 1
         history = history_by_player.get(player_id, [])
         timestamps = [row["_kickoff_ts"] for row in history]
         cutoff_index = (
@@ -255,10 +263,12 @@ def build_lagged_verified_features(
 
         if not snapshot_available:
             identity_status = "SOURCE_SNAPSHOT_AFTER_DEADLINE"
+        elif not identity_verified:
+            identity_status = "NO_VERIFIED_IDENTITY"
         elif has_prior:
-            identity_status = "VERIFIED_IDENTITY_AND_FIXTURE"
+            identity_status = "VERIFIED_IDENTITY_AND_PRIOR_CTA_HISTORY"
         else:
-            identity_status = "NO_VERIFIED_CTA_HISTORY"
+            identity_status = "VERIFIED_IDENTITY_NO_PRIOR_HISTORY"
 
         row_out = {
             "season": target.get("season", ""),
@@ -274,6 +284,7 @@ def build_lagged_verified_features(
             "cta_prior_matches_count": len(prior),
             "cta_prior3_matches_count": len(prior3),
             "cta_prior5_matches_count": len(prior5),
+            "identity_verified": identity_verified,
             "identity_status": identity_status,
             "research_only": True,
             "decision_use_status": "RESEARCH_ONLY_NOT_IN_BASELINE",
@@ -307,6 +318,9 @@ def build_lagged_verified_features(
         "rows_without_source_snapshot_available_as_of_deadline": rows_snapshot_unavailable,
         "rows_with_prior_cta_history": rows_with_prior,
         "rows_without_prior_cta_history": len(output) - rows_with_prior,
+        "target_rows_with_verified_identity": target_rows_verified_identity,
+        "target_rows_without_verified_identity": target_rows_unverified_identity,
+        "verified_fpl_element_ids_available": len(verified_ids),
         "players_with_prior_cta_history": len(players_with_prior),
         "coverage_by_gameweek": dict(sorted(coverage_by_gw.items())),
         "prior_feature_coverage_rows": dict(feature_nonempty),
@@ -346,6 +360,7 @@ def main():
     parser.add_argument("--fpl-fixtures", type=Path, required=True)
     parser.add_argument("--bootstrap", type=Path, required=True)
     parser.add_argument("--source-metadata", type=Path, required=True)
+    parser.add_argument("--identity-crosswalk", type=Path)
     parser.add_argument("--target-gameweek", type=int)
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
@@ -357,8 +372,15 @@ def main():
         read_csv(args.fpl_players), read_csv(args.fpl_fixtures),
         bootstrap, source_metadata, args.target_gameweek,
     )
+    verified_ids = None
+    if args.identity_crosswalk:
+        verified_ids = {
+            str(row.get("fpl_element_id") or "").strip()
+            for row in read_csv(args.identity_crosswalk)
+            if str(row.get("fpl_element_id") or "").strip()
+        }
     rows, report = build_lagged_verified_features(
-        read_csv(args.cta_panel), targets, source_report, source_metadata
+        read_csv(args.cta_panel), targets, source_report, source_metadata, verified_ids
     )
     report["upcoming_target_summary"] = target_report
     args.out_dir.mkdir(parents=True, exist_ok=True)

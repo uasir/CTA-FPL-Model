@@ -57,7 +57,7 @@ def test_verified_cta_features_use_only_prior_matches_and_verified_rows():
         target(502, 3, "2026-08-30T11:00:00Z", "2026-08-30T13:00:00Z"),
     ]
     output, report = build_lagged_verified_features(
-        cta, targets, source_report(), {"fetched_at_utc": "2026-08-19T00:00:00Z"}
+        cta, targets, source_report(), {"fetched_at_utc": "2026-08-19T00:00:00Z"}, {"42"}
     )
     by_fixture = {row["fixture_id"]: row for row in output}
     gw2 = by_fixture["501"]
@@ -79,7 +79,7 @@ def test_provider_snapshot_after_deadline_is_excluded():
     output, report = build_lagged_verified_features(
         [cta_row(100, "2026-08-01T10:00:00Z", 2)],
         [target(501, 2, "2026-08-20T11:00:00Z", "2026-08-20T13:00:00Z")],
-        source_report("2026-08-21T00:00:00Z"),
+        source_report("2026-08-21T00:00:00Z"), None, {"42"}
     )
     row = output[0]
     assert row["cta_prior_matches_count"] == 0
@@ -93,11 +93,26 @@ def test_missing_source_snapshot_timestamp_fails_closed():
     output, report = build_lagged_verified_features(
         [cta_row(100, "2026-08-01T10:00:00Z", 2)],
         [target(501, 2, "2026-08-20T11:00:00Z", "2026-08-20T13:00:00Z")],
-        source_report(""),
+        source_report(""), None, {"42"}
     )
     assert output[0]["cta_prior_matches_count"] == 0
     assert report["status"] == "BLOCKED_UNKNOWN_SOURCE_SNAPSHOT_TIME"
 
+
+
+def test_verified_identity_without_prior_history_is_distinguished_from_unmapped():
+    mapped, _ = build_lagged_verified_features(
+        [], [target(501, 2, "2026-08-20T11:00:00Z", "2026-08-20T13:00:00Z")],
+        source_report(), None, {"42"},
+    )
+    assert mapped[0]["identity_verified"] is True
+    assert mapped[0]["identity_status"] == "VERIFIED_IDENTITY_NO_PRIOR_HISTORY"
+    unmapped, _ = build_lagged_verified_features(
+        [], [target(501, 2, "2026-08-20T11:00:00Z", "2026-08-20T13:00:00Z")],
+        source_report(), None, set(),
+    )
+    assert unmapped[0]["identity_verified"] is False
+    assert unmapped[0]["identity_status"] == "NO_VERIFIED_IDENTITY"
 
 def test_duplicate_verified_cta_or_target_keys_are_rejected():
     duplicate_cta = [

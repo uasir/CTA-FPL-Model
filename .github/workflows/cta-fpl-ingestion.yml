@@ -253,6 +253,7 @@ jobs:
               --fpl-fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
               --bootstrap run_artifacts/fpl_official/bootstrap-static.json \
               --source-metadata run_artifacts/fpl_official/source_metadata.json \
+              --identity-crosswalk run_artifacts/11footy_fpl/verified_identity/validation/verified_provider_fpl_crosswalk.csv \
               --out-dir run_artifacts/11footy_fpl/output
           else
             echo "WARNING: verified CTA player-match panel is unavailable"
