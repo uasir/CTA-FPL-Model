@@ -175,6 +175,7 @@ def replay_gameweek(decision: Mapping, official_points: Mapping,
 
     return {
         "status": "REPLAYED_ONE_GAMEWEEK",
+        "autosub_absence_order": autosub_absence_order,
         "gross_points": gross_points,
         "transfer_hit_points": hits,
         "net_points": net_points,
