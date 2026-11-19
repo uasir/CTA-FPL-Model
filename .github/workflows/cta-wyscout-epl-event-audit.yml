@@ -15,6 +15,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/verify_cross_provider_fpl_identity.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_temporal_xt.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_event_adapter.py
@@ -37,6 +39,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_temporal_xt.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_event_adapter.py
@@ -78,7 +82,8 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py \
             canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py \
-            canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py
+            canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py \\
+            canonical_candidate/engineering_workbench/tests/test_wyscout_temporal_xt.py
 
       - name: Download the public Wyscout 2017/18 data files
         run: |
@@ -116,6 +121,13 @@ jobs:
           python canonical_candidate/engineering_workbench/scripts/run_wyscout_cta_core.py \
             --events run_artifacts/wyscout/output/cta_canonical_events.json \
             --out-dir run_artifacts/wyscout/output/cta_core
+
+      - name: Evaluate experimental time-horizon xT on chronological match holdout
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py \\
+            --events run_artifacts/wyscout/output/cta_canonical_events.json \\
+            --matches-zip run_artifacts/wyscout/source/matches.zip \\
+            --out run_artifacts/wyscout/output/wyscout_temporal_xt_report.json
 
       - name: Download pinned historical FPL 2017/18 identity and match-history files
         run: |
@@ -280,6 +292,7 @@ jobs:
             run_artifacts/wyscout/output/wyscout_fpl_identity_candidate_report.json
             run_artifacts/wyscout/output/wyscout_cta_event_adapter_report.json
             run_artifacts/wyscout/output/cta_core/wyscout_cta_core_execution_report.json
+            run_artifacts/wyscout/output/wyscout_temporal_xt_report.json
           if-no-files-found: error
           retention-days: 90
  
