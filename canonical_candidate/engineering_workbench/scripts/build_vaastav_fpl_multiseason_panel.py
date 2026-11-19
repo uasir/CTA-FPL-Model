@@ -221,12 +221,27 @@ def evaluate(rows, holdout_fraction=0.2):
     actual = [row["actual_points"] for row in scored]
     predicted = [row["predicted_points"] for row in scored]
     baseline = [row["baseline_points"] for row in scored]
+    appeared = [row for row in scored if row["actual_minutes"] > 0]
+    appearance_diagnostic = None
+    if appeared:
+        appeared_actual = [row["actual_points"] for row in appeared]
+        appeared_predicted = [row["predicted_points"] for row in appeared]
+        appeared_baseline = [row["baseline_points"] for row in appeared]
+        appearance_diagnostic = {
+            "scored_player_gameweeks_with_positive_minutes": len(appeared),
+            "model_mae": round(mae(appeared_actual, appeared_predicted), 6),
+            "model_rmse": round(rmse(appeared_actual, appeared_predicted), 6),
+            "last5_baseline_mae": round(mae(appeared_actual, appeared_baseline), 6),
+            "last5_baseline_rmse": round(rmse(appeared_actual, appeared_baseline), 6),
+            "interpretation": "Post-outcome conditional diagnostic only; actual minutes are not available at prediction time and must not be used to select the live forecast cohort.",
+        }
     per_season = {}
     for season in sorted({row["season"] for row in scored}):
         season_rows = [row for row in scored if row["season"] == season]
         season_actual = [row["actual_points"] for row in season_rows]
         season_predicted = [row["predicted_points"] for row in season_rows]
         season_baseline = [row["baseline_points"] for row in season_rows]
+        season_appeared = [row for row in season_rows if row["actual_minutes"] > 0]
         per_season[season] = {
             "scored_player_gameweeks": len(season_rows),
             "model_mae": round(mae(season_actual, season_predicted), 6),
@@ -237,6 +252,15 @@ def evaluate(rows, holdout_fraction=0.2):
             "rmse_delta_model_minus_baseline": round(rmse(season_actual, season_predicted) - rmse(season_actual, season_baseline), 6),
             "zero_minute_player_gameweek_share": round(sum(1 for row in season_rows if row["actual_minutes"] == 0) / len(season_rows), 6),
             "mean_actual_points": round(sum(season_actual) / len(season_actual), 6),
+            "positive_minute_player_gameweeks": len(season_appeared),
+            "positive_minute_model_mae": round(mae(
+                [row["actual_points"] for row in season_appeared],
+                [row["predicted_points"] for row in season_appeared],
+            ), 6) if season_appeared else None,
+            "positive_minute_last5_baseline_mae": round(mae(
+                [row["actual_points"] for row in season_appeared],
+                [row["baseline_points"] for row in season_appeared],
+            ), 6) if season_appeared else None,
         }
     return {
         "status": "RESEARCH_ONLY",
@@ -261,6 +285,7 @@ def evaluate(rows, holdout_fraction=0.2):
         },
         "zero_minute_player_gameweek_share": round(sum(1 for row in scored if row["actual_minutes"] == 0) / len(scored), 6),
         "mean_actual_points": round(sum(actual) / len(actual), 6),
+        "positive_minute_conditional_diagnostic": appearance_diagnostic,
         "per_season_validation_metrics": per_season,
         "features": list(FEATURES),
         "model_missing_value_policy": model["missing_value_policy"],
