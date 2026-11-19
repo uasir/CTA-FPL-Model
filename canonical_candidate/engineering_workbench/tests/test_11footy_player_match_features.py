@@ -3,7 +3,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from build_11footy_player_match_features import build_panel, prioritize_candidate_evidence
+from build_11footy_player_match_features import (
+    build_panel, build_provisional_research_panel, prioritize_candidate_evidence,
+)
 
 
 def _databases():
@@ -76,7 +78,8 @@ def _inputs():
     candidates = [{
         "season": "2026/27", "competition_id": "1",
         "provider_player_id": "1", "provider_player_name": "Example Player",
-        "fpl_element_id": "42", "fpl_player_name": "Example",
+        "fpl_element_id": "42", "fpl_player_code": "999", "fpl_player_name": "Example",
+        "match_method": "exact_name_team_birth_date",
         "confidence_level": "high", "verification_status": "pending",
     }]
     return fixtures, fpl_players, fpl_history, candidates
@@ -111,6 +114,38 @@ def test_pending_identity_is_cross_checked_but_never_enters_model_panel():
     assert evidence[0]["assists_exact_rows"] == 1
     assert evidence[0]["full_signature_exact_rows"] == 1
     assert evidence[0]["statistical_corroboration_level"] == "LIMITED_MATCH_CONSISTENCY_REVIEW"
+
+
+def test_pending_high_confidence_candidate_enters_separate_research_panel_only():
+    main, players = _databases()
+    fixtures, fpl_players, history, candidates = _inputs()
+    try:
+        production_panel, _, production_report = build_panel(
+            main, players, fixtures, fpl_players, history,
+            candidates, [], "2026-27", "1",
+            crosswalk_validation_report={"status": "NO_VERIFIED_MAPPINGS"},
+        )
+        research_panel, research_report = build_provisional_research_panel(
+            main, players, fixtures, fpl_players, history,
+            candidates, "2026-27", "1",
+        )
+    finally:
+        main.close()
+        players.close()
+
+    assert production_panel == []
+    assert production_report["verified_player_match_panel_rows"] == 0
+    assert len(research_panel) == 1
+    row = research_panel[0]
+    assert row["provider_player_id"] == 1
+    assert row["fpl_element_id"] == 42
+    assert row["fpl_fixture_id"] == 500
+    assert row["fpl_total_points"] == "8"
+    assert row["identity_status"] == "PENDING_RESEARCH_ONLY"
+    assert row["research_only"] is True
+    assert research_report["production_eligible"] is False
+    assert research_report["prediction_training_eligible"] is False
+    assert research_report["rows"] == 1
 
 
 def test_verified_crosswalk_creates_common_player_match_row_and_resolves_merged_id():
