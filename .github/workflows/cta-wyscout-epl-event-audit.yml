@@ -20,7 +20,6 @@ on:
       - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_wyscout.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py
       - canonical_candidate/engineering_workbench/scripts/compare_abc_with_2pm_same_cohort.py
-      - canonical_candidate/engineering_workbench/scripts/compare_abc_with_2pm_same_cohort.py
       - canonical_candidate/engineering_workbench/scripts/cta_four_layer_pipeline.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_decision_quality.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_walk_forward.py
@@ -60,6 +59,9 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py
+      - canonical_candidate/engineering_workbench/scripts/compare_abc_with_2pm_same_cohort.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_xsuccess.py
@@ -73,6 +75,7 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_walk_forward.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py
   workflow_dispatch:
 
