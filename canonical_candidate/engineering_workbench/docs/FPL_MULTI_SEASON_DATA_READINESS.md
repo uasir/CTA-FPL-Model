@@ -174,3 +174,28 @@ Data can be used for exploratory experiments before all point-in-time conditions
 - Leakage controls confirmed: no validation season contributes to its own fitting/calibration; features are lagged; target-fixture statistics are excluded; calibration precedes validation. Source data and player-level panels remain runner-local, with no workflow artifact uploaded.
 - Continuing limitations: source exports are retrospective, not verified pre-deadline snapshots; pooled performance may mask season heterogeneity; six-band representatives approximate within-band points and the 10+ tail remains open-ended. The model is not a verified deadline-time forecasting system.
 - Next work: conduct a fold-by-fold stability and paired error audit for the hurdle variants against two-part, six-band and Ridge. Quantify per-season MAE/RMSE and proper-score differences, check whether gains are concentrated in particular seasons or player cohorts, and inspect calibration/zero-mass behaviour. Only then decide whether to refine distribution structure or retain the two-part expected-points model as the operational baseline.
+
+
+### Appearance-hurdle season-fold stability audit — 19 November 2026
+
+- Source: completed run [44528246661](https://github.com/uasir/CTA-FPL-Model/actions/runs/44528246661), parsed directly from the nine fold reports. Each fold uses the same scored validation cohort for its model comparisons.
+- Season-level expected-points results (MAE/RMSE):
+
+| Validation season | Hurdle calibrated | Hurdle raw | Two-part raw | Direct Ridge | Last-five baseline |
+|---|---:|---:|---:|---:|---:|
+| 2017/18 | 1.2531 / 2.2332 | 1.2504 / 2.2317 | 1.2698 / 2.2280 | 1.2820 / 2.2279 | 1.3067 / 2.3858 |
+| 2018/19 | 1.2699 / 2.2813 | 1.3001 / 2.2771 | 1.3091 / 2.2735 | 1.3204 / 2.2721 | 1.3532 / 2.4413 |
+| 2019/20 | 1.2120 / 2.1652 | 1.2253 / 2.1653 | 1.2355 / 2.1628 | 1.2463 / 2.1637 | 1.2686 / 2.3300 |
+| 2020/21 | 1.2126 / 2.2826 | 1.2331 / 2.2793 | 1.2353 / 2.2728 | 1.2475 / 2.2705 | 1.2804 / 2.4334 |
+| 2021/22 | 1.2065 / 2.3027 | 1.2150 / 2.2992 | 1.2243 / 2.2924 | 1.2331 / 2.2932 | 1.2698 / 2.4528 |
+| 2022/23 | 1.1283 / 2.1008 | 1.1289 / 2.1013 | 1.1419 / 2.0979 | 1.1462 / 2.1014 | 1.1659 / 2.2590 |
+| 2023/24 | 1.0090 / 2.0110 | 1.0200 / 2.0117 | 1.0236 / 2.0064 | 1.0315 / 2.0084 | 1.0270 / 2.1444 |
+| 2024/25 | 1.1002 / 2.1477 | 1.1116 / 2.1437 | 1.1121 / 2.1379 | 1.1100 / 2.1047 | 1.1028 / 2.2095 |
+| 2025/26 | 0.9947 / 1.9684 | 1.0014 / 1.9692 | 1.0022 / 1.9662 | 1.0121 / 1.9693 | 1.0589 / 2.1434 |
+
+- Stability finding: calibrated-appearance hurdle has the lowest MAE of the listed candidates in all nine folds; raw-appearance hurdle also beats raw two-part MAE in all nine folds. The MAE improvement is therefore not confined to one or two unusually favourable seasons.
+- Countervailing finding: calibrated hurdle RMSE is worse than raw two-part RMSE in all nine folds and worse than direct Ridge RMSE in all nine folds. The model consistently reduces typical absolute error while not reducing large-error sensitivity. This is a clear and repeatable trade-off, not a universal win.
+- Calibration choice is not stable across every metric: calibrated appearance probability improves MAE in most folds and all pooled MAE, but raw appearance probability generally has better pooled log loss/Brier/RPS. Keep both variants in the comparison rather than collapsing them into one winner.
+- Scope limitation: these are fold-level aggregate comparisons, not paired per-player error significance tests or player-cohort subgroup tests. The workflow currently does not emit row-level forecast errors or calibration-bin diagnostics. Do not claim statistical significance or subgroup robustness from these tables.
+- Decision update: hurdle is now a strong MAE candidate with season-consistent gains, but not a replacement for the RMSE-leading baseline. Keep it research-only and consider a dual-output candidate (hurdle distribution plus two-part/Ridge point estimate) only after paired-error and calibration diagnostics are implemented. No CTA integration or weight change.
+- Next implementation: extend the evaluator to retain aggregate sufficient statistics for paired per-player comparisons (absolute-error and squared-error differences by fold and sensible forecast-time player cohorts), plus reliability bins for appearance and unconditional points bands. Keep row-level player data runner-local; upload only aggregate metrics. Test that cohorts align exactly and that no validation labels influence training, calibration, bin edges or thresholds.
