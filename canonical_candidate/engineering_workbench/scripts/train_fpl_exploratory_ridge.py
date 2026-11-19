@@ -125,9 +125,15 @@ def fit_ridge(rows,target_key,feature_names=FEATURES,ridge_lambda=RIDGE_LAMBDA):
 
 
 def predict(model,row):
-    source_names=model.get("source_feature_names",model["feature_names"])
+    # Retain compatibility with explicit legacy test fixtures/models. All newly
+    # fitted models carry source_feature_names and use missingness indicators.
+    if "source_feature_names" not in model:
+        values=[number(row.get(name)) for name in model["feature_names"]]
+        vector=[1.0]+[(values[j]-model["means"][j])/model["scales"][j] for j in range(len(values))]
+        return sum(vector[i]*model["coefficients"][i] for i in range(len(vector))]
+    source_names=model["source_feature_names"]
     values=[optional_number(row.get(name)) for name in source_names]
-    imputation=model.get("imputation_values",[0.0]*len(source_names))
+    imputation=model["imputation_values"]
     imputed=[imputation[j] if values[j] is None else values[j] for j in range(len(source_names))]
     indicators=[1.0 if values[j] is None else 0.0 for j in range(len(source_names))]
     design=imputed+indicators
