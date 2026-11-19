@@ -59,11 +59,22 @@ def make_windows(target_rows, history_index, max_length=MAX_LENGTH):
     return windows
 
 
-def fit_preprocessor(fit_rows):
+def available_features(fit_rows):
+    """Use a feature only when the current fold's fitting block observes it."""
+    return tuple(
+        feature for feature in TRANSFORMER_FEATURES
+        if any(number(row.get(feature)) is not None for row in fit_rows)
+    )
+
+
+def fit_preprocessor(fit_rows, feature_names=None):
+    feature_names = tuple(feature_names or available_features(fit_rows))
+    if not feature_names:
+        raise ValueError("No conventional FPL features are observed in this fold's training data")
     medians = []
     means = []
     scales = []
-    for feature in TRANSFORMER_FEATURES:
+    for feature in feature_names:
         values = [number(row.get(feature)) for row in fit_rows]
         observed = [value for value in values if value is not None]
         if not observed:
@@ -71,7 +82,7 @@ def fit_preprocessor(fit_rows):
         medians.append(float(np.median(observed)))
     encoded = []
     for row in fit_rows:
-        values = [number(row.get(feature)) for feature in TRANSFORMER_FEATURES]
+        values = [number(row.get(feature)) for feature in feature_names]
         imputed = [medians[i] if value is None else value for i, value in enumerate(values)]
         missing = [1.0 if value is None else 0.0 for value in values]
         encoded.append(imputed + missing)
@@ -79,7 +90,7 @@ def fit_preprocessor(fit_rows):
     means = matrix.mean(axis=0)
     scales = matrix.std(axis=0)
     scales[scales < 1e-8] = 1.0
-    return {"medians": medians, "means": means, "scales": scales}
+    return {"feature_names": list(feature_names), "medians": medians, "means": means, "scales": scales}
 
 
 def number(value):
@@ -93,13 +104,14 @@ def number(value):
 
 
 def encode_windows(windows, preprocessor, max_length=MAX_LENGTH):
-    width = len(TRANSFORMER_FEATURES) * 2
+    feature_names = tuple(preprocessor["feature_names"])
+    width = len(feature_names) * 2
     values = np.zeros((len(windows), max_length, width), dtype=np.float32)
     masks = np.ones((len(windows), max_length), dtype=bool)
     for i, window in enumerate(windows):
         encoded = []
         for row in window:
-            raw = [number(row.get(feature)) for feature in TRANSFORMER_FEATURES]
+            raw = [number(row.get(feature)) for feature in feature_names]
             imputed = [preprocessor["medians"][j] if v is None else v for j, v in enumerate(raw)]
             missing = [1.0 if v is None else 0.0 for v in raw]
             vector = np.asarray(imputed + missing, dtype=np.float32)
@@ -233,8 +245,9 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
     calibration_keys = set(train_keys[-calibration_count:])
     fit_rows = [r for r in train if (r["season"], r["gameweek"]) not in calibration_keys]
     calibration_rows = [r for r in train if (r["season"], r["gameweek"]) in calibration_keys]
-    if len(fit_rows) < len(TRANSFORMER_FEATURES) + 10:
-        raise ValueError("Insufficient transformer fitting rows")
+    fold_features = available_features(fit_rows)
+    if len(fit_rows) < len(fold_features) + 10:
+        raise ValueError("Insufficient transformer fitting rows or usable features")
     # The same pre-validation chronological split is used for the neural model
     # and its conventional two-part baseline.
     history_index = build_history_index(all_rows)
@@ -243,7 +256,7 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
     validation_rows = [r for r in valid if r["last5_baseline_points"] is not None]
     validation_windows = make_windows(validation_rows, history_index)
 
-    preprocessor = fit_preprocessor(fit_rows)
+    preprocessor = fit_preprocessor(fit_rows, fold_features)
     random.seed(SEED + seed_offset)
     np.random.seed(SEED + seed_offset)
     torch.manual_seed(SEED + seed_offset)
@@ -270,12 +283,12 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
         representatives, eight_share,
     )
 
-    appearance_model = fit_ridge(fit_rows, "appeared", TRANSFORMER_FEATURES, 10.0)
+    appearance_model = fit_ridge(fit_rows, "appeared", fold_features, 10.0)
     calibration_scores = [appearance_model_prediction(appearance_model, r) for r in calibration_rows]
     calibrator = fit_platt(calibration_scores, [r["appeared"] for r in calibration_rows])
     positive_fit = [r for r in fit_rows if r["appeared"] == 1.0]
-    conditional_model = fit_ridge(positive_fit, "actual_points", TRANSFORMER_FEATURES, 10.0)
-    direct_model = fit_ridge(fit_rows, "actual_points", TRANSFORMER_FEATURES, 10.0)
+    conditional_model = fit_ridge(positive_fit, "actual_points", fold_features, 10.0)
+    direct_model = fit_ridge(fit_rows, "actual_points", fold_features, 10.0)
     baseline_raw = []
     baseline_calibrated = []
     baseline_direct = []
@@ -308,6 +321,7 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
     )
     return {
         "season": season,
+        "features_used": list(fold_features),
         "fit_player_gameweeks": len(fit_rows),
         "calibration_player_gameweeks": len(calibration_rows),
         "validation_player_gameweeks": len(validation_rows),
