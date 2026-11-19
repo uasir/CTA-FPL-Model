@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import zipfile
@@ -50,6 +51,14 @@ def _json_from_zip(path: Path, prefix: str):
 
 def _read_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _sha256(path: Path):
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _tags(event):
@@ -271,6 +280,12 @@ def main():
     players = _read_json(args.players_json)
     teams = _read_json(args.teams_json)
     rows, report = build_player_match_features(events, matches, players, teams)
+    report["source_hashes"] = {
+        "events_zip_sha256": _sha256(args.events_zip),
+        "matches_zip_sha256": _sha256(args.matches_zip),
+        "players_json_sha256": _sha256(args.players_json),
+        "teams_json_sha256": _sha256(args.teams_json),
+    }
     args.out_dir.mkdir(parents=True, exist_ok=True)
     with (args.out_dir / "wyscout_cta_player_match.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=FIELDS)
