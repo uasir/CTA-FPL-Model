@@ -73,6 +73,7 @@ def test_only_verified_identity_rows_join_and_features_are_strictly_lagged():
     assert lagged[1]["shot_attempts_prior_3_avg"] == 2.0
     assert lagged[1]["shot_attempts_per90_prior_3_avg"] == 2.0
     assert lagged[1]["target_fpl_total_points"] == 8.0
+    assert lagged[1]["gameweek"] == 2
     assert lagged[1]["provider_team_id"] == 1
     assert lagged[1]["team_progressive_pass_completions_prior_3_avg"] == 3.0
     assert lagged[1]["team_ground_defensive_duel_events_prior_3_avg"] == 2.0
