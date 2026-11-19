@@ -42,7 +42,7 @@ def test_only_verified_identity_rows_join_and_features_are_strictly_lagged():
         feature_row(101, 501, 5, "2017-08-19"),
         feature_row(202, 500, 9, "2017-08-12"),
     ]
-    crosswalk = [
+    identity_rows = [
         crosswalk_row for crosswalk_row in [
             crosswalk(101, 1),
             crosswalk(202, 2, "NOT_VERIFIED"),
@@ -54,7 +54,7 @@ def test_only_verified_identity_rows_join_and_features_are_strictly_lagged():
         history(1, 1001, "2017-08-19T14:00:00Z", 8),
         history(2, 1000, "2017-08-12T14:00:00Z", 1),
     ]
-    panel, lagged, report = build_verified_panel(matches, crosswalk, fpl, fixtures)
+    panel, lagged, report = build_verified_panel(matches, identity_rows, fpl, fixtures)
     assert len(panel) == 2
     assert report["unverified_identity_rows_excluded"] == 1
     assert panel[0]["fpl_element_id"] == 1
