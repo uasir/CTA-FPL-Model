@@ -189,7 +189,7 @@ def test_penalty_restart_is_mapped_to_shot():
     assert report["set_piece_shots_mapped_to_shot"] == 1
 
 
-def test_unresolved_dead_ball_team_change_is_exposed_in_audit():
+def test_unresolved_dead_ball_state_resolves_on_first_controlled_action():
     events = [
         {"id": 1, "matchPeriod": "1H", "eventSec": 1, "teamId": 1,
          "playerId": 10, "eventName": "Pass", "positions": [
@@ -206,7 +206,8 @@ def test_unresolved_dead_ball_team_change_is_exposed_in_audit():
         events, [{"wyId": 10, "shortName": "A"}, {"wyId": 20, "shortName": "B"}],
         [{"wyId": 1, "name": "Home"}, {"wyId": 2, "name": "Away"}], 105
     )
-    assert rows[2]["possession_team"]["name"] == "Home"
-    assert report["dead_ball_suppressed_team_change_count"] == 1
-    assert report["dead_ball_suppressed_team_change_samples"][0]["event_id"] == "3"
-    assert report["dead_ball_pending_at_match_end"] is True
+    assert rows[2]["possession_team"]["name"] == "Away"
+    assert rows[2]["possession"] != rows[1]["possession"]
+    assert report["dead_ball_resolved_team_change_count"] == 1
+    assert report["dead_ball_resolved_team_change_samples"][0]["event_id"] == "3"
+    assert report["dead_ball_pending_at_match_end"] is False
