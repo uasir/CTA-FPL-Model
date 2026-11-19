@@ -212,6 +212,11 @@ def audit_record(picks_payload, live_payload, position_by_player):
     }
 
 
+def autosub_pairs_are_scoring_relevant(chip, automatic_subs):
+    """Bench Boost counts all 15 players, so autosub pairings do not affect points."""
+    return automatic_subs is not None and chip != "bench_boost"
+
+
 def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
                  workers=4, delay=0.5, max_gameweeks=10, fetch=fetch_json):
     events = [event for event in bootstrap.get("events", []) if event.get("finished")]
