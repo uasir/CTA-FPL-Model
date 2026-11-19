@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime
 from collections import Counter, defaultdict
 from pathlib import Path
 from math import isfinite
@@ -196,10 +197,30 @@ def compare_policy_replays(rows: Sequence[Mapping], baseline_policy: str = "hold
     policy_totals = defaultdict(list)
     paired_deltas = defaultdict(list)
     deadline_reports = []
+    expected_policy_set = None
     for deadline in sorted(by_deadline):
         policies = by_deadline[deadline]
+        current_policy_set = set(policies)
+        if expected_policy_set is None:
+            expected_policy_set = current_policy_set
+        elif current_policy_set != expected_policy_set:
+            raise ValueError("All deadlines must contain the same matched policy set")
         if baseline_policy not in policies:
             raise ValueError(f"Missing baseline policy {baseline_policy} for {deadline}")
+        for row in policies.values():
+            decision_time = str(row.get("decision_frozen_at", "")).replace("Z", "+00:00")
+            deadline_time = str(row.get("deadline_at", "")).replace("Z", "+00:00")
+            if not decision_time or not deadline_time:
+                raise ValueError("Every policy row requires decision_frozen_at and deadline_at")
+            try:
+                frozen_at = datetime.fromisoformat(decision_time)
+                deadline_at = datetime.fromisoformat(deadline_time)
+            except ValueError:
+                raise ValueError("Decision and deadline timestamps must be ISO-8601") from None
+            if frozen_at.tzinfo is None or deadline_at.tzinfo is None:
+                raise ValueError("Decision and deadline timestamps must include timezone offsets")
+            if frozen_at >= deadline_at:
+                raise ValueError("Decision must be frozen strictly before the deadline")
         states = {str(row["starting_state_id"]) for row in policies.values()}
         if len(states) != 1:
             raise ValueError(f"Policies do not share the same starting state for {deadline}")
@@ -243,6 +264,7 @@ def compare_policy_replays(rows: Sequence[Mapping], baseline_policy: str = "hold
         "limitations": [
             "Requires externally verified legal action and chip-availability flags.",
             "One-step replay does not propagate squad, bank, purchase-price or free-transfer state.",
+            "Timestamp checks establish pre-deadline freeze ordering but do not independently verify source-data vintages.",
             "Does not estimate rank gain or field-relative outcomes.",
             "No statistical uncertainty interval is calculated by this deterministic scorer.",
         ],
