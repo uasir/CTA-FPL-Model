@@ -94,7 +94,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Confirm standalone model-track isolation
-        run: echo "Training the conventional-FPL 2PM-Transformer with lagged FPL points, minutes, xG and xA only; no A/B/C features."
+        run: echo "Training conventional FPL 2PM with lagged points, minutes and observed xG/xA only; no A/B/C features."
       - name: Install standalone Transformer research dependencies
         run: |
           python -m pip install numpy pytest
