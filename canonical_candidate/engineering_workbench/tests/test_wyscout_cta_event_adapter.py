@@ -55,3 +55,47 @@ def test_adapter_preserves_goal_tag_for_cta_xg_fit():
         [{"wyId": 1, "name": "Home"}], 101
     )
     assert rows[0]["shot"]["outcome"]["name"] == "Goal"
+
+
+def test_adapter_preserves_events_without_a_player_actor():
+    events = [{
+        "id": 9, "matchPeriod": "1H", "eventSec": 20, "teamId": 1,
+        "playerId": 0, "eventName": "Duel", "positions": [
+            {"x": 40, "y": 50}], "tags": [],
+    }]
+    rows, report = normalize_wyscout_events(
+        events, [{"wyId": 10, "shortName": "A"}],
+        [{"wyId": 1, "name": "Home"}], 99
+    )
+    assert len(rows) == 1
+    assert "player" not in rows[0]
+    assert report["skipped_event_counts"]["missing_player_id"] == 1
+
+
+def test_adapter_preserves_unresolved_provider_id_without_fabricating_name():
+    events = [{
+        "id": 10, "matchPeriod": "1H", "eventSec": 25, "teamId": 1,
+        "playerId": 999, "eventName": "Pass", "positions": [
+            {"x": 20, "y": 50}, {"x": 30, "y": 50}], "tags": [{"id": 1801}],
+    }]
+    rows, report = normalize_wyscout_events(
+        events, [{"wyId": 10, "shortName": "A"}],
+        [{"wyId": 1, "name": "Home"}], 99
+    )
+    assert rows[0]["player"] == {"id": "wyscout:999", "name": ""}
+    assert report["skipped_event_counts"]["unresolved_player_metadata"] == 1
+
+
+def test_adapter_maps_direct_free_kick_shots_to_shots():
+    events = [{
+        "id": 11, "matchPeriod": "2H", "eventSec": 45, "teamId": 1,
+        "playerId": 10, "eventName": "Free Kick", "subEventName": "Free kick shot",
+        "positions": [{"x": 90, "y": 50}], "tags": [{"id": 101}],
+    }]
+    rows, report = normalize_wyscout_events(
+        events, [{"wyId": 10, "shortName": "A"}],
+        [{"wyId": 1, "name": "Home"}], 99
+    )
+    assert rows[0]["type"]["name"] == "Shot"
+    assert rows[0]["shot"]["outcome"]["name"] == "Goal"
+    assert report["free_kick_shots_mapped_to_shot"] == 1
