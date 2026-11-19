@@ -1,0 +1,34 @@
+name: CTA FPL multi-season historical research
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-fpl-multiseason-research
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build private runner-local panel and chronological evaluation
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/build_vaastav_fpl_multiseason_panel.py \
+            --out-dir "$RUNNER_TEMP/cta_fpl_multiseason_research"
+      - name: Confirm no source data or player-level outputs are uploaded
+        run: |
+          echo "Research data and player-level panel remain runner-local."
+          echo "No workflow artifact is created or uploaded."
