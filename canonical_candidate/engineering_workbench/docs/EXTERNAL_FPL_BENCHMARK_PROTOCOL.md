@@ -14,6 +14,9 @@ Evaluate CTA-FPL models against real, established FPL prediction outputs using a
 | FPL Review Premium / Massive Data Model | Established FPL points forecast | Keep separate from Free; archive actual published values |
 | FPL Forecaster | Direct FPL bookmaker-market-derived points forecast | Use its published FPL points output directly; do not rebuild its odds conversion |
 | FPL Lucho | Direct FPL bookmaker-market-derived points forecast | Use its published FPL points / Odds xP output directly; retain variant identity |
+| Sideline Quant | Independent player-level FPL points forecast with published uncertainty and event probabilities | Capture its exact GW JSON; retain fixture grain and provider-supplied probabilities separately |
+| FPL Cat | Independent conventional FPL points forecast | Capture its public API output with computed_at, player ID and xP |
+| FPLRogue | Independent player-level FPL points forecast | Capture the accepted release CSV with capture time, engine version and player ID |
 | FPL Cat | Independent conventional FPL points forecast | Capture its public player-level JSON/CSV output and retain computed_at and API version |
 | Fantasy Football Scout | Established FPL points forecast, if player-level pre-deadline values are accessible | Archive only the actual pre-deadline output |
 | Fantasy Football Pundit | Established FPL points forecast, if accessible | Archive only the actual pre-deadline output |
