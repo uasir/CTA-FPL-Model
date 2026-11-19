@@ -2,6 +2,12 @@ name: CTA FPL multi-season historical research
 
 on:
   workflow_dispatch:
+  push:
+    branches: ["feat/verified-11footy-fpl-identity-bridge"]
+    paths:
+      - .github/workflows/cta-fpl-multiseason-research.yml
+      - canonical_candidate/engineering_workbench/scripts/build_vaastav_fpl_multiseason_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_vaastav_fpl_multiseason_panel.py
 
 permissions:
   contents: read
