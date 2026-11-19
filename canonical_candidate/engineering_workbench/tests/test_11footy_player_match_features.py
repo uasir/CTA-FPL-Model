@@ -141,6 +141,7 @@ def test_pending_high_confidence_candidate_enters_separate_research_panel_only()
     assert row["fpl_element_id"] == 42
     assert row["fpl_fixture_id"] == 500
     assert row["fpl_total_points"] == "8"
+    assert row["match_kickoff_utc"] == "2026-08-15T12:30:00Z"
     assert row["identity_status"] == "PENDING_RESEARCH_ONLY"
     assert row["research_only"] is True
     assert research_report["production_eligible"] is False
