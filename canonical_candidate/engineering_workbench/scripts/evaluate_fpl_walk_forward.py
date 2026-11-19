@@ -2,6 +2,7 @@
 """Expanding-season walk-forward validation for the two-part FPL predictor."""
 from __future__ import annotations
 import argparse, csv, json
+import numpy as np
 from pathlib import Path
 
 from evaluate_fpl_two_part_model import (
@@ -9,7 +10,43 @@ from evaluate_fpl_two_part_model import (
     fit_linear_probability, fit_platt, group_player_gameweeks,
     regression_metrics,
 )
-from train_fpl_exploratory_ridge import fit_ridge, predict, mae, rmse
+from train_fpl_exploratory_ridge import fit_ridge, optional_number, predict, mae, rmse
+
+
+def fit_ridge_fast(rows, target_key, feature_names=FEATURES, ridge_lambda=RIDGE_LAMBDA):
+    """NumPy implementation equivalent to the canonical training-only ridge transform."""
+    raw=np.asarray([[optional_number(row.get(name)) for name in feature_names] for row in rows],dtype=float)
+    targets=np.asarray([optional_number(row.get(target_key)) for row in rows],dtype=float)
+    if len(rows)<len(feature_names)+2 or not np.isfinite(targets).all():
+        raise ValueError("Insufficient rows or invalid ridge targets")
+    medians=[]
+    for j,name in enumerate(feature_names):
+        observed=raw[np.isfinite(raw[:,j]),j]
+        if len(observed)==0:
+            raise ValueError(f"Feature has no observed training values: {name}")
+        medians.append(float(np.median(observed)))
+    missing=~np.isfinite(raw)
+    imputed=np.where(missing,np.asarray(medians),raw)
+    design=np.concatenate((imputed,missing.astype(float)),axis=1)
+    means=design.mean(axis=0)
+    scales=design.std(axis=0)
+    scales=np.where(scales>1e-12,scales,1.0)
+    standardized=(design-means)/scales
+    matrix=np.column_stack((np.ones(len(rows)),standardized))
+    gram=matrix.T@matrix
+    gram[1:,1:]+=ridge_lambda*np.eye(gram.shape[0]-1)
+    coefficients=np.linalg.solve(gram,matrix.T@targets)
+    design_names=list(feature_names)+[f"{name}__missing" for name in feature_names]
+    return {
+        "feature_names":design_names,
+        "source_feature_names":list(feature_names),
+        "imputation_values":medians,
+        "missing_value_policy":"TRAINING_MEDIAN_PLUS_MISSINGNESS_INDICATOR",
+        "means":means.tolist(),
+        "scales":scales.tolist(),
+        "coefficients":coefficients.tolist(),
+        "ridge_lambda":ridge_lambda,
+    }
 
 
 def score_fold(train, valid, season):
@@ -25,9 +62,9 @@ def score_fold(train, valid, season):
     appearance_model=fit_linear_probability(appearance_fit)
     calibration_scores=[predict(appearance_model,r) for r in calibration]
     calibrator=fit_platt(calibration_scores,[r["appeared"] for r in calibration])
-    minutes_model=fit_ridge(train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
-    conditional_model=fit_ridge(positive_train,"actual_points",FEATURES,RIDGE_LAMBDA)
-    direct_model=fit_ridge(train,"actual_points",FEATURES,RIDGE_LAMBDA)
+    minutes_model=fit_ridge_fast(train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
+    conditional_model=fit_ridge_fast(positive_train,"actual_points",FEATURES,RIDGE_LAMBDA)
+    direct_model=fit_ridge_fast(train,"actual_points",FEATURES,RIDGE_LAMBDA)
 
     actual_points=[]; actual_minutes=[]; actual_appearance=[]
     raw_probabilities=[]; calibrated_probabilities=[]; appearance_baseline=[]
