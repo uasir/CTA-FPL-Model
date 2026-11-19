@@ -39,8 +39,8 @@ jobs:
             --out "$RUNNER_TEMP/fpl_replay_official_history_audit.json" \
             --rank-limit 1000 \
             --sample-size 100 \
-            --workers 8 \
-            --delay 0.5 \\
+            --workers 4 \
+            --delay 0.5 \
             --max-gameweeks 10
       - name: Confirm only aggregate validation output is retained
         run: |
