@@ -1,4 +1,4 @@
-from build_vaastav_fpl_multiseason_panel import build_season_rows, evaluate
+from build_vaastav_fpl_multiseason_panel import build_season_rows, evaluate, read_csv_bytes
 from train_fpl_exploratory_ridge import FEATURES
 
 
@@ -84,3 +84,10 @@ def test_multiseason_evaluation_uses_chronological_season_gameweek_holdout():
     assert report["validation_first_gameweek"][0] == "2024-25"
     assert report["validation_last_gameweek"][0] == "2024-25"
     assert report["scored_player_gameweeks"] > 0
+
+
+def test_source_csv_reader_supports_legacy_windows_1252_names():
+    payload = "name,element\\nAndré,10\\n".encode("cp1252")
+    rows, encoding = read_csv_bytes(payload)
+    assert encoding == "cp1252"
+    assert rows[0]["name"] == "André"
