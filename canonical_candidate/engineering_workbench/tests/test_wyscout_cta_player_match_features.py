@@ -76,6 +76,7 @@ def test_wyscout_cta_player_match_features_separate_attempts_and_realisation():
     assert row["dangerous_ball_losses"] == 1
     assert row["duel_events"] == 1
     assert row["duels_won"] == 1
+    assert row["interception_events"] is None
     assert row["receiver_identity_status"] == "NOT_AVAILABLE_IN_PUBLIC_WYSCOUT_EVENT_SCHEMA"
     assert row["xg_status"] == "NOT_AVAILABLE_IN_PUBLIC_WYSCOUT_EVENT_SCHEMA"
     assert report["identity_mapping_status"] == "NOT_MAPPED_TO_FPL"
