@@ -114,7 +114,7 @@ def analyze_field_relative_risk(
                        if abs(own[player_id]) > 1e-12 or abs(eo[player_id]) > 1e-12]
     missing_pairs = []
     for i, left in enumerate(active_universe):
-        for right in active_universe[i:
+        for right in active_universe[i:]:
             if _pair_key(left, right) not in covariance:
                 missing_pairs.append([left, right])
                 if len(missing_pairs) >= 20:
