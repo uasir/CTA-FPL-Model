@@ -213,6 +213,7 @@ def evaluate(rows, holdout_fraction=0.2):
             "actual_points": sum(row["target_total_points"] for row in fixtures),
             "predicted_points": sum(predict(model, row) for row in fixtures),
             "baseline_points": baseline,
+            "actual_minutes": sum(row["target_minutes"] for row in fixtures),
             "fixture_count": len(fixtures),
         })
     if not scored:
@@ -220,6 +221,23 @@ def evaluate(rows, holdout_fraction=0.2):
     actual = [row["actual_points"] for row in scored]
     predicted = [row["predicted_points"] for row in scored]
     baseline = [row["baseline_points"] for row in scored]
+    per_season = {}
+    for season in sorted({row["season"] for row in scored}):
+        season_rows = [row for row in scored if row["season"] == season]
+        season_actual = [row["actual_points"] for row in season_rows]
+        season_predicted = [row["predicted_points"] for row in season_rows]
+        season_baseline = [row["baseline_points"] for row in season_rows]
+        per_season[season] = {
+            "scored_player_gameweeks": len(season_rows),
+            "model_mae": round(mae(season_actual, season_predicted), 6),
+            "model_rmse": round(rmse(season_actual, season_predicted), 6),
+            "last5_baseline_mae": round(mae(season_actual, season_baseline), 6),
+            "last5_baseline_rmse": round(rmse(season_actual, season_baseline), 6),
+            "mae_delta_model_minus_baseline": round(mae(season_actual, season_predicted) - mae(season_actual, season_baseline), 6),
+            "rmse_delta_model_minus_baseline": round(rmse(season_actual, season_predicted) - rmse(season_actual, season_baseline), 6),
+            "zero_minute_player_gameweek_share": round(sum(1 for row in season_rows if row["actual_minutes"] == 0) / len(season_rows), 6),
+            "mean_actual_points": round(sum(season_actual) / len(season_actual), 6),
+        }
     return {
         "status": "RESEARCH_ONLY",
         "point_in_time_status": "NOT_VERIFIED_RETROSPECTIVE_SOURCE_VINTAGES",
@@ -241,6 +259,9 @@ def evaluate(rows, holdout_fraction=0.2):
             "mae": round(mae(actual, predicted) - mae(actual, baseline), 6),
             "rmse": round(rmse(actual, predicted) - rmse(actual, baseline), 6),
         },
+        "zero_minute_player_gameweek_share": round(sum(1 for row in scored if row["actual_minutes"] == 0) / len(scored), 6),
+        "mean_actual_points": round(sum(actual) / len(actual), 6),
+        "per_season_validation_metrics": per_season,
         "features": list(FEATURES),
         "model_missing_value_policy": model["missing_value_policy"],
         "validation_seasons": sorted({row["season"] for row in validation}),
