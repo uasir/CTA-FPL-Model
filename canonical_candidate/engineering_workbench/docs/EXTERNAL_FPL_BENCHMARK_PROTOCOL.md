@@ -254,7 +254,7 @@ The private archive collector retrieved all ten frozen public gameweek pages and
 - 497/500 rows resolved to official FPL IDs and had numeric actual points; three unresolved identities remain unscored.
 - GW1–GW3 pages identify Model v10; GW4–GW10 identify Model v11.
 - The pages explicitly label the forecasts as saved before deadline and frozen after deadline. The source page update timestamps were preserved.
-- The private pooled top-50 subset result is MAE 3.055, RMSE 3.799, forecast-minus-actual bias -0.403, Spearman 0.096 and top-10 overlap 2.
+- The private pooled top-50 subset result is MAE 3.055, RMSE 3.799, forecast-minus-actual bias -0.403, Spearman 0.096 and top-10 overlap 0 (pooled player-GW keys).
 
 **Critical coverage qualification:** these are provider-selected top-50 rows, not the complete player universe. They must not be compared directly with the provider's all-player scorecard or with an all-player CTA/2PM metric. The next comparison must intersect our model's point-in-time forecasts with the exact same resolved player-GW rows and report the matched sample. A separate all-player comparison remains pending until full historical provider coverage is verified.
 
