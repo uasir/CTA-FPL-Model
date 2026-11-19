@@ -39,8 +39,10 @@ def test_chronological_two_part_evaluation_uses_all_validation_rows():
                 rows.append(row(season,gw,player,points,minutes,prior=(gw%6)+1))
     report=evaluate(rows)
     assert report["status"]=="RESEARCH_ONLY"
+    assert report["validation_gameweeks"]==9
     assert report["validation_player_gameweeks"]>0
-    assert report["appearance"]["brier"]>=0
+    assert report["appearance"]["model"]["brier"]>=0
+    assert report["appearance"]["prior5_appearance_rate_baseline"]["brier"]>=0
     assert report["appearance"]["log_loss"]>=0
     assert report["points"]["two_part_expected_points"]["mae"]>=0
     assert report["points"]["direct_points_model"]["mae"]>=0
