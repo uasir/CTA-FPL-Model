@@ -259,3 +259,18 @@ The private archive collector retrieved all ten frozen public gameweek pages and
 **Critical coverage qualification:** these are provider-selected top-50 rows, not the complete player universe. They must not be compared directly with the provider's all-player scorecard or with an all-player CTA/2PM metric. The next comparison must intersect our model's point-in-time forecasts with the exact same resolved player-GW rows and report the matched sample. A separate all-player comparison remains pending until full historical provider coverage is verified.
 
 The private archive now contains the acquired rows, per-gameweek source hashes/audits, pooled/per-gameweek scorecard and an identical-cohort comparison script. The comparator expects model predictions with `model,gameweek,fpl_player_id,predicted_points` and reports both model and FPL Wildcard on identical rows, including player-cluster bootstrap intervals. CTA/2PM comparison is pending model forecast export; no model-versus-provider result is claimed yet.
+
+
+### First private FPL Wildcard / 2PM comparison (aggregate only)
+
+A retrospective model reconstruction was run against the provider's frozen GW2–GW10 top-50 pages. The exact shared cohort contains 449 resolved player-GWs across nine gameweeks. Model predictions were trained on the ten prior seasons and use lagged 2026/27 features; the current API vintage is not independently frozen at each original deadline, so this is explicitly retrospective rather than a prospective forecast comparison.
+
+| Forecast | MAE | RMSE |
+|---|---:|---:|
+| FPL Wildcard published xPts | 3.066 | **3.843** |
+| 2PM-Transformer reconstruction | **2.982** | 4.099 |
+| Direct Ridge | 3.010 | 4.155 |
+| Calibrated two-part | 3.118 | 4.512 |
+| Last-five persistence | 3.567 | 4.525 |
+
+The Transformer MAE difference versus Wildcard is -0.084 (paired player-cluster bootstrap 95% CI -0.202 to +0.042; inconclusive). Its RMSE difference is +0.256 (95% CI +0.147 to +0.369; worse). No promotion decision is supported. Provider top-50 selection makes this a conditional cohort only; it is not an all-player ranking benchmark. Raw and derived player-level rows remain private.
