@@ -145,6 +145,13 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
                 "prior_3_matches_count": min(3, len(prior)),
                 "prior_5_matches_count": min(5, len(prior)),
             }
+            for target_field in ("fpl_total_points", "fpl_minutes"):
+                for window in (3, 5):
+                    sample = prior[-window:]
+                    values = [candidate[target_field] for candidate in sample if candidate[target_field] is not None]
+                    record[f"{target_field}_prior_{window}_avg"] = (
+                        sum(values) / len(values) if values else None
+                    )
             for feature in FEATURES:
                 for window in (3, 5):
                     sample = prior[-window:]
