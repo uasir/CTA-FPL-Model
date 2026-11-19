@@ -14,7 +14,9 @@ on:
     paths:
       - .github/workflows/cta-wyscout-epl-event-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py
+      - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
   workflow_dispatch:
 
 permissions:
