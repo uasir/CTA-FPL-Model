@@ -305,7 +305,7 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
         "team_context_policy": (
             "Team-match aggregates use all Wyscout player event rows, including players without a verified FPL identity, "
             "only for team-level context. Player-specific rows remain restricted to verified identities; team and opponent "
-            "context is lagged strictly before the target FPL kickoff."
+            "context is lagged strictly before the conservative earliest kickoff in the target FPL gameweek."
         ),
         "predictor_policy": (
             "Where historical FPL round/gameweek is available, features use only player/team matches "
