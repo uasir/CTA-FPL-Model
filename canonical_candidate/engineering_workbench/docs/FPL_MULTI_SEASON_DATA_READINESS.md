@@ -254,3 +254,28 @@ Data can be used for exploratory experiments before all point-in-time conditions
 - Decision: **do not adopt a single hybrid estimator**. The tested blends do not preserve the hurdle's MAE benefit while removing its large-error penalty. Retain separate research candidates: raw two-part as the conventional expected-points baseline, calibrated hurdle as the MAE-oriented distribution candidate, and direct Ridge as the pooled RMSE comparator. No candidate is promoted to live recommendations.
 - Next modelling step: investigate whether forecast-time risk segmentation or a tail-aware objective can reduce large misses without sacrificing the hurdle's typical-error gains. Any such change must be pre-specified, selected only on earlier calibration gameweeks, evaluated on the same nine expanding-season folds and exact common validation cohort, and assessed with MAE, RMSE/MSE, proper distribution scores and player-season cluster intervals. Avoid further unconstrained weight tuning on this validation set.
 - Limitations remain unchanged: the historical source exports are retrospective rather than verified pre-deadline snapshots; this is not yet a verified deadline-time forecasting system. CTA remains `RESEARCH_ONLY / DO_NOT_PROMOTE`, weight zero, and outside recommendation decisions.
+
+
+### Forecast-time tail-error diagnostics — completed, 19 November 2026
+
+- Final branch-head evaluator: `41cd904e883c4ce506941eb5b3fd660e635c24dc`.
+- Engineering CI: [run 44535141575](https://github.com/uasir/CTA-FPL-Model/actions/runs/44535141575), successful.
+- Full historical research on the final branch head: [run 44535141957](https://github.com/uasir/CTA-FPL-Model/actions/runs/44535141957), successful; all nine folds and 214,956 validation player-gameweeks completed. The runner-local data/output verification passed; no source data or player-level outputs were uploaded.
+- Added aggregate diagnostics for absolute-error quantiles, large-error frequencies (4+, 6+, 8+), top-tail shares of total squared error, signed bias, overprediction frequency, and paired comparisons by forecast-time raw two-part expected-points band. The forecast bands are <1, 1–<2, 2–<3, 3–<5 and >=5.
+- Pooled exact common validation cohort, calibrated hurdle versus raw two-part:
+  - MAE: 1.142761 vs 1.160585 (hurdle better by 0.017824; player-season cluster-bootstrap 95% CI for paired MAE delta [-0.019168, -0.016633]).
+  - Paired MSE delta: +0.026369 (hurdle worse; 95% cluster CI [+0.019601, +0.033428]).
+  - Error quantiles: p50 0.402594 vs 0.478971; p90 2.900811 vs 2.974227; p95 4.596149 vs 4.526535; p99 9.275831 vs 9.113694.
+  - Error rates >=4: 6.0594% vs 6.0929%; >=6: 2.9676% vs 2.8397%; >=8: 1.5226% vs 1.4398%.
+  - Share of total squared error in worst 1%: 32.3251% vs 31.6237%; worst 5%: 67.5311% vs 65.7069%; worst 10%: 81.4058% vs 79.9102%.
+  - Mean signed error: -0.063318 vs -0.001751, showing the hurdle's greater underprediction bias in the pooled forecast cohort. Both overpredict on roughly 80% of rows.
+- Forecast-range diagnosis (paired MAE delta / paired MSE delta; negative favours hurdle):
+  - Raw two-part forecast <1: n=118,365; -0.008417 / +0.008491.
+  - 1–<2: n=30,198; +0.015117 / +0.032963. Hurdle is worse on both metrics here.
+  - 2–<3: n=34,899; -0.010419 / +0.026509. Small MAE gain but squared-error penalty.
+  - 3–<5: n=30,652; -0.093035 / +0.087697. Largest MAE gain, but also material MSE penalty.
+  - >=5: n=842; -0.090602 / +0.064706. Small subgroup; interpret cautiously.
+- Interpretation: the hurdle's MAE benefit is not a uniform improvement. It is concentrated in the 3–5 and >=5 forecast bands, while the 1–2 band deteriorates. Across the cohort, the p95/p99 and >=6/>=8 rates plus top-tail squared-error shares confirm that a small number of large misses remain a weakness. The slightly lower >=4 rate does not contradict this: the deterioration is concentrated farther into the tail.
+- Do not use these diagnostics to hand-tune a weight or threshold on the validation set. They are diagnostic findings for hypothesis formation only. Next experiment should be pre-specified and use an earlier calibration block for any risk-conditioned adjustment, with the same expanding-season folds, exact common validation cohort and player-season cluster intervals.
+- Decision unchanged: no model promoted. Raw two-part remains the conventional baseline; calibrated hurdle remains an MAE-oriented research candidate; direct Ridge remains the pooled RMSE comparator. CTA remains `RESEARCH_ONLY / DO_NOT_PROMOTE`, weight zero, outside recommendation decisions.
+- Important metric note: the fold-weighted model-summary RMSE and the exact concatenated-cohort RMSE in the new tail diagnostic are different aggregations. The tail section reports RMSE derived directly from the concatenated exact validation predictions; do not mix it with the fold-weighted RMSE table when comparing values.
