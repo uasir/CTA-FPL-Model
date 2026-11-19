@@ -103,6 +103,7 @@ def build_replay_record(picks_payload, live_payload, position_by_player):
         "played_by_player": played,
         "positions": positions,
         "official_team_points": float(official_team_points),
+        "official_net_points": float(official_team_points) - hit_cost,
         "official_sub_pairs": official_sub_pairs,
         "event_transfers_cost": hit_cost,
     }
@@ -119,7 +120,7 @@ def audit_record(picks_payload, live_payload, position_by_player):
         "replay_net_points": replay["net_points"],
         "replay_gross_points": replay["gross_points"],
         "official_team_points": record["official_team_points"],
-        "net_point_difference": replay["net_points"] - record["official_team_points"],
+        "net_point_difference": replay["net_points"] - record["official_net_points"],
         "gross_point_difference": replay["gross_points"] - record["official_team_points"],
         "autosub_pairs_match": replay_sub_pairs == record["official_sub_pairs"],
         "transfer_hit_cost": record["event_transfers_cost"],
@@ -245,7 +246,7 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
         "privacy": "No manager identifiers, raw picks or player-level outcomes are written to the report.",
         "limitations": [
             "Current-rank sampling is survivor- and rank-conditioned; this is a scoring-engine audit, not a representative manager-performance study.",
-            "Official FPL event-history points are treated as net of the reported transfer hit cost.",
+            "Official FPL entry_history.points is treated as gross before hits; event_transfers_cost is subtracted for net comparison.",
             "The replay audit validates scoring and autosubs only; it does not evaluate recommendation quality or decision value.",
         ],
     }
