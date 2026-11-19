@@ -138,6 +138,81 @@ def test_snapshot_id_changes_when_forecast_inputs_change():
 
 
 
+
+def cta_rows():
+    base = {
+        "gameweek": "12",
+        "features_as_of_deadline": "2026-11-28T11:00:00+00:00",
+        "cta_snapshot_available_as_of_deadline": "True",
+        "identity_verified": "True",
+        "identity_status": "VERIFIED_IDENTITY_AND_PRIOR_CTA_HISTORY",
+        "cta_prior_matches_count": "3",
+        "cta_prior3_matches_count": "3",
+        "cta_prior5_matches_count": "3",
+        "cta_prior3_matches_shots_avg": "2.5",
+        "cta_prior5_matches_shots_avg": "2.5",
+        "cta_season_to_date_shots_sum": "7.5",
+        "fixture_id": "501",
+    }
+    return [{**base, "fpl_element_id": "10"}]
+
+
+def cta_report():
+    return {
+        "status": "PASS_LAGGED_VERIFIED_FEATURES_BUILT",
+        "target_gameweeks": [12],
+        "source_snapshot_as_of": "2026-11-27T05:00:00+00:00",
+        "rows_with_source_snapshot_available_as_of_deadline": 1,
+        "rows_with_prior_cta_history": 1,
+        "verified_crosswalk_rows": 340,
+        "verified_player_match_panel_rows": 2526,
+        "decision_use_status": "RESEARCH_ONLY_NOT_IN_BASELINE",
+        "prediction_training_eligible": False,
+        "production_eligible": False,
+        "attribution": "11footy; CC BY-NC 4.0; non-commercial use only.",
+    }
+
+
+def test_cta_sidecar_is_attached_without_changing_official_ep_next():
+    snapshot, report = build_snapshot(
+        players(), gameweek_rows(), fixtures(), source_metadata(),
+        cta_rows=cta_rows(), cta_report=cta_report(),
+    )
+    by_id = {row["fpl_element_id"]: row for row in snapshot["player_forecasts"]}
+    assert by_id[10]["expected_points"] == 4.8
+    assert by_id[10]["cta"]["coverage_status"] == "HAS_PRIOR_VERIFIED_HISTORY"
+    assert by_id[10]["cta"]["identity_verified"] is True
+    assert by_id[10]["cta"]["composite"] is None
+    assert by_id[10]["cta"]["fixtures"][0]["features"]["cta_prior3_matches_shots_avg"] == 2.5
+    assert by_id[11]["cta"]["coverage_status"] == "NO_VERIFIED_IDENTITY"
+    coverage = snapshot["forecast_quality"]["data_coverage"]
+    assert coverage["cta_sidecar_integrated"] is True
+    assert coverage["cta_features_used_in_expected_points"] is False
+    assert coverage["cta_composite"] is None
+    assert report["cta_sidecar_integrated"] is True
+
+
+def test_rejects_cta_sidecar_after_deadline_or_wrong_gameweek():
+    late = cta_report()
+    late["source_snapshot_as_of"] = "2026-11-29T00:00:00Z"
+    with pytest.raises(ValueError, match="after the target FPL deadline"):
+        build_snapshot(players(), gameweek_rows(), fixtures(), source_metadata(),
+                       cta_rows=cta_rows(), cta_report=late)
+    wrong_gw = cta_report()
+    wrong_gw["target_gameweeks"] = [11]
+    with pytest.raises(ValueError, match="does not match forecast target"):
+        build_snapshot(players(), gameweek_rows(), fixtures(), source_metadata(),
+                       cta_rows=cta_rows(), cta_report=wrong_gw)
+
+
+def test_rejects_cta_sidecar_marked_production_eligible():
+    report = cta_report()
+    report["production_eligible"] = True
+    with pytest.raises(ValueError, match="cannot be marked training- or production-eligible"):
+        build_snapshot(players(), gameweek_rows(), fixtures(), source_metadata(),
+                       cta_rows=cta_rows(), cta_report=report)
+
+
 def test_snapshot_is_fresh_when_captured_within_24_hours_of_deadline():
     metadata = source_metadata()
     metadata["fetched_at_utc"] = "2026-11-28T05:30:00Z"

@@ -7,6 +7,7 @@ completed gameweek's minutes as an explicitly labelled minutes proxy.
 """
 from __future__ import annotations
 import argparse,csv,hashlib,json,math
+from collections import Counter,defaultdict
 from datetime import datetime,timezone
 from pathlib import Path
 
@@ -36,7 +37,7 @@ def finite_number(value):
     return number if math.isfinite(number) else None
 
 
-def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,eo_report=None):
+def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,eo_report=None,cta_rows=None,cta_report=None):
     target_gw=source_metadata.get("next_deadline_event_id")
     deadline_raw=source_metadata.get("next_deadline_time_utc")
     fetched_raw=source_metadata.get("fetched_at_utc")
@@ -101,6 +102,40 @@ def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,e
             if player_id and value is not None and value>=0:
                 eo_by_player[player_id]=value
 
+    cta_by_player={}
+    cta_status_counts=Counter()
+    cta_verified_players=set()
+    cta_prior_players=set()
+    if cta_rows is not None or cta_report is not None:
+        if cta_rows is None or cta_report is None:
+            raise ValueError("CTA CSV and CTA report must be supplied together")
+        if cta_report.get("status")!="PASS_LAGGED_VERIFIED_FEATURES_BUILT":
+            raise ValueError("CTA sidecar is not a passed verified upcoming-feature build")
+        if int(target_gw) not in {int(value) for value in cta_report.get("target_gameweeks",[])}:
+            raise ValueError("CTA sidecar gameweek does not match forecast target")
+        if cta_report.get("decision_use_status")!="RESEARCH_ONLY_NOT_IN_BASELINE":
+            raise ValueError("CTA sidecar must remain explicitly research-only")
+        if cta_report.get("prediction_training_eligible") is not False or cta_report.get("production_eligible") is not False:
+            raise ValueError("Unvalidated CTA features cannot be marked training- or production-eligible")
+        cta_snapshot=parse_time(cta_report.get("source_snapshot_as_of"))
+        if cta_snapshot>deadline:
+            raise ValueError("CTA source snapshot was captured after the target FPL deadline")
+        for row in cta_rows:
+            if int(row.get("gameweek",-1))!=int(target_gw):
+                raise ValueError("CTA feature row gameweek does not match forecast target")
+            row_deadline=parse_time(row.get("features_as_of_deadline"))
+            if row_deadline!=deadline:
+                raise ValueError("CTA feature deadline does not match official FPL target deadline")
+            player_id=str(row.get("fpl_element_id") or "").strip()
+            if not player_id:
+                raise ValueError("CTA feature row is missing fpl_element_id")
+            cta_by_player.setdefault(player_id,[]).append(row)
+            cta_status_counts[str(row.get("identity_status") or "UNKNOWN")]+=1
+            if str(row.get("identity_verified") or "").lower() in {"true","1"}:
+                cta_verified_players.add(player_id)
+            if finite_number(row.get("cta_prior_matches_count")) and finite_number(row.get("cta_prior_matches_count"))>0:
+                cta_prior_players.add(player_id)
+
     forecasts=[]
     missing_ep_next=[]
     invalid_players=[]
@@ -158,6 +193,55 @@ def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,e
             record["availability_probability"]=availability/100.0
         if player_id in eo_by_player:
             record["effective_ownership_pct"]=eo_by_player[player_id]
+        if cta_report is not None:
+            player_cta_rows=sorted(cta_by_player.get(player_id,[]),key=lambda row:str(row.get("fixture_id") or ""))
+            fixture_features=[]
+            player_identity_verified=player_id in cta_verified_players
+            player_has_prior=player_id in cta_prior_players
+            if not player_identity_verified:
+                coverage_status="NO_VERIFIED_IDENTITY"
+                identity_status="NO_VERIFIED_IDENTITY"
+            elif player_has_prior:
+                coverage_status="HAS_PRIOR_VERIFIED_HISTORY"
+                identity_status="VERIFIED_IDENTITY_AND_PRIOR_CTA_HISTORY"
+            else:
+                coverage_status="VERIFIED_IDENTITY_NO_PRIOR_HISTORY"
+                identity_status="VERIFIED_IDENTITY_NO_PRIOR_HISTORY"
+            for cta_row in player_cta_rows:
+                feature_values={}
+                for feature in (
+                    "minutes_played","goals","assists","own_goals","shots","shots_on_target",
+                    "key_passes","attempts","attempts_inside_box","attempts_outside_box",
+                    "big_chances","offsides","fouls_suffered","fouls_committed",
+                    "tracked_shots","tracked_shots_with_xg","tracked_xg_sum"
+                ):
+                    for window in ("prior3_matches","prior5_matches","season_to_date"):
+                        suffix="_sum" if window=="season_to_date" else "_avg"
+                        key=f"cta_{window}_{feature}{suffix}"
+                        feature_values[key]=finite_number(cta_row.get(key))
+                fixture_features.append({
+                    "fixture_id":str(cta_row.get("fixture_id") or ""),
+                    "prior_matches_count":int(finite_number(cta_row.get("cta_prior_matches_count")) or 0),
+                    "prior3_matches_count":int(finite_number(cta_row.get("cta_prior3_matches_count")) or 0),
+                    "prior5_matches_count":int(finite_number(cta_row.get("cta_prior5_matches_count")) or 0),
+                    "snapshot_available_as_of_deadline":str(cta_row.get("cta_snapshot_available_as_of_deadline") or "").lower() in {"true","1"},
+                    "identity_verified":str(cta_row.get("identity_verified") or "").lower() in {"true","1"},
+                    "features":feature_values,
+                })
+            record["cta"]={
+                "source":"11footy player-match feature sidecar",
+                "identity_verified":player_identity_verified,
+                "identity_status":identity_status,
+                "coverage_status":coverage_status,
+                "source_snapshot_as_of":cta_report.get("source_snapshot_as_of"),
+                "target_gameweek":int(target_gw),
+                "fixtures":fixture_features,
+                "composite":None,
+                "decision_use_status":"RESEARCH_ONLY_NOT_IN_BASELINE",
+                "prediction_training_eligible":False,
+                "production_eligible":False,
+                "attribution":cta_report.get("attribution","11footy; CC BY-NC 4.0; non-commercial use only."),
+            }
         forecasts.append(record)
 
     if not forecasts:
@@ -196,6 +280,16 @@ def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,e
             "eo_picks_lock_verified":bool(eo_report and eo_report.get("picks_lock_verified") is True),
             "eo_source":"CTA official FPL ranked manager picks" if eo_report else "unavailable",
             "invalid_players_excluded":len(invalid_players),
+            "cta_sidecar_integrated":cta_report is not None,
+            "cta_source":"11footy" if cta_report is not None else "unavailable",
+            "cta_source_snapshot_as_of":cta_report.get("source_snapshot_as_of") if cta_report else None,
+            "cta_target_player_fixture_rows":len(cta_rows) if cta_rows is not None else 0,
+            "cta_players_with_verified_identity":len(cta_verified_players),
+            "cta_players_with_prior_history":len(cta_prior_players),
+            "cta_identity_status_counts":dict(sorted(cta_status_counts.items())),
+            "cta_features_used_in_expected_points":False,
+            "cta_composite":None,
+            "cta_decision_use_status":cta_report.get("decision_use_status") if cta_report else "unavailable",
         },
         "limitations":[
             "expected_points is the official FPL ep_next baseline, not a CTA-trained prediction.",
@@ -206,10 +300,19 @@ def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,e
             "Player variance and CoVar are not supplied to this baseline snapshot.",
             "This snapshot covers one upcoming gameweek only.",
             "Snapshots older than 24 hours before the deadline are explicitly marked stale and should not be treated as current recommendations."
-        ],
+        ] + ([
+            "11footy CTA features are attached as a research-only sidecar and do not change official ep_next expected points or ranking scores.",
+            "Players without a verified 11footy identity or prior history retain explicit missing-coverage statuses; missing CTA metrics are not treated as zero.",
+            "11footy source data is CC BY-NC 4.0 and restricted to non-commercial use."
+        ] if cta_report is not None else []),
     }
+    model_version=(
+        "cta-fpl-official-epnext-fixture-scaled-minutes-proxy-v0.1.2-cta-sidecar"
+        if cta_report is not None
+        else "cta-fpl-official-epnext-fixture-scaled-minutes-proxy-v0.1.1"
+    )
     identity_payload={
-        "model_version":"cta-fpl-official-epnext-fixture-scaled-minutes-proxy-v0.1.1",
+        "model_version":model_version,
         "forecast_horizon_gameweeks":1,
         "player_forecasts":forecasts,
         "forecast_quality":quality,
@@ -217,7 +320,7 @@ def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,e
     snapshot_id=hashlib.sha256(json.dumps(identity_payload,sort_keys=True,separators=(",",":")).encode()).hexdigest()
     return {
         "forecast_snapshot_id":snapshot_id,
-        "model_version":"cta-fpl-official-epnext-fixture-scaled-minutes-proxy-v0.1.1",
+        "model_version":model_version,
         "forecast_horizon_gameweeks":1,
         "forecast_quality":quality,
         "player_forecasts":forecasts,
@@ -231,6 +334,11 @@ def build_snapshot(players,gameweek_rows,fixtures,source_metadata,eo_rows=None,e
         "invalid_player_ids":invalid_players,
         "no_minutes_history_ids":no_minutes_history,
         "eo_coverage_players":eo_coverage,
+        "cta_sidecar_integrated":cta_report is not None,
+        "cta_players_with_verified_identity":len(cta_verified_players),
+        "cta_players_with_prior_history":len(cta_prior_players),
+        "cta_target_player_fixture_rows":len(cta_rows) if cta_rows is not None else 0,
+        "cta_composite":None,
         "limitations":quality["limitations"],
     }
 
@@ -243,15 +351,22 @@ def main():
     parser.add_argument("--source-metadata",type=Path,required=True)
     parser.add_argument("--eo-csv",type=Path)
     parser.add_argument("--eo-report",type=Path)
+    parser.add_argument("--cta-csv",type=Path)
+    parser.add_argument("--cta-report",type=Path)
     parser.add_argument("--out-dir",type=Path,required=True)
     args=parser.parse_args()
     if bool(args.eo_csv)!=bool(args.eo_report):
         parser.error("--eo-csv and --eo-report must be supplied together")
+    if bool(args.cta_csv)!=bool(args.cta_report):
+        parser.error("--cta-csv and --cta-report must be supplied together")
     source_metadata=json.loads(args.source_metadata.read_text(encoding="utf-8"))
     eo_rows=read_csv(args.eo_csv) if args.eo_csv else None
     eo_report=json.loads(args.eo_report.read_text(encoding="utf-8")) if args.eo_report else None
+    cta_rows=read_csv(args.cta_csv) if args.cta_csv else None
+    cta_report=json.loads(args.cta_report.read_text(encoding="utf-8")) if args.cta_report else None
     snapshot,report=build_snapshot(
-        read_csv(args.players),read_csv(args.gameweek_rows),read_csv(args.fixtures),source_metadata,eo_rows,eo_report
+        read_csv(args.players),read_csv(args.gameweek_rows),read_csv(args.fixtures),
+        source_metadata,eo_rows,eo_report,cta_rows,cta_report
     )
     args.out_dir.mkdir(parents=True,exist_ok=True)
     (args.out_dir/"fpl_baseline_forecast_snapshot.json").write_text(json.dumps(snapshot,indent=2),encoding="utf-8")
