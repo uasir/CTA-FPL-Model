@@ -241,8 +241,11 @@ def fit_affine_expected_points_calibrator(calibration_predictions, calibration_a
     y = np.asarray(calibration_actual, dtype=np.float64)
     if len(x) != len(y) or len(x) < 2 or float(np.var(x)) <= 1e-10:
         return 1.0, 0.0
-    slope, intercept = np.polyfit(x, y, 1)
-    return float(slope), float(intercept)
+    slope, _ = np.polyfit(x, y, 1)
+    # Expected-points calibration must not reverse the model's ranking.
+    slope = max(0.0, float(slope))
+    intercept = float(np.mean(y) - slope * np.mean(x))
+    return slope, intercept
 
 
 def apply_affine_expected_points_calibrator(predictions, slope, intercept):
