@@ -21,8 +21,8 @@ Prepare the FPL-points predictor for multi-season chronological evaluation. This
 - It contains season folders and gameweek-level CSV files, including 2017/18 through 2024/25.
 - Its README states that weekly updates stopped after 2024/25 and describes only three subsequent major updates per season.
 - The README explicitly warns that the `xP` field may contain post-match information and should be shifted or excluded.
-- GitHub reports the repository licence as `Other` / SPDX `NOASSERTION`; no clear reuse licence was identified.
-- **Decision: use it for user-directed, research-only multi-season FPL prediction experiments despite unresolved rights metadata.** This is not a claim that the repository grants a permissive licence. Keep raw files and player-level outputs runner-local; do not redistribute the source dataset or derived player-level extracts. Preserve attribution, the pinned source commit, per-file hashes, and the `NOASSERTION` status in every report. Its historical gameweek files are not independently proven to be exact deadline-time snapshots.
+- GitHub reports the repository licence as `Other` / SPDX `NOASSERTION`; this metadata is recorded as provenance, not used as a data-discovery exclusion.
+- **Decision: use the dataset to advance internal project research and model development.** We do not claim authorship or ownership of the source data, and no dataset distribution is planned. Keep source files and player-level panels out of the Git repository while retaining attribution, pinned source revision, and per-file hashes. Historical gameweek files are not independently proven to be exact deadline-time snapshots.
 
 ### Multi-season research implementation
 
