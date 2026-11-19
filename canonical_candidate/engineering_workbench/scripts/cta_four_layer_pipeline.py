@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Typed-by-contract integration for CTA-FPL's four research layers.
+"""Typed-by-contract integration for CTA-FPL's independent research tracks.
 
-A/B/C are feature-intelligence layers. D is the temporal two-part model.
+A/B/C form an integrated contextual predictor. The conventional FPL 2PM
+Transformer is a separate track and does not depend on CTA. A+B+C may be
+added to a later Transformer ablation, but that is an optional experiment.
 Missing provider evidence stays missing; no layer may silently convert absent
 features to zero or use target-fixture outcomes.
 """
@@ -26,13 +28,44 @@ LAYER_FEATURES = {
         "contextual_threat_score",
     ),
 }
+
+# Dependencies describe the conceptual CTA feature layers only. D is deliberately
+# not a required fourth layer: the standalone 2PM model is a separate predictor.
 LAYER_DEPENDENCIES = {
     "A_temporal_football_value": (),
     "B_risk_defensive_intelligence": (),
     "C_player_intelligence": ("A_temporal_football_value", "B_risk_defensive_intelligence"),
-    "D_2PM_transformer": ("A_temporal_football_value", "B_risk_defensive_intelligence",
-                          "C_player_intelligence"),
 }
+
+MODEL_TRACKS = {
+    "integrated_abc": {
+        "required_layers": tuple(LAYER_FEATURES),
+        "input_family": "CTA_A_B_C",
+        "depends_on_2pm_transformer": False,
+    },
+    "standalone_2pm": {
+        "required_layers": (),
+        "input_family": "CONVENTIONAL_FPL",
+        "depends_on_abc": False,
+    },
+    "abc_augmented_2pm": {
+        "required_layers": tuple(LAYER_FEATURES),
+        "input_family": "CONVENTIONAL_FPL_PLUS_CTA_A_B_C",
+        "optional_ablation": True,
+    },
+}
+
+# Features available to the conventional track. These are pre-deadline
+# historical FPL aggregates and fixture context, never target-fixture outcomes.
+CONVENTIONAL_FPL_FEATURES = (
+    "prior_gw_points", "prior_gw_minutes",
+    "prior3_gw_points_avg", "prior3_gw_minutes_avg",
+    "prior3_gw_xg_avg", "prior3_gw_xa_avg",
+    "prior5_gw_points_avg", "prior5_gw_minutes_avg",
+    "prior5_appearance_rate", "season_appearance_rate",
+    "season_to_date_minutes", "season_to_date_points_per90",
+    "was_home",
+)
 
 
 @dataclass(frozen=True)
@@ -103,6 +136,41 @@ def integrate_player_sequence(layer_results: Sequence[LayerResult],
 
 def require_complete_sequence(sequence: Mapping) -> None:
     if sequence.get("missing_layers"):
-        raise ValueError("Cannot train integrated model with missing A/B/C layers")
+        raise ValueError("Cannot train integrated A/B/C predictor with missing layers")
     if sequence.get("status") != "VALIDATED":
         raise ValueError("Research-only layer features cannot enter promoted training")
+
+
+def validate_model_track_input(track: str, feature_names: Sequence[str]) -> None:
+    """Fail closed when a model receives features from the wrong experiment.
+
+    The standalone 2PM model is conventional-FPL-only. The optional augmented
+    experiment is the sole track allowed to combine FPL and A/B/C features.
+    """
+    if track not in MODEL_TRACKS:
+        raise ValueError(f"Unknown model track: {track}")
+    names = set(feature_names)
+    abc_names = {name for values in LAYER_FEATURES.values() for name in values}
+    conventional_names = set(CONVENTIONAL_FPL_FEATURES)
+    if track == "standalone_2pm":
+        if names & abc_names:
+            raise ValueError("Standalone 2PM input must not contain CTA A/B/C features")
+        unknown = names - conventional_names
+        if unknown:
+            raise ValueError(f"Unknown conventional FPL features: {sorted(unknown)}")
+        if not names:
+            raise ValueError("Standalone 2PM input feature list cannot be empty")
+    elif track == "integrated_abc":
+        if names & conventional_names:
+            raise ValueError("Integrated A/B/C predictor must be evaluated separately from conventional FPL features")
+        unknown = names - abc_names
+        if unknown:
+            raise ValueError(f"Unknown A/B/C features: {sorted(unknown)}")
+        if not names:
+            raise ValueError("Integrated A/B/C input feature list cannot be empty")
+    else:
+        if not (names & conventional_names) or not (names & abc_names):
+            raise ValueError("A/B/C-augmented 2PM requires both conventional FPL and A/B/C features")
+        unknown = names - conventional_names - abc_names
+        if unknown:
+            raise ValueError(f"Unknown augmented 2PM features: {sorted(unknown)}")
