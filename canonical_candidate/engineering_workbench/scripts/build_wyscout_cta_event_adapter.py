@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Normalize Wyscout EPL events into CTA's provider-neutral event schema.
 
-Possession IDs are inferred, never presented as provider supplied. Wyscout
-player IDs remain namespaced as Wyscout IDs; coordinates are converted from
+Possession IDs are inferred from event state and Wyscout duel outcome tags
+(lost/neutral/won), never presented as provider supplied. These segments remain
+provisional pending manual review. Wyscout player IDs remain namespaced; coordinates are converted from
 attacking-team-relative percentages to the CTA 120x80 pitch. Missing recipient,
 pressure, xG and other unsupported fields remain absent.
 """
@@ -17,6 +18,9 @@ from pathlib import Path
 PERIODS = {"1H": 1, "2H": 2, "E1": 3, "E2": 4, "P": 5}
 ACCURATE_TAG = 1801
 INACCURATE_TAG = 1802
+DUEL_LOST_TAG = 701
+DUEL_NEUTRAL_TAG = 702
+DUEL_WON_TAG = 703
 RESTART_EVENTS = {"Free Kick", "Corner", "Throw in", "Goal kick", "Penalty"}
 
 
@@ -113,7 +117,7 @@ def normalize_wyscout_events(events, players, teams, match_id):
         if current_possession_team is None:
             initial_team = (
                 opponent_by_team.get(team_key, team_key)
-                if event_name == "Duel" and 701 in tags else team_key
+                if event_name == "Duel" and DUEL_LOST_TAG in tags else team_key
             )
             current_possession_team = initial_team
             possession += 1
@@ -131,11 +135,11 @@ def normalize_wyscout_events(events, players, teams, match_id):
             pending_after_shot = False
             boundary_reason = "restart_event"
         elif not pending_dead_ball and event_name == "Duel":
-            if 703 in tags and team_key != current_possession_team:
+            if DUEL_WON_TAG in tags and team_key != current_possession_team:
                 possession += 1
                 current_possession_team = team_key
                 boundary_reason = "duel_won"
-            elif 701 in tags and team_key == current_possession_team:
+            elif DUEL_LOST_TAG in tags and team_key == current_possession_team:
                 switch_after_event_to = opponent_by_team.get(team_key)
         elif not pending_dead_ball and event_name not in {"Foul", "Offside", "Interruption", "Duel"}:
             if pending_after_shot and event_name in {"Save attempt", "Goalkeeper leaving line"}:
