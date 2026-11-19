@@ -201,7 +201,12 @@ def audit_record(picks_payload, live_payload, position_by_player):
         "official_out_starting_slots": official_out_slots,
         "replay_out_starting_slots": replay_out_slots,
 "official_position_pairs": official_position_pairs,
-"replay_position_pairs": replay_position_pairs,
+        "replay_position_pairs": replay_position_pairs,
+        "official_pair_played": official_pair_played,
+        "official_pair_minutes": official_pair_minutes,
+        "official_pair_cards": official_pair_cards,
+        "initial_formation": initial_formation,
+        "official_final_formation": official_final_formation,
         "transfer_hit_cost": record["event_transfers_cost"],
     }
 
