@@ -56,9 +56,6 @@ class LaggedFeatureTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_dataset(self.players,self.fixtures,bad,self.bootstrap)
 
-if __name__=="__main__":unittest.main()
-
-
     def test_missing_historical_xg_is_not_aggregated_as_zero(self):
         history = [dict(row) for row in self.history]
         history[0]["expected_goals"] = ""
@@ -73,3 +70,6 @@ if __name__=="__main__":unittest.main()
         self.assertEqual(gw2["prior3_gw_xg_avg"], "")
         self.assertEqual(gw2["season_to_date_xa"], "")
         self.assertEqual(gw2["prior3_gw_xa_avg"], "")
+
+if __name__=="__main__":unittest.main()
+
