@@ -142,8 +142,15 @@ def audit_record(picks_payload, live_payload, position_by_player):
         record["decision"], record["official_points"], record["minutes"],
         record["positions"], played_by_player=record["played_by_player"],
     )
+    replay_reverse = replay_gameweek(
+        record["decision"], record["official_points"], record["minutes"],
+        record["positions"], played_by_player=record["played_by_player"],
+        autosub_absence_order="reverse",
+    )
     replay_sub_pairs = sorted((item["in"], item["out"]) for item in replay["substitutions"])
     replay_sub_pairs_ordered = [(item["in"], item["out"]) for item in replay["substitutions"]]
+    replay_reverse_pairs = sorted((item["in"], item["out"]) for item in replay_reverse["substitutions"])
+    replay_reverse_ordered = [(item["in"], item["out"]) for item in replay_reverse["substitutions"]]
     positions = record["positions"]
     bench_slot = {player_id: index + 1 for index, player_id in enumerate(record["bench_order"])}
     starting_slot = {player_id: index + 1 for index, player_id in enumerate(record["decision"]["starting_xi"])}
@@ -154,9 +161,21 @@ def audit_record(picks_payload, live_payload, position_by_player):
     replay_slots = [bench_slot.get(in_id, 0) for in_id, _ in replay_sub_pairs_ordered]
     official_out_slots = [starting_slot.get(out_id, 0) for _, out_id in official_ordered]
     replay_out_slots = [starting_slot.get(out_id, 0) for _, out_id in replay_sub_pairs_ordered]
+    replay_reverse_position_pairs = sorted((positions[in_id], positions[out_id]) for in_id, out_id in replay_reverse_ordered)
+    replay_reverse_slots = [bench_slot.get(in_id, 0) for in_id, _ in replay_reverse_ordered]
+    replay_reverse_out_slots = [starting_slot.get(out_id, 0) for _, out_id in replay_reverse_ordered]
     return {
         "replay_net_points": replay["net_points"],
         "replay_gross_points": replay["gross_points"],
+        "replay_reverse_net_points": replay_reverse["net_points"],
+        "replay_reverse_gross_points": replay_reverse["gross_points"],
+        "replay_reverse_net_point_difference": replay_reverse["net_points"] - record["official_net_points"],
+        "replay_reverse_gross_point_difference": replay_reverse["gross_points"] - record["official_team_points"],
+        "autosub_pairs_match_reverse": replay_reverse_pairs == record["official_sub_pairs"],
+        "autosub_position_pairs_match_reverse": replay_reverse_position_pairs == official_position_pairs,
+        "autosub_count_match_reverse": len(replay_reverse_ordered) == len(official_ordered),
+        "replay_reverse_bench_slots": replay_reverse_slots,
+        "replay_reverse_out_starting_slots": replay_reverse_out_slots,
         "official_team_points": record["official_team_points"],
         "net_point_difference": replay["net_points"] - record["official_net_points"],
         "gross_point_difference": replay["gross_points"] - record["official_team_points"],
