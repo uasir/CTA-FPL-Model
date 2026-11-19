@@ -16,8 +16,10 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_baseline_forecast_snapshot.py
       - canonical_candidate/engineering_workbench/scripts/run_fpl_personal_squad_scale_smoke_test.py
+      - canonical_candidate/engineering_workbench/scripts/build_manager_cta_coverage_report.py
       - canonical_candidate/engineering_workbench/tests/js/emit_personal_squad_cta_outputs.mjs
       - canonical_candidate/engineering_workbench/tests/test_personal_squad_engine.py
+      - canonical_candidate/engineering_workbench/tests/test_manager_cta_coverage_report.py
       - canonical_candidate/engineering_workbench/src/js/personal_squad_engine.mjs
       - canonical_candidate/engineering_workbench/scripts/personal_squad_engine.py
       - canonical_candidate/engineering_workbench/scripts/run_fpl_general_market_baseline.py
@@ -83,7 +85,8 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_fpl_ingestion.py \
             canonical_candidate/engineering_workbench/tests/test_11footy_lagged_verified_features.py \
             canonical_candidate/engineering_workbench/tests/test_fpl_baseline_forecast_snapshot.py \
-            canonical_candidate/engineering_workbench/tests/test_personal_squad_engine.py
+            canonical_candidate/engineering_workbench/tests/test_personal_squad_engine.py \
+            canonical_candidate/engineering_workbench/tests/test_manager_cta_coverage_report.py
 
       - name: Download and verify the pinned 11footy release
         run: |
@@ -295,6 +298,47 @@ jobs:
             --snapshot run_artifacts/11footy/output/cta_decision/fpl_baseline_forecast_snapshot.json \
             --out-dir run_artifacts/11footy/output/cta_decision
 
+      - name: Fetch manager 421025 GW picks for CTA evidence coverage
+        continue-on-error: true
+        run: |
+          GW=$(python -c 'import json; print(json.load(open("run_artifacts/11footy/output/cta_decision/fpl_baseline_forecast_snapshot.json"))["forecast_quality"]["data_coverage"]["target_gameweek"])')
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 60 \
+            -H "User-Agent: CTA-FPL-Model/1.0" \
+            "https://fantasy.premierleague.com/api/entry/421025/event/\${GW}/picks/" \
+            -o "run_artifacts/fpl_official/manager_421025_gw\${GW}_picks.json"
+
+      - name: Build aggregate-only CTA evidence coverage for manager 421025
+        if: always()
+        continue-on-error: true
+        run: |
+          GW=$(python -c 'import json; print(json.load(open("run_artifacts/11footy/output/cta_decision/fpl_baseline_forecast_snapshot.json"))["forecast_quality"]["data_coverage"]["target_gameweek"])')
+          PICKS="run_artifacts/fpl_official/manager_421025_gw\${GW}_picks.json"
+          SNAPSHOT="run_artifacts/11footy/output/cta_decision/fpl_baseline_forecast_snapshot.json"
+          REPORT="run_artifacts/fpl_official/manager_421025_cta_coverage_report.json"
+          if [ -f "$PICKS" ] && [ -f "$SNAPSHOT" ]; then
+            python canonical_candidate/engineering_workbench/scripts/build_manager_cta_coverage_report.py \
+              --entry-id 421025 \
+              --picks-json "$PICKS" \
+              --snapshot "$SNAPSHOT" \
+              --out "$REPORT"
+          else
+            python - <<'PY'
+            import json
+            from pathlib import Path
+            path = Path("run_artifacts/fpl_official/manager_421025_cta_coverage_report.json")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({
+                "status": "MANAGER_PICKS_UNAVAILABLE",
+                "entry_id": 421025,
+                "decision_use_status": "RESEARCH_ONLY_NOT_IN_BASELINE",
+                "cta_features_used_in_expected_points": False,
+                "cta_decision_weight_applied": False,
+                "cta_ranking_effect": "NONE",
+                "publication_policy": "Aggregate coverage only; no player-level data published."
+            }, indent=2))
+            PY
+          fi
+
       - name: Publish aggregate-only CTA decision-layer integration summary
         if: always()
         run: |
@@ -339,6 +383,25 @@ jobs:
               summary["transfer_candidate_count"] = p.get("transfer_candidate_count")
               summary["cta_context_attached_to_starting_xi"] = p.get("cta_context_attached_to_starting_xi", False)
               summary["cta_context_attached_to_transfer_alternatives"] = p.get("cta_context_attached_to_transfer_alternatives", False)
+              summary["cta_evidence_summary_attached_to_starting_xi"] = p.get("cta_evidence_summary_attached_to_starting_xi", False)
+              summary["cta_evidence_summary_attached_to_transfer_alternatives"] = p.get("cta_evidence_summary_attached_to_transfer_alternatives", False)
+              summary["starting_xi_players_with_cta_evidence"] = p.get("starting_xi_players_with_cta_evidence", 0)
+              summary["cta_decision_weight_applied"] = p.get("cta_decision_weight_applied", False)
+              summary["cta_ranking_effect"] = p.get("cta_ranking_effect", "UNKNOWN")
+          manager_path = Path("run_artifacts/fpl_official/manager_421025_cta_coverage_report.json")
+          if manager_path.exists():
+              manager = json.loads(manager_path.read_text())
+              summary["manager_squad_cta_coverage"] = {
+                  key: manager.get(key) for key in (
+                      "status", "entry_id", "target_gameweek", "squad_size",
+                      "starting_xi_count", "bench_count", "squad_players_with_verified_identity",
+                      "squad_players_with_prior_history", "squad_players_with_cta_evidence",
+                      "starting_xi_with_prior_history", "starting_xi_with_cta_evidence",
+                      "bench_with_cta_evidence", "captain_has_cta_evidence",
+                      "vice_captain_has_cta_evidence", "cta_decision_weight_applied",
+                      "cta_ranking_effect", "free_transfers_status"
+                  )
+              }
           summary["decision_use_status"] = "RESEARCH_ONLY_NOT_IN_BASELINE"
           summary["publication_policy"] = "Aggregate metrics only; player-level forecast and CTA features remain runner-local."
           target.write_text(json.dumps(summary, indent=2))
@@ -364,11 +427,16 @@ jobs:
           if not overall or not isinstance(overall[0], dict) or "cta" not in overall[0]:
               raise SystemExit("General-market engine did not preserve the CTA feature sidecar")
           starting_context = personal.get("squad_plan", {}).get("starting_xi_cta_context", [])
-          if len(starting_context) != 11 or not all("cta" in player for player in starting_context):
-              raise SystemExit("Personal-squad engine did not preserve CTA context for the starting XI")
+          if len(starting_context) != 11 or not all("cta" in player and "cta_evidence_summary" in player for player in starting_context):
+              raise SystemExit("Personal-squad engine did not preserve CTA context and evidence summaries for the starting XI")
           alternatives = personal.get("transfer_recommendation", {}).get("alternatives", [])
-          if alternatives and not all("cta_context" in candidate for candidate in alternatives):
-              raise SystemExit("Personal-squad engine did not preserve CTA context for transfer alternatives")
+          if alternatives and not all(
+              "cta_context" in candidate
+              and "cta_evidence_summary" in candidate["cta_context"].get("incoming", {})
+              and "cta_evidence_summary" in candidate["cta_context"].get("outgoing", {})
+              for candidate in alternatives
+          ):
+              raise SystemExit("Personal-squad engine did not preserve CTA evidence summaries for transfer alternatives")
           print(json.dumps({
               "cta_sidecar_integrated": baseline.get("cta_sidecar_integrated"),
               "cta_features_used_in_expected_points": coverage.get("cta_features_used_in_expected_points"),
