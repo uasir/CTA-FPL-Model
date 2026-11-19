@@ -144,16 +144,28 @@ def prediction_quantile_diagnostics(actual: Sequence[float], predicted: Sequence
         raise ValueError("bins must be positive")
     count = min(int(bins), len(y))
     order = sorted(range(len(p)), key=lambda i: (p[i], i))
+    # Keep identical forecasts together. Splitting a large tie across adjacent
+    # quantile bins would manufacture apparent calibration differences.
+    tied_groups = []
+    for index in order:
+        if not tied_groups or p[index] != p[tied_groups[-1][0]]:
+            tied_groups.append([index])
+        else:
+            tied_groups[-1].append(index)
+    grouped_bins = {}
+    cursor = 0
+    for group in tied_groups:
+        midpoint = cursor + (len(group) - 1) / 2.0
+        bin_index = min(count - 1, int(midpoint * count / len(order)))
+        grouped_bins.setdefault(bin_index, []).extend(group)
+        cursor += len(group)
     report = []
-    for b in range(count):
-        start = b * len(order) // count
-        end = (b + 1) * len(order) // count
-        indices = order[start:end]
+    for indices in grouped_bins.values():
         actual_bin = [y[i] for i in indices]
         predicted_bin = [p[i] for i in indices]
         errors = [a - f for a, f in zip(actual_bin, predicted_bin)]
         report.append({
-            "bin": b + 1,
+            "bin": len(report) + 1,
             "n": len(indices),
             "predicted_mean": sum(predicted_bin) / len(indices),
             "actual_mean": sum(actual_bin) / len(indices),
