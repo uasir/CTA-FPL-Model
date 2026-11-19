@@ -26,7 +26,7 @@ def test_adapter_scales_attacking_relative_coordinates_and_namespaces_ids():
     assert rows[0]["possession"] == rows[1]["possession"]
     assert rows[2]["possession"] != rows[1]["possession"]
     assert rows[2]["pass"]["outcome"]["name"] == "Inaccurate"
-    assert report["possession_method"] == "INFERRED_CONTIGUOUS_TEAM_BLOCK"
+    assert report["possession_method"] == "INFERRED_EVENT_STATE_WITH_DUEL_OUTCOME_TAGS"
 
 
 def test_adapter_does_not_invent_recipient_pressure_or_xg():
