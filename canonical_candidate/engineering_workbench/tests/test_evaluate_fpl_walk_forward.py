@@ -176,3 +176,20 @@ def test_appearance_hurdle_distribution_places_nonappearance_mass_in_zero_class(
     assert abs(sum(mixed)-1.0)<1e-12
     assert abs(mixed[1]-(0.25+0.75*conditional[1]))<1e-12
     assert all(p>=0.0 for p in mixed)
+
+
+
+def test_paired_error_comparison_reports_aligned_deltas_and_probability_groups():
+    from evaluate_fpl_walk_forward import paired_error_comparison
+    actual=[0.0,2.0,5.0,8.0]
+    candidate=[1.0,1.0,7.0,7.0]
+    comparator=[2.0,3.0,4.0,10.0]
+    groups=["low_<0.50","medium_0.50_to_0.80","high_>=0.80","high_>=0.80"]
+    result=paired_error_comparison(actual,candidate,comparator,groups)
+    assert result["n"]==4
+    assert result["mean_absolute_error_delta"]==-0.5
+    assert result["mean_squared_error_delta"]==-3.5
+    assert result["candidate_absolute_error_win_rate"]==0.75
+    assert result["absolute_error_tie_rate"]==0.0
+    assert result["by_group"]["high_>=0.80"]["n"]==2
+    assert result["by_group"]["low_<0.50"]["mean_absolute_error_delta"]==-1.0
