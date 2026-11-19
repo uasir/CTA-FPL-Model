@@ -50,12 +50,12 @@ A single chronological 2017/18 holdout compared:
 
 | Metric | FPL-history baseline | Baseline + Wyscout features |
 |---|---:|---:|
-| Test MAE | 2.4269 | 2.4154 |
-| Test RMSE | 3.1323 | 3.1694 |
+| Test MAE | 2.4269 | 2.4129 |
+| Test RMSE | 3.1323 | 3.1638 |
 
-MAE improved by 0.47%, while RMSE worsened. This is a weak and mixed exploratory result. It does not justify CTA weighting or a production decision adjustment.
+The augmented model uses 84 raw-count and per-90 CTA feature columns. MAE improved by 0.57%, while RMSE worsened. This remains a weak and mixed exploratory result; it does not justify CTA weighting or a production decision adjustment.
 
-A follow-up refinement adds per-90 normalisation using prior FPL minutes and reruns the chronological comparison. It must not use the target match's minutes or event data.
+Follow-up refinement added per-90 normalisation using only prior FPL minutes. The target match's minutes and event data are never used as predictors.
 
 ## Explicit limitations
 
