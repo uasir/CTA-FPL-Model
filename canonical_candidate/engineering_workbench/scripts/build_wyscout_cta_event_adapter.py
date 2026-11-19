@@ -117,7 +117,7 @@ def normalize_wyscout_events(events, players, teams, match_id):
             skipped["unmapped_event_type"] += 1
             continue
 
-        is_free_kick_shot = event_name == "Free Kick" and sub_event_name.casefold() == "free kick shot"
+        is_set_piece_shot = event_name == "Free Kick" and sub_event_name.casefold() in {"free kick shot", "penalty"}
         is_restart = event_name in RESTART_EVENTS
         switch_after_event_to = None
         boundary_reason = None
@@ -172,7 +172,7 @@ def normalize_wyscout_events(events, players, teams, match_id):
         end = _coord(positions[1]) if len(positions) > 1 else None
         if event_name == "Pass":
             kind = "Pass"
-        elif event_name == "Shot" or is_free_kick_shot:
+        elif event_name == "Shot" or is_set_piece_shot:
             kind = "Shot"
         elif event_name == "Others on the ball" and "acceleration" in str(event.get("subEventName") or "").casefold() and end is not None:
             kind = "Carry"
@@ -237,6 +237,14 @@ def normalize_wyscout_events(events, players, teams, match_id):
         "duel_outcome_tag_counts": dict(duel_outcome_counts),
         "free_kick_shots_mapped_to_shot": sum(
             row.get("_provider_subevent_name", "").casefold() == "free kick shot"
+            and row["type"]["name"] == "Shot" for row in normalized
+        ),
+        "penalties_mapped_to_shot": sum(
+            row.get("_provider_subevent_name", "").casefold() == "penalty"
+            and row["type"]["name"] == "Shot" for row in normalized
+        ),
+        "set_piece_shots_mapped_to_shot": sum(
+            row.get("_provider_subevent_name", "").casefold() in {"free kick shot", "penalty"}
             and row["type"]["name"] == "Shot" for row in normalized
         ),
         "player_id_namespace": "wyscout: prefix retained; never interpreted as StatsBomb or FPL ID",
