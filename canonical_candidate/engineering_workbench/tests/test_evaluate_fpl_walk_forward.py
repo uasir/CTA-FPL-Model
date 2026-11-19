@@ -190,6 +190,6 @@ def test_paired_error_comparison_reports_aligned_deltas_and_probability_groups()
     assert result["mean_absolute_error_delta"]==-0.25
     assert result["mean_squared_error_delta"]==-0.75
     assert result["candidate_absolute_error_win_rate"]==0.5
-    assert result["absolute_error_tie_rate"]==0.0
+    assert result["absolute_error_tie_rate"]==0.25
     assert result["by_group"]["high_>=0.80"]["n"]==2
     assert result["by_group"]["low_<0.50"]["mean_absolute_error_delta"]==-1.0
