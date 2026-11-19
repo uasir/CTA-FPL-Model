@@ -1,4 +1,5 @@
-from evaluate_fpl_walk_forward import evaluate_walk_forward
+from evaluate_fpl_walk_forward import evaluate_walk_forward, fit_ridge_fast
+from train_fpl_exploratory_ridge import FEATURES, fit_ridge, predict
 
 
 def row(season, gw, player, points, minutes, prior=4.0):
@@ -31,3 +32,16 @@ def test_expanding_season_walk_forward_never_trains_on_validation_season():
         assert fold["validation_player_gameweeks"]>0
         assert fold["appearance"]["calibrated"]["brier"]>=0
         assert fold["points"]["direct"]["mae"]>=0
+
+ 
+def test_numpy_walk_forward_ridge_matches_canonical_ridge_solver():
+    rows=[]
+    for gw in range(1,15):
+        for player in range(1,15):
+            minutes=0 if (gw+player)%5==0 else 90
+            points=0 if minutes==0 else ((gw*player)%9)+2
+            rows.append(row("2024-25",gw,player,points,minutes,prior=(gw%6)+1))
+    canonical=fit_ridge(rows,"actual_points",FEATURES,10.0)
+    accelerated=fit_ridge_fast(rows,"actual_points",FEATURES,10.0)
+    for item in rows[:10]:
+        assert abs(predict(canonical,item)-predict(accelerated,item))<1e-7
