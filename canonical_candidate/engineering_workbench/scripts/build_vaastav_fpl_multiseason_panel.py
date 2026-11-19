@@ -50,7 +50,14 @@ def fetch_bytes(url):
 
 def read_csv_bytes(payload):
     import io
-    return list(csv.DictReader(io.StringIO(payload.decode("utf-8-sig"))))
+    try:
+        decoded = payload.decode("utf-8-sig")
+        encoding = "utf-8-sig"
+    except UnicodeDecodeError:
+        # Historical exports contain accented names encoded as Windows-1252.
+        decoded = payload.decode("cp1252")
+        encoding = "cp1252"
+    return list(csv.DictReader(io.StringIO(decoded))), encoding
 
 
 def first_value(row, *names):
@@ -68,7 +75,7 @@ def load_season(season, out_dir):
     raw_path = raw_dir / f"{season}_merged_gw.csv"
     raw_path.write_bytes(payload)
     digest = hashlib.sha256(payload).hexdigest()
-    source_rows = read_csv_bytes(payload)
+    source_rows, source_encoding = read_csv_bytes(payload)
     if not source_rows:
         raise ValueError(f"No rows in source file for {season}")
     required = {"round", "kickoff_time", "minutes", "total_points"}
@@ -81,6 +88,7 @@ def load_season(season, out_dir):
         "sha256": digest,
         "bytes": len(payload),
         "source_rows": len(source_rows),
+        "encoding": source_encoding,
         "raw_file": str(raw_path),
     }
 
