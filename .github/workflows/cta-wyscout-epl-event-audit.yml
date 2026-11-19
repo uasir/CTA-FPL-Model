@@ -6,13 +6,17 @@ on:
     paths:
       - .github/workflows/cta-wyscout-epl-event-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py
+      - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
   push:
     branches: [main, "feat/**"]
     paths:
       - .github/workflows/cta-wyscout-epl-event-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py
+      - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
   workflow_dispatch:
 
 permissions:
@@ -48,10 +52,21 @@ jobs:
         run: |
           python canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py --events-zip run_artifacts/wyscout/source/events.zip --matches-zip run_artifacts/wyscout/source/matches.zip --players-json run_artifacts/wyscout/source/players.json --teams-json run_artifacts/wyscout/source/teams.json --out-dir run_artifacts/wyscout/output
 
-      - name: Upload aggregate-only Wyscout audit
+      - name: Build Wyscout CTA player-match features
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_player_match_features.py \
+            --events-zip run_artifacts/wyscout/source/events.zip \
+            --matches-zip run_artifacts/wyscout/source/matches.zip \
+            --players-json run_artifacts/wyscout/source/players.json \
+            --teams-json run_artifacts/wyscout/source/teams.json \
+            --out-dir run_artifacts/wyscout/output
+
+      - name: Upload aggregate-only Wyscout audit and CTA report
         uses: actions/upload-artifact@v4
         with:
           name: cta-wyscout-epl-2017-event-data-audit
-          path: run_artifacts/wyscout/output/wyscout_epl_2017_event_data_audit.json
+          path: |
+            run_artifacts/wyscout/output/wyscout_epl_2017_event_data_audit.json
+            run_artifacts/wyscout/output/wyscout_cta_player_match_report.json
           if-no-files-found: error
           retention-days: 90
