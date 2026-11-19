@@ -82,7 +82,7 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py \
             canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py \
-            canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py \\
+            canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_temporal_xt.py
 
       - name: Download the public Wyscout 2017/18 data files
@@ -124,9 +124,9 @@ jobs:
 
       - name: Evaluate experimental time-horizon xT on chronological match holdout
         run: |
-          python canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py \\
-            --events run_artifacts/wyscout/output/cta_canonical_events.json \\
-            --matches-zip run_artifacts/wyscout/source/matches.zip \\
+          python canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py \
+            --events run_artifacts/wyscout/output/cta_canonical_events.json \
+            --matches-zip run_artifacts/wyscout/source/matches.zip \
             --out run_artifacts/wyscout/output/wyscout_temporal_xt_report.json
 
       - name: Download pinned historical FPL 2017/18 identity and match-history files
