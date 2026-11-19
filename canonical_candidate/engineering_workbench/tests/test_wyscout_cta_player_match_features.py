@@ -144,3 +144,44 @@ def test_wyscout_goal_and_own_goal_tags_reconcile_to_match_score():
     assert report["goal_reconciliation"]["player_attributed_goal_total"] == 3
     assert report["goal_reconciliation"]["player_attributed_minus_metadata_goal_delta"] == 0
     assert report["goal_reconciliation"]["status"] == "PASS_EXACT"
+
+
+def test_wyscout_player_match_captures_defensive_actions_by_event_subtype():
+    events = [
+        {"id": 1, "matchId": 10, "playerId": 100, "teamId": 1,
+         "eventName": "Duel", "subEventName": "Ground defending duel",
+         "positions": [{"x": 45, "y": 40}], "tags": [{"id": 703}]},
+        {"id": 2, "matchId": 10, "playerId": 100, "teamId": 1,
+         "eventName": "Duel", "subEventName": "Ground defending duel",
+         "positions": [{"x": 46, "y": 40}], "tags": [{"id": 701}]},
+        {"id": 3, "matchId": 10, "playerId": 100, "teamId": 1,
+         "eventName": "Duel", "subEventName": "Air duel",
+         "positions": [{"x": 50, "y": 50}], "tags": [{"id": 703}]},
+        {"id": 4, "matchId": 10, "playerId": 100, "teamId": 1,
+         "eventName": "Others on the ball", "subEventName": "Clearance",
+         "positions": [{"x": 20, "y": 50}], "tags": []},
+        {"id": 5, "matchId": 10, "playerId": 100, "teamId": 1,
+         "eventName": "Foul", "subEventName": "Foul",
+         "positions": [{"x": 30, "y": 50}], "tags": []},
+        {"id": 6, "matchId": 10, "playerId": 100, "teamId": 1,
+         "eventName": "Others on the ball", "subEventName": "Interception",
+         "positions": [{"x": 35, "y": 50}], "tags": []},
+    ]
+    matches = [{
+        "wyId": 10, "dateutc": "2018-04-01 15:00:00",
+        "teamsData": {"1": {"teamId": 1, "side": "home"},
+                      "2": {"teamId": 2, "side": "away"}},
+    }]
+    rows, _ = build_player_match_features(
+        events, matches, [{"wyId": 100, "shortName": "Defender"}],
+        [{"wyId": 1, "name": "Home FC"}, {"wyId": 2, "name": "Away FC"}],
+    )
+    row = rows[0]
+    assert row["ground_defensive_duel_events"] == 2
+    assert row["ground_defensive_duels_won"] == 1
+    assert row["ground_defensive_duels_lost"] == 1
+    assert row["aerial_duel_events"] == 1
+    assert row["aerial_duels_won"] == 1
+    assert row["clearance_events"] == 1
+    assert row["foul_events"] == 1
+    assert row["interception_events"] == 1
