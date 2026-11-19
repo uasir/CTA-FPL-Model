@@ -108,7 +108,7 @@ def test_policy_comparison_is_paired_on_identical_start_state():
     decision, positions = make_roster()
     points, mins = outcomes(positions)
     baseline = dict(decision)
-    improved = dict(decision, captain="m1")
+    improved = dict(decision, captain="m1", vice_captain="f1")
     rows = [
         {"deadline_id": "GW1", "starting_state_id": "s1", "policy": "hold",
          "decision": baseline, "official_points": points, "minutes": mins, "positions": positions,
