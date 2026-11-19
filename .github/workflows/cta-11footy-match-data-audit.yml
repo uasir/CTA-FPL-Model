@@ -322,21 +322,8 @@ jobs:
               --snapshot "$SNAPSHOT" \
               --out "$REPORT"
           else
-            python - <<'PY'
-            import json
-            from pathlib import Path
-            path = Path("run_artifacts/fpl_official/manager_421025_cta_coverage_report.json")
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps({
-                "status": "MANAGER_PICKS_UNAVAILABLE",
-                "entry_id": 421025,
-                "decision_use_status": "RESEARCH_ONLY_NOT_IN_BASELINE",
-                "cta_features_used_in_expected_points": False,
-                "cta_decision_weight_applied": False,
-                "cta_ranking_effect": "NONE",
-                "publication_policy": "Aggregate coverage only; no player-level data published."
-            }, indent=2))
-            PY
+            mkdir -p "$(dirname "$REPORT")"
+            printf '%s\n' '{"status":"MANAGER_PICKS_UNAVAILABLE","entry_id":421025,"decision_use_status":"RESEARCH_ONLY_NOT_IN_BASELINE","cta_features_used_in_expected_points":false,"cta_decision_weight_applied":false,"cta_ranking_effect":"NONE","publication_policy":"Aggregate coverage only; no player-level data published."}' > "$REPORT"
           fi
 
       - name: Publish aggregate-only CTA decision-layer integration summary
