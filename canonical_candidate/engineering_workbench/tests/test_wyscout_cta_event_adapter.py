@@ -42,3 +42,16 @@ def test_adapter_does_not_invent_recipient_pressure_or_xg():
     assert "under_pressure" not in rows[0]
     assert "statsbomb_xg" not in rows[0].get("shot", {})
     assert rows[0]["pass"]["outcome"]["name"] == "Unknown"
+
+
+def test_adapter_preserves_goal_tag_for_cta_xg_fit():
+    events = [{
+        "id": 8, "matchPeriod": "1H", "eventSec": 30, "teamId": 1,
+        "playerId": 10, "eventName": "Shot", "positions": [
+            {"x": 95, "y": 50}], "tags": [{"id": 101}],
+    }]
+    rows, _ = normalize_wyscout_events(
+        events, [{"wyId": 10, "shortName": "Scorer"}],
+        [{"wyId": 1, "name": "Home"}], 101
+    )
+    assert rows[0]["shot"]["outcome"]["name"] == "Goal"
