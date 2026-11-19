@@ -290,7 +290,7 @@ Private archive capture:
 - GW7: 667 players; source generated 2026-10-14T15:08:42Z; SHA-256 `279bb9664a494b98486fd2f0fc014cf685403ace56ea3a9407a4bd214e67a220`.
 - 2,648 forecast rows; all 2,648 official FPL IDs resolved. Original projections and accuracy JSON remain in the private archive.
 
-The independent evaluator uses official FPL `event/{gw}/live/` points only after the event is finished. Its MAE reproduces the provider's published per-week scorecard to rounding: GW4 1.207, GW5 1.148, GW6 1.103, GW7 1.080. Pooled: 2,648 player-GWs, MAE 1.1343, RMSE 2.1080, bias -0.1619, Spearman 0.6914. The provider's captured FPL `ep_next` baseline has MAE 1.2150 on 2,631 exact-name matched rows.
+The independent evaluator uses official FPL `event/{gw}/live/` points only after the event is finished. Its MAE reproduces the provider's published per-week scorecard to rounding: GW4 1.207, GW5 1.148, GW6 1.103, GW7 1.080. Pooled: 2,648 player-GWs, MAE 1.1343, RMSE 2.1080, bias -0.1619, Spearman 0.6914. The provider's captured FPL `ep_next` baseline has MAE about 1.215 on 2,632 exact-name matched rows in the full EVMax cohort (2,631 in the 2PM common subset).
 
 First identical all-player comparison against the retrospective 2PM reconstruction (2,647 common player-GWs):
 - EVMax: MAE 1.1344, RMSE 2.1084.
@@ -322,4 +322,4 @@ The standalone 2PM CI walk-forward run completed successfully: 9 expanding-seaso
 The affine calibrator is fitted on held-out prior-training gameweeks only, so this is a valid walk-forward historical improvement. However, the same calibrator worsened the 2026/27 retrospective external comparisons. Treat this as evidence of historical improvement with a current-season transfer problem, not grounds for promotion. All 2PM variants remain research-only.
 
 
-The captured official FPL `ep_next` baseline has MAE 1.2153 and RMSE 2.3497 on 2,632 exact-name-matched player-GWs. Paired player-cluster bootstrap versus EVMax gives ep_next-minus-EVMax MAE difference 95% CI +0.032 to +0.127 and RMSE difference CI +0.170 to +0.304. Four names per GW were unmatched and retained as missing; no fuzzy name join was used.
+The captured official FPL `ep_next` baseline has MAE 1.2153 and RMSE 2.3497 on 2,632 exact-name-matched player-GWs in the full EVMax cohort (2,631 in the 2PM common subset). Paired player-cluster bootstrap versus EVMax in the 2PM common subset gives ep_next-minus-EVMax MAE difference 95% CI +0.032 to +0.127 and RMSE difference CI +0.170 to +0.304. Four names per GW were unmatched and retained as missing; no fuzzy name join was used.
