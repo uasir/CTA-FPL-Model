@@ -27,11 +27,13 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/verify_11footy_fpl_identity_crosswalk.py"
       - "canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py"
       - "canonical_candidate/engineering_workbench/scripts/build_11footy_lagged_research_features.py"
+      - "canonical_candidate/engineering_workbench/scripts/build_11footy_lagged_verified_features.py"
       - "canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py"
       - "canonical_candidate/engineering_workbench/tests/test_11footy_fpl_identity_candidates.py"
       - "canonical_candidate/engineering_workbench/tests/test_11footy_verified_crosswalk.py"
       - "canonical_candidate/engineering_workbench/tests/test_11footy_player_match_features.py"
       - "canonical_candidate/engineering_workbench/tests/test_11footy_lagged_research_features.py"
+      - "canonical_candidate/engineering_workbench/tests/test_11footy_lagged_verified_features.py"
       - "canonical_candidate/engineering_workbench/tests/test_provider_identity_crosswalk.py"
       - "canonical_candidate/data/11footy_fpl_identity_crosswalk.csv"
       - "canonical_candidate/engineering_workbench/scripts/audit_onside_against_fpl_actuals.py"
@@ -87,7 +89,8 @@ jobs:
             tests/test_onside_fpl_actuals_cross_audit.py \
             tests/test_11footy_fpl_identity_candidates.py \
             tests/test_11footy_player_match_features.py \
-            tests/test_11footy_lagged_research_features.py
+            tests/test_11footy_lagged_research_features.py \\
+            tests/test_11footy_lagged_verified_features.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -236,6 +239,56 @@ jobs:
             --history run_artifacts/fpl_official/fpl_player_fixture.csv \
             --bootstrap run_artifacts/fpl_official/bootstrap-static.json \
             --out-dir run_artifacts/fpl_official
+
+      - name: Build deadline-safe verified 11footy CTA features for the upcoming FPL gameweek
+        continue-on-error: true
+        run: |
+          PANEL="run_artifacts/11footy_fpl/output/verified_player_match_panel.csv"
+          SOURCE_REPORT="run_artifacts/11footy_fpl/output/11footy_fpl_player_match_integration.json"
+          if [ -f "$PANEL" ] && [ -f "$SOURCE_REPORT" ]; then
+            python canonical_candidate/engineering_workbench/scripts/build_11footy_lagged_verified_features.py \
+              --cta-panel "$PANEL" \
+              --source-report "$SOURCE_REPORT" \
+              --fpl-players run_artifacts/fpl_official/fpl_players.csv \
+              --fpl-fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
+              --bootstrap run_artifacts/fpl_official/bootstrap-static.json \
+              --source-metadata run_artifacts/fpl_official/source_metadata.json \
+              --out-dir run_artifacts/11footy_fpl/output
+          else
+            echo "WARNING: verified CTA player-match panel is unavailable"
+          fi
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = Path("run_artifacts/11footy_fpl/output/11footy_lagged_verified_upcoming_report.json")
+          target = Path("run_artifacts/fpl_official/11footy_lagged_verified_upcoming_summary.json")
+          if source.exists():
+              report = json.loads(source.read_text())
+              keys = (
+                  "status", "rows", "unique_players", "unique_fixtures", "gameweeks",
+                  "verified_crosswalk_rows", "verified_player_match_panel_rows",
+                  "source_snapshot_as_of", "rows_with_source_snapshot_available_as_of_deadline",
+                  "rows_without_source_snapshot_available_as_of_deadline",
+                  "rows_with_prior_cta_history", "rows_without_prior_cta_history",
+                  "players_with_prior_cta_history", "coverage_by_gameweek",
+                  "prior_feature_coverage_rows", "target_gameweeks", "upcoming_target_summary",
+                  "temporal_policy", "identity_status", "prediction_training_eligible",
+                  "production_eligible", "decision_use_status", "eligibility_reason",
+                  "source_hashes", "attribution"
+              )
+              safe = {key: report.get(key) for key in keys}
+          else:
+              safe = {
+                  "status": "VERIFIED_UPCOMING_CTA_FEATURE_BUILD_UNAVAILABLE",
+                  "rows": 0,
+                  "prediction_training_eligible": False,
+                  "production_eligible": False,
+                  "decision_use_status": "RESEARCH_ONLY_NOT_IN_BASELINE"
+              }
+          safe["publication_policy"] = "Aggregate metrics only; player-level CTA feature rows remain inside the workflow runner."
+          target.write_text(json.dumps(safe, indent=2))
+          print(json.dumps(safe, indent=2))
+          PY
 
       - name: Build leakage-safe lagged 11footy CTA research features
         continue-on-error: true

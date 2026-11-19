@@ -12,6 +12,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py
       - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
+      - canonical_candidate/engineering_workbench/scripts/build_11footy_lagged_verified_features.py
+      - canonical_candidate/engineering_workbench/tests/test_11footy_lagged_verified_features.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_ingestion.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_premier_league_data_audit.py
@@ -67,7 +69,8 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_11footy_verified_crosswalk.py \
             canonical_candidate/engineering_workbench/tests/test_provider_identity_crosswalk.py \
             canonical_candidate/engineering_workbench/tests/test_11footy_player_match_features.py \
-            canonical_candidate/engineering_workbench/tests/test_fpl_ingestion.py
+            canonical_candidate/engineering_workbench/tests/test_fpl_ingestion.py \\
+            canonical_candidate/engineering_workbench/tests/test_11footy_lagged_verified_features.py
 
       - name: Download and verify the pinned 11footy release
         run: |
@@ -150,6 +153,75 @@ jobs:
             --bootstrap run_artifacts/fpl_official/bootstrap-static.json \
             --out-dir run_artifacts/fpl_official
 
+      - name: Build deadline-safe verified CTA features for the upcoming FPL gameweek
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/build_11footy_lagged_verified_features.py \
+            --cta-panel run_artifacts/11footy/output/verified_player_match_panel.csv \
+            --source-report run_artifacts/11footy/output/11footy_fpl_player_match_integration.json \
+            --fpl-players run_artifacts/fpl_official/fpl_players.csv \
+            --fpl-fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
+            --bootstrap run_artifacts/fpl_official/bootstrap-static.json \
+            --source-metadata run_artifacts/fpl_official/source_metadata.json \
+            --out-dir run_artifacts/11footy/output
+
+      - name: Publish aggregate-only verified upcoming CTA feature summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = Path("run_artifacts/11footy/output/11footy_lagged_verified_upcoming_report.json")
+          target = Path("run_artifacts/fpl_official/11footy_lagged_verified_upcoming_summary.json")
+          if source.exists():
+              report = json.loads(source.read_text())
+              keys = (
+                  "status", "rows", "unique_players", "unique_fixtures", "gameweeks",
+                  "verified_crosswalk_rows", "verified_player_match_panel_rows",
+                  "source_snapshot_as_of", "rows_with_source_snapshot_available_as_of_deadline",
+                  "rows_without_source_snapshot_available_as_of_deadline",
+                  "rows_with_prior_cta_history", "rows_without_prior_cta_history",
+                  "players_with_prior_cta_history", "coverage_by_gameweek",
+                  "prior_feature_coverage_rows", "target_gameweeks", "upcoming_target_summary",
+                  "temporal_policy", "identity_status", "prediction_training_eligible",
+                  "production_eligible", "decision_use_status", "eligibility_reason",
+                  "source_hashes", "attribution"
+              )
+              safe = {key: report.get(key) for key in keys}
+          else:
+              safe = {
+                  "status": "VERIFIED_UPCOMING_CTA_FEATURE_BUILD_UNAVAILABLE",
+                  "rows": 0,
+                  "prediction_training_eligible": False,
+                  "production_eligible": False,
+                  "decision_use_status": "RESEARCH_ONLY_NOT_IN_BASELINE"
+              }
+          safe["publication_policy"] = "Aggregate metrics only; player-level CTA feature rows remain inside the workflow runner."
+          target.write_text(json.dumps(safe, indent=2))
+          print(json.dumps(safe, indent=2))
+          PY
+
+      - name: Enforce deadline-safe upcoming CTA feature coverage
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("run_artifacts/11footy/output/11footy_lagged_verified_upcoming_report.json").read_text())
+          if report.get("status") != "PASS_LAGGED_VERIFIED_FEATURES_BUILT":
+              raise SystemExit("Verified upcoming CTA feature build did not pass")
+          if int(report.get("rows_with_source_snapshot_available_as_of_deadline", 0)) < 1:
+              raise SystemExit("Provider snapshot was not available before any target deadline")
+          if int(report.get("rows_with_prior_cta_history", 0)) < 1:
+              raise SystemExit("No strictly prior verified CTA history reached upcoming FPL targets")
+          print(json.dumps({
+              "status": report.get("status"),
+              "target_gameweeks": report.get("target_gameweeks"),
+              "rows_with_prior_cta_history": report.get("rows_with_prior_cta_history"),
+              "source_snapshot_as_of": report.get("source_snapshot_as_of"),
+              "prediction_training_eligible": report.get("prediction_training_eligible"),
+              "production_eligible": report.get("production_eligible"),
+          }, indent=2))
+          PY
+
       - name: Publish aggregate-only CTA-FPL player-match integration summary
         if: always()
         run: |
@@ -221,5 +293,6 @@ jobs:
             run_artifacts/11footy/output/verified_identity/validation/crosswalk_validation.json
             run_artifacts/11footy/output/verified_cta_fpl_integration_summary.json
             run_artifacts/fpl_official/fpl_lagged_training_report.json
+            run_artifacts/fpl_official/11footy_lagged_verified_upcoming_summary.json
           if-no-files-found: warn
           retention-days: 90
