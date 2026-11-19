@@ -270,13 +270,18 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
     calibrator = fit_platt(calibration_scores, [r["appeared"] for r in calibration_rows])
     positive_fit = [r for r in fit_rows if r["appeared"] == 1.0]
     conditional_model = fit_ridge(positive_fit, "actual_points", FEATURES, 10.0)
+    direct_model = fit_ridge(fit_rows, "actual_points", FEATURES, 10.0)
     baseline_raw = []
     baseline_calibrated = []
+    baseline_direct = []
+    baseline_last5 = []
     for row in validation_rows:
         score = appearance_model_prediction(appearance_model, row)
         conditional = max(0.0, predict(conditional_model, row))
         baseline_raw.append(min(1.0, max(0.0, score)) * conditional)
         baseline_calibrated.append(calibrated_probability(calibrator, score) * conditional)
+        baseline_direct.append(predict(direct_model, row))
+        baseline_last5.append(float(row["last5_baseline_points"]))
 
     actual = [r["actual_points"] for r in validation_rows]
     transformer_report = evaluate_forecast(
@@ -285,10 +290,16 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
     )
     raw_report = evaluate_forecast(actual, baseline_raw, ranking_score=baseline_raw, top_k=100)
     calibrated_report = evaluate_forecast(actual, baseline_calibrated, ranking_score=baseline_calibrated, top_k=100)
+    direct_report = evaluate_forecast(actual, baseline_direct, ranking_score=baseline_direct, top_k=100)
+    last5_report = evaluate_forecast(actual, baseline_last5, ranking_score=baseline_last5, top_k=100)
     cluster_ids = [f"{r['season']}:{r['fpl_element_id']}" for r in validation_rows]
     bootstrap = cluster_bootstrap_paired_errors(
         actual, transformer_prediction, baseline_calibrated, cluster_ids,
         n_boot=1000, seed=SEED + seed_offset,
+    )
+    direct_bootstrap = cluster_bootstrap_paired_errors(
+        actual, transformer_prediction, baseline_direct, cluster_ids,
+        n_boot=1000, seed=SEED + 50 + seed_offset,
     )
     return {
         "season": season,
@@ -300,11 +311,17 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
         "transformer": transformer_report,
         "conventional_two_part_raw": raw_report,
         "conventional_two_part_calibrated": calibrated_report,
+        "direct_ridge": direct_report,
+        "last5_points_persistence": last5_report,
         "paired_transformer_vs_calibrated_two_part_cluster_bootstrap": bootstrap,
+        "paired_transformer_vs_direct_ridge_cluster_bootstrap": direct_bootstrap,
         "_aggregate": {
             "actual": actual,
             "transformer": transformer_prediction,
+            "transformer_haul_probabilities": transformer_haul_probs,
             "two_part_calibrated": baseline_calibrated,
+            "direct_ridge": baseline_direct,
+            "last5": baseline_last5,
         },
     }
 
@@ -322,7 +339,8 @@ def evaluate(rows):
     grouped = [r for r in group_player_gameweeks(rows) if r["gameweek"] > 1]
     seasons = sorted({r["season"] for r in grouped})
     folds = []
-    pooled_actual, pooled_transformer, pooled_baseline, pooled_clusters = [], [], [], []
+    pooled_actual, pooled_transformer, pooled_baseline, pooled_direct, pooled_last5, pooled_clusters = [], [], [], [], [], []
+    pooled_haul = {6: [], 8: [], 10: []}
     for index, season in enumerate(seasons):
         if index == 0:
             continue
@@ -332,6 +350,10 @@ def evaluate(rows):
         pooled_actual.extend(aggregate["actual"])
         pooled_transformer.extend(aggregate["transformer"])
         pooled_baseline.extend(aggregate["two_part_calibrated"])
+        pooled_direct.extend(aggregate["direct_ridge"])
+        pooled_last5.extend(aggregate["last5"])
+        for threshold in pooled_haul:
+            pooled_haul[threshold].extend(aggregate["transformer_haul_probabilities"][threshold])
         # Validation fold is one season; player-season clusters are unique within it.
         pooled_clusters.extend([
             f"{season}:{r['fpl_element_id']}"
@@ -341,16 +363,28 @@ def evaluate(rows):
     if not folds:
         raise ValueError("No expanding-season Transformer folds available")
     pooled_report = evaluate_forecast(
-        pooled_actual, pooled_transformer,
+        pooled_actual, pooled_transformer, pooled_haul,
         ranking_score=pooled_transformer, top_k=100,
     )
     pooled_baseline_report = evaluate_forecast(
         pooled_actual, pooled_baseline,
         ranking_score=pooled_baseline, top_k=100,
     )
+    pooled_direct_report = evaluate_forecast(
+        pooled_actual, pooled_direct,
+        ranking_score=pooled_direct, top_k=100,
+    )
+    pooled_last5_report = evaluate_forecast(
+        pooled_actual, pooled_last5,
+        ranking_score=pooled_last5, top_k=100,
+    )
     bootstrap = cluster_bootstrap_paired_errors(
         pooled_actual, pooled_transformer, pooled_baseline, pooled_clusters,
         n_boot=1000, seed=SEED + 100,
+    )
+    direct_bootstrap = cluster_bootstrap_paired_errors(
+        pooled_actual, pooled_transformer, pooled_direct, pooled_clusters,
+        n_boot=1000, seed=SEED + 200,
     )
     return {
         "status": "RESEARCH_ONLY",
@@ -369,7 +403,10 @@ def evaluate(rows):
         "folds": folds,
         "pooled_transformer": pooled_report,
         "pooled_conventional_two_part_calibrated": pooled_baseline_report,
+        "pooled_direct_ridge": pooled_direct_report,
+        "pooled_last5_points_persistence": pooled_last5_report,
         "paired_transformer_vs_conventional_two_part_cluster_bootstrap": bootstrap,
+        "paired_transformer_vs_direct_ridge_cluster_bootstrap": direct_bootstrap,
         "limitations": [
             "Historical FPL source vintages are retrospective, not archived pre-deadline snapshots.",
             "The 8+ probability is estimated by the training-only share of 8+ outcomes within the 6-9 points band.",
