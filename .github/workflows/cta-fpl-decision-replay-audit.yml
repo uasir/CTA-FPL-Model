@@ -1,0 +1,46 @@
+name: FPL decision replay validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["work/**", "feat/**"]
+    paths:
+      - canonical_candidate/engineering_workbench/scripts/replay_fpl_gameweek_decisions.py
+      - canonical_candidate/engineering_workbench/scripts/audit_fpl_replay_against_official_manager_history.py
+      - canonical_candidate/engineering_workbench/scripts/capture_fpl_ranked_manager_picks.py
+      - canonical_candidate/engineering_workbench/tests/test_replay_fpl_gameweek_decisions.py
+      - canonical_candidate/engineering_workbench/tests/test_audit_fpl_replay_against_official_manager_history.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fpl-decision-replay-audit-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  official-history-replay-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Replay a stratified sample of completed official FPL manager histories
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/audit_fpl_replay_against_official_manager_history.py \
+            --out "$RUNNER_TEMP/fpl_replay_official_history_audit.json" \
+            --rank-limit 1000 \
+            --sample-size 100 \
+            --workers 8 \
+            --max-gameweeks 10
+      - name: Confirm only aggregate validation output is retained
+        run: |
+          echo "The audit writes only aggregate metrics to the runner temp directory."
+          echo "Manager IDs, raw picks and player-level records are not uploaded or committed."
