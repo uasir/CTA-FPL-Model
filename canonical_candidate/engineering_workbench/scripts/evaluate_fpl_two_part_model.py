@@ -170,7 +170,12 @@ def evaluate(rows, holdout_fraction=0.2):
     actual_app=[r["appeared"] for r in scored]
     probs=[r["p_appearance"] for r in scored]
     raw_probs=[r["p_appearance_raw"] for r in scored]
-    appearance_baseline=[min(1.0,max(0.0,r["prior5_appearance_rate"])) for r in scored]
+    fallback_appearance_rate=sum(r["appeared"] for r in train)/len(train)
+    appearance_baseline=[
+        min(1.0,max(0.0,r["prior5_appearance_rate"] if r["prior5_appearance_rate"] is not None
+            else (r["season_appearance_rate"] if r["season_appearance_rate"] is not None else fallback_appearance_rate)))
+        for r in scored
+    ]
     two=[r["two_part_points"] for r in scored]
     two_raw=[r["two_part_points_raw"] for r in scored]
     direct=[r["direct_points"] for r in scored]
