@@ -63,13 +63,15 @@ def score_fold(train, valid, season):
     calibration_scores=[predict(appearance_model,r) for r in calibration]
     calibrator=fit_platt(calibration_scores,[r["appeared"] for r in calibration])
     minutes_model=fit_ridge_fast(train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
+    conditional_minutes_model=fit_ridge_fast(positive_train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
     conditional_model=fit_ridge_fast(positive_train,"actual_points",FEATURES,RIDGE_LAMBDA)
     direct_model=fit_ridge_fast(train,"actual_points",FEATURES,RIDGE_LAMBDA)
 
     actual_points=[]; actual_minutes=[]; actual_appearance=[]
     raw_probabilities=[]; calibrated_probabilities=[]; appearance_baseline=[]
     fallback_appearance_rate=sum(r["appeared"] for r in train)/len(train)
-    predicted_minutes=[]; last_minutes=[]
+    predicted_minutes=[]; predicted_minutes_raw=[]; predicted_minutes_calibrated=[]
+    last_minutes=[]
     two_part_raw=[]; two_part_calibrated=[]; direct_points=[]; last5_points=[]
     for row in valid:
         # All predictions are created before actual labels are read for scoring.
@@ -81,6 +83,9 @@ def score_fold(train, valid, season):
         calibrated_ep=calibrated_p*conditional
         direct_ep=predict(direct_model,row)
         minutes_ep=min(180.0,max(0.0,predict(minutes_model,row)))
+        conditional_minutes=min(180.0,max(0.0,predict(conditional_minutes_model,row)))
+        expected_minutes_raw=raw_p*conditional_minutes
+        expected_minutes_calibrated=calibrated_p*conditional_minutes
         baseline_points=row["last5_baseline_points"]
         if baseline_points is None:
             continue
@@ -93,6 +98,8 @@ def score_fold(train, valid, season):
             prior_rate=fallback_appearance_rate
         appearance_baseline.append(min(1.0,max(0.0,prior_rate)))
         predicted_minutes.append(minutes_ep)
+        predicted_minutes_raw.append(expected_minutes_raw)
+        predicted_minutes_calibrated.append(expected_minutes_calibrated)
         last_minutes.append(row["last_gw_baseline_minutes"])
         two_part_raw.append(raw_ep)
         two_part_calibrated.append(calibrated_ep)
@@ -122,7 +129,9 @@ def score_fold(train, valid, season):
             "prior5_rate_baseline":binary_metrics(actual_appearance,appearance_baseline),
         },
         "minutes":{
-            "model":regression_metrics(actual_minutes,predicted_minutes),
+            "unconditional_regression":regression_metrics(actual_minutes,predicted_minutes),
+            "two_part_calibrated":regression_metrics(actual_minutes,predicted_minutes_calibrated),
+            "two_part_raw":regression_metrics(actual_minutes,predicted_minutes_raw),
             "last_gameweek_baseline":last_minutes_metrics,
         },
         "points":{
@@ -167,7 +176,9 @@ def evaluate_walk_forward(rows):
             for model in ("calibrated","raw_clipped","prior5_rate_baseline")
         },
         "minutes":{
-            "model_mae":weighted_metric("minutes","model","mae"),
+            "unconditional_regression_mae":weighted_metric("minutes","unconditional_regression","mae"),
+            "two_part_calibrated_mae":weighted_metric("minutes","two_part_calibrated","mae"),
+            "two_part_raw_mae":weighted_metric("minutes","two_part_raw","mae"),
             "last_gameweek_baseline_mae":weighted_metric("minutes","last_gameweek_baseline","mae")
                 if all(f["minutes"]["last_gameweek_baseline"] is not None for f in folds) else None,
         },
