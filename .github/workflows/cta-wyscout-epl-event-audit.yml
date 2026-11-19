@@ -9,10 +9,12 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/scripts/verify_cross_provider_fpl_identity.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py
   push:
     branches: [main, "feat/**"]
     paths:
@@ -53,7 +55,8 @@ jobs:
           PYTHONPATH=canonical_candidate/engineering_workbench/scripts python -m pytest -q \
             canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py \
-            canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
+            canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py \\
+            canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py
 
       - name: Download the public Wyscout 2017/18 data files
         run: |
@@ -159,6 +162,28 @@ jobs:
             --11footy-release "11footy-2026-11-10" \
             --out-dir run_artifacts/wyscout/output \
             "${CURRENT_CANDIDATE_ARGS[@]}"
+
+      - name: Verify historical FPL IDs through independent Wyscout and 11footy evidence
+        if: steps.download_11footy.outcome == 'success'
+        continue-on-error: true
+        run: |
+          if [ -f run_artifacts/wyscout/output/wyscout_fpl_identity_candidates.csv ] && [ -f run_artifacts/wyscout/output/11footy_fpl_identity_candidates.csv ]; then
+            python canonical_candidate/engineering_workbench/scripts/verify_cross_provider_fpl_identity.py \
+              --wyscout-candidates run_artifacts/wyscout/output/wyscout_fpl_identity_candidates.csv \
+              --11footy-candidates run_artifacts/wyscout/output/11footy_fpl_identity_candidates.csv \
+              --out-dir run_artifacts/wyscout/output/cross_provider_identity
+          else
+            echo "WARNING: one or both historical provider candidate queues are unavailable"
+          fi
+
+      - name: Upload aggregate-only cross-provider identity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-cross-provider-historical-fpl-identity
+          path: run_artifacts/wyscout/output/cross_provider_identity/cross_provider_identity_report.json
+          if-no-files-found: ignore
+          retention-days: 90
 
       - name: Upload aggregate-only Wyscout audit, CTA and identity reports
         uses: actions/upload-artifact@v4
