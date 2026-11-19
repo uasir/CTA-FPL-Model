@@ -57,6 +57,8 @@ class CTATests(unittest.TestCase):
         values, audit = fit_xt(ev, {("m1",1,"A"):True})
         self.assertIsNone(values)
         self.assertEqual(audit["xt_status"], "not_fitted_no_directional_shots")
+        self.assertEqual(audit["xt_fit_match_ids"], "ALL_INPUT_MATCHES")
+        self.assertEqual(audit["xt_fit_match_count"], 1)
     def test_csv_writer_unions_sparse_player_fields(self):
         import tempfile, pathlib, csv
         rows = [
