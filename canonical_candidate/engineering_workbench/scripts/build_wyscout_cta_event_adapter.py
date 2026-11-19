@@ -58,7 +58,8 @@ def normalize_wyscout_events(events, players, teams, match_id):
         _period(pair[1]), float(pair[1].get("eventSec") or 0),
         int(pair[1].get("id") or pair[0]), pair[0]))
     normalized = []
-    skipped = {"missing_team": 0, "missing_player": 0, "unmapped_event_type": 0}
+    skipped = {"missing_team": 0, "missing_player_id": 0, "unresolved_player_metadata": 0, "unmapped_event_type": 0}
+    boundary_counts = Counter()
     current_team = None
     current_period = None
     possession = 0
@@ -75,11 +76,18 @@ def normalize_wyscout_events(events, players, teams, match_id):
         if team_key not in team_names:
             skipped["missing_team"] += 1
             continue
-        if player_id is None or str(player_id) not in player_names:
-            skipped["missing_player"] += 1
-            continue
+        actor = None
+        if player_id is None or str(player_id).strip() in {"", "0"}:
+            skipped["missing_player_id"] += 1
+        else:
+            provider_player_id = str(player_id)
+            actor_name = player_names.get(provider_player_id, "")
+            if not actor_name:
+                skipped["unresolved_player_metadata"] += 1
+            actor = {"id": f"wyscout:{provider_player_id}", "name": actor_name}
 
         event_name = str(event.get("eventName") or "")
+        sub_event_name = str(event.get("subEventName") or "")
         if event_name not in {"Pass", "Shot", "Others on the ball", "Duel",
                               "Foul", "Offside", "Free Kick", "Corner", "Throw in",
                               "Goal kick", "Penalty", "Save attempt",
@@ -87,13 +95,20 @@ def normalize_wyscout_events(events, players, teams, match_id):
             skipped["unmapped_event_type"] += 1
             continue
 
-        boundary = (
-            current_team is None or period != current_period
-            or team_key != current_team or event_name in RESTART_EVENTS
-            or previous_event_name in {"Shot", "Offside", "Foul", "Interruption"}
-        )
-        if boundary:
+        boundary_reason = None
+        if current_team is None:
+            boundary_reason = "match_start"
+        elif period != current_period:
+            boundary_reason = "period_change"
+        elif team_key != current_team:
+            boundary_reason = "team_change"
+        elif event_name in RESTART_EVENTS:
+            boundary_reason = "restart_event"
+        elif previous_event_name in {"Shot", "Offside", "Foul", "Interruption"}:
+            boundary_reason = "after_terminal_event"
+        if boundary_reason:
             possession += 1
+            boundary_counts[boundary_reason] += 1
         current_team, current_period = team_key, period
         previous_event_name = event_name
 
@@ -101,9 +116,10 @@ def normalize_wyscout_events(events, players, teams, match_id):
         start = _coord(positions[0]) if positions else None
         end = _coord(positions[1]) if len(positions) > 1 else None
         tags = _tags(event)
+        is_free_kick_shot = event_name == "Free Kick" and sub_event_name.casefold() == "free kick shot"
         if event_name == "Pass":
             kind = "Pass"
-        elif event_name == "Shot":
+        elif event_name == "Shot" or is_free_kick_shot:
             kind = "Shot"
         elif event_name == "Others on the ball" and "acceleration" in str(event.get("subEventName") or "").casefold() and end is not None:
             kind = "Carry"
@@ -115,7 +131,6 @@ def normalize_wyscout_events(events, players, teams, match_id):
             "_match_id": str(match_id),
             "_event_index": len(normalized),
             "type": {"name": kind},
-            "player": {"id": f"wyscout:{player_id}", "name": player_names[str(player_id)]},
             "team": {"name": team_names[team_key]},
             "possession_team": {"name": team_names[team_key]},
             "possession": possession,
@@ -126,8 +141,11 @@ def normalize_wyscout_events(events, players, teams, match_id):
             "_provider": "Wyscout",
             "_provider_player_id": str(player_id),
             "_provider_match_id": str(match_id),
+            "_provider_subevent_name": sub_event_name,
             "_possession_id_status": "INFERRED_CONTIGUOUS_TEAM_BLOCK",
         }
+        if actor is not None:
+            row["player"] = actor
         if kind == "Pass":
             pass_data = {}
             if end is not None:
@@ -149,6 +167,7 @@ def normalize_wyscout_events(events, players, teams, match_id):
         "provider_match_id": str(match_id),
         "normalized_event_count": len(normalized),
         "skipped_event_counts": skipped,
+        "possession_boundary_reason_counts": dict(boundary_counts),
         "player_id_namespace": "wyscout: prefix retained; never interpreted as StatsBomb or FPL ID",
         "coordinate_conversion": "attacking-relative percentage x,y -> CTA pitch x*1.2,y*0.8; no direction flip",
         "possession_method": "INFERRED_CONTIGUOUS_TEAM_BLOCK",
@@ -197,11 +216,13 @@ def main():
                 grouped.setdefault(str(event["matchId"]), []).append(event)
         normalized = []
         skipped = Counter()
+        boundary_counts = Counter()
         match_reports = []
         for match_id, match_events in sorted(grouped.items()):
             rows, match_report = normalize_wyscout_events(match_events, players, teams, match_id)
             normalized.extend(rows)
             skipped.update(match_report["skipped_event_counts"])
+            boundary_counts.update(match_report["possession_boundary_reason_counts"])
             match_reports.append(match_report)
         report = {
             "status": "PASS_WYSCOUT_EVENTS_NORMALIZED" if normalized else "NO_NORMALIZED_EVENTS",
@@ -209,12 +230,31 @@ def main():
             "match_count": len(grouped),
             "normalized_event_count": len(normalized),
             "skipped_event_counts": dict(skipped),
+            "possession_boundary_reason_counts": dict(boundary_counts),
             "player_id_namespace": "wyscout: prefix retained; never interpreted as StatsBomb or FPL ID",
             "coordinate_conversion": "attacking-relative percentage x,y -> CTA pitch x*1.2,y*0.8; no direction flip",
             "possession_method": "INFERRED_CONTIGUOUS_TEAM_BLOCK",
             "possession_boundary_policy": "period/team changes, restarts, and after shot/offside/foul/interruption",
             "limitations": match_reports[0]["limitations"] if match_reports else [],
         }
+    type_counts = Counter(row["type"]["name"] for row in normalized)
+    possession_keys = {(row["_match_id"], row["period"], row["possession"]) for row in normalized}
+    report.update({
+        "source_event_count": len(events),
+        "event_coverage_pct": round(100 * len(normalized) / len(events), 4) if events else None,
+        "unique_inferred_possessions": len(possession_keys),
+        "normalized_event_type_counts": dict(sorted(type_counts.items())),
+        "events_missing_start_location": sum(row.get("location") is None for row in normalized),
+        "pass_or_carry_events_missing_end_location": sum(
+            row["type"]["name"] in {"Pass", "Carry"}
+            and not (row.get("pass") or row.get("carry") or {}).get("end_location")
+            for row in normalized
+        ),
+        "free_kick_shots_mapped_to_shot": sum(
+            row.get("_provider_subevent_name", "").casefold() == "free kick shot"
+            and row["type"]["name"] == "Shot" for row in normalized
+        ),
+    })
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(normalized, separators=(",", ":")))
