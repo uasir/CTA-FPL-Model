@@ -1,3 +1,5 @@
+import pytest
+
 from evaluate_two_pm_transformer_walk_forward import (
     TRANSFORMER_FEATURES, available_features, build_history_index, make_windows,
     points_representatives, within_band_eight_plus_share,
