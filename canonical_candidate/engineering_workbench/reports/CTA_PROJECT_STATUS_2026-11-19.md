@@ -25,7 +25,7 @@ Improve FPL decisions, squad optimization and competitive outcomes. Point predic
 
 - Deterministic one-gameweek replay engine implemented: formation-aware automatic substitutions, captain/vice fallback, Triple Captain, Bench Boost and exact transfer-hit accounting.
 - Official-history audit on 100 sampled managers across GW1–GW10: **1,000/1,000 valid records matched official gross and net team scores exactly** (zero mean absolute net-score difference).
-- Reconstructing the deadline XI and bench by reversing official `automatic_subs` pairs raised exact automatic-substitution pair agreement to **99.1%** on the same sample. Remaining mismatches are being investigated with forward-versus-reverse absent-starter ordering variants.
+- Reconstructing the deadline XI and bench by reversing official `automatic_subs` pairs produced **99.1% exact substitution-pair agreement** with forward absent-starter order. A reverse-order variant was worse at 98.6%, so the existing forward default remains. The remaining nine mismatches are concentrated in GW1, GW4, GW6 and GW8; both algorithms still reproduce all 1,000 team scores exactly.
 - The audit is scoring-engine validation only. The rank-conditioned current-top-1,000 sample is not a representative manager panel and is not evidence of recommendation or strategy value.
 - Private archive validator is implemented and its contract tests pass. It checks pre-deadline timestamps, stable manager cohort, legal squad/lineup structure, state/forecast hashes, policy coverage, two-set half-season chip inventory and transfer-hit arithmetic.
 - No stable manager decision panel has yet been archived. No strategy-value or rank-gain claim is made.
