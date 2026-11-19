@@ -430,6 +430,7 @@ def evaluate(rows, feature_set="base"):
     folds = []
     pooled_actual, pooled_transformer, pooled_transformer_affine, pooled_baseline, pooled_direct, pooled_last5, pooled_clusters = [], [], [], [], [], [], []
     pooled_haul = {6: [], 8: [], 10: []}
+    pooled_prediction_rows = []
     for index, season in enumerate(seasons):
         if index == 0:
             continue
@@ -442,6 +443,15 @@ def evaluate(rows, feature_set="base"):
         pooled_baseline.extend(aggregate["two_part_calibrated"])
         pooled_direct.extend(aggregate["direct_ridge"])
         pooled_last5.extend(aggregate["last5"])
+        for key, actual_value, raw_value, calibrated_value in zip(
+            aggregate["keys"], aggregate["actual"], aggregate["transformer"],
+            aggregate["transformer_affine_calibrated"],
+        ):
+            pooled_prediction_rows.append({
+                **key, "actual_points": actual_value,
+                "predicted_points": raw_value,
+                "affine_calibrated_points": calibrated_value,
+            })
         for threshold in pooled_haul:
             pooled_haul[threshold].extend(aggregate["transformer_haul_probabilities"][threshold])
         # Validation fold is one season; player-season clusters are unique within it.
@@ -508,6 +518,7 @@ def evaluate(rows, feature_set="base"):
         "paired_transformer_vs_conventional_two_part_cluster_bootstrap": bootstrap,
         "paired_transformer_affine_vs_conventional_two_part_cluster_bootstrap": affine_bootstrap,
         "paired_transformer_vs_direct_ridge_cluster_bootstrap": direct_bootstrap,
+        "_prediction_rows": pooled_prediction_rows,
         "limitations": [
             "Historical FPL source vintages are retrospective, not archived pre-deadline snapshots.",
             "The 8+ probability is estimated by the training-only share of 8+ outcomes within the 6-9 points band.",
@@ -523,10 +534,19 @@ def main():
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--feature-set", choices=sorted(TRANSFORMER_FEATURE_SETS), default="base")
+    parser.add_argument("--predictions-out", type=Path)
     args = parser.parse_args()
     with args.input.open(newline="", encoding="utf-8-sig") as handle:
         rows = list(csv.DictReader(handle))
     report = evaluate(rows, feature_set=args.feature_set)
+    prediction_rows = report.pop("_prediction_rows")
+    if args.predictions_out:
+        args.predictions_out.parent.mkdir(parents=True, exist_ok=True)
+        with args.predictions_out.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=["season", "fpl_element_id", "gameweek", "actual_points", "predicted_points", "affine_calibrated_points"])
+            writer.writeheader()
+            writer.writerows(prediction_rows)
+    report["prediction_rows_exported"] = len(prediction_rows) if args.predictions_out else 0
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
