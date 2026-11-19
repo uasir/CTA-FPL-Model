@@ -19,6 +19,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_wyscout.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py
+      - canonical_candidate/engineering_workbench/scripts/compare_abc_with_2pm_same_cohort.py
+      - canonical_candidate/engineering_workbench/scripts/compare_abc_with_2pm_same_cohort.py
       - canonical_candidate/engineering_workbench/scripts/cta_four_layer_pipeline.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_decision_quality.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_walk_forward.py
@@ -84,7 +86,7 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Check out CTA-FPL-Model
         uses: actions/checkout@v4
@@ -320,6 +322,38 @@ jobs:
             echo "WARNING: integrated historical A/B/C panel unavailable for walk-forward evaluation"
           fi
 
+      - name: Install CPU PyTorch for independent 2PM comparator
+        if: always()
+        continue-on-error: true
+        run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+
+      - name: Build pinned 2016/17-2017/18 conventional FPL panel for matched 2PM evaluation
+        if: always()
+        continue-on-error: true
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/build_vaastav_fpl_multiseason_panel.py \
+            --out-dir "$RUNNER_TEMP/cta_2pm_same_cohort" \
+            --seasons 2016-17 2017-18
+
+      - name: Compare independent ABC and 2PM on the exact same player-GW cohort
+        if: always()
+        continue-on-error: true
+        run: |
+          PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
+          FPL_PANEL="$RUNNER_TEMP/cta_2pm_same_cohort/vaastav_fpl_multiseason_panel.csv"
+          if [ -f "$PANEL" ] && [ -f "$REPORT" ] && [ -f "$FPL_PANEL" ]; then
+            python canonical_candidate/engineering_workbench/scripts/compare_abc_with_2pm_same_cohort.py \
+              --abc-panel "$PANEL" \
+              --source-report "$REPORT" \
+              --fpl-multiseason-panel "$FPL_PANEL" \
+              --out run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_vs_2pm_same_cohort_report.json
+          else
+            echo "WARNING: one or more matched-cohort inputs are unavailable"
+          fi
+
       - name: Upload aggregate-only historical A/B/C integration and evaluation reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -329,6 +363,7 @@ jobs:
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_integration_report.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_evaluation_report.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_walk_forward_report.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_vs_2pm_same_cohort_report.json
           if-no-files-found: ignore
           retention-days: 90
 
