@@ -286,7 +286,7 @@ function squadSupportMetrics(owned, starting, benchOrder, forecastById, captain)
   };
 }
 
-function decisionAudit(request, transfer, starting, captain, vice) {
+function decisionAudit(request, transfer, starting, formation, captain, vice) {
   const options = [{ option_id: "HOLD", action: "HOLD", predicted_net_expected_points_gain: 0, feasible: true }];
   for (const candidate of transfer.alternatives) {
     options.push({
@@ -301,10 +301,14 @@ function decisionAudit(request, transfer, starting, captain, vice) {
   const chosen = transfer.action === "TRANSFER" && transfer.best_candidate
     ? `TRANSFER:${transfer.best_candidate.transfer_out_id}:${transfer.best_candidate.transfer_in_id}` : "HOLD";
   return {
-    decision_record_status: "FROZEN_PRE_DEADLINE_RECOMMENDATION_INPUT_REQUIRED",
+    decision_record_status: "AUDIT_PAYLOAD_READY_AWAITING_DEADLINE_LOCK_AND_ARCHIVAL",
     forecast_snapshot_id: request.forecast_snapshot_id,
     model_version: request.model_version,
     target_horizon_gameweeks: request.forecast_horizon_gameweeks,
+    target_deadline: request.forecast_quality.data_coverage.target_deadline ?? null,
+    squad_snapshot: request.squad_snapshot.map((row) => ({ fpl_element_id: row.fpl_element_id, purchase_price: row.purchase_price })),
+    bank: request.bank,
+    free_transfers: request.free_transfers,
     transfer_decision: {
       chosen_option_id: chosen,
       options,
@@ -315,7 +319,7 @@ function decisionAudit(request, transfer, starting, captain, vice) {
     },
     starting_xi_decision: {
       chosen_player_ids: starting.map((player) => player.fpl_element_id),
-      formation: "FIXED_USER_REQUESTED_OR_ENGINE_SELECTED_FORMATION",
+      formation: formation.join("-"),
       realised_utility: null,
       scoring_status: "AWAITING_OFFICIAL_GAMEWEEK_OUTCOMES",
     },
@@ -374,7 +378,7 @@ export function recommendPersonalSquad(payload) {
     + captain.expected_points;
   const transfer = transferCandidates(request, forecasts);
   const supportMetrics = squadSupportMetrics(owned, starting, benchOrder, forecastById, captain);
-  const audit = decisionAudit(request, transfer, starting, captain, vice);
+  const audit = decisionAudit(request, transfer, starting, formation, captain, vice);
   const quality = request.forecast_quality;
   return {
     system: "personal_squad",
