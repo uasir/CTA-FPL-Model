@@ -1,6 +1,6 @@
 from evaluate_two_pm_transformer_walk_forward import (
-    build_history_index, make_windows, points_representatives,
-    within_band_eight_plus_share,
+    TRANSFORMER_FEATURES, available_features, build_history_index, make_windows,
+    points_representatives, within_band_eight_plus_share,
 )
 
 
@@ -50,3 +50,10 @@ def test_encoded_windows_are_left_aligned_for_last_valid_step_pooling():
     encoded, padding = encode_windows([rows], preprocessor, max_length=4)
     assert padding[0].tolist() == [False, False, True, True]
     assert encoded.shape == (1, 4, len(TRANSFORMER_FEATURES) * 2)
+
+
+def test_fold_feature_selection_excludes_only_features_unobserved_in_training():
+    rows = [{name: None for name in TRANSFORMER_FEATURES}]
+    rows[0]["prior_gw_points"] = 0.0
+    rows[0]["prior3_gw_xg_avg"] = None
+    assert available_features(rows) == ("prior_gw_points",)
