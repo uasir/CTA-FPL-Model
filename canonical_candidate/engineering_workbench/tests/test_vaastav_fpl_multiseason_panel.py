@@ -110,3 +110,14 @@ def test_2019_20_covid_shifted_source_gameweeks_are_normalized():
 
 def test_covid_gameweek_normalization_does_not_apply_to_other_seasons():
     assert source_gameweek({"GW": "47", "round": "47"}, "2020-21") == 47
+
+
+
+def test_2019_20_post_lockdown_source_round_builds_fpl_gameweek_38():
+    raw = source_row(10, 47, 6)
+    raw["GW"] = "47"
+    raw["round"] = "47"
+    raw["kickoff_time"] = "2020-07-26T15:00:00Z"
+    panel = build_season_rows("2019-20", [raw])
+    assert len(panel) == 1
+    assert panel[0]["gameweek"] == 38
