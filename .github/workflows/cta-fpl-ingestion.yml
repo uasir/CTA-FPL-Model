@@ -89,7 +89,7 @@ jobs:
             tests/test_onside_fpl_actuals_cross_audit.py \
             tests/test_11footy_fpl_identity_candidates.py \
             tests/test_11footy_player_match_features.py \
-            tests/test_11footy_lagged_research_features.py \\
+            tests/test_11footy_lagged_research_features.py \
             tests/test_11footy_lagged_verified_features.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
@@ -262,6 +262,7 @@ jobs:
           from pathlib import Path
           source = Path("run_artifacts/11footy_fpl/output/11footy_lagged_verified_upcoming_report.json")
           target = Path("run_artifacts/fpl_official/11footy_lagged_verified_upcoming_summary.json")
+          target.parent.mkdir(parents=True, exist_ok=True)
           if source.exists():
               report = json.loads(source.read_text())
               keys = (
