@@ -337,6 +337,87 @@ def build_identity_review_queue(provider_rows, player_names, birth_dates, fpl_pl
     return candidates, report
 
 
+def attach_current_candidates(historical_candidates, current_candidates):
+    current_by_provider = defaultdict(list)
+    for row in current_candidates:
+        provider_id = as_int(row.get("provider_player_id"))
+        if provider_id is not None:
+            current_by_provider[provider_id].append(row)
+
+    priority_counts = Counter()
+    current_overlap = 0
+    current_high_overlap = 0
+    for row in historical_candidates:
+        matches = current_by_provider.get(as_int(row["provider_player_id"]), [])
+        if len(matches) == 1:
+            current = matches[0]
+            current_overlap += 1
+            confidence = str(current.get("confidence_level") or "").lower()
+            if confidence == "high":
+                current_high_overlap += 1
+                current_status = "HIGH_CONFIDENCE_PENDING"
+            else:
+                current_status = "REVIEW_REQUIRED_PENDING"
+            row["current_fpl_element_id"] = current.get("fpl_element_id", "")
+            row["current_fpl_player_code"] = current.get("fpl_player_code", "")
+            row["current_fpl_player_name"] = current.get("fpl_player_name", "")
+            row["current_fpl_team_id"] = current.get("fpl_team_id", "")
+            row["current_fpl_team_name"] = current.get("fpl_team_name", "")
+            row["current_fpl_birth_date"] = current.get("fpl_birth_date", "")
+            row["current_candidate_confidence"] = current.get("confidence_level", "")
+            row["current_candidate_verification_status"] = current.get("verification_status", "")
+            row["current_candidate_status"] = current_status
+        elif len(matches) > 1:
+            row["current_fpl_element_id"] = ""
+            row["current_fpl_player_code"] = ""
+            row["current_fpl_player_name"] = ""
+            row["current_fpl_team_id"] = ""
+            row["current_fpl_team_name"] = ""
+            row["current_fpl_birth_date"] = ""
+            row["current_candidate_confidence"] = ""
+            row["current_candidate_verification_status"] = "AMBIGUOUS"
+            row["current_candidate_status"] = "AMBIGUOUS"
+        else:
+            row["current_fpl_element_id"] = ""
+            row["current_fpl_player_code"] = ""
+            row["current_fpl_player_name"] = ""
+            row["current_fpl_team_id"] = ""
+            row["current_fpl_team_name"] = ""
+            row["current_fpl_birth_date"] = ""
+            row["current_candidate_confidence"] = ""
+            row["current_candidate_verification_status"] = ""
+            row["current_candidate_status"] = "NO_CURRENT_CANDIDATE"
+
+        if row["current_candidate_status"] == "HIGH_CONFIDENCE_PENDING":
+            if row["review_priority"] == "P1_MULTI_MATCH_TEAM_SIGNATURE":
+                cross_priority = "P1_HISTORICAL_AND_CURRENT_HIGH"
+            elif row["review_priority"] == "P2_TEAM_AND_FULL_SIGNATURE":
+                cross_priority = "P2_HISTORICAL_AND_CURRENT_HIGH"
+            else:
+                cross_priority = "P3_CURRENT_HIGH_HISTORICAL_REVIEW"
+        elif row["review_priority"] == "P1_MULTI_MATCH_TEAM_SIGNATURE":
+            cross_priority = "P2_HISTORICAL_P1_CURRENT_NOT_HIGH"
+        elif row["current_candidate_status"] == "AMBIGUOUS":
+            cross_priority = "P4_CURRENT_IDENTITY_AMBIGUOUS"
+        elif row["candidate_status"] == "PENDING":
+            cross_priority = "P4_HISTORICAL_ONLY_REVIEW"
+        else:
+            cross_priority = "P5_UNMATCHED_OR_NO_CURRENT_CANDIDATE"
+        row["cross_season_review_priority"] = cross_priority
+        priority_counts[cross_priority] += 1
+
+    report = {
+        "current_fpl_candidate_provider_ids": len(current_by_provider),
+        "historical_current_provider_id_overlap": current_overlap,
+        "historical_current_high_confidence_overlap": current_high_overlap,
+        "current_candidate_provider_ids_without_historical_rows": len(
+            set(current_by_provider) - {as_int(row["provider_player_id"]) for row in historical_candidates}
+        ),
+        "cross_season_review_priority_counts": dict(priority_counts),
+    }
+    return historical_candidates, report
+
+
 def build_from_databases(database_path, players_database_path, fpl_players, fpl_idlist,
                          fpl_history, fpl_team_rows, season=2017, competition_id=1):
     with tempfile.TemporaryDirectory(prefix="cta-11footy-historical-") as temp:
@@ -385,6 +466,7 @@ def main():
     parser.add_argument("--fpl-team-list", type=Path, required=True)
     parser.add_argument("--fpl-source-commit", required=True)
     parser.add_argument("--11footy-release", dest="footy_release", required=True)
+    parser.add_argument("--current-candidates", type=Path)
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
 
@@ -395,6 +477,10 @@ def main():
     )
     report["historical_fpl_source_commit"] = args.fpl_source_commit
     report["11footy_source_release"] = args.footy_release
+    if args.current_candidates:
+        candidates, current_report = attach_current_candidates(candidates, read_csv(args.current_candidates))
+        report.update(current_report)
+        report["current_candidate_csv_sha256"] = sha256(args.current_candidates)
     report["source_hashes"] = {
         "11footy_match_database_sha256": sha256(args.database),
         "11footy_player_catalogue_sha256": sha256(args.players_database),
