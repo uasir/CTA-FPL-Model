@@ -28,6 +28,8 @@ def test_chronological_holdout_uses_only_previously_available_features():
         ):
             row[f"{feature}_prior_3_avg"] = str(i % 7)
             row[f"{feature}_prior_5_avg"] = str(i % 5)
+            row[f"{feature}_per90_prior_3_avg"] = str((i % 7) / 1.5)
+            row[f"{feature}_per90_prior_5_avg"] = str((i % 5) / 1.5)
         rows.append(row)
     report = evaluate(rows)
     assert report["status"] == "PASS_EXPLORATORY_CHRONOLOGICAL_CTA_COMPARISON"

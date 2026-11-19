@@ -62,6 +62,7 @@ def test_only_verified_identity_rows_join_and_features_are_strictly_lagged():
     assert lagged[0]["prior_matches_count"] == 0
     assert lagged[1]["prior_matches_count"] == 1
     assert lagged[1]["shot_attempts_prior_3_avg"] == 2.0
+    assert lagged[1]["shot_attempts_per90_prior_3_avg"] == 2.0
     assert lagged[1]["target_fpl_total_points"] == 8.0
 
 

@@ -159,6 +159,16 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
                     record[f"{feature}_prior_{window}_avg"] = (
                         sum(values) / len(values) if values else None
                     )
+                    per90_values = [
+                        candidate[feature] * 90.0 / candidate["fpl_minutes"]
+                        for candidate in sample
+                        if candidate[feature] is not None
+                        and candidate["fpl_minutes"] is not None
+                        and candidate["fpl_minutes"] > 0
+                    ]
+                    record[f"{feature}_per90_prior_{window}_avg"] = (
+                        sum(per90_values) / len(per90_values) if per90_values else None
+                    )
                 all_values = [candidate[feature] for candidate in prior if candidate[feature] is not None]
                 record[f"{feature}_prior_season_total"] = sum(all_values) if all_values else None
             lagged.append(record)

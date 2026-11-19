@@ -86,10 +86,15 @@ def evaluate(rows, train_fraction=0.7, alpha=1.0):
     if len(train) < 30 or len(test) < 30:
         raise ValueError("Chronological split needs at least 30 training and 30 test rows")
 
+    cta_candidates = [
+        f"{feature}{suffix}_prior_{window}_avg"
+        for feature in CTA_FEATURES
+        for suffix in ("", "_per90")
+        for window in (3, 5)
+    ]
     cta_columns = [
-        f"{feature}_prior_{window}_avg"
-        for feature in CTA_FEATURES for window in (3, 5)
-        if any(_number(row.get(f"{feature}_prior_{window}_avg")) == _number(row.get(f"{feature}_prior_{window}_avg")) for row in train)
+        column for column in cta_candidates
+        if any(np.isfinite(_number(row.get(column))) for row in train)
     ]
     baseline_columns = [
         column for column in BASELINE_FEATURES
