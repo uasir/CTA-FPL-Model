@@ -146,11 +146,14 @@ def audit_record(picks_payload, live_payload, position_by_player):
     replay_sub_pairs_ordered = [(item["in"], item["out"]) for item in replay["substitutions"]]
     positions = record["positions"]
     bench_slot = {player_id: index + 1 for index, player_id in enumerate(record["bench_order"])}
+    starting_slot = {player_id: index + 1 for index, player_id in enumerate(record["decision"]["starting_xi"])}
     official_ordered = record["official_sub_pairs_ordered"]
     official_position_pairs = sorted((positions[in_id], positions[out_id]) for in_id, out_id in official_ordered)
     replay_position_pairs = sorted((positions[in_id], positions[out_id]) for in_id, out_id in replay_sub_pairs_ordered)
     official_slots = [bench_slot.get(in_id, 0) for in_id, _ in official_ordered]
     replay_slots = [bench_slot.get(in_id, 0) for in_id, _ in replay_sub_pairs_ordered]
+    official_out_slots = [starting_slot.get(out_id, 0) for _, out_id in official_ordered]
+    replay_out_slots = [starting_slot.get(out_id, 0) for _, out_id in replay_sub_pairs_ordered]
     return {
         "replay_net_points": replay["net_points"],
         "replay_gross_points": replay["gross_points"],
@@ -264,6 +267,8 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
                     signature = (
                         f"official_slots={result['official_bench_slots']};"
                         f"replay_slots={result['replay_bench_slots']};"
+                        f"official_out_slots={result['official_out_starting_slots']};"
+                        f"replay_out_slots={result['replay_out_starting_slots']};"
                         f"official_positions={result['official_position_pairs']};"
                         f"replay_positions={result['replay_position_pairs']};"
                         f"counts={result['official_sub_count']}:{result['replay_sub_count']}"
