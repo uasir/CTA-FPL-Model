@@ -74,6 +74,7 @@ def test_bench_boost_adds_all_bench_points_and_disables_autosub_double_count():
     decision["chip_legality_verified"] = True
     points, mins = outcomes(positions)
     mins["d1"] = 0
+    points["d1"] = 0
     points["d5"] = 6
     result = replay_gameweek(decision, points, mins, positions)
     assert result["bench_points_added"] == 12
