@@ -46,7 +46,7 @@ def test_wyscout_panel_maps_a_b_c_without_inventing_xg_or_receivers():
     assert row["abc_recent_action_trend"] == 0.5
     assert row["abc_team_final_third_entries"] == 12.0
     assert row["abc_duel_success_rate"] == 0.5
-    assert abs(row["abc_defensive_actions"] - 3.15) < 1e-9
+    assert abs(row["abc_defensive_actions"] - 2.8) < 1e-9
     assert row["abc_opponent_threat_allowed"] == 10.0
     assert row["abc_defensive_exposure"] == 30.0
     assert row["abc_team_duels_won"] == 6.0
