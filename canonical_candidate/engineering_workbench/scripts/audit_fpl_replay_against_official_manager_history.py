@@ -219,6 +219,8 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
         event_id = int(event["id"])
         live = live_by_event[event_id]
         n = net_exact = gross_exact = autosub_match = autosub_comparable = 0
+        event_position_pair_matches = 0
+        event_count_matches = 0
         differences = []
         for payload in by_event[event_id]:
             try:
@@ -234,6 +236,8 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
                 autosub_match += int(result["autosub_pairs_match"])
                 autosub_position_pair_matches += int(result["autosub_position_pairs_match"])
                 autosub_count_matches += int(result["autosub_count_match"])
+                event_position_pair_matches += int(result["autosub_position_pairs_match"])
+                event_count_matches += int(result["autosub_count_match"])
                 official_bench_priority_usage.update(str(slot) for slot in result["official_bench_slots"])
                 replay_bench_priority_usage.update(str(slot) for slot in result["replay_bench_slots"])
                 if not result["autosub_pairs_match"]:
