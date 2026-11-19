@@ -78,6 +78,10 @@ def build_panel(cta_rows, opta_team_rows, cta_source_report, opta_source_report)
     opta_report = opta_source_report.get("team_features", opta_source_report)
     opta_as_of_value = opta_report.get("source_snapshot_as_of")
     opta_as_of = parse_time(opta_as_of_value, "Opta source_snapshot_as_of") if opta_as_of_value else None
+    cta_source_hashes = cta_source_report.get("source_hashes", {})
+    opta_commit = (opta_source_report.get("identity") or {}).get("source_commit", "")
+    if not opta_as_of:
+        raise ValueError("Opta source report must contain its pinned source snapshot timestamp")
 
     opta_by_fixture_team = {}
     for row in opta_team_rows:
@@ -100,6 +104,8 @@ def build_panel(cta_rows, opta_team_rows, cta_source_report, opta_source_report)
             raise ValueError("Target fixture must kick off after the FPL deadline")
         cta_available = truth(row.get("cta_snapshot_available_as_of_deadline"))
         cta_snapshot = parse_time(row.get("cta_source_snapshot_as_of"), "11footy snapshot timestamp") if row.get("cta_source_snapshot_as_of") else None
+        if cta_snapshot and cta_snapshot != source_as_of:
+            raise ValueError("11footy row snapshot timestamp disagrees with its source report")
         cta_temporal_ok = bool(cta_available and cta_snapshot and cta_snapshot <= deadline)
         opta_temporal_ok = bool(opta_as_of and opta_as_of <= deadline)
 
@@ -198,11 +204,11 @@ def build_panel(cta_rows, opta_team_rows, cta_source_report, opta_source_report)
 
         layers = [
             LayerResult("A_temporal_football_value", "RESEARCH_ONLY", a, coverage(a),
-                        deadline.isoformat(), "11footy verified player history + Opta team context"),
+                        deadline.isoformat(), f"11footy source hashes={json.dumps(cta_source_hashes, sort_keys=True)}; Opta commit={opta_commit}"),
             LayerResult("B_risk_defensive_intelligence", "RESEARCH_ONLY", b, coverage(b),
-                        deadline.isoformat(), "Opta/PulseLive lagged team-match context + 11footy player history"),
+                        deadline.isoformat(), f"Opta commit={opta_commit}; 11footy source hashes={json.dumps(cta_source_hashes, sort_keys=True)}"),
             LayerResult("C_player_intelligence", "RESEARCH_ONLY", c, coverage(c),
-                        deadline.isoformat(), "11footy verified player history; calibrated score withheld"),
+                        deadline.isoformat(), f"11footy source hashes={json.dumps(cta_source_hashes, sort_keys=True)}; calibrated score withheld"),
         ]
         integrated = integrate_player_sequence(layers, deadline.isoformat())
         verified = truth(row.get("identity_verified"))
