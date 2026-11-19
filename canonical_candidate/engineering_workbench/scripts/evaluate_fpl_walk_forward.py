@@ -116,6 +116,42 @@ def combine_appearance_points_distribution(appearance_probability, conditional_p
     return combined
 
 
+def paired_error_comparison(actual,candidate,comparator,groups=None):
+    """Aggregate paired point-forecast errors without retaining player-level outputs."""
+    y=np.asarray(actual,dtype=float)
+    a=np.asarray(candidate,dtype=float)
+    b=np.asarray(comparator,dtype=float)
+    if not (len(y)==len(a)==len(b)) or len(y)==0:
+        raise ValueError("Paired forecast arrays must be non-empty and aligned")
+    ae=np.abs(a-y); be=np.abs(b-y)
+    sq_delta=(a-y)**2-(b-y)**2
+    result={
+        "n":int(len(y)),
+        "mean_absolute_error_delta":round(float((ae-be).mean()),6),
+        "mean_squared_error_delta":round(float(sq_delta.mean()),6),
+        "candidate_absolute_error_win_rate":round(float((ae<be).mean()),6),
+        "absolute_error_tie_rate":round(float(np.isclose(ae,be,atol=1e-12).mean()),6),
+    }
+    if groups is not None:
+        labels=np.asarray(groups,dtype=object)
+        if len(labels)!=len(y):
+            raise ValueError("Paired forecast group labels must align with outcomes")
+        result["by_group"]={}
+        for group in sorted(set(labels.tolist())):
+            mask=labels==group
+            if mask.any():
+                item=paired_error_comparison(y[mask],a[mask],b[mask])
+                result["by_group"][str(group)]=item
+    return result
+
+
+def appearance_probability_bucket(probability):
+    value=float(probability)
+    if value<0.5: return "low_<0.50"
+    if value<0.8: return "medium_0.50_to_0.80"
+    return "high_>=0.80"
+
+
 def points_distribution_metrics(actual,probabilities,representatives=None):
     labels=np.asarray([points_band(v) for v in actual],dtype=int)
     probs=np.asarray(probabilities,dtype=float)
@@ -338,6 +374,7 @@ def score_fold(train, valid, season):
     last_minutes=[]; prior3_minutes=[]; prior5_minutes=[]
     lagged_minutes=[]; conditional_lagged_minutes_raw=[]; conditional_lagged_minutes_calibrated=[]
     two_part_raw=[]; two_part_calibrated=[]; band_points_raw=[]; band_points_calibrated=[]; direct_points=[]; last5_points=[]
+    hurdle_points_raw_expected=[]; hurdle_points_calibrated_expected=[]; calibrated_appearance_buckets=[]
     for row in valid:
         # All predictions are created before actual labels are read for scoring.
         band_raw=minutes_band_probabilities(minutes_band_model,row)
@@ -351,6 +388,8 @@ def score_fold(train, valid, season):
         calibrated_p=calibrated_probability(calibrator,score)
         hurdle_raw=combine_appearance_points_distribution(raw_p,conditional_hurdle_raw)
         hurdle_cal=combine_appearance_points_distribution(calibrated_p,conditional_hurdle_cal)
+        hurdle_raw_ep=float(hurdle_raw@conditional_points_band_representatives)
+        hurdle_cal_ep=float(hurdle_cal@conditional_points_band_representatives)
         conditional=max(0.0,predict(conditional_model,row))
         raw_ep=raw_p*conditional
         calibrated_ep=calibrated_p*conditional
@@ -401,6 +440,9 @@ def score_fold(train, valid, season):
         band_points_calibrated.append(band_ep_calibrated)
         direct_points.append(direct_ep)
         last5_points.append(baseline_points)
+        hurdle_points_raw_expected.append(hurdle_raw_ep)
+        hurdle_points_calibrated_expected.append(hurdle_cal_ep)
+        calibrated_appearance_buckets.append(appearance_probability_bucket(calibrated_p))
         # Labels are appended only after every forecast for this row is fixed.
         actual_points.append(row["actual_points"])
         actual_minutes.append(row["actual_minutes"])
@@ -464,6 +506,14 @@ def score_fold(train, valid, season):
             "lagged_feature_ridge":regression_metrics(actual_minutes,lagged_minutes),
             "two_part_lagged_feature_ridge_raw":regression_metrics(actual_minutes,conditional_lagged_minutes_raw),
             "two_part_lagged_feature_ridge_calibrated":regression_metrics(actual_minutes,conditional_lagged_minutes_calibrated),
+        },
+        "paired_points_errors":{
+            "calibrated_hurdle_vs_two_part_raw":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,two_part_raw),
+            "calibrated_hurdle_vs_two_part_calibrated":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,two_part_calibrated),
+            "calibrated_hurdle_vs_direct_ridge":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,direct_points),
+            "calibrated_hurdle_vs_last5":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,last5_points),
+            "raw_hurdle_vs_two_part_raw":paired_error_comparison(actual_points,hurdle_points_raw_expected,two_part_raw),
+            "calibrated_hurdle_vs_two_part_raw_by_appearance_probability":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,two_part_raw,calibrated_appearance_buckets)["by_group"],
         },
         "points":{
             "two_part_calibrated":regression_metrics(actual_points,two_part_calibrated),
@@ -543,6 +593,13 @@ def evaluate_walk_forward(rows):
                 for metric in ("mae","rmse","mean_error")
             }
             for model in ("two_part_calibrated","two_part_raw","minutes_band_raw","minutes_band_calibrated","direct","last5_baseline")
+        },
+        "paired_points_errors":{
+            key:{
+                metric:round(sum(f["validation_player_gameweeks"]*f["paired_points_errors"][key][metric] for f in folds)/sum(f["validation_player_gameweeks"] for f in folds),6)
+                for metric in ("mean_absolute_error_delta","mean_squared_error_delta","candidate_absolute_error_win_rate","absolute_error_tie_rate")
+            } | {"n":sum(f["paired_points_errors"][key]["n"] for f in folds)}
+            for key in ("calibrated_hurdle_vs_two_part_raw","calibrated_hurdle_vs_two_part_calibrated","calibrated_hurdle_vs_direct_ridge","calibrated_hurdle_vs_last5","raw_hurdle_vs_two_part_raw")
         },
     }
     return {
