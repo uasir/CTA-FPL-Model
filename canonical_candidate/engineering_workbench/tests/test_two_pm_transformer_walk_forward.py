@@ -40,13 +40,13 @@ def test_points_representatives_and_8plus_share_use_only_supplied_fit_rows():
 
 def test_encoded_windows_are_left_aligned_for_last_valid_step_pooling():
     from evaluate_two_pm_transformer_walk_forward import (
-        FEATURES, encode_windows, fit_preprocessor,
+        TRANSFORMER_FEATURES, encode_windows, fit_preprocessor,
     )
     rows = [
-        {name: float(i + 1) for i, name in enumerate(FEATURES)},
-        {name: float(i + 2) for i, name in enumerate(FEATURES)},
+        {name: float(i + 1) for i, name in enumerate(TRANSFORMER_FEATURES)},
+        {name: float(i + 2) for i, name in enumerate(TRANSFORMER_FEATURES)},
     ]
     preprocessor = fit_preprocessor(rows)
     encoded, padding = encode_windows([rows], preprocessor, max_length=4)
     assert padding[0].tolist() == [False, False, True, True]
-    assert encoded.shape == (1, 4, len(FEATURES) * 2)
+    assert encoded.shape == (1, 4, len(TRANSFORMER_FEATURES) * 2)
