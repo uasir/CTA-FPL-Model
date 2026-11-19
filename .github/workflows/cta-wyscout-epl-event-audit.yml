@@ -93,6 +93,15 @@ jobs:
             --teams-json run_artifacts/wyscout/source/teams.json \
             --out-dir run_artifacts/wyscout/output
 
+      - name: Normalize Wyscout events into CTA canonical event schema
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_event_adapter.py \
+            --events-zip run_artifacts/wyscout/source/events.zip \
+            --players run_artifacts/wyscout/source/players.json \
+            --teams run_artifacts/wyscout/source/teams.json \
+            --out run_artifacts/wyscout/output/cta_canonical_events.json \
+            --report run_artifacts/wyscout/output/wyscout_cta_event_adapter_report.json
+
       - name: Download pinned historical FPL 2017/18 identity and match-history files
         run: |
           set -euo pipefail
