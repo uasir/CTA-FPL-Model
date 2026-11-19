@@ -100,10 +100,6 @@ class CTATests(unittest.TestCase):
         self.assertEqual(result["frame_to_event_join_rate"], 0.0)
         self.assertEqual(result["event_coverage_with_frame"], 0.0)
 
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_xt_can_be_fitted_on_training_matches_only(self):
         training_shot = {
             "id": "train-shot", "type": {"name": "Shot"},
@@ -130,3 +126,6 @@ if __name__ == "__main__":
         ev = flatten_matches([("train", self.raw)])
         with self.assertRaisesRegex(ValueError, "absent from input"):
             fit_xt(ev, complete_statsbomb_directions(ev, {}), fit_match_ids=["missing"])
+
+if __name__ == "__main__":
+    unittest.main()
