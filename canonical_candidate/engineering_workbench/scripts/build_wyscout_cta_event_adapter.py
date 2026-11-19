@@ -253,10 +253,21 @@ def normalize_wyscout_events(events, players, teams, match_id):
         else:
             pending_after_shot = False
 
+    terminal = normalized[-1] if normalized else {}
+    terminal_event = {
+        "event_id": terminal.get("id", ""),
+        "event_type": (terminal.get("type") or {}).get("name", ""),
+        "event_team": (terminal.get("team") or {}).get("name", ""),
+        "possession_team": (terminal.get("possession_team") or {}).get("name", ""),
+        "period": terminal.get("period", ""),
+        "minute": terminal.get("minute", ""),
+        "second": terminal.get("second", ""),
+    } if terminal else {}
     report = {
         "status": "PASS_WYSCOUT_EVENTS_NORMALIZED" if normalized else "NO_NORMALIZED_EVENTS",
         "provider": "Wyscout",
         "provider_match_id": str(match_id),
+        "terminal_event_at_match_end": terminal_event,
         "normalized_event_count": len(normalized),
         "skipped_event_counts": skipped,
         "actor_quality_counts": actor_quality,
@@ -331,6 +342,7 @@ def main():
         dead_ball_resolved_team_change_count = 0
         dead_ball_pending_at_match_end_count = 0
         dead_ball_resolved_team_change_samples = []
+        dead_ball_pending_match_samples = []
         match_reports = []
         for match_id, match_events in sorted(grouped.items()):
             rows, match_report = normalize_wyscout_events(match_events, players, teams, match_id)
@@ -341,6 +353,11 @@ def main():
             duel_outcome_counts.update(match_report["duel_outcome_tag_counts"])
             dead_ball_resolved_team_change_count += match_report["dead_ball_resolved_team_change_count"]
             dead_ball_pending_at_match_end_count += int(match_report["dead_ball_pending_at_match_end"])
+            if match_report["dead_ball_pending_at_match_end"] and len(dead_ball_pending_match_samples) < 25:
+                dead_ball_pending_match_samples.append({
+                    "match_id": str(match_id),
+                    "terminal_event": match_report["terminal_event_at_match_end"],
+                })
             if len(dead_ball_resolved_team_change_samples) < 25:
                 dead_ball_resolved_team_change_samples.extend(
                     {"match_id": str(match_id), **sample}
@@ -359,6 +376,7 @@ def main():
             "dead_ball_resolved_team_change_count": dead_ball_resolved_team_change_count,
             "dead_ball_resolved_team_change_samples": dead_ball_resolved_team_change_samples,
             "matches_ending_with_dead_ball_pending": dead_ball_pending_at_match_end_count,
+            "dead_ball_pending_match_samples": dead_ball_pending_match_samples,
             "player_id_namespace": "wyscout: prefix retained; never interpreted as StatsBomb or FPL ID",
             "coordinate_conversion": "attacking-relative percentage x,y -> CTA pitch x*1.2,y*0.8; no direction flip",
             "possession_method": "INFERRED_EVENT_STATE_WITH_DUEL_OUTCOME_TAGS",
