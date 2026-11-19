@@ -110,3 +110,12 @@ def test_invalid_timezone_kickoff_fails_closed():
         assert "timezone-aware" in str(exc)
     else:
         raise AssertionError("naive kickoff timestamp must fail closed")
+
+
+
+def test_unassigned_provider_id_zero_is_excluded_before_duplicate_checks():
+    matches = [feature_row(0, 500, 2, "2017-08-12"), feature_row(0, 500, 3, "2017-08-12")]
+    fpl = [history(1, 1000, "2017-08-12T14:00:00Z", 2)]
+    panel, _, report = build_verified_panel(matches, [crosswalk()], fpl, {500: 1000})
+    assert panel == []
+    assert report["invalid_provider_keys"] == 2

@@ -84,16 +84,16 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
     for row in player_match_rows:
         provider_id = as_int(row.get("provider_player_id"))
         match_id = as_int(row.get("provider_match_id"))
-        if provider_id is None or match_id is None:
+        if provider_id is None or provider_id <= 0 or match_id is None or match_id <= 0:
             counts["invalid_provider_keys"] += 1
             continue
-        key = (provider_id, match_id)
-        if key in seen_provider_keys:
-            raise ValueError(f"Duplicate Wyscout player-match row: {key}")
-        seen_provider_keys.add(key)
         if provider_id not in identity:
             counts["unverified_identity_rows_excluded"] += 1
             continue
+        key = (provider_id, match_id)
+        if key in seen_provider_keys:
+            raise ValueError(f"Duplicate verified Wyscout player-match row: {key}")
+        seen_provider_keys.add(key)
         fixture_id = match_to_fixture.get(match_id)
         if fixture_id is None:
             counts["unmapped_fixture_rows_excluded"] += 1
