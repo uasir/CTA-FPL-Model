@@ -1,4 +1,4 @@
-from build_11footy_historical_fpl_identity_candidates import build_identity_review_queue
+from build_11footy_historical_fpl_identity_candidates import build_identity_review_queue, attach_current_candidates
 
 
 def _teams():
@@ -87,3 +87,57 @@ def test_11footy_historical_fpl_candidates_keep_ambiguous_names_unresolved():
     assert candidates[0]["verification_status"] == "AMBIGUOUS"
     assert report["ambiguous_name_candidate_count"] == 1
     assert report["exact_name_unique_candidate_count"] == 0
+
+
+def test_historical_identity_candidates_join_current_fpl_candidates_without_verifying():
+    historical = [
+        {
+            "provider_player_id": 100,
+            "candidate_fpl_element_id": 10,
+            "verification_status": "PENDING",
+            "review_priority": "P1_MULTI_MATCH_TEAM_SIGNATURE",
+            "candidate_status": "PENDING",
+        },
+        {
+            "provider_player_id": 200,
+            "candidate_fpl_element_id": 20,
+            "verification_status": "PENDING",
+            "review_priority": "P2_TEAM_AND_FULL_SIGNATURE",
+            "candidate_status": "PENDING",
+        },
+        {
+            "provider_player_id": 300,
+            "candidate_fpl_element_id": 30,
+            "verification_status": "PENDING",
+            "review_priority": "P1_MULTI_MATCH_TEAM_SIGNATURE",
+            "candidate_status": "PENDING",
+        },
+    ]
+    current = [
+        {
+            "provider_player_id": 100, "fpl_element_id": 1,
+            "fpl_player_code": 1001, "fpl_player_name": "Player A",
+            "fpl_team_id": 1, "fpl_team_name": "Arsenal",
+            "fpl_birth_date": "1990-01-01", "confidence_level": "high",
+            "verification_status": "pending",
+        },
+        {
+            "provider_player_id": 200, "fpl_element_id": 2,
+            "fpl_player_code": 2002, "fpl_player_name": "Player B",
+            "fpl_team_id": 2, "fpl_team_name": "Bournemouth",
+            "fpl_birth_date": "", "confidence_level": "review_required",
+            "verification_status": "pending",
+        },
+    ]
+
+    rows, report = attach_current_candidates(historical, current)
+
+    assert rows[0]["current_fpl_element_id"] == 1
+    assert rows[0]["cross_season_review_priority"] == "P1_HISTORICAL_AND_CURRENT_HIGH"
+    assert rows[1]["current_fpl_element_id"] == 2
+    assert rows[1]["cross_season_review_priority"] == "P2_HISTORICAL_AND_CURRENT_HIGH"
+    assert rows[2]["current_candidate_status"] == "NO_CURRENT_CANDIDATE"
+    assert rows[2]["cross_season_review_priority"] == "P2_HISTORICAL_P1_CURRENT_NOT_HIGH"
+    assert all(row["verification_status"] == "PENDING" for row in rows)
+    assert report["historical_current_provider_id_overlap"] == 2
+    assert report["historical_current_high_confidence_overlap"] == 1
