@@ -1,5 +1,5 @@
 import math
-from evaluate_fpl_walk_forward import FEATURES, evaluate_walk_forward, fit_ridge_fast, fit_minutes_band_model, minutes_band_probabilities, minutes_band, minutes_distribution_metrics
+from evaluate_fpl_walk_forward import FEATURES, evaluate_walk_forward, fit_ridge_fast, fit_minutes_band_model, minutes_band_probabilities, minutes_band, minutes_distribution_metrics, one_hot_minutes_distribution
 from train_fpl_exploratory_ridge import fit_ridge, predict
 
 
@@ -83,6 +83,9 @@ def test_minutes_band_model_probabilities_are_valid_and_training_only():
     assert all(0.0<=p<=1.0 for p in probs)
     assert abs(sum(probs)-1.0)<1e-9
     assert [minutes_band(v) for v in (0,1,29,30,59,60,89,90)] == [0,1,1,2,2,3,3,4]
+    fallback=[0.1,0.2,0.3,0.2,0.2]
+    assert one_hot_minutes_distribution(None,fallback)==fallback
+    assert one_hot_minutes_distribution(90,fallback)==[0.0,0.0,0.0,0.0,1.0]
     metrics=minutes_distribution_metrics([0,15,45,75,90],[ [1,0,0,0,0],[0,1,0,0,0],[0,0,1,0,0],[0,0,0,1,0],[0,0,0,0,1] ])
     assert metrics["mae"]==0.0
     assert metrics["multiclass_log_loss"]>=0.0
@@ -107,5 +110,5 @@ def test_walk_forward_report_includes_minutes_distribution_metrics():
         assert bands["calibrated"]["mae"]>=0
         assert bands["calibrated"]["multiclass_log_loss"]>=0
         assert bands["raw"]["multiclass_brier"]>=0
-        assert bands["last_gameweek_one_hot"]["accuracy"]>=0
+        assert bands["last_gameweek_or_training_prior"]["accuracy"]>=0
         assert fold["points"]["minutes_band_calibrated"]["mae"]>=0
