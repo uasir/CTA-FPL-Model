@@ -228,3 +228,29 @@ Data can be used for exploratory experiments before all point-in-time conditions
 - Leakage controls remain: validation seasons do not contribute to fitting or calibration; features are lagged; target-fixture statistics are excluded; calibration precedes validation. Historical sources remain retrospective exports, not verified pre-deadline snapshots.
 - Decision: do not replace the points estimator with the hurdle model. Retain it as an MAE-oriented distribution candidate; retain direct Ridge as the pooled RMSE comparator and raw two-part as the principal conventional baseline. CTA remains `RESEARCH_ONLY / DO_NOT_PROMOTE`, weight zero, and outside recommendations.
 - Next experiment: test a pre-specified convex blend of the calibrated-hurdle expected-points estimate and the raw two-part expected-points estimate, with blend weights selected only inside each fold's earlier calibration partition. Include fixed weights (0.25, 0.50, 0.75 hurdle contribution) and a training/calibration-selected weight; compare against both parents and direct Ridge on identical validation rows. Report MAE, RMSE, paired player-season bootstrap intervals, per-season results and appearance-probability buckets. Do not tune on validation outcomes. This tests whether the MAE benefit can be retained while reducing tail-error cost; no promotion unless both the decision metric and risk profile justify it.
+
+
+### Hurdle / raw two-part convex-blend experiment — completed, 19 November 2026
+
+- Evaluator commit: `79b24be111f51c49db61c6dcb13c17ba6f839fc3` (whole-gameweek chronological calibration split).
+- Engineering CI: [run 44533731260](https://github.com/uasir/CTA-FPL-Model/actions/runs/44533731260), successful.
+- Full expanding-season research: [run 44533731321](https://github.com/uasir/CTA-FPL-Model/actions/runs/44533731321), successful. All nine folds (2017/18–2025/26) and 214,956 validation player-gameweeks completed. The final verification step passed: source files and player-level panels stayed runner-local; no workflow artifact was uploaded.
+- The blend combines calibrated-appearance hurdle expected points with raw two-part expected points. Fixed hurdle weights of 0.25, 0.50 and 0.75 were evaluated. Separate fold-specific weights were also selected on an earlier chronological calibration-selection block for MAE and MSE. The calibration-fit and selection blocks are separated by whole gameweeks; neither includes validation outcomes.
+- Pooled expected-points results (MAE/RMSE):
+  | Candidate | MAE | RMSE |
+  |---|---:|---:|
+  | Raw two-part | 1.160585 | 2.151055 |
+  | Fixed 25% hurdle blend | 1.155673 | 2.151299 |
+  | Fixed 50% hurdle blend | 1.151066 | 2.152401 |
+  | Fixed 75% hurdle blend | 1.146760 | 2.154361 |
+  | Calibration-selected MAE blend | 1.144618 | 2.156027 |
+  | Calibration-selected MSE blend | 1.158692 | 2.151391 |
+  | Calibrated hurdle | 1.142761 | 2.153990 |
+  | Direct Ridge | 1.168723 | 2.147811 |
+- The fixed 50% blend improves MAE over raw two-part by 0.009520, but worsens MSE by 0.005791. Its 1,000-replicate player-season cluster-bootstrap 95% intervals are [-0.010165, -0.008891] for MAE delta and [+0.002388, +0.009305] for MSE delta. Both effects exclude zero: the MAE gain and squared-error penalty are repeatable under player-season resampling.
+- The calibration-selected MAE blend improves MAE over raw two-part by 0.015967, but worsens MSE by 0.021416; its bootstrap 95% intervals are [-0.017117, -0.014874] for MAE and [+0.014828, +0.027802] for MSE. The selection chose a mean hurdle weight of 0.889 and selected the pure hurdle endpoint (weight 1.0) in 8 of 9 folds, so this is mostly a selection of the hurdle parent rather than evidence for a stable interior blend.
+- The calibration-selected MSE blend selected a mean hurdle weight of 0.094 (weights were 0 in six folds, with nonzero weights in three). On validation it was close to raw two-part but did not improve either metric: MAE delta +0.001893 and MSE delta +0.001447. Bootstrap 95% intervals were [+0.001666, +0.002109] for MAE delta and [+0.000412, +0.002503] for MSE delta.
+- Across all nine individual seasons, the fixed 75% blend had lower MAE but higher RMSE than raw two-part in every fold. The selected-MAE weight was 1.0 in eight folds and 0.0 in 2021/22. This confirms a consistent movement along the MAE/RMSE trade-off, not a blend that resolves it.
+- Decision: **do not adopt a single hybrid estimator**. The tested blends do not preserve the hurdle's MAE benefit while removing its large-error penalty. Retain separate research candidates: raw two-part as the conventional expected-points baseline, calibrated hurdle as the MAE-oriented distribution candidate, and direct Ridge as the pooled RMSE comparator. No candidate is promoted to live recommendations.
+- Next modelling step: investigate whether forecast-time risk segmentation or a tail-aware objective can reduce large misses without sacrificing the hurdle's typical-error gains. Any such change must be pre-specified, selected only on earlier calibration gameweeks, evaluated on the same nine expanding-season folds and exact common validation cohort, and assessed with MAE, RMSE/MSE, proper distribution scores and player-season cluster intervals. Avoid further unconstrained weight tuning on this validation set.
+- Limitations remain unchanged: the historical source exports are retrospective rather than verified pre-deadline snapshots; this is not yet a verified deadline-time forecasting system. CTA remains `RESEARCH_ONLY / DO_NOT_PROMOTE`, weight zero, and outside recommendation decisions.
