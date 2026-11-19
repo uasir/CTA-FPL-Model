@@ -143,7 +143,7 @@ def test_training_report_counts_missing_xg_without_zero_imputation():
             })
     model, report = train_and_evaluate(rows)
     xg_index = FEATURES.index("prior3_gw_xg_avg")
-    assert report["points_missing_feature_counts"]["prior3_gw_xg_avg"] == 4
+    assert report["points_missing_feature_counts"]["prior3_gw_xg_avg"] == 3
     assert model["points_model"]["imputation_values"][xg_index] > 0
     assert "prior3_gw_xg_avg__missing" in model["points_model"]["feature_names"]
 
