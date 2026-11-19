@@ -34,7 +34,7 @@ PANEL_FIELDS = [
 
 RESEARCH_PANEL_FIELDS = [
     "season", "competition_id", "provider", "provider_match_id", "fpl_fixture_id",
-    "gameweek", "match_date", "provider_player_id", "provider_player_name",
+    "gameweek", "match_date", "match_kickoff_utc", "provider_player_id", "provider_player_name",
     "provider_team_id", "provider_team_name", "fpl_element_id", "fpl_player_code",
     "fpl_player_name", "minutes_played", "goals", "assists", "own_goals",
     "shots", "shots_on_target", "key_passes", "attempts", "attempts_inside_box",
