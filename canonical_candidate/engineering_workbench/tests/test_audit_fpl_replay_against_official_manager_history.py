@@ -101,3 +101,5 @@ def test_audit_reconstructs_deadline_xi_and_bench_from_post_autosub_picks():
     assert result["autosub_count_match"] is True
     assert result["official_bench_slots"] == [1]
     assert result["replay_bench_slots"] == [1]
+    assert result["official_out_starting_slots"] == [5]
+    assert result["replay_out_starting_slots"] == [5]
