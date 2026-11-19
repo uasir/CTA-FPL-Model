@@ -73,7 +73,7 @@ def score_fold(train, valid, season):
     raw_probabilities=[]; calibrated_probabilities=[]; appearance_baseline=[]
     fallback_appearance_rate=sum(r["appeared"] for r in train)/len(train)
     predicted_minutes=[]; predicted_minutes_raw=[]; predicted_minutes_calibrated=[]
-    last_minutes=[]
+    last_minutes=[]; prior3_minutes=[]; prior5_minutes=[]
     two_part_raw=[]; two_part_calibrated=[]; direct_points=[]; last5_points=[]
     for row in valid:
         # All predictions are created before actual labels are read for scoring.
@@ -103,6 +103,8 @@ def score_fold(train, valid, season):
         predicted_minutes_raw.append(expected_minutes_raw)
         predicted_minutes_calibrated.append(expected_minutes_calibrated)
         last_minutes.append(row["last_gw_baseline_minutes"])
+        prior3_minutes.append(row.get("prior3_gw_minutes_avg"))
+        prior5_minutes.append(row.get("prior5_gw_minutes_avg"))
         two_part_raw.append(raw_ep)
         two_part_calibrated.append(calibrated_ep)
         direct_points.append(direct_ep)
@@ -114,10 +116,11 @@ def score_fold(train, valid, season):
 
     if not actual_points:
         raise ValueError(f"No scored player-gameweeks in fold {season}")
-    if any(x is None for x in last_minutes):
-        last_minutes_metrics=None
-    else:
-        last_minutes_metrics=regression_metrics(actual_minutes,last_minutes)
+    def optional_minute_metrics(values):
+        return None if any(x is None for x in values) else regression_metrics(actual_minutes,values)
+    last_minutes_metrics=optional_minute_metrics(last_minutes)
+    prior3_minutes_metrics=optional_minute_metrics(prior3_minutes)
+    prior5_minutes_metrics=optional_minute_metrics(prior5_minutes)
     return {
         "season":season,
         "training_seasons":sorted({r["season"] for r in train}),
@@ -141,6 +144,8 @@ def score_fold(train, valid, season):
             "two_part_calibrated":regression_metrics(actual_minutes,predicted_minutes_calibrated),
             "two_part_raw":regression_metrics(actual_minutes,predicted_minutes_raw),
             "last_gameweek_baseline":last_minutes_metrics,
+            "prior3_gameweeks_baseline":prior3_minutes_metrics,
+            "prior5_gameweeks_baseline":prior5_minutes_metrics,
         },
         "points":{
             "two_part_calibrated":regression_metrics(actual_points,two_part_calibrated),
@@ -189,6 +194,10 @@ def evaluate_walk_forward(rows):
             "two_part_raw_mae":weighted_metric("minutes","two_part_raw","mae"),
             "last_gameweek_baseline_mae":weighted_metric("minutes","last_gameweek_baseline","mae")
                 if all(f["minutes"]["last_gameweek_baseline"] is not None for f in folds) else None,
+            "prior3_gameweeks_baseline_mae":weighted_metric("minutes","prior3_gameweeks_baseline","mae")
+                if all(f["minutes"]["prior3_gameweeks_baseline"] is not None for f in folds) else None,
+            "prior5_gameweeks_baseline_mae":weighted_metric("minutes","prior5_gameweeks_baseline","mae")
+                if all(f["minutes"]["prior5_gameweeks_baseline"] is not None for f in folds) else None,
         },
         "points":{
             model:{
