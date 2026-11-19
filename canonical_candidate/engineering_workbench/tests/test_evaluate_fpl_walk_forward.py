@@ -32,6 +32,9 @@ def test_expanding_season_walk_forward_never_trains_on_validation_season():
         assert all(training_season < fold["season"] for training_season in fold["training_seasons"])
         assert fold["validation_player_gameweeks"]>0
         assert fold["appearance"]["calibrated"]["brier"]>=0
+        assert fold["minutes"]["two_part_calibrated"]["mae"]>=0
+        assert fold["minutes"]["two_part_raw"]["mae"]>=0
+        assert fold["minutes"]["unconditional_regression"]["mae"]>=0
         assert fold["points"]["direct"]["mae"]>=0
     folds=report["folds"]
     expected_rmse=math.sqrt(sum(f["validation_player_gameweeks"]*f["points"]["direct"]["rmse"]**2 for f in folds)/sum(f["validation_player_gameweeks"] for f in folds))
