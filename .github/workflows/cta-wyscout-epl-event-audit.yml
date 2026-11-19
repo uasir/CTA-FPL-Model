@@ -305,7 +305,6 @@ jobs:
             echo "WARNING: integrated historical A/B/C panel unavailable"
           fi
 
-      - name: Upload aggregate-only historical A/B/C integration and evaluation reports
       - name: Evaluate independent A/B/C variants with expanding gameweek folds
         if: always()
         continue-on-error: true
@@ -321,6 +320,7 @@ jobs:
             echo "WARNING: integrated historical A/B/C panel unavailable for walk-forward evaluation"
           fi
 
+      - name: Upload aggregate-only historical A/B/C integration and evaluation reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
