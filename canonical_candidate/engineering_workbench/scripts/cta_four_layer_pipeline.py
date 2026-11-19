@@ -16,16 +16,21 @@ LAYER_FEATURES = {
     "A_temporal_football_value": (
         "progressive_passes", "progressive_carries", "final_third_entries",
         "dangerous_receipts", "sequence_value", "recent_action_trend",
+        "team_final_third_entries", "team_successful_dribbles",
+        "player_key_pass_rate", "player_tracked_xg_rate",
+        "recent_key_pass_trend", "recent_xg_trend",
     ),
     "B_risk_defensive_intelligence": (
         "pressure_events", "pressure_success_rate", "duel_success_rate",
         "defensive_actions", "turnovers_under_pressure", "opponent_threat_allowed",
-        "defensive_exposure",
+        "defensive_exposure", "team_interceptions", "team_tackles_won",
+        "team_ball_recoveries", "team_recoveries", "team_duels_won",
+        "opponent_box_attempts_allowed", "player_fouls_committed_rate",
     ),
     "C_player_intelligence": (
         "role_stability", "minutes_trend", "attacking_involvement",
         "threat_creation_rate", "threat_reception_rate", "threat_realisation_rate",
-        "contextual_threat_score",
+        "contextual_threat_score", "attacking_involvement_rate",
     ),
 }
 
