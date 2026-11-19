@@ -88,6 +88,8 @@ def run(events_path: Path, out_dir: Path) -> dict:
     write_rows(out_dir / "cta_wyscout_sequence_features_runner_local.csv", sequences)
 
     durations = sorted(float(row["duration_seconds"]) for row in sequences)
+    event_counts_per_sequence = sorted(int(row["event_count"]) for row in sequences)
+    segments_per_match = sorted(Counter(row["match_id"] for row in sequences).values())
     def percentile(values, fraction):
         if not values:
             return None
@@ -112,6 +114,25 @@ def run(events_path: Path, out_dir: Path) -> dict:
             "p50": percentile(durations, 0.50),
             "p90": percentile(durations, 0.90),
             "mean": round(sum(durations) / len(durations), 2) if durations else None,
+        },
+        "events_per_sequence": {
+            "p50": percentile(event_counts_per_sequence, 0.50),
+            "p90": percentile(event_counts_per_sequence, 0.90),
+            "mean": round(sum(event_counts_per_sequence) / len(event_counts_per_sequence), 2)
+                    if event_counts_per_sequence else None,
+            "single_event_sequences": sum(value == 1 for value in event_counts_per_sequence),
+            "single_event_sequence_pct": round(
+                100 * sum(value == 1 for value in event_counts_per_sequence)
+                / len(event_counts_per_sequence), 2
+            ) if event_counts_per_sequence else None,
+        },
+        "possession_segments_per_match": {
+            "min": min(segments_per_match) if segments_per_match else None,
+            "p50": percentile(segments_per_match, 0.50),
+            "p90": percentile(segments_per_match, 0.90),
+            "max": max(segments_per_match) if segments_per_match else None,
+            "mean": round(sum(segments_per_match) / len(segments_per_match), 2)
+                    if segments_per_match else None,
         },
         "cta_feature_coverage": {
             "progressive_action_threshold": "10 Wyscout percentage points (12 CTA pitch units)",
