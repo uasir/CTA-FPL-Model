@@ -76,12 +76,23 @@ def evaluate(abc_panel_path, source_report_path, fpl_panel_path, n_boot=1000):
     common = set(abc_maps["FPL_HISTORY_ONLY"]) & set(transformer_raw)
     for name, records in abc_maps.items():
         common &= set(records)
-    common_keys = sorted(common, key=lambda k: (k[1], k[0]))
+    candidate_common_keys = sorted(common, key=lambda k: (k[1], k[0]))
+    actual_mismatch_by_gameweek = {}
+    common_keys = []
+    for k in candidate_common_keys:
+        abc_actual = float(abc_maps["FPL_HISTORY_ONLY"][k]["actual"])
+        two_pm_actual = transformer_actual[k]
+        if abs(abc_actual - two_pm_actual) <= 1e-9:
+            common_keys.append(k)
+        else:
+            actual_mismatch_by_gameweek[k[1]] = actual_mismatch_by_gameweek.get(k[1], 0) + 1
+    excluded_actual_mismatch_rows = len(candidate_common_keys) - len(common_keys)
     if len(common_keys) < 30:
-        raise ValueError(f"Insufficient common player-GW cohort between ABC and 2PM: {len(common_keys)}")
+        raise ValueError(
+            f"Insufficient exact-actual common player-GW cohort after excluding "
+            f"{excluded_actual_mismatch_rows} source/fixture-coverage mismatches: {len(common_keys)}"
+        )
     actual = [float(abc_maps["FPL_HISTORY_ONLY"][k]["actual"]) for k in common_keys]
-    if any(abs(y - transformer_actual[k]) > 1e-9 for k, y in zip(common_keys, actual)):
-        raise AssertionError("ABC and 2PM actual points disagree on the matched player-GW cohort")
     cluster_ids = [f"2017-18:{player_id}" for player_id, _ in common_keys]
 
     model_predictions = {
@@ -119,10 +130,13 @@ def evaluate(abc_panel_path, source_report_path, fpl_panel_path, n_boot=1000):
         "cohort": {
             "season": "2017/18",
             "player_gameweeks": len(common_keys),
+            "candidate_common_player_gameweeks_before_actual_match": len(candidate_common_keys),
+            "excluded_actual_mismatch_player_gameweeks": excluded_actual_mismatch_rows,
+            "excluded_actual_mismatch_counts_by_gameweek": actual_mismatch_by_gameweek,
             "unique_players": len({p for p, _ in common_keys}),
             "gameweeks": sorted({gw for _, gw in common_keys}),
             "grain": "player_gameweek",
-            "common_cohort_rule": "Exact FPL element ID and gameweek intersection; only player-GWs with a forecast from every reported model.",
+            "common_cohort_rule": "Exact FPL element ID and gameweek intersection, with equal official target points from the ABC fixture panel and conventional player-GW panel; only rows with forecasts from every reported model.",
         },
         "abc_track": "Independent A/B/C predictor; expanding whole-gameweek folds; Wyscout/11footy matched cohort.",
         "2pm_track": "Standalone conventional 2PM-Transformer; trained on 2016/17 only and validated on 2017/18; no ABC inputs.",
@@ -136,7 +150,8 @@ def evaluate(abc_panel_path, source_report_path, fpl_panel_path, n_boot=1000):
             "One historical season and one small, survivorship-biased Wyscout/11footy player subset.",
             "Wyscout and FPL historical data are retrospective vintages, not verified pre-deadline snapshots.",
             "The 2PM model trains on all eligible FPL players in 2016/17; ABC is trained only on the verified Wyscout-matched cohort in 2017/18.",
-            "Both models are scored on the exact same player-GW intersection, but their available training histories differ.",
+            "Both models are scored on the exact same player-GW intersection; rows with a source/fixture-coverage target mismatch are explicitly excluded, not reconciled by imputation.",
+            "Their available training histories differ: the conventional model has all FPL players in the prior season, while ABC has only the verified Wyscout-matched cohort.",
             "This is a first matched-cohort comparison, not evidence of general superiority or prospective accuracy.",
         ],
         "abc_walk_forward_summary": {
