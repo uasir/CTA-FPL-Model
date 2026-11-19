@@ -76,6 +76,8 @@ class TestPersonalTeamVsField:
         assert by_id["16"]["personal_effective_ownership_pct"] == 0.0
         assert report["status"] == "PASS_PERSONAL_SQUAD_VS_EXISTING_FIELD_EO"
         assert report["co_var"] == "NOT_COMPUTED_HERE; the existing CoVar portfolio layer remains separate."
+        assert report["largest_negative_differentials"][0]["in_personal_squad"] is False
+        assert report["most_underowned_field_players_not_owned"][0]["fpl_element_id"] == "16"
 
     def test_triple_captain_and_bench_boost_change_personal_exposure(self):
         picks, chip = normalize_personal_picks(picks_payload("3xc"), 11)

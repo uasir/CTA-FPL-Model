@@ -220,10 +220,21 @@ def compare_squad_to_field(personal_picks, active_chip, field_rows, gameweek, pl
         ],
         "largest_negative_differentials": [
             {"fpl_element_id": row["fpl_element_id"], "web_name": row["web_name"],
+             "in_personal_squad": row["in_personal_squad"],
              "personal_eo_pct": row["personal_effective_ownership_pct"],
              "field_eo_pct": row["field_effective_ownership_pct"],
              "delta_pct": row["effective_ownership_delta_pct"]}
-            for row in sorted(owned_rows, key=lambda row: row["effective_ownership_delta_pct"])[:5]
+            for row in sorted(output, key=lambda row: row["effective_ownership_delta_pct"])[:5]
+        ],
+        "most_underowned_field_players_not_owned": [
+            {"fpl_element_id": row["fpl_element_id"], "web_name": row["web_name"],
+             "personal_eo_pct": row["personal_effective_ownership_pct"],
+             "field_eo_pct": row["field_effective_ownership_pct"],
+             "delta_pct": row["effective_ownership_delta_pct"]}
+            for row in sorted(
+                [row for row in output if not row["in_personal_squad"] and row["field_effective_ownership_pct"] > 0],
+                key=lambda row: row["effective_ownership_delta_pct"],
+            )[:5]
         ],
         "interpretation": (
             "Positive effective-ownership delta means this squad has more exposure than the sampled field; "
