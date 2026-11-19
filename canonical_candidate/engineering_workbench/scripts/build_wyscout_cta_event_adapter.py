@@ -211,6 +211,8 @@ def normalize_wyscout_events(events, players, teams, match_id):
             pending_after_shot = False
         elif kind == "Shot":
             pending_after_shot = True
+        else:
+            pending_after_shot = False
 
     report = {
         "status": "PASS_WYSCOUT_EVENTS_NORMALIZED" if normalized else "NO_NORMALIZED_EVENTS",
