@@ -24,10 +24,12 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/evaluate_opta_team_context.py"
       - "canonical_candidate/engineering_workbench/scripts/train_fpl_nested_tuned_ridge.py"
       - "canonical_candidate/engineering_workbench/scripts/audit_11footy_fpl_identity_candidates.py"
+      - "canonical_candidate/engineering_workbench/scripts/verify_11footy_fpl_identity_crosswalk.py"
       - "canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py"
       - "canonical_candidate/engineering_workbench/scripts/build_11footy_lagged_research_features.py"
       - "canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py"
       - "canonical_candidate/engineering_workbench/tests/test_11footy_fpl_identity_candidates.py"
+      - "canonical_candidate/engineering_workbench/tests/test_11footy_verified_crosswalk.py"
       - "canonical_candidate/engineering_workbench/tests/test_11footy_player_match_features.py"
       - "canonical_candidate/engineering_workbench/tests/test_11footy_lagged_research_features.py"
       - "canonical_candidate/engineering_workbench/tests/test_provider_identity_crosswalk.py"
@@ -126,14 +128,20 @@ jobs:
             --release 11footy-2026-11-10 \
             --out-dir run_artifacts/11footy_fpl
 
-      - name: Validate season-scoped 11footy to FPL crosswalk
+      - name: Build exact one-to-one 11footy to FPL identity crosswalk
         continue-on-error: true
-        working-directory: canonical_candidate/engineering_workbench
         run: |
-          python scripts/validate_provider_identity_crosswalk.py \
+          python canonical_candidate/engineering_workbench/scripts/verify_11footy_fpl_identity_crosswalk.py \
+            --candidates run_artifacts/11footy_fpl/identity_candidates.csv \
+            --out-dir run_artifacts/11footy_fpl/verified_identity
+
+      - name: Validate exact one-to-one 11footy to FPL identity crosswalk
+        continue-on-error: true
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py \
             --provider 11footy \
-            --input ../data/11footy_fpl_identity_crosswalk.csv \
-            --out-dir ../../run_artifacts/11footy_fpl/crosswalk_validation
+            --input run_artifacts/11footy_fpl/verified_identity/verified_11footy_fpl_identity_crosswalk.csv \
+            --out-dir run_artifacts/11footy_fpl/verified_identity/validation
 
       - name: Build 11footy player-match panel and corroborate pending identities
         continue-on-error: true
