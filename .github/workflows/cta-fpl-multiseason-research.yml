@@ -36,6 +36,9 @@ jobs:
         run: |
           python scripts/build_vaastav_fpl_multiseason_panel.py \
             --out-dir "$RUNNER_TEMP/cta_fpl_multiseason_research"
+          python scripts/evaluate_fpl_two_part_model.py \
+            --input "$RUNNER_TEMP/cta_fpl_multiseason_research/vaastav_fpl_multiseason_panel.csv" \
+            --out "$RUNNER_TEMP/cta_fpl_multiseason_research/two_part_model_report.json"
       - name: Confirm no source data or player-level outputs are uploaded
         run: |
           echo "Research data and player-level panel remain runner-local."
