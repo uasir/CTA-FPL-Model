@@ -1,4 +1,4 @@
-# Dual FPL Recommendation Architecture
+# Three-output FPL Recommendation Architecture
 
 Status: **APPROVED ARCHITECTURE / EXPLORATORY V0.1 ENGINES IMPLEMENTED / VALIDATION IN PROGRESS**  
 Approved by the project owner: 2026-11-17  
