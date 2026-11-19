@@ -116,7 +116,7 @@ def audit_record(picks_payload, live_payload, position_by_player):
 
 
 def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
-                 workers=8, delay=0.15, max_gameweeks=10, fetch=fetch_json):
+                 workers=4, delay=0.5, max_gameweeks=10, fetch=fetch_json):
     events = [event for event in bootstrap.get("events", []) if event.get("finished")]
     events = sorted(events, key=lambda event: int(event["id"]))[-max_gameweeks:]
     if not events:
@@ -246,8 +246,8 @@ def main():
     parser.add_argument("--rank-limit", type=int, default=1000)
     parser.add_argument("--sample-size", type=int, default=100)
     parser.add_argument("--seed", type=int, default=20261119)
-    parser.add_argument("--workers", type=int, default=8)
-    parser.add_argument("--delay", type=float, default=0.15)
+    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--delay", type=float, default=0.5)
     parser.add_argument("--max-gameweeks", type=int, default=10)
     args = parser.parse_args()
     bootstrap = fetch_json(f"{BASE}/bootstrap-static/", delay=args.delay)
