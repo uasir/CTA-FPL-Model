@@ -41,3 +41,23 @@ def test_candidate_registry_keeps_abc_standalone_and_augmented_separate():
     assert "FPL_PLUS_ABC" in candidates
     assert not any(name.startswith("FPL_") for name in candidates["ABC_ONLY_ABC"])
     assert all(name.startswith("abc_") for name in candidates["ABC_ONLY_ABC"])
+
+
+
+def test_abc_ranking_is_calculated_within_each_gameweek_not_pooled():
+    from evaluate_cta_abc_walk_forward import deadline_local_ranking, metrics
+
+    rows = [
+        {"player_id": "a", "gameweek": 1, "actual": 10, "predicted": 9},
+        {"player_id": "b", "gameweek": 1, "actual": 2, "predicted": 1},
+        {"player_id": "c", "gameweek": 2, "actual": 1, "predicted": 9},
+        {"player_id": "d", "gameweek": 2, "actual": 8, "predicted": 1},
+    ]
+    result = deadline_local_ranking(rows, top_k=1)
+    assert result["n_deadlines"] == 2
+    assert result["method"] == "RANK_WITHIN_EACH_FPL_GAMEWEEK_THEN_MACRO_AVERAGE"
+    assert result["by_gameweek"]["1"]["selected_mean_points"] == 10
+    assert result["by_gameweek"]["2"]["selected_mean_points"] == 1
+    assert result["macro_selected_mean_points"] == 5.5
+    assert "deadline_local_ranking" in metrics(rows, top_k=1)
+    assert "ranking" not in metrics(rows, top_k=1)["forecast"]
