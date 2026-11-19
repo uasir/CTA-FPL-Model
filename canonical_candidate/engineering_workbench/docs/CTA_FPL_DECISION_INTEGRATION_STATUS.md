@@ -8,7 +8,7 @@
 
 - Official FPL `ep_next` remains the frozen expected-points baseline.
 - The existing 11footy-derived CTA feature sidecar is joined to the official FPL forecast by verified FPL element IDs and fixture IDs.
-- CTA context is passed through the Python and JavaScript personal-squad engines to the owned squad, starting XI, bench and transfer alternatives.
+- CTA context and a feature-level evidence summary (prior-match shots, shots on target, key passes, box attempts, tracked xG and big chances when present) are passed through the Python and JavaScript personal-squad engines to the owned squad, starting XI, bench and transfer alternatives. Missing metrics remain missing; the summary has zero decision weight and no ranking effect.
 - The existing LiveFPL effective-ownership view remains the external field reference. This project does not create a second EO system.
 - CTA features do not currently alter `ep_next`, expected-points rankings, transfer ordering or CoVar. No CTA composite has been promoted.
 
