@@ -132,6 +132,9 @@ Do not rebuild the existing engine, replace recovered source lineage, fabricate 
 - Shared request contracts reject personal context from general-market inputs and validate the personal squad separately.
 - Both engines have deterministic Python/JavaScript output-parity tests.
 - The personal optimiser enforces one-transfer budget, position and three-player team constraints, legal formations, starting XI, captain, vice-captain and bench order.
+- The personal optimiser reports the top two outfield bench options and their expected-points/minutes strength separately from the fixed starting XI; this is descriptive and does not introduce routine rotation.
+- The personal optimiser reports EO coverage for the owned squad and starting XI, with missing EO retained as missing. EO is field-reference context, not a prerequisite for CTA or an automatic ranking weight.
+- Personal recommendations emit a pre-deadline decision-audit payload for transfer alternatives, starting XI and captaincy, including the squad snapshot, bank, free transfers and forecast provenance. It is audit-ready, not considered frozen until captured and archived before the deadline; realised utility remains null until official outcomes are available.
 - The general engine uses EV and value; it uses EO only when locked cohort metadata and the matching target deadline are present.
 - Neither engine uses CoVar or pretends that the supplied risk profile has been applied.
 
