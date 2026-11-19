@@ -53,3 +53,17 @@ The GitHub Actions `position_ablation_research` job builds the panel locally, tr
 ## Decision gate
 
 Keep the position feature experimental until it demonstrates stable improvements across multiple validation seasons and the point-in-time data-vintage problem is addressed. It must also be evaluated downstream in ranking and decision-value tests before affecting recommendations.
+
+## Corrected rerun gate — 2026-11-20
+
+The earlier completed run (workflow run 44604401009) is retained as a preliminary diagnostic only. It used the panel builder before the explicit-GW chronology correction, so its metrics are not the accepted ablation result. Its within-deadline ranking comparator was corrected, but that does not repair the panel chronology.
+
+The panel-builder correction passed the engineering test suite (workflow run 44604839346; 391 passed, 1 skipped, 3 subtests passed). The accepted rerun must rebuild the panel from the corrected builder in the same job as both training arms and the paired comparator. Before interpreting any model metrics, verify the emitted per-season panel audit: each season's gameweek labels must be within 1–38, and all explicit-GW/round disagreements must be reported. If any season has an invalid label or unexplained chronology issue, stop interpretation and fix the source mapping.
+
+No feature promotion is permitted from the old run. The rerun must report:
+- paired raw and calibrated MAE/RMSE differences with player-season-clustered intervals;
+- within-deadline macro Spearman and top-100 realized points, with season-clustered paired intervals;
+- per-season and per-deadline coverage / stability;
+- the exact number of matched player-gameweeks and deadlines.
+
+This remains a forecast-and-ranking ablation, not a squad-decision-value test. It cannot establish that position features improve manager decisions or rank outcomes in an actual season.
