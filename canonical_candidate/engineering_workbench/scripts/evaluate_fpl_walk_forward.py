@@ -27,7 +27,7 @@ def minutes_band(minutes):
     return 4
 
 
-def fit_minutes_band_model(rows, ridge_lambda=2.0, iterations=700):
+def fit_minutes_band_model(rows, ridge_lambda=2.0, iterations=180):
     """Train a regularized multinomial logistic model; all preprocessing is training-only."""
     raw=np.asarray([[optional_number(row.get(name)) for name in FEATURES] for row in rows],dtype=float)
     labels=np.asarray([minutes_band(row["actual_minutes"]) for row in rows],dtype=int)
@@ -59,14 +59,17 @@ def fit_minutes_band_model(rows, ridge_lambda=2.0, iterations=700):
     return {"medians":medians,"means":means.tolist(),"scales":scales.tolist(),"weights":weights.tolist()}
 
 
-def minutes_band_probabilities(model,row,temperature=1.0):
+def minutes_band_logits(model,row):
     raw=np.asarray([optional_number(row.get(name)) for name in FEATURES],dtype=float)
     missing=~np.isfinite(raw)
     imputed=np.where(missing,np.asarray(model["medians"]),raw)
     design=np.concatenate((imputed,missing.astype(float)))
     x=np.concatenate(([1.0],(design-np.asarray(model["means"]))/np.asarray(model["scales"])))
-    logits=x@np.asarray(model["weights"])
-    logits=logits/max(0.25,float(temperature))
+    return x@np.asarray(model["weights"])
+
+
+def minutes_band_probabilities(model,row,temperature=1.0):
+    logits=minutes_band_logits(model,row)/max(0.25,float(temperature))
     logits-=np.max(logits)
     probs=np.exp(logits)
     return probs/probs.sum()
@@ -76,13 +79,14 @@ def calibrate_minutes_temperature(model,rows):
     """Select a single temperature on a strictly earlier chronological calibration slice."""
     candidates=np.arange(0.50,2.51,0.05)
     labels=np.asarray([minutes_band(r["actual_minutes"]) for r in rows],dtype=int)
+    logits=np.vstack([minutes_band_logits(model,row) for row in rows])
     best=(float("inf"),1.0)
     for temperature in candidates:
-        losses=[]
-        for row,label in zip(rows,labels):
-            p=minutes_band_probabilities(model,row,temperature)
-            losses.append(-math.log(max(1e-12,float(p[label]))))
-        score=float(np.mean(losses))
+        scaled=logits/temperature
+        scaled-=scaled.max(axis=1,keepdims=True)
+        exp=np.exp(scaled)
+        probs=exp/exp.sum(axis=1,keepdims=True)
+        score=float(-np.log(np.clip(probs[np.arange(len(labels)),labels],1e-12,1.0)).mean())
         if score<best[0]: best=(score,float(temperature))
     return best[1]
 
