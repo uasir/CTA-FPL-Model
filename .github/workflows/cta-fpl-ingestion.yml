@@ -82,7 +82,7 @@ jobs:
             tests/test_fpl_naive_baselines.py \
             tests/test_fpl_covariance.py \
             tests/test_fpl_effective_ownership.py \
-            tests/test_fpl_baseline_forecast_snapshot.py \\
+            tests/test_fpl_baseline_forecast_snapshot.py \
             tests/test_personal_squad_engine.py \
             tests/test_fpl_general_market_baseline.py \
             tests/test_fpl_personal_squad_scale_smoke_test.py \

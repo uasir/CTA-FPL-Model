@@ -80,7 +80,7 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_11footy_player_match_features.py \
             canonical_candidate/engineering_workbench/tests/test_fpl_ingestion.py \
             canonical_candidate/engineering_workbench/tests/test_11footy_lagged_verified_features.py \
-            canonical_candidate/engineering_workbench/tests/test_fpl_baseline_forecast_snapshot.py \\
+            canonical_candidate/engineering_workbench/tests/test_fpl_baseline_forecast_snapshot.py \
             canonical_candidate/engineering_workbench/tests/test_personal_squad_engine.py
 
       - name: Download and verify the pinned 11footy release
