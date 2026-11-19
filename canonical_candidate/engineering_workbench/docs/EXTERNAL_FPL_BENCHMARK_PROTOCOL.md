@@ -305,3 +305,6 @@ This is a retrospective reconstruction from the current official FPL API, not an
 
 
 A held-out prior-season affine expected-points calibration was also tested. It was fitted only on the latest 20% of prior training gameweeks (slope 1.0455, intercept -0.0023). It did not improve the 2026/27 reconstruction: across 5,890 current-season player-GWs, raw Transformer MAE/RMSE were 1.586/2.221 and affine-calibrated were 1.626/2.226. On the FPL Wildcard selected top-50 cohort, the affine variant's MAE was 2.985 and RMSE 4.053, versus raw 2.982/4.099; it remained significantly worse than Wildcard on RMSE. No promotion. A separate expanding current-season calibration using only earlier gameweeks is being evaluated; it will remain retrospective because historical feature vintages were not frozen at each deadline.
+
+
+The prior-season affine-calibrated Transformer was also scored on the 2,647-row EVMax common cohort: MAE 1.6748, RMSE 2.2820, worse than raw Transformer (1.6340/2.2754) and EVMax (1.1344/2.1084). Its paired model-minus-EVMax 95% intervals were +0.491 to +0.591 MAE and +0.125 to +0.223 RMSE. This calibration variant is not promoted.
