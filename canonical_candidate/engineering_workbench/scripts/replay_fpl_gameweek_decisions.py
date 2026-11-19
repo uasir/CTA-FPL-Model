@@ -6,7 +6,10 @@ does not optimize decisions or infer missing historical state.
 """
 from __future__ import annotations
 
+import argparse
+import json
 from collections import Counter, defaultdict
+from pathlib import Path
 from math import isfinite
 from typing import Mapping, Sequence
 
@@ -244,3 +247,20 @@ def compare_policy_replays(rows: Sequence[Mapping], baseline_policy: str = "hold
             "No statistical uncertainty interval is calculated by this deterministic scorer.",
         ],
     }
+
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Replay frozen FPL decisions against official gameweek outcomes")
+    parser.add_argument("--input", required=True, type=Path, help="JSON file containing rows and optional baseline_policy")
+    parser.add_argument("--output", required=True, type=Path, help="Output JSON report path")
+    args = parser.parse_args()
+    payload = json.loads(args.input.read_text(encoding="utf-8"))
+    report = compare_policy_replays(payload["rows"], payload.get("baseline_policy", "hold"))
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report, indent=2))
+
+
+if __name__ == "__main__":
+    main()
