@@ -40,6 +40,9 @@ def test_ridge_pipeline_uses_temporal_holdout_and_stays_exploratory():
     assert report["validation_gameweeks"] == [5, 6, 7, 8]
     assert report["validation_player_gameweek_rows"] == 20
     assert report["decision"] == "DO_NOT_PROMOTE"
+    assert "team_difficulty_snapshot" in report["excluded_unverified_features"]
+    assert "opponent_difficulty_snapshot" in report["excluded_unverified_features"]
+    assert "fixture_count" in report["excluded_unverified_features"]
     assert len(model["points_model"]["coefficients"]) == len(model["points_model"]["feature_names"]) + 1
 
 
