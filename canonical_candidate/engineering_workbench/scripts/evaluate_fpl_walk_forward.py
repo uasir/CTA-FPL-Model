@@ -14,6 +14,98 @@ from train_fpl_exploratory_ridge import fit_ridge, optional_number, predict, mae
 
 MINUTES_BASELINE_FEATURES = ("prior_gw_minutes", "prior3_gw_minutes_avg", "prior5_gw_minutes_avg")
 
+MINUTES_BAND_EDGES = (0.0, 1.0, 30.0, 60.0, 90.0)
+MINUTES_BAND_REPRESENTATIVES = np.asarray((0.0, 15.0, 45.0, 75.0, 90.0))
+
+
+def minutes_band(minutes):
+    value=float(minutes)
+    if value <= 0: return 0
+    if value < 30: return 1
+    if value < 60: return 2
+    if value < 90: return 3
+    return 4
+
+
+def fit_minutes_band_model(rows, ridge_lambda=2.0, iterations=700):
+    """Train a regularized multinomial logistic model; all preprocessing is training-only."""
+    raw=np.asarray([[optional_number(row.get(name)) for name in FEATURES] for row in rows],dtype=float)
+    labels=np.asarray([minutes_band(row["actual_minutes"]) for row in rows],dtype=int)
+    if len(rows)<len(FEATURES)+10 or len(set(labels))<2:
+        raise ValueError("Insufficient rows or class diversity for minutes-band model")
+    medians=[]
+    for j,name in enumerate(FEATURES):
+        observed=raw[np.isfinite(raw[:,j]),j]
+        if len(observed)==0: raise ValueError(f"Feature has no observed training values: {name}")
+        medians.append(float(np.median(observed)))
+    missing=~np.isfinite(raw)
+    imputed=np.where(missing,np.asarray(medians),raw)
+    design=np.concatenate((imputed,missing.astype(float)),axis=1)
+    means=design.mean(axis=0)
+    scales=design.std(axis=0)
+    scales=np.where(scales>1e-12,scales,1.0)
+    x=np.column_stack((np.ones(len(rows)),(design-means)/scales))
+    y=np.eye(5)[labels]
+    weights=np.zeros((x.shape[1],5),dtype=float)
+    # Conservative fixed-step gradient descent with backtracking-free small steps.
+    for _ in range(iterations):
+        logits=x@weights
+        logits-=logits.max(axis=1,keepdims=True)
+        probs=np.exp(logits)
+        probs/=probs.sum(axis=1,keepdims=True)
+        gradient=(x.T@(probs-y))/len(rows)
+        gradient[1:]+=ridge_lambda*weights[1:]/len(rows)
+        weights-=0.12*gradient
+    return {"medians":medians,"means":means.tolist(),"scales":scales.tolist(),"weights":weights.tolist()}
+
+
+def minutes_band_probabilities(model,row,temperature=1.0):
+    raw=np.asarray([optional_number(row.get(name)) for name in FEATURES],dtype=float)
+    missing=~np.isfinite(raw)
+    imputed=np.where(missing,np.asarray(model["medians"]),raw)
+    design=np.concatenate((imputed,missing.astype(float)))
+    x=np.concatenate(([1.0],(design-np.asarray(model["means"]))/np.asarray(model["scales"])))
+    logits=x@np.asarray(model["weights"])
+    logits=logits/max(0.25,float(temperature))
+    logits-=np.max(logits)
+    probs=np.exp(logits)
+    return probs/probs.sum()
+
+
+def calibrate_minutes_temperature(model,rows):
+    """Select a single temperature on a strictly earlier chronological calibration slice."""
+    candidates=np.arange(0.50,2.51,0.05)
+    labels=np.asarray([minutes_band(r["actual_minutes"]) for r in rows],dtype=int)
+    best=(float("inf"),1.0)
+    for temperature in candidates:
+        losses=[]
+        for row,label in zip(rows,labels):
+            p=minutes_band_probabilities(model,row,temperature)
+            losses.append(-math.log(max(1e-12,float(p[label]))))
+        score=float(np.mean(losses))
+        if score<best[0]: best=(score,float(temperature))
+    return best[1]
+
+
+def minutes_distribution_metrics(actual,probabilities):
+    labels=np.asarray([minutes_band(v) for v in actual],dtype=int)
+    probs=np.asarray(probabilities,dtype=float)
+    onehot=np.eye(5)[labels]
+    expected=probs@MINUTES_BAND_REPRESENTATIVES
+    return {
+        "mae":round(mae(actual,expected.tolist()),6),
+        "rmse":round(rmse(actual,expected.tolist()),6),
+        "multiclass_log_loss":round(float(-np.log(np.clip(probs[np.arange(len(labels)),labels],1e-12,1.0)).mean()),6),
+        "multiclass_brier":round(float(((probs-onehot)**2).sum(axis=1).mean()),6),
+        "accuracy":round(float((probs.argmax(axis=1)==labels).mean()),6),
+    }
+
+
+def one_hot_minutes_distribution(value):
+    p=np.zeros(5,dtype=float)
+    p[minutes_band(value)]=1.0
+    return p.tolist()
+
 
 def fit_ridge_fast(rows, target_key, feature_names=FEATURES, ridge_lambda=RIDGE_LAMBDA):
     """NumPy implementation equivalent to the canonical training-only ridge transform."""
@@ -64,6 +156,8 @@ def score_fold(train, valid, season):
     appearance_fit_keys=sorted({(r["season"],r["gameweek"]) for r in appearance_fit})
 
     appearance_model=fit_linear_probability(appearance_fit)
+    minutes_band_model=fit_minutes_band_model(appearance_fit)
+    minutes_band_temperature=calibrate_minutes_temperature(minutes_band_model,calibration)
     calibration_scores=[predict(appearance_model,r) for r in calibration]
     calibrator=fit_platt(calibration_scores,[r["appeared"] for r in calibration])
     minutes_model=fit_ridge_fast(train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
@@ -76,6 +170,10 @@ def score_fold(train, valid, season):
     direct_model=fit_ridge_fast(train,"actual_points",FEATURES,RIDGE_LAMBDA)
 
     actual_points=[]; actual_minutes=[]; actual_appearance=[]
+    minutes_band_probabilities_calibrated=[]
+    minutes_band_probabilities_raw=[]
+    minutes_band_last_gw=[]
+    minutes_band_train_prior=[]
     raw_probabilities=[]; calibrated_probabilities=[]; appearance_baseline=[]
     fallback_appearance_rate=sum(r["appeared"] for r in train)/len(train)
     predicted_minutes=[]; predicted_minutes_raw=[]; predicted_minutes_calibrated=[]
@@ -84,6 +182,13 @@ def score_fold(train, valid, season):
     two_part_raw=[]; two_part_calibrated=[]; direct_points=[]; last5_points=[]
     for row in valid:
         # All predictions are created before actual labels are read for scoring.
+        band_raw=minutes_band_probabilities(minutes_band_model,row)
+        band_cal=minutes_band_probabilities(minutes_band_model,row,minutes_band_temperature)
+        minutes_band_probabilities_raw.append(band_raw.tolist())
+        minutes_band_probabilities_calibrated.append(band_cal.tolist())
+        minutes_band_last_gw.append(one_hot_minutes_distribution(row["last_gw_baseline_minutes"]))
+        train_band_counts=np.bincount([minutes_band(r["actual_minutes"]) for r in appearance_fit],minlength=5)
+        minutes_band_train_prior.append((train_band_counts/train_band_counts.sum()).tolist())
         score=predict(appearance_model,row)
         raw_p=min(1.0,max(0.0,score))
         calibrated_p=calibrated_probability(calibrator,score)
@@ -153,6 +258,13 @@ def score_fold(train, valid, season):
             "raw_clipped":binary_metrics(actual_appearance,raw_probabilities),
             "prior5_rate_baseline":binary_metrics(actual_appearance,appearance_baseline),
         },
+        "minutes_bands":{
+            "temperature":round(minutes_band_temperature,3),
+            "calibrated":minutes_distribution_metrics(actual_minutes,minutes_band_probabilities_calibrated),
+            "raw":minutes_distribution_metrics(actual_minutes,minutes_band_probabilities_raw),
+            "last_gameweek_one_hot":minutes_distribution_metrics(actual_minutes,minutes_band_last_gw),
+            "training_class_prior":minutes_distribution_metrics(actual_minutes,minutes_band_train_prior),
+        },
         "minutes":{
             "unconditional_regression":regression_metrics(actual_minutes,predicted_minutes),
             "two_part_calibrated":regression_metrics(actual_minutes,predicted_minutes_calibrated),
@@ -204,6 +316,11 @@ def evaluate_walk_forward(rows):
                 for metric in ("brier","log_loss")
             }
             for model in ("calibrated","raw_clipped","prior5_rate_baseline")
+        },
+        "minutes_bands":{
+            model:{metric:weighted_metric("minutes_bands",model,metric)
+                   for metric in ("mae","rmse","multiclass_log_loss","multiclass_brier","accuracy")}
+            for model in ("calibrated","raw","last_gameweek_one_hot","training_class_prior")
         },
         "minutes":{
             "unconditional_regression_mae":weighted_metric("minutes","unconditional_regression","mae"),
