@@ -57,3 +57,22 @@ def test_fold_feature_selection_excludes_only_features_unobserved_in_training():
     rows[0]["prior_gw_points"] = 0.0
     rows[0]["prior3_gw_xg_avg"] = None
     assert available_features(rows) == ("prior_gw_points",)
+
+
+def test_affine_expected_points_calibrator_uses_calibration_pairs_and_clips_negative_outputs():
+    from evaluate_two_pm_transformer_walk_forward import (
+        apply_affine_expected_points_calibrator,
+        fit_affine_expected_points_calibrator,
+    )
+    slope, intercept = fit_affine_expected_points_calibrator(
+        [1.0, 2.0, 3.0, 4.0], [2.0, 4.0, 6.0, 8.0]
+    )
+    assert slope == pytest.approx(2.0)
+    assert intercept == pytest.approx(0.0)
+    calibrated = apply_affine_expected_points_calibrator([-1.0, 1.0, 2.0], slope, intercept)
+    assert calibrated == [0.0, 2.0, 4.0]
+
+
+def test_affine_expected_points_calibrator_falls_back_when_calibration_is_degenerate():
+    from evaluate_two_pm_transformer_walk_forward import fit_affine_expected_points_calibrator
+    assert fit_affine_expected_points_calibrator([2.0, 2.0, 2.0], [1.0, 2.0, 3.0]) == (1.0, 0.0)
