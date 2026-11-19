@@ -7,16 +7,20 @@ on:
       - .github/workflows/cta-wyscout-epl-event-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_player_match_features.py
+      - canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
   push:
     branches: [main, "feat/**"]
     paths:
       - .github/workflows/cta-wyscout-epl-event-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_player_match_features.py
+      - canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
   workflow_dispatch:
 
 permissions:
@@ -38,6 +42,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Run Wyscout CTA and identity resolver unit tests
+        run: |
+          python -m pip install pytest
+          PYTHONPATH=canonical_candidate/engineering_workbench/scripts python -m pytest -q \
+            canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py \
+            canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
 
       - name: Download the public Wyscout 2017/18 data files
         run: |
@@ -61,12 +72,39 @@ jobs:
             --teams-json run_artifacts/wyscout/source/teams.json \
             --out-dir run_artifacts/wyscout/output
 
-      - name: Upload aggregate-only Wyscout audit and CTA report
+      - name: Download pinned historical FPL 2017/18 identity and match-history files
+        run: |
+          set -euo pipefail
+          FPL_SOURCE_COMMIT="d7b05b51d137bfefef4b692386d18c610975b9b9"
+          FPL_RAW_BASE="https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/${FPL_SOURCE_COMMIT}/data"
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 \
+            "${FPL_RAW_BASE}/2017-18/players_raw.csv" -o run_artifacts/wyscout/source/fpl_players_raw.csv
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 \
+            "${FPL_RAW_BASE}/2017-18/player_idlist.csv" -o run_artifacts/wyscout/source/fpl_player_idlist.csv
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 180 \
+            "${FPL_RAW_BASE}/2017-18/gws/merged_gw.csv" -o run_artifacts/wyscout/source/fpl_merged_gw.csv
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 \
+            "${FPL_RAW_BASE}/master_team_list.csv" -o run_artifacts/wyscout/source/fpl_master_team_list.csv
+
+      - name: Build pending-only Wyscout to historical FPL identity review queue
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py \
+            --wyscout-player-match run_artifacts/wyscout/output/wyscout_cta_player_match.csv \
+            --wyscout-players run_artifacts/wyscout/source/players.json \
+            --fpl-players run_artifacts/wyscout/source/fpl_players_raw.csv \
+            --fpl-player-idlist run_artifacts/wyscout/source/fpl_player_idlist.csv \
+            --fpl-gameweek-history run_artifacts/wyscout/source/fpl_merged_gw.csv \
+            --fpl-team-list run_artifacts/wyscout/source/fpl_master_team_list.csv \
+            --fpl-source-commit "d7b05b51d137bfefef4b692386d18c610975b9b9" \
+            --out-dir run_artifacts/wyscout/output
+
+      - name: Upload aggregate-only Wyscout audit, CTA and identity reports
         uses: actions/upload-artifact@v4
         with:
           name: cta-wyscout-epl-2017-event-data-audit
           path: |
             run_artifacts/wyscout/output/wyscout_epl_2017_event_data_audit.json
             run_artifacts/wyscout/output/wyscout_cta_player_match_report.json
+            run_artifacts/wyscout/output/wyscout_fpl_identity_candidate_report.json
           if-no-files-found: error
           retention-days: 90

@@ -51,14 +51,29 @@ See the Wyscout event/tag reference: https://support.wyscout.com/matches-wyid-ev
 
 These thresholds must be sensitivity-tested and are not promoted to validated CTA weights.
 
+## Identity resolution: historical 2017/18 FPL cross-check
+
+The Wyscout player-match layer is now cross-checked against Vaastav Anand's historical FPL archive, pinned to commit `d7b05b51d137bfefef4b692386d18c610975b9b9`. The archive supplies season-specific FPL element IDs, player names, team IDs and per-fixture gameweek history. Its own notice states that the underlying FPL data belongs to Fantasy Premier League; the archive's MIT code licence does not grant rights to the underlying data. Use remains subject to the applicable FPL terms and this project does not claim commercial reuse rights.
+
+Latest real-data identity run:
+- 515 Wyscout players with match records.
+- 647 historical FPL player records.
+- 380/380 Wyscout matches mapped to historical FPL fixtures using exact UTC date, opponent and home/away context.
+- 356 unique exact-normalized-full-name candidates; zero ambiguous exact-name matches and 159 unmatched names.
+- 7,095 Wyscout player-match rows joined to candidate FPL player-fixture history rows.
+- Review priorities: 116 P1 multi-match/team corroboration, 94 P2 team/stat cross-check, 146 P3 history review, 159 P5 unmatched.
+- Zero duplicate FPL player-fixture keys.
+
+These are **candidate mappings only**. All 356 remain PENDING; none is auto-verified. P1 requires at least three informative exact goal/own-goal/assist signatures (zero-only matches do not count) plus team corroboration and positive FPL minutes. This evidence ranks manual review; it does not prove identity. The candidate-level CSV stays inside the Actions runner; only aggregate counts and source hashes are uploaded. The canonical Wyscout-to-FPL crosswalk remains unchanged until independent verification is recorded.
+
 ## Identity and publication safeguards
 
-- Provider player IDs remain Wyscout IDs. No FPL identity is inferred.
-- The player-match CSV is generated only inside the Actions runner and is not uploaded.
+- Provider player IDs remain Wyscout IDs until a season-scoped mapping is independently verified.
+- The player-match CSV and candidate review queue are generated only inside the Actions runner and are not uploaded.
 - The uploaded artifact contains aggregate counts, feature definitions and source hashes only.
 - Receiver identity and xG remain explicitly unavailable.
 - The output is marked structural research only; predictive validation is NOT_EVALUATED.
-- Attribution: Pappalardo and Massucco (2019), Wyscout event collection, CC BY 4.0.
+- Attribution: Pappalardo and Massucco (2019), Wyscout event collection, CC BY 4.0; Vaastav Anand's historical FPL archive, with underlying FPL data owned by Fantasy Premier League.
 
 ## Next integration steps
 
