@@ -42,7 +42,7 @@ jobs:
       - name: Retain immutable raw snapshots and capture manifest
         uses: actions/upload-artifact@v4
         with:
-          name: external-fpl-forecast-gw$GAMEWEEK-${{ github.run_id }}
-          path: $RUNNER_TEMP/external_fpl_gw$GAMEWEEK
+          name: external-fpl-forecast-gw${{ env.GAMEWEEK }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/external_fpl_gw${{ env.GAMEWEEK }}
           if-no-files-found: error
           retention-days: 90
