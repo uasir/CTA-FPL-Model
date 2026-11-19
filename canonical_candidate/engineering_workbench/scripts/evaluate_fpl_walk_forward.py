@@ -421,6 +421,7 @@ def score_fold(train, valid, season):
     if len(blend_positive_calibration)<10:
         raise ValueError(f"Insufficient appeared calibration rows for blend selection in {season}")
     blend_conditional_temperature=calibrate_points_temperature(conditional_points_band_model,blend_positive_calibration)
+    conditional_model=fit_ridge_fast(positive_train,"actual_points",FEATURES,RIDGE_LAMBDA)
     blend_selection_actual=[]; blend_selection_hurdle=[]; blend_selection_two_part=[]
     for row in blend_selection:
         if row["last5_baseline_points"] is None:
@@ -443,7 +444,6 @@ def score_fold(train, valid, season):
     # generalize better than the full feature set for this target.
     lagged_minutes_model=fit_ridge_fast(train,"actual_minutes",MINUTES_BASELINE_FEATURES,RIDGE_LAMBDA)
     conditional_lagged_minutes_model=fit_ridge_fast(positive_train,"actual_minutes",MINUTES_BASELINE_FEATURES,RIDGE_LAMBDA)
-    conditional_model=fit_ridge_fast(positive_train,"actual_points",FEATURES,RIDGE_LAMBDA)
     direct_model=fit_ridge_fast(train,"actual_points",FEATURES,RIDGE_LAMBDA)
 
     actual_points=[]; actual_minutes=[]; actual_appearance=[]
