@@ -53,7 +53,14 @@ def test_capture_writes_exact_raw_bytes_and_hashes(tmp_path):
         "gameweek": 11, "generated_at": "2026-11-18T03:33:09Z",
         "n_players": 1, "n_rows": 1, "rows": [{"player_id": 1}],
     }).encode()
+    fpl_cat_payload = json.dumps({
+        "gameweek": 11, "deadline": "2026-11-21T11:00:00Z",
+        "computed_at": "2026-11-19T04:45:06Z",
+        "players": [{"id": 411, "xp": 6.42, "expected_minutes": 82}],
+    }).encode()
     responses = {
+        "https://fplcat.com/api/v1/projections":
+            (fpl_cat_payload, "application/json", "https://fplcat.com/api/v1/projections"),
         "https://sidelinequant.com/data/gw/11/projections.json":
             (payload, "application/json", "https://sidelinequant.com/data/gw/11/projections.json"),
         "https://www.fplrogue.com/research/projections.csv":
