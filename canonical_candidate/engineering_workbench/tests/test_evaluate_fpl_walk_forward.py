@@ -212,6 +212,26 @@ def test_player_season_cluster_bootstrap_is_reproducible_and_aggregated():
 
 
 
+def test_forecast_error_tail_metrics_and_forecast_time_bands():
+    import pytest
+    from evaluate_fpl_walk_forward import forecast_error_tail_metrics, raw_two_part_forecast_band
+    result=forecast_error_tail_metrics([0.0,0.0,0.0,0.0],[0.0,1.0,2.0,8.0])
+    assert result["n"]==4
+    assert result["mae"]==2.75
+    assert result["rmse"]==4.153312
+    assert result["absolute_error_ge_4_rate"]==0.25
+    assert result["absolute_error_ge_6_rate"]==0.25
+    assert result["absolute_error_ge_8_rate"]==0.25
+    assert result["squared_error_share_top_1pct"]==round(64/69,6)
+    assert raw_two_part_forecast_band(0.5)=="low_<1"
+    assert raw_two_part_forecast_band(1.0)=="1_to_<2"
+    assert raw_two_part_forecast_band(2.5)=="2_to_<3"
+    assert raw_two_part_forecast_band(4.5)=="3_to_<5"
+    assert raw_two_part_forecast_band(5.0)=="high_>=5"
+    with pytest.raises(ValueError):
+        forecast_error_tail_metrics([],[])
+
+
 def test_hurdle_two_part_blend_and_calibration_weight_selection():
     import pytest
     from evaluate_fpl_walk_forward import blend_expected_points, select_blend_weight
