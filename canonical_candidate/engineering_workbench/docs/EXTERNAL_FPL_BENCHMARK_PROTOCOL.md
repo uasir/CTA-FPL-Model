@@ -308,3 +308,15 @@ A held-out prior-season affine expected-points calibration was also tested. It w
 
 
 The prior-season affine-calibrated Transformer was also scored on the 2,647-row EVMax common cohort: MAE 1.6748, RMSE 2.2820, worse than raw Transformer (1.6340/2.2754) and EVMax (1.1344/2.1084). Its paired model-minus-EVMax 95% intervals were +0.491 to +0.591 MAE and +0.125 to +0.223 RMSE. This calibration variant is not promoted.
+
+
+### 2PM walk-forward calibration revalidation
+
+The standalone 2PM CI walk-forward run completed successfully: 9 expanding-season folds, 214,956 player-GWs, 6,645 player-season clusters.
+
+- Raw 2PM-Transformer: MAE 1.1552, RMSE 2.1413.
+- Held-out affine-calibrated 2PM-Transformer: MAE 1.1434, RMSE 2.1400.
+- Conventional two-part: MAE 1.1583, RMSE 2.1514.
+- Affine vs two-part paired player-season bootstrap: MAE delta 95% CI [-0.0164, -0.0132]; MSE delta CI [-0.0607, -0.0377].
+
+The affine calibrator is fitted on held-out prior-training gameweeks only, so this is a valid walk-forward historical improvement. However, the same calibrator worsened the 2026/27 retrospective external comparisons. Treat this as evidence of historical improvement with a current-season transfer problem, not grounds for promotion. All 2PM variants remain research-only.
