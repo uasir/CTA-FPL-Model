@@ -227,7 +227,7 @@ jobs:
         run: |
           python scripts/build_opta_lagged_team_features.py \
             --bootstrap ../../run_artifacts/fpl_official/bootstrap-static.json \
-            --fixtures ../../run_artifacts/fpl_official/fpl_fixtures.json \
+            --fixtures ../../run_artifacts/fpl_official/fixtures.json \
             --opta-players ../../run_artifacts/11footy/input/opta_players.csv \
             --opta-team-events ../../run_artifacts/11footy/input/opta_team_events.csv \
             --out-dir ../../run_artifacts/11footy/output/opta_team_features
