@@ -89,6 +89,8 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
     identity = verified_identity_map(crosswalk_rows)
     history_by_key = {}
     fixture_kickoff_by_id = {}
+    fixture_round_by_id = {}
+    round_cutoff_by_id = {}
     for row in fpl_history:
         player_id = as_int(row.get("element"))
         fixture_id = as_int(row.get("fixture"))
@@ -103,6 +105,15 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
         if existing is not None and existing != kickoff:
             raise ValueError(f"Conflicting kickoff timestamps for historical fixture {fixture_id}")
         fixture_kickoff_by_id[fixture_id] = kickoff
+        round_value = as_int(row.get("round") or row.get("gameweek") or row.get("event"))
+        if round_value is not None:
+            existing_round = fixture_round_by_id.get(fixture_id)
+            if existing_round is not None and existing_round != round_value:
+                raise ValueError(f"Conflicting gameweek values for historical fixture {fixture_id}")
+            fixture_round_by_id[fixture_id] = round_value
+            previous_cutoff = round_cutoff_by_id.get(round_value)
+            if previous_cutoff is None or kickoff < previous_cutoff:
+                round_cutoff_by_id[round_value] = kickoff
 
     # Team context is aggregated from the complete provider panel before player
     # identity filtering. Unverified players contribute only to team totals.
@@ -200,8 +211,12 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
     for player_id, rows in by_player.items():
         for index, target in enumerate(rows):
             target_time = parse_kickoff(target["kickoff_time_utc"])
+            target_round = fixture_round_by_id.get(target["fixture_id"])
+            feature_cutoff = round_cutoff_by_id.get(target_round) if target_round is not None else None
+            cutoff_policy = "CONSERVATIVE_EARLIEST_GAMEWEEK_KICKOFF" if feature_cutoff else "TARGET_KICKOFF_FALLBACK_NOT_POINT_IN_TIME"
+            feature_cutoff = feature_cutoff or target_time
             prior = [candidate for candidate in rows[:index]
-                     if parse_kickoff(candidate["kickoff_time_utc"]) < target_time]
+                     if parse_kickoff(candidate["kickoff_time_utc"]) < feature_cutoff]
             record = {
                 "fpl_element_id": player_id,
                 "fixture_id": target["fixture_id"],
@@ -209,6 +224,8 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
                 "provider_team_id": target["provider_team_id"],
                 "opponent_team_id": target["opponent_team_id"],
                 "kickoff_time_utc": target["kickoff_time_utc"],
+                "feature_cutoff_time_utc": feature_cutoff.isoformat(),
+                "feature_cutoff_policy": cutoff_policy,
                 "target_fpl_total_points": target["fpl_total_points"],
                 "target_fpl_minutes": target["fpl_minutes"],
                 "prior_matches_count": len(prior),
@@ -224,7 +241,7 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
                     )
             team_prior = [
                 candidate for candidate in team_history_by_id.get(target["provider_team_id"], [])
-                if candidate["kickoff_time"] < target_time
+                if candidate["kickoff_time"] < feature_cutoff
                 and candidate["provider_match_id"] != target["provider_match_id"]
             ]
             record["team_prior_matches_count"] = len(team_prior)
@@ -271,6 +288,12 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
     counts["unique_verified_fpl_players"] = len({row["fpl_element_id"] for row in panel})
     counts["rows_with_prior_history"] = sum(row["prior_matches_count"] > 0 for row in lagged)
     counts["rows_with_prior_team_context"] = sum(row["team_prior_matches_count"] > 0 for row in lagged)
+    counts["rows_with_conservative_gameweek_cutoff"] = sum(
+        row["feature_cutoff_policy"] == "CONSERVATIVE_EARLIEST_GAMEWEEK_KICKOFF" for row in lagged
+    )
+    counts["rows_with_kickoff_fallback"] = sum(
+        row["feature_cutoff_policy"] != "CONSERVATIVE_EARLIEST_GAMEWEEK_KICKOFF" for row in lagged
+    )
     counts["team_context_team_match_rows"] = sum(len(rows) for rows in team_history_by_id.values())
     report = {
         "status": "PASS_VERIFIED_WYSCOUT_FPL_PANEL_BUILT" if panel else "NO_VERIFIED_PANEL_ROWS",
@@ -285,9 +308,10 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
             "context is lagged strictly before the target FPL kickoff."
         ),
         "predictor_policy": (
-            "Lagged features use only earlier player-match rows whose mapped FPL kickoff_time is "
-            "strictly earlier than the target fixture kickoff_time. Same-match provider metrics are "
-            "kept in the research panel and excluded from that match's predictor row."
+            "Where historical FPL round/gameweek is available, features use only player/team matches "
+            "strictly earlier than the earliest kickoff in that gameweek, conservatively excluding all "
+            "same-gameweek results. If round metadata is absent, target-kickoff fallback is explicitly "
+            "marked NOT_POINT_IN_TIME and must not be treated as deadline-safe."
         ),
         "validation_status": "PREDICTIVE_VALIDATION_NOT_YET_RUN",
         "limitations": [
