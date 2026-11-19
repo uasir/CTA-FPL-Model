@@ -63,8 +63,13 @@ def normalize_team(value):
 
 
 def read_csv(path):
-    with path.open(newline="", encoding="utf-8-sig") as handle:
-        return list(csv.DictReader(handle))
+    try:
+        with path.open(newline="", encoding="utf-8-sig") as handle:
+            return list(csv.DictReader(handle))
+    except UnicodeDecodeError:
+        # The historical FPL archive includes legacy Windows-1252 accents.
+        with path.open(newline="", encoding="cp1252") as handle:
+            return list(csv.DictReader(handle))
 
 
 def sha256(path):
