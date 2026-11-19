@@ -58,6 +58,8 @@ def score_fold(train, valid, season):
     appearance_fit=[r for r in train if (r["season"],r["gameweek"]) not in calibration_keys]
     calibration=[r for r in train if (r["season"],r["gameweek"]) in calibration_keys]
     positive_train=[r for r in train if r["appeared"]==1.0]
+    calibration_keys_sorted=sorted(calibration_keys)
+    appearance_fit_keys=sorted({(r["season"],r["gameweek"]) for r in appearance_fit})
 
     appearance_model=fit_linear_probability(appearance_fit)
     calibration_scores=[predict(appearance_model,r) for r in calibration]
@@ -122,6 +124,12 @@ def score_fold(train, valid, season):
         "training_player_gameweeks":len(train),
         "appearance_fit_player_gameweeks":len(appearance_fit),
         "calibration_player_gameweeks":len(calibration),
+        "calibration_appearance_positive":sum(r["appeared"]==1.0 for r in calibration),
+        "calibration_appearance_negative":sum(r["appeared"]==0.0 for r in calibration),
+        "calibration_appearance_rate":round(sum(r["appeared"] for r in calibration)/len(calibration),6),
+        "appearance_fit_last_gameweek":{"season":appearance_fit_keys[-1][0],"gameweek":appearance_fit_keys[-1][1]},
+        "calibration_first_gameweek":{"season":calibration_keys_sorted[0][0],"gameweek":calibration_keys_sorted[0][1]},
+        "calibration_last_gameweek":{"season":calibration_keys_sorted[-1][0],"gameweek":calibration_keys_sorted[-1][1]},
         "validation_player_gameweeks":len(actual_points),
         "appearance":{
             "calibrated":binary_metrics(actual_appearance,calibrated_probabilities),
