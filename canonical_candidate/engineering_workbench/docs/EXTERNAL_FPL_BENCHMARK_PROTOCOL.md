@@ -333,3 +333,22 @@ The private reconstruction now includes a prequential affine calibration variant
 ### Season-adaptive 2PM calibration on EVMax all-player cohort
 
 On 2,647 common player-GWs, the expanding calibration variant scored MAE 1.3117 and RMSE 2.1314 versus EVMax 1.1344/2.1084. Paired player-cluster bootstrap for model-minus-EVMax: MAE delta +0.177 (95% CI +0.144 to +0.211); RMSE delta +0.023 (CI -0.017 to +0.063). It is significantly worse on MAE but statistically indistinguishable on RMSE in this four-GW sample. It improves substantially over raw Transformer (1.6340/2.2754) and prior-season affine (1.6748/2.2820), while conventional two-part remains better on MAE (1.1776) but worse on RMSE (2.3095). This remains a retrospective reconstruction; no promotion. Future frozen prospective forecasts are required.
+
+
+### FPL Wildcard GW1–GW10 official outcome verification and first 2PM comparison (private archive)
+
+The private historical collector independently compared each provider-page actual-points value with official FPL `/api/event/{gw}/live/` `stats.total_points`, and now uses official points for final scoring only when the event is marked finished.
+
+- All ten events are officially finished.
+- 497/497 resolved player-gameweek actuals match official FPL exactly; zero mismatches.
+- Three unresolved identities remain unscored; no zero imputation.
+- Source actuals, official live response hashes and finished-state checks remain in the private archive.
+
+First model comparison, GW2–GW10, on the exact common subset of 449 provider-top-50 player-GWs (49 GW2; 50 each GW3–GW10):
+- FPL Wildcard: MAE 3.066, RMSE 3.843.
+- 2PM-Transformer retrospective reconstruction: MAE 2.982, RMSE 4.099.
+- Transformer-minus-Wildcard MAE paired player-cluster 95% CI: [-0.202, +0.042], inconclusive.
+- Transformer-minus-Wildcard RMSE paired player-cluster 95% CI: [+0.147, +0.369], worse.
+- Within-gameweek top-10 overlap over the nine top-50 cohorts: Transformer 17/90; FPL Wildcard 28/90.
+
+**Limitations:** this is a provider-selected top-50 subset, not an all-player cohort. The 2026/27 model forecasts were reconstructed from a current official FPL API snapshot, not frozen before each historical deadline; historical API vintage is not independently verified. This is not prospective evidence and does not justify promotion. The full-player GW11 prospective Wildcard capture remains separate.
