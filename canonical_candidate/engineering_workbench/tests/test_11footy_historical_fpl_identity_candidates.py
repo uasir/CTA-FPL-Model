@@ -135,7 +135,7 @@ def test_historical_identity_candidates_join_current_fpl_candidates_without_veri
     assert rows[0]["current_fpl_element_id"] == 1
     assert rows[0]["cross_season_review_priority"] == "P1_HISTORICAL_AND_CURRENT_HIGH"
     assert rows[1]["current_fpl_element_id"] == 2
-    assert rows[1]["cross_season_review_priority"] == "P2_HISTORICAL_AND_CURRENT_HIGH"
+    assert rows[1]["cross_season_review_priority"] == "P3_HISTORICAL_P2_CURRENT_REVIEW"
     assert rows[2]["current_candidate_status"] == "NO_CURRENT_CANDIDATE"
     assert rows[2]["cross_season_review_priority"] == "P2_HISTORICAL_P1_CURRENT_NOT_HIGH"
     assert all(row["verification_status"] == "PENDING" for row in rows)
