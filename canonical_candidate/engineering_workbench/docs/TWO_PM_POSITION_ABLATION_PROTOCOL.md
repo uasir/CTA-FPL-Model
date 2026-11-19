@@ -39,6 +39,9 @@ Uncertainty: player-season-clustered bootstrap intervals for position-minus-base
 - One retrospective source-vintage experiment cannot establish prospective or decision-value improvement.
 - A result is not promoted on a single pooled metric; inspect fold-by-fold stability and coverage first.
 
+## Gameweek chronology validation
+
+The panel builder now prefers the merged source's explicit `GW` field over `round`, records disagreements between the two fields, and rejects gameweek labels outside 1–38. This is important because the first pooled ablation report exposed a gameweek-label union extending to 47. The first ablation's metrics are preliminary until the model is rerun on the validated panel.
 ## Point-in-time limitation
 
 The historical source contains retrospective season exports. Position labels are not guaranteed to be frozen as of each historical deadline. This ablation therefore tests whether the position signal is useful under this retrospective panel, not whether the complete feature pipeline has been point-in-time verified.
