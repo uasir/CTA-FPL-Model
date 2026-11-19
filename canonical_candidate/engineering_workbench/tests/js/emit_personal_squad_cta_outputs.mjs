@@ -22,7 +22,19 @@ for (const player of payload.player_forecasts) {
     source_snapshot_as_of: "2026-11-10T12:21:18+00:00",
     composite: null,
     decision_use_status: "RESEARCH_ONLY_NOT_IN_BASELINE",
-    fixtures: [{ fixture_id: "501", prior_matches_count: 3, features: { shots_avg: 2.5 } }],
+    target_gameweek: 11,
+    fixtures: [{
+      fixture_id: "501",
+      prior_matches_count: 3,
+      prior3_matches_count: 3,
+      snapshot_available_as_of_deadline: true,
+      identity_verified: true,
+      features: {
+        cta_prior3_matches_shots_avg: 2.5,
+        cta_prior3_matches_key_passes_avg: 1.2,
+        cta_prior3_matches_tracked_xg_sum_avg: 0.3,
+      },
+    }],
   };
 }
 process.stdout.write(JSON.stringify(recommendPersonalSquad(payload)));
