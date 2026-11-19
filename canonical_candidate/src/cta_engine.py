@@ -239,7 +239,7 @@ def fit_xt(events, directions, iterations=1000, tolerance=1e-11):
              "xt_prior_pseudo_shots": 5}
     return values, audit
 
-def build_features(events, directions, xt_values):
+def build_features(events, directions, xt_values, progressive_threshold=10.0):
     possessions = defaultdict(list)
     for e in events:
         poss = e.get("possession")
@@ -274,7 +274,7 @@ def build_features(events, directions, xt_values):
                         box_entries += 1
                     if en[0] >= 80:
                         final_third_entries += 1
-                if sn and en and en[0] - sn[0] >= 10:
+                if sn and en and en[0] - sn[0] >= progressive_threshold:
                     progressive_actions += 1
                 if xt_values is not None:
                     a, b = grid_cell(sn), grid_cell(en)
@@ -339,7 +339,7 @@ def build_features(events, directions, xt_values):
                     if enn:
                         c["box_entries"] += int(enn[0] >= 102 and 18 <= enn[1] <= 62)
                         c["final_third_entries"] += int(enn[0] >= 80)
-                    c["progressive_actions"] += int(bool(stn and enn and enn[0] - stn[0] >= 10))
+                    c["progressive_actions"] += int(bool(stn and enn and enn[0] - stn[0] >= progressive_threshold))
                     if xt_values is not None:
                         a, b = grid_cell(stn), grid_cell(enn)
                         if a is not None and b is not None:
