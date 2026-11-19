@@ -241,3 +241,39 @@ def test_unknown_autosub_absence_order_is_rejected():
     points, mins = outcomes(positions)
     with pytest.raises(ValueError, match="autosub_absence_order"):
         replay_gameweek(decision, points, mins, positions, autosub_absence_order="random")
+
+
+def test_policy_comparison_aggregates_multiple_manager_states_per_deadline():
+    decision, positions = make_roster()
+    hold = dict(decision)
+    cta = dict(decision, captain="m1", vice_captain="f1")
+    points_a, mins_a = outcomes(positions)
+    points_a["f1"], points_a["m1"] = 8, 2
+    points_b, mins_b = outcomes(positions)
+    points_b["f1"], points_b["m1"] = 4, 10
+    common = {
+        "deadline_id": "GW1",
+        "decision_frozen_at": "2026-01-01T10:00:00Z",
+        "deadline_at": "2026-01-01T11:00:00Z",
+        "minutes": mins_a,
+        "positions": positions,
+    }
+    rows = [
+        dict(common, starting_state_id="private-state-a", policy="hold",
+             decision=hold, official_points=points_a),
+        dict(common, starting_state_id="private-state-a", policy="cta",
+             decision=cta, official_points=points_a),
+        dict(common, starting_state_id="private-state-b", policy="hold",
+             decision=hold, official_points=points_b, minutes=mins_b),
+        dict(common, starting_state_id="private-state-b", policy="cta",
+             decision=cta, official_points=points_b, minutes=mins_b),
+    ]
+    report = compare_policy_replays(rows, baseline_policy="hold")
+    assert report["n_deadlines"] == 1
+    assert report["n_manager_deadline_states"] == 2
+    assert report["policies"]["cta"]["n_manager_deadline_states"] == 2
+    assert report["policies"]["cta"]["mean_delta_vs_baseline"] == 0
+    assert report["policies"]["cta"]["positive_state_rate_vs_baseline"] == 0.5
+    assert report["deadlines"][0]["n_starting_states"] == 2
+    assert "private-state-a" not in str(report)
+    assert "private-state-b" not in str(report)
