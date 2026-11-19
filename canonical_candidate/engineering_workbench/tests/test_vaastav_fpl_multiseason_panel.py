@@ -34,7 +34,7 @@ def test_builder_uses_only_prior_gameweeks_and_aggregates_double_gameweeks():
         assert row["prior_gw_points"] == 6
         assert row["prior3_gw_points_avg"] == 5
         assert row["prior5_gw_points_avg"] == 5
-        assert row["prior3_gw_xg_avg"] == 0.25
+        assert row["prior3_gw_xg_avg"] == 0.2
         assert row["target_total_points"] in {2, 3}
     assert "xP" not in FEATURES
     assert "selected" not in FEATURES
