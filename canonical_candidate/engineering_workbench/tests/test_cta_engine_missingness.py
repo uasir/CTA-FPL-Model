@@ -69,7 +69,7 @@ def test_observed_xg_is_retained_and_counted():
 def test_javascript_missing_provider_xg_is_not_encoded_as_zero():
     result = _javascript_features(_shot_event())
     sequence = result["sequenceRows"][0]
-    player = result["players"][0]
+    player = list(result["players"].values())[0]
     assert sequence["shot_xg_observed_count"] == 0
     assert sequence["shot_xg_reference_only"] == ""
     assert "shot_xg_reference_only" not in player
