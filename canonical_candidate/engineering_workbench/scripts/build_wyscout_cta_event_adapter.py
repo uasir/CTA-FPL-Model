@@ -58,7 +58,8 @@ def normalize_wyscout_events(events, players, teams, match_id):
         _period(pair[1]), float(pair[1].get("eventSec") or 0),
         int(pair[1].get("id") or pair[0]), pair[0]))
     normalized = []
-    skipped = {"missing_team": 0, "missing_player_id": 0, "unresolved_player_metadata": 0, "unmapped_event_type": 0}
+    skipped = {"missing_team": 0, "unmapped_event_type": 0}
+    actor_quality = {"missing_player_id": 0, "unresolved_player_metadata": 0}
     boundary_counts = Counter()
     match_team_ids = sorted({
         str(event.get("teamId")) for event in events if event.get("teamId") is not None
@@ -86,12 +87,12 @@ def normalize_wyscout_events(events, players, teams, match_id):
             continue
         actor = None
         if player_id is None or str(player_id).strip() in {"", "0"}:
-            skipped["missing_player_id"] += 1
+            actor_quality["missing_player_id"] += 1
         else:
             provider_player_id = str(player_id)
             actor_name = player_names.get(provider_player_id, "")
             if not actor_name:
-                skipped["unresolved_player_metadata"] += 1
+                actor_quality["unresolved_player_metadata"] += 1
             actor = {"id": f"wyscout:{provider_player_id}", "name": actor_name}
 
         event_name = str(event.get("eventName") or "")
@@ -219,6 +220,7 @@ def normalize_wyscout_events(events, players, teams, match_id):
         "provider_match_id": str(match_id),
         "normalized_event_count": len(normalized),
         "skipped_event_counts": skipped,
+        "actor_quality_counts": actor_quality,
         "possession_boundary_reason_counts": dict(boundary_counts),
         "free_kick_shots_mapped_to_shot": sum(
             row.get("_provider_subevent_name", "").casefold() == "free kick shot"
@@ -272,12 +274,14 @@ def main():
                 grouped.setdefault(str(event["matchId"]), []).append(event)
         normalized = []
         skipped = Counter()
+        actor_quality = Counter()
         boundary_counts = Counter()
         match_reports = []
         for match_id, match_events in sorted(grouped.items()):
             rows, match_report = normalize_wyscout_events(match_events, players, teams, match_id)
             normalized.extend(rows)
             skipped.update(match_report["skipped_event_counts"])
+            actor_quality.update(match_report["actor_quality_counts"])
             boundary_counts.update(match_report["possession_boundary_reason_counts"])
             match_reports.append(match_report)
         report = {
@@ -286,6 +290,7 @@ def main():
             "match_count": len(grouped),
             "normalized_event_count": len(normalized),
             "skipped_event_counts": dict(skipped),
+            "actor_quality_counts": dict(actor_quality),
             "possession_boundary_reason_counts": dict(boundary_counts),
             "player_id_namespace": "wyscout: prefix retained; never interpreted as StatsBomb or FPL ID",
             "coordinate_conversion": "attacking-relative percentage x,y -> CTA pitch x*1.2,y*0.8; no direction flip",
