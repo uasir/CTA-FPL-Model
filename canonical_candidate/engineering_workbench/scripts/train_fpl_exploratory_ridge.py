@@ -215,11 +215,7 @@ def train_and_evaluate(rows):
         for feature in FEATURES:
             if feature=="fixture_count": continue
             value=optional_number(row.get(feature))
-            if value is not None and feature in {"prior_gw_points","prior3_gw_points_avg","prior5_gw_points_avg",
-                           "prior3_gw_minutes_avg","prior5_gw_minutes_avg",
-                           "prior3_gw_xg_avg","prior3_gw_xa_avg"}:
-                value=value/count
-            elif feature=="was_home":
+            if feature=="was_home":
                 value=bool_number(row.get(feature))
             elif value is not None and feature in {"team_difficulty_snapshot","opponent_difficulty_snapshot"}:
                 value=value/5.0
