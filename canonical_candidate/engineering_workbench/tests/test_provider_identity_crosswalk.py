@@ -57,7 +57,6 @@ class ProviderCrosswalkTests(unittest.TestCase):
                 evidence_url="https://example.org/player-profile",
                 provider_birth_date="2000-03-02", fpl_birth_date="2000-03-02",
                 source_release="11footy-2026-11-10",
-                provider_source_sha256="a" * 64, fpl_source_sha256="b" * 64,
                 confidence_level="very_high",
             )],
             "11footy",
@@ -98,6 +97,7 @@ class ProviderCrosswalkTests(unittest.TestCase):
                 evidence_url="https://github.com/fm-devlab/11footy-dataset/releases/tag/11footy-2026-11-10 | https://fantasy.premierleague.com/api/bootstrap-static/",
                 provider_birth_date="2000-03-02", fpl_birth_date="2000-03-02",
                 source_release="11footy-2026-11-10",
+                provider_source_sha256="a" * 64, fpl_source_sha256="b" * 64,
             )],
             "11footy",
         )
