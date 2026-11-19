@@ -6,10 +6,13 @@ Tracking issue: https://github.com/uasir/CTA-FPL-Model/issues/2
 
 ## 1. Purpose
 
-CTA-FPL-Model will expose two recommendation products over one shared, versioned forecasting foundation. The products solve different decision problems and must remain logically independent.
+CTA-FPL-Model must ultimately expose three distinct user-facing recommendation outputs over one shared, versioned forecasting foundation. They solve different decision problems and must remain logically independent.
 
-- `general_market`: recommendations that are useful to any FPL manager and do not depend on a manager's squad.
-- `personal_squad`: recommendations optimized for one manager's actual squad, budget, transfers, chips, formation and preferences.
+1. **Conventional personal-squad recommendations:** expected-points decisions for the manager's actual squad, evaluated against LiveFPL EO/coverage and the field; CoVar is a separate risk layer and only enters decisions after validation.
+2. **CTA-informed personal-squad recommendations:** recommendations for the same actual squad using CTA-informed forecasts/context, evaluated against the same field and constraints. This remains a separate output from the conventional baseline; no premature blending.
+3. **General CTA player recommendations:** CTA player rankings and opportunities independent of the manager's squad.
+
+The existing `personal_squad` engine is the conventional personal baseline. The existing `general_market` EV ranking is a supporting conventional market reference, not a substitute for the general CTA output. CTA-informed personal and general CTA outputs remain research-stage until their forecast inputs pass validation.
 
 The first deterministic versions of both engines now exist in Python and JavaScript with cross-language output-parity tests. They are exploratory only and are not production-ready; the shared FPL baseline still uses official ep_next plus latest-completed-gameweek minutes per fixture scaled by the target gameweek's fixture count.
 
@@ -135,8 +138,11 @@ Do not rebuild the existing engine, replace recovered source lineage, fabricate 
 - The personal optimiser reports the top two outfield bench options and their expected-points/minutes strength separately from the fixed starting XI; this is descriptive and does not introduce routine rotation.
 - The personal optimiser reports EO coverage for the owned squad and starting XI, with missing EO retained as missing. EO is field-reference context, not a prerequisite for CTA or an automatic ranking weight.
 - Personal recommendations emit a pre-deadline decision-audit payload for transfer alternatives, starting XI and captaincy, including the squad snapshot, bank, free transfers and forecast provenance. It is audit-ready, not considered frozen until captured and archived before the deadline; realised utility remains null until official outcomes are available.
-- The general engine uses EV and value; it uses EO only when locked cohort metadata and the matching target deadline are present.
-- Neither engine uses CoVar or pretends that the supplied risk profile has been applied.
+- The general-market reference engine uses EV and value; it uses EO only when locked cohort metadata and the matching target deadline are present.
+- The personal-squad conventional baseline uses expected points, records EO coverage as field-reference context, and reports bench depth separately without routine rotation.
+- A separate research-only field-relative risk module decomposes own variance, field variance, own/field covariance and variance of the score difference. It has zero recommendation weight until out-of-sample validation.
+- CTA-informed personal-squad and general CTA recommendation outputs are architecturally required but are not yet validated/promoted. The CTA sidecar in the conventional engine remains explanatory only.
+- No engine pretends that the supplied risk profile or unvalidated CoVar has been applied.
 
 ### Not yet production-ready
 - Official FPL `ep_next` is the current points baseline; it is not a CTA-trained forecast.
