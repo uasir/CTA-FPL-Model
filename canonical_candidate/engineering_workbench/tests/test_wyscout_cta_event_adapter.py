@@ -69,7 +69,7 @@ def test_adapter_preserves_events_without_a_player_actor():
     )
     assert len(rows) == 1
     assert "player" not in rows[0]
-    assert report["skipped_event_counts"]["missing_player_id"] == 1
+    assert report["actor_quality_counts"]["missing_player_id"] == 1
 
 
 def test_adapter_preserves_unresolved_provider_id_without_fabricating_name():
@@ -83,7 +83,7 @@ def test_adapter_preserves_unresolved_provider_id_without_fabricating_name():
         [{"wyId": 1, "name": "Home"}], 99
     )
     assert rows[0]["player"] == {"id": "wyscout:999", "name": ""}
-    assert report["skipped_event_counts"]["unresolved_player_metadata"] == 1
+    assert report["actor_quality_counts"]["unresolved_player_metadata"] == 1
 
 
 def test_adapter_maps_direct_free_kick_shots_to_shots():
