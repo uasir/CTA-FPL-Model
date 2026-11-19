@@ -91,7 +91,7 @@ jobs:
             tests/test_11footy_fpl_identity_candidates.py \
             tests/test_11footy_player_match_features.py \
             tests/test_11footy_lagged_research_features.py \
-            tests/test_11footy_lagged_verified_features.py \\
+            tests/test_11footy_lagged_verified_features.py \
             tests/test_fpl_baseline_forecast_snapshot.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
@@ -307,14 +307,22 @@ jobs:
           CTA_REPORT="run_artifacts/11footy_fpl/output/11footy_lagged_verified_upcoming_report.json"
           OUT="run_artifacts/11footy_fpl/output/cta_decision"
           if [ -f "$CTA_CSV" ] && [ -f "$CTA_REPORT" ]; then
-            python canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py \
+            if ! python canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py \
               --players run_artifacts/fpl_official/fpl_players.csv \
               --gameweek-rows run_artifacts/fpl_official/fpl_lagged_gameweek.csv \
               --fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
               --source-metadata run_artifacts/fpl_official/source_metadata.json \
               --cta-csv "$CTA_CSV" \
               --cta-report "$CTA_REPORT" \
-              --out-dir "$OUT"
+              --out-dir "$OUT"; then
+              echo "WARNING: CTA sidecar rejected; preserving official FPL baseline without CTA fields"
+              python canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py \
+                --players run_artifacts/fpl_official/fpl_players.csv \
+                --gameweek-rows run_artifacts/fpl_official/fpl_lagged_gameweek.csv \
+                --fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
+                --source-metadata run_artifacts/fpl_official/source_metadata.json \
+                --out-dir "$OUT"
+            fi
           else
             python canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py \
               --players run_artifacts/fpl_official/fpl_players.csv \
