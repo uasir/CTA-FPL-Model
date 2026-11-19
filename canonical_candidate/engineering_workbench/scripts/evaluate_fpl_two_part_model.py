@@ -64,6 +64,47 @@ def probability(model, row):
     return min(1.0, max(0.0, predict(model, row)))
 
 
+def sigmoid(value):
+    value=max(-35.0,min(35.0,value))
+    return 1.0/(1.0+math.exp(-value))
+
+
+def fit_platt(scores, labels):
+    """Fit a two-parameter logistic calibration map on a chronological calibration slice."""
+    if len(scores)!=len(labels) or len(scores)<10:
+        raise ValueError("Insufficient calibration examples")
+    prevalence=min(1.0-1e-6,max(1e-6,sum(labels)/len(labels)))
+    intercept=math.log(prevalence/(1.0-prevalence))
+    slope=1.0
+    for _ in range(100):
+        g0=g1=h00=h01=h11=0.0
+        for score,label in zip(scores,labels):
+            p=sigmoid(intercept+slope*score)
+            error=p-label
+            weight=max(1e-8,p*(1.0-p))
+            g0+=error
+            g1+=error*score
+            h00+=weight
+            h01+=weight*score
+            h11+=weight*score*score
+        h00+=1e-8
+        h11+=1e-6
+        determinant=h00*h11-h01*h01
+        if determinant<=1e-12:
+            break
+        step0=(h11*g0-h01*g1)/determinant
+        step1=(-h01*g0+h00*g1)/determinant
+        intercept-=step0
+        slope-=step1
+        if max(abs(step0),abs(step1))<1e-8:
+            break
+    return {"intercept":intercept,"slope":slope,"method":"PLATT_LOGISTIC_CALIBRATION"}
+
+
+def calibrated_probability(calibrator, score):
+    return sigmoid(calibrator["intercept"]+calibrator["slope"]*score)
+
+
 def binary_metrics(actual, probs):
     eps = 1e-12
     brier = sum((p-y)**2 for y,p in zip(actual,probs))/len(actual)
@@ -94,7 +135,15 @@ def evaluate(rows, holdout_fraction=0.2):
     valid=[r for r in groups if (r["season"],r["gameweek"]) in valid_keys]
     if len(train)<len(FEATURES)+2 or not valid: raise ValueError("Insufficient training or validation rows")
 
-    appearance_model=fit_linear_probability(train)
+    # Reserve the final fifth of the pre-test training period for calibration.
+    train_keys=sorted({(r["season"],r["gameweek"]) for r in train})
+    calibration_count=max(1,math.ceil(len(train_keys)*0.2))
+    calibration_keys=set(train_keys[-calibration_count:])
+    appearance_fit=[r for r in train if (r["season"],r["gameweek"]) not in calibration_keys]
+    calibration_rows=[r for r in train if (r["season"],r["gameweek"]) in calibration_keys]
+    appearance_model=fit_linear_probability(appearance_fit)
+    calibration_scores=[predict(appearance_model,r) for r in calibration_rows]
+    calibrator=fit_platt(calibration_scores,[r["appeared"] for r in calibration_rows])
     minutes_model=fit_ridge(train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
     positive_train=[r for r in train if r["appeared"]==1.0]
     conditional_points_model=fit_ridge(positive_train,"actual_points",FEATURES,RIDGE_LAMBDA)
@@ -103,21 +152,27 @@ def evaluate(rows, holdout_fraction=0.2):
 
     scored=[]
     for r in valid:
-        p=probability(appearance_model,r)
+        raw_score=predict(appearance_model,r)
+        p_raw=min(1.0,max(0.0,raw_score))
+        p_cal=calibrated_probability(calibrator,raw_score)
         conditional=max(0.0,predict(conditional_points_model,r))
-        two_part=p*conditional
+        two_part=p_cal*conditional
+        two_part_raw=p_raw*conditional
         direct=predict(direct_points_model,r)
         last5=r["last5_baseline_points"]
         if last5 is None: continue
-        scored.append({**r,"p_appearance":p,"conditional_points":conditional,
-                       "two_part_points":two_part,"direct_points":direct,
+        scored.append({**r,"p_appearance":p_cal,"p_appearance_raw":p_raw,
+                       "conditional_points":conditional,"two_part_points":two_part,
+                       "two_part_points_raw":two_part_raw,"direct_points":direct,
                        "predicted_minutes":min(180.0,max(0.0,predict(minutes_model,r)))})
     if not scored: raise ValueError("No validation rows with complete last-five baseline")
     actual=[r["actual_points"] for r in scored]
     actual_app=[r["appeared"] for r in scored]
     probs=[r["p_appearance"] for r in scored]
+    raw_probs=[r["p_appearance_raw"] for r in scored]
     appearance_baseline=[min(1.0,max(0.0,r["prior5_appearance_rate"])) for r in scored]
     two=[r["two_part_points"] for r in scored]
+    two_raw=[r["two_part_points_raw"] for r in scored]
     direct=[r["direct_points"] for r in scored]
     last5=[r["last5_baseline_points"] for r in scored]
     minute_actual=[r["actual_minutes"] for r in scored]
@@ -133,7 +188,8 @@ def evaluate(rows, holdout_fraction=0.2):
         per_season[season]={
             "player_gameweeks":len(idx),
             "appearance":{
-                "model":binary_metrics([actual_app[i] for i in idx],[probs[i] for i in idx]),
+                "calibrated_model":binary_metrics([actual_app[i] for i in idx],[probs[i] for i in idx]),
+                "raw_clipped_model":binary_metrics([actual_app[i] for i in idx],[raw_probs[i] for i in idx]),
                 "prior5_appearance_rate_baseline":binary_metrics([actual_app[i] for i in idx],[appearance_baseline[i] for i in idx]),
             },
             "minutes_mae":round(mae([minute_actual[i] for i in idx],[minute_pred[i] for i in idx]),6),
@@ -148,10 +204,14 @@ def evaluate(rows, holdout_fraction=0.2):
         "train_gameweeks":len({(r["season"],r["gameweek"]) for r in train}),
         "validation_gameweeks":len(valid_keys),
         "training_player_gameweeks":len(train),
+        "appearance_model_fit_player_gameweeks":len(appearance_fit),
+        "appearance_calibration_player_gameweeks":len(calibration_rows),
+        "appearance_calibrator":calibrator,
         "positive_minutes_training_player_gameweeks":len(positive_train),
         "validation_player_gameweeks":len(scored),
         "appearance":{
-            "model":binary_metrics(actual_app,probs),
+            "calibrated_model":binary_metrics(actual_app,probs),
+            "raw_clipped_model":binary_metrics(actual_app,raw_probs),
             "prior5_appearance_rate_baseline":binary_metrics(actual_app,appearance_baseline),
         },
         "minutes": {
@@ -160,7 +220,8 @@ def evaluate(rows, holdout_fraction=0.2):
                 if all(x is not None for x in minute_base) else None,
         },
         "points": {
-            "two_part_expected_points":point_report(two),
+            "two_part_expected_points_calibrated":point_report(two),
+            "two_part_expected_points_raw":point_report(two_raw),
             "direct_points_model":point_report(direct),
             "last5_points_baseline":point_report(last5),
             "two_part_minus_direct_mae":round(mae(actual,two)-mae(actual,direct),6),
@@ -175,7 +236,7 @@ def evaluate(rows, holdout_fraction=0.2):
         "validation_seasons":sorted({r["season"] for r in scored}),
         "per_season_validation_metrics":per_season,
         "features":list(FEATURES),
-        "construction":"P(appearance) from all training player-GWs; conditional points trained only on positive-minute training labels; expected points = probability × conditional points.",
+        "construction":"Appearance ridge fitted on the earlier training block; Platt map fitted on a later calibration block; conditional points trained on positive-minute rows from the full pre-test training period; expected points = calibrated appearance probability × conditional points.",
         "leakage_controls":[
             "Actual minutes are labels only and never determine the validation prediction cohort.",
             "All features are lagged; target fixture statistics are excluded.",
@@ -183,7 +244,8 @@ def evaluate(rows, holdout_fraction=0.2):
             "Training-only imputation and scaling are used by ridge fits.",
         ],
         "limitations":[
-            "Linear probability model is clipped and not probability-calibrated; calibration bins are diagnostic.",
+            "Platt calibration uses a chronologically later calibration slice; final holdout remains untouched.",
+            "Calibration stability still needs walk-forward validation across multiple seasons.",
             "Expected points distribution is not yet fully estimated; this stage evaluates its mean decomposition.",
             "Retrospective source exports are not verified pre-deadline snapshots.",
             "One chronological holdout is preliminary; walk-forward folds and calibration are next.",
