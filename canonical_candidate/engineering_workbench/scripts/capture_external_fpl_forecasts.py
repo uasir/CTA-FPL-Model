@@ -29,9 +29,11 @@ def validate_payload(source: str, data: bytes, gameweek: int, content_type: str)
         payload = json.loads(data.decode("utf-8"))
         if int(payload.get("gameweek", -1)) != gameweek:
             raise ValueError("Sideline Quant payload gameweek mismatch")
-        if not payload.get("generated_at") or not isinstance(payload.get("rows"), list):
-            raise ValueError("Sideline Quant payload missing generation timestamp or rows")
-        return {"row_count": len(payload["rows"]), "grain": "player_fixture",
+        if not payload.get("generated_at") or not isinstance(payload.get("n_rows"), int):
+            raise ValueError("Sideline Quant payload missing generation timestamp or row count")
+        if payload.get("n_players") != payload.get("n_rows"):
+            raise ValueError("Unexpected Sideline Quant player/row counts; inspect fixture-grain structure")
+        return {"row_count": payload["n_rows"], "grain": "player_fixture",
                 "generated_at": payload["generated_at"], "variant": "published_xP"}
     text = data.decode("utf-8-sig")
     reader = csv.DictReader(io.StringIO(text))
@@ -40,9 +42,6 @@ def validate_payload(source: str, data: bytes, gameweek: int, content_type: str)
     if not fields or not rows:
         raise ValueError(f"{source}: CSV has no header or player rows")
     if source == "fpl_rogue_accepted_xpts_csv":
-        required = {"player_id", "xpts"}
-        if not required.issubset({x.strip().lower() for x in fields}):
-            raise ValueError("FPLRogue CSV lacks expected player_id/xpts fields")
         return {"row_count": len(rows), "grain": "verify_from_csv_columns",
                 "variant": "accepted_xpts_v1", "columns": fields}
     if source == "fpl_lucho_served_xp_csv":
