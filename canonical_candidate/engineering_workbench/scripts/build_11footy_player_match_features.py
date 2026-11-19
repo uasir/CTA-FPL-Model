@@ -32,6 +32,18 @@ PANEL_FIELDS = [
     "fpl_goals", "fpl_assists", "join_status",
 ]
 
+RESEARCH_PANEL_FIELDS = [
+    "season", "competition_id", "provider", "provider_match_id", "fpl_fixture_id",
+    "gameweek", "match_date", "provider_player_id", "provider_player_name",
+    "provider_team_id", "provider_team_name", "fpl_element_id", "fpl_player_code",
+    "fpl_player_name", "minutes_played", "goals", "assists", "own_goals",
+    "shots", "shots_on_target", "key_passes", "attempts", "attempts_inside_box",
+    "attempts_outside_box", "big_chances", "offsides", "fouls_suffered",
+    "fouls_committed", "tracked_shots", "tracked_shots_with_xg", "tracked_xg_sum",
+    "fpl_minutes", "fpl_total_points", "fpl_goals", "fpl_assists",
+    "identity_status", "identity_confidence", "research_only",
+]
+
 EVIDENCE_FIELDS = [
     "season", "competition_id", "competition_name", "source_release",
     "provider_player_id", "provider_player_name", "provider_team_id",
@@ -664,6 +676,181 @@ def build_panel(
     }
     return panel_rows, evidence_rows, report
 
+def build_provisional_research_panel(
+    connection, players_connection, fpl_fixtures, fpl_players, fpl_history,
+    candidate_rows, season, competition_id,
+):
+    """Build a strictly isolated panel for high-confidence but still pending identities.
+
+    These rows are exploratory research material only. They never enter the
+    verified production panel or the canonical identity crosswalk.
+    """
+    season_start = int(str(season).replace("/", "-").split("-")[0])
+    season_rows = connection.execute(
+        "SELECT season_id FROM seasons WHERE competition_id = ? AND season = ?",
+        (int(competition_id), season_start),
+    ).fetchall()
+    if len(season_rows) != 1:
+        raise ValueError(
+            "Expected exactly one 11footy season for competition "
+            + str(competition_id) + " and season " + str(season_start)
+        )
+    season_id = int(season_rows[0][0])
+    fixture_by_key, _ = build_fixture_map(fpl_fixtures)
+
+    match_query = """
+        SELECT m.match_id, m.kickoff_utc, m.local_date,
+               ht.name AS home_team_name, at.name AS away_team_name
+        FROM matches m
+        JOIN teams ht ON ht.team_id = m.home_team_id
+        JOIN teams at ON at.team_id = m.away_team_id
+        WHERE m.season_id = ? AND m.status IN ('played', 'awarded')
+        ORDER BY m.kickoff_utc, m.match_id
+    """
+    cursor = connection.execute(match_query, (season_id,))
+    columns = [item[0] for item in cursor.description]
+    provider_matches = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    match_map = {}
+    for match in provider_matches:
+        key = (
+            _match_date(match),
+            normalize_team(match.get("home_team_name")),
+            normalize_team(match.get("away_team_name")),
+        )
+        fixtures = fixture_by_key.get(key, [])
+        if len(fixtures) == 1:
+            match_map[as_int(match["match_id"])] = fixtures[0]
+
+    candidates = defaultdict(list)
+    for row in candidate_rows:
+        if str(row.get("season") or "") != str(season).replace("-", "/"):
+            continue
+        if str(row.get("competition_id") or "") != str(competition_id):
+            continue
+        provider_id = as_int(row.get("provider_player_id"))
+        element_id = as_int(row.get("fpl_element_id"))
+        if provider_id is not None and element_id is not None:
+            candidates[provider_id].append(row)
+
+    history_by_key = {}
+    for row in fpl_history:
+        key = (as_int(row.get("fpl_element_id")), as_int(row.get("fixture_id")))
+        if None in key:
+            continue
+        if key in history_by_key:
+            raise ValueError("Duplicate official FPL player-fixture key in research panel input")
+        history_by_key[key] = row
+    fpl_player_by_id = {
+        as_int(row.get("fpl_element_id")): row
+        for row in fpl_players if as_int(row.get("fpl_element_id")) is not None
+    }
+    merge_map = _player_merge_map(players_connection)
+    player_names = _provider_player_names(players_connection)
+
+    rows = []
+    skipped = Counter()
+    for source in _load_player_match_rows(connection, season_id):
+        provider_id = resolve_player_id(source["player_id"], merge_map)
+        matches = candidates.get(provider_id, [])
+        if len(matches) != 1:
+            skipped["missing_or_ambiguous_candidate"] += 1
+            continue
+        candidate = matches[0]
+        if (
+            str(candidate.get("confidence_level") or "").lower() != "high"
+            or str(candidate.get("match_method") or "").lower() != "exact_name_team_birth_date"
+            or str(candidate.get("verification_status") or "").lower() == "verified"
+        ):
+            skipped["not_high_confidence_pending"] += 1
+            continue
+        match_id = as_int(source.get("match_id"))
+        fixture = match_map.get(match_id)
+        if fixture is None:
+            skipped["fixture_unmatched_or_ambiguous"] += 1
+            continue
+        fixture_id = as_int(fixture.get("fixture_id"))
+        element_id = as_int(candidate.get("fpl_element_id"))
+        history = history_by_key.get((element_id, fixture_id))
+        if history is None:
+            skipped["official_fpl_history_missing"] += 1
+            continue
+        expected_team = (
+            fixture.get("team_h_name") if as_bool(history.get("was_home"))
+            else fixture.get("team_a_name")
+        )
+        if normalize_team(source.get("player_team_name")) != normalize_team(expected_team):
+            skipped["fixture_team_mismatch"] += 1
+            continue
+        fpl_player = fpl_player_by_id.get(element_id)
+        if fpl_player is None:
+            skipped["official_fpl_player_missing"] += 1
+            continue
+        candidate_code = str(candidate.get("fpl_player_code") or "")
+        actual_code = str(fpl_player.get("fpl_player_code") or "")
+        if not candidate_code or candidate_code != actual_code:
+            skipped["official_fpl_player_code_mismatch"] += 1
+            continue
+
+        rows.append({
+            "season": season,
+            "competition_id": str(competition_id),
+            "provider": "11footy",
+            "provider_match_id": match_id,
+            "fpl_fixture_id": fixture_id,
+            "gameweek": fixture.get("gameweek", ""),
+            "match_date": _match_date(source),
+            "provider_player_id": provider_id,
+            "provider_player_name": player_names.get(provider_id, ""),
+            "provider_team_id": as_int(source.get("team_id")),
+            "provider_team_name": source.get("player_team_name", ""),
+            "fpl_element_id": element_id,
+            "fpl_player_code": actual_code,
+            "fpl_player_name": fpl_player.get("web_name", ""),
+            "minutes_played": source.get("minutes_played", ""),
+            "goals": source.get("goals", ""),
+            "assists": source.get("assists", ""),
+            "own_goals": source.get("own_goals", ""),
+            "shots": source.get("shots", ""),
+            "shots_on_target": source.get("shots_on_target", ""),
+            "key_passes": source.get("key_passes", ""),
+            "attempts": source.get("attempts", ""),
+            "attempts_inside_box": source.get("attempts_inside_box", ""),
+            "attempts_outside_box": source.get("attempts_outside_box", ""),
+            "big_chances": source.get("big_chances", ""),
+            "offsides": source.get("offsides", ""),
+            "fouls_suffered": source.get("fouls_suffered", ""),
+            "fouls_committed": source.get("fouls_committed", ""),
+            "tracked_shots": source.get("tracked_shots", 0),
+            "tracked_shots_with_xg": source.get("tracked_shots_with_xg", 0),
+            "tracked_xg_sum": source.get("tracked_xg_sum", 0),
+            "fpl_minutes": history.get("minutes", ""),
+            "fpl_total_points": history.get("total_points", ""),
+            "fpl_goals": history.get("goals_scored", ""),
+            "fpl_assists": history.get("assists", ""),
+            "identity_status": "PENDING_RESEARCH_ONLY",
+            "identity_confidence": "HIGH_NAME_TEAM_BIRTH_DATE_CANDIDATE",
+            "research_only": True,
+        })
+
+    report = {
+        "status": "PROVISIONAL_RESEARCH_PANEL_ONLY" if rows else "NO_HIGH_CONFIDENCE_RESEARCH_ROWS",
+        "rows": len(rows),
+        "unique_provider_players": len({row["provider_player_id"] for row in rows}),
+        "unique_fpl_players": len({row["fpl_element_id"] for row in rows}),
+        "unique_fpl_fixtures": len({row["fpl_fixture_id"] for row in rows}),
+        "skipped_rows_by_reason": dict(skipped),
+        "identity_policy": (
+            "Only exact normalized full-name/team/matching-birth-date candidates with a matching "
+            "official FPL player code and fixture-team check enter this isolated research panel. "
+            "All identities remain pending and unverified."
+        ),
+        "production_eligible": False,
+        "prediction_training_eligible": False,
+        "publication_policy": "Player-level research rows remain inside the Actions runner; aggregate counts only.",
+    }
+    return rows, report
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build verified-only 11footy/FPL player-match features")
     parser.add_argument("--database", type=Path, required=True)
@@ -703,6 +890,10 @@ def main():
                 candidates, crosswalk, args.season, args.competition_id,
                 crosswalk_validation_report=validation_report,
             )
+            research_panel_rows, research_panel_report = build_provisional_research_panel(
+                connection, players_connection, fixtures, fpl_players, fpl_history,
+                candidates, args.season, args.competition_id,
+            )
         finally:
             connection.close()
             players_connection.close()
@@ -719,6 +910,11 @@ def main():
         "verified_crosswalk_snapshot_sha256": sha256(args.crosswalk),
     }
     write_csv(args.out_dir / "verified_player_match_panel.csv", PANEL_FIELDS, panel_rows)
+    write_csv(
+        args.out_dir / "provisional_research_only_player_match_panel.csv",
+        RESEARCH_PANEL_FIELDS, research_panel_rows,
+    )
+    report["provisional_research_panel"] = research_panel_report
     write_csv(args.out_dir / "candidate_match_evidence.csv", EVIDENCE_FIELDS, evidence_rows)
     write_csv(args.out_dir / "candidate_identity_review_queue.csv", EVIDENCE_FIELDS, evidence_rows)
     (args.out_dir / "11footy_fpl_player_match_integration.json").write_text(
