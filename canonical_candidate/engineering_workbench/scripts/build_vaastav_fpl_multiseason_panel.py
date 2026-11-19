@@ -67,6 +67,11 @@ def first_value(row, *names):
     return None
 
 
+def source_gameweek(raw):
+    """Prefer the merged file's explicit GW column; fall back to API round."""
+    explicit_gw = optional_number(raw.get("GW"))
+    return explicit_gw if explicit_gw is not None else optional_number(first_value(raw, "round", "gameweek"))
+
 def load_season(season, out_dir):
     url = f"{RAW_BASE}/{SOURCE_COMMIT}/data/{season}/gws/merged_gw.csv"
     payload = fetch_bytes(url)
@@ -82,12 +87,26 @@ def load_season(season, out_dir):
     missing = sorted(required - set(source_rows[0]))
     if missing:
         raise ValueError(f"{season}: missing required source columns: {missing}")
+    gameweeks = sorted({int(source_gameweek(row)) for row in source_rows if source_gameweek(row) is not None})
+    round_gw_mismatches = sum(
+        1 for row in source_rows
+        if optional_number(row.get("GW")) is not None
+        and optional_number(row.get("round")) is not None
+        and int(optional_number(row.get("GW"))) != int(optional_number(row.get("round")))
+    )
+    if gameweeks and (min(gameweeks) < 1 or max(gameweeks) > 38):
+        raise ValueError(f"{season}: source gameweek range outside 1-38: {gameweeks}")
     return source_rows, {
         "season": season,
         "url": url,
         "sha256": digest,
         "bytes": len(payload),
         "source_rows": len(source_rows),
+        "gameweek_source_field": "GW" if any(optional_number(row.get("GW")) is not None for row in source_rows) else "round",
+        "gameweeks": gameweeks,
+        "min_gameweek": min(gameweeks) if gameweeks else None,
+        "max_gameweek": max(gameweeks) if gameweeks else None,
+        "round_vs_GW_mismatch_rows": round_gw_mismatches,
         "encoding": source_encoding,
         "raw_file": str(raw_path),
     }
@@ -97,9 +116,11 @@ def build_season_rows(season, source_rows):
     grouped = defaultdict(lambda: defaultdict(list))
     for raw in source_rows:
         element = first_value(raw, "element", "id")
-        gameweek = optional_number(first_value(raw, "round", "gameweek"))
+        gameweek = source_gameweek(raw)
         if element is None or gameweek is None or gameweek < 1:
             continue
+        if gameweek > 38:
+            raise ValueError(f"{season}: invalid FPL gameweek {gameweek}; expected 1-38")
         kickoff = first_value(raw, "kickoff_time")
         if not kickoff:
             raise ValueError(f"{season}: missing kickoff_time for player {element}, GW{gameweek}")
