@@ -133,9 +133,10 @@ def prediction_quantile_diagnostics(actual: Sequence[float], predicted: Sequence
                                     bins: int = 10) -> dict:
     """Show where a forecast compresses or misses the upper tail.
 
-    Rows are sorted by predicted expected points and split into near-equal
-    count bins. Ties are kept deterministic by original row order. These are
-    diagnostics only; they do not change forecasts or model selection.
+    Rows are sorted by predicted expected points and assigned to approximate
+    equal-count bins. Identical forecasts stay together, so ties may make bin
+    sizes uneven. Original row order breaks sorting ties deterministically.
+    These diagnostics do not change forecasts or model selection.
     """
     y, p = _finite(actual), _finite(predicted)
     if len(y) != len(p):
@@ -176,7 +177,7 @@ def prediction_quantile_diagnostics(actual: Sequence[float], predicted: Sequence
             "actual_10_plus_rate": sum(a >= 10 for a in actual_bin) / len(indices),
         })
     return {
-        "method": "EQUAL_COUNT_BINS_SORTED_BY_PREDICTED_EXPECTED_POINTS",
+        "method": "APPROX_EQUAL_COUNT_BINS_TIES_KEPT_INTACT",
         "bins": report,
         "overall_actual_mean": sum(y) / len(y),
         "overall_predicted_mean": sum(p) / len(p),
