@@ -677,6 +677,9 @@ def evaluate_walk_forward(rows):
     pooled_hurdle=[v for item in pooled_bootstrap_inputs for v in item["hurdle_calibrated"]]
     pooled_two_part=[v for item in pooled_bootstrap_inputs for v in item["two_part_raw"]]
     pooled_ridge=[v for item in pooled_bootstrap_inputs for v in item["direct_ridge"]]
+    pooled_blend_half=[v for item in pooled_bootstrap_inputs for v in item["blend_half"]]
+    pooled_blend_selected_mae=[v for item in pooled_bootstrap_inputs for v in item["blend_selected_mae"]]
+    pooled_blend_selected_mse=[v for item in pooled_bootstrap_inputs for v in item["blend_selected_mse"]]
     pooled_clusters=[v for item in pooled_bootstrap_inputs for v in item["player_season_clusters"]]
 
     # Pool fold-level metric values weighted by their validation player-GW counts.
@@ -730,20 +733,32 @@ def evaluate_walk_forward(rows):
                 metric:weighted_metric("points",model,metric)
                 for metric in ("mae","rmse","mean_error")
             }
-            for model in ("two_part_calibrated","two_part_raw","minutes_band_raw","minutes_band_calibrated","direct","last5_baseline")
+            for model in ("two_part_calibrated","two_part_raw","minutes_band_raw","minutes_band_calibrated","direct","last5_baseline","blend_hurdle_025","blend_hurdle_050","blend_hurdle_075","blend_selected_mae","blend_selected_mse")
         },
         "paired_points_errors":{
             key:{
                 metric:round(sum(f["validation_player_gameweeks"]*f["paired_points_errors"][key][metric] for f in folds)/sum(f["validation_player_gameweeks"] for f in folds),6)
                 for metric in ("mean_absolute_error_delta","mean_squared_error_delta","candidate_absolute_error_win_rate","absolute_error_tie_rate")
             } | {"n":sum(f["paired_points_errors"][key]["n"] for f in folds)}
-            for key in ("calibrated_hurdle_vs_two_part_raw","calibrated_hurdle_vs_two_part_calibrated","calibrated_hurdle_vs_direct_ridge","calibrated_hurdle_vs_last5","raw_hurdle_vs_two_part_raw")
+            for key in ("calibrated_hurdle_vs_two_part_raw","calibrated_hurdle_vs_two_part_calibrated","calibrated_hurdle_vs_direct_ridge","calibrated_hurdle_vs_last5","raw_hurdle_vs_two_part_raw","blend_half_vs_two_part_raw","blend_selected_mae_vs_two_part_raw","blend_selected_mse_vs_two_part_raw")
         },
     }
     pooled["paired_points_errors"]["calibrated_hurdle_vs_two_part_raw"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
         pooled_actual,pooled_hurdle,pooled_two_part,pooled_clusters,seed=20263119)
     pooled["paired_points_errors"]["calibrated_hurdle_vs_direct_ridge"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
         pooled_actual,pooled_hurdle,pooled_ridge,pooled_clusters,seed=20264119)
+    pooled["paired_points_errors"]["blend_half_vs_two_part_raw"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
+        pooled_actual,pooled_blend_half,pooled_two_part,pooled_clusters,seed=20265119)
+    pooled["paired_points_errors"]["blend_selected_mae_vs_two_part_raw"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
+        pooled_actual,pooled_blend_selected_mae,pooled_two_part,pooled_clusters,seed=20266119)
+    pooled["paired_points_errors"]["blend_selected_mse_vs_two_part_raw"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
+        pooled_actual,pooled_blend_selected_mse,pooled_two_part,pooled_clusters,seed=20267119)
+    pooled["blend_selected_weights"]={
+        "mae_mean":round(float(np.mean([f["blend_selected_weights"]["mae"] for f in folds])),3),
+        "mse_mean":round(float(np.mean([f["blend_selected_weights"]["mse"] for f in folds])),3),
+        "mae_by_season":{f["season"]:f["blend_selected_weights"]["mae"] for f in folds},
+        "mse_by_season":{f["season"]:f["blend_selected_weights"]["mse"] for f in folds},
+    }
     return {
         "status":"RESEARCH_ONLY",
         "decision":"DO_NOT_PROMOTE",
@@ -758,6 +773,7 @@ def evaluate_walk_forward(rows):
             "All feature values are lagged; target fixture statistics are excluded.",
             "Actual minutes and points are labels only and are never used to select forecast rows.",
             "Calibration data are chronologically earlier than each validation season.",
+            "Blend weights are selected on a later calibration-selection slice that is separate from the slice used to fit blend-specific calibrators; neither slice includes validation outcomes.",
         ],
         "limitations":[
             "Historical source files are retrospective exports, not verified pre-deadline snapshots.",
