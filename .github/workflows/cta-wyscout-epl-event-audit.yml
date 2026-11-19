@@ -65,7 +65,7 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py \
             canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py \
             canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py \
-            canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py
+            canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py \\
             canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py
 
       - name: Download the public Wyscout 2017/18 data files
