@@ -277,16 +277,16 @@ def build_panel(cta_rows, opta_team_rows, cta_source_report, opta_source_report)
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--11footy-lagged", type=Path, required=True)
+    parser.add_argument("--11footy-lagged", dest="footy_lagged", type=Path, required=True)
     parser.add_argument("--opta-team-features", type=Path, required=True)
-    parser.add_argument("--11footy-source-report", type=Path, required=True)
+    parser.add_argument("--11footy-source-report", dest="footy_source_report", type=Path, required=True)
     parser.add_argument("--opta-source-report", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
     opta_report = json.loads(args.opta_source_report.read_text(encoding="utf-8"))
-    cta_report = json.loads(args.11footy_source_report.read_text(encoding="utf-8"))
+    cta_report = json.loads(args.footy_source_report.read_text(encoding="utf-8"))
     rows, report = build_panel(
-        read_csv(args.11footy_lagged), read_csv(args.opta_team_features),
+        read_csv(args.footy_lagged), read_csv(args.opta_team_features),
         cta_report, opta_report,
     )
     args.out_dir.mkdir(parents=True, exist_ok=True)
