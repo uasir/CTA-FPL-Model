@@ -79,7 +79,7 @@ def build_replay_record(picks_payload, live_payload, position_by_player):
 
     live_elements = live_payload.get("elements") or []
     live_by_id = {str(int(row["id"])): row.get("stats") or {} for row in live_elements}
-    points, minutes, played, positions = {}, {}, {}, {}
+    points, minutes, played, positions, cards_by_player = {}, {}, {}, {}, {}
     for player_id in ids:
         if player_id not in live_by_id:
             raise ValueError("official live event is missing a selected player")
@@ -87,6 +87,7 @@ def build_replay_record(picks_payload, live_payload, position_by_player):
         points[player_id] = float(stats["total_points"])
         minutes[player_id] = float(stats["minutes"])
         cards = float(stats.get("yellow_cards", 0) or 0) + float(stats.get("red_cards", 0) or 0)
+        cards_by_player[player_id] = cards
         played[player_id] = minutes[player_id] > 0 or cards > 0
         if player_id not in position_by_player:
             raise ValueError("bootstrap is missing a selected player's position")
@@ -121,6 +122,7 @@ def build_replay_record(picks_payload, live_payload, position_by_player):
         "official_points": points,
         "minutes": minutes,
         "played_by_player": played,
+        "cards_by_player": cards_by_player,
         "positions": positions,
         "official_team_points": float(official_team_points),
         "official_net_points": float(official_team_points) - hit_cost,
@@ -156,6 +158,16 @@ def audit_record(picks_payload, live_payload, position_by_player):
     starting_slot = {player_id: index + 1 for index, player_id in enumerate(record["decision"]["starting_xi"])}
     official_ordered = record["official_sub_pairs_ordered"]
     official_position_pairs = sorted((positions[in_id], positions[out_id]) for in_id, out_id in official_ordered)
+    official_pair_played = [(record["played_by_player"][in_id], record["played_by_player"][out_id]) for in_id, out_id in official_ordered]
+    official_pair_minutes = [(record["minutes"][in_id], record["minutes"][out_id]) for in_id, out_id in official_ordered]
+    official_pair_cards = [(record["cards_by_player"][in_id], record["cards_by_player"][out_id]) for in_id, out_id in official_ordered]
+    official_final_xi = list(record["decision"]["starting_xi"])
+    for in_id, out_id in official_ordered:
+        official_final_xi[official_final_xi.index(out_id)] = in_id
+    initial_counts = Counter(positions[player_id] for player_id in record["decision"]["starting_xi"])
+    official_final_counts = Counter(positions[player_id] for player_id in official_final_xi)
+    initial_formation = f"{initial_counts['DEF']}-{initial_counts['MID']}-{initial_counts['FWD']}"
+    official_final_formation = f"{official_final_counts['DEF']}-{official_final_counts['MID']}-{official_final_counts['FWD']}"
     replay_position_pairs = sorted((positions[in_id], positions[out_id]) for in_id, out_id in replay_sub_pairs_ordered)
     official_slots = [bench_slot.get(in_id, 0) for in_id, _ in official_ordered]
     replay_slots = [bench_slot.get(in_id, 0) for in_id, _ in replay_sub_pairs_ordered]
@@ -306,6 +318,10 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
                         f"replay_out_slots={result['replay_out_starting_slots']};"
                         f"official_positions={result['official_position_pairs']};"
                         f"replay_positions={result['replay_position_pairs']};"
+                        f"played={result['official_pair_played']};"
+                        f"minutes={result['official_pair_minutes']};"
+                        f"cards={result['official_pair_cards']};"
+                        f"formations={result['initial_formation']}->{result['official_final_formation']};"
                         f"counts={result['official_sub_count']}:{result['replay_sub_count']}"
                     )
                     autosub_mismatch_signatures[signature] += 1
