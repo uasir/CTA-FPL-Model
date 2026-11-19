@@ -30,12 +30,12 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/capture_external_fpl_forecasts.py \
-            --gameweek "\${{ inputs.gameweek }}" \
-            --out-dir "$RUNNER_TEMP/external_fpl_gw\${{ inputs.gameweek }}"
+            --gameweek "${{ inputs.gameweek }}" \
+            --out-dir "$RUNNER_TEMP/external_fpl_gw${{ inputs.gameweek }}"
       - name: Retain immutable raw snapshots and capture manifest
         uses: actions/upload-artifact@v4
         with:
-          name: external-fpl-forecast-gw\${{ inputs.gameweek }}-\${{ github.run_id }}
-          path: \${{ runner.temp }}/external_fpl_gw\${{ inputs.gameweek }}
+          name: external-fpl-forecast-gw${{ inputs.gameweek }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/external_fpl_gw${{ inputs.gameweek }}
           if-no-files-found: error
           retention-days: 90
