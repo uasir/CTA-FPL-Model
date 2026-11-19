@@ -8,7 +8,7 @@
 
 - Official FPL `ep_next` remains the frozen expected-points baseline.
 - The existing 11footy-derived CTA feature sidecar is joined to the official FPL forecast by verified FPL element IDs and fixture IDs.
-- CTA context and a feature-level evidence summary (prior-match shots, shots on target, key passes, box attempts, tracked xG and big chances when present) are passed through the Python and JavaScript personal-squad engines to the owned squad, starting XI, bench and transfer alternatives. Missing metrics remain missing; the summary has zero decision weight and no ranking effect.
+- CTA context and a feature-level evidence summary (prior-match shots, shots on target, key passes, box attempts, tracked xG and big chances when present) are passed through the Python and JavaScript personal-squad engines to the owned squad, starting XI, bench and transfer alternatives. Missing metrics remain missing; the summary has zero decision weight and no ranking effect. The latest synthetic scale test confirms evidence summaries on the XI and transfer alternatives; 4/11 synthetic starters had available evidence.
 - The existing LiveFPL effective-ownership view remains the external field reference. This project does not create a second EO system.
 - CTA features do not currently alter `ep_next`, expected-points rankings, transfer ordering or CoVar. No CTA composite has been promoted.
 
@@ -16,10 +16,10 @@
 
 Latest completed 2026/27 11footy integration report:
 
-- 340 exact normalized name/team/date-of-birth identities verified against official FPL.
-- 2,526 player-match rows joined to verified FPL identities and fixtures.
+- 416 exact, one-to-one identities verified against official FPL: 340 by exact normalized name/team/date-of-birth agreement and 76 by the independent Opta numeric player-ID = FPL player-code plus team-code bridge.
+- 3,011 player-match rows joined to verified FPL identities and fixtures.
 - 100/100 provider matches mapped to FPL fixtures.
-- 316 players have prior-match history available for the GW11 feature snapshot.
+- 392 players have prior-match history available for the GW11 feature snapshot.
 - All 672 official FPL players have a target fixture row for GW11.
 - Source snapshot: 2026-11-10 12:21:18 UTC; GW11 deadline: 2026-11-21 11:00 UTC.
 - The feature snapshot is deadline-safe, but remains research-only. Identity verification is not prediction validation.
