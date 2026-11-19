@@ -190,6 +190,51 @@ def appearance_probability_bucket(probability):
     return "high_>=0.80"
 
 
+def raw_two_part_forecast_band(expected_points):
+    """Forecast-time strata anchored to the conventional raw two-part estimate."""
+    value=float(expected_points)
+    if value<1.0: return "low_<1"
+    if value<2.0: return "1_to_<2"
+    if value<3.0: return "2_to_<3"
+    if value<5.0: return "3_to_<5"
+    return "high_>=5"
+
+
+def forecast_error_tail_metrics(actual,prediction):
+    """Aggregate absolute-error tails and concentration of squared error."""
+    y=np.asarray(actual,dtype=float)
+    p=np.asarray(prediction,dtype=float)
+    if len(y)==0 or len(y)!=len(p):
+        raise ValueError("Tail-diagnostic inputs must be non-empty and aligned")
+    absolute=np.abs(p-y)
+    squared=np.square(absolute)
+    total_squared=float(squared.sum())
+    def top_share(fraction):
+        count=max(1,int(math.ceil(len(squared)*fraction)))
+        return 0.0 if total_squared<=0.0 else float(np.sort(squared)[-count:].sum()/total_squared)
+    quantiles=np.quantile(absolute,[0.50,0.75,0.90,0.95,0.99])
+    return {
+        "n":int(len(y)),
+        "mae":round(float(absolute.mean()),6),
+        "rmse":round(float(math.sqrt(squared.mean())),6),
+        "absolute_error_quantiles":{
+            "p50":round(float(quantiles[0]),6),
+            "p75":round(float(quantiles[1]),6),
+            "p90":round(float(quantiles[2]),6),
+            "p95":round(float(quantiles[3]),6),
+            "p99":round(float(quantiles[4]),6),
+        },
+        "absolute_error_ge_4_rate":round(float((absolute>=4.0).mean()),6),
+        "absolute_error_ge_6_rate":round(float((absolute>=6.0).mean()),6),
+        "absolute_error_ge_8_rate":round(float((absolute>=8.0).mean()),6),
+        "squared_error_share_top_1pct":round(top_share(0.01),6),
+        "squared_error_share_top_5pct":round(top_share(0.05),6),
+        "squared_error_share_top_10pct":round(top_share(0.10),6),
+        "mean_signed_error":round(float((p-y).mean()),6),
+        "overprediction_rate":round(float((p>y).mean()),6),
+    }
+
+
 def blend_expected_points(hurdle, two_part, hurdle_weight):
     weight=float(hurdle_weight)
     if not 0.0<=weight<=1.0:
@@ -634,6 +679,12 @@ def score_fold(train, valid, season):
             "blend_selected_mae_vs_two_part_raw":paired_error_comparison(actual_points,blend_points_selected_mae,two_part_raw),
             "blend_selected_mse_vs_two_part_raw":paired_error_comparison(actual_points,blend_points_selected_mse,two_part_raw),
             "calibrated_hurdle_vs_two_part_raw_by_appearance_probability":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,two_part_raw,calibrated_appearance_buckets)["by_group"],
+            "calibrated_hurdle_vs_two_part_raw_by_raw_two_part_forecast_band":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,two_part_raw,[raw_two_part_forecast_band(v) for v in two_part_raw])["by_group"],
+        },
+        "tail_error_diagnostics":{
+            "calibrated_hurdle":forecast_error_tail_metrics(actual_points,hurdle_points_calibrated_expected),
+            "two_part_raw":forecast_error_tail_metrics(actual_points,two_part_raw),
+            "direct_ridge":forecast_error_tail_metrics(actual_points,direct_points),
         },
         "points":{
             "two_part_calibrated":regression_metrics(actual_points,two_part_calibrated),
@@ -739,6 +790,11 @@ def evaluate_walk_forward(rows):
             }
             for model in ("two_part_calibrated","two_part_raw","minutes_band_raw","minutes_band_calibrated","direct","last5_baseline","blend_hurdle_025","blend_hurdle_050","blend_hurdle_075","blend_selected_mae","blend_selected_mse")
         },
+        "tail_error_diagnostics":{
+            "calibrated_hurdle":forecast_error_tail_metrics(pooled_actual,pooled_hurdle),
+            "two_part_raw":forecast_error_tail_metrics(pooled_actual,pooled_two_part),
+            "direct_ridge":forecast_error_tail_metrics(pooled_actual,pooled_ridge),
+        },
         "paired_points_errors":{
             key:{
                 metric:round(sum(f["validation_player_gameweeks"]*f["paired_points_errors"][key][metric] for f in folds)/sum(f["validation_player_gameweeks"] for f in folds),6)
@@ -747,6 +803,8 @@ def evaluate_walk_forward(rows):
             for key in ("calibrated_hurdle_vs_two_part_raw","calibrated_hurdle_vs_two_part_calibrated","calibrated_hurdle_vs_direct_ridge","calibrated_hurdle_vs_last5","raw_hurdle_vs_two_part_raw","blend_half_vs_two_part_raw","blend_selected_mae_vs_two_part_raw","blend_selected_mse_vs_two_part_raw")
         },
     }
+    pooled["paired_points_errors"]["calibrated_hurdle_vs_two_part_raw_by_raw_two_part_forecast_band"]=paired_error_comparison(
+        pooled_actual,pooled_hurdle,pooled_two_part,[raw_two_part_forecast_band(v) for v in pooled_two_part])["by_group"]
     pooled["paired_points_errors"]["calibrated_hurdle_vs_two_part_raw"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
         pooled_actual,pooled_hurdle,pooled_two_part,pooled_clusters,seed=20263119)
     pooled["paired_points_errors"]["calibrated_hurdle_vs_direct_ridge"]["cluster_bootstrap_95ci"]=cluster_bootstrap_paired_errors(
