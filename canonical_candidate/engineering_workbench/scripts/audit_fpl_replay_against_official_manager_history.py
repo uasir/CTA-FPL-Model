@@ -38,8 +38,29 @@ def build_replay_record(picks_payload, live_payload, position_by_player):
         raise ValueError("historical pick slots are not exactly 1 through 15")
 
     ids = [str(int(pick["element"])) for pick in ordered]
-    xi = [str(int(pick["element"])) for pick in ordered if int(pick["position"]) <= 11]
-    bench_slots = [str(int(pick["element"])) for pick in ordered if int(pick["position"]) >= 12]
+    # The completed-GW picks payload reflects the post-autosub XI/bench. Reverse
+    # the official element_in/element_out swaps to recover the deadline lineup.
+    auto_subs = picks_payload.get("automatic_subs") or []
+    sub_in_to_out = {}
+    sub_out_to_in = {}
+    for item in auto_subs:
+        if item.get("element_in") is None or item.get("element_out") is None:
+            raise ValueError("automatic_subs contains an incomplete player pair")
+        player_in = str(int(item["element_in"]))
+        player_out = str(int(item["element_out"]))
+        if player_in in sub_in_to_out or player_out in sub_out_to_in:
+            raise ValueError("automatic_subs contains duplicate incoming or outgoing players")
+        sub_in_to_out[player_in] = player_out
+        sub_out_to_in[player_out] = player_in
+    final_xi = [str(int(pick["element"])) for pick in ordered if int(pick["position"]) <= 11]
+    final_bench_slots = [str(int(pick["element"])) for pick in ordered if int(pick["position"]) >= 12]
+    for player_in, player_out in sub_in_to_out.items():
+        if player_in not in final_xi or player_out not in final_bench_slots:
+            raise ValueError("automatic_subs do not align with completed-GW post-substitution pick slots")
+    xi = [sub_in_to_out.get(player_id, player_id) for player_id in final_xi]
+    bench_slots = [sub_out_to_in.get(player_id, player_id) for player_id in final_bench_slots]
+    if len(set(xi + bench_slots)) != 15:
+        raise ValueError("reversing automatic_subs did not recover 15 distinct deadline picks")
     # The historical picks endpoint exposes four bench slots, but the reserve
     # goalkeeper is not guaranteed to occupy slot 15. Normalize to the replay
     # contract's three ordered outfield substitutes followed by the goalkeeper,
@@ -90,7 +111,6 @@ def build_replay_record(picks_payload, live_payload, position_by_player):
     official_team_points = history.get("points")
     if official_team_points is None:
         raise ValueError("historical entry history is missing official points")
-    auto_subs = picks_payload.get("automatic_subs") or []
     official_sub_pairs = sorted(
         (str(int(item["element_in"])), str(int(item["element_out"])))
         for item in auto_subs
