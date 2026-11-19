@@ -17,6 +17,7 @@ from pathlib import Path
 
 ACCURATE_TAG = 1801
 GOAL_TAG = 101
+OWN_GOAL_TAG = 102
 ASSIST_TAG = 301
 KEY_PASS_TAG = 302
 OPPORTUNITY_TAG = 201
@@ -34,7 +35,7 @@ FIELDS = [
     "final_third_entry_pass_attempts", "danger_zone_entry_pass_attempts",
     "threat_creation_pass_attempts", "threat_creation_pass_completions",
     "progressive_carry_attempts", "shot_attempts", "accurate_shot_attempts",
-    "goals", "assists", "shot_opportunity_attempts", "dangerous_ball_losses",
+    "goals", "own_goals", "assists", "shot_opportunity_attempts", "dangerous_ball_losses",
     "offside_events", "duel_events", "duels_won", "duels_lost",
     "receiver_identity_status", "xg_status", "feature_scope",
 ]
@@ -181,10 +182,10 @@ def build_player_match_features(events, matches, players, teams):
             if event_name == "shot":
                 counts["shot_attempts"] += 1
                 counts["accurate_shot_attempts"] += int(accurate)
-                counts["goals"] += int(GOAL_TAG in tags)
                 counts["shot_opportunity_attempts"] += int(OPPORTUNITY_TAG in tags)
-            if event_name == "pass":
-                counts["assists"] += int(ASSIST_TAG in tags)
+            counts["goals"] += int(GOAL_TAG in tags)
+            counts["own_goals"] += int(OWN_GOAL_TAG in tags)
+            counts["assists"] += int(ASSIST_TAG in tags)
             if DANGEROUS_LOSS_TAG in tags:
                 counts["dangerous_ball_losses"] += 1
             if event_name == "offside":
@@ -221,7 +222,7 @@ def build_player_match_features(events, matches, players, teams):
                 "final_third_entry_pass_attempts", "danger_zone_entry_pass_attempts",
                 "threat_creation_pass_attempts", "threat_creation_pass_completions",
                 "progressive_carry_attempts", "shot_attempts", "accurate_shot_attempts",
-                "goals", "assists", "shot_opportunity_attempts", "dangerous_ball_losses",
+                "goals", "own_goals", "assists", "shot_opportunity_attempts", "dangerous_ball_losses",
                 "offside_events", "duel_events", "duels_won", "duels_lost",
             )},
             "receiver_identity_status": "NOT_AVAILABLE_IN_PUBLIC_WYSCOUT_EVENT_SCHEMA",
@@ -230,6 +231,23 @@ def build_player_match_features(events, matches, players, teams):
         }
         output.append(row)
         totals.update(counts)
+    match_metadata_goals = 0
+    matches_with_score = 0
+    for match in matches:
+        teams_data = match.get("teamsData") or {}
+        scores = []
+        for team_data in teams_data.values():
+            if not isinstance(team_data, dict) or team_data.get("score") is None:
+                continue
+            try:
+                scores.append(int(team_data["score"]))
+            except (TypeError, ValueError):
+                continue
+        if len(scores) == 2:
+            matches_with_score += 1
+            match_metadata_goals += sum(scores)
+    tagged_goals = sum(1 for event in events if GOAL_TAG in _tags(event))
+    tagged_own_goals = sum(1 for event in events if OWN_GOAL_TAG in _tags(event))
     report = {
         "provider": "Wyscout",
         "season": "2017/18",
@@ -240,6 +258,19 @@ def build_player_match_features(events, matches, players, teams):
         "event_rows_with_player_and_team_match": sum(r["event_rows"] for r in output),
         "events_missing_player_id": missing_player_rows,
         "events_with_unmatched_match_metadata": unmatched_match_rows,
+        "goal_reconciliation": {
+            "matches_with_two_team_scores": matches_with_score,
+            "match_metadata_goals": match_metadata_goals,
+            "event_goal_tag_events": tagged_goals,
+            "event_own_goal_tag_events": tagged_own_goals,
+            "event_goal_tags_total": tagged_goals + tagged_own_goals,
+            "tagged_minus_metadata_goal_delta": tagged_goals + tagged_own_goals - match_metadata_goals,
+            "status": (
+                "PASS_EXACT"
+                if matches_with_score == len(matches) and tagged_goals + tagged_own_goals == match_metadata_goals
+                else "REVIEW_REQUIRED"
+            ),
+        },
         "aggregate_features": dict(totals),
         "identity_mapping_status": "NOT_MAPPED_TO_FPL",
         "receiver_identity_status": "NOT_AVAILABLE_IN_PUBLIC_WYSCOUT_EVENT_SCHEMA",
