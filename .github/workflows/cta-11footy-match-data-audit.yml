@@ -48,12 +48,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run 11footy identity and crosswalk unit tests
+      - name: Install pytest and run 11footy identity/crosswalk tests
         run: |
-          python canonical_candidate/engineering_workbench/tests/test_11footy_premier_league_data_audit.py
-          python canonical_candidate/engineering_workbench/tests/test_11footy_fpl_identity_candidates.py
-          python canonical_candidate/engineering_workbench/tests/test_11footy_verified_crosswalk.py
-          python canonical_candidate/engineering_workbench/tests/test_provider_identity_crosswalk.py
+          python -m pip install --disable-pip-version-check pytest
+          python -m pytest -q \
+            canonical_candidate/engineering_workbench/tests/test_11footy_premier_league_data_audit.py \
+            canonical_candidate/engineering_workbench/tests/test_11footy_fpl_identity_candidates.py \
+            canonical_candidate/engineering_workbench/tests/test_11footy_verified_crosswalk.py \
+            canonical_candidate/engineering_workbench/tests/test_provider_identity_crosswalk.py
 
       - name: Download and verify the pinned 11footy release and official FPL bootstrap
         run: |

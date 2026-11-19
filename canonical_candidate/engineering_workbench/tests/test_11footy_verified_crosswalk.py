@@ -82,7 +82,7 @@ class Verify11footyCrosswalkTests(unittest.TestCase):
     def test_provider_to_fpl_collisions_are_all_excluded(self):
         rows, report = build_verified_crosswalk([
             candidate(fpl_element_id="42"),
-            candidate(fpl_element_id="43", fpl_player_name="Example Player 2"),
+            candidate(fpl_element_id="43"),
         ])
         self.assertEqual(rows, [])
         self.assertEqual(report["excluded_rows_by_reason"]["one_to_one_collision_or_duplicate"], 2)
