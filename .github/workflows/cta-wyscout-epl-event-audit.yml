@@ -22,6 +22,7 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_event_adapter.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_engine_missingness.py
       - canonical_candidate/engineering_workbench/tests/test_run_wyscout_cta_core.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
@@ -48,6 +49,7 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_event_adapter.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_engine_missingness.py
       - canonical_candidate/engineering_workbench/tests/test_run_wyscout_cta_core.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
