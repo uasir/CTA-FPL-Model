@@ -102,7 +102,7 @@ def normalize_wyscout_events(events, players, teams, match_id):
             kind = "Pass"
         elif event_name == "Shot":
             kind = "Shot"
-        elif event_name == "Others on the ball" and end is not None:
+        elif event_name == "Others on the ball" and "acceleration" in str(event.get("subEventName") or "").casefold() and end is not None:
             kind = "Carry"
         else:
             kind = event_name
