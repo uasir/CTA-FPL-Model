@@ -17,6 +17,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 PROVIDER_COMMIT = "f0f3d40f803c69bc7fac48d0748b49175e2d08ce"
+PROVIDER_COMMIT_DATE_UTC = "2026-11-09T21:54:16+00:00"
 PROVIDER_REPO = "imadeddine-belkat/Premier-League-Stats"
 PLAYER_SOURCE_PATH = "pl_stats/_merged/players/2026-27_players_stats.csv"
 TEAM_SOURCE_PATH = "pl_stats/_merged/events/2026-27_events_stats.csv"
@@ -292,7 +293,9 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
     provider_match_ids = set(match_teams) - {""}
     malformed_match_ids = sorted(mid for mid, ids in match_teams.items() if mid and len(ids) != 2)
     report = {
-        "season": season, "as_of_time": as_of_time.isoformat(), "fixtures": len(fixtures),
+        "season": season, "as_of_time": as_of_time.isoformat(),
+        "source_snapshot_as_of": PROVIDER_COMMIT_DATE_UTC,
+        "source_commit": PROVIDER_COMMIT, "fixtures": len(fixtures),
         "fixtures_without_kickoff": sum(not bool(f.get("kickoff_time")) for f in fixtures),
         "team_fixture_rows": len(team_output), "player_fixture_rows": len(player_output),
         "provider_team_match_rows": len(source), "provider_unique_match_ids": len(provider_match_ids),
