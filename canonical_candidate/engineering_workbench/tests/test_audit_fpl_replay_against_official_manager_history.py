@@ -51,7 +51,9 @@ def test_audit_record_matches_official_manager_score():
     assert result["gross_point_difference"] == 0
     assert result["net_point_difference"] == 0
     assert result["autosub_pairs_match"] is True
+    assert result["autosub_pairs_match_reverse"] is True
     assert result["autosub_position_pairs_match"] is True
+    assert result["autosub_position_pairs_match_reverse"] is True
     assert result["autosub_count_match"] is True
     assert result["official_bench_slots"] == []
     assert result["replay_bench_slots"] == []
