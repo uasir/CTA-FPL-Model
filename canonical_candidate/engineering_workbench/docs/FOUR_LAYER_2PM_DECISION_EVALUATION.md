@@ -67,6 +67,7 @@ Current provider constraints:
 - `scripts/evaluate_fpl_decision_quality.py`: full-cohort point-error metrics, forecast bands, threshold probability calibration, ranking metrics and explanatory-only post-deadline annotations.
 - `scripts/cta_four_layer_pipeline.py`: A/B/C schema, provenance, coverage and deadline contracts; explicit independent model-track input contracts.
 - `scripts/two_pm_transformer.py`: optional PyTorch shared temporal encoder with separate minutes and conditional-points heads.
+- `scripts/evaluate_two_pm_transformer_walk_forward.py`: standalone conventional-FPL sequence construction, training-only preprocessing, separate minutes/conditional-points losses, calibration-only temperature selection, expanding-season folds and matched Ridge/two-part/persistence comparisons. The input histories are left-aligned with right padding so the encoder pools the last valid timestep.
 - Tests cover haul retention, probability scoring, ranking diagnostics, deadline leakage rejection, explicit missingness and Transformer outputs.
 
 ## Not yet completed
