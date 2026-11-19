@@ -13,7 +13,7 @@ Evaluate CTA-FPL models against real, established FPL prediction outputs using a
 | FPL Review Free | Established FPL points forecast | Archive its published player-level expected points before the deadline |
 | FPL Review Premium / Massive Data Model | Established FPL points forecast | Keep separate from Free; archive actual published values |
 | FPL Forecaster | Direct FPL bookmaker-market-derived points forecast | Use its published FPL points output directly; do not rebuild its odds conversion |
-| FPL Lucho | Direct FPL bookmaker-market-derived points forecast | Use its published FPL points / Odds xP output directly; retain variant identity |
+| FPL Lucho | Direct FPL bookmaker-market-derived points forecast | Use its published FPL points / Odds xP output directly; retain variant identity |\n| FPL Cat | Independent conventional FPL points forecast | Capture its public player-level JSON/CSV output and retain computed_at and API version |
 | Fantasy Football Scout | Established FPL points forecast, if player-level pre-deadline values are accessible | Archive only the actual pre-deadline output |
 | Fantasy Football Pundit | Established FPL points forecast, if accessible | Archive only the actual pre-deadline output |
 | Fantasy Football Fix | Established FPL points forecast, if accessible | Archive only the actual pre-deadline output |
@@ -27,7 +27,7 @@ The initial market-derived benchmarks are **FPL Forecaster and FPL Lucho**. They
 
 | Source | What is verified | Remaining limitation / next action |
 |---|---|---|
-| FPL Forecaster | Public GW11 page; player directory states 672 projected players across GW11–15; bookmaker-derived team goals are translated into player xPts. | Public player page is filterable, but a bulk CSV/API export was not verified in this audit. Test whether a complete, timestamped player-level snapshot can be captured reliably before deadline. |
+| FPL Forecaster | Public GW11 page; player directory states 672 projected players across GW11–15; bookmaker-derived team goals are translated into player xPts. | Public player page is filterable, but a bulk CSV/API export was not verified in this audit. Test whether a complete, timestamped player-level snapshot can be captured reliably before deadline. |\n| FPL Cat | Public no-key JSON/CSV API; one row per FPL player; response includes gameweek, deadline, computed_at, player ID and xP. API documentation explicitly permits research and model benchmarking with attribution. | Capture endpoint added to the raw snapshot collector. Verify live response coverage and timestamp before accepting each GW as a valid benchmark observation. |
 | FPL Lucho | Player Forecast page explicitly offers a CSV of every player's xP and fixtures for the next four GWs. Performance page separately reports served xP, raw model, Odds xP and FPL ep_next, and says the scored values are the last snapshots before deadline. | The bulk CSV's exact variant needs confirmation: do not assume it contains the separate Odds xP series. Determine whether Odds xP player-level values can be captured or reconstructed from an actual published output without rebuilding the model. |
 | FPL Review | Documentation confirms CSV export with FPL ID, player details, EV and xMins. | Export is documented as a Premium feature. Capture Free only if an actual player-level export is available; keep tiers distinct. |
 | Football Meets Data Fantasy Forecasts | Public accuracy page says forecasts are written down before deadline; current GW11 cohort is listed as 514 predictions awaiting outcomes. | Verify whether the complete player-level pre-deadline snapshot is downloadable or otherwise retrievable and preserve its exact cutoff. |
@@ -188,3 +188,8 @@ A first capture-only implementation now exists:
 **Important retention limitation:** a 90-day Actions artifact is a capture/transport mechanism, not a permanent archive. Before the retention window expires, valid snapshots must be moved into a durable, access-controlled research archive with immutable object/version retention. Do not claim long-term preservation until that archive is in place.
 
 The collector's first automated run is a capture validation, not a performance evaluation. It must fail closed if a source returns HTML, an empty response, an invalid gameweek or malformed data. It does not convert missing rows to zero.
+
+
+### FPL Cat access verification (19 November 2026)
+
+FPL Cat documents `GET https://fplcat.com/api/v1/projections` and `?format=csv`. The JSON output includes the current gameweek, deadline, model `computed_at`, and one player object per FPL player with the official FPL ID and `xp`. Its documentation states that the API is intended for model benchmarking and allows research use with attribution. The capture script now archives the exact JSON response as a distinct FPL Cat forecast variant; it does not combine it with any other provider.
