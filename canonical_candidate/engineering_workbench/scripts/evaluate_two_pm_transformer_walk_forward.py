@@ -2,8 +2,10 @@
 """Expanding-season evaluation of the standalone conventional-FPL 2PM Transformer.
 
 The model sees only lagged conventional FPL features. A/B/C features are
-intentionally excluded. Calibration is fitted on a later pre-validation
-chronological slice; all folds retain the common last-five-baseline cohort.
+intentionally excluded. The base and position feature sets support a paired
+position ablation on identical folds and player-gameweek rows. Calibration is
+fitted on a later pre-validation chronological slice; all folds retain the
+common last-five-baseline cohort.
 """
 from __future__ import annotations
 
