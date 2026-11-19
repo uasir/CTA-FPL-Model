@@ -195,3 +195,10 @@ The collector's first automated run is a capture validation, not a performance e
 ### FPL Cat access verification (19 November 2026)
 
 FPL Cat documents `GET https://fplcat.com/api/v1/projections` and `?format=csv`. The JSON output includes the current gameweek, deadline, model `computed_at`, and one player object per FPL player with the official FPL ID and `xp`. Its documentation states that the API is intended for model benchmarking and allows research use with attribution. The capture script now archives the exact JSON response as a distinct FPL Cat forecast variant; it does not combine it with any other provider.
+
+
+### FPL Wildcard access audit (19 November 2026)
+
+FPL Wildcard exposes a direct CSV download at `https://fplwildcard.com/data/projections/current.csv`. Its documentation describes one row per selectable player per projected gameweek, with `gameweek`, `profile_url`, `xpts`, `xmins` and optional probability fields. The page reported GW11, 19 November 15:30 UK projection refresh and model v11. This is a useful additional independent forecast output.
+
+The collector now captures the CSV as a separate variant and records it as **internal research only**. The source explicitly grants no redistribution licence for the dataset, so raw CSVs/player-level values must not be republished or uploaded into public artifacts. Any future external-facing report must use permitted aggregate findings and attribution, and should be checked against the provider's terms.
