@@ -129,3 +129,35 @@ def test_minutes_band_representatives_are_training_only_class_means():
     probs = [[0.0, 1.0, 0.0, 0.0, 0.0]]
     metrics = minutes_distribution_metrics([10], probs, representatives)
     assert metrics["mae"] == 5.0
+
+
+def test_points_band_model_distribution_and_training_only_representatives():
+    from evaluate_fpl_walk_forward import (
+        fit_points_band_model, fit_points_band_representatives,
+        points_band, points_band_probabilities, points_distribution_metrics,
+    )
+    rows=[]
+    values=(-2,0,1,2,3,4,5,6,7,8,9,10,12)
+    for gw in range(1,20):
+        for player in range(1,16):
+            minutes=0 if (gw+player)%6==0 else 90
+            points=values[(gw*player)%len(values)] if minutes else 0
+            item=row("2024-25",gw,player,points,minutes,prior=(gw%6)+1)
+            item["actual_points"]=points
+            item["actual_minutes"]=minutes
+            rows.append(item)
+    train=rows[:220]
+    model=fit_points_band_model(train,iterations=240)
+    probs=points_band_probabilities(model,rows[230])
+    assert len(probs)==6
+    assert all(0.0<=p<=1.0 for p in probs)
+    assert abs(sum(probs)-1.0)<1e-9
+    assert [points_band(v) for v in (-2,-1,0,1,2,3,5,6,9,10,15)] == [0,0,1,2,2,3,3,4,4,5,5]
+    reps=fit_points_band_representatives(train)
+    assert len(reps)==6
+    metrics=points_distribution_metrics([-1,0,2,4,8,12],[
+        [1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0],
+        [0,0,0,1,0,0],[0,0,0,0,1,0],[0,0,0,0,0,1]
+    ],[-1,0,2,4,8,12])
+    assert metrics["expected_points_mae"]==0.0
+    assert metrics["ranked_probability_score"]>=0.0
