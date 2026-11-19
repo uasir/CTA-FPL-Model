@@ -88,6 +88,21 @@ def validate_rows(rows, provider):
             if provider_dob[:10] != fpl_dob[:10]:
                 errors.append({"line": line, "error": "exact_name_team_birth_date_mismatch"})
                 continue
+            if not (row.get("source_release") or "").strip():
+                errors.append({"line": line, "error": "exact_name_team_birth_date_requires_source_release"})
+                continue
+            for hash_field in ("provider_source_sha256", "fpl_source_sha256"):
+                digest = (row.get(hash_field) or "").strip().lower()
+                if not re.fullmatch(r"[0-9a-f]{64}", digest):
+                    errors.append({"line": line, "error": "exact_name_team_birth_date_requires_sha256_provenance", "field": hash_field})
+                    break
+            else:
+                if _normalize_team_name(row.get("provider_player_name")) != _normalize_team_name(row.get("fpl_player_name")):
+                    errors.append({"line": line, "error": "exact_name_team_birth_date_full_names_do_not_match"})
+                    continue
+                accepted.append({field: (row.get(field) or "").strip() for field in FIELDS})
+                continue
+            continue
             if _normalize_team_name(row.get("provider_player_name")) != _normalize_team_name(row.get("fpl_player_name")):
                 errors.append({"line": line, "error": "exact_name_team_birth_date_full_names_do_not_match"})
                 continue
