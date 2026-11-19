@@ -172,3 +172,19 @@ This follow-up checks the actual public forecast outputs and capture surfaces, n
 3. Re-test FPL Forecaster for a complete player-level bulk output path; if none exists, record it as visible but not yet machine-capturable.
 4. Add the remaining candidate sources only after confirming complete player-level coverage and pre-deadline snapshot reproducibility.
 5. Do not calculate or report our own comparative scores until the captured snapshots have been joined to official realized points on matched player-GW cohorts.
+
+
+## Raw snapshot collector implementation (19 November 2026)
+
+A first capture-only implementation now exists:
+
+- `scripts/capture_external_fpl_forecasts.py` retrieves the public Sideline Quant GW-specific JSON, FPLRogue accepted projection CSV, and FPL Lucho served-xP CSV.
+- Raw response bytes are written unchanged; the manifest records retrieval time, requested/final URL, content type, source-reported generation time where available, row count, variant label and SHA-256.
+- The Lucho export is explicitly labelled **served xP, not assumed Odds xP**. The collector does not derive Odds xP or translate bookmaker markets.
+- Sideline Quant rows remain fixture-grain; no player-GW aggregation is performed during capture.
+- Third-party CSV columns are preserved and inventoried rather than assumed. Their player IDs, point columns, grain and variant must be audited before normalization/scoring.
+- The manual/push-triggered workflow `.github/workflows/cta-external-fpl-forecast-capture.yml` retains raw snapshots and manifest as a GitHub Actions artifact for 90 days.
+
+**Important retention limitation:** a 90-day Actions artifact is a capture/transport mechanism, not a permanent archive. Before the retention window expires, valid snapshots must be moved into a durable, access-controlled research archive with immutable object/version retention. Do not claim long-term preservation until that archive is in place.
+
+The collector's first automated run is a capture validation, not a performance evaluation. It must fail closed if a source returns HTML, an empty response, an invalid gameweek or malformed data. It does not convert missing rows to zero.
