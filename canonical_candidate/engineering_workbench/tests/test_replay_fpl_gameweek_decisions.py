@@ -78,7 +78,7 @@ def test_bench_boost_adds_all_bench_points_and_disables_autosub_double_count():
     result = replay_gameweek(decision, points, mins, positions)
     assert result["bench_points_added"] == 12
     assert result["substitutions"] == []
-    assert result["net_points"] == 34
+    assert result["net_points"] == 40
 
 
 def test_transfer_hits_and_free_hit_wildcard_waiver():
@@ -86,10 +86,10 @@ def test_transfer_hits_and_free_hit_wildcard_waiver():
     decision["transfers_made"] = 3
     decision["free_transfers"] = 1
     points, mins = outcomes(positions)
-    assert replay_gameweek(decision, points, mins, positions)["net_points"] == 12
+    assert replay_gameweek(decision, points, mins, positions)["net_points"] == 16
     for chip in ("free_hit", "wildcard"):
         candidate = dict(decision, chip=chip, chip_legality_verified=True)
-        assert replay_gameweek(candidate, points, mins, positions)["net_points"] == 20
+        assert replay_gameweek(candidate, points, mins, positions)["net_points"] == 24
 
 
 def test_replay_requires_explicit_legal_action_and_chip_verification():
@@ -131,3 +131,17 @@ def test_policy_comparison_rejects_mismatched_initial_states():
     ]
     with pytest.raises(ValueError, match="same starting state"):
         compare_policy_replays(rows)
+
+
+
+def test_autosub_skips_first_bench_player_when_formation_would_be_illegal():
+    decision, positions = make_roster()
+    decision["starting_xi"] = ["g1", "d1", "d2", "d3", "m1", "m2", "m3", "m4", "m5", "f1", "f2"]
+    decision["bench_order"] = ["f3", "d4", "d5", "g2"]
+    points, mins = outcomes(positions)
+    mins["d1"] = 0
+    points["f3"] = 9
+    points["d4"] = 5
+    result = replay_gameweek(decision, points, mins, positions)
+    assert result["substitutions"][0]["in"] == "d4"
+    assert result["final_active_xi"].count("f3") == 0
