@@ -28,7 +28,13 @@ from train_fpl_exploratory_ridge import fit_ridge, predict
 # Include the recent xG/xA aggregates available in the multi-season FPL panel.
 # The existing published baseline feature set remains unchanged; matched Ridge
 # and two-part comparators below use this same expanded conventional feature set.
-TRANSFORMER_FEATURES = tuple(FEATURES) + ("prior3_gw_xg_avg", "prior3_gw_xa_avg")
+BASE_TRANSFORMER_FEATURES = tuple(FEATURES) + ("prior3_gw_xg_avg", "prior3_gw_xa_avg")
+POSITION_FEATURES = ("position_gkp", "position_def", "position_mid", "position_fwd")
+TRANSFORMER_FEATURE_SETS = {
+    "base": BASE_TRANSFORMER_FEATURES,
+    "position": BASE_TRANSFORMER_FEATURES + POSITION_FEATURES,
+}
+TRANSFORMER_FEATURES = BASE_TRANSFORMER_FEATURES  # backward-compatible default
 
 MAX_LENGTH = 6
 EPOCHS = 8
@@ -59,10 +65,11 @@ def make_windows(target_rows, history_index, max_length=MAX_LENGTH):
     return windows
 
 
-def available_features(fit_rows):
-    """Use a feature only when the current fold's fitting block observes it."""
+def available_features(fit_rows, feature_candidates=None):
+    """Use observed features from the selected ablation set only."""
+    candidates = tuple(feature_candidates or TRANSFORMER_FEATURES)
     return tuple(
-        feature for feature in TRANSFORMER_FEATURES
+        feature for feature in candidates
         if any(number(row.get(feature)) is not None for row in fit_rows)
     )
 
@@ -254,7 +261,7 @@ def apply_affine_expected_points_calibrator(predictions, slope, intercept):
     return np.maximum(0.0, intercept + slope * values).tolist()
 
 
-def evaluate_fold(all_rows, season, torch, seed_offset=0):
+def evaluate_fold(all_rows, season, torch, seed_offset=0, feature_candidates=None):
     train = [r for r in all_rows if r["season"] < season]
     valid = [r for r in all_rows if r["season"] == season]
     train_keys = sorted({(r["season"], r["gameweek"]) for r in train})
@@ -264,7 +271,7 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
     calibration_keys = set(train_keys[-calibration_count:])
     fit_rows = [r for r in train if (r["season"], r["gameweek"]) not in calibration_keys]
     calibration_rows = [r for r in train if (r["season"], r["gameweek"]) in calibration_keys]
-    fold_features = available_features(fit_rows)
+    fold_features = available_features(fit_rows, feature_candidates)
     if len(fit_rows) < len(fold_features) + 10:
         raise ValueError("Insufficient transformer fitting rows or usable features")
     # The same pre-validation chronological split is used for the neural model
@@ -397,11 +404,14 @@ def appearance_model_prediction(model, row):
     return predict(model, row)
 
 
-def evaluate(rows):
+def evaluate(rows, feature_set="base"):
     try:
         import torch
     except ImportError as exc:
         raise RuntimeError("Install the optional PyTorch dependency to run this experiment") from exc
+    if feature_set not in TRANSFORMER_FEATURE_SETS:
+        raise ValueError(f"Unknown feature set {feature_set!r}; choose one of {sorted(TRANSFORMER_FEATURE_SETS)}")
+    feature_candidates = TRANSFORMER_FEATURE_SETS[feature_set]
     grouped = group_player_gameweeks(rows)
     raw_by_key = {}
     for row in rows:
@@ -413,6 +423,8 @@ def evaluate(rows):
         raw = raw_by_key[(record["season"], record["fpl_element_id"], record["gameweek"])]
         record["prior3_gw_xg_avg"] = number(raw.get("prior3_gw_xg_avg"))
         record["prior3_gw_xa_avg"] = number(raw.get("prior3_gw_xa_avg"))
+        for feature in POSITION_FEATURES:
+            record[feature] = number(raw.get(feature))
     grouped = [r for r in grouped if r["gameweek"] > 1]
     seasons = sorted({r["season"] for r in grouped})
     folds = []
@@ -421,7 +433,7 @@ def evaluate(rows):
     for index, season in enumerate(seasons):
         if index == 0:
             continue
-        fold = evaluate_fold(grouped, season, torch, index)
+        fold = evaluate_fold(grouped, season, torch, index, feature_candidates)
         aggregate = fold.pop("_aggregate")
         folds.append(fold)
         pooled_actual.extend(aggregate["actual"])
@@ -476,7 +488,7 @@ def evaluate(rows):
         "status": "RESEARCH_ONLY",
         "decision": "DO_NOT_PROMOTE",
         "model_track": "STANDALONE_CONVENTIONAL_FPL_2PM_TRANSFORMER",
-        "feature_set": list(TRANSFORMER_FEATURES),
+        "feature_set_name": feature_set,\n        "feature_set": list(feature_candidates),
         "sequence_length": MAX_LENGTH,
         "training": {
             "epochs": EPOCHS, "batch_size": BATCH_SIZE, "width": WIDTH,
@@ -509,10 +521,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--feature-set", choices=sorted(TRANSFORMER_FEATURE_SETS), default="base")
     args = parser.parse_args()
     with args.input.open(newline="", encoding="utf-8-sig") as handle:
         rows = list(csv.DictReader(handle))
-    report = evaluate(rows)
+    report = evaluate(rows, feature_set=args.feature_set)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
