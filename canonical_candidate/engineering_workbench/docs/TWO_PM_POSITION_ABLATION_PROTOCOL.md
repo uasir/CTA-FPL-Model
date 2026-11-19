@@ -28,7 +28,7 @@ No CTA, Opta, Wyscout, StatsBomb, LiveFPL EO, ownership, transfer, xP, target-fi
 
 Primary forecast diagnostics: MAE, RMSE, signed bias and error-band/tail diagnostics.
 
-Ranking diagnostics: Spearman and top-100 ranking quality from the existing forecast evaluator.
+Ranking diagnostics: Spearman and top-100 realized points are computed separately within each season-gameweek deadline, then macro-averaged across deadlines. A pooled top-K across different Gameweeks is not a valid FPL selection metric. Paired ranking deltas use season-clustered bootstrap intervals.
 
 Uncertainty: player-season-clustered bootstrap intervals for position-minus-base absolute and squared error differences.
 
