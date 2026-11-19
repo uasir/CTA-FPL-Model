@@ -55,7 +55,7 @@ jobs:
           PYTHONPATH=canonical_candidate/engineering_workbench/scripts python -m pytest -q \
             canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py \
-            canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py \\
+            canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py \
             canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py
 
       - name: Download the public Wyscout 2017/18 data files
