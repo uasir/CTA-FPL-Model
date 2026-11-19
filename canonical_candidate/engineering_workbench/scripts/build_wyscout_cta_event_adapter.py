@@ -60,10 +60,18 @@ def normalize_wyscout_events(events, players, teams, match_id):
     normalized = []
     skipped = {"missing_team": 0, "missing_player_id": 0, "unresolved_player_metadata": 0, "unmapped_event_type": 0}
     boundary_counts = Counter()
-    current_team = None
+    match_team_ids = sorted({
+        str(event.get("teamId")) for event in events if event.get("teamId") is not None
+    })
+    opponent_by_team = (
+        {match_team_ids[0]: match_team_ids[1], match_team_ids[1]: match_team_ids[0]}
+        if len(match_team_ids) == 2 else {}
+    )
+    current_possession_team = None
     current_period = None
     possession = 0
-    previous_event_name = None
+    pending_dead_ball = False
+    pending_after_shot = False
 
     for source_index, event in ordered:
         period = _period(event)
@@ -95,22 +103,55 @@ def normalize_wyscout_events(events, players, teams, match_id):
             skipped["unmapped_event_type"] += 1
             continue
 
+        is_free_kick_shot = event_name == "Free Kick" and sub_event_name.casefold() == "free kick shot"
+        is_restart = event_name in RESTART_EVENTS
+        switch_after_event_to = None
         boundary_reason = None
-        if current_team is None:
+
+        if current_possession_team is None:
+            initial_team = (
+                opponent_by_team.get(team_key, team_key)
+                if event_name == "Duel" and 701 in tags else team_key
+            )
+            current_possession_team = initial_team
+            possession += 1
             boundary_reason = "match_start"
         elif period != current_period:
-            boundary_reason = "period_change"
-        elif team_key != current_team:
-            boundary_reason = "team_change"
-        elif event_name in RESTART_EVENTS:
-            boundary_reason = "restart_event"
-        elif previous_event_name in {"Shot", "Offside", "Foul", "Interruption"}:
-            boundary_reason = "after_terminal_event"
-        if boundary_reason:
             possession += 1
+            current_possession_team = team_key
+            pending_dead_ball = False
+            pending_after_shot = False
+            boundary_reason = "period_change"
+        elif is_restart:
+            possession += 1
+            current_possession_team = team_key
+            pending_dead_ball = False
+            pending_after_shot = False
+            boundary_reason = "restart_event"
+        elif not pending_dead_ball and event_name == "Duel":
+            if 703 in tags and team_key != current_possession_team:
+                possession += 1
+                current_possession_team = team_key
+                boundary_reason = "duel_won"
+            elif 701 in tags and team_key == current_possession_team:
+                switch_after_event_to = opponent_by_team.get(team_key)
+        elif not pending_dead_ball and event_name not in {"Foul", "Offside", "Interruption", "Duel"}:
+            if pending_after_shot and event_name in {"Save attempt", "Goalkeeper leaving line"}:
+                if team_key != current_possession_team:
+                    possession += 1
+                    current_possession_team = team_key
+                    boundary_reason = "after_shot_control"
+                pending_after_shot = False
+            elif team_key != current_possession_team:
+                possession += 1
+                current_possession_team = team_key
+                boundary_reason = "controlled_team_change"
+            elif pending_after_shot:
+                pending_after_shot = False
+
+        if boundary_reason:
             boundary_counts[boundary_reason] += 1
-        current_team, current_period = team_key, period
-        previous_event_name = "Shot" if (event_name == "Free Kick" and sub_event_name.casefold() == "free kick shot") else event_name
+        current_period = period
 
         positions = event.get("positions") or []
         start = _coord(positions[0]) if positions else None
@@ -132,7 +173,7 @@ def normalize_wyscout_events(events, players, teams, match_id):
             "_event_index": len(normalized),
             "type": {"name": kind},
             "team": {"name": team_names[team_key]},
-            "possession_team": {"name": team_names[team_key]},
+            "possession_team": {"name": team_names[current_possession_team]},
             "possession": possession,
             "period": period,
             "minute": int(float(event.get("eventSec") or 0) // 60),
@@ -161,6 +202,16 @@ def normalize_wyscout_events(events, players, teams, match_id):
             row["shot"] = {"outcome": {"name": "Goal" if 101 in tags else "Unknown"}}
         normalized.append(row)
 
+        if switch_after_event_to is not None:
+            possession += 1
+            current_possession_team = switch_after_event_to
+            boundary_counts["duel_lost"] += 1
+        if event_name in {"Foul", "Offside", "Interruption"}:
+            pending_dead_ball = True
+            pending_after_shot = False
+        elif kind == "Shot":
+            pending_after_shot = True
+
     report = {
         "status": "PASS_WYSCOUT_EVENTS_NORMALIZED" if normalized else "NO_NORMALIZED_EVENTS",
         "provider": "Wyscout",
@@ -174,10 +225,10 @@ def normalize_wyscout_events(events, players, teams, match_id):
         ),
         "player_id_namespace": "wyscout: prefix retained; never interpreted as StatsBomb or FPL ID",
         "coordinate_conversion": "attacking-relative percentage x,y -> CTA pitch x*1.2,y*0.8; no direction flip",
-        "possession_method": "INFERRED_CONTIGUOUS_TEAM_BLOCK",
-        "possession_boundary_policy": "period/team changes, restarts, and after shot/offside/foul/interruption",
+        "possession_method": "INFERRED_EVENT_STATE_WITH_DUEL_OUTCOME_TAGS",
+        "possession_boundary_policy": "period changes, restarts, controlled-action team changes, duel won/lost tags; fouls/offsides/interruptions pause possession changes",
         "limitations": [
-            "Wyscout does not supply possession IDs in this public event schema; inferred segments are provisional.",
+            "Wyscout does not supply possession IDs in this public event schema; segments are inferred from event state and duel outcome tags and remain provisional.",
             "No pass recipient, pressure flag, StatsBomb xG or 360 context is synthesized.",
             "Unknown pass accuracy is marked non-completed rather than assumed completed.",
             "Provider player IDs remain Wyscout-namespaced and require a verified season-specific FPL crosswalk before FPL joins."
@@ -237,8 +288,8 @@ def main():
             "possession_boundary_reason_counts": dict(boundary_counts),
             "player_id_namespace": "wyscout: prefix retained; never interpreted as StatsBomb or FPL ID",
             "coordinate_conversion": "attacking-relative percentage x,y -> CTA pitch x*1.2,y*0.8; no direction flip",
-            "possession_method": "INFERRED_CONTIGUOUS_TEAM_BLOCK",
-            "possession_boundary_policy": "period/team changes, restarts, and after shot/offside/foul/interruption",
+            "possession_method": "INFERRED_EVENT_STATE_WITH_DUEL_OUTCOME_TAGS",
+            "possession_boundary_policy": "period changes, restarts, controlled-action team changes, duel won/lost tags; fouls/offsides/interruptions pause possession changes",
             "limitations": match_reports[0]["limitations"] if match_reports else [],
         }
     type_counts = Counter(row["type"]["name"] for row in normalized)
