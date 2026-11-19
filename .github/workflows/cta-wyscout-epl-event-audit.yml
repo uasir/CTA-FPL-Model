@@ -16,6 +16,12 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/verify_cross_provider_fpl_identity.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_wyscout.py
+      - canonical_candidate/engineering_workbench/scripts/cta_four_layer_pipeline.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_decision_quality.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_walk_forward.py
+      - canonical_candidate/engineering_workbench/scripts/train_fpl_exploratory_ridge.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_xsuccess.py
@@ -30,6 +36,8 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_abc_wyscout_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_wyscout.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py
   push:
     branches: [main, "feat/**"]
@@ -260,6 +268,36 @@ jobs:
               --out-dir run_artifacts/wyscout/output/verified_fpl_panel
           else
             echo "WARNING: no cross-provider verified identity file; Wyscout player-level panel not built"
+          fi
+
+      - name: Build integrated historical Wyscout A/B/C player-fixture panel
+        if: always()
+        continue-on-error: true
+        run: |
+          LAGGED="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_lagged_fpl_research_features.csv"
+          REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
+          if [ -f "$LAGGED" ] && [ -f "$REPORT" ]; then
+            python canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py \\
+              --lagged-features "$LAGGED" \\
+              --source-report "$REPORT" \\
+              --out-dir run_artifacts/wyscout/output/verified_fpl_panel/cta_abc
+          else
+            echo "WARNING: verified historical Wyscout/FPL lagged panel unavailable"
+          fi
+
+      - name: Evaluate standalone historical A/B/C predictor
+        if: always()
+        continue-on-error: true
+        run: |
+          PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
+          if [ -f "$PANEL" ] && [ -f "$REPORT" ]; then
+            python canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_wyscout.py \\
+              --abc-panel "$PANEL" \\
+              --source-report "$REPORT" \\
+              --out run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_evaluation_report.json
+          else
+            echo "WARNING: integrated historical A/B/C panel unavailable"
           fi
 
       - name: Evaluate incremental Wyscout CTA signal against prior FPL form
