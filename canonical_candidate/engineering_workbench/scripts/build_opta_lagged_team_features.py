@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -39,6 +40,14 @@ CROSSWALK_FIELDS = [
 def read_csv(path: Path) -> list[dict]:
     with path.open(newline="", encoding="utf-8-sig") as handle:
         return list(csv.DictReader(handle))
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def write_csv(path: Path, rows: list[dict], fields: list[str]) -> None:
@@ -396,7 +405,19 @@ def main():
               list(team_rows[0]) if team_rows else [])
     write_csv(args.out_dir / "opta_lagged_player_fixture_features.csv", player_rows,
               list(player_rows[0]) if player_rows else [])
-    report = {"identity": identity_report, "team_features": feature_report}
+    report = {
+        "identity": identity_report,
+        "team_features": feature_report,
+        "source_provenance": {
+            "provider_repository": PROVIDER_REPO,
+            "provider_commit": args.source_commit,
+            "provider_commit_timestamp_utc": PROVIDER_COMMIT_DATE_UTC,
+            "player_stats_sha256": sha256_file(args.opta_players),
+            "team_match_stats_sha256": sha256_file(args.opta_team_events),
+            "official_fpl_bootstrap_sha256": sha256_file(args.bootstrap),
+            "official_fpl_fixtures_sha256": sha256_file(args.fixtures),
+        },
+    }
     (args.out_dir / "opta_fpl_integration_report.json").write_text(
         json.dumps(report, indent=2), encoding="utf-8"
     )
