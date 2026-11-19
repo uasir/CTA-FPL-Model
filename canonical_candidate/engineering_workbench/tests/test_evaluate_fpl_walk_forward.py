@@ -1,5 +1,5 @@
 import math
-from evaluate_fpl_walk_forward import FEATURES, evaluate_walk_forward, fit_ridge_fast, fit_minutes_band_model, minutes_band_probabilities, minutes_band, minutes_distribution_metrics, one_hot_minutes_distribution
+from evaluate_fpl_walk_forward import FEATURES, evaluate_walk_forward, fit_ridge_fast, fit_minutes_band_model, fit_minutes_band_representatives, minutes_band_probabilities, minutes_band, minutes_distribution_metrics, one_hot_minutes_distribution
 from train_fpl_exploratory_ridge import fit_ridge, predict
 
 
@@ -112,3 +112,20 @@ def test_walk_forward_report_includes_minutes_distribution_metrics():
         assert bands["raw"]["multiclass_brier"]>=0
         assert bands["last_gameweek_or_training_prior"]["accuracy"]>=0
         assert fold["points"]["minutes_band_calibrated"]["mae"]>=0
+
+
+
+def test_minutes_band_representatives_are_training_only_class_means():
+    train = [
+        {"actual_minutes": 0},
+        {"actual_minutes": 10},
+        {"actual_minutes": 20},
+        {"actual_minutes": 40},
+        {"actual_minutes": 80},
+        {"actual_minutes": 90},
+    ]
+    representatives = fit_minutes_band_representatives(train)
+    assert representatives.tolist() == [0.0, 15.0, 40.0, 80.0, 90.0]
+    probs = [[0.0, 1.0, 0.0, 0.0, 0.0]]
+    metrics = minutes_distribution_metrics([10], probs, representatives)
+    assert metrics["mae"] == 5.0
