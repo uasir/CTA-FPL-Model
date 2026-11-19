@@ -161,8 +161,9 @@ No arbitrary target rank or unattainable prediction benchmark should be used as 
 3. **Exploratory v0.1 implemented:** a deterministic one-gameweek scorer handles legal XI/bench structure, formation-aware autosubs, captain/vice, Triple Captain, Bench Boost and transfer hits. It requires externally verified action/chip legality and does not yet transition squad or budget state. See [FPL_ONE_GAMEWEEK_REPLAY_INPUT_CONTRACT.md](FPL_ONE_GAMEWEEK_REPLAY_INPUT_CONTRACT.md).
 4. **Implemented, not yet empirically validated:** paired policy comparison enforces identical starting-state IDs, identical policy sets across deadlines and pre-deadline decision freeze timestamps.
 5. Add complete feasible-set regret and distinguish shortlist regret from exhaustive global regret.
-6. Validate the replay scorer against known official FPL team histories and edge cases, then assemble a point-in-time historical decision archive.
-7. Add sequential multi-gameweek state transitions after one-step replay is verified.
-8. Integrate LiveFPL field context and CoVar only in their separate downstream evaluation layers.
+6. **In progress:** validate the replay scorer against official FPL manager histories and autosub outputs. The aggregate-only audit workflow is implemented; it is a scoring-engine check, not a recommendation-performance test.
+7. Assemble a point-in-time historical decision archive after scoring parity is established.
+8. Add sequential multi-gameweek state transitions after one-step replay is verified.
+9. Integrate LiveFPL field context and CoVar only in their separate downstream evaluation layers.
 
 This protocol defines what must be measured. It does not claim that any current model or optimizer has already demonstrated decision-value improvement.
