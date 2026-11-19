@@ -84,7 +84,7 @@ The scorer uses official total points as supplied; it does not reconstruct goals
 
 The audit writes aggregate metrics only. Manager identifiers, raw picks and player-level outcomes remain in runner memory and are not uploaded or committed. Current-rank sampling is survivor/rank conditioned, so this is a scoring-engine verification sample—not a representative manager cohort and not a test of recommendation quality.
 
-Workflow: [FPL decision replay validation](../../../../.github/workflows/cta-fpl-decision-replay-audit.yml).
+Workflow: [FPL decision replay validation](../../../.github/workflows/cta-fpl-decision-replay-audit.yml).
 
 Official rule references:
 - [Fantasy Premier League Help and FAQs](https://fantasy.premierleague.com/help/faqs) — captain/vice, chips, transfer deductions, appearances and automatic substitutions.
