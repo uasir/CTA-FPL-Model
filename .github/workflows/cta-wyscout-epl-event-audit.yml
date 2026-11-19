@@ -59,7 +59,7 @@ jobs:
 
       - name: Run Wyscout and 11footy identity resolver unit tests
         run: |
-          python -m pip install pytest
+          python -m pip install pytest numpy
           PYTHONPATH=canonical_candidate/engineering_workbench/scripts python -m pytest -q \
             canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py \
