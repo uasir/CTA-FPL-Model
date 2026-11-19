@@ -64,3 +64,27 @@ def test_ranking_is_computed_within_each_season_gameweek_deadline():
     assert summary["n_deadlines"] == 2
     assert set(deadlines) == {("2025-26", 1), ("2025-26", 2)}
     assert summary["macro_selected_mean_points"] == 5.0
+
+def test_panel_prefers_explicit_gw_column_over_round_metadata():
+    rows = build_season_rows("2025-26", [{
+        "element": "101", "round": "47", "GW": "12",
+        "kickoff_time": "2026-01-17T15:00:00Z", "minutes": "90",
+        "total_points": "6", "position": "DEF", "expected_goals": "0.1",
+        "expected_assists": "0.0", "was_home": "true", "fixture": "218",
+    }])
+    assert len(rows) == 1
+    assert rows[0]["gameweek"] == 12
+
+
+def test_panel_rejects_gameweek_outside_fpl_season_range():
+    try:
+        build_season_rows("2025-26", [{
+            "element": "101", "round": "47", "GW": "47",
+            "kickoff_time": "2026-01-17T15:00:00Z", "minutes": "90",
+            "total_points": "6", "position": "DEF", "expected_goals": "0.1",
+            "expected_assists": "0.0", "was_home": "true", "fixture": "218",
+        }])
+    except ValueError as exc:
+        assert "expected 1-38" in str(exc)
+    else:
+        raise AssertionError("out-of-range FPL gameweek must be rejected")
