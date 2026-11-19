@@ -34,6 +34,9 @@ Prepare the FPL-points predictor for multi-season chronological evaluation. This
 - FPL element IDs are treated as season-scoped. The FPL-only experiment does not pretend they are persistent cross-season identities.
 - `xP`, ownership/selected counts, transfers, and post-match `modified` values are explicitly excluded from model features.
 - No raw source files or player-level panel artifacts are uploaded by the research workflow.
+- First completed run: [GitHub Actions run 44498912828](https://github.com/uasir/CTA-FPL-Model/actions/runs/44498912828), successful. It downloaded all 10 seasons (2016/17–2025/26), producing 253,900 player-fixture rows. The chronological split used 295 training gameweeks and 74 validation gameweeks (2024/25 GW2 through 2025/26 GW38), with 190,754 training fixture rows and 55,712 validation fixture rows.
+- On 54,924 scored validation player-gameweeks, the lagged FPL ridge achieved MAE 1.050478 and RMSE 2.031025, versus the last-five-gameweek-points baseline MAE 1.080018 and RMSE 2.175455. Absolute improvements were 0.029540 MAE and 0.144430 RMSE (approximately 2.7% and 6.6% relative). This is a modest positive exploratory result, not a promotion decision; there is one pooled holdout and no probability calibration or season-by-season stability test yet.
+- Engineering CI after the builder and encoding regression test: [Run 44498912537](https://github.com/uasir/CTA-FPL-Model/actions/runs/44498912537), 332 tests and 3 subtests passed.
 - The resulting scores remain exploratory: source vintages are retrospective, not verified deadline-time snapshots.
 
 ### Existing CTA-linked historical panel
