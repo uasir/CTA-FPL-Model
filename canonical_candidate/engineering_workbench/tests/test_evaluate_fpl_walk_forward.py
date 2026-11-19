@@ -210,3 +210,21 @@ def test_player_season_cluster_bootstrap_is_reproducible_and_aggregated():
         assert len(first[key])==2
         assert first[key][0]<=first[key][1]
 
+
+
+def test_hurdle_two_part_blend_and_calibration_weight_selection():
+    from evaluate_fpl_walk_forward import blend_expected_points, select_blend_weight
+    actual=[0.0,1.0,2.0,8.0,10.0]
+    hurdle=[0.5,1.5,2.5,7.0,9.0]
+    two_part=[0.0,0.0,1.0,10.0,12.0]
+    assert blend_expected_points(8.0,4.0,0.25)==5.0
+    mae_weight=select_blend_weight(actual,hurdle,two_part,"mae")
+    mse_weight=select_blend_weight(actual,hurdle,two_part,"mse")
+    assert 0.0<=mae_weight<=1.0
+    assert 0.0<=mse_weight<=1.0
+    assert select_blend_weight(actual,hurdle,two_part,"mae")==mae_weight
+    assert select_blend_weight(actual,hurdle,two_part,"mse")==mse_weight
+    with pytest.raises(ValueError):
+        blend_expected_points(1.0,2.0,1.5)
+    with pytest.raises(ValueError):
+        select_blend_weight([],[],[],"mae")
