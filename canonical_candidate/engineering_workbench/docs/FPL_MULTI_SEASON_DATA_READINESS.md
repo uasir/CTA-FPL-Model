@@ -22,7 +22,19 @@ Prepare the FPL-points predictor for multi-season chronological evaluation. This
 - Its README states that weekly updates stopped after 2024/25 and describes only three subsequent major updates per season.
 - The README explicitly warns that the `xP` field may contain post-match information and should be shifted or excluded.
 - GitHub reports the repository licence as `Other` / SPDX `NOASSERTION`; no clear reuse licence was identified.
-- **Decision: do not ingest this dataset into the project or publish derived player-level rows unless its reuse rights are clarified.** Its historical gameweek files are also not independently proven to be exact deadline-time snapshots.
+- **Decision: use it for user-directed, research-only multi-season FPL prediction experiments despite unresolved rights metadata.** This is not a claim that the repository grants a permissive licence. Keep raw files and player-level outputs runner-local; do not redistribute the source dataset or derived player-level extracts. Preserve attribution, the pinned source commit, per-file hashes, and the `NOASSERTION` status in every report. Its historical gameweek files are not independently proven to be exact deadline-time snapshots.
+
+### Multi-season research implementation
+
+- Pinned source revision: `d7b05b51d137bfefef4b692386d18c610975b9b9`.
+- Research seasons: 2016/17 through 2025/26; the incomplete 2026/27 season is excluded from the initial multi-season holdout.
+- Builder: `scripts/build_vaastav_fpl_multiseason_panel.py`.
+- Manual workflow: `.github/workflows/cta-fpl-multiseason-research.yml`.
+- The builder downloads each season's `gws/merged_gw.csv` into runner-local storage, hashes each source file, builds player-season-GW lagged features, and runs a chronological 80/20 gameweek holdout.
+- FPL element IDs are treated as season-scoped. The FPL-only experiment does not pretend they are persistent cross-season identities.
+- `xP`, ownership/selected counts, transfers, and post-match `modified` values are explicitly excluded from model features.
+- No raw source files or player-level panel artifacts are uploaded by the research workflow.
+- The resulting scores remain exploratory: source vintages are retrospective, not verified deadline-time snapshots.
 
 ### Existing CTA-linked historical panel
 
