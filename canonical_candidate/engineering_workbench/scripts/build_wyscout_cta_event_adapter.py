@@ -110,7 +110,7 @@ def normalize_wyscout_events(events, players, teams, match_id):
             possession += 1
             boundary_counts[boundary_reason] += 1
         current_team, current_period = team_key, period
-        previous_event_name = event_name
+        previous_event_name = "Shot" if (event_name == "Free Kick" and sub_event_name.casefold() == "free kick shot") else event_name
 
         positions = event.get("positions") or []
         start = _coord(positions[0]) if positions else None
