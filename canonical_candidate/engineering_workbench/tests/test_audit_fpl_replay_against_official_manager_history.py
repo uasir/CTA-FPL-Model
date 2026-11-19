@@ -61,3 +61,17 @@ def test_build_replay_record_rejects_missing_slot_or_player_outcome():
         assert "15 players" in str(exc)
     else:
         raise AssertionError("expected malformed picks to be rejected")
+
+
+def test_build_replay_record_normalizes_reserve_goalkeeper_from_any_bench_slot():
+    payload, live, positions = fixture_payload()
+    # The API's raw bench slots can place the reserve goalkeeper before
+    # outfield substitutes; the replay contract keeps the outfield order
+    # and moves the goalkeeper to the dedicated final bench slot.
+    payload["picks"][11]["element"], payload["picks"][14]["element"] = (
+        payload["picks"][14]["element"], payload["picks"][11]["element"]
+    )
+    record = build_replay_record(payload, live, positions)
+    assert record["decision"]["bench_order"] == ["7", "11", "12", "2"]
+    result = audit_record(payload, live, positions)
+    assert result["net_point_difference"] == 0
