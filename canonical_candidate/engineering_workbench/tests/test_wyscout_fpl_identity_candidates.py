@@ -134,7 +134,7 @@ def test_zero_goal_assist_agreement_does_not_create_strong_identity_priority():
 
 def test_historical_fpl_csv_reader_falls_back_to_windows_1252(tmp_path):
     source = tmp_path / "players.csv"
-    source.write_bytes(b"first_name,second_name\\nSadio,Man\\xe9\\n")
+    source.write_bytes(b"first_name,second_name\nSadio,Man\xe9\n")
     rows = read_csv(source)
     assert rows == [{"first_name": "Sadio", "second_name": "Mané"}]
 
