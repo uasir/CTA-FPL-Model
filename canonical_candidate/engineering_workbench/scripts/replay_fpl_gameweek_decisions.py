@@ -233,7 +233,7 @@ def compare_policy_replays(rows: Sequence[Mapping], baseline_policy: str = "hold
             expected_policy_set = current_policy_set
         elif current_policy_set != expected_policy_set:
             raise ValueError(
-                f"Policies do not share the same starting state and matched policy set for {deadline}"
+                f"Policies do not share the same matched policy set; policies must share the same starting state for {deadline}"
             )
         if baseline_policy not in policies:
             raise ValueError(f"Missing baseline policy {baseline_policy} for {deadline}")
