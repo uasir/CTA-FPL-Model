@@ -43,7 +43,7 @@ def test_chronological_two_part_evaluation_uses_all_validation_rows():
     assert report["validation_player_gameweeks"]>0
     assert report["appearance"]["model"]["brier"]>=0
     assert report["appearance"]["prior5_appearance_rate_baseline"]["brier"]>=0
-    assert report["appearance"]["log_loss"]>=0
+    assert report["appearance"]["model"]["log_loss"]>=0
     assert report["points"]["two_part_expected_points"]["mae"]>=0
     assert report["points"]["direct_points_model"]["mae"]>=0
     assert "Actual minutes are labels only" in report["leakage_controls"][0]
