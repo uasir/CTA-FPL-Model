@@ -167,6 +167,11 @@ def evaluate(rows):
             },
         },
         "features": list(FEATURES),
+        "missing_feature_policy": "Training-only median imputation with explicit missingness indicators; observed zero remains distinct from missing.",
+        "outer_training_missing_feature_counts": {
+            name: sum(1 for row in outer_train if row.get(name) is None)
+            for name in FEATURES
+        },
         "limitations": [
             "One current season and one four-gameweek outer holdout.",
             "Hyperparameter selection uses only an earlier internal split within the outer training window.",
