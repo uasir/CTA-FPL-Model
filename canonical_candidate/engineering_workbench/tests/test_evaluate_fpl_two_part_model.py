@@ -1,4 +1,4 @@
-from evaluate_fpl_two_part_model import evaluate, group_player_gameweeks
+from evaluate_fpl_two_part_model import evaluate, group_player_gameweeks, fit_platt, calibrated_probability
 
 
 def row(season, gw, player, points, minutes, prior=4.0):
@@ -41,9 +41,21 @@ def test_chronological_two_part_evaluation_uses_all_validation_rows():
     assert report["status"]=="RESEARCH_ONLY"
     assert report["validation_gameweeks"]==9
     assert report["validation_player_gameweeks"]>0
-    assert report["appearance"]["model"]["brier"]>=0
+    assert report["appearance"]["calibrated_model"]["brier"]>=0
+    assert report["appearance"]["raw_clipped_model"]["brier"]>=0
     assert report["appearance"]["prior5_appearance_rate_baseline"]["brier"]>=0
-    assert report["appearance"]["model"]["log_loss"]>=0
-    assert report["points"]["two_part_expected_points"]["mae"]>=0
+    assert report["appearance"]["calibrated_model"]["log_loss"]>=0
+    assert report["appearance_calibration_player_gameweeks"]>0
+    assert report["points"]["two_part_expected_points_calibrated"]["mae"]>=0
+    assert report["points"]["two_part_expected_points_raw"]["mae"]>=0
     assert report["points"]["direct_points_model"]["mae"]>=0
     assert "Actual minutes are labels only" in report["leakage_controls"][0]
+
+ 
+def test_platt_calibrator_returns_bounded_monotonic_probabilities():
+    scores=[-2.0,-1.0,-0.5,0.2,0.8,1.2,2.0,2.5,3.0,4.0,4.5,5.0]
+    labels=[0,0,0,0,0,0,1,1,1,1,1,1]
+    calibrator=fit_platt(scores,labels)
+    probabilities=[calibrated_probability(calibrator,x) for x in scores]
+    assert all(0.0 < p < 1.0 for p in probabilities)
+    assert probabilities==sorted(probabilities)
