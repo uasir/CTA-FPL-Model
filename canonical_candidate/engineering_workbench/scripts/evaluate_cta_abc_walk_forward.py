@@ -139,7 +139,7 @@ def build_folds(gameweeks, min_train_gameweeks=18, test_window=4):
 
 
 def evaluate(rows, source_report, ridge_lambda=1.0, n_boot=1000,
-             min_train_gameweeks=18, test_window=4):
+             min_train_gameweeks=18, test_window=4, return_predictions=False):
     eligible = [
         row for row in rows
         if truth(row.get("research_eligible_for_analysis"))
@@ -223,7 +223,7 @@ def evaluate(rows, source_report, ridge_lambda=1.0, n_boot=1000,
                 cluster_ids, n_boot=n_boot, seed=20261119 + len(paired),
             )
 
-    return {
+    report = {
         "status": "PASS_EXPLORATORY_EXPANDING_GAMEWEEK_ABC_WALK_FORWARD",
         "model_track": "INDEPENDENT_INTEGRATED_ABC",
         "target": "official historical FPL player-gameweek total_points",
@@ -252,6 +252,9 @@ def evaluate(rows, source_report, ridge_lambda=1.0, n_boot=1000,
         ],
         "source_hashes": source_report.get("source_hashes", {}),
     }
+    if return_predictions:
+        report["_pooled_predictions"] = pooled
+    return report
 
 
 def main():
