@@ -54,7 +54,7 @@ def test_captaincy_passes_to_vice_when_captain_does_not_play():
     points["m1"] = 7
     result = replay_gameweek(decision, points, mins, positions)
     assert result["effective_captain"] == "m1"
-    assert result["captain_extra_points"] == 14
+    assert result["captain_extra_points"] == 7
 
 
 def test_triple_captain_adds_two_extra_copies():
@@ -174,7 +174,7 @@ def test_policy_replay_requires_identical_policy_set_each_deadline():
 
 
 
-def test_triple_captain_falls_back_to_ordinary_vice_captain_double():
+def test_triple_captain_bonus_passes_to_vice_captain():
     decision, positions = make_roster()
     decision["chip"] = "triple_captain"
     decision["chip_legality_verified"] = True
@@ -183,7 +183,7 @@ def test_triple_captain_falls_back_to_ordinary_vice_captain_double():
     points["m1"] = 7
     result = replay_gameweek(decision, points, mins, positions)
     assert result["effective_captain"] == "m1"
-    assert result["captain_extra_points"] == 7
+    assert result["captain_extra_points"] == 14
 
 
 
