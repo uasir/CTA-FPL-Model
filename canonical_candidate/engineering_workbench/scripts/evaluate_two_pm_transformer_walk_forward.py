@@ -17,13 +17,18 @@ from pathlib import Path
 
 import numpy as np
 
-from evaluate_fpl_two_part_model import FEATURES, fit_linear_probability, fit_platt, calibrated_probability, group_player_gameweeks
+from evaluate_fpl_two_part_model import FEATURES, fit_platt, calibrated_probability, group_player_gameweeks
 from evaluate_fpl_walk_forward import (
     cluster_bootstrap_paired_errors, minutes_band, points_band,
     POINTS_BAND_FALLBACK_REPRESENTATIVES,
 )
 from evaluate_fpl_decision_quality import evaluate_forecast
 from train_fpl_exploratory_ridge import fit_ridge, predict
+
+# Include the recent xG/xA aggregates available in the multi-season FPL panel.
+# The existing published baseline feature set remains unchanged; matched Ridge
+# and two-part comparators below use this same expanded conventional feature set.
+TRANSFORMER_FEATURES = tuple(FEATURES) + ("prior3_gw_xg_avg", "prior3_gw_xa_avg")
 
 MAX_LENGTH = 6
 EPOCHS = 8
@@ -58,7 +63,7 @@ def fit_preprocessor(fit_rows):
     medians = []
     means = []
     scales = []
-    for feature in FEATURES:
+    for feature in TRANSFORMER_FEATURES:
         values = [number(row.get(feature)) for row in fit_rows]
         observed = [value for value in values if value is not None]
         if not observed:
@@ -66,7 +71,7 @@ def fit_preprocessor(fit_rows):
         medians.append(float(np.median(observed)))
     encoded = []
     for row in fit_rows:
-        values = [number(row.get(feature)) for feature in FEATURES]
+        values = [number(row.get(feature)) for feature in TRANSFORMER_FEATURES]
         imputed = [medians[i] if value is None else value for i, value in enumerate(values)]
         missing = [1.0 if value is None else 0.0 for value in values]
         encoded.append(imputed + missing)
@@ -88,7 +93,7 @@ def number(value):
 
 
 def encode_windows(windows, preprocessor, max_length=MAX_LENGTH):
-    width = len(FEATURES) * 2
+    width = len(TRANSFORMER_FEATURES) * 2
     values = np.zeros((len(windows), max_length, width), dtype=np.float32)
     masks = np.ones((len(windows), max_length), dtype=bool)
     for i, window in enumerate(windows):
@@ -265,12 +270,12 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0):
         representatives, eight_share,
     )
 
-    appearance_model = fit_linear_probability(fit_rows)
+    appearance_model = fit_ridge(fit_rows, "appeared", TRANSFORMER_FEATURES, 10.0)
     calibration_scores = [appearance_model_prediction(appearance_model, r) for r in calibration_rows]
     calibrator = fit_platt(calibration_scores, [r["appeared"] for r in calibration_rows])
     positive_fit = [r for r in fit_rows if r["appeared"] == 1.0]
-    conditional_model = fit_ridge(positive_fit, "actual_points", FEATURES, 10.0)
-    direct_model = fit_ridge(fit_rows, "actual_points", FEATURES, 10.0)
+    conditional_model = fit_ridge(positive_fit, "actual_points", TRANSFORMER_FEATURES, 10.0)
+    direct_model = fit_ridge(fit_rows, "actual_points", TRANSFORMER_FEATURES, 10.0)
     baseline_raw = []
     baseline_calibrated = []
     baseline_direct = []
@@ -336,7 +341,18 @@ def evaluate(rows):
         import torch
     except ImportError as exc:
         raise RuntimeError("Install the optional PyTorch dependency to run this experiment") from exc
-    grouped = [r for r in group_player_gameweeks(rows) if r["gameweek"] > 1]
+    grouped = group_player_gameweeks(rows)
+    raw_by_key = {}
+    for row in rows:
+        raw_by_key.setdefault(
+            (str(row["season"]), str(row["fpl_element_id"]), int(row["gameweek"])),
+            row,
+        )
+    for record in grouped:
+        raw = raw_by_key[(record["season"], record["fpl_element_id"], record["gameweek"])]
+        record["prior3_gw_xg_avg"] = number(raw.get("prior3_gw_xg_avg"))
+        record["prior3_gw_xa_avg"] = number(raw.get("prior3_gw_xa_avg"))
+    grouped = [r for r in grouped if r["gameweek"] > 1]
     seasons = sorted({r["season"] for r in grouped})
     folds = []
     pooled_actual, pooled_transformer, pooled_baseline, pooled_direct, pooled_last5, pooled_clusters = [], [], [], [], [], []
@@ -390,7 +406,7 @@ def evaluate(rows):
         "status": "RESEARCH_ONLY",
         "decision": "DO_NOT_PROMOTE",
         "model_track": "STANDALONE_CONVENTIONAL_FPL_2PM_TRANSFORMER",
-        "feature_set": list(FEATURES),
+        "feature_set": list(TRANSFORMER_FEATURES),
         "sequence_length": MAX_LENGTH,
         "training": {
             "epochs": EPOCHS, "batch_size": BATCH_SIZE, "width": WIDTH,
