@@ -320,3 +320,6 @@ The standalone 2PM CI walk-forward run completed successfully: 9 expanding-seaso
 - Affine vs two-part paired player-season bootstrap: MAE delta 95% CI [-0.0164, -0.0132]; MSE delta CI [-0.0607, -0.0377].
 
 The affine calibrator is fitted on held-out prior-training gameweeks only, so this is a valid walk-forward historical improvement. However, the same calibrator worsened the 2026/27 retrospective external comparisons. Treat this as evidence of historical improvement with a current-season transfer problem, not grounds for promotion. All 2PM variants remain research-only.
+
+
+The captured official FPL `ep_next` baseline has MAE 1.2153 and RMSE 2.3497 on 2,632 exact-name-matched player-GWs. Paired player-cluster bootstrap versus EVMax gives ep_next-minus-EVMax MAE difference 95% CI +0.032 to +0.127 and RMSE difference CI +0.170 to +0.304. Four names per GW were unmatched and retained as missing; no fuzzy name join was used.
