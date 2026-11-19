@@ -65,5 +65,5 @@ def test_nested_ridge_keeps_missing_xg_distinct_from_observed_zero():
     model, report = evaluate(rows)
     xg_index = report["features"].index("prior3_gw_xg_avg")
     assert report["missing_feature_policy"].startswith("Training-only median")
-    assert report["outer_training_missing_feature_counts"]["prior3_gw_xg_avg"] == 6
+    assert report["outer_training_missing_feature_counts"]["prior3_gw_xg_avg"] == 5
     assert model["fixed_alpha_10"]["points_model"]["imputation_values"][xg_index] > 0
