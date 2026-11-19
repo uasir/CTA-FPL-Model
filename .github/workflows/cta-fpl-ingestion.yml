@@ -26,6 +26,7 @@ on:
       - "canonical_candidate/engineering_workbench/tests/js/run_fpl_personal_squad_snapshot.mjs"
       - "canonical_candidate/engineering_workbench/scripts/compare_fpl_personal_squad_outputs.py"
       - "canonical_candidate/engineering_workbench/scripts/build_opta_lagged_team_features.py"
+      - "canonical_candidate/engineering_workbench/scripts/build_opta_identity_crosswalk.py"
       - "canonical_candidate/engineering_workbench/scripts/evaluate_opta_team_context.py"
       - "canonical_candidate/engineering_workbench/scripts/train_fpl_nested_tuned_ridge.py"
       - "canonical_candidate/engineering_workbench/scripts/audit_11footy_fpl_identity_candidates.py"
@@ -139,12 +140,36 @@ jobs:
             --release 11footy-2026-11-10 \
             --out-dir run_artifacts/11footy_fpl
 
+      - name: Download pinned Opta/PulseLive player identity source
+        continue-on-error: true
+        run: |
+          mkdir -p run_artifacts/11footy_fpl/input
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 https://raw.githubusercontent.com/uasir/Opta-PulseLive/f0f3d40f803c69bc7fac48d0748b49175e2d08ce/2026-2027/players.csv -o run_artifacts/11footy_fpl/input/opta_players.csv
+
+      - name: Build and validate Opta numeric-ID to FPL crosswalk
+        continue-on-error: true
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/build_opta_identity_crosswalk.py --opta-players run_artifacts/11footy_fpl/input/opta_players.csv --fpl-bootstrap run_artifacts/fpl_official/bootstrap-static.json --out-dir run_artifacts/11footy_fpl/output/opta_identity
+          python canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py --provider opta_pulselive --input run_artifacts/11footy_fpl/output/opta_identity/opta_pulselive_fpl_identity_crosswalk.csv --out-dir run_artifacts/11footy_fpl/output/opta_identity/validation
+
       - name: Build exact one-to-one 11footy to FPL identity crosswalk
         continue-on-error: true
         run: |
-          python canonical_candidate/engineering_workbench/scripts/verify_11footy_fpl_identity_crosswalk.py \
-            --candidates run_artifacts/11footy_fpl/identity_candidates.csv \
-            --out-dir run_artifacts/11footy_fpl/verified_identity
+          OPTA_CROSSWALK="run_artifacts/11footy_fpl/output/opta_identity/validation/verified_provider_fpl_crosswalk.csv"
+          OPTA_REPORT="run_artifacts/11footy_fpl/output/opta_identity/opta_identity_report.json"
+          OPTA_VALIDATION="run_artifacts/11footy_fpl/output/opta_identity/validation/crosswalk_validation.json"
+          if [ -f "$OPTA_CROSSWALK" ] && [ -f "$OPTA_REPORT" ] && [ -f "$OPTA_VALIDATION" ] && python -c 'import json; assert json.load(open("run_artifacts/11footy_fpl/output/opta_identity/opta_identity_report.json"))["status"] == "PASS" and json.load(open("run_artifacts/11footy_fpl/output/opta_identity/validation/crosswalk_validation.json"))["status"] == "PASS"'; then
+            python canonical_candidate/engineering_workbench/scripts/verify_11footy_fpl_identity_crosswalk.py \
+              --candidates run_artifacts/11footy_fpl/identity_candidates.csv \
+              --opta-crosswalk "$OPTA_CROSSWALK" \
+              --opta-report "$OPTA_REPORT" \
+              --out-dir run_artifacts/11footy_fpl/verified_identity
+          else
+            echo "WARNING: Opta crosswalk unavailable; retaining strict DOB-only 11footy verification"
+            python canonical_candidate/engineering_workbench/scripts/verify_11footy_fpl_identity_crosswalk.py \
+              --candidates run_artifacts/11footy_fpl/identity_candidates.csv \
+              --out-dir run_artifacts/11footy_fpl/verified_identity
+          fi
 
       - name: Validate exact one-to-one 11footy to FPL identity crosswalk
         continue-on-error: true
