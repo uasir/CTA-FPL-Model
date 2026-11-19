@@ -81,3 +81,23 @@ def test_build_replay_record_normalizes_reserve_goalkeeper_from_any_bench_slot()
     assert record["decision"]["bench_order"] == ["7", "11", "12", "2"]
     result = audit_record(payload, live, positions)
     assert result["net_point_difference"] == 0
+
+def test_audit_reconstructs_deadline_xi_and_bench_from_post_autosub_picks():
+    payload, live, positions = fixture_payload()
+    # Simulate the completed-GW picks response: the bench defender has moved
+    # into the XI and the absent starter now occupies that bench slot.
+    payload["picks"][4]["element"] = 7
+    payload["picks"][11]["element"] = 6
+    payload["automatic_subs"] = [{"element_in": 7, "element_out": 6, "event": 1}]
+    live["elements"][5]["stats"]["minutes"] = 0
+    live["elements"][5]["stats"]["total_points"] = 0
+    live["elements"][6]["stats"]["minutes"] = 90
+    record = build_replay_record(payload, live, positions)
+    assert record["decision"]["starting_xi"] == ["1", "3", "4", "5", "6", "8", "9", "10", "13", "14", "15"]
+    assert record["decision"]["bench_order"] == ["7", "11", "12", "2"]
+    result = audit_record(payload, live, positions)
+    assert result["autosub_pairs_match"] is True
+    assert result["autosub_position_pairs_match"] is True
+    assert result["autosub_count_match"] is True
+    assert result["official_bench_slots"] == [1]
+    assert result["replay_bench_slots"] == [1]
