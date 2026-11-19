@@ -323,3 +323,8 @@ The affine calibrator is fitted on held-out prior-training gameweeks only, so th
 
 
 The captured official FPL `ep_next` baseline has MAE 1.2153 and RMSE 2.3497 on 2,632 exact-name-matched player-GWs in the full EVMax cohort (2,631 in the 2PM common subset). Paired player-cluster bootstrap versus EVMax in the 2PM common subset gives ep_next-minus-EVMax MAE difference 95% CI +0.032 to +0.127 and RMSE difference CI +0.170 to +0.304. Four names per GW were unmatched and retained as missing; no fuzzy name join was used.
+
+
+### Expanding season-adaptive 2PM calibration on FPL Wildcard
+
+The private reconstruction now includes a prequential affine calibration variant: for each target GW, calibration is fitted only on earlier current-season player-GWs (GW2 falls back to prior-season calibration). On the 449-row Wildcard common top-50 cohort, season-adaptive MAE/RMSE are 3.028/3.914 versus Wildcard 3.066/3.843. Paired player-cluster intervals for model-minus-Wildcard are MAE [-0.124, +0.045] and RMSE [-0.028, +0.172], both including zero. It closes much of the RMSE gap but does not establish superiority. Keep research-only. Its all-player EVMax comparison is pending.
