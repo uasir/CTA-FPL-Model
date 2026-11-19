@@ -1,4 +1,4 @@
-from audit_fpl_replay_against_official_manager_history import build_replay_record, audit_record
+from audit_fpl_replay_against_official_manager_history import (\n    build_replay_record, audit_record, autosub_pairs_are_scoring_relevant,\n)
 
 
 def fixture_payload():
@@ -110,3 +110,10 @@ def test_audit_reconstructs_deadline_xi_and_bench_from_post_autosub_picks():
     assert result["chip"] == "triple_captain"
     assert result["initial_formation"] == "4-3-3"
     assert result["official_final_formation"] == "4-3-3"
+
+
+def test_bench_boost_autosub_pairs_are_not_scoring_relevant():
+    assert autosub_pairs_are_scoring_relevant(None, []) is True
+    assert autosub_pairs_are_scoring_relevant("triple_captain", []) is True
+    assert autosub_pairs_are_scoring_relevant("bench_boost", []) is False
+    assert autosub_pairs_are_scoring_relevant("bench_boost", None) is False
