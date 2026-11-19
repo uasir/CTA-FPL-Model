@@ -17,6 +17,111 @@ MINUTES_BASELINE_FEATURES = ("prior_gw_minutes", "prior3_gw_minutes_avg", "prior
 MINUTES_BAND_EDGES = (0.0, 1.0, 30.0, 60.0, 90.0)
 MINUTES_BAND_REPRESENTATIVES = np.asarray((0.0, 15.0, 45.0, 75.0, 90.0))
 
+POINTS_BAND_FALLBACK_REPRESENTATIVES = np.asarray((-1.0, 0.0, 1.5, 4.0, 7.5, 10.0))
+
+
+def points_band(points):
+    value=float(points)
+    if value < 0: return 0
+    if value == 0: return 1
+    if value < 3: return 2
+    if value < 6: return 3
+    if value < 10: return 4
+    return 5
+
+
+def fit_points_band_model(rows, ridge_lambda=2.0, iterations=220):
+    """Fit a six-class points distribution with training-only preprocessing."""
+    raw=np.asarray([[optional_number(row.get(name)) for name in FEATURES] for row in rows],dtype=float)
+    labels=np.asarray([points_band(row["actual_points"]) for row in rows],dtype=int)
+    if len(rows)<len(FEATURES)+10 or len(set(labels))<2:
+        raise ValueError("Insufficient rows or class diversity for points-band model")
+    medians=[]
+    for j,name in enumerate(FEATURES):
+        observed=raw[np.isfinite(raw[:,j]),j]
+        if len(observed)==0: raise ValueError(f"Feature has no observed training values: {name}")
+        medians.append(float(np.median(observed)))
+    missing=~np.isfinite(raw)
+    imputed=np.where(missing,np.asarray(medians),raw)
+    design=np.concatenate((imputed,missing.astype(float)),axis=1)
+    means=design.mean(axis=0)
+    scales=design.std(axis=0)
+    scales=np.where(scales>1e-12,scales,1.0)
+    x=np.column_stack((np.ones(len(rows)),(design-means)/scales))
+    y=np.eye(6)[labels]
+    weights=np.zeros((x.shape[1],6),dtype=float)
+    for _ in range(iterations):
+        logits=x@weights
+        logits-=logits.max(axis=1,keepdims=True)
+        probs=np.exp(logits)
+        probs/=probs.sum(axis=1,keepdims=True)
+        gradient=(x.T@(probs-y))/len(rows)
+        gradient[1:]+=ridge_lambda*weights[1:]/len(rows)
+        weights-=0.12*gradient
+    return {"medians":medians,"means":means.tolist(),"scales":scales.tolist(),"weights":weights.tolist()}
+
+
+def points_band_logits(model,row):
+    raw=np.asarray([optional_number(row.get(name)) for name in FEATURES],dtype=float)
+    missing=~np.isfinite(raw)
+    imputed=np.where(missing,np.asarray(model["medians"]),raw)
+    design=np.concatenate((imputed,missing.astype(float)))
+    x=np.concatenate(([1.0],(design-np.asarray(model["means"]))/np.asarray(model["scales"])))
+    return x@np.asarray(model["weights"])
+
+
+def points_band_probabilities(model,row,temperature=1.0):
+    logits=points_band_logits(model,row)/max(0.25,float(temperature))
+    logits-=np.max(logits)
+    probs=np.exp(logits)
+    return probs/probs.sum()
+
+
+def fit_points_band_representatives(rows):
+    """Estimate each points band's mean from training rows only."""
+    values=[[] for _ in range(6)]
+    for row in rows:
+        values[points_band(row["actual_points"])].append(float(row["actual_points"]))
+    return np.asarray([
+        float(np.mean(group)) if group else float(POINTS_BAND_FALLBACK_REPRESENTATIVES[i])
+        for i,group in enumerate(values)
+    ],dtype=float)
+
+
+def calibrate_points_temperature(model,rows):
+    """Select temperature on a later chronological slice, never on validation outcomes."""
+    candidates=np.arange(0.50,2.51,0.05)
+    labels=np.asarray([points_band(r["actual_points"]) for r in rows],dtype=int)
+    logits=np.vstack([points_band_logits(model,row) for row in rows])
+    best=(float("inf"),1.0)
+    for temperature in candidates:
+        scaled=logits/temperature
+        scaled-=scaled.max(axis=1,keepdims=True)
+        exp=np.exp(scaled)
+        probs=exp/exp.sum(axis=1,keepdims=True)
+        score=float(-np.log(np.clip(probs[np.arange(len(labels)),labels],1e-12,1.0)).mean())
+        if score<best[0]: best=(score,float(temperature))
+    return best[1]
+
+
+def points_distribution_metrics(actual,probabilities,representatives=None):
+    labels=np.asarray([points_band(v) for v in actual],dtype=int)
+    probs=np.asarray(probabilities,dtype=float)
+    onehot=np.eye(6)[labels]
+    reps=POINTS_BAND_FALLBACK_REPRESENTATIVES if representatives is None else np.asarray(representatives,dtype=float)
+    expected=probs@reps
+    cumulative=np.cumsum(probs,axis=1)[:,:-1]
+    observed_cumulative=np.cumsum(onehot,axis=1)[:,:-1]
+    return {
+        "expected_points_mae":round(mae(actual,expected.tolist()),6),
+        "expected_points_rmse":round(rmse(actual,expected.tolist()),6),
+        "multiclass_log_loss":round(float(-np.log(np.clip(probs[np.arange(len(labels)),labels],1e-12,1.0)).mean()),6),
+        "multiclass_brier":round(float(((probs-onehot)**2).sum(axis=1).mean()),6),
+        "ranked_probability_score":round(float(((cumulative-observed_cumulative)**2).sum(axis=1).mean()),6),
+        "accuracy":round(float((probs.argmax(axis=1)==labels).mean()),6),
+    }
+
+
 
 def minutes_band(minutes):
     value=float(minutes)
@@ -181,6 +286,9 @@ def score_fold(train, valid, season):
     minutes_band_model=fit_minutes_band_model(appearance_fit)
     minutes_band_temperature=calibrate_minutes_temperature(minutes_band_model,calibration)
     minutes_band_representatives=fit_minutes_band_representatives(appearance_fit)
+    points_band_model=fit_points_band_model(appearance_fit)
+    points_band_temperature=calibrate_points_temperature(points_band_model,calibration)
+    points_band_representatives=fit_points_band_representatives(appearance_fit)
     calibration_scores=[predict(appearance_model,r) for r in calibration]
     calibrator=fit_platt(calibration_scores,[r["appeared"] for r in calibration])
     minutes_model=fit_ridge_fast(train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
@@ -197,10 +305,15 @@ def score_fold(train, valid, season):
     minutes_band_probabilities_raw=[]
     minutes_band_last_gw=[]
     minutes_band_train_prior=[]
+    points_band_probabilities_calibrated=[]
+    points_band_probabilities_raw=[]
+    points_band_train_prior=[]
     raw_probabilities=[]; calibrated_probabilities=[]; appearance_baseline=[]
     fallback_appearance_rate=sum(r["appeared"] for r in train)/len(train)
     train_band_counts=np.bincount([minutes_band(r["actual_minutes"]) for r in appearance_fit],minlength=5)
     train_band_prior=(train_band_counts/train_band_counts.sum()).tolist()
+    train_points_counts=np.bincount([points_band(r["actual_points"]) for r in appearance_fit],minlength=6)
+    train_points_prior=(train_points_counts/train_points_counts.sum()).tolist()
     predicted_minutes=[]; predicted_minutes_raw=[]; predicted_minutes_calibrated=[]
     last_minutes=[]; prior3_minutes=[]; prior5_minutes=[]
     lagged_minutes=[]; conditional_lagged_minutes_raw=[]; conditional_lagged_minutes_calibrated=[]
@@ -209,6 +322,8 @@ def score_fold(train, valid, season):
         # All predictions are created before actual labels are read for scoring.
         band_raw=minutes_band_probabilities(minutes_band_model,row)
         band_cal=minutes_band_probabilities(minutes_band_model,row,minutes_band_temperature)
+        points_raw=points_band_probabilities(points_band_model,row)
+        points_cal=points_band_probabilities(points_band_model,row,points_band_temperature)
         score=predict(appearance_model,row)
         raw_p=min(1.0,max(0.0,score))
         calibrated_p=calibrated_probability(calibrator,score)
@@ -231,6 +346,9 @@ def score_fold(train, valid, season):
             continue
         # Keep every metric on the same scored validation cohort.
         minutes_band_probabilities_raw.append(band_raw.tolist())
+        points_band_probabilities_raw.append(points_raw.tolist())
+        points_band_probabilities_calibrated.append(points_cal.tolist())
+        points_band_train_prior.append(train_points_prior)
         minutes_band_probabilities_calibrated.append(band_cal.tolist())
         minutes_band_last_gw.append(one_hot_minutes_distribution(row["last_gw_baseline_minutes"],train_band_prior))
         minutes_band_train_prior.append(train_band_prior)
@@ -286,6 +404,13 @@ def score_fold(train, valid, season):
             "calibrated":binary_metrics(actual_appearance,calibrated_probabilities),
             "raw_clipped":binary_metrics(actual_appearance,raw_probabilities),
             "prior5_rate_baseline":binary_metrics(actual_appearance,appearance_baseline),
+        },
+        "points_bands":{
+            "temperature":round(points_band_temperature,3),
+            "training_mean_representatives":points_band_representatives.tolist(),
+            "calibrated":points_distribution_metrics(actual_points,points_band_probabilities_calibrated,points_band_representatives),
+            "raw":points_distribution_metrics(actual_points,points_band_probabilities_raw,points_band_representatives),
+            "training_class_prior":points_distribution_metrics(actual_points,points_band_train_prior,points_band_representatives),
         },
         "minutes_bands":{
             "temperature":round(minutes_band_temperature,3),
@@ -350,6 +475,11 @@ def evaluate_walk_forward(rows):
                 for metric in ("brier","log_loss")
             }
             for model in ("calibrated","raw_clipped","prior5_rate_baseline")
+        },
+        "points_bands":{
+            model:{metric:weighted_metric("points_bands",model,metric)
+                   for metric in ("expected_points_mae","expected_points_rmse","multiclass_log_loss","multiclass_brier","ranked_probability_score","accuracy")}
+            for model in ("calibrated","raw","training_class_prior")
         },
         "minutes_bands":{
             model:{metric:weighted_metric("minutes_bands",model,metric)
