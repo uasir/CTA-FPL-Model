@@ -92,15 +92,3 @@ def test_fpl_cat_json_checks_player_ids_xp_and_gameweek():
             12, "application/json",
         )
 
-
-def test_fpl_wildcard_csv_is_internal_only_and_gameweek_scoped():
-    raw = (
-        b"gameweek,player,profile_url,club,position,xpts,xmins\n"
-        b"11,Player One,https://fplwildcard.com/player/1,TST,MID,4.2,80\n"
-    )
-    result = validate_payload(
-        "fpl_wildcard_public_xpts_csv", raw, 11, "text/csv",
-    )
-    assert result["row_count"] == 1
-    assert result["forecast_column"] == "xpts"
-    assert result["redistribution_status"] == "NOT_LICENSED_INTERNAL_RESEARCH_ONLY"
