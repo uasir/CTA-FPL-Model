@@ -96,6 +96,7 @@ def normalize_wyscout_events(events, players, teams, match_id):
 
         event_name = str(event.get("eventName") or "")
         sub_event_name = str(event.get("subEventName") or "")
+        tags = _tags(event)
         if event_name not in {"Pass", "Shot", "Others on the ball", "Duel",
                               "Foul", "Offside", "Free Kick", "Corner", "Throw in",
                               "Goal kick", "Penalty", "Save attempt",
@@ -156,8 +157,6 @@ def normalize_wyscout_events(events, players, teams, match_id):
         positions = event.get("positions") or []
         start = _coord(positions[0]) if positions else None
         end = _coord(positions[1]) if len(positions) > 1 else None
-        tags = _tags(event)
-        is_free_kick_shot = event_name == "Free Kick" and sub_event_name.casefold() == "free kick shot"
         if event_name == "Pass":
             kind = "Pass"
         elif event_name == "Shot" or is_free_kick_shot:
@@ -183,7 +182,7 @@ def normalize_wyscout_events(events, players, teams, match_id):
             "_provider_player_id": str(player_id),
             "_provider_match_id": str(match_id),
             "_provider_subevent_name": sub_event_name,
-            "_possession_id_status": "INFERRED_CONTIGUOUS_TEAM_BLOCK",
+            "_possession_id_status": "INFERRED_EVENT_STATE_WITH_DUEL_OUTCOME_TAGS",
         }
         if actor is not None:
             row["player"] = actor
