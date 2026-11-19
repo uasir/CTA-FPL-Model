@@ -137,3 +137,36 @@ def test_historical_fpl_csv_reader_falls_back_to_windows_1252(tmp_path):
     source.write_bytes(b"first_name,second_name\\nSadio,Man\\xe9\\n")
     rows = read_csv(source)
     assert rows == [{"first_name": "Sadio", "second_name": "Mané"}]
+
+
+def test_duplicate_fpl_player_fixture_history_is_isolated_from_corroboration():
+    player_match_rows = [{
+        "provider_match_id": 500, "match_date": "2018-04-01",
+        "provider_player_id": 100, "provider_player_name": "Player A",
+        "provider_team_name": "Arsenal", "opponent_team_name": "Bournemouth",
+        "home_away": "home", "goals": 1, "own_goals": 0, "assists": 0,
+    }]
+    fpl_history = [
+        {"element": 10, "fixture": 900, "kickoff_time": "2018-04-01T15:00:00Z",
+         "opponent_team": 2, "was_home": "True", "minutes": 90,
+         "goals_scored": 1, "own_goals": 0, "assists": 0},
+        {"element": 10, "fixture": 900, "kickoff_time": "2018-04-01T15:00:00Z",
+         "opponent_team": 2, "was_home": "True", "minutes": 90,
+         "goals_scored": 0, "own_goals": 0, "assists": 0},
+        {"element": 99, "fixture": 900, "kickoff_time": "2018-04-01T15:00:00Z",
+         "opponent_team": 1, "was_home": "False", "minutes": 90,
+         "goals_scored": 0, "own_goals": 0, "assists": 0},
+    ]
+    candidates, report = build_candidate_review_queue(
+        player_match_rows,
+        [{"wyId": 100, "firstName": "Player", "lastName": "A"}],
+        [{"id": 10, "code": 1000, "first_name": "Player", "second_name": "A", "team": 1}],
+        [{"id": 10, "first_name": "Player", "second_name": "A"}],
+        fpl_history,
+        _teams(),
+    )
+    row = candidates[0]
+    assert row["fpl_history_ambiguous_rows"] == 1
+    assert row["fpl_history_overlap_rows"] == 0
+    assert row["goal_assist_signature_exact_rows"] == 0
+    assert report["duplicate_fpl_player_fixture_keys"] == 1
