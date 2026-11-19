@@ -7,6 +7,7 @@ on:
       - .github/workflows/cta-wyscout-epl-event-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_player_match_features.py
+      - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_event_adapter.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/verify_cross_provider_fpl_identity.py
@@ -14,6 +15,7 @@ on:
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_event_adapter.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py
@@ -62,6 +64,7 @@ jobs:
           python -m pip install pytest numpy
           PYTHONPATH=canonical_candidate/engineering_workbench/scripts python -m pytest -q \
             canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py \
+            canonical_candidate/engineering_workbench/tests/test_wyscout_cta_event_adapter.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py \
             canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py \
             canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py \
