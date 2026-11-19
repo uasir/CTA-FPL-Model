@@ -86,6 +86,8 @@ def test_multiseason_evaluation_uses_chronological_season_gameweek_holdout():
     assert report["scored_player_gameweeks"] > 0
     assert report["per_season_validation_metrics"].keys() == {"2024-25"}
     assert "zero_minute_player_gameweek_share" in report
+    assert report["positive_minute_conditional_diagnostic"]["scored_player_gameweeks_with_positive_minutes"] > 0
+    assert "actual minutes are not available" in report["positive_minute_conditional_diagnostic"]["interpretation"]
 
 
 def test_source_csv_reader_supports_legacy_windows_1252_names():
