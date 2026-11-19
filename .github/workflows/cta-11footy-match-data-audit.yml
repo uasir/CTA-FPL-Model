@@ -113,7 +113,10 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p run_artifacts/11footy/input
-          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 https://raw.githubusercontent.com/uasir/Opta-PulseLive/f0f3d40f803c69bc7fac48d0748b49175e2d08ce/2026-2027/players.csv -o run_artifacts/11footy/input/opta_players.csv
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 \
+            -H "User-Agent: CTA-FPL-Model/1.0" \
+            https://raw.githubusercontent.com/imadeddine-belkat/Premier-League-Stats/f0f3d40f803c69bc7fac48d0748b49175e2d08ce/pl_stats/_merged/players/2026-27_players_stats.csv \
+            -o run_artifacts/11footy/input/opta_players.csv
 
       - name: Build and validate Opta numeric-ID to FPL crosswalk
         continue-on-error: true
