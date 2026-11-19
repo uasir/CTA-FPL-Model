@@ -190,6 +190,30 @@ def appearance_probability_bucket(probability):
     return "high_>=0.80"
 
 
+def blend_expected_points(hurdle, two_part, hurdle_weight):
+    weight=float(hurdle_weight)
+    if not 0.0<=weight<=1.0:
+        raise ValueError("Hurdle blend weight must be between zero and one")
+    return weight*float(hurdle)+(1.0-weight)*float(two_part)
+
+
+def select_blend_weight(actual, hurdle, two_part, objective="mae"):
+    """Select a convex blend weight on a separate earlier calibration-selection slice."""
+    y=np.asarray(actual,dtype=float)
+    h=np.asarray(hurdle,dtype=float)
+    t=np.asarray(two_part,dtype=float)
+    if len(y)==0 or not (len(y)==len(h)==len(t)):
+        raise ValueError("Blend-selection inputs must be non-empty and aligned")
+    if objective not in ("mae","mse"):
+        raise ValueError("Blend objective must be mae or mse")
+    weights=np.arange(0.0,1.0001,0.05)
+    def loss(weight):
+        prediction=weight*h+(1.0-weight)*t
+        error=prediction-y
+        return float(np.abs(error).mean() if objective=="mae" else np.square(error).mean())
+    return float(min(weights,key=lambda weight:(loss(weight),float(weight))))
+
+
 def points_distribution_metrics(actual,probabilities,representatives=None):
     labels=np.asarray([points_band(v) for v in actual],dtype=int)
     probs=np.asarray(probabilities,dtype=float)
@@ -383,6 +407,36 @@ def score_fold(train, valid, season):
     conditional_points_band_representatives=fit_points_band_representatives(positive_appearance_fit)
     calibration_scores=[predict(appearance_model,r) for r in calibration]
     calibrator=fit_platt(calibration_scores,[r["appeared"] for r in calibration])
+    # Reserve a later slice of the pre-validation calibration period solely for
+    # blend-weight selection. Calibrators used for that selection see only the
+    # earlier slice; validation calibrators below still use the full calibration set.
+    blend_fit_count=max(1,int(round(len(calibration)*0.6)))
+    blend_calibration_fit=calibration[:blend_fit_count]
+    blend_selection=calibration[blend_fit_count:]
+    if not blend_selection:
+        raise ValueError(f"Insufficient calibration rows for independent blend selection in {season}")
+    blend_scores=[predict(appearance_model,r) for r in blend_calibration_fit]
+    blend_calibrator=fit_platt(blend_scores,[r["appeared"] for r in blend_calibration_fit])
+    blend_positive_calibration=[r for r in blend_calibration_fit if r["appeared"]==1.0]
+    if len(blend_positive_calibration)<10:
+        raise ValueError(f"Insufficient appeared calibration rows for blend selection in {season}")
+    blend_conditional_temperature=calibrate_points_temperature(conditional_points_band_model,blend_positive_calibration)
+    blend_selection_actual=[]; blend_selection_hurdle=[]; blend_selection_two_part=[]
+    for row in blend_selection:
+        if row["last5_baseline_points"] is None:
+            continue
+        score=predict(appearance_model,row)
+        p=calibrated_probability(blend_calibrator,score)
+        conditional_probs=points_band_probabilities(conditional_points_band_model,row,blend_conditional_temperature)
+        distribution=combine_appearance_points_distribution(p,conditional_probs)
+        hurdle_ep=float(distribution@conditional_points_band_representatives)
+        raw_p=min(1.0,max(0.0,score))
+        conditional_ep=max(0.0,predict(conditional_model,row))
+        blend_selection_hurdle.append(hurdle_ep)
+        blend_selection_two_part.append(raw_p*conditional_ep)
+        blend_selection_actual.append(row["actual_points"])
+    blend_weight_mae=select_blend_weight(blend_selection_actual,blend_selection_hurdle,blend_selection_two_part,"mae")
+    blend_weight_mse=select_blend_weight(blend_selection_actual,blend_selection_hurdle,blend_selection_two_part,"mse")
     minutes_model=fit_ridge_fast(train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
     conditional_minutes_model=fit_ridge_fast(positive_train,"actual_minutes",FEATURES,RIDGE_LAMBDA)
     # A compact, training-only persistence model tests whether recent minutes alone
@@ -413,6 +467,8 @@ def score_fold(train, valid, season):
     lagged_minutes=[]; conditional_lagged_minutes_raw=[]; conditional_lagged_minutes_calibrated=[]
     two_part_raw=[]; two_part_calibrated=[]; band_points_raw=[]; band_points_calibrated=[]; direct_points=[]; last5_points=[]
     hurdle_points_raw_expected=[]; hurdle_points_calibrated_expected=[]; calibrated_appearance_buckets=[]
+    blend_points_025=[]; blend_points_050=[]; blend_points_075=[]
+    blend_points_selected_mae=[]; blend_points_selected_mse=[]
     player_season_clusters=[]
     for row in valid:
         # All predictions are created before actual labels are read for scoring.
@@ -431,6 +487,11 @@ def score_fold(train, valid, season):
         hurdle_cal_ep=float(hurdle_cal@conditional_points_band_representatives)
         conditional=max(0.0,predict(conditional_model,row))
         raw_ep=raw_p*conditional
+        blend_points_025.append(blend_expected_points(hurdle_cal_ep,raw_ep,0.25))
+        blend_points_050.append(blend_expected_points(hurdle_cal_ep,raw_ep,0.50))
+        blend_points_075.append(blend_expected_points(hurdle_cal_ep,raw_ep,0.75))
+        blend_points_selected_mae.append(blend_expected_points(hurdle_cal_ep,raw_ep,blend_weight_mae))
+        blend_points_selected_mse.append(blend_expected_points(hurdle_cal_ep,raw_ep,blend_weight_mse))
         calibrated_ep=calibrated_p*conditional
         band_ep_raw=(1.0-band_raw[0])*conditional
         band_ep_calibrated=(1.0-band_cal[0])*conditional
@@ -501,6 +562,8 @@ def score_fold(train, valid, season):
         "training_player_gameweeks":len(train),
         "appearance_fit_player_gameweeks":len(appearance_fit),
         "calibration_player_gameweeks":len(calibration),
+        "blend_selection_player_gameweeks":len(blend_selection_actual),
+        "blend_selected_weights":{"mae":round(blend_weight_mae,3),"mse":round(blend_weight_mse,3)},
         "calibration_appearance_positive":sum(r["appeared"]==1.0 for r in calibration),
         "calibration_appearance_negative":sum(r["appeared"]==0.0 for r in calibration),
         "calibration_appearance_rate":round(sum(r["appeared"] for r in calibration)/len(calibration),6),
@@ -552,6 +615,9 @@ def score_fold(train, valid, season):
             "hurdle_calibrated":hurdle_points_calibrated_expected,
             "two_part_raw":two_part_raw,
             "direct_ridge":direct_points,
+            "blend_half":blend_points_050,
+            "blend_selected_mae":blend_points_selected_mae,
+            "blend_selected_mse":blend_points_selected_mse,
             "player_season_clusters":player_season_clusters,
         },
         "paired_points_errors":{
@@ -560,6 +626,9 @@ def score_fold(train, valid, season):
             "calibrated_hurdle_vs_direct_ridge":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,direct_points),
             "calibrated_hurdle_vs_last5":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,last5_points),
             "raw_hurdle_vs_two_part_raw":paired_error_comparison(actual_points,hurdle_points_raw_expected,two_part_raw),
+            "blend_half_vs_two_part_raw":paired_error_comparison(actual_points,blend_points_050,two_part_raw),
+            "blend_selected_mae_vs_two_part_raw":paired_error_comparison(actual_points,blend_points_selected_mae,two_part_raw),
+            "blend_selected_mse_vs_two_part_raw":paired_error_comparison(actual_points,blend_points_selected_mse,two_part_raw),
             "calibrated_hurdle_vs_two_part_raw_by_appearance_probability":paired_error_comparison(actual_points,hurdle_points_calibrated_expected,two_part_raw,calibrated_appearance_buckets)["by_group"],
         },
         "points":{
@@ -569,6 +638,11 @@ def score_fold(train, valid, season):
             "minutes_band_calibrated":regression_metrics(actual_points,band_points_calibrated),
             "direct":regression_metrics(actual_points,direct_points),
             "last5_baseline":regression_metrics(actual_points,last5_points),
+            "blend_hurdle_025":regression_metrics(actual_points,blend_points_025),
+            "blend_hurdle_050":regression_metrics(actual_points,blend_points_050),
+            "blend_hurdle_075":regression_metrics(actual_points,blend_points_075),
+            "blend_selected_mae":regression_metrics(actual_points,blend_points_selected_mae),
+            "blend_selected_mse":regression_metrics(actual_points,blend_points_selected_mse),
         },
     }
 
