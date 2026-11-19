@@ -62,7 +62,7 @@ Prepare the FPL-points predictor for multi-season chronological evaluation. This
 - The existing Wyscout/11footy/FPL research panel covers 2017/18 only.
 - It contains 91 verified cross-provider player identities and 2,693 verified player-fixture rows across 380 mapped EPL fixtures.
 - This is useful for a single-season paired CTA experiment, but not enough for a multi-season CTA claim.
-- 11footy source data is CC BY-NC 4.0 and remains subject to the existing non-commercial and runner-local handling restrictions.
+- 11footy source data is labelled CC BY-NC 4.0. Retain attribution and source provenance; this label is not used as a data-discovery exclusion, and no dataset distribution is planned.
 
 ## Feature-integrity decisions
 
