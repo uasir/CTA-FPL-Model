@@ -1,9 +1,18 @@
 import unittest
 from datetime import datetime,timezone
-from capture_fpl_ranked_manager_picks import choose_pages,select_managers,normalize_picks,capture
+from capture_fpl_ranked_manager_picks import choose_pages,select_managers,normalize_picks,capture,official_player_ids
 
 
 class RankedManagerSampleTests(unittest.TestCase):
+    def test_official_player_universe_uses_bootstrap_elements(self):
+        self.assertEqual(official_player_ids({"elements":[{"id":4},{"id":9}]}),[4,9])
+
+    def test_official_player_universe_rejects_missing_or_duplicate_ids(self):
+        with self.assertRaisesRegex(ValueError,"non-empty elements"):
+            official_player_ids({"events":[]})
+        with self.assertRaisesRegex(ValueError,"duplicate"):
+            official_player_ids({"elements":[{"id":4},{"id":4}]})
+
     def test_rank_page_sampling_covers_every_page_deterministically(self):
         a=choose_pages(10000,400,7)
         b=choose_pages(10000,400,7)

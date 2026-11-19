@@ -125,6 +125,21 @@ def parse_deadline(event):
     return datetime.fromisoformat(str(event["deadline_time"]).replace("Z","+00:00"))
 
 
+def official_player_ids(bootstrap):
+    """Return the complete player universe from an official bootstrap snapshot."""
+    elements=bootstrap.get("elements")
+    if not isinstance(elements,list) or not elements:
+        raise ValueError("official bootstrap must contain a non-empty elements list")
+    player_ids=[]
+    for element in elements:
+        if not isinstance(element,dict) or element.get("id") is None:
+            raise ValueError("official bootstrap contains an element without an id")
+        player_ids.append(int(element["id"]))
+    if len(player_ids)!=len(set(player_ids)):
+        raise ValueError("official bootstrap contains duplicate player ids")
+    return player_ids
+
+
 def capture(bootstrap,fetch=fetch_json,rank_limit=10000,sample_size=400,seed=20261117,
             delay=0.15,workers=2,deadline_window_minutes=7,lock_grace_seconds=60,
             force=False,now_fn=lambda:datetime.now(timezone.utc),sleep_fn=time.sleep):
@@ -235,7 +250,7 @@ def main():
     args.out_dir.mkdir(parents=True,exist_ok=True)
     if rows:
         eo_rows,eo_report=estimate_effective_ownership(
-            rows, player_ids=[element.get("id") for element in locked_bootstrap.get("elements",[])],
+            rows, player_ids=official_player_ids(bootstrap),
         )
         metadata.update(eo_report)
         metadata["status"]="CAPTURED_POST_DEADLINE_PICKS"
