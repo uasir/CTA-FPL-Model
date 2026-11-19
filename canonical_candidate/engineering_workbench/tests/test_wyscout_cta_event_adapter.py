@@ -238,3 +238,23 @@ def test_dead_ball_state_clears_when_retained_team_resumes_then_later_turnover_c
     assert rows[3]["possession"] != rows[2]["possession"]
     assert rows[3]["possession_team"]["name"] == "Away"
     assert report["dead_ball_pending_at_match_end"] is False
+
+
+def test_terminal_dead_ball_state_reports_the_final_event_for_review():
+    events = [
+        {"id": 1, "matchPeriod": "1H", "eventSec": 1, "teamId": 1,
+         "playerId": 10, "eventName": "Pass", "positions": [
+             {"x": 20, "y": 50}, {"x": 30, "y": 50}], "tags": [{"id": 1801}]},
+        {"id": 2, "matchPeriod": "1H", "eventSec": 2, "teamId": 2,
+         "playerId": 20, "eventName": "Foul", "subEventName": "Foul",
+         "positions": [{"x": 30, "y": 50}], "tags": []},
+    ]
+    _, report = normalize_wyscout_events(
+        events, [{"wyId": 10, "shortName": "A"}, {"wyId": 20, "shortName": "B"}],
+        [{"wyId": 1, "name": "Home"}, {"wyId": 2, "name": "Away"}], 107
+    )
+    assert report["dead_ball_pending_at_match_end"] is True
+    assert report["terminal_event_at_match_end"] == {
+        "event_id": "2", "event_type": "Foul", "event_team": "Away",
+        "possession_team": "Home", "period": 1, "minute": 0, "second": 2.0,
+    }
