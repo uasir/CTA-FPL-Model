@@ -5,6 +5,7 @@ on:
   push:
     branches: ["work/**", "feat/**"]
     paths:
+      - .github/workflows/cta-fpl-decision-replay-audit.yml
       - canonical_candidate/engineering_workbench/scripts/replay_fpl_gameweek_decisions.py
       - canonical_candidate/engineering_workbench/scripts/audit_fpl_replay_against_official_manager_history.py
       - canonical_candidate/engineering_workbench/scripts/capture_fpl_ranked_manager_picks.py
@@ -39,6 +40,7 @@ jobs:
             --rank-limit 1000 \
             --sample-size 100 \
             --workers 8 \
+            --delay 0.5 \\
             --max-gameweeks 10
       - name: Confirm only aggregate validation output is retained
         run: |
