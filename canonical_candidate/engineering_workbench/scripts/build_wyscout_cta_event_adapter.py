@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import zipfile
+from collections import Counter
 from pathlib import Path
 
 PERIODS = {"1H": 1, "2H": 2, "E1": 3, "E2": 4, "P": 5}
@@ -163,24 +165,63 @@ def normalize_wyscout_events(events, players, teams, match_id):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--events", type=Path, required=True)
+    parser.add_argument("--events", type=Path)
+    parser.add_argument("--events-zip", type=Path)
     parser.add_argument("--players", type=Path, required=True)
     parser.add_argument("--teams", type=Path, required=True)
-    parser.add_argument("--match-id", required=True)
+    parser.add_argument("--match-id")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
     args = parser.parse_args()
-    normalized, report = normalize_wyscout_events(
-        json.loads(args.events.read_text()),
-        json.loads(args.players.read_text()),
-        json.loads(args.teams.read_text()),
-        args.match_id,
-    )
+    if bool(args.events) == bool(args.events_zip):
+        parser.error("provide exactly one of --events or --events-zip")
+    if args.events:
+        events = json.loads(args.events.read_text())
+    else:
+        with zipfile.ZipFile(args.events_zip) as archive:
+            members = [name for name in archive.namelist()
+                       if Path(name).name.lower().startswith("events_england")]
+            if len(members) != 1:
+                raise ValueError(f"Expected one events_England JSON in archive; found {members[:5]}")
+            with archive.open(members[0]) as handle:
+                events = json.load(handle)
+    players = json.loads(args.players.read_text())
+    teams = json.loads(args.teams.read_text())
+    if args.match_id:
+        normalized, report = normalize_wyscout_events(events, players, teams, args.match_id)
+        report["match_count"] = 1
+    else:
+        grouped = {}
+        for event in events:
+            if event.get("matchId") is not None:
+                grouped.setdefault(str(event["matchId"]), []).append(event)
+        normalized = []
+        skipped = Counter()
+        match_reports = []
+        for match_id, match_events in sorted(grouped.items()):
+            rows, match_report = normalize_wyscout_events(match_events, players, teams, match_id)
+            normalized.extend(rows)
+            skipped.update(match_report["skipped_event_counts"])
+            match_reports.append(match_report)
+        report = {
+            "status": "PASS_WYSCOUT_EVENTS_NORMALIZED" if normalized else "NO_NORMALIZED_EVENTS",
+            "provider": "Wyscout",
+            "match_count": len(grouped),
+            "normalized_event_count": len(normalized),
+            "skipped_event_counts": dict(skipped),
+            "player_id_namespace": "wyscout: prefix retained; never interpreted as StatsBomb or FPL ID",
+            "coordinate_conversion": "attacking-relative percentage x,y -> CTA pitch x*1.2,y*0.8; no direction flip",
+            "possession_method": "INFERRED_CONTIGUOUS_TEAM_BLOCK",
+            "possession_boundary_policy": "period/team changes, restarts, and after shot/offside/foul/interruption",
+            "limitations": match_reports[0]["limitations"] if match_reports else [],
+            "per_match_reports": match_reports,
+        }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(normalized, indent=2))
+    args.out.write_text(json.dumps(normalized, separators=(",", ":")))
     args.report.write_text(json.dumps(report, indent=2))
-    print(json.dumps(report, indent=2))
+    print(json.dumps({key: value for key, value in report.items()
+                      if key != "per_match_reports"}, indent=2))
 
 
 if __name__ == "__main__":
