@@ -25,6 +25,18 @@ def validate_payload(source: str, data: bytes, gameweek: int, content_type: str)
         raise ValueError(f"{source}: empty response")
     if "text/html" in content_type.lower():
         raise ValueError(f"{source}: received HTML instead of forecast data")
+    if source == "fpl_cat_player_xp":
+        payload = json.loads(data.decode("utf-8"))
+        if int(payload.get("gameweek", -1)) != gameweek:
+            raise ValueError("FPL Cat payload gameweek mismatch")
+        if not payload.get("computed_at") or not isinstance(payload.get("players"), list):
+            raise ValueError("FPL Cat payload missing computed_at or players")
+        players = payload["players"]
+        if not players or any("id" not in row or "xp" not in row for row in players):
+            raise ValueError("FPL Cat payload missing player IDs or xp values")
+        return {"row_count": len(players), "grain": "player_gameweek",
+                "generated_at": payload["computed_at"], "variant": "published_xP",
+                "player_id_column": "id", "forecast_column": "xp"}
     if source == "sideline_quant_fixture_xp":
         payload = json.loads(data.decode("utf-8"))
         if int(payload.get("gameweek", -1)) != gameweek:
@@ -73,6 +85,7 @@ def fetch(url: str):
 def capture(gameweek: int, out_dir: Path, fetcher=fetch):
     out_dir.mkdir(parents=True, exist_ok=True)
     specs = [
+        ("fpl_cat_player_xp", "https://fplcat.com/api/v1/projections", "json"),
         ("sideline_quant_fixture_xp",
          f"https://sidelinequant.com/data/gw/{gameweek}/projections.json", "json"),
         ("fpl_rogue_accepted_xpts_csv",
