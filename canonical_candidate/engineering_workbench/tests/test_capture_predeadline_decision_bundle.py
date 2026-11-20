@@ -149,6 +149,16 @@ def test_captures_three_raw_predeadline_sources_from_official_picks(monkeypatch)
         team_id=421025, gameweek=12, season="2026-27", manager_state=_state(),
     )
     manifest = result["12"]
+    assert manifest["manager_team_id"] == 421025
+    manager_source = next(
+        row for row in manifest["sources"]
+        if row["source_type"] == "manager_deadline_state"
+    )
+    assert manager_source["source_url"] == (
+        "https://fantasy.premierleague.com/entry/421025"
+    )
+    envelope = json.loads(base64.b64decode(manager_source["raw_payload_base64"]))
+    assert envelope["manager_team_id"] == 421025
     assert {row["source_type"] for row in manifest["sources"]} == {
         "provider_forecast", "player_metadata", "manager_deadline_state"
     }
@@ -169,7 +179,17 @@ def test_supports_user_confirmed_state_with_official_history_archive(monkeypatch
     result = capture.capture_predeadline_decision_bundle(
         team_id=421025, gameweek=12, season="2026-27", manager_state=_state(),
     )
-    envelope = json.loads(base64.b64decode(result["12"]["sources"][2]["raw_payload_base64"]))
+    manifest = result["12"]
+    assert manifest["manager_team_id"] == 421025
+    manager_source = next(
+        row for row in manifest["sources"]
+        if row["source_type"] == "manager_deadline_state"
+    )
+    assert manager_source["source_url"] == (
+        "https://fantasy.premierleague.com/entry/421025"
+    )
+    envelope = json.loads(base64.b64decode(manager_source["raw_payload_base64"]))
+    assert envelope["manager_team_id"] == 421025
     assert envelope["capture_method"] == "USER_CONFIRMED_WITH_OFFICIAL_HISTORY"
     assert envelope["history_archive_base64"]
     assert result["12"]["manager_state"]["purchase_prices"]["1"] == 5.0
