@@ -51,6 +51,8 @@ def _verify_m3(m3: Mapping[str, Any]) -> tuple[str, str]:
     for key in ("manager_team_id", "season", "target_gameweek", "deadline_utc"):
         if candidate.get(key) != m3.get(key):
             raise M3M4OptionalityError(f"M3 evaluation_candidate {key} differs from top-level output")
+    if candidate.get("as_of_utc") != m3.get("decision_as_of_utc"):
+        raise M3M4OptionalityError("M3 evaluation_candidate as_of_utc differs from decision timestamp")
     return expected, hashlib.sha256(_canonical(dict(m3))).hexdigest()
 
 
@@ -105,7 +107,13 @@ def _validate_m4_against_m3(m4: Mapping[str, Any], m3: Mapping[str, Any],
         ("vice_captain_id", "vice_captain_id"),
         ("formation", "formation"),
     ):
-        if set(map(str, candidate.get(m4_key, []))) != set(map(str, hold.get(m3_key, []))) if isinstance(hold.get(m3_key), list) else str(candidate.get(m4_key)) != str(hold.get(m3_key)):
+        expected_value = hold.get(m3_key)
+        actual_value = candidate.get(m4_key)
+        if isinstance(expected_value, list):
+            matches = list(map(str, actual_value or [])) == list(map(str, expected_value))
+        else:
+            matches = str(actual_value) == str(expected_value)
+        if not matches:
             raise M3M4OptionalityError(f"M4 original manager state {m4_key} differs from frozen M3")
 
     diagnostics = m4.get("field_diagnostics")
