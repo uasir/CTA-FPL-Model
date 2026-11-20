@@ -201,7 +201,7 @@ def test_rejects_corrupted_frozen_decision_hash():
 
 def test_rejects_incoherent_post_transfer_roster():
     record = _record()
-    record["frozen_decision"]["squad_plan"]["squad_ids"][-1] = 15
+    record["frozen_decision"]["squad_plan"]["squad_ids"] = list(range(1, 16))
     _seal(record["frozen_decision"])
     with pytest.raises(DecisionEvaluationError, match="squad_ids must exactly match"):
         evaluate_decision_record(record)
@@ -210,6 +210,7 @@ def test_rejects_incoherent_post_transfer_roster():
 def test_rejects_bench_transfer_that_does_not_promote_incoming_player():
     record = _record()
     record["frozen_decision"]["squad_plan"]["starting_xi"] = [1, 3, 4, 5, 6, 8, 9, 10, 13, 14, 15]
+    record["frozen_decision"]["squad_plan"]["bench_order"] = [16, 11, 12]
     _seal(record["frozen_decision"])
     with pytest.raises(DecisionEvaluationError, match="must improve the starting XI"):
         evaluate_decision_record(record)
@@ -228,7 +229,7 @@ def test_rejects_changed_starting_goalkeeper():
     record["frozen_decision"]["squad_plan"]["starting_xi"][0] = 2
     record["frozen_decision"]["squad_plan"]["reserve_goalkeeper_id"] = 1
     _seal(record["frozen_decision"])
-    with pytest.raises(DecisionEvaluationError, match="reserve goalkeeper must remain fixed"):
+    with pytest.raises(DecisionEvaluationError, match="designated reserve goalkeeper cannot change"):
         evaluate_decision_record(record)
 
 
