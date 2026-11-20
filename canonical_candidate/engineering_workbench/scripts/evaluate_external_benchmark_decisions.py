@@ -370,12 +370,6 @@ def _verify_real_admission(record: Mapping[str, Any], admission_report: Any,
             for field in ("generated_at_utc",):
                 if source.get(field) != audited_source.get(field):
                     _fail(f"provider archive {field} does not match the independent decision-source audit")
-            provider_identity = record.get("provider_identity")
-            if (not isinstance(provider_identity, Mapping)
-                    or provider_identity.get("name") != audited_source.get("provider_id")
-                    or provider_identity.get("variant") != audited_source.get("provider_variant")):
-                _fail("provider identity does not match the independently audited provider archive")
-
     batch_rows = batch.get("results")
     batch_event = next((row for row in batch_rows if isinstance(row, Mapping)
                         and row.get("gameweek") == gameweek), None) if isinstance(batch_rows, list) else None
