@@ -225,9 +225,9 @@ def capture_predeadline_decision_bundle(
         if meta is None:
             raise DecisionCaptureError(f"Provider player {player_id} is missing from official metadata")
         position = position_names.get(meta.get("element_type"))
-        team_id = meta.get("team")
+        player_team_id = meta.get("team")
         now_cost = meta.get("now_cost")
-        if position is None or isinstance(team_id, bool) or not isinstance(team_id, int) or team_id < 1:
+        if position is None or isinstance(player_team_id, bool) or not isinstance(player_team_id, int) or player_team_id < 1:
             raise DecisionCaptureError(f"Official metadata is incomplete for player {player_id}")
         if isinstance(now_cost, bool) or not isinstance(now_cost, int) or now_cost <= 0:
             raise DecisionCaptureError(f"Official current price is missing for player {player_id}")
@@ -235,7 +235,7 @@ def capture_predeadline_decision_bundle(
             "fpl_element_id": player_id,
             "price": now_cost / 10,
             "position": position,
-            "team_id": team_id,
+            "team_id": player_team_id,
         })
 
     starting_counts = {
