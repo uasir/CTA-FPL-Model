@@ -203,6 +203,39 @@ def candidate_sets():
     }
 
 
+
+def summarize_layer_feature_availability(model_features, fold_reports):
+    model_by_layer = {
+        "A_temporal_football_value": "ABC_ONLY_A",
+        "B_risk_defensive_intelligence": "ABC_ONLY_B",
+        "C_player_intelligence": "ABC_ONLY_C",
+    }
+    summary = {}
+    for layer, model_name in model_by_layer.items():
+        declared = [f"abc_{name}" for name in LAYER_FEATURES[layer]]
+        used = set(model_features.get(model_name, []))
+        coverage_values = defaultdict(list)
+        for fold in fold_reports:
+            model_report = fold.get("models", {}).get(model_name, {})
+            for feature, coverage in model_report.get("feature_coverage_on_training_rows", {}).items():
+                if coverage.get("coverage_rate") is not None:
+                    coverage_values[feature].append(float(coverage["coverage_rate"]))
+        summary[layer] = {
+            "declared_feature_count": len(declared),
+            "ever_observed_feature_count": sum(feature in used for feature in declared),
+            "never_observed_features": [feature for feature in declared if feature not in used],
+            "training_coverage_by_feature": {
+                feature: {
+                    "fold_count": len(values),
+                    "mean_coverage_rate": sum(values) / len(values),
+                    "minimum_coverage_rate": min(values),
+                }
+                for feature, values in sorted(coverage_values.items())
+            },
+        }
+    return summary
+
+
 def build_folds(deadlines, min_train_gameweeks=18, test_window=4):
     if len(deadlines) <= min_train_gameweeks:
         raise ValueError("Not enough distinct season-Gameweek deadlines for expanding walk-forward evaluation")
@@ -327,6 +360,7 @@ def evaluate(rows, source_report, ridge_lambda=1.0, n_boot=1000,
         "pooled_models": pooled_reports,
         "paired_player_cluster_bootstrap_vs_fpl_history": paired,
         "features_used_across_folds": model_features,
+        "layer_feature_availability": summarize_layer_feature_availability(model_features, fold_reports),
         "feature_coverage_policy": "Report observed/missing counts and rates per training fold; no minimum-coverage threshold is imposed in this exploratory run.",
         "missing_value_policy": "TRAINING_MEDIAN_PLUS_MISSINGNESS_INDICATOR; imputation parameters fitted on training rows only.",
         "ridge_lambda": ridge_lambda,
