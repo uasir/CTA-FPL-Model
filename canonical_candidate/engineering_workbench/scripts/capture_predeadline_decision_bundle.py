@@ -214,6 +214,29 @@ def capture_predeadline_decision_bundle(
     if any(player_id not in by_id for player_id in expected_ids):
         raise DecisionCaptureError("One or more manager players are absent from captured official metadata")
     element_types = {player_id: row.get("element_type") for player_id, row in by_id.items()}
+    position_names = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+    provider_records = provider.get("records")
+    if not isinstance(provider_records, list) or not provider_records:
+        raise DecisionCaptureError("Provider snapshot has no player-gameweek forecast records")
+    normalized_metadata = []
+    for record in provider_records:
+        player_id = record.get("fpl_element_id") if isinstance(record, dict) else None
+        meta = by_id.get(player_id)
+        if meta is None:
+            raise DecisionCaptureError(f"Provider player {player_id} is missing from official metadata")
+        position = position_names.get(meta.get("element_type"))
+        team_id = meta.get("team")
+        now_cost = meta.get("now_cost")
+        if position is None or isinstance(team_id, bool) or not isinstance(team_id, int) or team_id < 1:
+            raise DecisionCaptureError(f"Official metadata is incomplete for player {player_id}")
+        if isinstance(now_cost, bool) or not isinstance(now_cost, int) or now_cost <= 0:
+            raise DecisionCaptureError(f"Official current price is missing for player {player_id}")
+        normalized_metadata.append({
+            "fpl_element_id": player_id,
+            "price": now_cost / 10,
+            "position": position,
+            "team_id": team_id,
+        })
 
     starting_counts = {
         position: sum(element_types.get(player_id) == element_type
@@ -328,6 +351,17 @@ def capture_predeadline_decision_bundle(
         raise DecisionCaptureError("Decision-as-of timestamp must follow all captures and precede deadline")
 
     manifest = {
+        "manager_team_id": team_id,
+        "season": provider["season"],
+        "provider_snapshot": provider,
+        "player_metadata": normalized_metadata,
+        "player_metadata_provenance": {
+            "source_url": FPL_BOOTSTRAP_URL,
+            "raw_snapshot_id": f"sha256:{metadata_hash}",
+            "raw_sha256": metadata_hash,
+            "captured_at_utc": metadata_captured_text,
+            "row_count": len(normalized_metadata),
+        },
         "target_gameweek": gameweek,
         "deadline_utc": deadline_text,
         "decision_as_of_utc": decision_as_of.isoformat().replace("+00:00", "Z"),
