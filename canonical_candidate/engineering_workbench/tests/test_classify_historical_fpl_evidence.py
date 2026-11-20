@@ -64,19 +64,22 @@ def _manifest():
                 "raw_snapshot_id": "provider-5",
                 "raw_sha256": "a" * 64,
                 "generated_at_utc": "2026-10-01T09:00:00Z",
-                "captured_at_utc": "2026-10-01T09:30:00Z",\n                "source_url": "https://provider.example/forecast/gw5",
+                "captured_at_utc": "2026-10-01T09:30:00Z",
+                "source_url": "https://provider.example/forecast/gw5",
             },
             {
                 "source_type": "player_metadata",
                 "raw_snapshot_id": "metadata-5",
                 "raw_sha256": "b" * 64,
-                "captured_at_utc": "2026-10-01T09:35:00Z",\n                "source_url": "https://fantasy.premierleague.com/api/bootstrap-static/",
+                "captured_at_utc": "2026-10-01T09:35:00Z",
+                "source_url": "https://fantasy.premierleague.com/api/bootstrap-static/",
             },
             {
                 "source_type": "manager_deadline_state",
                 "raw_snapshot_id": "manager-5",
                 "raw_sha256": "c" * 64,
-                "captured_at_utc": "2026-10-01T09:40:00Z",\n                "source_url": "https://fantasy.premierleague.com/api/entry/421025/event/5/picks/",
+                "captured_at_utc": "2026-10-01T09:40:00Z",
+                "source_url": "https://fantasy.premierleague.com/api/entry/421025/event/5/picks/",
             },
         ],
         "manager_state": {
@@ -105,7 +108,8 @@ def test_reconciled_history_without_deadline_evidence_is_scoring_only():
 
 
 def test_complete_timestamp_valid_manifest_is_decision_eligible():
-    manifest = _manifest()\n    result = classify_batch(_batch(), {"5": manifest}, _audit_report(manifest))
+    manifest = _manifest()
+    result = classify_batch(_batch(), {"5": manifest}, _audit_report(manifest))
     assert result["events"][0]["classification"] == "DECISION_BACKTEST_ELIGIBLE"
     assert result["historical_evidence_admitted"] is True
 
@@ -122,13 +126,14 @@ def test_post_deadline_manager_capture_fails_closed():
 def test_missing_purchase_prices_prevents_decision_admission():
     manifest = _manifest()
     manifest["manager_state"]["purchase_prices"].pop("7")
-    result = classify_batch(_batch(), {"5": manifest})
+    result = classify_batch(_batch(), {"5": manifest}, _audit_report(manifest))
     assert result["events"][0]["classification"] == "SCORING_RECONCILIATION_ONLY"
     assert any("purchase_prices" in reason for reason in result["events"][0]["reasons"])
 
 
 def test_chip_gameweek_is_excluded():
-    manifest = _manifest()\n    result = classify_batch(_batch(chip="BENCH_BOOST"), {"5": manifest}, _audit_report(manifest))
+    manifest = _manifest()
+    result = classify_batch(_batch(chip="BENCH_BOOST"), {"5": manifest}, _audit_report(manifest))
     assert result["events"][0]["classification"] == "EXCLUDED"
 
 
