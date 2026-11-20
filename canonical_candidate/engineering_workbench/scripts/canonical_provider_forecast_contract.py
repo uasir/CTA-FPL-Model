@@ -90,6 +90,8 @@ def normalize_provider_snapshot(payload: Mapping[str, Any]) -> dict[str, Any]:
     generated = _utc(generated_raw, "timing.generated_at_utc") if generated_raw else None
     if generated is not None and generated >= deadline:
         raise ForecastContractError("provider generation timestamp is at or after deadline")
+    if generated is not None and generated > captured:
+        raise ForecastContractError("provider generation timestamp cannot be later than snapshot capture")
     pit_status = "VERIFIED_PRE_DEADLINE" if generated is not None else "UNVERIFIED_PROVIDER_GENERATION_TIME"
     eligible = generated is not None
 
