@@ -139,11 +139,21 @@ class TestM4CovarScenarioScoring(unittest.TestCase):
                     "position": position, "is_captain": player_id == captain,
                     "is_vice_captain": False, "active_chip": chip,
                 })
+        position_map = {}
+        for manager_row in rows:
+            slot = (int(manager_row["position"]) - 1) % 15 + 1
+            position_map[str(manager_row["fpl_element_id"])] = (
+                "GK" if slot in (1, 12) else
+                "DEF" if 2 <= slot <= 5 else
+                "MID" if 6 <= slot <= 10 else "FWD"
+            )
+            manager_row["is_vice_captain"] = manager_row["position"] == 3
         raw_artifact = strip_manager_identifiers_from_manager_picks(
             rows, gameweek=12, deadline_utc="2026-11-28T11:00:00Z",
             captured_at_utc="2026-11-27T17:00:00Z",
             evidence_role="PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE",
             cohort="overall top 150", rank_limit=150,
+            player_positions_by_id=position_map,
         )
         adapted = adapt_field_portfolios_for_scenario(
             raw_artifact, ["a1", "a2", "b1"], expected_gameweek=12,
