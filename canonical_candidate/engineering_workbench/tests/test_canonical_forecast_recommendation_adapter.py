@@ -56,7 +56,7 @@ def test_adapts_provider_values_without_recalibration():
 
 def test_stale_snapshot_is_preserved_but_marked_stale():
     result = build_recommendation_forecast_payload(
-        canonical_snapshot(), metadata(), as_of_utc="2026-11-22T10:00:00Z"
+        canonical_snapshot(), metadata(), as_of_utc="2026-11-21T10:00:00Z"
     )
     assert result["forecast_quality"]["data_coverage"]["freshness_status"] == "STALE_OVER_24H"
     assert result["forecast_quality"]["validation_status"] == "EXPLORATORY_ONLY"
