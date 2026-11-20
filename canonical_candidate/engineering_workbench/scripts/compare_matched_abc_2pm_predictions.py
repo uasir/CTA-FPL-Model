@@ -106,17 +106,22 @@ def corr(x,y):
     return sum(a*b for a,b in zip(dx,dy))/den if den else 0.
 
 
-def deadline_metric(rows,pred,top_k=100):
-    k=min(top_k,len(rows)); ar=ranks([r["actual"] for r in rows]); pr=ranks([r[pred] for r in rows])
-    chosen=sorted(rows,key=lambda r:(-r[pred],r["player_id"]))[:k]
-    oracle=sorted(rows,key=lambda r:(-r["actual"],r["player_id"]))[:k]
+def deadline_metric(rows,pred,top_k=10):
+    ar=ranks([r["actual"] for r in rows]); pr=ranks([r[pred] for r in rows])
     universe=statistics.mean(r["actual"] for r in rows)
-    selected=statistics.mean(r["actual"] for r in chosen)
-    oracle_mean=statistics.mean(r["actual"] for r in oracle)
-    return {"n":len(rows),"top_k":k,"spearman":corr(ar,pr),
-            "selected_mean_points":selected,"universe_mean_points":universe,
-            "oracle_top_k_mean_points":oracle_mean,"top_k_lift_over_universe":selected-universe,
-            "top_k_regret_vs_oracle":oracle_mean-selected}
+    def selection(k):
+        chosen=sorted(rows,key=lambda r:(-r[pred],r["player_id"]))[:k]
+        oracle=sorted(rows,key=lambda r:(-r["actual"],r["player_id"]))[:k]
+        return statistics.mean(r["actual"] for r in chosen), statistics.mean(r["actual"] for r in oracle)
+    k10=min(top_k,len(rows)); selected10,oracle10=selection(k10)
+    k20=max(1,math.ceil(len(rows)*.20)); selected20,oracle20=selection(k20)
+    return {"n":len(rows),"top_k":k10,"spearman":corr(ar,pr),
+            "selected_mean_points":selected10,"universe_mean_points":universe,
+            "oracle_top_k_mean_points":oracle10,"top_k_lift_over_universe":selected10-universe,
+            "top_k_regret_vs_oracle":oracle10-selected10,
+            "top_20pct_k":k20,"top_20pct_selected_mean_points":selected20,
+            "top_20pct_lift_over_universe":selected20-universe,
+            "top_20pct_regret_vs_oracle":oracle20-selected20}
 
 
 def ranking(rows,pred):
@@ -128,13 +133,16 @@ def ranking(rows,pred):
             "macro_selected_mean_points":statistics.mean(x["selected_mean_points"] for x in by.values()),
             "macro_top_k_lift_over_universe":statistics.mean(x["top_k_lift_over_universe"] for x in by.values()),
             "macro_top_k_regret_vs_oracle":statistics.mean(x["top_k_regret_vs_oracle"] for x in by.values()),
+            "macro_top_20pct_selected_mean_points":statistics.mean(x["top_20pct_selected_mean_points"] for x in by.values()),
+            "macro_top_20pct_lift_over_universe":statistics.mean(x["top_20pct_lift_over_universe"] for x in by.values()),
+            "macro_top_20pct_regret_vs_oracle":statistics.mean(x["top_20pct_regret_vs_oracle"] for x in by.values()),
             "by_deadline":{f"{s}:GW{gw}":by[(s,gw)] for s,gw in sorted(by)},
             "_raw":by}
 
 
 def deadline_bootstrap(a,b,n_boot,seed):
     if set(a)!=set(b): raise ValueError("Ranking deadlines differ")
-    keys=sorted(a); rng=random.Random(seed); samples={m:[] for m in ("spearman","selected_mean_points","top_k_lift_over_universe")}
+    keys=sorted(a); rng=random.Random(seed); samples={m:[] for m in ("spearman","selected_mean_points","top_k_lift_over_universe","top_20pct_lift_over_universe")}
     for _ in range(n_boot):
         chosen=[rng.choice(keys) for _ in keys]
         for m in samples: samples[m].append(statistics.mean(a[k][m]-b[k][m] for k in chosen))
