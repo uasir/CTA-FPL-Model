@@ -163,9 +163,20 @@ def validate_scenario_document(document: Mapping[str, Any]) -> dict[str, Any]:
             if outcome.get("clean_sheet") not in (True, False):
                 raise CovarScenarioContractError("clean_sheet must be an explicit boolean")
             team_id = player_by_id[player_id]["team_id"]
-            expected_cs = state_by_team[team_id]["goals_against"] == 0 and minutes >= 60
-            if outcome["clean_sheet"] and not expected_cs:
-                raise CovarScenarioContractError(f"{scenario_id}.{player_id} has an inconsistent clean-sheet flag")
+            conceded_on_pitch_value = outcome.get("goals_conceded_while_on_pitch")
+            conceded_on_pitch = (
+                _integer(conceded_on_pitch_value, f"{scenario_id}.{player_id}.goals_conceded_while_on_pitch")
+                if conceded_on_pitch_value is not None
+                else state_by_team[team_id]["goals_against"]
+            )
+            if conceded_on_pitch > state_by_team[team_id]["goals_against"]:
+                raise CovarScenarioContractError(
+                    f"{scenario_id}.{player_id}.goals_conceded_while_on_pitch exceeds team goals conceded"
+                )
+            if outcome["clean_sheet"] and (minutes < 60 or conceded_on_pitch > 0):
+                raise CovarScenarioContractError(
+                    f"{scenario_id}.{player_id} has an inconsistent clean-sheet flag"
+                )
             if assists > sum(state["goals_for"] for state in state_by_team.values()):
                 raise CovarScenarioContractError(f"{scenario_id}.{player_id} assists exceed fixture goals")
         if outcome_ids != set(player_by_id):
