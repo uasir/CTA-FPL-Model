@@ -256,3 +256,24 @@ def test_pre_deadline_fallback_uses_season_history_and_archives_all_sources(monk
     assert prices[2] == 5.2
     assert "bootstrap" in json.loads(archive_raw)
     assert "previous_gameweek_picks" in json.loads(archive_raw)
+
+
+def test_captures_fixed_starting_xi_separately_from_the_full_squad(monkeypatch):
+    raw = json.dumps(picks_payload()).encode()
+    monkeypatch.setattr(manager_capture, "fetch", lambda url: raw)
+    starting_xi = {1, 3, 4, 5, 6, 8, 9, 10, 13, 14, 15}
+    result = manager_capture.capture_manager_context(
+        TEAM_ID, GAMEWEEK, expected_element_ids=set(range(1, 16)),
+        free_transfers=1, starting_xi_ids=starting_xi,
+    )
+    assert result["manager_context"]["starting_xi"] == sorted(starting_xi)
+
+
+def test_rejects_starting_xi_not_contained_in_confirmed_squad(monkeypatch):
+    raw = json.dumps(picks_payload()).encode()
+    monkeypatch.setattr(manager_capture, "fetch", lambda url: raw)
+    with pytest.raises(manager_capture.CaptureError, match="subset"):
+        manager_capture.capture_manager_context(
+            TEAM_ID, GAMEWEEK, expected_element_ids=set(range(1, 16)),
+            free_transfers=1, starting_xi_ids=set(range(5, 16)),
+        )
