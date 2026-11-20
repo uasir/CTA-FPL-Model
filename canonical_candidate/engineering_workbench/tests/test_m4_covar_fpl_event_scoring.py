@@ -133,6 +133,12 @@ class TestM4CovarFplEventScoring(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "run event scoring first"):
             score_scenario_portfolios(doc)
 
+    def test_event_scoring_is_bound_to_2026_27_rules(self):
+        doc = fixture()
+        doc["metadata"]["season"] = "2025-26"
+        with self.assertRaisesRegex(CovarEventScoringError, "only be applied to season 2026-27"):
+            score_scenario_events(doc)
+
     def test_event_scoring_requires_position(self):
         with self.assertRaisesRegex(CovarEventScoringError, "requires a position"):
             score_scenario_events(fixture())
