@@ -1,9 +1,17 @@
 """Fail-closed paired ABC versus standalone 2PM evaluation on manifest test keys."""
 from __future__ import annotations
-import argparse, csv, json, math, random, statistics
+import argparse, csv, hashlib, json, math, random, statistics
 from collections import defaultdict
 from pathlib import Path
 from matched_fold_keys import canonical_key, load_partition_keys, sha_keys, verify_manifest_partition_hashes
+
+
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def read_predictions(path, kind):
@@ -221,6 +229,8 @@ def main():
       "matched_unique_players":len({r["player_id"] for r in rows}),
       "matched_deadlines":len({(r["season"],r["gameweek"]) for r in rows}),
       "manifest_common_cohort_sha256":manifest.get("common_key_sha256"),
+      "input_sha256":{"manifest":sha256_file(args.manifest),"private_partition_keys":sha256_file(args.partition_keys),
+        "private_abc_predictions":sha256_file(args.abc_predictions),"private_2pm_predictions":sha256_file(args.two_pm_predictions)},
       "fold_test_key_hashes":{str(f):{"manifest":manifest_folds[f]["test_key_sha256"],
           "abc_prediction":ah[f]["test_key_sha256"],"two_pm_prediction":ph[f]["test_key_sha256"]}
           for f in sorted(parts)},
