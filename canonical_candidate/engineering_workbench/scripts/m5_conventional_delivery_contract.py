@@ -88,7 +88,7 @@ def validate_conventional_m5_output(output: Mapping[str, Any]) -> dict[str, Any]
     if not isinstance(transfer, Mapping):
         raise M5DeliveryContractError("transfer_recommendation is missing")
     if transfer.get("alternatives_suppressed") is not True or "alternatives" in transfer:
-        raise M5DeliveryContractError("M5 presentation must expose only the frozen best action")
+        raise M5DeliveryContractError("M5 presentation must suppress alternatives and expose only the frozen best action")
     decision = output["frozen_decision"]
     candidate = output["evaluation_candidate"]
     if not isinstance(decision, Mapping) or not isinstance(candidate, Mapping):
