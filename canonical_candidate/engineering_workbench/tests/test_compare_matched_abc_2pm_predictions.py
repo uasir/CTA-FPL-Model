@@ -76,5 +76,8 @@ def test_paired_bootstrap_and_deadline_metrics_are_finite():
     assert result["mae_delta_ci95"][0] <= result["mae_delta_ci95"][1]
     ranked = deadline_metric(rows, "abc", top_k=5)
     assert ranked["top_k"] == 5
+    assert ranked["top_20pct_k"] == 3
     assert 0 <= ranked["selected_mean_points"] <= 4
+    default_ranked = deadline_metric(rows, "abc")
+    assert default_ranked["top_k"] == 10
     assert metrics(rows, "abc")["n"] == 12
