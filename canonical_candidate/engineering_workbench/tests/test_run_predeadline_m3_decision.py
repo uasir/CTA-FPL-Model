@@ -177,6 +177,10 @@ def test_runs_real_external_benchmark_engine_from_frozen_evidence_bundle():
     raw_provider = b"frozen-provider-source"
     raw_metadata = b"frozen-metadata-source"
     raw_manager = b"frozen-manager-source"
+    engine_input["provider_snapshot"]["source"]["raw_sha256"] = hashlib.sha256(raw_provider).hexdigest()
+    engine_input["provider_snapshot"]["source"]["raw_snapshot_id"] = "sha256:" + hashlib.sha256(raw_provider).hexdigest()
+    engine_input["player_metadata_provenance"]["raw_sha256"] = hashlib.sha256(raw_metadata).hexdigest()
+    engine_input["player_metadata_provenance"]["raw_snapshot_id"] = "sha256:" + hashlib.sha256(raw_metadata).hexdigest()
     sources = []
     for source_type, raw, url, captured in (
         ("provider_forecast", raw_provider, "https://provider.example/forecast.json", "2026-11-20T09:00:00Z"),
