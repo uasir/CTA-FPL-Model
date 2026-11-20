@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import pytest
 from compare_matched_abc_2pm_predictions import (
     deadline_metric,
+    join_predictions,
     metrics,
     player_cluster_bootstrap,
     read_predictions,
@@ -81,3 +82,21 @@ def test_paired_bootstrap_and_deadline_metrics_are_finite():
     default_ranked = deadline_metric(rows, "abc")
     assert default_ranked["top_k"] == 10
     assert metrics(rows, "abc")["n"] == 12
+
+
+
+def test_paired_join_rejects_actual_points_or_fold_mismatch():
+    key = ("2017-18", "10", 2)
+    abc = {key: {"fold": 1, "actual": 5.0, "abc_calibrated_points": 4.5,
+                 "abc_raw_points": 4.0, "fpl_history_calibrated_points": 4.2}}
+    two_pm = {key: {"fold": 1, "actual": 5.0, "affine_calibrated_points": 4.6,
+                    "predicted_points": 4.3}}
+    joined = join_predictions(abc, two_pm)
+    assert len(joined) == 1
+    two_pm[key]["actual"] = 4.0
+    with pytest.raises(ValueError, match="Actual points mismatch"):
+        join_predictions(abc, two_pm)
+    two_pm[key]["actual"] = 5.0
+    two_pm[key]["fold"] = 2
+    with pytest.raises(ValueError, match="Fold mismatch"):
+        join_predictions(abc, two_pm)
