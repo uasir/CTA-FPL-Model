@@ -62,8 +62,12 @@ def calculate_fpl_points_2026_27(position: str, events: Mapping[str, Any]) -> di
 
     if bonus > 3:
         raise CovarEventScoringError("bonus_points must be between 0 and 3")
-    if position != "GK" and (saves or penalty_saves):
-        raise CovarEventScoringError("save events are only scored for GK-position players")
+    goalkeeping_duties = events.get("goalkeeping_duties", position == "GK")
+    if goalkeeping_duties not in (True, False):
+        raise CovarEventScoringError("goalkeeping_duties must be an explicit boolean")
+    is_goalkeeper_in_match = position == "GK" or goalkeeping_duties
+    if (saves or penalty_saves) and not is_goalkeeper_in_match:
+        raise CovarEventScoringError("save events require goalkeeping duties")
     if position not in ("GK", "DEF") and goals_conceded:
         raise CovarEventScoringError("goals-conceded deductions apply only to GK and DEF")
     if events.get("clean_sheet") not in (True, False):
@@ -80,8 +84,8 @@ def calculate_fpl_points_2026_27(position: str, events: Mapping[str, Any]) -> di
         events["clean_sheet"] and minutes >= 60 and clean_sheet_value > 0
     )
     points["clean_sheet"] = clean_sheet_value if clean_sheet_awarded else 0
-    points["saves"] = saves // 3 if position == "GK" else 0
-    points["penalty_saves"] = penalty_saves * 5 if position == "GK" else 0
+    points["saves"] = saves // 3 if is_goalkeeper_in_match else 0
+    points["penalty_saves"] = penalty_saves * 5 if is_goalkeeper_in_match else 0
 
     threshold = 10 if position == "DEF" else (12 if position in ("MID", "FWD") else None)
     points["defensive_contribution"] = (
