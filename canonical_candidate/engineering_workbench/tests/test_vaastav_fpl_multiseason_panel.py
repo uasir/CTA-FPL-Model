@@ -121,3 +121,34 @@ def test_2019_20_post_lockdown_source_round_builds_fpl_gameweek_38():
     panel = build_season_rows("2019-20", [raw])
     assert len(panel) == 1
     assert panel[0]["gameweek"] == 38
+
+
+def test_multiseason_evaluation_excludes_features_unobserved_in_training():
+    rows = []
+    for season_index, season in enumerate(("2016-17", "2017-18")):
+        for gw in range(1, 13):
+            for player in (10, 20):
+                rows.append({
+                    "season": season,
+                    "fpl_element_id": str(player),
+                    "gameweek": gw,
+                    "kickoff_time": f"{2016 + season_index}-08-{gw:02d}T12:00:00+00:00",
+                    "prior_gameweeks_count": gw - 1,
+                    "prior_gw_points": float(gw + player / 10) if gw > 1 else None,
+                    "prior_gw_minutes": 90.0 if gw > 1 else None,
+                    "prior3_gw_points_avg": float(gw + player / 10),
+                    "prior5_gw_points_avg": float(gw + player / 10),
+                    "prior3_gw_minutes_avg": 90.0,
+                    "prior5_gw_minutes_avg": 90.0,
+                    "prior3_gw_xg_avg": None,
+                    "prior3_gw_xa_avg": None,
+                    "season_to_date_points_per90": 5.0,
+                    "was_home": float(gw % 2),
+                    "target_total_points": float((gw % 5) + player / 10),
+                    "target_minutes": 90.0,
+                })
+    report = evaluate(rows)
+    assert "prior3_gw_xg_avg" not in report["features"]
+    assert "prior3_gw_xa_avg" not in report["features"]
+    assert "prior3_gw_xg_avg" in report["features_excluded_unobserved_in_training"]
+    assert "prior5_gw_points_avg" in report["features"]
