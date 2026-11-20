@@ -234,6 +234,14 @@ def build_season_rows(season, source_rows):
     return output
 
 
+def available_training_features(rows, feature_names=FEATURES):
+    """Select only features observed at least once in the training partition."""
+    return tuple(
+        name for name in feature_names
+        if any(optional_number(row.get(name)) is not None for row in rows)
+    )
+
+
 def evaluate(rows, holdout_fraction=0.2):
     eligible = [
         row for row in rows
@@ -250,7 +258,11 @@ def evaluate(rows, holdout_fraction=0.2):
     validation = [row for row in eligible if (row["season"], row["gameweek"]) in validation_keys]
     if not train or not validation:
         raise ValueError("Empty chronological train or validation partition")
-    model = fit_ridge(train, "target_total_points")
+    features_used = available_training_features(train)
+    if not features_used:
+        raise ValueError("No predictor features are observed in the training partition")
+    features_unavailable = [name for name in FEATURES if name not in features_used]
+    model = fit_ridge(train, "target_total_points", features_used)
     groups = defaultdict(list)
     for row in validation:
         key = (row["season"], row["fpl_element_id"], row["gameweek"])
@@ -341,7 +353,8 @@ def evaluate(rows, holdout_fraction=0.2):
         "mean_actual_points": round(sum(actual) / len(actual), 6),
         "positive_minute_conditional_diagnostic": appearance_diagnostic,
         "per_season_validation_metrics": per_season,
-        "features": list(FEATURES),
+        "features": list(features_used),
+        "features_excluded_unobserved_in_training": features_unavailable,
         "model_missing_value_policy": model["missing_value_policy"],
         "validation_seasons": sorted({row["season"] for row in validation}),
         "validation_first_gameweek": min(validation_keys),
