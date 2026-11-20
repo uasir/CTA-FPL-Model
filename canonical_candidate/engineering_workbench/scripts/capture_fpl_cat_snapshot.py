@@ -8,6 +8,7 @@ deadline-eligible.
 from __future__ import annotations
 
 import argparse
+import base64
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -162,6 +163,10 @@ def capture_fpl_cat_snapshot(
             },
         },
         "player_metadata": metadata,
+        "raw_archives": {
+            "provider_response_base64": base64.b64encode(provider_raw).decode("ascii"),
+            "fpl_bootstrap_response_base64": base64.b64encode(bootstrap_raw).decode("ascii"),
+        },
         "player_metadata_provenance": {
             "source_url": FPL_BOOTSTRAP_URL,
             "raw_snapshot_id": f"sha256:{bootstrap_hash}",
