@@ -119,7 +119,7 @@ jobs:
           eligible = bool(event and event.get("classification") == "DECISION_BACKTEST_ELIGIBLE"
                           and event.get("historical_evidence_admitted") is True)
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"eligible={'true' if eligible else 'false'}\\n")
+              output.write(f"eligible={'true' if eligible else 'false'}\n")
           print(json.dumps({"target_gameweek": int(gameweeks[0]), "decision_backtest_eligible": eligible}))
           PY
       - name: Assemble real M3 evaluation record
@@ -127,22 +127,22 @@ jobs:
         if: steps.decision_admission.outputs.eligible == 'true'
         working-directory: canonical_candidate/engineering_workbench
         run: |
-          python scripts/assemble_m3_real_evaluation_record.py \\
-            official-fpl-predeadline-m3-recommendation.json \\
-            --batch official-fpl-manager-reconciliation-batch.json \\
-            --audit-report official-fpl-manager-reconciliation-audit.json \\
-            --admission-report official-fpl-historical-evidence-admission.json \\
+          python scripts/assemble_m3_real_evaluation_record.py \
+            official-fpl-predeadline-m3-recommendation.json \
+            --batch official-fpl-manager-reconciliation-batch.json \
+            --audit-report official-fpl-manager-reconciliation-audit.json \
+            --admission-report official-fpl-historical-evidence-admission.json \
             --output official-fpl-m3-evaluation-record.json
       - name: Score admitted real M3 decision event
         id: evaluation
         if: steps.assembly.outcome == 'success'
         working-directory: canonical_candidate/engineering_workbench
         run: |
-          python scripts/evaluate_external_benchmark_decisions.py \\
-            official-fpl-m3-evaluation-record.json \\
-            --admission-report official-fpl-historical-evidence-admission.json \\
-            --audit-report official-fpl-manager-reconciliation-audit.json \\
-            --batch official-fpl-manager-reconciliation-batch.json \\
+          python scripts/evaluate_external_benchmark_decisions.py \
+            official-fpl-m3-evaluation-record.json \
+            --admission-report official-fpl-historical-evidence-admission.json \
+            --audit-report official-fpl-manager-reconciliation-audit.json \
+            --batch official-fpl-manager-reconciliation-batch.json \
             --output official-fpl-m3-evaluation-result.json
       - name: Upload immutable batch evidence
         if: always()
