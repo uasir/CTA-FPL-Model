@@ -149,7 +149,7 @@ def build_manifest(abc_rows, fpl_rows, season="2017/18", min_train_gameweeks=18,
     first_test = max(min_train_gameweeks, len(gameweeks) // 2)
     remaining = gameweeks[first_test:]
     blocks = [remaining[i:i + test_window] for i in range(0, len(remaining), test_window)]
-    folds = []
+    folds, private_partition_keys = [], []
     for index, block in enumerate(blocks, 1):
         train_gws = gameweeks[:first_test + (index - 1) * test_window]
         calibration_count = max(1, math.ceil(len(train_gws) * 0.20))
@@ -158,6 +158,11 @@ def build_manifest(abc_rows, fpl_rows, season="2017/18", min_train_gameweeks=18,
         calibration_keys = [k for k in common_keys if k[2] in calibration_gws]
         test_keys = [k for k in common_keys if k[2] in block]
         test_without_last5 = [k for k in test_keys if fpl_by_key[k]["last5_baseline_points"] is None]
+        for partition, keys in (("fit", fit_keys), ("calibration", calibration_keys), ("test", test_keys)):
+            private_partition_keys.extend({
+                "fold": index, "partition": partition, "season": key[0],
+                "fpl_element_id": key[1], "gameweek": key[2],
+            } for key in keys)
         reasons = []
         if len(fit_keys) < min_fit_rows: reasons.append("FIT_ROWS_BELOW_MINIMUM")
         if len(calibration_keys) < min_calibration_rows: reasons.append("CALIBRATION_ROWS_BELOW_MINIMUM")
@@ -189,6 +194,7 @@ def build_manifest(abc_rows, fpl_rows, season="2017/18", min_train_gameweeks=18,
             "calibration_fraction_of_pretest_train_gameweeks": 0.20, "fit_and_calibration_are_disjoint": True,
         },
         "folds": folds, "abc_exclusion_counts": dict(sorted(abc_exclusions.items())),
+        "_private_partition_keys": private_partition_keys,
         "fpl_exclusion_counts": dict(sorted(fpl_exclusions.items())),
         "point_in_time_status": "NOT_VERIFIED_RETROSPECTIVE_SOURCE_VINTAGES",
         "promotion_status": "RESEARCH_ONLY_DO_NOT_PROMOTE",
@@ -205,10 +211,18 @@ def main():
     parser.add_argument("--min-calibration-rows", type=int, default=10)
     parser.add_argument("--min-test-rows", type=int, default=30)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--keys-out", type=Path, required=True)
     args = parser.parse_args()
     manifest = build_manifest(read_csv(args.abc_player_gw), read_csv(args.fpl_panel), args.season,
         args.min_train_gameweeks, args.test_window, args.min_fit_rows,
         args.min_calibration_rows, args.min_test_rows)
+    private_keys = manifest.pop("_private_partition_keys", [])
+    args.keys_out.parent.mkdir(parents=True, exist_ok=True)
+    with args.keys_out.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["fold", "partition", "season", "fpl_element_id", "gameweek"])
+        writer.writeheader()
+        writer.writerows(private_keys)
+    manifest["private_partition_keys_file"] = str(args.keys_out.name)
     manifest["input_sha256"] = {
         "abc_player_gameweek_panel": hashlib.sha256(args.abc_player_gw.read_bytes()).hexdigest(),
         "conventional_fpl_fixture_panel": hashlib.sha256(args.fpl_panel.read_bytes()).hexdigest(),
