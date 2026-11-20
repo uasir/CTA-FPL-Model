@@ -39,6 +39,10 @@ def test_builds_same_key_hashes_and_disjoint_chronological_partitions():
     assert report["status"] == "PASS_MATCHED_FOLD_MANIFEST"
     assert report["actual_points_and_minutes_parity"] == "PASS"
     assert report["fixture_id_set_parity"] == "PASS"
+    assert len(report["_private_partition_keys"]) == sum(
+        fold["fit_player_gameweeks"] + fold["calibration_player_gameweeks"] + fold["test_player_gameweeks"]
+        for fold in report["folds"]
+    )
     for fold in report["folds"]:
         assert not (set(fold["fit_gameweeks"]) & set(fold["calibration_gameweeks"]))
         assert not (set(fold["fit_gameweeks"]) & set(fold["test_gameweeks"]))
@@ -86,3 +90,15 @@ def test_noneligible_abc_rows_are_not_admitted():
         min_calibration_rows=1, min_test_rows=1)
     assert report["eligible_abc_player_gameweeks"] == len(a) - 4
     assert report["abc_exclusion_counts"]["ABC_NOT_RESEARCH_ELIGIBLE"] == 1
+
+
+def test_test_fold_is_blocked_when_required_2pm_last5_baseline_is_missing():
+    a, f = sample()
+    # With this sample the first test block starts at GW20.
+    target = next(row for row in f if row["gameweek"] == "20" and row["fpl_element_id"] == "1")
+    target["prior5_gw_points_avg"] = ""
+    report = build_manifest(a, f, min_train_gameweeks=18, min_fit_rows=1,
+        min_calibration_rows=1, min_test_rows=1)
+    assert report["status"] == "BLOCKED_FOLD_COVERAGE"
+    assert report["folds"][0]["status"] == "BLOCKED"
+    assert "TEST_KEYS_MISSING_2PM_LAST5_BASELINE" in report["folds"][0]["blocking_reasons"]
