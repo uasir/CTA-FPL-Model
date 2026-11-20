@@ -685,7 +685,8 @@ def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
 
 def audit_batch(batch: dict[str, Any],
                 decision_manifests: dict[str, Any] | None = None,
-                predeadline_recommendation: dict[str, Any] | None = None) -> dict[str, Any]:
+                predeadline_recommendation: dict[str, Any] | None = None,
+                predeadline_replay: dict[str, Any] | None = None) -> dict[str, Any]:
     _require(batch.get("batch_contract_version") == "0.1.0", "unsupported batch contract version")
     manager_id = batch.get("manager_team_id")
     _require(isinstance(manager_id, int) and manager_id > 0, "invalid manager_team_id")
@@ -704,6 +705,25 @@ def audit_batch(batch: dict[str, Any],
         recommendation_gw = predeadline_recommendation.get("target_gameweek")
         _require(str(recommendation_gw) in manifests or recommendation_gw in manifests,
                  "predeadline recommendation has no matching decision manifest")
+        _require(isinstance(predeadline_replay, dict),
+                 "predeadline recommendation requires an independent replay report")
+        candidate = predeadline_recommendation.get("evaluation_candidate")
+        frozen = predeadline_recommendation.get("frozen_decision")
+        _require(isinstance(candidate, dict) and isinstance(frozen, dict),
+                 "predeadline replay cannot be bound to a missing candidate or frozen decision")
+        _require(
+            predeadline_replay.get("status") == "PASSED"
+            and predeadline_replay.get("replay_type") == "DETERMINISTIC_RAW_AND_CANONICAL_INPUT_REEXECUTION"
+            and predeadline_replay.get("manager_team_id") == predeadline_recommendation.get("manager_team_id")
+            and predeadline_replay.get("target_gameweek") == recommendation_gw
+            and predeadline_replay.get("software_commit") == candidate.get("software_commit")
+            and predeadline_replay.get("decision_sha256") == frozen.get("decision_sha256")
+            and predeadline_replay.get("recommendation_match") is True
+            and predeadline_replay.get("frozen_decision_match") is True
+            and predeadline_replay.get("raw_archive_hashes_verified") is True
+            and predeadline_replay.get("release_eligible") is False,
+            "independent replay report failed identity, commit, decision-hash or replay-integrity checks"
+        )
     audited_events = []
     reconciled_gws, excluded_gws, autosub_gws, hit_gws = [], [], [], []
     for row in results:
@@ -769,10 +789,20 @@ def audit_batch(batch: dict[str, Any],
                 "action": recommended_decision["action"],
                 "execution_match": execution_match,
             }
+            replay_verification = {
+                "status": "VERIFIED",
+                "replay_type": predeadline_replay["replay_type"],
+                "software_commit": predeadline_replay["software_commit"],
+                "decision_sha256": predeadline_replay["decision_sha256"],
+                "raw_archive_hashes_verified": True,
+            }
+        else:
+            replay_verification = None
         audited_events.append({
             "gameweek": gw, "status": status, "archives": archives,
             "decision_sources": decision_sources,
             "predeadline_recommendation": recommendation_verification,
+            "predeadline_replay": replay_verification,
         })
 
     _require(batch.get("reconciled_count") == len(reconciled_gws), "reconciled Gameweek count mismatch")
@@ -804,6 +834,7 @@ def main() -> int:
     parser.add_argument("batch", type=Path)
     parser.add_argument("--decision-manifests", type=Path)
     parser.add_argument("--predeadline-recommendation", type=Path)
+    parser.add_argument("--predeadline-replay", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     batch = json.loads(args.batch.read_text(encoding="utf-8"))
@@ -811,7 +842,9 @@ def main() -> int:
                  if args.decision_manifests else None)
     recommendation = (json.loads(args.predeadline_recommendation.read_text(encoding="utf-8"))
                       if args.predeadline_recommendation else None)
-    audit = audit_batch(batch, manifests, recommendation)
+    replay = (json.loads(args.predeadline_replay.read_text(encoding="utf-8"))
+              if args.predeadline_replay else None)
+    audit = audit_batch(batch, manifests, recommendation, replay)
     args.output.write_text(json.dumps(audit, indent=2, sort_keys=True) + chr(10), encoding="utf-8")
     print(json.dumps({key: value for key, value in audit.items() if key != "events"}, indent=2))
     return 0
