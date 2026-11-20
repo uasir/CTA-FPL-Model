@@ -31,6 +31,8 @@ def _audit_report(manifest=None):
     for source in manifest["sources"]:
         archives.append({
             "source_type": source["source_type"],
+            "provider_id": source.get("provider_id"),
+            "provider_variant": source.get("provider_variant"),
             "raw_snapshot_id": source["raw_snapshot_id"],
             "raw_sha256": source["raw_sha256"],
             "captured_at_utc": source["captured_at_utc"],
@@ -56,6 +58,8 @@ def _manifest():
         "sources": [
             {
                 "source_type": "provider_forecast",
+                "provider_id": "fpl-cat",
+                "provider_variant": "public-xp",
                 "raw_snapshot_id": "provider-5",
                 "raw_sha256": "a" * 64,
                 "generated_at_utc": "2026-10-01T09:00:00Z",
