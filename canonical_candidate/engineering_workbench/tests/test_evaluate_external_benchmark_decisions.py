@@ -258,12 +258,36 @@ def _real_admission_inputs(record):
     gameweek = record["target_gameweek"]
     manager_id = record["manager_team_id"]
     decision = record["frozen_decision"]
+    source_type_map = {
+        "provider": "provider_forecast",
+        "player_metadata": "player_metadata",
+        "manager_state": "manager_deadline_state",
+    }
+    decision_sources = []
+    for archive in record["source_archives"]:
+        if archive["source_type"] not in source_type_map:
+            continue
+        source = {
+            "source_type": source_type_map[archive["source_type"]],
+            "raw_snapshot_id": archive["raw_snapshot_id"],
+            "raw_sha256": archive["raw_sha256"],
+            "captured_at_utc": archive["captured_at_utc"],
+            "source_url": archive["source_url"],
+        }
+        if archive["source_type"] == "provider":
+            source.update({
+                "generated_at_utc": archive["generated_at_utc"],
+                "provider_id": record["provider_identity"]["name"],
+                "provider_variant": record["provider_identity"]["variant"],
+            })
+        decision_sources.append(source)
     audit = {
         "status": "PASSED",
         "manager_team_id": manager_id,
         "events": [{
             "gameweek": gameweek,
             "status": "RECONCILED",
+            "decision_sources": decision_sources,
             "predeadline_recommendation": {
                 "status": "VERIFIED",
                 "action": decision["action"],
