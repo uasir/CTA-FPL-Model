@@ -266,3 +266,19 @@ def test_incorrect_existing_selling_price_is_rejected():
         transition_manager_state(
             state, make_action(state), next_prices(state), 12, "2026-11-27T11:00:00Z"
         )
+
+
+def test_terminal_gameweek_applies_action_without_synthetic_next_state():
+    state = make_state(free_transfers=1, bank=20)
+    transfers = [
+        {"out_player_id": "p7", "in_player": {"player_id": "terminal_def1", "position": "DEF", "team_id": "x", "current_price_tenths": 50}},
+        {"out_player_id": "p6", "in_player": {"player_id": "terminal_def2", "position": "DEF", "team_id": "y", "current_price_tenths": 50}},
+    ]
+    action = make_action(state, transfers)
+    result = transition_manager_state(state, action, terminal=True)
+    assert result["status"] == "TERMINAL_GAMEWEEK_ACTION_APPLIED"
+    assert result["next_state"] is None
+    assert result["next_gameweek"] is None
+    assert result["transfer_hit_points"] == 4
+    assert len(result["gameweek_squad"]) == 15
+    assert "terminal_def1" in {p["player_id"] for p in result["gameweek_squad"]}
