@@ -282,7 +282,10 @@ export function recommendPersonalSquad(payload) {
     // a bench transfer can only displace the weakest starter in its position.
     const postStartingXi = [...currentSquadPlan.starting_xi];
     let replacementIndex = postStartingXi.indexOf(outgoingId);
-    if (replacementIndex < 0) {
+    let postBenchOrder;
+    if (replacementIndex >= 0) {
+      postBenchOrder = [...currentSquadPlan.bench_order];
+    } else {
       const eligible = postStartingXi
         .map((playerId, index) => ({ playerId, index, player: forecastById.get(playerId) }))
         .filter((row) => row.player.position === forecastById.get(incomingId).position)
@@ -293,13 +296,17 @@ export function recommendPersonalSquad(payload) {
         throw new RecommendationContractError("Transfer cannot preserve the current formation");
       }
       replacementIndex = eligible[0].index;
+      const displacedId = postStartingXi[replacementIndex];
+      postBenchOrder = currentSquadPlan.bench_order.map(
+        (playerId) => playerId === outgoingId ? displacedId : playerId,
+      );
     }
     postStartingXi[replacementIndex] = incomingId;
     const startingGoalkeeperId = currentSquadPlan.starting_xi.find(
       (playerId) => forecastById.get(playerId).position === "GKP",
     );
     recommendedSquadPlan = buildSquadPlan(
-      postTransferOwned, forecastById, formationValue, postStartingXi, null, startingGoalkeeperId,
+      postTransferOwned, forecastById, formationValue, postStartingXi, postBenchOrder, startingGoalkeeperId,
     );
     squadPlanState = "POST_TRANSFER";
   }
