@@ -72,6 +72,12 @@ class TestM4FieldContextContract(unittest.TestCase):
         with self.assertRaisesRegex(FieldContextContractError, "before deadline"):
             validate_field_context(snapshot, rows, candidate)
 
+    def test_rejects_field_snapshot_captured_after_frozen_decision(self):
+        snapshot, rows, candidate = fixture()
+        snapshot["captured_at_utc"] = "2026-11-20T20:02:00Z"
+        with self.assertRaisesRegex(FieldContextContractError, "strictly before the frozen M3 decision"):
+            validate_field_context(snapshot, rows, candidate)
+
     def test_rejects_candidate_gameweek_mismatch(self):
         snapshot, rows, candidate = fixture()
         candidate["target_gameweek"] = 12
