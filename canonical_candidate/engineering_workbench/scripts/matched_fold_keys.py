@@ -49,7 +49,11 @@ def load_partition_keys(path):
     return result
 
 def verify_manifest_partition_hashes(partitions, manifest):
+    if manifest.get("status") != "PASS_MATCHED_FOLD_MANIFEST":
+        raise ValueError("Matched fold manifest is not in PASS_MATCHED_FOLD_MANIFEST state")
     manifest_folds = {int(item["fold"]): item for item in manifest.get("folds", [])}
+    if any(item.get("status") != "READY" for item in manifest_folds.values()):
+        raise ValueError("Matched fold manifest contains a blocked fold")
     if set(partitions) != set(manifest_folds):
         raise ValueError("Private partition CSV fold IDs do not match the public manifest")
     for fold, parts in partitions.items():
