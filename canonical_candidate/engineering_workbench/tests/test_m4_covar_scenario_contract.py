@@ -149,6 +149,38 @@ class TestM4CovarScenarioContract(unittest.TestCase):
         with self.assertRaisesRegex(CovarScenarioContractError, "unknown player"):
             validate_scenario_document(doc)
 
+    def test_validates_explicit_field_portfolio_weights(self):
+        doc = fixture()
+        doc["portfolios"][0].update({
+            "portfolio_role": "FIELD",
+            "field_weight": 0.6,
+        })
+        doc["portfolios"][1].update({
+            "portfolio_role": "FIELD",
+            "field_weight": 0.4,
+        })
+        result = validate_scenario_document(doc)
+        self.assertEqual(result["field_portfolio_count"], 2)
+
+    def test_rejects_field_portfolio_weights_not_summing_to_one(self):
+        doc = fixture()
+        doc["portfolios"][0].update({
+            "portfolio_role": "FIELD",
+            "field_weight": 0.6,
+        })
+        doc["portfolios"][1].update({
+            "portfolio_role": "FIELD",
+            "field_weight": 0.3,
+        })
+        with self.assertRaisesRegex(CovarScenarioContractError, "weights must sum to 1"):
+            validate_scenario_document(doc)
+
+    def test_rejects_unknown_portfolio_role(self):
+        doc = fixture()
+        doc["portfolios"][0]["portfolio_role"] = "AUTOMATIC_FIELD"
+        with self.assertRaisesRegex(CovarScenarioContractError, "portfolio_role"):
+            validate_scenario_document(doc)
+
     def test_rejects_captain_not_in_portfolio(self):
         doc = fixture()
         doc["portfolios"][0]["captain_id"] = "a2"
