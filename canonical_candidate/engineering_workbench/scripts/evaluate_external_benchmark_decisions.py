@@ -88,8 +88,9 @@ def _verify_source_archive(source: Mapping[str, Any], index: int) -> None:
 
 
 def _validate_evidence(record: Mapping[str, Any]) -> None:
-    required = ("evidence_class", "target_gameweek", "deadline_utc", "as_of_utc",
-                "season", "provider_identity", "software_commit", "source_archives")
+    required = ("evidence_class", "manager_team_id", "target_gameweek", "deadline_utc", "as_of_utc",
+                "season", "provider_snapshot_id", "provider_identity",
+                "decision_contract_version", "software_commit", "source_archives")
     missing = [key for key in required if key not in record]
     if missing:
         _fail("evaluation record missing fields: " + ", ".join(missing))
@@ -97,6 +98,11 @@ def _validate_evidence(record: Mapping[str, Any]) -> None:
         _fail("evidence_class must be SYNTHETIC_TEST or REAL_CANDIDATE")
     if isinstance(record["target_gameweek"], bool) or not isinstance(record["target_gameweek"], int) or record["target_gameweek"] < 1:
         _fail("target_gameweek must be a positive integer")
+    if isinstance(record["manager_team_id"], bool) or not isinstance(record["manager_team_id"], int) or record["manager_team_id"] < 1:
+        _fail("manager_team_id must be a positive integer")
+    for field in ("provider_snapshot_id", "decision_contract_version"):
+        if not isinstance(record[field], str) or not record[field].strip():
+            _fail(f"{field} must be a non-empty string")
     if not isinstance(record["season"], str) or not record["season"].strip():
         _fail("season must be a non-empty string")
     if not isinstance(record["software_commit"], str) or not re.fullmatch(r"[0-9a-f]{40,64}", record["software_commit"]):
@@ -303,9 +309,13 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
     manager = record.get("manager_state")
     if not isinstance(manager, Mapping):
         _fail("manager_state must be an object")
-    for field in ("bank", "free_transfers"):
+    for field in ("bank", "free_transfers", "personal_risk_profile", "formation"):
         if field not in manager:
             _fail(f"manager_state missing {field}")
+    if manager["personal_risk_profile"] not in {"conservative", "balanced", "aggressive"}:
+        _fail("manager_state.personal_risk_profile is invalid")
+    if manager["formation"] not in LEGAL_FORMATIONS:
+        _fail("manager_state.formation must be a legal FPL formation")
     _finite_number(manager["bank"], "manager_state.bank", 0)
     if isinstance(manager["free_transfers"], bool) or not isinstance(manager["free_transfers"], int) or manager["free_transfers"] < 0:
         _fail("manager_state.free_transfers must be a non-negative integer")
@@ -313,6 +323,8 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
         _fail("chip scoring is outside the initial M3 evaluation harness")
     manager_roster, _ = _validate_roster(manager.get("squad_snapshot"), "manager_state.squad_snapshot")
     manager_plan = _validate_plan(manager.get("hold_plan"), manager_roster, "manager_state.hold_plan")
+    if manager_plan["formation"] != manager["formation"]:
+        _fail("manager_state.formation does not match the confirmed hold-plan starting XI")
 
     decision = record.get("frozen_decision")
     if not isinstance(decision, Mapping):
@@ -449,8 +461,12 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
         "evaluation_contract_version": CONTRACT_VERSION,
         "evidence_class": "SYNTHETIC_TEST",
         "evaluation_status": "SYNTHETIC_ONLY_NOT_HISTORICAL_EVIDENCE",
+        "manager_team_id": record["manager_team_id"],
         "target_gameweek": record["target_gameweek"],
+        "provider_snapshot_id": record["provider_snapshot_id"],
         "provider_identity": dict(record["provider_identity"]),
+        "personal_risk_profile": manager["personal_risk_profile"],
+        "risk_profile_applied": False,
         "software_commit": record["software_commit"],
         "evaluation_input_sha256": input_sha256,
         "frozen_decision_sha256": decision["decision_sha256"],
