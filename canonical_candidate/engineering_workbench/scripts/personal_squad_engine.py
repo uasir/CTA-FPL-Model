@@ -252,13 +252,29 @@ def recommend_personal_squad(payload):
         incoming_id, outgoing_id = int(candidate["transfer_in_id"]), int(candidate["transfer_out_id"])
         post_transfer_owned = [player for player in owned if int(player["fpl_element_id"]) != outgoing_id]
         post_transfer_owned.append(forecast_by_id[incoming_id])
-        # Fixed XI/bench inputs may include the outgoing player; re-optimise after the move.
+        # Preserve the manager's XI. A starter transfer replaces that starter;
+        # a bench transfer can only displace the weakest starter in its position.
+        post_starting_xi = list(current_squad_plan["starting_xi"])
+        if outgoing_id in post_starting_xi:
+            replacement_index = post_starting_xi.index(outgoing_id)
+        else:
+            eligible = [
+                (index, forecast_by_id[player_id])
+                for index, player_id in enumerate(post_starting_xi)
+                if forecast_by_id[player_id]["position"] == forecast_by_id[incoming_id]["position"]
+            ]
+            if not eligible:
+                raise RecommendationContractError("Transfer cannot preserve the current formation")
+            replacement_index = min(
+                eligible, key=lambda item: (item[1]["expected_points"], -item[1]["expected_minutes"], -item[1]["fpl_element_id"])
+            )[0]
+        post_starting_xi[replacement_index] = incoming_id
         starting_goalkeeper_id = next(
             player_id for player_id in current_squad_plan["starting_xi"]
             if forecast_by_id[player_id]["position"] == "GKP"
         )
         recommended_squad_plan = _build_squad_plan(
-            post_transfer_owned, forecast_by_id, formation_value,
+            post_transfer_owned, forecast_by_id, formation_value, post_starting_xi,
             starting_goalkeeper_id=starting_goalkeeper_id,
         )
         squad_plan_state = "POST_TRANSFER"
