@@ -287,3 +287,54 @@ def test_rejects_realised_points_archive_captured_before_deadline():
     record["source_archives"][3]["captured_at_utc"] = "2026-10-01T10:45:00Z"
     with pytest.raises(DecisionEvaluationError, match="realised_points archive must be captured after"):
         evaluate_decision_record(record)
+
+
+def test_zero_minute_carded_bench_player_is_eligible_for_autosub():
+    record = _record()
+    bench_player = next(row for row in record["realised_player_points"] if row["fpl_element_id"] == 6)
+    bench_player["minutes"] = 0
+    bench_player["yellow_cards"] = 1
+    bench_player["total_points"] = -1
+    result = evaluate_decision_record(record)
+    assert {"player_out_id": 3, "player_in_id": 6} in result["recommended"]["outfield_substitutions"]
+
+
+def test_zero_minute_carded_starting_goalkeeper_is_not_replaced():
+    record = _record()
+    starting_keeper = next(row for row in record["realised_player_points"] if row["fpl_element_id"] == 1)
+    starting_keeper["minutes"] = 0
+    starting_keeper["yellow_cards"] = 1
+    starting_keeper["total_points"] = -1
+    result = evaluate_decision_record(record)
+    assert result["recommended"]["goalkeeper_substitution"] is None
+
+
+def test_rejects_unaffordable_transfer_using_fpl_sell_price():
+    record = _record()
+    record["frozen_decision"]["incoming_player"]["current_price"] = 6.0
+    record["frozen_decision"]["incoming_player"]["purchase_price"] = 6.0
+    _seal(record["frozen_decision"])
+    with pytest.raises(DecisionEvaluationError, match="unaffordable"):
+        evaluate_decision_record(record)
+
+
+def test_rejects_goalkeeper_transfer_under_fixed_keeper_strategy():
+    record = _record()
+    decision = record["frozen_decision"]
+    decision["transfer_out_id"] = 1
+    decision["transfer_in_id"] = 16
+    decision["incoming_player"] = _player(16, "GKP")
+    decision["squad_plan"] = _plan([2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 7, 16],
+                                   [16, 3, 4, 5, 6, 8, 9, 10, 13, 14, 15], [7, 11, 12])
+    _seal(decision)
+    with pytest.raises(DecisionEvaluationError, match="goalkeeper transfers are excluded"):
+        evaluate_decision_record(record)
+
+
+def test_output_retains_input_and_raw_source_hashes():
+    result = evaluate_decision_record(_record())
+    assert len(result["evaluation_input_sha256"]) == 64
+    assert len(result["frozen_decision_sha256"]) == 64
+    assert {item["source_type"] for item in result["source_provenance"]} == {
+        "provider", "player_metadata", "manager_state", "realised_points"
+    }
