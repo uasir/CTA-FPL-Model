@@ -73,6 +73,21 @@ def _decision_eligibility(manifest: Any, gameweek: int, manager_id: int,
                                 and event.get("gameweek") == gameweek), None)
         if not isinstance(audit_event, Mapping) or audit_event.get("status") != "RECONCILED":
             reasons.append("Independent archive audit has no reconciled event for this Gameweek")
+        recommendation_audit = (
+            audit_event.get("predeadline_recommendation")
+            if isinstance(audit_event, Mapping) else None
+        )
+        if (
+            not isinstance(recommendation_audit, Mapping)
+            or recommendation_audit.get("status") != "VERIFIED"
+            or recommendation_audit.get("action") not in {"HOLD", "TRANSFER"}
+            or recommendation_audit.get("execution_match") not in {
+                "HOLD_BASELINE_MATCHED", "RECOMMENDATION_MATCHED"
+            }
+            or not isinstance(recommendation_audit.get("decision_sha256"), str)
+            or len(recommendation_audit.get("decision_sha256", "")) != 64
+        ):
+            reasons.append("Frozen predeadline recommendation and hold/execution state were not independently verified")
 
     audited_archives = (
         audit_event.get("decision_sources", []) if isinstance(audit_event, Mapping) else []
