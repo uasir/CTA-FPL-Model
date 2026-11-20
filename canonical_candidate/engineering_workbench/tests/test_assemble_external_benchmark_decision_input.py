@@ -92,3 +92,18 @@ def test_rejects_duplicate_squad_ids():
     manager["manager_context"]["squad_snapshot"][1]["fpl_element_id"] = 1
     with pytest.raises(DecisionInputError, match="15 unique"):
         assemble_decision_input(provider, manager, as_of_utc="2026-11-20T15:00:00Z")
+
+
+
+def test_rejects_manager_raw_response_hash_mismatch():
+    provider, manager = captures()
+    manager["manager_context_capture"]["raw_sha256"] = "0" * 64
+    with pytest.raises(DecisionInputError, match="SHA-256 mismatch"):
+        assemble_decision_input(provider, manager, as_of_utc="2026-11-20T15:00:00Z")
+
+
+def test_rejects_manager_capture_row_count_mismatch():
+    provider, manager = captures()
+    manager["manager_context_capture"]["row_count"] = 14
+    with pytest.raises(DecisionInputError, match="exactly 15 rows"):
+        assemble_decision_input(provider, manager, as_of_utc="2026-11-20T15:00:00Z")
