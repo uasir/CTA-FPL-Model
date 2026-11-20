@@ -384,6 +384,8 @@ def _frozen_recommendation(manifest):
         "deadline_utc": manifest["deadline_utc"],
         "recommendation_status": "EXPLORATORY_ONLY",
         "release_eligible": False,
+        "provider_snapshot_id": "fplcat-gw5-test",
+        "provider_identity": {"name": "FPL Cat"},
         "frozen_decision": frozen,
         "evaluation_candidate": candidate,
     }
