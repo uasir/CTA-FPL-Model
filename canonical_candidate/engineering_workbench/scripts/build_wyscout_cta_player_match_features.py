@@ -279,7 +279,10 @@ def build_player_match_features(events, matches, players, teams):
             except (TypeError, ValueError):
                 continue
             scores.append(score)
-            team_id = _int(team_data.get("teamId"))
+            try:
+                team_id = int(team_data.get("teamId"))
+            except (TypeError, ValueError):
+                team_id = None
             side = str(team_data.get("side") or "")
             team_context.append({
                 "team_id": team_id,
