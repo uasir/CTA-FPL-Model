@@ -160,6 +160,20 @@ def assemble_evaluation_record(
         bootstrap_archive.get("captured_at_utc"), "bootstrap finalization observation"
     )
 
+    audited_archives = audited.get("archives")
+    if not isinstance(audited_archives, list):
+        _fail("independent audit is missing official scoring archive bindings")
+    audit_archive_by_type = {
+        row.get("source_type"): row for row in audited_archives if isinstance(row, Mapping)
+    }
+    for source_type, archive in by_type.items():
+        audited_archive = audit_archive_by_type.get(source_type)
+        if not isinstance(audited_archive, Mapping):
+            _fail(f"official {source_type} archive is absent from the independent audit")
+        for field in ("raw_snapshot_id", "raw_sha256", "captured_at_utc", "source_url"):
+            if archive.get(field) != audited_archive.get(field):
+                _fail(f"official {source_type} archive {field} does not match the independent audit")
+
     live_archive = by_type["event_live"]
     _, live_payload = _archive_payload(live_archive, "event_live")
     live_captured_at = _time(live_archive["captured_at_utc"], "event_live.captured_at_utc")
