@@ -218,4 +218,15 @@ The 2PM evaluator now calculates ranking utility within each actual GW deadline,
 
 The new test suite verifies equal-deadline macro weighting (so a large player pool in one GW cannot dominate) and paired candidate-minus-reference uncertainty. Engineering CI run [44733508147](https://github.com/uasir/CTA-FPL-Model/actions/runs/44733508147) passed. The full 2PM walk-forward run with the expanded aggregate summary is queued behind an earlier training run; results remain pending.
 
+
+## 14. First real ABC fixture-reference audit
+
+The rerun with the historical FPL panel fix produced the first actual fixture-reference report:
+- 2,623 ABC player-gameweek keys; all 2,623 had a corresponding key in the pinned FPL reference.
+- 2,713 reference player-fixture rows.
+- 20 fixture-set mismatches, all classified as `ABC_FIXTURE_MISSING`; no target-points/minutes mismatches and no missing player-GW reference keys.
+- The first implementation marked the entire cohort `FAIL_CLOSED` when any mismatch existed. That was too coarse: it would discard thousands of otherwise complete player-GWs because of a small number of incomplete fixture groups.
+
+The builder and aggregator are being revised to mark only affected player-GW keys as reference-invalid, preserve exact fixture-ID checks, and retain the unaffected cohort. A mismatched double-gameweek will not be partially scored as if it were complete. The next run must report valid/excluded player-GW counts and pass all new selective-exclusion tests before the aggregated panel can be accepted.
+
 **Current disposition:** 2PM base remains the control; position features are not adopted; ABC remains an exploratory independent candidate; no model is connected to recommendation weights.
