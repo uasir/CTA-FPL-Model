@@ -295,6 +295,7 @@ def transition_manager_state(
         "chip_inventory": inventory,
         "previous_gameweek_chip": chip,
         "squad": updated_squad,
+        "lineup": lineup,
         "transfer_history": history,
     }
     _validate_squad(updated_squad, "next_state.squad")
