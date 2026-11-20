@@ -14,7 +14,7 @@ on:
         default: "1,2,3,4,5,6,7,8,10"
         type: string
       decision_evidence_run_id:
-        description: Optional successful pre-deadline capture workflow run ID for a single Gameweek
+        description: Optional successful pre-deadline capture workflow run ID for this manager and single Gameweek
         required: false
         default: ""
         type: string
@@ -67,6 +67,9 @@ jobs:
           fi
           test -f decision-evidence/predeadline-decision-evidence.json
           cp decision-evidence/predeadline-decision-evidence.json official-fpl-decision-evidence-manifests.json
+          if [ -f decision-evidence/predeadline-m3-recommendation.json ]; then
+            cp decision-evidence/predeadline-m3-recommendation.json official-fpl-predeadline-m3-recommendation.json
+          fi
       - name: Audit batch hashes and reconciliation coverage
         id: audit
         if: always() && steps.reconcile.outcome != 'skipped'
@@ -97,6 +100,7 @@ jobs:
             canonical_candidate/engineering_workbench/official-fpl-manager-reconciliation-audit.json
             canonical_candidate/engineering_workbench/official-fpl-historical-evidence-admission.json
             canonical_candidate/engineering_workbench/official-fpl-decision-evidence-manifests.json
+            canonical_candidate/engineering_workbench/official-fpl-predeadline-m3-recommendation.json
           if-no-files-found: warn
           retention-days: 90
       - name: Fail job if any requested Gameweek was excluded or audit failed
