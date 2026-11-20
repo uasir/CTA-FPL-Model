@@ -135,3 +135,8 @@ The prototype should demonstrate mechanics and EV opportunity-cost reporting, no
 - `decision_weight = 0`.
 - `production_eligible = false`.
 - No PR merge without explicit user approval.
+
+
+**Manager-level field input bridge now implemented:** the existing pre-deadline rank-stratified capture emits a separate manager-ID-stripped 15-player sample artifact. The adapter verifies its capture-report SHA-256 manifest, enforces same-GW/deadline/as-of timing, preserves actual manager co-occurrence and captain/Triple Captain multipliers, normalizes existing sample weights, supports rank-page cohort filtering, and retains zero-player fixture slices. It uses actual sampled manager-pick rows rather than attempting to reconstruct joint ownership from marginal EO. Entry IDs and exact ranks are discarded; squad combinations may still be identifying, so the artifact is restricted and receives 7-day Actions artifact retention.
+
+**Still not implemented:** full-Gameweek manager portfolio scoring, empirical representativeness/uncertainty validation of the sample for relative-score tails, set-piece taker/target attribution, and event-based BPS.
