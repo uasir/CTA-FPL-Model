@@ -2,7 +2,7 @@
 """Capture a public FPL manager picks snapshot with purchase prices.
 
 The output preserves the raw picks response and emits a normalized 15-player
-squad snapshot. It does not infer free transfers; that remains explicit input.
+squad snapshot. Free transfers are supplied explicitly, never inferred.
 """
 from __future__ import annotations
 
@@ -38,8 +38,18 @@ def capture_manager_context(
     *,
     expected_element_ids: set[int] | None = None,
     expected_bank: float | None = None,
+    free_transfers: int,
+    personal_risk_profile: str = "aggressive",
+    formation: str = "4-3-3",
 ) -> dict[str, Any]:
-    if isinstance(free_transfers, bool) or not isinstance(free_transfers, int) or not 0 <= free_transfers <= 5:\n        raise CaptureError("free_transfers must be an integer from 0 to 5")\n    if personal_risk_profile not in {"conservative", "balanced", "aggressive"}:\n        raise CaptureError("personal_risk_profile must be conservative, balanced, or aggressive")\n    if formation not in {"3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-2-3", "5-3-2", "5-4-1"}:\n        raise CaptureError("formation is not a supported FPL formation")\n\n    url = f"https://fantasy.premierleague.com/api/entry/{team_id}/event/{gameweek}/picks/"
+    if isinstance(free_transfers, bool) or not isinstance(free_transfers, int) or not 0 <= free_transfers <= 5:
+        raise CaptureError("free_transfers must be an integer from 0 to 5")
+    if personal_risk_profile not in {"conservative", "balanced", "aggressive"}:
+        raise CaptureError("personal_risk_profile must be conservative, balanced, or aggressive")
+    if formation not in {"3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-2-3", "5-3-2", "5-4-1"}:
+        raise CaptureError("formation is not a supported FPL formation")
+
+    url = f"https://fantasy.premierleague.com/api/entry/{team_id}/event/{gameweek}/picks/"
     raw = fetch(url)
     captured_at = utc_now()
     try:
@@ -52,6 +62,9 @@ def capture_manager_context(
         raise CaptureError("FPL response is missing picks or entry_history")
     if len(picks) != 15:
         raise CaptureError(f"expected 15 squad picks, received {len(picks)}")
+    returned_event = history.get("event")
+    if returned_event != gameweek:
+        raise CaptureError(f"FPL response event {returned_event!r} does not match requested GW{gameweek}")
 
     squad = []
     seen: set[int] = set()
@@ -65,10 +78,7 @@ def capture_manager_context(
         seen.add(element)
         if isinstance(purchase_price, bool) or not isinstance(purchase_price, int) or purchase_price <= 0:
             raise CaptureError(f"player {element} has invalid purchase_price")
-        squad.append({
-            "fpl_element_id": element,
-            "purchase_price": purchase_price / 10,
-        })
+        squad.append({"fpl_element_id": element, "purchase_price": purchase_price / 10})
 
     if expected_element_ids is not None and seen != expected_element_ids:
         missing = sorted(expected_element_ids - seen)
@@ -97,6 +107,9 @@ def capture_manager_context(
         "manager_context": {
             "squad_snapshot": squad,
             "bank": bank,
+            "free_transfers": free_transfers,
+            "personal_risk_profile": personal_risk_profile,
+            "formation": formation,
             "entry_history": history,
         },
     }
@@ -108,6 +121,9 @@ def main() -> int:
     parser.add_argument("--gameweek", type=int, required=True)
     parser.add_argument("--expected-element-ids", default="")
     parser.add_argument("--expected-bank", type=float)
+    parser.add_argument("--free-transfers", type=int, required=True)
+    parser.add_argument("--personal-risk-profile", default="aggressive")
+    parser.add_argument("--formation", default="4-3-3")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     expected = {int(value) for value in args.expected_element_ids.split(",") if value.strip()}
@@ -116,6 +132,9 @@ def main() -> int:
         args.gameweek,
         expected_element_ids=expected or None,
         expected_bank=args.expected_bank,
+        free_transfers=args.free_transfers,
+        personal_risk_profile=args.personal_risk_profile,
+        formation=args.formation,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
@@ -125,6 +144,7 @@ def main() -> int:
         "squad_rows": result["manager_context_capture"]["row_count"],
         "identity_verified": result["manager_context_capture"]["identity_verified"],
         "bank": result["manager_context"]["bank"],
+        "free_transfers": result["manager_context"]["free_transfers"],
         "raw_sha256": result["manager_context_capture"]["raw_sha256"],
         "output": str(args.output),
     }, indent=2))
