@@ -17,7 +17,7 @@ def captures():
             },
             "records": [{"fpl_element_id": i} for i in range(1, 673)],
         },
-        "player_metadata": [{"fpl_element_id": i} for i in range(1, 673)],
+        "player_metadata": [{"fpl_element_id": i, "price": 5.0} for i in range(1, 673)],
         "player_metadata_provenance": {"row_count": 672},
     }
     manager = {
