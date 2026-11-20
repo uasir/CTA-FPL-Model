@@ -612,7 +612,7 @@ def evaluate(rows, feature_set="base", matched_fold_keys=None, matched_manifest=
             aggregate["transformer_affine_calibrated"],
         ):
             pooled_prediction_rows.append({
-                **key, "actual_points": actual_value,
+                **key, "fold": fold_id, "actual_points": actual_value,
                 "predicted_points": raw_value,
                 "affine_calibrated_points": calibrated_value,
             })
@@ -740,7 +740,7 @@ def main():
     if args.predictions_out:
         args.predictions_out.parent.mkdir(parents=True, exist_ok=True)
         with args.predictions_out.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=["season", "fpl_element_id", "gameweek", "actual_points", "predicted_points", "affine_calibrated_points"])
+            writer = csv.DictWriter(handle, fieldnames=["fold", "season", "fpl_element_id", "gameweek", "actual_points", "predicted_points", "affine_calibrated_points"])
             writer.writeheader()
             writer.writerows(prediction_rows)
     report["prediction_rows_exported"] = len(prediction_rows) if args.predictions_out else 0
