@@ -45,7 +45,7 @@ The evidence subtasks are additional implementation work that closes the origina
 
 1. **M4-T4 — Rank-cohort and uncertainty diagnostics:** completed; the diagnostics module reports cohort metadata, coverage, effective sample size, metric missingness/ranges and EO confidence-interval widths. Incomplete/inverted intervals fail closed; null values remain null.
 2. **M4-T5 — Portfolio exposure baseline:** completed; report separate squad/XI/bench field-exposure sums, top-player exposure, top-3/top-5 concentration shares, HHI, effective contributor count and captain-share differential. Missing values withhold dependent sums/concentration. No covariance or correlation is inferred.
-3. **M4-T6 — CoVar eligibility research gate:** test historical covariance coverage, point-in-time status, stability, shrinkage sensitivity and uncertainty. Decision weight remains zero unless all gates pass.
+3. **M4-T6 — CoVar eligibility research gate:** gate implementation completed and CI-tested. It checks point-in-time provenance, explicit window/coverage policy, rolling stability, shrinkage sensitivity, independent uncertainty and positive out-of-sample utility evidence. Existing exploratory artifacts remain blocked; decision weight is hard-coded to zero and production eligibility remains false.
 4. **M4-T7 — M3/M4 integration and regression:** prove optional M4 context cannot change M3 EV, legality or frozen decision hash. Add deterministic replay and degraded-mode tests. M4 failure must not corrupt or silently alter the frozen M3 decision.
 5. **M4-T8 — Acceptance report and M5 handoff:** document implemented interfaces, research-only components, remaining blockers and release-safe boundaries.
 
