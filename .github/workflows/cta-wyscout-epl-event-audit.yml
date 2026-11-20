@@ -413,15 +413,15 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          ABC_PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          ABC_MATCHED_PANEL="$RUNNER_TEMP/cta_2pm_same_cohort/abc_player_gameweek/abc_player_gameweek_panel.csv"
           ABC_SOURCE_REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
           FPL_PANEL="$RUNNER_TEMP/cta_2pm_same_cohort/vaastav_fpl_multiseason_panel.csv"
           PARTITION_KEYS="$RUNNER_TEMP/cta_2pm_same_cohort/matched_abc_2pm_fold_partition_keys.csv"
           MANIFEST="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/matched_abc_2pm_fold_manifest.json"
           REPORT_DIR="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc"
-          if [ -f "$ABC_PANEL" ] && [ -f "$ABC_SOURCE_REPORT" ] && [ -f "$FPL_PANEL" ] && [ -f "$PARTITION_KEYS" ] && [ -f "$MANIFEST" ]; then
+          if [ -f "$ABC_MATCHED_PANEL" ] && [ -f "$ABC_SOURCE_REPORT" ] && [ -f "$FPL_PANEL" ] && [ -f "$PARTITION_KEYS" ] && [ -f "$MANIFEST" ]; then
             python canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py \
-              --abc-panel "$ABC_PANEL" \
+              --abc-panel "$ABC_MATCHED_PANEL" \
               --source-report "$ABC_SOURCE_REPORT" \
               --matched-partition-keys "$PARTITION_KEYS" \
               --matched-manifest "$MANIFEST" \
