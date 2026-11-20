@@ -43,8 +43,12 @@ def load_two_pm_panel(path):
     return [r for r in grouped if int(r["gameweek"]) > 1]
 
 
-def key(player_id, gameweek):
-    return (str(player_id), int(gameweek))
+def normalize_season(value):
+    return str(value).replace("/", "-")
+
+
+def key(season, player_id, gameweek):
+    return (normalize_season(season), str(player_id), int(gameweek))
 
 
 def evaluate(abc_panel_path, source_report_path, fpl_panel_path, n_boot=1000):
@@ -60,7 +64,7 @@ def evaluate(abc_panel_path, source_report_path, fpl_panel_path, n_boot=1000):
     fpl_rows = load_two_pm_panel(fpl_panel_path)
     transformer_fold = evaluate_fold(fpl_rows, "2017-18", torch, seed_offset=17)
     transformer = transformer_fold["_aggregate"]
-    keys = [key(x["fpl_element_id"], x["gameweek"]) for x in transformer["keys"]]
+    keys = [key(x["season"], x["fpl_element_id"], x["gameweek"]) for x in transformer["keys"]]
     if not (len(keys) == len(transformer["actual"]) == len(transformer["transformer"]) == len(transformer["transformer_affine_calibrated"])):
         raise AssertionError("2PM validation key and prediction lengths do not match")
     transformer_actual = {k: float(v) for k, v in zip(keys, transformer["actual"])}
@@ -70,14 +74,15 @@ def evaluate(abc_panel_path, source_report_path, fpl_panel_path, n_boot=1000):
     if "FPL_HISTORY_ONLY" not in abc_predictions:
         raise ValueError("ABC evaluation did not produce its conventional history baseline")
     abc_maps = {
-        name: {key(r["player_id"], r["gameweek"]): r for r in records}
+        name: {key(r.get("season", "2017/18"), r["player_id"], r["gameweek"]): r for r in records
+               if normalize_season(r.get("season", "2017/18")) == "2017-18"}
         for name, records in abc_predictions.items()
     }
     common = set(abc_maps["FPL_HISTORY_ONLY"]) & set(transformer_raw)
     for name, records in abc_maps.items():
         common &= set(records)
-    candidate_common_keys = sorted(common, key=lambda k: (k[1], k[0]))
-    actual_mismatch_by_gameweek = {}
+    candidate_common_keys = sorted(common, key=lambda k: (k[0], k[2], k[1]))
+    actual_mismatch_by_deadline = {}
     common_keys = []
     for k in candidate_common_keys:
         abc_actual = float(abc_maps["FPL_HISTORY_ONLY"][k]["actual"])
@@ -85,15 +90,18 @@ def evaluate(abc_panel_path, source_report_path, fpl_panel_path, n_boot=1000):
         if abs(abc_actual - two_pm_actual) <= 1e-9:
             common_keys.append(k)
         else:
-            actual_mismatch_by_gameweek[k[1]] = actual_mismatch_by_gameweek.get(k[1], 0) + 1
+            deadline = f"{k[0]}:GW{k[2]}"
+            actual_mismatch_by_deadline[deadline] = actual_mismatch_by_deadline.get(deadline, 0) + 1
     excluded_actual_mismatch_rows = len(candidate_common_keys) - len(common_keys)
     if len(common_keys) < 30:
         raise ValueError(
             f"Insufficient exact-actual common player-GW cohort after excluding "
             f"{excluded_actual_mismatch_rows} source/fixture-coverage mismatches: {len(common_keys)}"
         )
+    if not common_keys or {season for season, _, _ in common_keys} != {"2017-18"}:
+        raise ValueError("This 2PM comparator currently validates only the 2017-18 overlap; multi-season comparator training is not yet implemented")
     actual = [float(abc_maps["FPL_HISTORY_ONLY"][k]["actual"]) for k in common_keys]
-    cluster_ids = [f"2017-18:{player_id}" for player_id, _ in common_keys]
+    cluster_ids = [f"{season}:{player_id}" for season, player_id, _ in common_keys]
 
     model_predictions = {
         name: [float(records[k]["predicted"]) for k in common_keys]
@@ -103,8 +111,8 @@ def evaluate(abc_panel_path, source_report_path, fpl_panel_path, n_boot=1000):
     model_predictions["2PM_TRANSFORMER_AFFINE_CALIBRATED"] = [transformer_affine[k] for k in common_keys]
     records_by_model = {
         name: [
-            {"player_id": player_id, "gameweek": gw, "actual": y, "predicted": p}
-            for (player_id, gw), y, p in zip(common_keys, actual, prediction)
+            {"season": season, "player_id": player_id, "gameweek": gw, "actual": y, "predicted": p}
+            for (season, player_id, gw), y, p in zip(common_keys, actual, prediction)
         ]
         for name, prediction in model_predictions.items()
     }
@@ -129,12 +137,14 @@ def evaluate(abc_panel_path, source_report_path, fpl_panel_path, n_boot=1000):
         "status": "PASS_EXPLORATORY_SAME_COHORT_ABC_VS_2PM",
         "cohort": {
             "season": "2017/18",
+            "seasons": sorted({season for season, _, _ in common_keys}),
             "player_gameweeks": len(common_keys),
             "candidate_common_player_gameweeks_before_actual_match": len(candidate_common_keys),
             "excluded_actual_mismatch_player_gameweeks": excluded_actual_mismatch_rows,
-            "excluded_actual_mismatch_counts_by_gameweek": actual_mismatch_by_gameweek,
-            "unique_players": len({p for p, _ in common_keys}),
-            "gameweeks": sorted({gw for _, gw in common_keys}),
+            "excluded_actual_mismatch_counts_by_deadline": actual_mismatch_by_deadline,
+            "unique_players": len({(season, player_id) for season, player_id, _ in common_keys}),
+            "gameweeks": sorted({gw for _, _, gw in common_keys}),
+            "deadlines": [{"season": season, "gameweek": gw} for season, _, gw in common_keys],
             "grain": "player_gameweek",
             "common_cohort_rule": "Exact FPL element ID and gameweek intersection, with equal official target points from the ABC fixture panel and conventional player-GW panel; only rows with forecasts from every reported model.",
         },
@@ -157,7 +167,7 @@ def evaluate(abc_panel_path, source_report_path, fpl_panel_path, n_boot=1000):
         "abc_walk_forward_summary": {
             "fold_count": abc_report["fold_count"],
             "folds": [
-                {"fold": f["fold"], "train_gameweeks": f["train_gameweeks"], "test_gameweeks": f["test_gameweeks"]}
+                {"fold": f["fold"], "train_deadlines": f["train_deadlines"], "test_deadlines": f["test_deadlines"]}
                 for f in abc_report["folds"]
             ],
         },
