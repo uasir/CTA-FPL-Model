@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 
@@ -55,6 +56,8 @@ def test_captures_provider_and_metadata_with_independent_hashes():
     }
     assert snapshot["source"]["raw_sha256"] == hashlib.sha256(provider_raw).hexdigest()
     assert result["player_metadata_provenance"]["raw_sha256"] == hashlib.sha256(bootstrap_raw).hexdigest()
+    assert base64.b64decode(result["raw_archives"]["provider_response_base64"]) == provider_raw
+    assert base64.b64decode(result["raw_archives"]["fpl_bootstrap_response_base64"]) == bootstrap_raw
     assert result["player_metadata"][0] == {
         "fpl_element_id": 1, "price": 5.5, "position": "GKP", "team_id": 1
     }
