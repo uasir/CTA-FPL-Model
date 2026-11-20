@@ -50,6 +50,7 @@ def row_key(row, season_field="season", player_field="fpl_element_id"):
 def build_expected_fixture_rows(abc_rows, fpl_rows, tolerance=1e-9):
     abc_by_key_fixture = {}
     abc_keys = set()
+    abc_season_labels = {}
     for row in abc_rows:
         key = row_key(row)
         fixture = str(row.get("fixture_id") or "")
@@ -60,6 +61,7 @@ def build_expected_fixture_rows(abc_rows, fpl_rows, tolerance=1e-9):
             raise ValueError(f"Duplicate ABC player-fixture row: {pair}")
         abc_by_key_fixture[pair] = row
         abc_keys.add(key)
+        abc_season_labels[key] = str(row.get("season") or "")
 
     fpl_by_key_fixture = {}
     for row in fpl_rows:
@@ -110,7 +112,7 @@ def build_expected_fixture_rows(abc_rows, fpl_rows, tolerance=1e-9):
 
         for fixture in fpl_fixtures:
             expected.append({
-                "season": key[0],
+                "season": abc_season_labels[key],
                 "fpl_element_id": key[1],
                 "gameweek": key[2],
                 "fixture_id": fixture,
