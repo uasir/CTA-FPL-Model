@@ -27,6 +27,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py
       - canonical_candidate/engineering_workbench/scripts/build_matched_abc_2pm_fold_manifest.py
       - canonical_candidate/engineering_workbench/tests/test_build_matched_abc_2pm_fold_manifest.py
+      - canonical_candidate/engineering_workbench/scripts/build_matched_abc_2pm_fold_manifest.py
+      - canonical_candidate/engineering_workbench/tests/test_build_matched_abc_2pm_fold_manifest.py
       - canonical_candidate/engineering_workbench/scripts/compare_abc_with_2pm_same_cohort.py
       - canonical_candidate/engineering_workbench/scripts/cta_four_layer_pipeline.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_decision_quality.py
@@ -75,6 +77,8 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_build_abc_expected_fixture_universe.py
       - canonical_candidate/engineering_workbench/tests/test_aggregate_abc_player_gameweeks.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py
+      - canonical_candidate/engineering_workbench/scripts/build_matched_abc_2pm_fold_manifest.py
+      - canonical_candidate/engineering_workbench/tests/test_build_matched_abc_2pm_fold_manifest.py
       - canonical_candidate/engineering_workbench/scripts/compare_abc_with_2pm_same_cohort.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py
@@ -128,6 +132,7 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py \
             canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_walk_forward.py \
+            canonical_candidate/engineering_workbench/tests/test_build_matched_abc_2pm_fold_manifest.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_temporal_xt.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_xsuccess.py
 
