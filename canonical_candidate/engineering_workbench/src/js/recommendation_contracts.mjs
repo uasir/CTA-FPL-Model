@@ -225,11 +225,12 @@ export function validatePersonalSquadRequest(payload) {
       throw new RecommendationContractError(`Duplicate squad FPL element ID ${key}`);
     }
     ids.add(key);
-    if (typeof player.purchase_price !== "number"
-        || !Number.isFinite(player.purchase_price)
-        || player.purchase_price <= 0) {
+    const hasPurchasePrice = Object.hasOwn(player, "purchase_price");
+    const hasSellingPriceFloor = Object.hasOwn(player, "selling_price_floor");
+    const value = hasPurchasePrice ? player.purchase_price : player.selling_price_floor;
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
       throw new RecommendationContractError(
-        `squad_snapshot[${index}].purchase_price must be positive`,
+        `squad_snapshot[${index}] requires a positive purchase_price or selling_price_floor`,
       );
     }
   });
