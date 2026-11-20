@@ -33,7 +33,7 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python -m pip install pytest
-          PYTHONPATH=scripts python -m pytest -q tests/test_evaluate_external_benchmark_decisions.py tests/test_reconcile_official_fpl_manager_result.py tests/test_reconcile_official_fpl_manager_batch.py tests/test_audit_official_fpl_manager_batch.py
+          PYTHONPATH=scripts python -m pytest -q tests/test_evaluate_external_benchmark_decisions.py tests/test_reconcile_official_fpl_manager_result.py tests/test_reconcile_official_fpl_manager_batch.py tests/test_audit_official_fpl_manager_batch.py tests/test_classify_historical_fpl_evidence.py
       - name: Capture and reconcile requested completed Gameweeks
         id: reconcile
         continue-on-error: true
@@ -49,6 +49,12 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/audit_official_fpl_manager_batch.py official-fpl-manager-reconciliation-batch.json --output official-fpl-manager-reconciliation-audit.json
+      - name: Classify historical evidence admission
+        id: admission
+        if: always() && steps.audit.outcome == 'success'
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/classify_historical_fpl_evidence.py official-fpl-manager-reconciliation-batch.json --output official-fpl-historical-evidence-admission.json
       - name: Upload immutable batch evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -57,6 +63,7 @@ jobs:
           path: |
             canonical_candidate/engineering_workbench/official-fpl-manager-reconciliation-batch.json
             canonical_candidate/engineering_workbench/official-fpl-manager-reconciliation-audit.json
+            canonical_candidate/engineering_workbench/official-fpl-historical-evidence-admission.json
           if-no-files-found: error
           retention-days: 90
       - name: Fail job if any requested Gameweek was excluded or audit failed
