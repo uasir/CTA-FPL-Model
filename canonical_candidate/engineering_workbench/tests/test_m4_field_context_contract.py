@@ -30,11 +30,17 @@ def fixture():
         "target_gameweek": 11,
         "deadline_utc": "2026-11-21T11:00:00Z",
         "as_of_utc": "2026-11-20T20:01:00Z",
-        "manager_state": {"squad_snapshot": [
-            {"fpl_element_id": str(i)} for i in range(1, 16)
-        ]},
+        "manager_state": {"manager_state": {
+            "squad_15": list(range(1, 16)),
+            "starting_xi": list(range(1, 12)),
+            "bench_order": [12, 13, 14],
+            "reserve_goalkeeper_id": 15,
+            "captain_id": 1,
+            "vice_captain_id": 2,
+            "formation": "4-3-3",
+        }},
         "frozen_decision": {
-            "action": "TRANSFER", "transfer_out_id": "15",
+            "action": "TRANSFER", "transfer_out_id": "11",
             "transfer_in_id": "16", "decision_sha256": "b" * 64,
         },
     }
