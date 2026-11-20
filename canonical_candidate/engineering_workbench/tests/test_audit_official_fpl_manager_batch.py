@@ -458,7 +458,7 @@ def test_audits_frozen_recommendation_when_manager_holds_instead():
     batch = _batch()
     manifests = _decision_manifest_with_attested_manager_state(batch)
     recommendation = _frozen_recommendation(manifests["5"])
-    result = audit_batch(batch, manifests, recommendation)
+    result = audit_batch(batch, manifests, recommendation, _replay_report(recommendation))
     verified = result["events"][0]["predeadline_recommendation"]
     assert verified["status"] == "VERIFIED"
     assert verified["execution_match"] == "HOLD_BASELINE_MATCHED"
@@ -498,4 +498,4 @@ def test_rejects_recommendation_with_changed_frozen_decision_hash():
     recommendation = _frozen_recommendation(manifests["5"])
     recommendation["frozen_decision"]["transfer_out_id"] = 14
     with pytest.raises(BatchAuditError, match="decision hash mismatch"):
-        audit_batch(batch, manifests, recommendation)
+        audit_batch(batch, manifests, recommendation, _replay_report(recommendation))
