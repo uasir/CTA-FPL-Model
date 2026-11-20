@@ -40,7 +40,7 @@ def strip_manager_identifiers_from_manager_picks(
     evidence_role: str,
     cohort: str,
     rank_limit: int,
-    player_positions_by_id: Mapping[str, str],
+    player_positions_by_id: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Convert one row per manager-player pick into private, lineup-aware portfolios."""
     if evidence_role != "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE":
@@ -51,6 +51,7 @@ def strip_manager_identifiers_from_manager_picks(
         raise CovarFieldPortfolioError("manager picks must be captured before the deadline")
     if gameweek < 1 or rank_limit < 1 or not cohort.strip():
         raise CovarFieldPortfolioError("gameweek, rank_limit and cohort must be valid")
+    player_positions_by_id = player_positions_by_id or {}
 
     grouped: dict[str, list[Mapping[str, Any]]] = {}
     for row in rows:
