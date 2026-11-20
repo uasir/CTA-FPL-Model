@@ -158,7 +158,8 @@ def validate_scenario_document(document: Mapping[str, Any]) -> dict[str, Any]:
             goals = _integer(outcome.get("goals"), f"{scenario_id}.{player_id}.goals")
             assists = _integer(outcome.get("assists"), f"{scenario_id}.{player_id}.assists")
             # FPL player totals can be negative after cards/own goals; do not clamp them.
-            points = _number(outcome.get("fpl_points"), f"{scenario_id}.{player_id}.fpl_points")
+            if outcome.get("fpl_points") is not None:
+                _number(outcome["fpl_points"], f"{scenario_id}.{player_id}.fpl_points")
             goals_by_team[player_by_id[player_id]["team_id"]] += goals
             if outcome.get("clean_sheet") not in (True, False):
                 raise CovarScenarioContractError("clean_sheet must be an explicit boolean")
