@@ -370,6 +370,63 @@ def _verify_real_admission(record: Mapping[str, Any], admission_report: Any,
             for field in ("generated_at_utc",):
                 if source.get(field) != audited_source.get(field):
                     _fail(f"provider archive {field} does not match the independent decision-source audit")
+    # Bind roster and incoming-player attributes to the exact independently
+    # audited official bootstrap archive, not merely to a matching archive hash.
+    metadata_source = record_by_type.get("player_metadata")
+    try:
+        metadata_raw = base64.b64decode(metadata_source["raw_payload_base64"], validate=True)
+        metadata_payload = json.loads(metadata_raw)
+    except (TypeError, KeyError, ValueError, json.JSONDecodeError) as exc:
+        raise DecisionEvaluationError("player-metadata archive is not valid official bootstrap JSON") from exc
+    metadata_elements = metadata_payload.get("elements") if isinstance(metadata_payload, Mapping) else None
+    if not isinstance(metadata_elements, list):
+        _fail("player-metadata archive must contain official bootstrap elements")
+    official_metadata = {}
+    for index, element in enumerate(metadata_elements):
+        if not isinstance(element, Mapping):
+            _fail(f"official bootstrap elements[{index}] must be an object")
+        player_id = element.get("id")
+        if (isinstance(player_id, bool) or not isinstance(player_id, int)
+                or player_id < 1 or player_id in official_metadata):
+            _fail("official bootstrap archive contains invalid or duplicate player IDs")
+        official_metadata[player_id] = element
+    position_by_element_type = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+    evaluated_manager = record.get("manager_state")
+    roster_for_metadata = evaluated_manager.get("squad_snapshot") if isinstance(evaluated_manager, Mapping) else None
+    if not isinstance(roster_for_metadata, list):
+        _fail("evaluation manager roster is missing for official metadata binding")
+    metadata_cohort = list(roster_for_metadata)
+    if decision.get("action") == "TRANSFER":
+        incoming_for_metadata = decision.get("incoming_player")
+        if not isinstance(incoming_for_metadata, Mapping):
+            _fail("incoming player metadata is missing for official metadata binding")
+        metadata_cohort.append(incoming_for_metadata)
+    seen_metadata_ids = set()
+    for player in metadata_cohort:
+        if not isinstance(player, Mapping):
+            _fail("evaluation metadata cohort contains a malformed player record")
+        player_id = player.get("fpl_element_id")
+        if isinstance(player_id, bool) or not isinstance(player_id, int) or player_id < 1 or player_id in seen_metadata_ids:
+            _fail("evaluation metadata cohort contains an invalid or duplicate player ID")
+        seen_metadata_ids.add(player_id)
+        official = official_metadata.get(player_id)
+        if not isinstance(official, Mapping):
+            _fail(f"player {player_id} is absent from the audited official bootstrap metadata")
+        element_type = official.get("element_type")
+        official_position = position_by_element_type.get(element_type)
+        team_id = official.get("team")
+        now_cost = official.get("now_cost")
+        if (official_position is None or isinstance(team_id, bool) or not isinstance(team_id, int)
+                or team_id < 1 or isinstance(now_cost, bool) or not isinstance(now_cost, int)
+                or now_cost < 1):
+            _fail(f"official bootstrap metadata is incomplete for player {player_id}")
+        current_price = _finite_number(
+            player.get("current_price"), f"evaluation current price for player {player_id}", 0.1
+        )
+        if (player.get("position") != official_position or player.get("team_id") != team_id
+                or not math.isclose(current_price, now_cost / 10.0, abs_tol=1e-9)):
+            _fail(f"evaluation position, club or current price for player {player_id} does not match official bootstrap metadata")
+
     # The evaluation record's hold baseline must be the exact manager state
     # sealed into the independently audited pre-deadline manager archive. Matching
     # archive hashes alone does not prevent a detached scoring roster or lineup.
