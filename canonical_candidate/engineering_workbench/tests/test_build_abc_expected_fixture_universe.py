@@ -50,7 +50,8 @@ def test_missing_abc_double_gameweek_fixture_excludes_only_that_player_gameweek(
     assert report["status"] == "PASS_WITH_EXCLUSIONS"
     assert report["mismatch_reason_counts"]["ABC_FIXTURE_MISSING"] == 1
     assert report["excluded_player_gameweeks"] == 1
-    assert all(row["reference_status"] == "FAIL" for row in expected)
+    assert sum(row["reference_status"] == "FAIL" for row in expected) == 2
+    assert sum(row["reference_status"] == "PASS" for row in expected) == 1
     assert "fpl_element_id" not in report
 
 
