@@ -233,3 +233,78 @@ def test_wyscout_goal_reconciliation_identifies_match_level_missing_goal():
     diagnostic_names = {event["event_name"] for event in reconciliation["mismatched_matches"][0]["diagnostic_events"]}
     assert diagnostic_names == {"Shot", "Save attempt"}
     assert reconciliation["status"] == "REVIEW_REQUIRED"
+
+
+
+def test_manual_goal_correction_preserves_raw_values_and_reconciles_explicitly():
+    events = [{
+        "id": 1, "matchId": 10, "playerId": 100, "teamId": 1,
+        "eventName": "Shot", "subEventName": "Shot",
+        "positions": [{"x": 90, "y": 50}], "tags": [],
+    }]
+    matches = [{
+        "wyId": 10, "dateutc": "2018-04-01 15:00:00",
+        "teamsData": {
+            "1": {"teamId": 1, "side": "home", "score": 1},
+            "2": {"teamId": 2, "side": "away", "score": 0},
+        },
+    }]
+    corrections = [{
+        "provider_match_id": "10",
+        "provider_player_id": "100",
+        "goals_delta": "1",
+        "shot_attempts_delta": "0",
+        "accurate_shot_attempts_delta": "1",
+        "source_name": "Official match report",
+        "source_url": "https://example.com/match-report",
+        "reason": "The event provider omitted the goal outcome tag.",
+    }]
+    rows, report = build_player_match_features(
+        events, matches,
+        [{"wyId": 100, "shortName": "Scorer"}],
+        [{"wyId": 1, "name": "Home FC"}, {"wyId": 2, "name": "Away FC"}],
+        manual_corrections=corrections,
+    )
+    row = rows[0]
+    reconciliation = report["goal_reconciliation"]
+    assert row["goals_raw"] == 0
+    assert row["goals"] == 1
+    assert row["shot_attempts_raw"] == 1
+    assert row["shot_attempts"] == 1
+    assert row["accurate_shot_attempts_raw"] == 0
+    assert row["accurate_shot_attempts"] == 1
+    assert row["manual_correction_count"] == 1
+    assert reconciliation["raw_player_attributed_goal_total"] == 0
+    assert reconciliation["manual_goal_correction_total"] == 1
+    assert reconciliation["corrected_player_attributed_goal_total"] == 1
+    assert reconciliation["corrected_minus_metadata_goal_delta"] == 0
+    assert reconciliation["mismatched_matches"][0]["corrected_delta"] == 0
+    assert reconciliation["status"] == "PASS_EXACT_WITH_MANUAL_CORRECTIONS"
+
+
+def test_manual_goal_correction_cannot_be_applied_to_an_already_exact_match():
+    events = [{
+        "id": 1, "matchId": 10, "playerId": 100, "teamId": 1,
+        "eventName": "Shot", "subEventName": "Shot",
+        "positions": [{"x": 90, "y": 50}], "tags": [{"id": 101}],
+    }]
+    matches = [{
+        "wyId": 10, "dateutc": "2018-04-01 15:00:00",
+        "teamsData": {
+            "1": {"teamId": 1, "side": "home", "score": 1},
+            "2": {"teamId": 2, "side": "away", "score": 0},
+        },
+    }]
+    corrections = [{
+        "provider_match_id": "10", "provider_player_id": "100",
+        "goals_delta": "1", "source_name": "Official match report",
+        "source_url": "https://example.com/match-report", "reason": "test",
+    }]
+    import pytest
+    with pytest.raises(ValueError, match="must target a raw goal-mismatched match"):
+        build_player_match_features(
+            events, matches,
+            [{"wyId": 100, "shortName": "Scorer"}],
+            [{"wyId": 1, "name": "Home FC"}, {"wyId": 2, "name": "Away FC"}],
+            manual_corrections=corrections,
+        )
