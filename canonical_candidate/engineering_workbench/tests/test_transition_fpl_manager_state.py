@@ -98,6 +98,7 @@ def test_no_transfer_rolls_free_transfer_and_caps_at_five():
     )
     assert result["next_free_transfers"] == 3
     assert result["next_bank_tenths"] == 10
+    assert result["next_state"]["lineup"] == result["gameweek_lineup"]
 
     state["free_transfers"] = 5
     result = transition_manager_state(
@@ -282,3 +283,10 @@ def test_terminal_gameweek_applies_action_without_synthetic_next_state():
     assert result["transfer_hit_points"] == 4
     assert len(result["gameweek_squad"]) == 15
     assert "terminal_def1" in {p["player_id"] for p in result["gameweek_squad"]}
+
+
+def test_terminal_transition_does_not_create_a_future_state():
+    state = make_state()
+    result = transition_manager_state(state, make_action(state), terminal=True)
+    assert result["next_state"] is None
+    assert result["status"] == "TERMINAL_GAMEWEEK_ACTION_APPLIED"
