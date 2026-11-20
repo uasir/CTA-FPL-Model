@@ -127,6 +127,8 @@ def _validate_evidence(record: Mapping[str, Any]) -> None:
             _fail(f"source_archives[{index}] must be an object")
         _verify_source_archive(source, index)
         source_type = source["source_type"]
+        if source_type not in {"provider", "player_metadata", "manager_state", "realised_points"}:
+            _fail(f"unsupported source archive type: {source_type}")
         if source_type in by_type:
             _fail(f"duplicate source archive type: {source_type}")
         by_type[source_type] = source
@@ -312,9 +314,9 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
     for field in ("bank", "free_transfers", "personal_risk_profile", "formation"):
         if field not in manager:
             _fail(f"manager_state missing {field}")
-    if manager["personal_risk_profile"] not in {"conservative", "balanced", "aggressive"}:
+    if not isinstance(manager["personal_risk_profile"], str) or manager["personal_risk_profile"] not in {"conservative", "balanced", "aggressive"}:
         _fail("manager_state.personal_risk_profile is invalid")
-    if manager["formation"] not in LEGAL_FORMATIONS:
+    if not isinstance(manager["formation"], str) or manager["formation"] not in LEGAL_FORMATIONS:
         _fail("manager_state.formation must be a legal FPL formation")
     _finite_number(manager["bank"], "manager_state.bank", 0)
     if isinstance(manager["free_transfers"], bool) or not isinstance(manager["free_transfers"], int) or manager["free_transfers"] < 0:
