@@ -220,7 +220,15 @@ def adapt_field_portfolios_for_scenario(
         source_players = source.get("player_ids")
         if not isinstance(source_players, list) or len(source_players) != 15 or len(set(map(str, source_players))) != 15:
             raise CovarFieldPortfolioError("each manager-ID-stripped source portfolio must contain 15 unique players")
+        source_positions = source.get("player_positions")
+        source_starting = source.get("starting_player_ids")
+        source_bench = source.get("bench_order")
+        if not isinstance(source_positions, Mapping) or set(map(str, source_positions)) != set(map(str, source_players)) or not isinstance(source_starting, list) or len(source_starting) != 11 or not isinstance(source_bench, list) or len(source_bench) != 3:
+            raise CovarFieldPortfolioError("source portfolio lacks complete lineup semantics")
         source_captain = source.get("captain_id")
+        source_vice = source.get("vice_captain_id")
+        if source_vice is None or str(source_vice) not in set(map(str, source_starting)) or str(source_vice) == str(source_captain):
+            raise CovarFieldPortfolioError("source vice-captain must be distinct and in the starting XI")
         if source_captain is None or str(source_captain) not in set(map(str, source_players)):
             raise CovarFieldPortfolioError("source manager portfolio captain must be in its 15-player squad")
         multiplier = source.get("captain_multiplier")
@@ -238,7 +246,13 @@ def adapt_field_portfolios_for_scenario(
             "portfolio_id": portfolio_id,
             "portfolio_role": "FIELD",
             "player_ids": projected,
+            "starting_player_ids": [str(pid) for pid in source_starting if str(pid) in modeled],
+            "starting_goalkeeper_id": str(source.get("starting_goalkeeper_id")) if str(source.get("starting_goalkeeper_id")) in modeled else None,
+            "reserve_goalkeeper_id": str(source.get("reserve_goalkeeper_id")) if str(source.get("reserve_goalkeeper_id")) in modeled else None,
+            "bench_order": [str(pid) for pid in source_bench if str(pid) in modeled],
+            "player_positions": {str(pid): str(pos) for pid, pos in source_positions.items() if str(pid) in modeled},
             "captain_id": str(source_captain) if captain_in_scope else None,
+            "vice_captain_id": str(source_vice) if str(source_vice) in modeled else None,
             "captain_multiplier": int(multiplier) if captain_in_scope else 1,
             "field_weight": weight,
             "rank_stratum": stratum,
