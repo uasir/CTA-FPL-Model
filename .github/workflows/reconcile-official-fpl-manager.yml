@@ -58,7 +58,11 @@ jobs:
         if: always() && steps.audit.outcome == 'success'
         working-directory: canonical_candidate/engineering_workbench
         run: |
-          python scripts/classify_historical_fpl_evidence.py official-fpl-manager-reconciliation-batch.json --output official-fpl-historical-evidence-admission.json
+          MANIFEST_ARGS=()
+          if [ -f official-fpl-decision-evidence-manifests.json ]; then
+            MANIFEST_ARGS+=(--decision-manifests official-fpl-decision-evidence-manifests.json)
+          fi
+          python scripts/classify_historical_fpl_evidence.py official-fpl-manager-reconciliation-batch.json "${MANIFEST_ARGS[@]}" --audit-report official-fpl-manager-reconciliation-audit.json --output official-fpl-historical-evidence-admission.json
       - name: Upload immutable batch evidence
         if: always()
         uses: actions/upload-artifact@v4
