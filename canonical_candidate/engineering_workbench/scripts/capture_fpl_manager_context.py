@@ -51,8 +51,9 @@ def reconstruct_purchase_prices(
     history_payload: dict[str, Any],
     target_gameweek: int,
     expected_element_ids: set[int],
+    bootstrap_payload: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Rebuild current holdings from GW1 purchase prices and season transfers."""
+    """Rebuild holdings from GW1 prices, bootstrap season-start prices and transfers."""
     if target_gameweek < 2:
         raise CaptureError("historical fallback reconstruction requires target GW2 or later")
     picks = gw1_payload.get("picks")
@@ -61,6 +62,26 @@ def reconstruct_purchase_prices(
         raise CaptureError("GW1 picks response must contain 15 picks and entry_history")
     if gw1_history.get("event") != 1:
         raise CaptureError("GW1 picks response has incorrect event number")
+    bootstrap_prices: dict[int, int] = {}
+    if bootstrap_payload is not None:
+        elements = bootstrap_payload.get("elements")
+        if not isinstance(elements, list):
+            raise CaptureError("FPL bootstrap is missing its elements list")
+        for row in elements:
+            if not isinstance(row, dict):
+                continue
+            element_id = row.get("id")
+            now_cost = row.get("now_cost")
+            cost_change_start = row.get("cost_change_start")
+            if (
+                isinstance(element_id, int) and not isinstance(element_id, bool)
+                and isinstance(now_cost, int) and not isinstance(now_cost, bool)
+                and isinstance(cost_change_start, int) and not isinstance(cost_change_start, bool)
+            ):
+                starting_cost = now_cost - cost_change_start
+                if starting_cost > 0:
+                    bootstrap_prices[element_id] = starting_cost
+
     holdings: dict[int, int] = {}
     for pick in picks:
         if not isinstance(pick, dict):
@@ -68,7 +89,17 @@ def reconstruct_purchase_prices(
         element = pick.get("element")
         if isinstance(element, bool) or not isinstance(element, int) or element < 1 or element in holdings:
             raise CaptureError("GW1 picks contains an invalid or duplicate player ID")
-        holdings[element] = _valid_price(pick.get("purchase_price"), f"GW1 purchase_price for player {element}")
+        recorded_price = pick.get("purchase_price")
+        if isinstance(recorded_price, int) and not isinstance(recorded_price, bool) and recorded_price > 0:
+            initial_price = recorded_price
+        else:
+            initial_price = bootstrap_prices.get(element)
+            if initial_price is None:
+                raise CaptureError(
+                    f"GW1 purchase price is unavailable for player {element}; "
+                    "neither picks nor bootstrap provide a verified season-start price"
+                )
+        holdings[element] = _valid_price(initial_price, f"GW1 purchase_price for player {element}")
 
     if not isinstance(transfers_payload, list):
         raise CaptureError("transfer history response must be a list")
@@ -152,9 +183,11 @@ def capture_manager_context(
         gw1_url = f"{base}/event/1/picks/"
         transfers_url = f"{base}/transfers/"
         history_url = f"{base}/history/"
+        bootstrap_url = "https://fantasy.premierleague.com/api/bootstrap-static/"
         gw1_raw = fetch(gw1_url)
         transfers_raw = fetch(transfers_url)
         history_raw = fetch(history_url)
+        bootstrap_raw = fetch(bootstrap_url)
         gw1_payload = _json(gw1_raw, "GW1 picks")
         try:
             transfers_payload = json.loads(transfers_raw)
@@ -163,14 +196,17 @@ def capture_manager_context(
         if not isinstance(transfers_payload, list):
             raise CaptureError("transfer history response must be a JSON list")
         history_payload = _json(history_raw, "manager history")
+        bootstrap_payload = _json(bootstrap_raw, "FPL bootstrap")
         squad = reconstruct_purchase_prices(
-            gw1_payload, transfers_payload, history_payload, gameweek, expected_element_ids
+            gw1_payload, transfers_payload, history_payload, gameweek,
+            expected_element_ids, bootstrap_payload,
         )
         archive = {
             "source_type": "FPL_SEASON_HISTORY_RECONSTRUCTION",
             "gw1_picks": base64.b64encode(gw1_raw).decode("ascii"),
             "transfers": base64.b64encode(transfers_raw).decode("ascii"),
             "history": base64.b64encode(history_raw).decode("ascii"),
+            "bootstrap": base64.b64encode(bootstrap_raw).decode("ascii"),
         }
         archive_raw = json.dumps(archive, sort_keys=True, separators=(",", ":")).encode("utf-8")
         captured_at = utc_now()
@@ -182,7 +218,7 @@ def capture_manager_context(
                 "source_url": target_url,
                 "source_type": "USER_CONFIRMED_SQUAD_WITH_FPL_HISTORY_PRICES",
                 "identity_verification_method": "user-confirmed GW squad IDs cross-checked against GW1 picks and season transfer history",
-                "source_urls": [gw1_url, transfers_url, history_url],
+                "source_urls": [gw1_url, transfers_url, history_url, bootstrap_url],
                 "raw_sha256": hashlib.sha256(archive_raw).hexdigest(),
                 "raw_response_base64": base64.b64encode(archive_raw).decode("ascii"),
                 "row_count": 15,
@@ -195,7 +231,7 @@ def capture_manager_context(
                 "personal_risk_profile": personal_risk_profile,
                 "formation": formation,
                 "entry_history": {},
-                "purchase_price_source": "FPL GW1 picks plus chronological transfer-in costs; free-hit event transfers excluded",
+                "purchase_price_source": "FPL GW1 picks; missing initial prices derived from bootstrap now_cost minus cost_change_start; chronological transfer-in costs applied; free-hit event transfers excluded",
             },
         }
 
