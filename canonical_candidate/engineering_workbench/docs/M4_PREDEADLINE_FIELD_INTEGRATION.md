@@ -7,7 +7,7 @@
    both capture timestamps, sample metadata, schema, Gameweek and CSV SHA-256.
 4. The M4 field-context contract binds the snapshot to the frozen candidate and
    requires both field capture and candidate decision before the same deadline.
-5. The candidate-field comparison emits HOLD and frozen candidate exposure views.
+5. Cohort/coverage/uncertainty diagnostics and a non-covariance portfolio baseline are added to the report. The baseline separates squad, starting XI and bench field exposures; reports top-player exposure, concentration shares/HHI and captain-share differential; and withholds sums/concentration when required inputs are missing.
 
 ## Run
 ```bash
