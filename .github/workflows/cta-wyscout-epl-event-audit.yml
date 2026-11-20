@@ -398,7 +398,8 @@ jobs:
               --abc-player-gw "$ABC_PLAYER_GW" \
               --fpl-panel "$FPL_PANEL" \
               --season 2017/18 \
-              --out "$REPORT_DIR/matched_abc_2pm_fold_manifest.json"
+              --out "$REPORT_DIR/matched_abc_2pm_fold_manifest.json" \\
+              --keys-out "$RUNNER_TEMP/cta_2pm_same_cohort/matched_abc_2pm_fold_partition_keys.csv"
           else
             echo "ERROR: matched ABC player-GW panel or conventional FPL panel unavailable"
             exit 2
