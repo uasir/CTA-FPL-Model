@@ -136,10 +136,23 @@ function transferCandidates(request, forecasts) {
     throw new RecommendationContractError("personal_preferences.max_transfer_alternatives must be an integer from 1 to 20");
   }
   const appliedHitCost = request.free_transfers > 0 ? 0 : hitCost;
+  const baselinePlan = request._baseline_squad_plan ?? null;
+  const baselineXi = new Set(baselinePlan?.starting_xi ?? []);
+  const baselineByPosition = new Map();
+  if (baselinePlan) {
+    for (const playerId of baselinePlan.starting_xi) {
+      const player = forecastById.get(playerId);
+      if (!baselineByPosition.has(player.position)) baselineByPosition.set(player.position, []);
+      baselineByPosition.get(player.position).push(player);
+    }
+    for (const players of baselineByPosition.values()) players.sort(playerOrder);
+  }
   const candidates = [];
   for (const outgoing of squad) {
     const outId = outgoing.fpl_element_id;
     const outForecast = forecastById.get(outId);
+    // The goalkeeper is a fixed starter/reserve pair, never a rotation slot.
+    if (outForecast.position === "GKP") continue;
     const sellPrice = Object.hasOwn(outgoing, "purchase_price")
       ? sellingPrice(outForecast.price, outgoing.purchase_price)
       : Math.min(outForecast.price, outgoing.selling_price_floor);
@@ -152,11 +165,19 @@ function transferCandidates(request, forecasts) {
       if ((teamAfter.get(incoming.team_id) ?? 0) >= 3) continue;
       if (incoming.price > available + 1e-9) continue;
         const delta = incoming.expected_points - outForecast.expected_points;
-      const net = delta - appliedHitCost;
+      let xiDelta = delta;
+      if (baselinePlan && !baselineXi.has(outId)) {
+        const starters = baselineByPosition.get(outForecast.position) ?? [];
+        if (starters.length === 0) continue;
+        // Bench replacements count only when they can displace a current starter.
+        xiDelta = incoming.expected_points - starters[starters.length - 1].expected_points;
+      }
+      const net = xiDelta - appliedHitCost;
       candidates.push({
         transfer_out_id: outId,
         transfer_in_id: inId,
         expected_points_delta: delta,
+        starting_xi_expected_points_delta: xiDelta,
         hit_cost_points: appliedHitCost,
         net_expected_points_gain: net,
         selling_price: Number(sellPrice.toFixed(2)),
@@ -167,7 +188,7 @@ function transferCandidates(request, forecasts) {
   }
   candidates.sort((a, b) =>
     b.net_expected_points_gain - a.net_expected_points_gain
-    || b.expected_points_delta - a.expected_points_delta
+    || b.starting_xi_expected_points_delta - a.starting_xi_expected_points_delta
     || a.transfer_out_id - b.transfer_out_id
     || a.transfer_in_id - b.transfer_in_id);
   const alternatives = candidates.slice(0, maxAlternatives);
@@ -242,7 +263,7 @@ export function recommendPersonalSquad(payload) {
   const benchValue = request.bench_order ?? preferences.bench_order ?? null;
 
   const currentSquadPlan = buildSquadPlan(owned, forecastById, formationValue, startingValue, benchValue);
-  const transfer = transferCandidates(request, forecasts);
+  const transfer = transferCandidates({ ...request, _baseline_squad_plan: currentSquadPlan }, forecasts);
   let recommendedSquadPlan = currentSquadPlan;
   let squadPlanState = "CURRENT_SQUAD_HOLD";
   if (transfer.action === "TRANSFER" && transfer.best_candidate !== null) {
@@ -290,7 +311,10 @@ export function recommendPersonalSquad(payload) {
       "Only one transfer is evaluated; multi-transfer sequences, future price changes and transfer flexibility are not modelled.",
       "Chip effects are not simulated in this version.",
       "When exact purchase prices are unavailable, transfer affordability uses current price as a conservative lower bound; this may omit affordable options but will not overstate sale proceeds.",
-      "The starting XI is selected by expected points under the requested legal formation; bench order is a minutes/points proxy.",
+      "Transfers are evaluated by their effect on the starting XI; a bench-to-bench upgrade is not sufficient reason to transfer.",
+    "Goalkeeper transfers are excluded: the starting goalkeeper is not treated as a rotation position.",
+    "The bench is treated as budget emergency cover, not a routine rotation pool; bench order remains relevant only for automatic substitutions.",
+    "The starting XI is selected by expected points under the requested legal formation; bench order is a minutes/points proxy.",
       "When a transfer is recommended, squad_plan is re-optimised for the post-transfer 15-player squad; current_squad_plan preserves the baseline.",
     ],
   };
