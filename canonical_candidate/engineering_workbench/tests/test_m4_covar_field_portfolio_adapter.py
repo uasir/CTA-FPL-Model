@@ -52,10 +52,11 @@ def artifact():
 
 
 class TestCovarFieldPortfolioAdapter(unittest.TestCase):
-    def test_anonymizes_manager_ids_and_preserves_weighted_15_player_portfolios(self):
+    def test_strips_manager_ids_and_preserves_weighted_15_player_portfolios(self):
         result = artifact()
         self.assertEqual(result["metadata"]["manager_count"], 3)
         self.assertFalse(result["metadata"]["manager_entry_ids_retained"])
+        self.assertIn("may remain identifiable", result["metadata"]["privacy_note"])
         self.assertEqual(len(result["portfolios"]), 3)
         self.assertAlmostEqual(sum(row["field_weight"] for row in result["portfolios"]), 1.0)
         self.assertEqual(len(result["portfolios"][0]["player_ids"]), 15)
@@ -121,6 +122,8 @@ class TestCovarFieldPortfolioAdapter(unittest.TestCase):
         report = {
             "status": "CAPTURED_PRE_DEADLINE_CURRENT_PICKS",
             "evidence_role": "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE",
+            "picks_lock_verified": False,
+            "provisional_picks": True,
             "gameweek": 12,
             "deadline_time_utc": DEADLINE,
             "picks_captured_at_utc": CAPTURED,
