@@ -154,12 +154,6 @@ def fit_affine_calibrator(predicted, actual):
 
 def evaluate_matched(rows, source_report, partitions, manifest, ridge_lambda=1.0,
                      n_boot=1000):
-    if matched_fold_keys is not None:
-        if matched_manifest is None:
-            raise ValueError("Matched ABC evaluation requires the public fold manifest")
-        verify_manifest_partition_hashes(matched_fold_keys, matched_manifest)
-        return evaluate_matched(rows, source_report, matched_fold_keys, matched_manifest,
-                                ridge_lambda=ridge_lambda, n_boot=n_boot)
     eligible = [
         row for row in rows
         if truth(row.get("research_eligible_for_analysis"))
@@ -295,6 +289,12 @@ def evaluate_matched(rows, source_report, partitions, manifest, ridge_lambda=1.0
 def evaluate(rows, source_report, ridge_lambda=1.0, n_boot=1000,
              min_train_gameweeks=18, test_window=4, return_predictions=False,
              matched_fold_keys=None, matched_manifest=None):
+    if matched_fold_keys is not None:
+        if matched_manifest is None:
+            raise ValueError("Matched ABC evaluation requires the public fold manifest")
+        verify_manifest_partition_hashes(matched_fold_keys, matched_manifest)
+        return evaluate_matched(rows, source_report, matched_fold_keys, matched_manifest,
+                                ridge_lambda=ridge_lambda, n_boot=n_boot)
     eligible = [
         row for row in rows
         if truth(row.get("research_eligible_for_analysis"))
@@ -421,6 +421,8 @@ def main():
     parser.add_argument("--bootstrap-replicates", type=int, default=1000)
     parser.add_argument("--min-train-gameweeks", type=int, default=18)
     parser.add_argument("--test-window", type=int, default=4)
+    parser.add_argument("--matched-partition-keys", type=Path)
+    parser.add_argument("--matched-manifest", type=Path)
     args = parser.parse_args()
     if args.ridge_lambda <= 0:
         parser.error("--ridge-lambda must be positive")
