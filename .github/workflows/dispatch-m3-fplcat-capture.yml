@@ -68,7 +68,24 @@ jobs:
             --expected-element-ids "110,497,31,8,115,229,282,154,124,426,183,524,166,79,411" \
             --output "artifacts/fplcat/manager-context-${{ inputs.gameweek }}-${{ github.run_id }}.json"
 
-      - name: Upload immutable capture bundle
+      - name: Assemble the benchmark-backed decision input
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          set -euo pipefail
+          python scripts/assemble_external_benchmark_decision_input.py \
+            --provider-capture "artifacts/fplcat/fplcat-${{ inputs.season }}-snapshot.json" \
+            --manager-capture "artifacts/fplcat/manager-context-${{ inputs.gameweek }}-${{ github.run_id }}.json" \
+            --output "artifacts/fplcat/decision-input-${{ inputs.gameweek }}-${{ github.run_id }}.json"
+
+      - name: Run one conventional personal-squad recommendation
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          set -euo pipefail
+          python scripts/run_external_benchmark_personal_squad.py \
+            "artifacts/fplcat/decision-input-${{ inputs.gameweek }}-${{ github.run_id }}.json" \
+            --output "artifacts/fplcat/recommendation-${{ inputs.gameweek }}-${{ github.run_id }}.json"
+
+      - name: Upload immutable capture and decision bundle
         uses: actions/upload-artifact@v4
         with:
           name: fplcat-manager-context-${{ inputs.gameweek }}-${{ github.run_id }}
