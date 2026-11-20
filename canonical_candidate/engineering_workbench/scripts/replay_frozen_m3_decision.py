@@ -48,8 +48,8 @@ def _verify_archives(manifest: Mapping[str, Any]) -> None:
         digest = hashlib.sha256(raw).hexdigest()
         if digest != source.get("raw_sha256"):
             raise DecisionReplayError(f"{kind} raw archive SHA-256 mismatch")
-        if not source.get("raw_snapshot_id") or not source.get("source_url"):
-            raise DecisionReplayError(f"{kind} archive provenance is incomplete")
+        if source.get("raw_snapshot_id") != f"sha256:{digest}" or not source.get("source_url"):
+            raise DecisionReplayError(f"{kind} archive provenance is incomplete or detached from its hash")
     if seen != required:
         raise DecisionReplayError("provider, player metadata and manager-state archives are all required")
 
