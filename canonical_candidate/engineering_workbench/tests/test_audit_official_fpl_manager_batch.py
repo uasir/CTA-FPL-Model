@@ -197,7 +197,8 @@ def _decision_manifest_with_attested_manager_state(batch):
     official_picks = {
         "active_chip": None,
         "automatic_subs": [],
-        "entry_history": {"event": gw, "bank": 9},
+        "entry_history": {"event": gw, "bank": 9, "event_transfers": 0,
+                          "event_transfers_cost": 0},
         "picks": [
             {
                 "element": player_id,
@@ -404,7 +405,8 @@ def _set_official_recommended_plan(batch):
     official = {
         "active_chip": None,
         "automatic_subs": [],
-        "entry_history": {"event": 5, "bank": 9},
+        "entry_history": {"event": 5, "bank": 9, "event_transfers": 1,
+                          "event_transfers_cost": 0},
         "picks": [
             {"element": player_id, "position": position,
              "element_type": types[player_id],
