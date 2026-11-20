@@ -211,6 +211,10 @@ def _decision_manifest_with_attested_manager_state(batch):
         ],
     }
     record = batch["results"][0]["result"]
+    record["reconciliation"]["automatic_substitutions"] = []
+    record["reconciliation"]["official_transfer_cost"] = 0
+    batch["gameweeks_with_automatic_substitutions"] = []
+    batch["gameweeks_with_transfer_hits"] = []
     manager_archive = next(row for row in record["source_archives"]
                            if row["source_type"] == "manager_picks")
     raw_official = json.dumps(official_picks).encode()
@@ -269,7 +273,7 @@ def test_rejects_attested_lineup_that_differs_from_finalized_official_picks():
     raw = json.dumps(payload).encode()
     archive["raw_payload_base64"] = base64.b64encode(raw).decode()
     archive["raw_sha256"] = hashlib.sha256(raw).hexdigest()
-    with pytest.raises(BatchAuditError, match="starting XI differs"):
+    with pytest.raises(BatchAuditError, match="matches neither"):
         audit_batch(batch, manifests)
 
 
