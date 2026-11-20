@@ -1,0 +1,113 @@
+name: Build unified M3 multi-Gameweek evaluation report
+
+on:
+  workflow_dispatch:
+    inputs:
+      manager_team_id:
+        description: FPL manager team ID represented by every source run
+        required: true
+        default: "421025"
+        type: string
+      source_run_ids:
+        description: Comma-separated successful official FPL reconciliation workflow run IDs, one or more completed Gameweeks
+        required: true
+        type: string
+      bootstrap_replicates:
+        description: Deterministic Gameweek bootstrap replicates (minimum 1000)
+        required: true
+        default: "10000"
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  build-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out report builder from the dispatched revision
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate inputs and retrieve scored event artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANAGER_TEAM_ID: ${{ inputs.manager_team_id }}
+          SOURCE_RUN_IDS: ${{ inputs.source_run_ids }}
+          BOOTSTRAP_REPLICATES: ${{ inputs.bootstrap_replicates }}
+        run: |
+          set -euo pipefail
+          [[ "$MANAGER_TEAM_ID" =~ ^[1-9][0-9]*$ ]] || { echo "Invalid manager team ID"; exit 1; }
+          [[ "$BOOTSTRAP_REPLICATES" =~ ^[0-9]+$ ]] || { echo "Bootstrap replicates must be an integer"; exit 1; }
+          (( BOOTSTRAP_REPLICATES >= 1000 )) || { echo "At least 1000 bootstrap replicates are required"; exit 1; }
+
+          mkdir -p m3-event-results
+          IFS=',' read -r -a RUN_IDS <<< "$SOURCE_RUN_IDS"
+          (( ${#RUN_IDS[@]} > 0 )) || { echo "At least one source run ID is required"; exit 1; }
+
+          declare -A SEEN_RUNS=()
+          for raw_id in "${RUN_IDS[@]}"; do
+            run_id="$(echo "$raw_id" | xargs)"
+            [[ "$run_id" =~ ^[0-9]+$ ]] || { echo "Invalid GitHub Actions run ID: $run_id"; exit 1; }
+            [[ -z "${SEEN_RUNS[$run_id]+x}" ]] || { echo "Duplicate source run ID: $run_id"; exit 1; }
+            SEEN_RUNS[$run_id]=1
+
+            metadata="$(gh run view "$run_id" --json workflowName,conclusion --jq '[.workflowName,.conclusion] | @tsv')"
+            IFS=$'\t' read -r workflow_name conclusion <<< "$metadata"
+            [[ "$workflow_name" == "Reconcile official FPL manager Gameweeks" ]] || {
+              echo "Run $run_id is not an official manager reconciliation run"; exit 1;
+            }
+            [[ "$conclusion" == "success" ]] || {
+              echo "Source run $run_id did not conclude successfully"; exit 1;
+            }
+
+            artifact_dir="$RUNNER_TEMP/m3-source-$run_id"
+            gh run download "$run_id" \
+              --name "official-fpl-reconciliation-manager-$MANAGER_TEAM_ID-batch" \
+              --dir "$artifact_dir"
+
+            mapfile -t results < <(find "$artifact_dir" -type f -name official-fpl-m3-evaluation-result.json)
+            (( ${#results[@]} == 1 )) || {
+              echo "Run $run_id must contain exactly one scored M3 evaluation result"; exit 1;
+            }
+            cp "${results[0]}" "m3-event-results/$run_id.json"
+          done
+
+          python - <<'PY'
+          import glob, json, os
+          expected = int(os.environ["MANAGER_TEAM_ID"])
+          files = sorted(glob.glob("m3-event-results/*.json"))
+          if not files:
+              raise SystemExit("No scored M3 evaluation results were retrieved")
+          for path in files:
+              with open(path, encoding="utf-8") as stream:
+                  record = json.load(stream)
+              if record.get("manager_team_id") != expected:
+                  raise SystemExit(f"{path}: manager_team_id does not match requested manager")
+              if record.get("evidence_class") != "REAL_CANDIDATE":
+                  raise SystemExit(f"{path}: only REAL_CANDIDATE event records are accepted")
+              if record.get("evaluation_status") != "REAL_DECISION_BACKTEST_EVENT_SCORED_NOT_PROMOTION_EVIDENCE":
+                  raise SystemExit(f"{path}: event is not independently admitted and scored")
+          print(f"Validated {len(files)} admitted scored event records for manager {expected}")
+          PY
+      - name: Build combined descriptive and statistical report
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          BOOTSTRAP_REPLICATES: ${{ inputs.bootstrap_replicates }}
+        run: |
+          PYTHONPATH=scripts python scripts/build_m3_unified_evaluation_report.py \
+            ../../m3-event-results/*.json \
+            --bootstrap-replicates "$BOOTSTRAP_REPLICATES" \
+            --output m3-unified-evaluation-report.json
+      - name: Upload unified M3 report and source event set
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3-unified-evaluation-manager-${{ inputs.manager_team_id }}
+          path: |
+            canonical_candidate/engineering_workbench/m3-unified-evaluation-report.json
+            m3-event-results/*.json
+          if-no-files-found: error
+          retention-days: 90
