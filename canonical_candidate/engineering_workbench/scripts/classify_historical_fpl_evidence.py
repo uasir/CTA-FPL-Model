@@ -226,8 +226,7 @@ def main() -> int:
     audit_report = (json.loads(args.audit_report.read_text(encoding="utf-8"))
                     if args.audit_report else None)
     result = classify_batch(batch, manifests, audit_report)
-    args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "
-", encoding="utf-8")
+    args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + chr(10), encoding="utf-8")
     print(json.dumps({key: value for key, value in result.items() if key != "events"}, indent=2))
     return 0
 
