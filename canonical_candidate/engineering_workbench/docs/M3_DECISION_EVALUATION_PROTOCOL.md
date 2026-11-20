@@ -234,3 +234,21 @@ The existing batch of requested GWs 1,2,3,4,5,6,7,8,10 therefore remains non-adm
 
 
 The workflow accepts an optional `official-fpl-decision-evidence-manifests.json` input file. When present, the batch auditor independently verifies the three raw decision-source archives for each supplied Gameweek and the classifier admits a record only when the audit report matches the manifest field-for-field. When absent, reconciled events remain scoring-only. The existing manager 421025 batch has no such pre-deadline decision-source archives, so it must remain non-admitted.
+
+
+## 15. Prospective pre-deadline decision evidence capture
+
+The prospective capture command is `scripts/capture_predeadline_decision_bundle.py`, exposed through the manual workflow `.github/workflows/capture-predeadline-decision-evidence.yml`. It creates the same per-Gameweek manifest consumed by the historical evidence auditor and classifier.
+
+The capture is deliberately fail-closed:
+- FPL Cat must return the requested target Gameweek, an explicit timezone-aware `computed_at`, and the same deadline as official FPL bootstrap metadata.
+- Provider generation, provider retrieval, player-metadata retrieval and manager-state retrieval must all occur strictly before the official deadline.
+- The manager target-Gameweek picks endpoint must return a live 15-player state matching the exact 15 FPL element IDs confirmed at dispatch. The fallback that reconstructs prices from prior events is not used for decision admission.
+- The official manager payload must identify the target Gameweek, explicitly report no active chip, and provide purchase and selling prices for all 15 players. Bank is read from official manager history; free transfers are supplied as a manager-confirmed workflow input.
+- The intended starting XI, ordered three outfield substitutes, reserve goalkeeper, captain and vice-captain are derived from the captured official picks and bootstrap position metadata. The derived XI must match the requested legal formation.
+- All three raw payloads are embedded in the artifact manifest with independently recomputed SHA-256, source URL, snapshot ID and capture timestamp. Provider identity, variant and generation timestamp are also bound.
+- A provider that omits its generation timestamp, a manager endpoint that is unavailable before deadline, an active chip, missing prices, a changed squad, or any timestamp/hash inconsistency causes capture failure. No reconstructed or user-entered raw source is substituted.
+
+The capture workflow uploads a 90-day artifact named `predeadline-decision-evidence-manager-<manager>-gw<gameweek>`. It does not itself admit a historical record or evaluate a recommendation. After the Gameweek is finalized, the reconciliation workflow can retrieve that artifact by its workflow run ID using the optional `decision_evidence_run_id` input. For this initial integration, provide one target Gameweek and its matching capture run ID per reconciliation dispatch. The existing post-deadline official scoring archives remain separate from the pre-deadline decision archives.
+
+The manifest retains `evidence_is_point_in_time=true` as an attestation, but eligibility is determined only after the independent auditor verifies the embedded raw bytes and the classifier matches all source references against the audit report. Capture success alone is not forecast validation, decision value, or release eligibility.
