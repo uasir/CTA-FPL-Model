@@ -159,7 +159,8 @@ def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
     return audited
 
 
-def audit_batch(batch: dict[str, Any],\n                decision_manifests: dict[str, Any] | None = None) -> dict[str, Any]:
+def audit_batch(batch: dict[str, Any],
+                decision_manifests: dict[str, Any] | None = None) -> dict[str, Any]:
     _require(batch.get("batch_contract_version") == "0.1.0", "unsupported batch contract version")
     manager_id = batch.get("manager_team_id")
     _require(isinstance(manager_id, int) and manager_id > 0, "invalid manager_team_id")
@@ -256,7 +257,9 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     batch = json.loads(args.batch.read_text(encoding="utf-8"))
-    manifests = (json.loads(args.decision_manifests.read_text(encoding="utf-8"))\n                 if args.decision_manifests else None)\n    audit = audit_batch(batch, manifests)
+    manifests = (json.loads(args.decision_manifests.read_text(encoding="utf-8"))
+                 if args.decision_manifests else None)
+    audit = audit_batch(batch, manifests)
     args.output.write_text(json.dumps(audit, indent=2, sort_keys=True) + "
 ", encoding="utf-8")
     print(json.dumps({key: value for key, value in audit.items() if key != "events"}, indent=2))
