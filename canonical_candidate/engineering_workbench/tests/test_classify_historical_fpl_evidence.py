@@ -40,7 +40,8 @@ def _audit_report(manifest=None):
     return {
         "status": "PASSED",
         "manager_team_id": 421025,
-        "events": [{"gameweek": 5, "status": "RECONCILED", "archives": [],\n                    "decision_sources": archives}],
+        "events": [{"gameweek": 5, "status": "RECONCILED", "archives": [],
+                    "decision_sources": archives}],
     }
 
 
