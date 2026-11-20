@@ -108,6 +108,8 @@ def _decision_eligibility(manifest: Any, gameweek: int) -> tuple[bool, list[str]
         reasons.append("Decision evidence manifest Gameweek mismatch")
     if manifest.get("evidence_is_point_in_time") is not True:
         reasons.append("Manifest does not explicitly attest point-in-time evidence")
+    if manifest.get("archives_verified") is not True:
+        reasons.append("Referenced raw archive bytes have not passed independent hash/source audit")
     return not reasons, reasons
 
 
