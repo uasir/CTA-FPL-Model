@@ -72,7 +72,7 @@ def test_rejects_non_fifteen_player_squad(monkeypatch):
     monkeypatch.setattr(manager_capture, "fetch", lambda url: json.dumps(payload).encode())
 
     with pytest.raises(manager_capture.CaptureError, match="expected 15"):
-        manager_capture.capture_manager_context(TEAM_ID, GAMEWEEK)
+        manager_capture.capture_manager_context(TEAM_ID, GAMEWEEK, free_transfers=1)
 
 
 def test_rejects_invalid_purchase_price(monkeypatch):
