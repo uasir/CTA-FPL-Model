@@ -76,7 +76,23 @@ The collector requests FPL Cat's documented public next-gameweek JSON endpoint a
 The decision runner now requires and carries metadata-source provenance as well as provider-source provenance, and rejects metadata snapshots captured at or after the deadline. The collector is invoked with `python scripts/capture_fpl_cat_snapshot.py --season 2026-27 --output <path>`; its output can be combined with the timestamped manager context for the decision runner.
 The capture bundle now includes base64-preserved raw provider and FPL bootstrap response bytes, allowing exact byte-for-byte hash verification after archival. A manual GitHub Actions workflow, `.github/workflows/capture-fplcat-benchmark.yml`, captures the bundle and uploads it as a 90-day artifact for inspection and replay. If FPL Cat does not disclose `computed_at`, the collector now retains the snapshot with a null generation timestamp and explicit `NOT_DISCLOSED_DIAGNOSTIC_ONLY` status; the canonical contract then prevents it from entering a strict recommendation run. The collector also rejects official FPL metadata retrieved at or after the deadline.
 
-Regression tests cover missing generation timestamps and post-deadline metadata capture. These changes have been committed, but a fresh CI pass on the latest branch head and a successful live capture have not yet been verified. Therefore this remains an integration implementation, not evidence that a real FPL Cat recommendation has been generated.
+Regression tests cover missing generation timestamps and post-deadline metadata capture. The live capture has produced a real 672-row GW11 FPL Cat snapshot; a successful manager-backed recommendation run remains pending.
+
+### M3.3a — Manager context and purchase-price reconstruction
+
+The GW11 public picks endpoint can return HTTP 404 before the deadline. The pre-deadline path now preserves the user's confirmed GW11 15-player IDs, bank and free-transfer count while reconstructing the purchase prices independently from the season record:
+- GW1 official manager picks provide the initial 15 holdings and their recorded purchase prices.
+- The public season transfer log provides each transfer's incoming player and recorded incoming cost.
+- Transfers are applied chronologically; a sold-and-rebought player receives the later transfer-in cost.
+- Transfers made in a free-hit gameweek are excluded from the permanent squad state.
+- The reconstructed 15 IDs must exactly match the user-confirmed GW11 squad. Missing, malformed or inconsistent history is a hard failure.
+- The GW11 bank and free transfers remain explicitly user-confirmed inputs; historical GW1/GW10 bank values are never substituted.
+- The raw GW1 picks, transfer log and manager history are archived together, hashed and carried into the assembled decision input as manager-context provenance.
+- The assembler now rejects missing purchase prices instead of substituting current market prices, and it preserves the purchase-price source metadata.
+
+LiveFPL's save-history page is useful for an independent week-by-week history cross-check, but the page currently advertises a 2025/26 Excel history export. It is not treated as a machine-readable 2026/27 purchase-price endpoint. For the current 2026/27 GW11 price reconstruction, the implementation uses the documented public FPL season-start picks and transfer-history records. A LiveFPL export can be added as a separate cross-check when a current-season file is available.
+
+**Verification:** CI run [44762298925](https://github.com/uasir/CTA-FPL-Model/actions/runs/44762298925) passed after the JSON-list transfer-history parser fix: 300 engineering pytest tests passed, 3 subtests passed, 39 JavaScript tests passed, and all four identity crosswalk checks passed. This verifies the code and fixtures, not yet the live manager-history response for team 421025.
 
 ## 4. M3 work packages
 
