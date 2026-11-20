@@ -1,6 +1,6 @@
 # M4 CoVar Strategic Gap Audit
 
-**Status:** Audit complete; prototype not yet implemented  
+**Status:** Strategic audit complete; synthetic scenario input contract implemented; scoring/simulation prototype pending  
 **Branch:** `feat/m4-field-portfolio-intelligence`  
 **Scope:** Map the article-derived Field CoVar methodology to existing M4 components.  
 **Production status:** Research only; CoVar decision weight remains 0 and production eligibility remains false.
@@ -103,13 +103,19 @@ All probabilities and player assumptions must be supplied as fixture inputs; the
 - No alteration to conventional M5 recommendations.
 - No CoVar production weight or activation.
 
-## 5. Recommended next implementation task
+## 5. M4-COVAR-P1 — Synthetic scenario input contract
 
-**M4-COVAR-P1 — Joint-event prototype contract and deterministic fixture tests.**
+**Status:** Implemented; CI verification pending at the time of this update.
 
-First create the versioned input/output contract and hand-authored deterministic scenarios. Only after the contract tests pass should a separate adapter be designed for real point-in-time forecasts and field samples.
+Created:
+- `scripts/m4_covar_scenario_contract.py`
+- `tests/test_m4_covar_scenario_contract.py`
 
-The first prototype should demonstrate the mechanics and opportunity-cost reporting, not claim predictive validity. Predictive validation remains a later, independent task.
+The versioned v1.0.0 contract validates fixture identity and deadline timing, team/player identities, explicit player outcomes, team-score consistency, scenario probabilities, portfolio membership and captaincy. It accepts only `SYNTHETIC_FIXTURE_ONLY` inputs. It preserves negative player point totals where scoring deductions apply, and returns hard-coded `decision_weight = 0.0` and `production_eligible = false`.
+
+This is an input contract, not yet an FPL event-scoring engine or portfolio simulator. The next task is to implement deterministic scenario scoring and portfolio comparison using these validated inputs. Do not build a live-data adapter until synthetic mechanics and tests are stable.
+
+The prototype should demonstrate mechanics and EV opportunity-cost reporting, not claim predictive validity. Predictive validation remains a later, independent task.
 
 ## 6. Safeguards
 
