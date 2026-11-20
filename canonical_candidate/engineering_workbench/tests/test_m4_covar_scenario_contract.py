@@ -181,6 +181,19 @@ class TestM4CovarScenarioContract(unittest.TestCase):
         with self.assertRaisesRegex(CovarScenarioContractError, "portfolio_role"):
             validate_scenario_document(doc)
 
+    def test_allows_field_portfolio_with_no_modeled_players_or_captain(self):
+        doc = fixture()
+        doc["portfolios"].append({
+            "portfolio_id": "field-no-fixture-players",
+            "portfolio_role": "FIELD",
+            "player_ids": [],
+            "captain_id": None,
+            "captain_multiplier": 1,
+            "field_weight": 1.0,
+        })
+        result = validate_scenario_document(doc)
+        self.assertEqual(result["field_portfolio_count"], 1)
+
     def test_rejects_captain_not_in_portfolio(self):
         doc = fixture()
         doc["portfolios"][0]["captain_id"] = "a2"
