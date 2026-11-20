@@ -277,15 +277,20 @@ For a real candidate, the evaluator decodes the exact official bootstrap archive
 
 ## 18. Deterministic frozen-decision replay
 
-The pre-deadline capture workflow now re-executes the personal-squad decision runner from the archived canonical capture manifest immediately after freezing the recommendation. The replay step:
+The pre-deadline capture workflow re-executes the frozen M3 recommendation and independently reconstructs its canonical decision inputs from the archived raw sources. The replay step:
 
 - requires the replay software commit to equal the commit recorded in the frozen evaluation candidate;
-- verifies base64 decoding and SHA-256 integrity for provider, official metadata and manager-state raw archives;
-- verifies the canonical provider snapshot and canonical metadata provenance are bound to their corresponding raw archive hashes;
-- reruns the same M3 personal-squad recommendation runner using the captured canonical provider snapshot, metadata rows and manager state;
-- compares the complete frozen decision and the presented recommendation against the archived outputs;
-- writes a replay report into the same immutable workflow artifact.
+- decodes all three source archives, recomputes SHA-256, and requires each snapshot ID to be exactly bound to its digest;
+- rebuilds the FPL Cat player-gameweek forecast records, provider identity, generation/capture/deadline timestamps, snapshot ID and coverage from the raw provider JSON;
+- rebuilds each forecast player's official FPL price, position and club ID from the archived bootstrap elements and element-type dictionary, then compares the full normalized metadata list and provenance with the manifest;
+- checks the provider deadline against the matching official bootstrap event deadline and verifies provider generation, provider capture and metadata capture are strictly pre-deadline;
+- rebuilds manager state from the archived manager envelope and checks it against the canonical manifest; when target-Gameweek picks exist, it independently checks squad, starting XI, ordered outfield bench, reserve goalkeeper, captain, vice-captain, bank, purchase prices and chip state against those official picks;
+- when target-Gameweek picks are unavailable, it checks the archived prior-picks/history source identities, independently reconstructs purchase prices from previous-Gameweek picks or from GW1 picks plus official transfer history/bootstrap, and verifies the target event is not a chip event;
+- independently recalculates every manager selling price from the official current bootstrap price and the reconstructed purchase price using the FPL half-profit rule;
+- reruns the same M3 personal-squad recommendation runner from the reconstructed-and-verified canonical inputs and compares the complete frozen decision and presented recommendation with the archived outputs;
+- writes a replay report into the same immutable workflow artifact, labelled `DETERMINISTIC_RAW_AND_CANONICAL_INPUT_REEXECUTION`.
 
-A failed replay fails the capture workflow and prevents a passing replay report from being archived. The replay report is explicitly labelled `DETERMINISTIC_CANONICAL_INPUT_REEXECUTION`; it does not establish forecast accuracy, recommendation value, or release eligibility.
+A failed reconstruction or replay fails the capture workflow and prevents a passing replay report from being archived. The replay is a source-to-canonical consistency and deterministic reproduction gate; it does not establish forecast accuracy, recommendation value, or release eligibility. The recorded commit is checked against the workflow's exact checkout commit; a later replay must check out that exact commit rather than silently using current branch code.
 
-**Important limitation:** this first replay stage re-executes from the normalized canonical inputs retained in the capture manifest. It verifies raw archive hashes and the provider/metadata hash bindings, but it does not yet independently rebuild every normalized field from the raw provider, bootstrap and manager-history payloads. That raw-to-canonical reconstruction remains a separate provenance-validation task. The recorded commit is checked against the workflow's exact checkout commit; a later replay must check out that exact commit rather than silently using current branch code.
+**Attestation boundary:** the free-transfer count remains manager-confirmed because the selected public FPL endpoints do not provide a direct authoritative pre-deadline value. In fallback capture modes, bank and intended XI/bench/captain state are also explicitly manager-attested rather than inferred from prior-week picks. The replay binds those values to the archived manager attestation and validates every field that the corresponding official source can independently corroborate; it does not claim to prove user-attested fields that are absent from official raw endpoints. The manager's squad identity and purchase prices are checked against the archived official picks/history source chain, and selling prices are recalculated from official bootstrap prices.
+
