@@ -9,6 +9,7 @@ from pathlib import Path
 from m4_field_context_contract import validate_field_context
 from m4_candidate_field_comparison import compare_frozen_candidate_to_field
 from m4_predeadline_field_artifact_adapter import load_predeadline_field_artifact
+from m4_field_context_diagnostics import build_field_context_diagnostics
 
 
 def adapt_m3_evaluation_candidate(document: dict) -> dict:
@@ -116,6 +117,7 @@ def build_predeadline_comparison(csv_path, report_path, candidate_path, *,
     binding = validate_field_context(
         artifact["snapshot"], artifact["field_eo_rows"], candidate
     )
+    diagnostics = build_field_context_diagnostics(binding)
     comparison = compare_frozen_candidate_to_field(binding)
     return {
         "status": "PASS_PREDEADLINE_FIELD_COMPARISON",
@@ -123,6 +125,7 @@ def build_predeadline_comparison(csv_path, report_path, candidate_path, *,
         "picks_lock_verified": False,
         "provisional_picks": True,
         "field_context": binding,
+        "field_diagnostics": diagnostics,
         "comparison": comparison,
         "interpretation_boundary": (
             "Field EO is a time-stamped provisional sample of current picks, not final locked EO. "
