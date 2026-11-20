@@ -70,6 +70,9 @@ jobs:
           if [ -f decision-evidence/predeadline-m3-recommendation.json ]; then
             cp decision-evidence/predeadline-m3-recommendation.json official-fpl-predeadline-m3-recommendation.json
           fi
+          if [ -f decision-evidence/predeadline-m3-replay-report.json ]; then
+            cp decision-evidence/predeadline-m3-replay-report.json official-fpl-predeadline-m3-replay-report.json
+          fi
       - name: Audit batch hashes and reconciliation coverage
         id: audit
         if: always() && steps.reconcile.outcome != 'skipped'
@@ -77,13 +80,17 @@ jobs:
         run: |
           MANIFEST_ARGS=()
           RECOMMENDATION_ARGS=()
+          REPLAY_ARGS=()
           if [ -f official-fpl-decision-evidence-manifests.json ]; then
             MANIFEST_ARGS+=(--decision-manifests official-fpl-decision-evidence-manifests.json)
           fi
           if [ -f official-fpl-predeadline-m3-recommendation.json ]; then
             RECOMMENDATION_ARGS+=(--predeadline-recommendation official-fpl-predeadline-m3-recommendation.json)
           fi
-          python scripts/audit_official_fpl_manager_batch.py official-fpl-manager-reconciliation-batch.json "${MANIFEST_ARGS[@]}" "${RECOMMENDATION_ARGS[@]}" --output official-fpl-manager-reconciliation-audit.json
+          if [ -f official-fpl-predeadline-m3-replay-report.json ]; then
+            REPLAY_ARGS+=(--predeadline-replay official-fpl-predeadline-m3-replay-report.json)
+          fi
+          python scripts/audit_official_fpl_manager_batch.py official-fpl-manager-reconciliation-batch.json "${MANIFEST_ARGS[@]}" "${RECOMMENDATION_ARGS[@]}" "${REPLAY_ARGS[@]}" --output official-fpl-manager-reconciliation-audit.json
       - name: Classify historical evidence admission
         id: admission
         if: always() && steps.audit.outcome == 'success'
@@ -105,6 +112,7 @@ jobs:
             canonical_candidate/engineering_workbench/official-fpl-historical-evidence-admission.json
             canonical_candidate/engineering_workbench/official-fpl-decision-evidence-manifests.json
             canonical_candidate/engineering_workbench/official-fpl-predeadline-m3-recommendation.json
+            canonical_candidate/engineering_workbench/official-fpl-predeadline-m3-replay-report.json
           if-no-files-found: warn
           retention-days: 90
       - name: Fail job if any requested Gameweek was excluded or audit failed
