@@ -328,8 +328,10 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
             _fail("incoming_player metadata must match transfer_in_id")
         if incoming.get("position") != manager_roster[out_id]["position"]:
             _fail("transfer must preserve player position")
-        if incoming.get("team_id") not in {p["team_id"] for p in manager_roster.values()} | {incoming.get("team_id")}:
+        if isinstance(incoming.get("team_id"), bool) or not isinstance(incoming.get("team_id"), int) or incoming.get("team_id") < 1:
             _fail("incoming player team metadata is invalid")
+        for price_field in ("purchase_price", "current_price"):
+            _finite_number(incoming.get(price_field), f"incoming_player.{price_field}", 0.1)
         if set(plan["squad_ids"]) != (set(manager_roster) - {out_id}) | {in_id}:
             _fail("post-transfer plan must replace exactly the outgoing player with the incoming player")
         if plan["reserve_goalkeeper_id"] != manager_plan["reserve_goalkeeper_id"]:
@@ -342,18 +344,18 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
             _fail("the designated starting goalkeeper must remain in the post-transfer XI")
         if out_id in manager_plan["starting_xi"]:
             expected_xi = (set(manager_plan["starting_xi"]) - {out_id}) | {in_id}
+            if set(plan["starting_xi"]) != expected_xi:
+                _fail("a starter transfer must replace only the outgoing starter in the fixed XI")
         else:
-            expected_xi = set(manager_plan["starting_xi"])
             if in_id not in plan["starting_xi"]:
                 _fail("a bench transfer must improve the starting XI by promoting the incoming player")
-            removed = expected_xi - set(plan["starting_xi"])
-            if len(removed) != 1 or next(iter(removed)) == starting_gk:
+            removed = set(manager_plan["starting_xi"]) - set(plan["starting_xi"])
+            expected_xi = (set(manager_plan["starting_xi"]) - removed) | {in_id}
+            if len(removed) != 1 or set(plan["starting_xi"]) != expected_xi:
                 _fail("a bench transfer must replace exactly one outfield starter")
             removed_id = next(iter(removed))
             if manager_roster[removed_id]["position"] != incoming["position"]:
                 _fail("a bench transfer must replace a starter in the incoming player's position")
-        if set(plan["starting_xi"]) != expected_xi:
-            _fail("post-transfer starting XI violates fixed-XI replacement rules")
         combined = {**manager_roster, in_id: incoming}
         _validate_roster([combined[player_id] for player_id in plan["squad_ids"]], "post-transfer roster")
     if plan["reserve_goalkeeper_id"] != manager_plan["reserve_goalkeeper_id"]:
@@ -378,9 +380,11 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
         if minutes != int(minutes):
             _fail(f"realised_player_points[{index}].minutes must be an integer")
         realised[player_id] = {"total_points": points, "minutes": minutes}
-    expected_ids = set(manager_roster) if decision["action"] == "HOLD" else set(plan["squad_ids"])
+    expected_ids = set(manager_roster) if decision["action"] == "HOLD" else (
+        set(manager_roster) | {decision["transfer_in_id"]}
+    )
     if set(realised) != expected_ids:
-        _fail("realised points must cover exactly the scored 15-player squad")
+        _fail("realised points must cover the complete decision cohort (15 hold players or 16 transfer-comparison players)")
 
     hold_score = _score_plan(manager_plan, manager_roster, realised)
     if decision["action"] == "TRANSFER":
