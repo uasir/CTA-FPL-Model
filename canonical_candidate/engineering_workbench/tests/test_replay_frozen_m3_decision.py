@@ -1,5 +1,7 @@
+import base64
 import copy
 import hashlib
+import json
 
 import pytest
 
@@ -10,14 +12,129 @@ import canonical_forecast_recommendation_adapter
 from test_run_predeadline_m3_decision import _engine_result, _manifest
 
 
+def _bind_raw_sources(manifest):
+    metadata_rows = manifest["player_metadata"]
+    type_ids = {"GKP": 1, "DEF": 2, "MID": 3, "FWD": 4}
+    bootstrap = {
+        "elements": [
+            {"id": row["fpl_element_id"], "element_type": type_ids[row["position"]],
+             "team": row["team_id"], "now_cost": int(row["price"] * 10),
+             "cost_change_start": 0}
+            for row in metadata_rows
+        ],
+        "element_types": [
+            {"id": type_id, "singular_name_short": position}
+            for position, type_id in type_ids.items()
+        ],
+        "events": [{"id": 12, "deadline_time": "2026-11-21T11:00:00Z"}],
+    }
+    provider_raw_object = {
+        "gameweek": 12,
+        "deadline": "2026-11-21T11:00:00Z",
+        "computed_at": "2026-11-20T09:00:00Z",
+        "players": [
+            {"id": row["fpl_element_id"], "xp": 5, "expected_minutes": 80}
+            for row in metadata_rows
+        ],
+    }
+    def raw_bytes(value):
+        return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    provider_raw = raw_bytes(provider_raw_object)
+    metadata_raw = raw_bytes(bootstrap)
+    state = manifest["manager_state"]
+    picks = []
+    lineup = state["starting_xi"]
+    bench = state["bench_order"] + [state["reserve_goalkeeper_id"]]
+    for position, player_id in enumerate(lineup + bench, 1):
+        picks.append({
+            "element": player_id,
+            "position": position,
+            "purchase_price": 50,
+            "selling_price": 50,
+            "is_captain": player_id == state["captain_id"],
+            "is_vice_captain": player_id == state["vice_captain_id"],
+        })
+    manager_picks = {"entry_history": {"event": 12, "bank": 9}, "picks": picks, "active_chip": None}
+    picks_raw = raw_bytes(manager_picks)
+    manager_envelope = {
+        "capture_kind": "USER_ATTESTED_PREDEADLINE_MANAGER_STATE",
+        "capture_method": "OFFICIAL_TARGET_GAMEWEEK_PICKS",
+        "manager_team_id": 421025,
+        "target_gameweek": 12,
+        "captured_at_utc": "2026-11-20T10:00:00Z",
+        "source_urls": ["https://fantasy.premierleague.com/api/entry/421025/event/12/picks/"],
+        "raw_manager_picks_base64": base64.b64encode(picks_raw).decode(),
+        "history_archive_base64": None,
+        "manager_state": state,
+    }
+    manager_raw = raw_bytes(manager_envelope)
+    def source(kind, raw, url, captured, generated=None):
+        digest = hashlib.sha256(raw).hexdigest()
+        item = {
+            "source_type": kind,
+            "source_url": url,
+            "raw_snapshot_id": "sha256:" + digest,
+            "raw_sha256": digest,
+            "captured_at_utc": captured,
+            "raw_payload_base64": base64.b64encode(raw).decode(),
+        }
+        if generated:
+            item["generated_at_utc"] = generated
+        return item
+    manifest["sources"] = [
+        source("provider_forecast", provider_raw, "https://fplcat.com/api/v1/projections",
+               "2026-11-20T10:00:00Z", "2026-11-20T09:00:00Z"),
+        source("player_metadata", metadata_raw,
+               "https://fantasy.premierleague.com/api/bootstrap-static/",
+               "2026-11-20T09:35:00Z"),
+        source("manager_deadline_state", manager_raw,
+               "https://fantasy.premierleague.com/entry/421025",
+               "2026-11-20T10:00:00Z"),
+    ]
+    provider_digest = hashlib.sha256(provider_raw).hexdigest()
+    manifest["provider_snapshot"] = {
+        "snapshot_id": "fplcat-gw12-20261120T100000000000Z",
+        "season": "2026-27",
+        "target_gameweek": 12,
+        "provider": {
+            "name": "FPL Cat", "product": "published xP",
+            "variant": "public next-gameweek JSON API", "version": "api/v1",
+        },
+        "timing": {
+            "generated_at_utc": "2026-11-20T09:00:00Z",
+            "captured_at_utc": "2026-11-20T10:00:00Z",
+            "deadline_utc": "2026-11-21T11:00:00Z",
+        },
+        "source": {
+            "url": "https://fplcat.com/api/v1/projections",
+            "raw_snapshot_id": "sha256:" + provider_digest,
+            "raw_sha256": provider_digest,
+        },
+        "grain": "player_gameweek",
+        "records": provider_raw_object["players"] and [
+            {"fpl_element_id": row["id"], "expected_points": row["xp"],
+             "expected_minutes": row["expected_minutes"]}
+            for row in provider_raw_object["players"]
+        ],
+        "coverage": {
+            "row_count": len(metadata_rows), "expected_player_universe": len(bootstrap["elements"]),
+            "identity_mapped_count": len(metadata_rows),
+        },
+    }
+    metadata_digest = hashlib.sha256(metadata_raw).hexdigest()
+    manifest["player_metadata_provenance"] = {
+        "source_url": "https://fantasy.premierleague.com/api/bootstrap-static/",
+        "raw_snapshot_id": "sha256:" + metadata_digest,
+        "raw_sha256": metadata_digest,
+        "captured_at_utc": "2026-11-20T09:35:00Z",
+        "row_count": len(metadata_rows),
+    }
+
+
 def _prepare(monkeypatch):
     bundle = _manifest()
     manifest = bundle["12"]
-    sources = {row["source_type"]: row for row in manifest["sources"]}
-    manifest["provider_snapshot"]["source"] = {
-        "raw_sha256": sources["provider_forecast"]["raw_sha256"]
-    }
-    manifest["player_metadata_provenance"]["raw_sha256"] = sources["player_metadata"]["raw_sha256"]
+    _bind_raw_sources(manifest)
     monkeypatch.setattr(runner, "run_external_benchmark_personal_squad",
                         lambda payload: _engine_result())
     monkeypatch.setattr(canonical_provider_forecast_contract, "normalize_provider_snapshot",
@@ -65,7 +182,7 @@ def test_replay_rejects_modified_frozen_recommendation(monkeypatch):
     bundle, frozen = _prepare(monkeypatch)
     frozen = copy.deepcopy(frozen)
     frozen["frozen_decision"]["transfer_in_id"] = 999
-    with pytest.raises(replay.DecisionReplayError, match="replayed frozen decision differs"):
+    with pytest.raises(replay.DecisionReplayError, match="canonical player metadata cannot be reconstructed"):
         replay.replay_frozen_decision(bundle, frozen, software_commit="b" * 40)
 
 
