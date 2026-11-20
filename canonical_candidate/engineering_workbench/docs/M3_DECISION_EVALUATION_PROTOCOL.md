@@ -158,3 +158,9 @@ The appearance flag follows FPL's published definition: a player counts as havin
 - https://www.premierleague.com/en/news/2174899
 
 The scoring implementation remains provisional until independently reconciled against completed official FPL manager Gameweek scores and substitution outcomes. Synthetic test success demonstrates deterministic software behaviour only; it is not evidence of historical decision value or release eligibility.
+
+The transfer validator also enforces the manager strategy’s no-goalkeeper-transfer rule, exact incoming/outgoing position match, three-per-club squad limit, one-transfer free-transfer/hit treatment, and affordability using captured bank plus FPL half-profit selling-price rounding. The output retains the frozen decision hash, evaluation-input hash, source archive IDs/hashes, software commit and transfer financials.
+
+For a transfer comparison, the realised-points cohort must contain all 15 original squad players plus the incoming player. This is necessary to score both the recommendation and the no-transfer hold baseline against the same Gameweek. The outgoing player is retained in that comparison even though he is absent from the post-transfer squad.
+
+The initial implementation rejects malformed transfer IDs, invalid or incomplete source archives, unaffordable transfers, changed designated goalkeepers, incomplete realised rows, unsupported chips and all real-world candidate records pending admission.
