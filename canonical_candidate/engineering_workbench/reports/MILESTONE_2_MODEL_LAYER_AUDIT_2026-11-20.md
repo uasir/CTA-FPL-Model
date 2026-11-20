@@ -169,7 +169,7 @@ The aggregator now:
 - sums only fixture-level target points and minutes labels;
 - retains an ABC or conventional-history feature only when all fixture rows agree within tolerance;
 - marks feature values as MISSING, PARTIAL or CONFLICT rather than summing or blindly averaging them;
-- requires the exact official fixture-ID set for each player-GW, not just a fixture count, before marking the row eligible;
+- requires the exact fixture-ID set from the pinned FPL history reference for each player-GW, not just a fixture count, before marking the row eligible;
 - rejects duplicate player-fixture rows and blocks incomplete target labels or inconsistent feature cutoffs;
 - retains source provenance and per-feature aggregation status.
 
@@ -178,5 +178,14 @@ This is deliberately conservative. Conflicting fixture-specific opponent context
 CI run [44732404991](https://github.com/uasir/CTA-FPL-Model/actions/runs/44732404991) completed successfully on commit `30358957ac30be59f59503111693b6f439b36517`: JavaScript contracts, Python core tests, the full engineering pytest suite, and all four identity-crosswalk validators passed. The new aggregation tests are included in the successful engineering suite.
 
 **Remaining before fold-aligned comparison:** provide the independent official player-GW fixture-ID universe file, run the aggregator on the historical Wyscout panel, inspect the conflict/coverage report, and then construct identical fit/calibration/validation cohorts for ABC and 2PM.
+
+
+## 10. Independent fixture-reference builder added
+
+Added `scripts/build_abc_expected_fixture_universe.py` and unit tests. It derives the expected player-fixture IDs from the independently built, pinned Vaastav FPL history panel, normalizes season labels for joining, and checks fixture-level points and minutes against the ABC panel before emitting the reference CSV.
+
+This source is a pinned historical FPL export, **not** a verified point-in-time or live official API snapshot. The script fails closed on missing player-GW keys, missing fixtures, extra ABC fixtures, or any fixture-level target mismatch. The resulting reference CSV is then consumed by the strict ABC player-GW aggregator.
+
+The combined CI run [44732745533](https://github.com/uasir/CTA-FPL-Model/actions/runs/44732745533) passed, including the full engineering test suite and all identity crosswalk validators. The follow-up terminology change distinguishes the pinned reference export from official/live FPL data.
 
 **Current disposition:** 2PM base remains the control; position features are not adopted; ABC remains an exploratory independent candidate; no model is connected to recommendation weights.
