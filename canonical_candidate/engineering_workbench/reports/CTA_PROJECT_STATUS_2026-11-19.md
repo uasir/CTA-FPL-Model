@@ -147,3 +147,16 @@ The private prospective panel has now been selected successfully before GW11:
 - Private workflow [44657538350](https://github.com/uasir/CTA-FPL-Private-Archive/actions/runs/44657538350) completed successfully; private archive contract CI [44657522022](https://github.com/uasir/CTA-FPL-Private-Archive/actions/runs/44657522022) passed 11 tests.
 
 The fixed cohort is selected, but the first pre-deadline state wave is not yet captured. Next gate is to capture all 100 manager states before GW11 lock, then freeze three decisions (hold, conventional, CTA-informed) against each state. Do not backfill or replace missing managers after the deadline.
+
+
+## GW11 private state capture — 2026-11-20
+
+The fixed 100-manager cohort was selected before the GW11 deadline. State capture attempt 001 exposed a schema assumption: the public historical picks endpoint does not return purchase_price. The corrected attempt 002 reconstructs purchase prices from the latest permanent transfer-in cost, or for GW1 initial players from bootstrap now_cost minus cost_change_start; Free Hit transfer-ins are excluded. Each player record stores purchase-price provenance.
+
+Private workflow [44658380753](https://github.com/uasir/CTA-FPL-Private-Archive/actions/runs/44658380753) captured 94 manager states before the deadline and validated every captured state against the private state contract. Six managers remain missing because they started in GW2 and at least one initial player price has no permanent transfer-in record. All six belong to the 2m+ rank stratum. They carry 24.69% of the original normalized design weight; 75.31% of the panel weight is represented by captured states. No replacements or guessed prices are allowed.
+
+Additional diagnostics:
+- 93 states use the GW10 permanent squad; one uses GW9 because GW10 was Free Hit.
+- Free-transfer counts at the GW11 starting state: 25 managers with 1, 32 with 2, 17 with 3, 6 with 4, and 14 with 5.
+- One state has a temporary over-three-club warning; it is preserved for review.
+- The 94 states passed individual validation, but the full 100-manager wave is marked incomplete. Do not report an overall weighted policy result as representative until missingness is resolved or explicitly bounded.
