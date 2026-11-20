@@ -6,10 +6,12 @@ grouping and then discarded; they are never emitted in the artifact.
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import math
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 
@@ -227,6 +229,83 @@ def adapt_field_portfolios_for_scenario(
             "decision_weight": 0.0,
         },
     }
+
+
+def verify_field_portfolio_artifact(
+    artifact: Mapping[str, Any], capture_report: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Bind the anonymised manager portfolios to the exact pre-deadline capture report."""
+    manifest = capture_report.get("manager_portfolio_artifact")
+    if not isinstance(manifest, Mapping):
+        raise CovarFieldPortfolioError("capture report lacks manager_portfolio_artifact manifest")
+    if capture_report.get("status") != "CAPTURED_PRE_DEADLINE_CURRENT_PICKS":
+        raise CovarFieldPortfolioError("capture report is not a successful pre-deadline capture")
+    if capture_report.get("evidence_role") != "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE":
+        raise CovarFieldPortfolioError("capture report evidence role is not pre-deadline provisional")
+    if manifest.get("manager_identifiers_retained") is not False:
+        raise CovarFieldPortfolioError("capture manifest must confirm manager identifiers were discarded")
+    digest = canonical_artifact_sha256(artifact)
+    if manifest.get("sha256") != digest:
+        raise CovarFieldPortfolioError("anonymised portfolio artifact SHA-256 does not match capture report")
+    metadata = artifact.get("metadata", {})
+    if (
+        int(metadata.get("gameweek", -1)) != int(capture_report.get("gameweek", -2))
+        or metadata.get("deadline_utc") != capture_report.get("deadline_time_utc")
+        or metadata.get("captured_at_utc") != capture_report.get("picks_captured_at_utc")
+        or int(metadata.get("manager_count", -1)) != int(manifest.get("manager_count", -2))
+    ):
+        raise CovarFieldPortfolioError("portfolio artifact identity differs from capture report")
+    return {
+        "status": "PASS_ANONYMIZED_FIELD_PORTFOLIO_PROVENANCE",
+        "artifact_sha256": digest,
+        "manager_count": int(metadata["manager_count"]),
+        "gameweek": int(metadata["gameweek"]),
+        "evidence_role": metadata["evidence_role"],
+        "manager_identifiers_retained": False,
+        "release_eligible": False,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--artifact", type=Path, required=True)
+    parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--modeled-player-ids", required=True,
+                        help="Comma-separated FPL element IDs in the scenario player universe")
+    parser.add_argument("--gameweek", type=int, required=True)
+    parser.add_argument("--deadline", required=True)
+    parser.add_argument("--as-of", required=True)
+    parser.add_argument("--rank-strata",
+                        help="Optional comma-separated 1-based rank-page strata")
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    artifact = json.loads(args.artifact.read_text(encoding="utf-8"))
+    report = json.loads(args.report.read_text(encoding="utf-8"))
+    provenance = verify_field_portfolio_artifact(artifact, report)
+    strata = [int(value) for value in args.rank_strata.split(",")] if args.rank_strata else None
+    result = adapt_field_portfolios_for_scenario(
+        artifact,
+        [value.strip() for value in args.modeled_player_ids.split(",") if value.strip()],
+        expected_gameweek=args.gameweek,
+        deadline_utc=args.deadline,
+        as_of_utc=args.as_of,
+        rank_strata=strata,
+    )
+    result["provenance"] = provenance
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+    print(json.dumps({
+        "status": "PASS_ANONYMIZED_FIELD_PORTFOLIO_ADAPTATION",
+        "portfolio_count": len(result["portfolios"]),
+        "manager_projection_coverage": result["metadata"]["manager_projection_coverage"],
+        "output": str(args.output),
+        "release_eligible": False,
+    }, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
 
 
 def canonical_artifact_sha256(artifact: Mapping[str, Any]) -> str:
