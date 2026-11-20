@@ -109,14 +109,11 @@ def test_rejects_manager_capture_row_count_mismatch():
         assemble_decision_input(provider, manager, as_of_utc="2026-11-20T15:00:00Z")
 
 
-def test_adds_conservative_selling_price_floor_when_purchase_price_is_unknown():
+def test_rejects_missing_purchase_price_instead_of_using_current_market_price():
     provider, manager = captures()
     for row in manager["manager_context"]["squad_snapshot"]:
         row.pop("purchase_price")
-    result = assemble_decision_input(
-        provider, manager, as_of_utc="2026-11-20T15:00:00Z"
-    )
-    squad = result["manager_context"]["squad_snapshot"]
-    assert len(squad) == 15
-    assert all("purchase_price" not in row for row in squad)
-    assert all(row["selling_price_floor"] == 5.0 for row in squad)
+    with pytest.raises(DecisionInputError, match="purchase_price is missing or invalid"):
+        assemble_decision_input(
+            provider, manager, as_of_utc="2026-11-20T15:00:00Z"
+        )
