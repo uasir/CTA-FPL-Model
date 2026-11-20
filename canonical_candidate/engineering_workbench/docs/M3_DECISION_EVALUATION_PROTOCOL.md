@@ -238,7 +238,7 @@ The workflow accepts an optional `official-fpl-decision-evidence-manifests.json`
 
 ## 15. Prospective pre-deadline decision evidence capture
 
-The prospective capture command is `scripts/capture_predeadline_decision_bundle.py`, exposed through the manual workflow `.github/workflows/capture-predeadline-decision-evidence.yml`. It creates the per-Gameweek manifest consumed by the historical evidence auditor and classifier.
+The prospective capture command is `scripts/capture_predeadline_decision_bundle.py`, exposed through the manual workflow `.github/workflows/capture-predeadline-decision-evidence.yml`. It creates the per-Gameweek manifest consumed by the historical evidence auditor and classifier. The workflow then runs `scripts/run_predeadline_m3_decision.py` to generate and hash-freeze the single conventional personal-squad recommendation from that exact captured input.
 
 The workflow takes a manager-confirmed JSON state containing the exact 15-player squad, bank, free transfers, intended formation, starting XI, ordered three-player outfield bench, reserve goalkeeper, captain, vice-captain and chip state. Its default is the latest manager-confirmed GW11 state; it must be updated if the squad, bank, free transfers or lineup changes before the target deadline.
 
@@ -255,6 +255,8 @@ The capture is deliberately fail-closed:
 
 A missing provider generation timestamp, unavailable or incomplete official price history, missing prices, a chip event, invalid squad/lineup, timestamp/hash inconsistency, or a post-deadline mismatch causes capture or admission to fail closed. No price value is silently invented.
 
-The capture workflow uploads a 90-day artifact named `predeadline-decision-evidence-manager-<manager>-gw<gameweek>`. It does not itself admit a historical record or evaluate a recommendation. After the Gameweek is finalized, the reconciliation workflow can retrieve that artifact by its workflow run ID using the optional `decision_evidence_run_id` input. For this initial integration, provide one target Gameweek and its matching capture run ID per reconciliation dispatch.
+The workflow exposes only the best transfer candidate in its recommendation output; secondary transfer alternatives are suppressed. It also writes a frozen evaluation candidate containing the recommendation hash, manager hold baseline and three pre-deadline source archives. The recommendation remains exploratory and `release_eligible=false`; the candidate is not scored until finalized official points and evidence admission are available.
+
+The capture workflow uploads a 90-day artifact named `predeadline-decision-evidence-manager-<manager>-gw<gameweek>`, containing both the capture manifest and `predeadline-m3-recommendation.json`. It does not itself admit a historical record or evaluate realized outcomes. After the Gameweek is finalized, the reconciliation workflow can retrieve that artifact by its workflow run ID using the optional `decision_evidence_run_id` input. For this initial integration, provide one target Gameweek and its matching capture run ID per reconciliation dispatch.
 
 The manifest retains `evidence_is_point_in_time=true` as an attestation, but eligibility is determined only after the independent auditor verifies the embedded raw bytes, replays official price reconstruction where used, and matches the predeadline manager state against finalized official records. Capture success alone is not forecast validation, decision value, or release eligibility.
