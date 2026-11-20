@@ -10,6 +10,7 @@ from m4_field_context_contract import validate_field_context
 from m4_candidate_field_comparison import compare_frozen_candidate_to_field
 from m4_predeadline_field_artifact_adapter import load_predeadline_field_artifact
 from m4_field_context_diagnostics import build_field_context_diagnostics
+from m4_portfolio_exposure_baseline import build_portfolio_exposure_baseline
 
 
 def adapt_m3_evaluation_candidate(document: dict) -> dict:
@@ -119,6 +120,7 @@ def build_predeadline_comparison(csv_path, report_path, candidate_path, *,
     )
     diagnostics = build_field_context_diagnostics(binding)
     comparison = compare_frozen_candidate_to_field(binding)
+    portfolio_baseline = build_portfolio_exposure_baseline(binding, comparison)
     return {
         "status": "PASS_PREDEADLINE_FIELD_COMPARISON",
         "evidence_role": artifact["evidence_role"],
@@ -126,6 +128,7 @@ def build_predeadline_comparison(csv_path, report_path, candidate_path, *,
         "provisional_picks": True,
         "field_context": binding,
         "field_diagnostics": diagnostics,
+        "portfolio_exposure_baseline": portfolio_baseline,
         "comparison": comparison,
         "interpretation_boundary": (
             "Field EO is a time-stamped provisional sample of current picks, not final locked EO. "
