@@ -90,12 +90,32 @@ jobs:
           base = load("2pm_base_report.json")
           position = load("2pm_position_report.json")
           comparison = load("2pm_position_ablation_report.json")
+          def fold_coverage(report):
+              return [
+                  {
+                      "season": fold.get("season"),
+                      "fit_player_gameweeks": fold.get("fit_player_gameweeks"),
+                      "calibration_player_gameweeks": fold.get("calibration_player_gameweeks"),
+                      "validation_player_gameweeks": fold.get("validation_player_gameweeks")
+                  }
+                  for fold in report.get("folds", [])
+              ]
           summary = {
               "status": "RESEARCH_ONLY",
               "base_fold_count": base.get("fold_count"),
               "position_fold_count": position.get("fold_count"),
+              "base_fold_coverage": fold_coverage(base),
+              "position_fold_coverage": fold_coverage(position),
               "base_pooled_transformer": base.get("pooled_transformer"),
+              "base_pooled_transformer_affine_calibrated": base.get("pooled_transformer_expected_points_affine_calibrated"),
+              "base_pooled_conventional_two_part_calibrated": base.get("pooled_conventional_two_part_calibrated"),
+              "base_pooled_direct_ridge": base.get("pooled_direct_ridge"),
+              "base_pooled_last5_points_persistence": base.get("pooled_last5_points_persistence"),
+              "paired_transformer_vs_conventional_two_part": base.get("paired_transformer_vs_conventional_two_part_cluster_bootstrap"),
+              "paired_affine_transformer_vs_conventional_two_part": base.get("paired_transformer_affine_vs_conventional_two_part_cluster_bootstrap"),
+              "paired_transformer_vs_direct_ridge": base.get("paired_transformer_vs_direct_ridge_cluster_bootstrap"),
               "position_pooled_transformer": position.get("pooled_transformer"),
+              "position_pooled_transformer_affine_calibrated": position.get("pooled_transformer_expected_points_affine_calibrated"),
               "paired_position_ablation": comparison,
               "point_in_time_status": "NOT_VERIFIED_RETROSPECTIVE_SOURCE_VINTAGES",
               "player_level_predictions_uploaded": False
