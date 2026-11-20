@@ -74,6 +74,12 @@ def score_scenario_portfolios(
         raise CovarScoringError("mode must be REGULAR_GW or explicitly FREE_HIT")
 
     players = {str(row["player_id"]): row for row in document["players"]}
+    for scenario in document["scenarios"]:
+        for outcome in scenario["player_outcomes"]:
+            if outcome.get("fpl_points") is None:
+                raise CovarScoringError(
+                    "scenario portfolio scoring requires fpl_points; run event scoring first"
+                )
     scenarios = document["scenarios"]
     probabilities = [float(row["probability"]) for row in scenarios]
     outcome_maps = [
