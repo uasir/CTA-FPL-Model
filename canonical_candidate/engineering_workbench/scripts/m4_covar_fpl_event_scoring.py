@@ -51,6 +51,10 @@ def calculate_fpl_points_2026_27(position: str, events: Mapping[str, Any]) -> di
     defensive_count = _count(events, "defensive_contribution_count")
     penalty_misses = _count(events, "penalty_misses")
     bonus = _count(events, "bonus_points")
+    if "goals_conceded_while_on_pitch" not in events:
+        raise CovarEventScoringError(
+            "goals_conceded_while_on_pitch must be explicit for each player"
+        )
     goals_conceded = _count(events, "goals_conceded_while_on_pitch")
     yellow_cards = _count(events, "yellow_cards")
     red_cards = _count(events, "red_cards")
