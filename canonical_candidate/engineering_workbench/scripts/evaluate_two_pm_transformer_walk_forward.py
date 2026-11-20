@@ -28,7 +28,7 @@ from evaluate_fpl_walk_forward import (
 from evaluate_fpl_decision_quality import evaluate_forecast
 from compare_2pm_position_ablation import rank_by_deadline
 from train_fpl_exploratory_ridge import fit_ridge, predict
-from matched_fold_keys import sha_keys, load_partition_keys, verify_manifest_partition_hashes
+from matched_fold_keys import sha_keys, canonical_key, load_partition_keys, verify_manifest_partition_hashes
 
 # Include the recent xG/xA aggregates available in the multi-season FPL panel.
 # The existing published baseline feature set remains unchanged; matched Ridge
@@ -350,7 +350,7 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0, feature_candidates=Non
                   partition_keys=None):
     if partition_keys is not None:
         by_key = {
-            (str(r["season"]), str(r["fpl_element_id"]), int(r["gameweek"])): r
+            canonical_key(r["season"], r["fpl_element_id"], r["gameweek"]): r
             for r in all_rows
         }
         def exact_rows(keys, label):
@@ -365,7 +365,7 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0, feature_candidates=Non
         calibration_rows = exact_rows(partition_keys["calibration"], "calibration")
         validation_rows = exact_rows(partition_keys["test"], "test")
         for label, selected in (("fit", fit_rows), ("calibration", calibration_rows), ("test", validation_rows)):
-            if any(str(row["season"]) != str(season) for row in selected):
+            if any(canonical_key(row["season"], row["fpl_element_id"], row["gameweek"])[0] != str(season) for row in selected):
                 raise ValueError(f"Matched 2PM {label} partition spans unexpected seasons")
         if any(r["last5_baseline_points"] is None for r in validation_rows):
             raise ValueError("Matched 2PM test partition contains a missing last-five baseline")
