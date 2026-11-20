@@ -223,7 +223,7 @@ function transferCandidates(request, forecasts, starting, formation, captain) {
 
       const candidateIds = [...ownedIds].filter((id) => id !== outId).concat(inId).sort((a, b) => a - b);
       const candidateOwned = candidateIds.map((id) => forecastById.get(id));
-      const candidateStarting = bestStartingXI(candidateOwned, forecastById, formationValue, null).starting;
+      const candidateStarting = bestStartingXi(candidateOwned, forecastById, formationValue, null).starting;
       const candidateStartingIds = new Set(candidateStarting.map((player) => player.fpl_element_id));
       const candidateStartingPoints = candidateStarting.reduce((sum, player) => sum + player.expected_points, 0);
       const candidateCaptain = [...candidateStarting].sort(playerOrder)[0];
