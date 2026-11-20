@@ -1,0 +1,2 @@
+provider_match_id,provider_player_id,goals_delta,shot_attempts_delta,accurate_shot_attempts_delta,source_name,source_url,reason
+2499781,38021,1,1,1,Premier League official match report,https://www.premierleague.com/en/match/918955/chelsea-vs-manchester-city,"Kevin De Bruyne scored the 67th-minute winner from a left-footed shot on 30 September 2017. The Wyscout match metadata is Chelsea 0-1 Manchester City, but the event log has no attributed Shot or Free Kick goal event for De Bruyne."
