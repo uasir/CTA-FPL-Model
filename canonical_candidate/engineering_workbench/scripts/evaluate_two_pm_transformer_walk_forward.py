@@ -26,6 +26,7 @@ from evaluate_fpl_walk_forward import (
     POINTS_BAND_FALLBACK_REPRESENTATIVES,
 )
 from evaluate_fpl_decision_quality import evaluate_forecast
+from compare_2pm_position_ablation import rank_by_deadline
 from train_fpl_exploratory_ridge import fit_ridge, predict
 
 # Include the recent xG/xA aggregates available in the multi-season FPL panel.
@@ -264,6 +265,86 @@ def apply_affine_expected_points_calibrator(predictions, slope, intercept):
     return np.maximum(0.0, intercept + slope * values).tolist()
 
 
+def summarize_deadline_ranking_rows(deadline_rows, top_k=100):
+    if not deadline_rows:
+        raise ValueError("Deadline ranking requires at least one deadline")
+    by_season = defaultdict(list)
+    for (season, _), values in sorted(deadline_rows.items()):
+        by_season[season].append(values)
+    metrics = (
+        "spearman", "selected_mean_points", "oracle_top_k_mean_points",
+        "top_k_lift_over_universe", "top_k_regret_vs_oracle",
+    )
+    summary = {
+        "n_deadlines": len(deadline_rows),
+        "n_seasons": len(by_season),
+        "top_k_per_deadline": top_k,
+        "macro_spearman": sum(row["spearman"] for row in deadline_rows.values()) / len(deadline_rows),
+        "macro_selected_mean_points": sum(row["selected_mean_points"] for row in deadline_rows.values()) / len(deadline_rows),
+        "macro_oracle_top_k_mean_points": sum(row["oracle_top_k_mean_points"] for row in deadline_rows.values()) / len(deadline_rows),
+        "macro_top_k_lift_over_universe": sum(row["top_k_lift_over_universe"] for row in deadline_rows.values()) / len(deadline_rows),
+        "macro_top_k_regret_vs_oracle": sum(row["top_k_regret_vs_oracle"] for row in deadline_rows.values()) / len(deadline_rows),
+        "by_season": {},
+    }
+    for season, values in sorted(by_season.items()):
+        summary["by_season"][season] = {
+            metric: sum(row[metric] for row in values) / len(values)
+            for metric in metrics
+        }
+    return summary
+
+
+def paired_deadline_ranking_bootstrap(candidate_deadlines, reference_deadlines,
+                                      seed=20261121, n_boot=2000):
+    if set(candidate_deadlines) != set(reference_deadlines):
+        raise ValueError("Candidate and reference rankings must cover identical deadlines")
+    seasons = sorted({season for season, _ in candidate_deadlines})
+    deltas = {
+        key: {
+            "selected_mean_points": candidate_deadlines[key]["selected_mean_points"] - reference_deadlines[key]["selected_mean_points"],
+            "spearman": candidate_deadlines[key]["spearman"] - reference_deadlines[key]["spearman"],
+        }
+        for key in candidate_deadlines
+    }
+
+    def mean_for(sampled_seasons, metric):
+        values = [
+            deltas[key][metric]
+            for season in sampled_seasons
+            for key in deltas if key[0] == season
+        ]
+        return sum(values) / len(values) if values else 0.0
+
+    rng = random.Random(seed)
+    boot_selected, boot_spearman = [], []
+    for _ in range(n_boot):
+        sampled = [rng.choice(seasons) for _ in seasons]
+        boot_selected.append(mean_for(sampled, "selected_mean_points"))
+        boot_spearman.append(mean_for(sampled, "spearman"))
+
+    def interval(values):
+        values = sorted(values)
+        return [
+            values[int(0.025 * (len(values) - 1))],
+            values[int(0.975 * (len(values) - 1))],
+        ]
+
+    return {
+        "method": "SEASON_CLUSTER_BOOTSTRAP_OF_PAIRED_WITHIN_DEADLINE_RANKING_DELTAS",
+        "season_clusters": len(seasons),
+        "deadline_clusters": len(deltas),
+        "replicates": n_boot,
+        "candidate_minus_reference_macro_selected_mean_points": (
+            sum(value["selected_mean_points"] for value in deltas.values()) / len(deltas)
+        ),
+        "selected_mean_points_delta_ci95": interval(boot_selected),
+        "candidate_minus_reference_macro_spearman": (
+            sum(value["spearman"] for value in deltas.values()) / len(deltas)
+        ),
+        "spearman_delta_ci95": interval(boot_spearman),
+    }
+
+
 def evaluate_fold(all_rows, season, torch, seed_offset=0, feature_candidates=None):
     train = [r for r in all_rows if r["season"] < season]
     valid = [r for r in all_rows if r["season"] == season]
@@ -356,6 +437,31 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0, feature_candidates=Non
     calibrated_report = evaluate_forecast(actual, baseline_calibrated, ranking_score=baseline_calibrated, top_k=100)
     direct_report = evaluate_forecast(actual, baseline_direct, ranking_score=baseline_direct, top_k=100)
     last5_report = evaluate_forecast(actual, baseline_last5, ranking_score=baseline_last5, top_k=100)
+    rank_rows = [
+        {
+            "season": str(row["season"]),
+            "gameweek": int(row["gameweek"]),
+            "actual": row["actual_points"],
+            "transformer_raw": transformer_prediction[index],
+            "transformer_affine": transformer_affine_prediction[index],
+            "conventional_two_part_raw": baseline_raw[index],
+            "conventional_two_part_calibrated": baseline_calibrated[index],
+            "direct_ridge": baseline_direct[index],
+            "last5_persistence": baseline_last5[index],
+        }
+        for index, row in enumerate(validation_rows)
+    ]
+    ranking_models = (
+        "transformer_raw", "transformer_affine",
+        "conventional_two_part_raw", "conventional_two_part_calibrated",
+        "direct_ridge", "last5_persistence",
+    )
+    deadline_rankings, deadline_ranking_rows = {}, {}
+    for prediction_key in ranking_models:
+        ranking, deadline_rows = rank_by_deadline(rank_rows, prediction_key, top_k=100)
+        deadline_rankings[prediction_key] = ranking
+        deadline_ranking_rows[prediction_key] = deadline_rows
+
     cluster_ids = [f"{r['season']}:{r['fpl_element_id']}" for r in validation_rows]
     bootstrap = cluster_bootstrap_paired_errors(
         actual, transformer_prediction, baseline_calibrated, cluster_ids,
@@ -386,6 +492,8 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0, feature_candidates=Non
         "last5_points_persistence": last5_report,
         "paired_transformer_vs_calibrated_two_part_cluster_bootstrap": bootstrap,
         "paired_transformer_vs_direct_ridge_cluster_bootstrap": direct_bootstrap,
+        "deadline_local_ranking": deadline_rankings,
+        "_deadline_ranking_rows": deadline_ranking_rows,
         "_aggregate": {
             "actual": actual,
             "transformer": transformer_prediction,
@@ -434,11 +542,18 @@ def evaluate(rows, feature_set="base"):
     pooled_actual, pooled_transformer, pooled_transformer_affine, pooled_baseline, pooled_direct, pooled_last5, pooled_clusters = [], [], [], [], [], [], []
     pooled_haul = {6: [], 8: [], 10: []}
     pooled_prediction_rows = []
+    pooled_deadline_ranking_rows = defaultdict(dict)
     for index, season in enumerate(seasons):
         if index == 0:
             continue
         fold = evaluate_fold(grouped, season, torch, index, feature_candidates)
         aggregate = fold.pop("_aggregate")
+        fold_deadline_rows = fold.pop("_deadline_ranking_rows")
+        for prediction_key, deadline_rows in fold_deadline_rows.items():
+            overlap = set(pooled_deadline_ranking_rows[prediction_key]) & set(deadline_rows)
+            if overlap:
+                raise ValueError("Duplicate season-gameweek keys in pooled deadline ranking")
+            pooled_deadline_ranking_rows[prediction_key].update(deadline_rows)
         folds.append(fold)
         pooled_actual.extend(aggregate["actual"])
         pooled_transformer.extend(aggregate["transformer"])
@@ -497,6 +612,32 @@ def evaluate(rows, feature_set="base"):
         pooled_actual, pooled_transformer_affine, pooled_baseline, pooled_clusters,
         n_boot=1000, seed=SEED + 300,
     )
+    deadline_local_ranking = {
+        key: summarize_deadline_ranking_rows(rows, top_k=100)
+        for key, rows in pooled_deadline_ranking_rows.items()
+    }
+    paired_deadline_ranking = {
+        "transformer_raw_vs_conventional_two_part_calibrated": paired_deadline_ranking_bootstrap(
+            pooled_deadline_ranking_rows["transformer_raw"],
+            pooled_deadline_ranking_rows["conventional_two_part_calibrated"],
+            seed=SEED + 401,
+        ),
+        "transformer_affine_vs_conventional_two_part_calibrated": paired_deadline_ranking_bootstrap(
+            pooled_deadline_ranking_rows["transformer_affine"],
+            pooled_deadline_ranking_rows["conventional_two_part_calibrated"],
+            seed=SEED + 402,
+        ),
+        "transformer_raw_vs_direct_ridge": paired_deadline_ranking_bootstrap(
+            pooled_deadline_ranking_rows["transformer_raw"],
+            pooled_deadline_ranking_rows["direct_ridge"],
+            seed=SEED + 403,
+        ),
+        "transformer_raw_vs_last5_persistence": paired_deadline_ranking_bootstrap(
+            pooled_deadline_ranking_rows["transformer_raw"],
+            pooled_deadline_ranking_rows["last5_persistence"],
+            seed=SEED + 404,
+        ),
+    }
     return {
         "status": "RESEARCH_ONLY",
         "decision": "DO_NOT_PROMOTE",
@@ -521,6 +662,8 @@ def evaluate(rows, feature_set="base"):
         "paired_transformer_vs_conventional_two_part_cluster_bootstrap": bootstrap,
         "paired_transformer_affine_vs_conventional_two_part_cluster_bootstrap": affine_bootstrap,
         "paired_transformer_vs_direct_ridge_cluster_bootstrap": direct_bootstrap,
+        "deadline_local_ranking": deadline_local_ranking,
+        "paired_deadline_local_ranking_bootstrap": paired_deadline_ranking,
         "_prediction_rows": pooled_prediction_rows,
         "limitations": [
             "Historical FPL source vintages are retrospective, not archived pre-deadline snapshots.",
