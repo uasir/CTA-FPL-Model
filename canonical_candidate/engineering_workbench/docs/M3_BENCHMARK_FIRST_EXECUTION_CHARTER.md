@@ -86,6 +86,12 @@ Regression coverage now includes missing GW1 purchase-price fallback, full raw-s
 
 This is code-level verification only. The live manager capture has not yet succeeded; the workflow needs another run to validate the fallback against team 421025's actual bootstrap and transfer data.
 
+### M3.3c — Prior-gameweek purchase-price preference
+
+To avoid relying on season-start prices when an exact prior snapshot exists, the pre-deadline fallback now first fetches the immediately preceding GW picks endpoint. It uses those recorded purchase prices only when all 15 player IDs exactly match the user-confirmed GW11 squad and the previous gameweek was not a Free Hit. The previous-GW raw response and manager history are archived. If the identity check fails, the capture falls back to the GW1/transfer-history reconstruction with bootstrap-derived prices only for missing initial values. This uses the GW10 record corresponding to the manager-history URL supplied by the user, without assuming that GW10 and GW11 squads match.
+
+CI run [44763403031](https://github.com/uasir/CTA-FPL-Model/actions/runs/44763403031) passed: 39 JavaScript tests, 302 engineering pytest tests, 3 subtests, canonical Python tests and all four identity crosswalk checks. The live manager capture for team 421025 still needs to be rerun to confirm which source path is selected and validate all 15 prices.
+
 ### M3.3a — Manager context and purchase-price reconstruction
 
 The GW11 public picks endpoint can return HTTP 404 before the deadline. The pre-deadline path now preserves the user's confirmed GW11 15-player IDs, bank and free-transfer count while reconstructing the purchase prices independently from the season record:
