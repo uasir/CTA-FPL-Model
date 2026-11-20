@@ -201,6 +201,7 @@ class TestCovarFieldPortfolioAdapter(unittest.TestCase):
                 captured_at_utc=CAPTURED,
                 evidence_role="PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE",
                 cohort="overall top 150", rank_limit=150,
+                player_positions_by_id=positions_for(rows),
             )
 
 
