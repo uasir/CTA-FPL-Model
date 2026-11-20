@@ -5,8 +5,8 @@ ABC features are pre-deadline rolling snapshots or rates, not fixture outcomes.
 They are never summed or blindly averaged across a DGW. A feature is retained
 only when every observed fixture row has the same non-null value. Conflicts and
 partial coverage remain explicit and block that feature for the player-GW.
-Model eligibility also requires an independently supplied expected fixture
-count, preventing an incomplete DGW from being mistaken for a complete cohort.
+Model eligibility also requires the exact independently supplied official fixture-ID
+set, preventing an incomplete or mismatched DGW from being mistaken for a complete cohort.
 """
 from __future__ import annotations
 
