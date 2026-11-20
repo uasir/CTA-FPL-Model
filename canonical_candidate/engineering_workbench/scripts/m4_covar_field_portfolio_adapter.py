@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build anonymised CoVar field portfolios from the existing sampled manager picks.
+"""Build manager-ID-stripped CoVar field portfolios from the existing sampled manager picks.
 
 Only explicit manager-pick rows are accepted. Manager entry IDs are used for
 grouping and then discarded; they are never emitted in the artifact.
@@ -31,7 +31,7 @@ def _time(value: Any, label: str) -> datetime:
     return parsed
 
 
-def anonymize_manager_pick_rows(
+def strip_manager_identifiers_from_manager_picks(
     rows: Sequence[Mapping[str, Any]],
     *,
     gameweek: int,
@@ -41,7 +41,7 @@ def anonymize_manager_pick_rows(
     cohort: str,
     rank_limit: int,
 ) -> dict[str, Any]:
-    """Convert one row per manager-player pick into anonymised 15-player portfolios."""
+    """Convert one row per manager-player pick into manager-ID-stripped 15-player portfolios."""
     if evidence_role != "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE":
         raise CovarFieldPortfolioError("only pre-deadline provisional pick evidence is admitted")
     deadline = _time(deadline_utc, "deadline_utc")
@@ -115,7 +115,7 @@ def anonymize_manager_pick_rows(
 
     return {
         "schema_version": "1.0.0",
-        "data_status": "ANONYMIZED_MANAGER_PICK_SAMPLE",
+        "data_status": "MANAGER_ID_STRIPPED_MANAGER_PICK_SAMPLE",
         "metadata": {
             "gameweek": int(gameweek),
             "deadline_utc": deadline.isoformat(),
@@ -128,7 +128,8 @@ def anonymize_manager_pick_rows(
             "manager_count": len(portfolios),
             "rank_strata_count_observed": len({row["rank_stratum"] for row in portfolios}),
             "field_weighting": "normalized_existing_rank_stratified_sample_weights",
-            "manager_identifiers_retained": False,
+            "manager_entry_ids_retained": False,
+            "privacy_note": "Entry IDs are discarded, but squad combinations may remain identifiable; restrict access and retention.",
             "global_census": False,
         },
         "portfolios": portfolios,
@@ -145,8 +146,8 @@ def adapt_field_portfolios_for_scenario(
     rank_strata: Sequence[int] | None = None,
 ) -> dict[str, Any]:
     """Project sampled full squads onto the modeled player universe, fail-closed."""
-    if artifact.get("schema_version") != "1.0.0" or artifact.get("data_status") != "ANONYMIZED_MANAGER_PICK_SAMPLE":
-        raise CovarFieldPortfolioError("unsupported anonymised field portfolio artifact")
+    if artifact.get("schema_version") != "1.0.0" or artifact.get("data_status") != "MANAGER_ID_STRIPPED_MANAGER_PICK_SAMPLE":
+        raise CovarFieldPortfolioError("unsupported manager-ID-stripped field portfolio artifact")
     metadata = artifact.get("metadata")
     source_portfolios = artifact.get("portfolios")
     if not isinstance(metadata, Mapping) or not isinstance(source_portfolios, list) or not source_portfolios:
@@ -181,7 +182,7 @@ def adapt_field_portfolios_for_scenario(
             continue
         source_players = source.get("player_ids")
         if not isinstance(source_players, list) or len(source_players) != 15 or len(set(map(str, source_players))) != 15:
-            raise CovarFieldPortfolioError("each anonymised source portfolio must contain 15 unique players")
+            raise CovarFieldPortfolioError("each manager-ID-stripped source portfolio must contain 15 unique players")
         projected = [str(player_id) for player_id in source_players if str(player_id) in modeled]
         source_captain = source.get("captain_id")
         captain_in_scope = source_captain is not None and str(source_captain) in modeled
@@ -222,9 +223,9 @@ def adapt_field_portfolios_for_scenario(
             "manager_projection_coverage": projected_nonempty / len(chosen),
             "managers_with_modeled_captain": captain_in_scope_count,
             "captain_projection_coverage": captain_in_scope_count / len(chosen),
-            "manager_identifiers_retained": False,
+            "manager_entry_ids_retained": False,
             "evidence_role": metadata["evidence_role"],
-            "field_scope": "ANONYMIZED_RANK_STRATIFIED_SAMPLE_NOT_GLOBAL_CENSUS",
+            "field_scope": "MANAGER_ID_STRIPPED_RANK_STRATIFIED_SAMPLE_NOT_GLOBAL_CENSUS",
             "production_eligible": False,
             "decision_weight": 0.0,
         },
@@ -234,7 +235,7 @@ def adapt_field_portfolios_for_scenario(
 def verify_field_portfolio_artifact(
     artifact: Mapping[str, Any], capture_report: Mapping[str, Any]
 ) -> dict[str, Any]:
-    """Bind the anonymised manager portfolios to the exact pre-deadline capture report."""
+    """Bind the manager-ID-stripped manager portfolios to the exact pre-deadline capture report."""
     manifest = capture_report.get("manager_portfolio_artifact")
     if not isinstance(manifest, Mapping):
         raise CovarFieldPortfolioError("capture report lacks manager_portfolio_artifact manifest")
@@ -242,11 +243,11 @@ def verify_field_portfolio_artifact(
         raise CovarFieldPortfolioError("capture report is not a successful pre-deadline capture")
     if capture_report.get("evidence_role") != "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE":
         raise CovarFieldPortfolioError("capture report evidence role is not pre-deadline provisional")
-    if manifest.get("manager_identifiers_retained") is not False:
+    if manifest.get("manager_entry_ids_retained") is not False:
         raise CovarFieldPortfolioError("capture manifest must confirm manager identifiers were discarded")
     digest = canonical_artifact_sha256(artifact)
     if manifest.get("sha256") != digest:
-        raise CovarFieldPortfolioError("anonymised portfolio artifact SHA-256 does not match capture report")
+        raise CovarFieldPortfolioError("manager-ID-stripped portfolio artifact SHA-256 does not match capture report")
     metadata = artifact.get("metadata", {})
     if (
         int(metadata.get("gameweek", -1)) != int(capture_report.get("gameweek", -2))
@@ -256,12 +257,12 @@ def verify_field_portfolio_artifact(
     ):
         raise CovarFieldPortfolioError("portfolio artifact identity differs from capture report")
     return {
-        "status": "PASS_ANONYMIZED_FIELD_PORTFOLIO_PROVENANCE",
+        "status": "PASS_MANAGER_ID_STRIPPED_FIELD_PORTFOLIO_PROVENANCE",
         "artifact_sha256": digest,
         "manager_count": int(metadata["manager_count"]),
         "gameweek": int(metadata["gameweek"]),
         "evidence_role": metadata["evidence_role"],
-        "manager_identifiers_retained": False,
+        "manager_entry_ids_retained": False,
         "release_eligible": False,
     }
 
@@ -295,7 +296,7 @@ def main() -> int:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({
-        "status": "PASS_ANONYMIZED_FIELD_PORTFOLIO_ADAPTATION",
+        "status": "PASS_MANAGER_ID_STRIPPED_FIELD_PORTFOLIO_ADAPTATION",
         "portfolio_count": len(result["portfolios"]),
         "manager_projection_coverage": result["metadata"]["manager_projection_coverage"],
         "output": str(args.output),
