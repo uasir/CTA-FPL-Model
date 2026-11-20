@@ -199,7 +199,7 @@ def test_rejects_incoherent_post_transfer_roster():
     record = _record()
     record["frozen_decision"]["squad_plan"]["squad_ids"][-1] = 15
     _seal(record["frozen_decision"])
-    with pytest.raises(DecisionEvaluationError, match="post-transfer plan must replace exactly"):
+    with pytest.raises(DecisionEvaluationError, match="squad_ids must exactly match"):
         evaluate_decision_record(record)
 
 
@@ -215,7 +215,7 @@ def test_rejects_incoming_player_with_wrong_position():
     record = _record()
     record["frozen_decision"]["incoming_player"]["position"] = "MID"
     _seal(record["frozen_decision"])
-    with pytest.raises(DecisionEvaluationError, match="preserve player position"):
+    with pytest.raises(DecisionEvaluationError, match="formation does not match"):
         evaluate_decision_record(record)
 
 
@@ -224,7 +224,7 @@ def test_rejects_changed_starting_goalkeeper():
     record["frozen_decision"]["squad_plan"]["starting_xi"][0] = 2
     record["frozen_decision"]["squad_plan"]["reserve_goalkeeper_id"] = 1
     _seal(record["frozen_decision"])
-    with pytest.raises(DecisionEvaluationError, match="designated starting goalkeeper"):
+    with pytest.raises(DecisionEvaluationError, match="reserve goalkeeper must remain fixed"):
         evaluate_decision_record(record)
 
 
@@ -245,3 +245,29 @@ def test_real_candidate_records_remain_blocked_until_admission_gate_exists():
     record["evidence_class"] = "REAL_CANDIDATE"
     with pytest.raises(DecisionEvaluationError, match="blocked until independent historical-evidence admission"):
         evaluate_decision_record(record)
+
+
+def test_hold_scores_the_manager_lineup_without_transfer_hit():
+    record = _record()
+    record["frozen_decision"] = _seal({
+        "action": "HOLD",
+        "transfer_out_id": None,
+        "transfer_in_id": None,
+        "transfer_hit_points": 0,
+        "squad_plan": copy.deepcopy(record["manager_state"]["hold_plan"]),
+    })
+    record["realised_player_points"] = record["realised_player_points"][:15]
+    result = evaluate_decision_record(record)
+    assert result["recommended"]["gross_points"] == result["hold"]["gross_points"]
+    assert result["net_points_delta_vs_hold"] == 0
+    assert result["recommended"]["transfer_hit_points"] == 0
+
+
+def test_uses_reserve_goalkeeper_when_starting_goalkeeper_does_not_play():
+    record = _record()
+    record["realised_player_points"][0]["minutes"] = 0
+    result = evaluate_decision_record(record)
+    assert result["recommended"]["goalkeeper_substitution"] == {
+        "player_out_id": 1, "player_in_id": 2
+    }
+    assert 2 in result["recommended"]["on_pitch_ids_after_substitutions"]
