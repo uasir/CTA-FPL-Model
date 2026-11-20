@@ -93,7 +93,7 @@ def _validate_evidence(record: Mapping[str, Any]) -> None:
     missing = [key for key in required if key not in record]
     if missing:
         _fail("evaluation record missing fields: " + ", ".join(missing))
-    if record["evidence_class"] not in {"SYNTHETIC_TEST", "REAL_CANDIDATE"}:
+    if not isinstance(record["evidence_class"], str) or record["evidence_class"] not in {"SYNTHETIC_TEST", "REAL_CANDIDATE"}:
         _fail("evidence_class must be SYNTHETIC_TEST or REAL_CANDIDATE")
     if isinstance(record["target_gameweek"], bool) or not isinstance(record["target_gameweek"], int) or record["target_gameweek"] < 1:
         _fail("target_gameweek must be a positive integer")
@@ -323,7 +323,7 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
     ).hexdigest()
     if decision.get("decision_sha256") != expected_decision_hash:
         _fail("frozen_decision decision_sha256 mismatch")
-    if decision.get("action") not in {"HOLD", "TRANSFER"}:
+    if not isinstance(decision.get("action"), str) or decision["action"] not in {"HOLD", "TRANSFER"}:
         _fail("frozen_decision.action must be HOLD or TRANSFER")
     plan = _validate_plan(decision.get("squad_plan"), manager_roster if decision["action"] == "HOLD" else
                           _post_transfer_roster(manager_roster, decision), "frozen_decision.squad_plan")
@@ -365,10 +365,10 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
             _fail("post-transfer plan must replace exactly the outgoing player with the incoming player")
         if plan["reserve_goalkeeper_id"] != manager_plan["reserve_goalkeeper_id"]:
             _fail("the designated reserve goalkeeper cannot change in the initial manager strategy")
-        if manager_roster[manager_plan["starting_xi"][0]]["position"] == "GKP":
-            starting_gk = next(pid for pid in manager_plan["starting_xi"] if manager_roster[pid]["position"] == "GKP")
-        else:
-            starting_gk = next(pid for pid in manager_plan["starting_xi"] if manager_roster[pid]["position"] == "GKP")
+        starting_gk = next(
+            pid for pid in manager_plan["starting_xi"]
+            if manager_roster[pid]["position"] == "GKP"
+        )
         if starting_gk not in plan["starting_xi"]:
             _fail("the designated starting goalkeeper must remain in the post-transfer XI")
         if out_id in manager_plan["starting_xi"]:
@@ -474,8 +474,10 @@ def _post_transfer_roster(roster_by_id: Mapping[int, Mapping[str, Any]], decisio
     out_id = decision.get("transfer_out_id")
     in_id = decision.get("transfer_in_id")
     incoming = decision.get("incoming_player")
-    if out_id not in roster_by_id or isinstance(in_id, bool) or not isinstance(in_id, int) or in_id < 1:
-        _fail("transfer player IDs are invalid")
+    if isinstance(out_id, bool) or not isinstance(out_id, int) or out_id < 1 or out_id not in roster_by_id:
+        _fail("transfer_out_id must identify an owned player")
+    if isinstance(in_id, bool) or not isinstance(in_id, int) or in_id < 1 or in_id in roster_by_id:
+        _fail("transfer_in_id must identify a positive unowned player")
     if not isinstance(incoming, Mapping) or incoming.get("fpl_element_id") != in_id:
         _fail("incoming_player metadata is missing or mismatched")
     result = dict(roster_by_id)
