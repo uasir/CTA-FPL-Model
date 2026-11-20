@@ -262,3 +262,16 @@ def test_rejects_attested_lineup_that_differs_from_finalized_official_picks():
     archive["raw_sha256"] = hashlib.sha256(raw).hexdigest()
     with pytest.raises(BatchAuditError, match="starting XI differs"):
         audit_batch(batch, manifests)
+
+
+def test_rejects_manager_price_reconstruction_from_different_bootstrap_snapshot():
+    batch = _batch()
+    manifests = _decision_manifest_with_attested_manager_state(batch)
+    metadata = next(row for row in manifests["5"]["sources"]
+                    if row["source_type"] == "player_metadata")
+    changed = {"elements": [{"id": 1, "now_cost": 51, "element_type": 1}]}
+    raw = json.dumps(changed).encode()
+    metadata["raw_payload_base64"] = base64.b64encode(raw).decode()
+    metadata["raw_sha256"] = hashlib.sha256(raw).hexdigest()
+    with pytest.raises(BatchAuditError, match="bootstrap differs"):
+        audit_batch(batch, manifests)
