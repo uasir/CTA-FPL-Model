@@ -74,13 +74,20 @@ def capture_fpl_cat_snapshot(
     if isinstance(gw, bool) or not isinstance(gw, int) or gw < 1:
         raise CaptureError("FPL Cat gameweek must be a positive integer")
     provider_deadline = _parse_utc(provider_data.get("deadline"), "FPL Cat deadline")
-    generated = _parse_utc(provider_data.get("computed_at"), "FPL Cat computed_at")
+    generated_raw = provider_data.get("computed_at")
+    generated = (
+        _parse_utc(generated_raw, "FPL Cat computed_at")
+        if generated_raw is not None and generated_raw != ""
+        else None
+    )
     provider_captured = _parse_utc(provider_captured_at, "provider capture time")
     bootstrap_captured = _parse_utc(bootstrap_captured_at, "bootstrap capture time")
-    if generated > provider_captured:
+    if generated is not None and generated > provider_captured:
         raise CaptureError("FPL Cat computed_at is later than retrieval time")
     if provider_captured >= provider_deadline:
         raise CaptureError("FPL Cat snapshot was retrieved at or after its deadline")
+    if bootstrap_captured >= provider_deadline:
+        raise CaptureError("FPL bootstrap metadata was retrieved at or after its deadline")
 
     events = bootstrap.get("events", [])
     matching_events = [event for event in events if event.get("id") == gw]
@@ -145,7 +152,9 @@ def capture_fpl_cat_snapshot(
                 "version": "api/v1",
             },
             "timing": {
-                "generated_at_utc": generated.isoformat().replace("+00:00", "Z"),
+                "generated_at_utc": (
+                    generated.isoformat().replace("+00:00", "Z") if generated else None
+                ),
                 "captured_at_utc": provider_captured.isoformat().replace("+00:00", "Z"),
                 "deadline_utc": provider_deadline.isoformat().replace("+00:00", "Z"),
             },
@@ -176,7 +185,10 @@ def capture_fpl_cat_snapshot(
         },
         "capture_status": {
             "provider_capture_before_deadline": True,
-            "provider_generated_before_capture": True,
+            "provider_generated_before_capture": generated is not None,
+            "provider_generation_time_status": (
+                "VERIFIED" if generated is not None else "NOT_DISCLOSED_DIAGNOSTIC_ONLY"
+            ),
             "bootstrap_capture_at_utc": bootstrap_captured.isoformat().replace("+00:00", "Z"),
         },
     }
