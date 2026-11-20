@@ -36,7 +36,7 @@ def _fixtures(monkeypatch, *, fallback=False, manager_capture_time="2026-11-20T1
     }
     bootstrap = {
         "elements": [
-            {"id": player_id, "element_type": element_type,
+            {"id": player_id, "element_type": element_type, "team": player_id,
              "now_cost": 50 if not (missing_current_price and player_id == 1) else None}
             for player_id, element_type in {
                 1: 1, 2: 2, 3: 2, 4: 2, 5: 2,
