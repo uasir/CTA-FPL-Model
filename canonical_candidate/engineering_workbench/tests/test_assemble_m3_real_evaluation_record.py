@@ -284,3 +284,19 @@ def test_rejects_unfinalized_bootstrap():
     audit["events"][0]["archives"][0]["raw_sha256"] = archive["raw_sha256"]
     with pytest.raises(EvaluationAssemblyError, match="finalized"):
         assemble_evaluation_record(recommendation, batch, audit, admission)
+
+
+def test_rejects_official_scoring_archive_not_bound_to_audit():
+    recommendation, batch, audit, admission, _ = _fixture()
+    audit["events"][0]["archives"][2]["raw_sha256"] = "f" * 64
+    with pytest.raises(EvaluationAssemblyError, match="does not match the independent audit"):
+        assemble_evaluation_record(recommendation, batch, audit, admission)
+
+
+def test_rejects_finalized_observation_after_event_live_capture():
+    recommendation, batch, audit, admission, _ = _fixture()
+    bootstrap_archive = batch["results"][0]["result"]["source_archives"][0]
+    bootstrap_archive["captured_at_utc"] = "2026-11-22T12:00:03Z"
+    audit["events"][0]["archives"][0]["captured_at_utc"] = bootstrap_archive["captured_at_utc"]
+    with pytest.raises(EvaluationAssemblyError, match="captured before finalized"):
+        assemble_evaluation_record(recommendation, batch, audit, admission)
