@@ -153,33 +153,41 @@ def fit_affine_calibrator(predicted, actual):
 
 def evaluate_matched(rows, source_report, partitions, manifest, ridge_lambda=1.0,
                      n_boot=1000):
+    # The manifest is built from this same aggregated player-Gameweek panel.
+    # Train, calibrate and score one row per player-GW, including DGWs.
     eligible = [
         row for row in rows
-        if truth(row.get("research_eligible_for_analysis"))
+        if truth(row.get("research_eligible_for_model"))
         and number(row.get("target_fpl_total_points")) is not None
         and number(row.get("gameweek")) is not None
         and row.get("fpl_element_id") not in (None, "")
     ]
-    by_key = defaultdict(list)
+    by_key = {}
     for row in eligible:
-        season = str(row.get("season") or "2017/18").strip()
-        key = canonical_key(season, row["fpl_element_id"], int(float(row["gameweek"])))
-        by_key[key].append(row)
+        key = canonical_key(row.get("season") or "2017/18",
+                            row["fpl_element_id"], int(float(row["gameweek"])))
+        if key in by_key:
+            raise ValueError(f"Duplicate eligible ABC player-Gameweek row: {key}")
+        by_key[key] = row
+
     candidates = candidate_sets()
     pooled = defaultdict(list)
     fold_reports = []
-    pooled_predictions = defaultdict(list)
     for fold_id, parts in sorted(partitions.items()):
         selected = {}
         for part in ("fit", "calibration", "test"):
             missing = [key for key in parts[part] if key not in by_key]
             if missing:
-                raise ValueError(f"Matched ABC {part} keys missing from eligible ABC fixture panel: {len(missing)}")
-            selected[part] = [row for key in parts[part] for row in by_key[key]]
-            actual_hash = sha_keys(parts[part])
-            expected = manifest["folds"][fold_id - 1][f"{part}_key_sha256"]
-            if actual_hash != expected:
-                raise ValueError(f"Matched ABC {part} partition hash differs from manifest")
+                raise ValueError(f"Matched ABC {part} keys missing from aggregated player-Gameweek panel: {len(missing)}")
+            selected[part] = [by_key[key] for key in parts[part]]
+            actual_keys = [
+                canonical_key(row.get("season") or "2017/18",
+                              row["fpl_element_id"], int(float(row["gameweek"])))
+                for row in selected[part]
+            ]
+            if sha_keys(actual_keys) != sha_keys(parts[part]):
+                raise ValueError(f"Matched ABC {part} selected-row key hash differs from manifest")
+
         fit_rows = selected["fit"]
         calibration_rows = selected["calibration"]
         test_rows = selected["test"]
@@ -193,41 +201,38 @@ def evaluate_matched(rows, source_report, partitions, manifest, ridge_lambda=1.0
             if model_name == "FPL_HISTORY_ONLY" and not all(name in features for name in BASELINE_FEATURES):
                 raise ValueError("Matched ABC FPL history reference has incomplete baseline features")
             model = fit_ridge(fit_rows, "target_fpl_total_points", features, ridge_lambda)
-            calibration_fixture_predictions = [predict(model, row) for row in calibration_rows]
-            test_fixture_predictions = [predict(model, row) for row in test_rows]
-            calibration_gw = aggregate_player_gameweek(calibration_rows, calibration_fixture_predictions)
-            test_gw = aggregate_player_gameweek(test_rows, test_fixture_predictions)
-            for record in calibration_gw + test_gw:
-                record["season"] = parts["fit"][0][0]
-            calibration_keys = [(r["season"], r["player_id"], r["gameweek"]) for r in calibration_gw]
-            expected_calibration = [(k[0], k[1], k[2]) for k in parts["calibration"]]
-            test_keys = [(r["season"], r["player_id"], r["gameweek"]) for r in test_gw]
-            expected_test = [(k[0], k[1], k[2]) for k in parts["test"]]
-            if sorted(calibration_keys) != sorted(expected_calibration):
-                raise ValueError("Matched ABC calibration aggregation changed the manifest key set")
-            if sorted(test_keys) != sorted(expected_test):
-                raise ValueError("Matched ABC test aggregation changed the manifest key set")
-            slope, intercept = fit_affine_calibrator(
-                [r["predicted"] for r in calibration_gw],
-                [r["actual"] for r in calibration_gw],
-            )
-            for record in test_gw:
-                record["predicted_raw"] = record["predicted"]
-                record["predicted"] = max(0.0, intercept + slope * record["predicted"])
-            fold_records[model_name] = test_gw
-            pooled[model_name].extend(test_gw)
+            calibration_prediction = [predict(model, row) for row in calibration_rows]
+            calibration_actual = [float(row["target_fpl_total_points"]) for row in calibration_rows]
+            test_prediction = [predict(model, row) for row in test_rows]
+            slope, intercept = fit_affine_calibrator(calibration_prediction, calibration_actual)
+            records = []
+            for row, prediction in zip(test_rows, test_prediction):
+                key = canonical_key(row.get("season") or "2017/18",
+                                    row["fpl_element_id"], int(float(row["gameweek"])))
+                records.append({
+                    "season": key[0],
+                    "player_id": key[1],
+                    "gameweek": key[2],
+                    "actual": float(row["target_fpl_total_points"]),
+                    "predicted_raw": float(prediction),
+                    "predicted": max(0.0, intercept + slope * float(prediction)),
+                })
+            fold_records[model_name] = records
+            pooled[model_name].extend(records)
             fold_model_reports[model_name] = {
                 "status": "EVALUATED",
+                "training_unit": "one aggregated player-Gameweek row; DGW targets summed before fitting",
                 "features_used": features,
                 "feature_count": len(features),
                 "calibration": {
                     "method": "PLAYER_GAMEWEEK_AFFINE_MAP_FIT_ON_SHARED_CALIBRATION_PARTITION",
                     "slope": slope,
                     "intercept": intercept,
-                    "calibration_player_gameweeks": len(calibration_gw),
+                    "calibration_player_gameweeks": len(calibration_rows),
                 },
-                "metrics": metrics(test_gw, top_k=100),
+                "metrics": metrics(records, top_k=100),
             }
+
         abc_records = fold_records["ABC_ONLY_ABC"]
         fpl_records = fold_records["FPL_HISTORY_ONLY"]
         if [(r["season"], r["player_id"], r["gameweek"], r["actual"]) for r in abc_records] != [
@@ -252,6 +257,7 @@ def evaluate_matched(rows, source_report, partitions, manifest, ridge_lambda=1.0
             "models": fold_model_reports,
             "paired_abc_vs_fpl_history_cluster_bootstrap": paired,
         })
+
     pooled_reports = {name: metrics(records, top_k=100) for name, records in pooled.items()}
     baseline = pooled["FPL_HISTORY_ONLY"]
     abc = pooled["ABC_ONLY_ABC"]
@@ -269,6 +275,7 @@ def evaluate_matched(rows, source_report, partitions, manifest, ridge_lambda=1.0
         "status": "PASS_MATCHED_FOLD_KEYS_RESEARCH_ONLY",
         "model_track": "INDEPENDENT_INTEGRATED_ABC",
         "comparison_design": "Manifest-driven shared fit/calibration/test player-Gameweek partitions",
+        "training_unit": "one aggregated player-Gameweek row; DGW targets summed before fitting",
         "season": manifest.get("season"),
         "fold_count": len(fold_reports),
         "folds": fold_reports,
@@ -281,7 +288,7 @@ def evaluate_matched(rows, source_report, partitions, manifest, ridge_lambda=1.0
             "One historical EPL season and one event-data provider; this is not external-season validation.",
             "Historical Wyscout and FPL source vintages are retrospective, not archived at each FPL deadline.",
             "The Wyscout identity bridge covers a small, survivorship-biased subset of FPL players.",
-            "ABC ridge models are fitted on fixture rows and scored after aggregation to player-Gameweek.",
+            "ABC features are consensus-aggregated across each player's complete DGW fixture set before model fitting.",
             "Affine calibration is fitted only on the manifest's shared calibration partition.",
         ],
     }
