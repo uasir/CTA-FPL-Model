@@ -113,8 +113,8 @@ def _validate_evidence(record: Mapping[str, Any]) -> None:
         _fail("decision as_of_utc must be strictly before the FPL deadline")
 
     archives = record["source_archives"]
-    if not isinstance(archives, list) or len(archives) < 3:
-        _fail("source_archives must include provider, player_metadata and manager_state archives")
+    if not isinstance(archives, list) or len(archives) < 4:
+        _fail("source_archives must include provider, player_metadata, manager_state and realised_points archives")
     by_type: dict[str, Mapping[str, Any]] = {}
     for index, source in enumerate(archives):
         if not isinstance(source, Mapping):
@@ -125,11 +125,15 @@ def _validate_evidence(record: Mapping[str, Any]) -> None:
             _fail(f"duplicate source archive type: {source_type}")
         by_type[source_type] = source
         captured = _timestamp(source["captured_at_utc"], f"{source_type}.captured_at_utc")
-        if captured >= deadline:
-            _fail(f"{source_type} archive was captured at or after the deadline")
-        if captured > as_of:
-            _fail(f"{source_type} archive was captured after decision as_of_utc")
-    for source_type in ("provider", "player_metadata", "manager_state"):
+        if source_type == "realised_points":
+            if captured <= deadline:
+                _fail("realised_points archive must be captured after the FPL deadline")
+        else:
+            if captured >= deadline:
+                _fail(f"{source_type} archive was captured at or after the deadline")
+            if captured > as_of:
+                _fail(f"{source_type} archive was captured after decision as_of_utc")
+    for source_type in ("provider", "player_metadata", "manager_state", "realised_points"):
         if source_type not in by_type:
             _fail(f"missing {source_type} source archive")
     provider = by_type["provider"]
