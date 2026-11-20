@@ -37,6 +37,7 @@ class TestPredeadlineFieldCapture(unittest.TestCase):
             datetime(2026, 11, 20, 20, 30, tzinfo=timezone.utc),
             datetime(2026, 11, 20, 20, 31, tzinfo=timezone.utc),
             datetime(2026, 11, 20, 20, 32, tzinfo=timezone.utc),
+            datetime(2026, 11, 20, 20, 33, tzinfo=timezone.utc),
         ])
         rows, report = capture_predeadline(
             make_bootstrap(), fetch=self._fetch, rank_limit=100, sample_size=100,
