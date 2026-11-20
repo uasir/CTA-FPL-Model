@@ -130,6 +130,8 @@ class TestM4PredeadlineFieldIntegration(unittest.TestCase):
         self.assertEqual(result["evidence_role"], "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE")
         self.assertEqual(result["comparison"]["hold"]["scenario"], "HOLD")
         self.assertEqual(result["field_diagnostics"]["status"], "PASS_FIELD_CONTEXT_DIAGNOSTICS")
+        self.assertEqual(result["portfolio_exposure_baseline"]["status"], "PASS_NONCOVARIANCE_PORTFOLIO_EXPOSURE_BASELINE")
+        self.assertEqual(result["portfolio_exposure_baseline"]["covar"], "DISABLED")
         self.assertFalse(result["release_eligible"])
         self.assertEqual(result["comparison"]["covar"], "DISABLED")
 
