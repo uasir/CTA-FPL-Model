@@ -51,7 +51,17 @@ def _fixtures(monkeypatch, *, fallback=False, manager_capture_time="2026-11-20T1
     metadata_hash = hashlib.sha256(metadata_raw).hexdigest()
     provider_capture = {
         "provider_snapshot": {
+            "snapshot_id": "fplcat-gw12-test",
+            "season": "2026-27",
             "target_gameweek": 12,
+            "provider": {"name": "FPL Cat", "product": "published xP",
+                         "variant": "public next-gameweek JSON API", "version": "api/v1"},
+            "grain": "player_gameweek",
+            "records": [
+                {"fpl_element_id": player_id, "expected_points": 2.0,
+                 "expected_minutes": 75}
+                for player_id in range(1, 16)
+            ],
             "timing": {
                 "deadline_utc": "2026-11-21T11:00:00Z",
                 "generated_at_utc": "2026-11-20T09:00:00Z",
