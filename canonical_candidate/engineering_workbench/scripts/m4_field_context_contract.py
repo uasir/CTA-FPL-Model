@@ -124,15 +124,35 @@ def validate_field_context(snapshot: Mapping[str, Any], rows: list[Mapping[str, 
     decision = candidate.get("frozen_decision")
     if not isinstance(decision, Mapping):
         raise FieldContextContractError("candidate.frozen_decision is required")
-    squad = candidate.get("manager_state", {}).get("squad_snapshot", [])
-    if not isinstance(squad, list) or len(squad) != 15:
-        raise FieldContextContractError("candidate must contain its original 15-player squad")
-    owned_ids = {str(player.get("fpl_element_id")) for player in squad}
+    manager_state = candidate.get("manager_state")
+    if not isinstance(manager_state, Mapping):
+        raise FieldContextContractError("candidate.manager_state is required")
+    # Canonical capture bundles store the validated state under manager_state.
+    state = manager_state.get("manager_state", manager_state)
+    if not isinstance(state, Mapping):
+        raise FieldContextContractError("candidate manager state must be an object")
+    squad = state.get("squad_15")
+    if not isinstance(squad, list) or len(squad) != 15 or len(set(map(str, squad))) != 15:
+        raise FieldContextContractError("candidate must contain its original 15 unique squad IDs")
+    starting_xi = state.get("starting_xi")
+    bench_order = state.get("bench_order")
+    reserve_goalkeeper_id = state.get("reserve_goalkeeper_id")
+    captain_id = state.get("captain_id")
+    if (not isinstance(starting_xi, list) or len(starting_xi) != 11
+            or not isinstance(bench_order, list) or len(bench_order) != 3
+            or reserve_goalkeeper_id is None or captain_id is None
+            or set(map(str, starting_xi + bench_order + [reserve_goalkeeper_id])) != set(map(str, squad))):
+        raise FieldContextContractError("candidate lineup must partition the 15-player squad")
+    owned_ids = set(map(str, squad))
     transfer_in = decision.get("transfer_in_id")
     transfer_out = decision.get("transfer_out_id")
     if decision.get("action") == "TRANSFER":
         if not transfer_in or not transfer_out or str(transfer_out) not in owned_ids:
             raise FieldContextContractError("TRANSFER candidate must identify an owned outgoing and incoming player")
+        if str(transfer_in) in owned_ids - {str(transfer_out)}:
+            raise FieldContextContractError("incoming player already exists in candidate squad")
+        if str(transfer_out) == str(captain_id):
+            raise FieldContextContractError("candidate transfer removes captain without a replacement captain decision")
         owned_ids.remove(str(transfer_out))
         owned_ids.add(str(transfer_in))
     elif decision.get("action") != "HOLD":
@@ -162,6 +182,13 @@ def validate_field_context(snapshot: Mapping[str, Any], rows: list[Mapping[str, 
             "action": decision["action"],
             "transfer_out_id": transfer_out,
             "transfer_in_id": transfer_in,
+            "squad_15": list(map(str, squad)),
+            "starting_xi": list(map(str, starting_xi)),
+            "bench_order": list(map(str, bench_order)),
+            "reserve_goalkeeper_id": str(reserve_goalkeeper_id),
+            "captain_id": str(captain_id),
+            "vice_captain_id": str(state.get("vice_captain_id")),
+            "formation": state.get("formation"),
         },
         "field_eo_rows": [by_id[key] for key in sorted(by_id, key=lambda value: (not value.isdigit(), int(value) if value.isdigit() else value))],
         "units_policy": {
