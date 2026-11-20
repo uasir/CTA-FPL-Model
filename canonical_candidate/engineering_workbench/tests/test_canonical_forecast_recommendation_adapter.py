@@ -74,7 +74,7 @@ def test_refuses_diagnostic_only_snapshot():
 def test_refuses_player_fixture_grain_without_explicit_aggregation():
     snapshot = canonical_snapshot()
     snapshot["grain"] = "player_fixture"
-    with pytest.raises(ForecastAdapterError, match="does not aggregate"):
+    with pytest.raises(ForecastAdapterError, match="fixture aggregation is not implicit"):
         build_recommendation_forecast_payload(
             snapshot, metadata(), as_of_utc="2026-11-20T10:00:00Z"
         )
