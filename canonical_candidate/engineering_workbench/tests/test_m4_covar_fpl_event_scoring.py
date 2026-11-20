@@ -39,13 +39,15 @@ class TestM4CovarFplEventScoring(unittest.TestCase):
     def test_midfielder_and_forward_defensive_contribution_thresholds(self):
         mid = calculate_fpl_points_2026_27("MID", {
             "minutes": 60, "goals": 1, "assists": 1, "clean_sheet": True,
-            "goals_conceded_while_on_pitch": 0, "defensive_contribution_count": 12, "bonus_points": 1,
-            "penalty_misses": 1, "yellow_cards": 1, "red_cards": 1,
+            "goals_conceded_while_on_pitch": 0, "saves": 0, "penalty_saves": 0,
+            "defensive_contribution_count": 12, "bonus_points": 1,
+            "penalty_misses": 1, "yellow_cards": 1, "red_cards": 1, "own_goals": 0,
         })
         fwd = calculate_fpl_points_2026_27("FWD", {
             "minutes": 59, "goals": 2, "assists": 1, "clean_sheet": True,
-            "goals_conceded_while_on_pitch": 0, "defensive_contribution_count": 12, "bonus_points": 0,
-            "penalty_misses": 1, "yellow_cards": 1, "own_goals": 1,
+            "goals_conceded_while_on_pitch": 0, "saves": 0, "penalty_saves": 0,
+            "defensive_contribution_count": 12, "bonus_points": 0,
+            "penalty_misses": 1, "yellow_cards": 1, "red_cards": 0, "own_goals": 1,
         })
         self.assertEqual(mid["fpl_points"], 8)
         self.assertEqual(fwd["fpl_points"], 9)
@@ -54,7 +56,9 @@ class TestM4CovarFplEventScoring(unittest.TestCase):
     def test_appearance_and_clean_sheet_minute_threshold(self):
         result = calculate_fpl_points_2026_27("DEF", {
             "minutes": 59, "goals": 0, "assists": 0, "clean_sheet": True,
-            "goals_conceded_while_on_pitch": 0,
+            "goals_conceded_while_on_pitch": 0, "saves": 0, "penalty_saves": 0,
+            "defensive_contribution_count": 0, "penalty_misses": 0, "bonus_points": 0,
+            "yellow_cards": 0, "red_cards": 0, "own_goals": 0,
         })
         self.assertEqual(result["fpl_points"], 1)
 
@@ -62,7 +66,9 @@ class TestM4CovarFplEventScoring(unittest.TestCase):
         result = calculate_fpl_points_2026_27("MID", {
             "minutes": 90, "goals": 0, "assists": 0, "clean_sheet": True,
             "goals_conceded_while_on_pitch": 0, "goalkeeping_duties": True,
-            "saves": 3, "penalty_saves": 0,
+            "saves": 3, "penalty_saves": 0, "defensive_contribution_count": 0,
+            "penalty_misses": 0, "bonus_points": 0, "yellow_cards": 0,
+            "red_cards": 0, "own_goals": 0,
         })
         self.assertEqual(result["point_breakdown"]["saves"], 1)
         self.assertEqual(result["point_breakdown"]["clean_sheet"], 1)
@@ -72,14 +78,18 @@ class TestM4CovarFplEventScoring(unittest.TestCase):
         with self.assertRaisesRegex(CovarEventScoringError, "require goalkeeping duties"):
             calculate_fpl_points_2026_27("MID", {
                 "minutes": 90, "goals": 0, "assists": 0, "clean_sheet": False,
-                "goals_conceded_while_on_pitch": 0, "saves": 3,
+                "goals_conceded_while_on_pitch": 0, "saves": 3, "penalty_saves": 0,
+                "defensive_contribution_count": 0, "penalty_misses": 0,
+                "bonus_points": 0, "yellow_cards": 0, "red_cards": 0, "own_goals": 0,
             })
 
     def test_rejects_bonus_above_three_and_unknown_position(self):
         with self.assertRaisesRegex(CovarEventScoringError, "between 0 and 3"):
             calculate_fpl_points_2026_27("FWD", {
                 "minutes": 90, "goals": 0, "assists": 0, "clean_sheet": False,
-                "goals_conceded_while_on_pitch": 0, "bonus_points": 4,
+                "goals_conceded_while_on_pitch": 0, "saves": 0, "penalty_saves": 0,
+                "defensive_contribution_count": 0, "penalty_misses": 0, "bonus_points": 4,
+                "yellow_cards": 0, "red_cards": 0, "own_goals": 0,
             })
         with self.assertRaisesRegex(CovarEventScoringError, "position must be"):
             calculate_fpl_points_2026_27("MIDFIELDER", {"minutes": 90})
