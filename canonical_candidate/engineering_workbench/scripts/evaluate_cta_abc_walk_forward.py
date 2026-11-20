@@ -343,7 +343,7 @@ def evaluate(rows, source_report, ridge_lambda=1.0, n_boot=1000,
             )
 
     report = {
-        "status": "PASS_EXPLORATORY_EXPANDING_GAMEWEEK_ABC_WALK_FORWARD",
+        "status": "PASS_EXPLORATORY_EXPANDING_SEASON_GAMEWEEK_ABC_WALK_FORWARD",
         "model_track": "INDEPENDENT_INTEGRATED_ABC",
         "target": "official historical FPL player-gameweek total_points",
         "provider": "Wyscout + independently corroborated 11footy identity",
@@ -388,7 +388,7 @@ def main():
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--ridge-lambda", type=float, default=1.0)
     parser.add_argument("--bootstrap-replicates", type=int, default=1000)
-    parser.add_argument("--min-train-gameweeks", type=int, default=18)
+    parser.add_argument("--min-train-gameweeks", "--min-train-deadlines", dest="min_train_gameweeks", type=int, default=18, help="minimum number of chronological season-Gameweek deadlines in the training window")
     parser.add_argument("--test-window", type=int, default=4)
     args = parser.parse_args()
     if args.ridge_lambda <= 0:
