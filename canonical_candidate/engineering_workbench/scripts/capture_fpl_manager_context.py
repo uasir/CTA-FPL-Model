@@ -13,6 +13,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 
@@ -41,6 +42,7 @@ def capture_manager_context(
     free_transfers: int,
     personal_risk_profile: str = "aggressive",
     formation: str = "4-3-3",
+    allow_user_confirmed_fallback: bool = False,
 ) -> dict[str, Any]:
     if isinstance(free_transfers, bool) or not isinstance(free_transfers, int) or not 0 <= free_transfers <= 5:
         raise CaptureError("free_transfers must be an integer from 0 to 5")
@@ -50,7 +52,50 @@ def capture_manager_context(
         raise CaptureError("formation is not a supported FPL formation")
 
     url = f"https://fantasy.premierleague.com/api/entry/{team_id}/event/{gameweek}/picks/"
-    raw = fetch(url)
+    try:
+        raw = fetch(url)
+    except HTTPError as exc:
+        if not (allow_user_confirmed_fallback and exc.code == 404):
+            raise
+        if expected_element_ids is None or len(expected_element_ids) != 15:
+            raise CaptureError("pre-deadline fallback requires exactly 15 user-confirmed FPL element IDs") from exc
+        if expected_bank is None:
+            raise CaptureError("pre-deadline fallback requires an explicitly supplied bank value") from exc
+        captured_at = utc_now()
+        fallback_payload = {
+            "source_type": "USER_CONFIRMED_CONTEXT",
+            "team_id": team_id,
+            "gameweek": gameweek,
+            "squad_element_ids": sorted(expected_element_ids),
+            "bank": expected_bank,
+            "free_transfers": free_transfers,
+            "personal_risk_profile": personal_risk_profile,
+            "formation": formation,
+            "note": "User-confirmed squad and manager inputs; official FPL picks endpoint returned HTTP 404 before deadline.",
+        }
+        fallback_raw = json.dumps(fallback_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return {
+            "manager_context_capture": {
+                "team_id": team_id,
+                "gameweek": gameweek,
+                "captured_at_utc": captured_at,
+                "source_url": url,
+                "source_type": "USER_CONFIRMED_CONTEXT",
+                "identity_verification_method": "user-confirmed squad IDs",
+                "raw_sha256": hashlib.sha256(fallback_raw).hexdigest(),
+                "raw_response_base64": base64.b64encode(fallback_raw).decode("ascii"),
+                "row_count": 15,
+                "identity_verified": True,
+            },
+            "manager_context": {
+                "squad_snapshot": [{"fpl_element_id": value} for value in sorted(expected_element_ids)],
+                "bank": expected_bank,
+                "free_transfers": free_transfers,
+                "personal_risk_profile": personal_risk_profile,
+                "formation": formation,
+                "entry_history": {},
+            },
+        }
     captured_at = utc_now()
     try:
         payload = json.loads(raw)
@@ -124,6 +169,7 @@ def main() -> int:
     parser.add_argument("--free-transfers", type=int, required=True)
     parser.add_argument("--personal-risk-profile", default="aggressive")
     parser.add_argument("--formation", default="4-3-3")
+    parser.add_argument("--allow-user-confirmed-fallback", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     expected = {int(value) for value in args.expected_element_ids.split(",") if value.strip()}
@@ -135,6 +181,7 @@ def main() -> int:
         free_transfers=args.free_transfers,
         personal_risk_profile=args.personal_risk_profile,
         formation=args.formation,
+        allow_user_confirmed_fallback=args.allow_user_confirmed_fallback,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
