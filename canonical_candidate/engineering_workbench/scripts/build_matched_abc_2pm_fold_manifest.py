@@ -209,6 +209,10 @@ def main():
     manifest = build_manifest(read_csv(args.abc_player_gw), read_csv(args.fpl_panel), args.season,
         args.min_train_gameweeks, args.test_window, args.min_fit_rows,
         args.min_calibration_rows, args.min_test_rows)
+    manifest["input_sha256"] = {
+        "abc_player_gameweek_panel": hashlib.sha256(args.abc_player_gw.read_bytes()).hexdigest(),
+        "conventional_fpl_fixture_panel": hashlib.sha256(args.fpl_panel.read_bytes()).hexdigest(),
+    }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(manifest, indent=2, allow_nan=False), encoding="utf-8")
     print(json.dumps(manifest, indent=2, allow_nan=False))
