@@ -29,6 +29,9 @@ def target(fixture, gameweek, deadline, kickoff, player="42"):
         "gameweek": str(gameweek),
         "features_as_of_deadline": deadline,
         "kickoff_time": kickoff,
+        "team_id": "1",
+        "opponent_team_id": "2",
+        "was_home": True,
     }
 
 
@@ -64,6 +67,9 @@ def test_verified_cta_features_use_only_prior_matches_and_verified_rows():
     assert gw2["cta_prior_matches_count"] == 2
     assert gw2["cta_prior3_matches_shots_avg"] == 3.0
     assert gw2["identity_status"] == "VERIFIED_IDENTITY_AND_PRIOR_CTA_HISTORY"
+    assert gw2["team_id"] == "1"
+    assert gw2["opponent_team_id"] == "2"
+    assert gw2["was_home"] is True
     gw3 = by_fixture["502"]
     assert gw3["cta_prior_matches_count"] == 4
     assert gw3["cta_prior3_matches_shots_avg"] == 6.0

@@ -1,0 +1,56 @@
+name: CTA external FPL forecast snapshot capture
+
+on:
+  push:
+    branches: ["feat/four-layer-2pm-transformer-evaluation"]
+    paths:
+      - .github/workflows/cta-external-fpl-forecast-capture.yml
+      - canonical_candidate/engineering_workbench/scripts/capture_external_fpl_forecasts.py
+  workflow_dispatch:
+    inputs:
+      gameweek:
+        description: Target FPL gameweek to capture
+        required: true
+        default: "11"
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: cta-external-fpl-forecast-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    env:
+      GAMEWEEK: ${{ inputs.gameweek || '11' }}
+    timeout-minutes: 10
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Remove earlier public artifacts containing raw provider forecasts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method DELETE repos/uasir/CTA-FPL-Model/actions/artifacts/14546548221 || true
+          gh api --method DELETE repos/uasir/CTA-FPL-Model/actions/artifacts/14549690090 || true
+          gh api --method DELETE repos/uasir/CTA-FPL-Model/actions/artifacts/14550380461 || true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Capture raw published player-level forecast outputs
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/capture_external_fpl_forecasts.py \
+            --gameweek "$GAMEWEEK" \
+            --out-dir "$RUNNER_TEMP/external_fpl_gw$GAMEWEEK"
+      - name: Retain immutable raw snapshots and capture manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-fpl-forecast-gw${{ env.GAMEWEEK }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/external_fpl_gw${{ env.GAMEWEEK }}/capture_manifest.json
+          if-no-files-found: error
+          retention-days: 90

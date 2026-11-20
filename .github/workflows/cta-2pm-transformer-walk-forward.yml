@@ -1,0 +1,130 @@
+name: CTA standalone 2PM Transformer walk-forward
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feat/four-layer-2pm-transformer-evaluation"]
+    paths:
+      - .github/workflows/cta-2pm-transformer-walk-forward.yml
+      - canonical_candidate/engineering_workbench/scripts/build_vaastav_fpl_multiseason_panel.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_two_pm_transformer_walk_forward.py
+      - canonical_candidate/engineering_workbench/scripts/compare_2pm_position_ablation.py
+      - canonical_candidate/engineering_workbench/scripts/two_pm_transformer.py
+      - canonical_candidate/engineering_workbench/tests/test_two_pm_transformer_walk_forward.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-standalone-2pm-walk-forward
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install research dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pytest
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Run 2PM Transformer contract tests
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: python -m pytest -q tests/test_two_pm_transformer.py tests/test_two_pm_transformer_walk_forward.py
+      - name: Build pinned multi-season conventional FPL panel
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/build_vaastav_fpl_multiseason_panel.py \
+            --out-dir "$RUNNER_TEMP/cta_2pm_walk_forward" \
+            > "$RUNNER_TEMP/cta_2pm_walk_forward_panel_build.log"
+      - name: Train and evaluate standalone base 2PM Transformer
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/evaluate_two_pm_transformer_walk_forward.py \
+            --input "$RUNNER_TEMP/cta_2pm_walk_forward/vaastav_fpl_multiseason_panel.csv" \
+            --out "$RUNNER_TEMP/cta_2pm_walk_forward/2pm_base_report.json" \
+            --predictions-out "$RUNNER_TEMP/cta_2pm_walk_forward/2pm_base_predictions.csv" \
+            --feature-set base > "$RUNNER_TEMP/cta_2pm_walk_forward/2pm_base_training.log"
+      - name: Train and evaluate position-aware 2PM Transformer on the identical folds
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/evaluate_two_pm_transformer_walk_forward.py \
+            --input "$RUNNER_TEMP/cta_2pm_walk_forward/vaastav_fpl_multiseason_panel.csv" \
+            --out "$RUNNER_TEMP/cta_2pm_walk_forward/2pm_position_report.json" \
+            --predictions-out "$RUNNER_TEMP/cta_2pm_walk_forward/2pm_position_predictions.csv" \
+            --feature-set position > "$RUNNER_TEMP/cta_2pm_walk_forward/2pm_position_training.log"
+      - name: Compare feature sets on exact player-gameweek keys and official actuals
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/compare_2pm_position_ablation.py \
+            --base-predictions "$RUNNER_TEMP/cta_2pm_walk_forward/2pm_base_predictions.csv" \
+            --position-predictions "$RUNNER_TEMP/cta_2pm_walk_forward/2pm_position_predictions.csv" \
+            --out "$RUNNER_TEMP/cta_2pm_walk_forward/2pm_position_ablation_report.json" \
+            > "$RUNNER_TEMP/cta_2pm_walk_forward/2pm_position_ablation.log"
+      - name: Publish aggregate-only run summary
+        env:
+          OUTPUT_ROOT: ${{ runner.temp }}/cta_2pm_walk_forward
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          root = Path(os.environ["OUTPUT_ROOT"])
+          def load(name):
+              return json.loads((root / name).read_text())
+          base = load("2pm_base_report.json")
+          position = load("2pm_position_report.json")
+          comparison = load("2pm_position_ablation_report.json")
+          def fold_coverage(report):
+              return [
+                  {
+                      "season": fold.get("season"),
+                      "fit_player_gameweeks": fold.get("fit_player_gameweeks"),
+                      "calibration_player_gameweeks": fold.get("calibration_player_gameweeks"),
+                      "validation_player_gameweeks": fold.get("validation_player_gameweeks")
+                  }
+                  for fold in report.get("folds", [])
+              ]
+          summary = {
+              "status": "RESEARCH_ONLY",
+              "base_fold_count": base.get("fold_count"),
+              "position_fold_count": position.get("fold_count"),
+              "base_fold_coverage": fold_coverage(base),
+              "position_fold_coverage": fold_coverage(position),
+              "base_pooled_transformer": base.get("pooled_transformer"),
+              "base_pooled_transformer_affine_calibrated": base.get("pooled_transformer_expected_points_affine_calibrated"),
+              "base_pooled_conventional_two_part_calibrated": base.get("pooled_conventional_two_part_calibrated"),
+              "base_pooled_direct_ridge": base.get("pooled_direct_ridge"),
+              "base_pooled_last5_points_persistence": base.get("pooled_last5_points_persistence"),
+              "paired_transformer_vs_conventional_two_part": base.get("paired_transformer_vs_conventional_two_part_cluster_bootstrap"),
+              "paired_affine_transformer_vs_conventional_two_part": base.get("paired_transformer_affine_vs_conventional_two_part_cluster_bootstrap"),
+              "paired_transformer_vs_direct_ridge": base.get("paired_transformer_vs_direct_ridge_cluster_bootstrap"),
+              "position_pooled_transformer": position.get("pooled_transformer"),
+              "position_pooled_transformer_affine_calibrated": position.get("pooled_transformer_expected_points_affine_calibrated"),
+              "paired_position_ablation": comparison,
+              "base_deadline_local_ranking": base.get("deadline_local_ranking"),
+              "base_paired_deadline_local_ranking_bootstrap": base.get("paired_deadline_local_ranking_bootstrap"),
+              "position_deadline_local_ranking": position.get("deadline_local_ranking"),
+              "position_paired_deadline_local_ranking_bootstrap": position.get("paired_deadline_local_ranking_bootstrap"),
+              "point_in_time_status": "NOT_VERIFIED_RETROSPECTIVE_SOURCE_VINTAGES",
+              "player_level_predictions_uploaded": False
+          }
+          print(json.dumps(summary, indent=2))
+          PY
+      - name: Confirm no player-level data or model predictions are uploaded
+        run: echo "All source panels, predictions, and full reports remained runner-local; only aggregate metrics appear in workflow logs."

@@ -123,3 +123,35 @@ def test_historical_player_fixture_sidecar_rejects_unmatched_team_fixture():
             [{"fixture_id": "101", "team_id": "1"}],
             [{"fixture_id": "101", "team_id_at_fixture": "2", "fpl_element_id": "10"}],
         )
+
+
+def test_official_gameweek_deadline_excludes_same_gameweek_matches_before_target_kickoff():
+    bootstrap = {
+        "elements": [{"id": 1, "code": 100, "team": 1, "first_name": "Alex", "second_name": "Player"}],
+        "teams": [{"id": 1, "code": 3, "name": "Arsenal"}, {"id": 2, "code": 7, "name": "Brentford"}],
+        "events": [{"id": 2, "deadline_time": "2026-08-14T17:00:00Z"}],
+    }
+    fixtures = [{
+        "id": 11, "event": 2, "kickoff_time": "2026-08-16T12:00:00Z",
+        "team_h": 1, "team_a": 2,
+    }]
+    provider_rows = [
+        {"season": "2026-27", "matchId": 10, "kickoff": "2026-08-01T12:00:00Z",
+         "team_id": 3, "expectedGoals": "1.0", "attemptsIbox": "4"},
+        {"season": "2026-27", "matchId": 10, "kickoff": "2026-08-01T12:00:00Z",
+         "team_id": 7, "expectedGoals": "0.5", "attemptsIbox": "2"},
+        # Played after the GW deadline but before this target fixture: must not leak.
+        {"season": "2026-27", "matchId": 12, "kickoff": "2026-08-15T12:00:00Z",
+         "team_id": 3, "expectedGoals": "4.0", "attemptsIbox": "9"},
+        {"season": "2026-27", "matchId": 12, "kickoff": "2026-08-15T12:00:00Z",
+         "team_id": 7, "expectedGoals": "2.0", "attemptsIbox": "6"},
+    ]
+    team_rows, _, report = build_team_features(fixtures, bootstrap, provider_rows)
+    arsenal = next(row for row in team_rows if row["team_id"] == "1")
+    assert arsenal["opta_prior_matches_count"] == 1
+    assert arsenal["opta_prior3_expectedGoals_avg"] == 1.0
+    assert arsenal["opta_prior3_opponentExpectedGoals_avg"] == 0.5
+    assert arsenal["opta_prior3_opponentAttemptsIbox_avg"] == 2.0
+    assert arsenal["features_as_of"] == "2026-08-14T17:00:00+00:00"
+    assert arsenal["feature_cutoff_policy"] == "OFFICIAL_FPL_DEADLINE"
+    assert report["deadline_cutoff_fixtures"] == 1
