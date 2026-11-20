@@ -256,6 +256,14 @@ def _validate_predeadline_recommendation(recommendation: dict[str, Any],
     _require(isinstance(candidate.get("software_commit"), str)
              and len(candidate["software_commit"]) in (40, 64),
              f"GW{gameweek}: recommendation software commit missing")
+    if isinstance(manifest.get("provider_snapshot"), dict):
+        provider_snapshot = manifest["provider_snapshot"]
+        _require(candidate.get("provider_snapshot_id") == provider_snapshot.get("snapshot_id")
+                 and candidate.get("provider_identity") == provider_snapshot.get("provider"),
+                 f"GW{gameweek}: recommendation provider identity/snapshot mismatch")
+    _require(recommendation.get("provider_snapshot_id") == candidate.get("provider_snapshot_id")
+             and recommendation.get("provider_identity") == candidate.get("provider_identity"),
+             f"GW{gameweek}: recommendation header provider identity mismatch")
 
     manifest_sources = {row["source_type"]: row for row in manifest.get("sources", [])}
     candidate_sources = candidate.get("source_archives")
@@ -683,8 +691,11 @@ def audit_batch(batch: dict[str, Any],
 
     manifests = decision_manifests or {}
     if predeadline_recommendation is not None:
-        _require(bool(manifests),
-                 "predeadline recommendation cannot be audited without its decision manifest")
+        _require(len(manifests) == 1,
+                 "predeadline recommendation audit currently requires exactly one Gameweek manifest")
+        recommendation_gw = predeadline_recommendation.get("target_gameweek")
+        _require(str(recommendation_gw) in manifests or recommendation_gw in manifests,
+                 "predeadline recommendation has no matching decision manifest")
     audited_events = []
     reconciled_gws, excluded_gws, autosub_gws, hit_gws = [], [], [], []
     for row in results:
