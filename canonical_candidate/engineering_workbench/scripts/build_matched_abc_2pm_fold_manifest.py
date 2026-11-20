@@ -84,10 +84,6 @@ def aggregate_fpl(rows, selected_season):
             observed = [value for value in values if value is not None]
             if observed and (len(observed) != len(values) or max(observed) - min(observed) > TOLERANCE):
                 raise ValueError(f"Conflicting lagged FPL history feature {name} across fixtures: {key}")
-        prior_count = number(fixtures[0].get("prior_gameweeks_count"))
-        if prior_count is None or prior_count < 1:
-            exclusions["NO_PRIOR_GAMEWEEK_HISTORY"] += 1
-            continue
         result[key] = {
             "fixture_ids": fixture_ids,
             "actual_points": sum(points),
