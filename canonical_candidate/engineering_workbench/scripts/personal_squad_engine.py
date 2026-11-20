@@ -164,46 +164,70 @@ def _transfer_candidates(request,forecasts):
     }
 
 
-def recommend_personal_squad(payload):
-    request=validate_personal_squad_request(payload)
-    forecasts=request["player_forecasts"]
-    forecast_by_id={int(p["fpl_element_id"]):p for p in forecasts}
-    squad=request["squad_snapshot"]
-    owned_ids={int(p["fpl_element_id"]) for p in squad}
-    owned=[forecast_by_id[player_id] for player_id in owned_ids]
-    preferences=request.get("personal_preferences", {})
-    if preferences is None:
-        preferences={}
-    if not isinstance(preferences,dict):
-        raise RecommendationContractError("personal_preferences must be an object")
-    formation_value=request.get("formation") if request.get("formation") is not None else preferences.get("formation")
-    starting_value=request.get("starting_xi") if request.get("starting_xi") is not None else preferences.get("starting_xi")
-    bench_value=request.get("bench_order") if request.get("bench_order") is not None else preferences.get("bench_order")
-    starting,formation=_best_starting_xi(owned,forecast_by_id,formation_value,starting_value)
-    starting_ids={p["fpl_element_id"] for p in starting}
-    remaining=[p for p in owned if p["fpl_element_id"] not in starting_ids]
-    reserve_gk=[p for p in remaining if p["position"]=="GKP"]
-    outfield_bench=[p for p in remaining if p["position"]!="GKP"]
-    if len(reserve_gk)!=1 or len(outfield_bench)!=3:
+def _build_squad_plan(owned, by_id, formation_value=None, starting_xi_value=None, bench_value=None):
+    starting, formation = _best_starting_xi(owned, by_id, formation_value, starting_xi_value)
+    starting_ids = {p["fpl_element_id"] for p in starting}
+    remaining = [p for p in owned if p["fpl_element_id"] not in starting_ids]
+    reserve_gk = [p for p in remaining if p["position"] == "GKP"]
+    outfield_bench = [p for p in remaining if p["position"] != "GKP"]
+    if len(reserve_gk) != 1 or len(outfield_bench) != 3:
         raise RecommendationContractError("Squad must leave one reserve goalkeeper and three outfield bench players")
     if bench_value is not None:
-        if (not isinstance(bench_value,list) or len(bench_value)!=3
-                or any(isinstance(value,bool) or not isinstance(value,int) or value<1 for value in bench_value)):
+        if (not isinstance(bench_value, list) or len(bench_value) != 3
+                or any(isinstance(value, bool) or not isinstance(value, int) or value < 1 for value in bench_value)):
             raise RecommendationContractError("bench_order must contain exactly three positive integer outfield player IDs")
-        bench_ids=list(bench_value)
-        available={p["fpl_element_id"] for p in outfield_bench}
-        if len(set(bench_ids))!=3 or set(bench_ids)!=available:
+        bench_ids = list(bench_value)
+        available = {p["fpl_element_id"] for p in outfield_bench}
+        if len(set(bench_ids)) != 3 or set(bench_ids) != available:
             raise RecommendationContractError("bench_order must contain all three outfield substitutes exactly once")
-        bench_order=bench_ids
+        bench_order = bench_ids
     else:
-        bench_order=[p["fpl_element_id"] for p in sorted(outfield_bench,key=_minutes_order)]
-    captaincy=sorted(starting,key=_player_order)
-    captain=captaincy[0]
-    vice=captaincy[1]
-    expected_points=sum(p["expected_points"] for p in starting)+captain["expected_points"]
-    transfer=_transfer_candidates(request,forecasts)
-    quality=request["forecast_quality"]
-    limitations=[
+        bench_order = [p["fpl_element_id"] for p in sorted(outfield_bench, key=_minutes_order)]
+    captaincy = sorted(starting, key=_player_order)
+    captain, vice = captaincy[0], captaincy[1]
+    expected_points = sum(p["expected_points"] for p in starting) + captain["expected_points"]
+    return {
+        "formation": "-".join(map(str, formation)),
+        "starting_xi": [p["fpl_element_id"] for p in starting],
+        "captain": captain["fpl_element_id"],
+        "vice_captain": vice["fpl_element_id"],
+        "reserve_goalkeeper": reserve_gk[0]["fpl_element_id"],
+        "bench_order": bench_order,
+        "expected_starting_points": expected_points,
+    }
+
+
+def recommend_personal_squad(payload):
+    request = validate_personal_squad_request(payload)
+    forecasts = request["player_forecasts"]
+    forecast_by_id = {int(p["fpl_element_id"]): p for p in forecasts}
+    squad = request["squad_snapshot"]
+    owned_ids = {int(p["fpl_element_id"]) for p in squad}
+    owned = [forecast_by_id[player_id] for player_id in owned_ids]
+    preferences = request.get("personal_preferences", {})
+    if preferences is None:
+        preferences = {}
+    if not isinstance(preferences, dict):
+        raise RecommendationContractError("personal_preferences must be an object")
+    formation_value = request.get("formation") if request.get("formation") is not None else preferences.get("formation")
+    starting_value = request.get("starting_xi") if request.get("starting_xi") is not None else preferences.get("starting_xi")
+    bench_value = request.get("bench_order") if request.get("bench_order") is not None else preferences.get("bench_order")
+
+    current_squad_plan = _build_squad_plan(owned, forecast_by_id, formation_value, starting_value, bench_value)
+    transfer = _transfer_candidates(request, forecasts)
+    recommended_squad_plan = current_squad_plan
+    squad_plan_state = "CURRENT_SQUAD_HOLD"
+    if transfer["action"] == "TRANSFER" and transfer["best_candidate"] is not None:
+        candidate = transfer["best_candidate"]
+        incoming_id, outgoing_id = int(candidate["transfer_in_id"]), int(candidate["transfer_out_id"])
+        post_transfer_owned = [player for player in owned if int(player["fpl_element_id"]) != outgoing_id]
+        post_transfer_owned.append(forecast_by_id[incoming_id])
+        # Fixed XI/bench inputs may include the outgoing player; re-optimise after the move.
+        recommended_squad_plan = _build_squad_plan(post_transfer_owned, forecast_by_id, formation_value)
+        squad_plan_state = "POST_TRANSFER"
+
+    quality = request["forecast_quality"]
+    limitations = [
         "This is an exploratory one-gameweek squad optimiser, not a validated multiweek planner.",
         "CoVar and player variance are excluded because the available covariance estimate is not validated.",
         "The supplied risk profile is recorded but not applied until calibrated player-level variance is available.",
@@ -211,33 +235,35 @@ def recommend_personal_squad(payload):
         "Chip effects are not simulated in this version.",
         "When exact purchase prices are unavailable, transfer affordability uses current price as a conservative lower bound; this may omit affordable options but will not overstate sale proceeds.",
         "The starting XI is selected by expected points under the requested legal formation; bench order is a minutes/points proxy.",
+        "When a transfer is recommended, squad_plan is re-optimised for the post-transfer 15-player squad; current_squad_plan preserves the baseline.",
     ]
     return {
-        "system":"personal_squad",
-        "forecast_snapshot_id":request["forecast_snapshot_id"],
-        "model_version":request["model_version"],
-        "forecast_horizon_gameweeks":request["forecast_horizon_gameweeks"],
-        "forecast_quality":quality,
-        "recommendation_status":"VALIDATED" if quality["validation_status"]=="VALIDATED" and quality["point_in_time_status"]=="VERIFIED" and quality["data_coverage"].get("freshness_status")=="FRESH_WITHIN_24H" else "EXPLORATORY_ONLY",
-        "manager_context":{
-            "bank":request["bank"],"free_transfers":request["free_transfers"],
-            "personal_risk_profile":request["personal_risk_profile"],
-            "manager_rank":request.get("manager_rank"),"rank_target":request.get("rank_target"),
+        "system": "personal_squad",
+        "forecast_snapshot_id": request["forecast_snapshot_id"],
+        "model_version": request["model_version"],
+        "forecast_horizon_gameweeks": request["forecast_horizon_gameweeks"],
+        "forecast_quality": quality,
+        "recommendation_status": "VALIDATED" if (
+            quality["validation_status"] == "VALIDATED"
+            and quality["point_in_time_status"] == "VERIFIED"
+            and quality["data_coverage"].get("freshness_status") == "FRESH_WITHIN_24H"
+        ) else "EXPLORATORY_ONLY",
+        "manager_context": {
+            "bank": request["bank"],
+            "free_transfers": request["free_transfers"],
+            "personal_risk_profile": request["personal_risk_profile"],
+            "manager_rank": request.get("manager_rank"),
+            "rank_target": request.get("rank_target"),
         },
-        "transfer_recommendation":transfer,
-        "squad_plan":{
-            "formation":"-".join(map(str,formation)),
-            "starting_xi":[p["fpl_element_id"] for p in starting],
-            "captain":captain["fpl_element_id"],
-            "vice_captain":vice["fpl_element_id"],
-            "reserve_goalkeeper":reserve_gk[0]["fpl_element_id"],
-            "bench_order":bench_order,
-            "expected_starting_points":expected_points,
+        "transfer_recommendation": transfer,
+        "current_squad_plan": current_squad_plan,
+        "squad_plan": recommended_squad_plan,
+        "squad_plan_state": squad_plan_state,
+        "portfolio_risk": {
+            "covar_used": False,
+            "risk_profile_applied": False,
+            "status": "NOT_VALIDATED",
+            "note": "No CoVar or unvalidated variance estimate affects this decision.",
         },
-        "portfolio_risk":{
-            "covar_used":False,"risk_profile_applied":False,
-            "status":"NOT_VALIDATED",
-            "note":"No CoVar or unvalidated variance estimate affects this decision.",
-        },
-        "limitations":limitations,
+        "limitations": limitations,
     }
