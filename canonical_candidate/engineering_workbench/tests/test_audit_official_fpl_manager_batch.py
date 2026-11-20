@@ -127,3 +127,139 @@ def test_rejects_incomplete_decision_archive_set():
     sources = [_decision_archive("provider_forecast")]
     with pytest.raises(BatchAuditError, match="all three unique source archives"):
         audit_batch(batch, {"5": {"sources": sources}})
+
+
+def _decision_manifest_with_attested_manager_state(batch):
+    gw = 5
+    squad = list(range(1, 16))
+    element_types = {
+        1: 1, 2: 2, 3: 2, 4: 2, 5: 2,
+        6: 3, 7: 3, 8: 3, 9: 4, 10: 4, 11: 4,
+        12: 1, 13: 2, 14: 3, 15: 4,
+    }
+    bootstrap = {
+        "elements": [
+            {"id": player_id, "element_type": element_type,
+             "now_cost": 50, "cost_change_start": 0}
+            for player_id, element_type in element_types.items()
+        ],
+        "events": [{"id": gw, "deadline_time": "2026-10-01T11:00:00Z"}],
+    }
+    gw1 = {
+        "entry_history": {"event": 1},
+        "picks": [
+            {"element": player_id, "purchase_price": 50}
+            for player_id in squad
+        ],
+    }
+    previous = {"entry_history": {"event": 4}, "picks": []}
+    history = {"chips": []}
+    wrapper = {
+        "source_type": "FPL_SEASON_HISTORY_RECONSTRUCTION",
+        "previous_gameweek_picks": _encoded_archive(previous),
+        "gw1_picks": _encoded_archive(gw1),
+        "transfers": _encoded_archive([]),
+        "history": _encoded_archive(history),
+        "bootstrap": _encoded_archive(bootstrap),
+    }
+    state = {
+        "squad_15": squad,
+        "bank": 0.9,
+        "free_transfers": 1,
+        "purchase_prices": {str(player_id): 5.0 for player_id in squad},
+        "selling_prices": {str(player_id): 5.0 for player_id in squad},
+        "chip_state": "NONE",
+        "starting_xi": list(range(1, 12)),
+        "bench_order": [13, 14, 15],
+        "reserve_goalkeeper_id": 12,
+        "captain_id": 10,
+        "vice_captain_id": 11,
+        "formation": "4-3-3",
+    }
+    captured = "2026-10-01T09:30:00Z"
+    envelope = {
+        "capture_kind": "USER_ATTESTED_PREDEADLINE_MANAGER_STATE",
+        "capture_method": "USER_CONFIRMED_WITH_OFFICIAL_HISTORY",
+        "manager_team_id": 421025,
+        "target_gameweek": gw,
+        "captured_at_utc": captured,
+        "source_urls": [
+            "https://fantasy.premierleague.com/api/entry/421025/event/4/picks/",
+            "https://fantasy.premierleague.com/api/entry/421025/event/1/picks/",
+            "https://fantasy.premierleague.com/api/entry/421025/transfers/",
+            "https://fantasy.premierleague.com/api/entry/421025/history/",
+            "https://fantasy.premierleague.com/api/bootstrap-static/",
+        ],
+        "history_archive_base64": _encoded_archive(wrapper),
+        "raw_manager_picks_base64": None,
+        "manager_state": state,
+    }
+    official_picks = {
+        "active_chip": None,
+        "automatic_subs": [],
+        "entry_history": {"event": gw, "bank": 9},
+        "picks": [
+            {
+                "element": player_id,
+                "position": player_id,
+                "element_type": element_types[player_id],
+                "is_captain": player_id == 10,
+                "is_vice_captain": player_id == 11,
+            }
+            for player_id in squad
+        ],
+    }
+    record = batch["results"][0]["result"]
+    manager_archive = next(row for row in record["source_archives"]
+                           if row["source_type"] == "manager_picks")
+    raw_official = json.dumps(official_picks).encode()
+    manager_archive["raw_payload_base64"] = base64.b64encode(raw_official).decode()
+    manager_archive["raw_sha256"] = hashlib.sha256(raw_official).hexdigest()
+    sources = [
+        _decision_archive("provider_forecast"),
+        _decision_archive("player_metadata"),
+        {
+            "source_type": "manager_deadline_state",
+            "source_url": "https://fantasy.premierleague.com/entry/421025",
+            "captured_at_utc": captured,
+            "raw_snapshot_id": "manager-attestation-gw5",
+            "raw_payload_base64": _encoded_archive(envelope),
+            "raw_sha256": hashlib.sha256(
+                json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest(),
+        },
+    ]
+    # Keep the player-metadata archive byte-identical to the bootstrap used in the attested price chain.
+    metadata_raw = json.dumps(bootstrap).encode()
+    metadata = sources[1]
+    metadata["raw_payload_base64"] = base64.b64encode(metadata_raw).decode()
+    metadata["raw_sha256"] = hashlib.sha256(metadata_raw).hexdigest()
+    metadata["source_url"] = "https://fantasy.premierleague.com/api/bootstrap-static/"
+    return {"5": {"sources": sources}}
+
+
+def _encoded_archive(value):
+    return base64.b64encode(json.dumps(value, sort_keys=True).encode()).decode()
+
+
+def test_audits_user_attested_state_and_replays_official_purchase_prices():
+    batch = _batch()
+    manifests = _decision_manifest_with_attested_manager_state(batch)
+    result = audit_batch(batch, manifests)
+    assert result["status"] == "PASSED"
+    assert len(result["events"][0]["decision_sources"]) == 3
+
+
+def test_rejects_attested_lineup_that_differs_from_finalized_official_picks():
+    batch = _batch()
+    manifests = _decision_manifest_with_attested_manager_state(batch)
+    archive = next(row for row in batch["results"][0]["result"]["source_archives"]
+                   if row["source_type"] == "manager_picks")
+    payload = json.loads(base64.b64decode(archive["raw_payload_base64"]))
+    payload["picks"][0]["position"] = 12
+    payload["picks"][11]["position"] = 1
+    raw = json.dumps(payload).encode()
+    archive["raw_payload_base64"] = base64.b64encode(raw).decode()
+    archive["raw_sha256"] = hashlib.sha256(raw).hexdigest()
+    with pytest.raises(BatchAuditError, match="starting XI differs"):
+        audit_batch(batch, manifests)
