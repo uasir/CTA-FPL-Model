@@ -103,7 +103,9 @@ def reconcile_official_manager_result(
     official_gross = sum(live[p["element"]]["total_points"] * p["multiplier"] for p in picks)
     official_net = official_gross - transfer_cost
     _require(official_net == history["points"],
-             "official picks/live calculation does not reconcile to entry_history.points")
+             f"official picks/live calculation mismatch: gross={official_gross}, "
+             f"transfer_cost={transfer_cost}, net={official_net}, "
+             f"entry_history.points={history['points']}")
 
     automatic_subs = official_picks.get("automatic_subs", [])
     _require(isinstance(automatic_subs, list), "official automatic_subs must be a list")
