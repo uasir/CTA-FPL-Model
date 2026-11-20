@@ -264,19 +264,64 @@ def build_player_match_features(events, matches, players, teams):
         totals.update(counts)
     match_metadata_goals = 0
     matches_with_score = 0
+    metadata_goals_by_match = {}
+    match_context_by_id = {}
     for match in matches:
+        match_id = str(match.get("wyId"))
         teams_data = match.get("teamsData") or {}
         scores = []
+        team_context = []
         for team_data in teams_data.values():
             if not isinstance(team_data, dict) or team_data.get("score") is None:
                 continue
             try:
-                scores.append(int(team_data["score"]))
+                score = int(team_data["score"])
             except (TypeError, ValueError):
                 continue
+            scores.append(score)
+            team_id = _int(team_data.get("teamId"))
+            side = str(team_data.get("side") or "")
+            team_context.append({
+                "team_id": team_id,
+                "team_name": team_names.get(team_id, "") if team_id is not None else "",
+                "side": side,
+                "score": score,
+            })
         if len(scores) == 2:
             matches_with_score += 1
+            metadata_goals_by_match[match_id] = sum(scores)
             match_metadata_goals += sum(scores)
+            match_context_by_id[match_id] = sorted(team_context, key=lambda row: row["side"])
+
+    event_goals_by_match = defaultdict(Counter)
+    for event in events:
+        match_id = str(event.get("matchId"))
+        event_name = str(event.get("eventName") or "UNKNOWN")
+        tags = _tags(event)
+        if GOAL_TAG in tags and event_name == "Shot":
+            event_goals_by_match[match_id]["shot_goal_tags"] += 1
+        elif GOAL_TAG in tags and event_name == "Free Kick":
+            event_goals_by_match[match_id]["free_kick_goal_tags"] += 1
+        if OWN_GOAL_TAG in tags:
+            event_goals_by_match[match_id]["own_goal_tags"] += 1
+
+    mismatched_matches = []
+    for match_id, metadata_total in sorted(metadata_goals_by_match.items()):
+        counts = event_goals_by_match[match_id]
+        attributed_total = (
+            counts["shot_goal_tags"] + counts["free_kick_goal_tags"] + counts["own_goal_tags"]
+        )
+        if attributed_total != metadata_total:
+            mismatched_matches.append({
+                "match_id": match_id,
+                "teams": match_context_by_id.get(match_id, []),
+                "metadata_goals": metadata_total,
+                "shot_goal_tags": counts["shot_goal_tags"],
+                "free_kick_goal_tags": counts["free_kick_goal_tags"],
+                "own_goal_tags": counts["own_goal_tags"],
+                "player_attributed_goal_total": attributed_total,
+                "delta": attributed_total - metadata_total,
+            })
     goal_tag_types = Counter(
         str(event.get("eventName") or "UNKNOWN")
         for event in events if GOAL_TAG in _tags(event)
@@ -316,9 +361,11 @@ def build_player_match_features(events, matches, players, teams):
             "player_attributed_own_goal_events": player_attributed_own_goals,
             "player_attributed_goal_total": player_attributed_goals + player_attributed_own_goals,
             "player_attributed_minus_metadata_goal_delta": player_attributed_goals + player_attributed_own_goals - match_metadata_goals,
+            "mismatched_match_count": len(mismatched_matches),
+            "mismatched_matches": mismatched_matches,
             "status": (
                 "PASS_EXACT"
-                if matches_with_score == len(matches) and player_attributed_goals + player_attributed_own_goals == match_metadata_goals
+                if matches_with_score == len(matches) and not mismatched_matches
                 else "REVIEW_REQUIRED"
             ),
         },
