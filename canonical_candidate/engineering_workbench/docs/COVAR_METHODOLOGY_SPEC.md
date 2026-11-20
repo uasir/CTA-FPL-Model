@@ -135,7 +135,52 @@ Do not maximize variance as a universal objective. Higher variance can increase 
 
 Free Hit and regular-gameweek decisions must be evaluated separately. A Free Hit permits a temporary, highly correlated portfolio that may be inappropriate for a persistent squad. Regular-GW analysis must respect the user's stated squad construction and transfer constraints; CoVar must not create routine rotation or low-value bench transfers.
 
-## 7. Estimation and simulation approach
+## 7. Field-targeting decision hierarchy
+
+Field CoVar is a deliberate portfolio choice relative to a defined field cohort, not a synonym for selecting low-owned players. The model must estimate both the user's absolute outcome distribution and the relative distribution against the field. A low-EO pick is useful only when its projected points, role, fixture and joint-outcome profile justify the opportunity cost.
+
+Use the following hierarchy as a research and recommendation ordering, not as unconditional rules:
+
+1. **Lower-owned captaincy with little or no EV sacrifice.** First identify captaincy alternatives whose projected points remain competitive while their effective captaincy exposure is materially lower than the field's. Quantify the captaincy multiplier and the resulting relative upside/downside. Do not recommend a low-owned captain solely because ownership is low.
+2. **Multiple defenders from the same team.** Assess goalkeeper/defender and defender/defender combinations for shared clean-sheet upside and concentrated goals-conceded downside. Compare the stack's expected points with the best alternative use of those squad slots.
+3. **Avoiding opposing attackers and defenders within the user's portfolio.** Evaluate whether removing an internal opposing fixture exposure increases the portfolio's directional sensitivity to a desired match outcome. Treat this as a possible ceiling-concentration choice, not a universal prohibition: an opposing attacker may still have superior EV or provide useful downside protection.
+4. **Combining attackers and defenders from the same team.** Evaluate mixed stacks, especially set-piece takers paired with credible set-piece targets, using event-level probabilities. A goal can create both attacking and defensive returns, but the combination is not automatically synergistic and must be assessed against role, minutes, event allocation and alternative players.
+
+These approaches are generally more useful when the relevant exposure is low in the selected field cohort. However, ownership is a relative context variable, not a direct measure of player quality or a standalone objective.
+
+### 7.1 EV opportunity-cost test
+
+Every field-targeting recommendation must be compared with a conventional EV-oriented alternative under the same budget, squad legality, player availability and decision-time information.
+
+Report at minimum:
+- Expected-points difference versus the EV-oriented alternative.
+- Difference in captaincy/EO exposure and, where available, manager-level joint exposure.
+- Change in probability of beating the chosen field cohort and in the upper/lower tails of relative score.
+- The scenarios that create the upside and the scenarios that create the downside.
+- Sensitivity to uncertain minutes, role, team goals and ownership estimates.
+
+A field-CoVar alternative should not be preferred merely because it has greater variance or lower ownership. Its additional rank-upside probability must be shown alongside its EV sacrifice and downside cost. Some high-EV, highly owned players may remain essential when the projected points advantage is too large to justify fading them.
+
+### 7.2 Rank and risk-appetite dependence
+
+The objective and acceptable EV trade-off must be declared for the decision. It may depend on current rank, distance to the target rank, remaining gameweeks, risk appetite and downside tolerance. Do not infer a universal risk preference from rank alone. Show alternative objective profiles where the appropriate trade-off is uncertain, and keep the user's selected objective explicit.
+
+### 7.3 Free Hit versus regular-GW field populations
+
+For Free Hit analysis, distinguish at least:
+- Managers using Free Hit, whose temporary squad construction can create concentrated one-week exposures.
+- Managers not using Free Hit, whose squads may be constrained by longer-term structure and transfers.
+- The combined overall field, if that is the rank comparison the user wants to optimize.
+
+Use the most relevant cohort for the decision and report cohort sample sizes and uncertainty. Do not assume that overall EO alone describes the Free Hit population or its joint squad combinations.
+
+For regular-GW analysis, use the relevant overall/rank-stratified field cohort and preserve the user's persistent squad constraints. Free Hit-specific portfolio logic must not be transferred automatically to regular-GW squad construction.
+
+### 7.4 Stack opportunity-cost examples
+
+The framework must be able to reject an intuitively attractive stack when its opportunity cost is too high. For example, triple-defence exposure should be compared with stronger projected attacking options from the same club; a mixed team stack should account for a high-EV striker or attacker whose presence changes the portfolio's directional exposure. The output should explain why a proposed stack is or is not justified, rather than label a team stack as inherently CoVar-positive.
+
+## 8. Estimation and simulation approach
 
 Preferred forward-looking architecture:
 1. Generate shared team/match scenarios from information available before the deadline.
@@ -150,7 +195,7 @@ Historical player covariance may be used for descriptive diagnostics, shrinkage 
 
 All inputs must be point-in-time valid. No post-deadline lineups, actual points, retrospective revisions or future information may enter a pre-deadline simulation.
 
-## 8. Required outputs
+## 9. Required outputs
 
 For each candidate portfolio, report where estimable:
 - Expected squad points and expected relative points.
@@ -163,10 +208,11 @@ For each candidate portfolio, report where estimable:
 - User and field exposure to relevant team/player outcomes.
 - Sensitivity to minutes, lineup, team-goal, clean-sheet, event-allocation and covariance assumptions.
 - Coverage, uncertainty and explicit reasons for unavailable metrics.
+- EV opportunity cost against the conventional alternative and the field cohort used for the comparison.
 
 A single CoVar number may be displayed only as a clearly labelled summary of a specified objective; it must not hide the underlying dimensions.
 
-## 9. Validation protocol
+## 10. Validation protocol
 
 Before any decision use:
 - Point-in-time source provenance, retrieval timestamps and immutable source hashes.
@@ -180,10 +226,11 @@ Before any decision use:
 - Comparison against independent-player simulation and simpler baseline portfolios.
 - Incremental utility evaluation against a predeclared objective, with uncertainty intervals.
 - Calibration of marginal player outcomes and joint outcomes, including clean-sheet, team-goal and scorer-assister event frequencies where observable.
+- Separate evaluation of Free Hit and regular-GW decisions, and cohort-specific calibration where field samples permit.
 
 The current M4-T6 fail-closed eligibility gate remains mandatory. Its current checks are necessary but not sufficient for this broader methodology; the gate must eventually be extended to test joint-event calibration, field-manager joint composition and objective-specific out-of-sample utility. Passing any gate permits explicit review only, not automatic activation.
 
-## 10. Release and integration safeguards
+## 11. Release and integration safeguards
 
 Until a separately reviewed implementation and validation pass:
 - CoVar remains exploratory and descriptive.
@@ -195,7 +242,7 @@ Until a separately reviewed implementation and validation pass:
 - M3 post-Gameweek validation remains independent.
 - No PR is merged without explicit user approval.
 
-## 11. Proposed implementation sequence
+## 12. Proposed implementation sequence
 
 1. Review and accept this methodology and terminology.
 2. Audit current covariance artifacts and map each to the concepts above; identify what they can and cannot measure.
