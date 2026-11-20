@@ -149,3 +149,32 @@ def test_current_price_floor_is_used_conservatively_when_purchase_price_is_unkno
         )
         for candidate in result["transfer_recommendation"]["alternatives"]
     )
+
+
+def test_bench_upgrade_without_starting_xi_gain_is_not_recommended():
+    payload = request()
+    for player in payload["player_forecasts"]:
+        if player["fpl_element_id"] in {16, 17, 18}:
+            player["expected_points"] = 2.0
+    result = recommend_personal_squad(payload)
+    assert result["transfer_recommendation"]["action"] == "HOLD"
+    assert all(
+        candidate["starting_xi_expected_points_delta"] <= 0
+        for candidate in result["transfer_recommendation"]["alternatives"]
+    )
+
+
+def test_goalkeeper_is_never_a_transfer_candidate():
+    result = recommend_personal_squad(request())
+    assert all(
+        candidate["transfer_out_id"] not in {1, 2}
+        for candidate in result["transfer_recommendation"]["alternatives"]
+    )
+
+
+def test_bench_to_starting_xi_upgrade_is_scored_on_starting_xi_gain():
+    result = recommend_personal_squad(request())
+    best = result["transfer_recommendation"]["best_candidate"]
+    assert best["transfer_out_id"] == 6
+    assert best["starting_xi_expected_points_delta"] > 0
+    assert best["starting_xi_expected_points_delta"] == 8.0 - 3.6
