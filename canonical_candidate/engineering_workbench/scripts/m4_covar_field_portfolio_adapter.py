@@ -232,6 +232,10 @@ def adapt_field_portfolios_for_scenario(
     }
 
 
+def canonical_artifact_sha256(artifact: Mapping[str, Any]) -> str:
+    payload = json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
 def verify_field_portfolio_artifact(
     artifact: Mapping[str, Any], capture_report: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -309,6 +313,3 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
-def canonical_artifact_sha256(artifact: Mapping[str, Any]) -> str:
-    payload = json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
