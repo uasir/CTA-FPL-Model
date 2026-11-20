@@ -149,7 +149,7 @@ test("squad purchase prices must be positive", () => {
   payload.squad_snapshot[0].purchase_price = 0;
   assert.throws(
     () => validatePersonalSquadRequest(payload),
-    /purchase_price must be positive/,
+    /purchase_price or selling_price_floor/,
   );
 });
 
