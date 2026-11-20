@@ -272,7 +272,7 @@ def main() -> int:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
     print(json.dumps({
-        "team_id": team_id if False else args.team_id,
+        "team_id": args.team_id,
         "gameweek": args.gameweek,
         "squad_rows": result["manager_context_capture"]["row_count"],
         "identity_verified": result["manager_context_capture"]["identity_verified"],
