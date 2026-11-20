@@ -115,3 +115,9 @@ def test_run_is_deterministic_for_identical_frozen_inputs():
     first = run_external_benchmark_personal_squad(payload)
     second = run_external_benchmark_personal_squad(payload)
     assert first == second
+\n
+def test_metadata_snapshot_must_be_pre_deadline():
+    payload = run_input()
+    payload["player_metadata_provenance"]["captured_at_utc"] = "2026-11-21T11:00:00Z"
+    with pytest.raises(BenchmarkDecisionRunError, match="metadata capture must be strictly before"):
+        run_external_benchmark_personal_squad(payload)
