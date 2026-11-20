@@ -93,14 +93,15 @@ def assemble_decision_input(
     enriched_squad = []
     for row in squad:
         enriched = dict(row)
-        if "purchase_price" not in enriched:
-            metadata = metadata_by_id[enriched["fpl_element_id"]]
-            current_price = metadata.get("price")
-            if isinstance(current_price, bool) or not isinstance(current_price, (int, float)) or current_price <= 0:
-                raise DecisionInputError(
-                    f"cannot establish conservative selling-price floor for FPL ID {enriched['fpl_element_id']}"
-                )
-            enriched["selling_price_floor"] = current_price
+        purchase_price = enriched.get("purchase_price")
+        if (
+            isinstance(purchase_price, bool)
+            or not isinstance(purchase_price, (int, float))
+            or purchase_price <= 0
+        ):
+            raise DecisionInputError(
+                f"manager purchase_price is missing or invalid for FPL ID {enriched['fpl_element_id']}"
+            )
         enriched_squad.append(enriched)
 
     captured_at = _parse_utc(manager_provenance.get("captured_at_utc"), "manager capture timestamp")
