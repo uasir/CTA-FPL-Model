@@ -198,7 +198,12 @@ def test_wyscout_goal_reconciliation_identifies_match_level_missing_goal():
             "positions": [{"x": 90, "y": 50}], "tags": [{"id": 101}],
         },
         {
-            "id": 2, "matchId": 11, "playerId": 101, "teamId": 1,
+            "id": 2, "matchId": 11, "playerId": 102, "teamId": 1,
+            "eventName": "Shot", "subEventName": "Shot",
+            "positions": [{"x": 90, "y": 50}], "tags": [],
+        },
+        {
+            "id": 3, "matchId": 11, "playerId": 101, "teamId": 1,
             "eventName": "Save attempt", "subEventName": "Save attempt",
             "positions": [{"x": 10, "y": 50}], "tags": [{"id": 101}],
         },
@@ -221,7 +226,7 @@ def test_wyscout_goal_reconciliation_identifies_match_level_missing_goal():
     ]
     _, report = build_player_match_features(
         events, matches,
-        [{"wyId": 100, "shortName": "Scorer"}, {"wyId": 101, "shortName": "Goalkeeper"}],
+        [{"wyId": 100, "shortName": "Scorer"}, {"wyId": 101, "shortName": "Goalkeeper"}, {"wyId": 102, "shortName": "Uncredited shooter"}],
         [{"wyId": 1, "name": "Home FC"}, {"wyId": 2, "name": "Away FC"}],
     )
     reconciliation = report["goal_reconciliation"]
