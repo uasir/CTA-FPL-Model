@@ -125,3 +125,22 @@ def test_personal_squad_validated_status_requires_fresh_verified_forecast():
     payload["forecast_quality"]["data_coverage"]["freshness_status"] = "FRESH_WITHIN_24H"
     result = recommend_personal_squad(payload)
     assert result["recommendation_status"] == "VALIDATED"
+
+
+def test_current_price_floor_is_used_conservatively_when_purchase_price_is_unknown():
+    payload = request()
+    for row in payload["squad_snapshot"]:
+        row["selling_price_floor"] = payload["player_forecasts"][
+            next(i for i, forecast in enumerate(payload["player_forecasts"])
+                 if forecast["fpl_element_id"] == row["fpl_element_id"])
+        ]["price"]
+        row.pop("purchase_price")
+    result = recommend_personal_squad(payload)
+    assert result["transfer_recommendation"]["selling_price_basis"] == "CONSERVATIVE_CURRENT_PRICE_FLOOR"
+    assert any(
+        candidate["selling_price"] <= next(
+            player["price"] for player in payload["player_forecasts"]
+            if player["fpl_element_id"] == candidate["transfer_out_id"]
+        )
+        for candidate in result["transfer_recommendation"]["alternatives"]
+    )
