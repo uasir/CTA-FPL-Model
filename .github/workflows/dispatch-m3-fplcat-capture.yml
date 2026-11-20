@@ -54,7 +54,7 @@ jobs:
             --season "${{ inputs.season }}" \
             --output "artifacts/fplcat/fplcat-${{ inputs.season }}-snapshot.json"
 
-      - name: Capture and verify public manager squad and purchase prices
+      - name: Capture official manager picks or user-confirmed pre-deadline squad
         working-directory: canonical_candidate/engineering_workbench
         run: |
           set -euo pipefail
@@ -87,9 +87,10 @@ jobs:
             --output "artifacts/fplcat/recommendation-${{ inputs.gameweek }}-${{ github.run_id }}.json"
 
       - name: Upload immutable capture and decision bundle
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: fplcat-manager-context-${{ inputs.gameweek }}-${{ github.run_id }}
           path: canonical_candidate/engineering_workbench/artifacts/fplcat/*.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 90
