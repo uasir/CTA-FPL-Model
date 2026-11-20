@@ -131,8 +131,11 @@ def reconcile_official_manager_result(
     goalkeeper_sub = local_score.get("goalkeeper_substitution")
     if goalkeeper_sub is not None:
         local_pairs.append((goalkeeper_sub["player_out_id"], goalkeeper_sub["player_in_id"]))
-    _require(sorted(local_pairs) == sorted(official_pairs),
-             "local automatic substitutions do not match official automatic_subs")
+    _require(
+        sorted(local_pairs) == sorted(official_pairs),
+        "local automatic substitutions do not match official automatic_subs: "
+        f"local={sorted(local_pairs)}, official={sorted(official_pairs)}",
+    )
 
     official_effective_captains = [p["element"] for p in picks if p["multiplier"] == 2]
     _require(len(official_effective_captains) <= 1,
