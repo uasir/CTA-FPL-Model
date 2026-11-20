@@ -66,7 +66,7 @@ def _sum_target(rows, field):
 
 
 def aggregate_player_gameweeks(rows, expected_fixture_ids=None):
-    """Aggregate rows; expected_fixture_ids maps (season, element, GW) to official fixture-ID sets."""
+    """Aggregate rows; expected_fixture_ids maps (season, element, GW) to reference fixture-ID sets."""
     expected_fixture_ids = expected_fixture_ids or {}
     grouped = defaultdict(list)
     for row in rows:
@@ -94,7 +94,7 @@ def aggregate_player_gameweeks(rows, expected_fixture_ids=None):
 
         reasons = []
         if expected_ids is None:
-            reasons.append("OFFICIAL_FIXTURE_IDS_NOT_SUPPLIED")
+            reasons.append("REFERENCE_FIXTURE_IDS_NOT_SUPPLIED")
         elif set(fixture_ids) != expected_ids:
             reasons.append("FIXTURE_ID_SET_MISMATCH")
 
@@ -203,7 +203,7 @@ def main():
         "eligible_player_gameweeks": sum(row["research_eligible_for_model"] for row in aggregated),
         "excluded_player_gameweeks": sum(not row["research_eligible_for_model"] for row in aggregated),
         "feature_aggregation_policy": "CONSENSUS_ONLY_NO_SUM_OR_BLIND_AVERAGE",
-        "dgw_policy": "Require exact official fixture-ID set; each repeated pre-deadline snapshot must agree across fixture rows.",
+        "dgw_policy": "Require exact fixture-ID set from the pinned FPL history reference; each repeated pre-deadline snapshot must agree across fixture rows.",
         "promotion_status": "RESEARCH_ONLY_DO_NOT_PROMOTE",
     }
     print(json.dumps(report, indent=2))
