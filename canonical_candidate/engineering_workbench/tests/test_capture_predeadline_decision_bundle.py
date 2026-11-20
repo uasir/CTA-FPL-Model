@@ -23,7 +23,7 @@ def _fixtures(monkeypatch, manager_capture_time="2026-11-20T10:00:00Z"):
             {"id": player_id, "element_type": element_type}
             for player_id, element_type in {
                 1: 1, 2: 2, 3: 2, 4: 2, 5: 2,
-                6: 3, 7: 3, 8: 3, 9: 3, 10: 4, 11: 4,
+                6: 3, 7: 3, 8: 3, 9: 4, 10: 4, 11: 4,
                 12: 1, 13: 2, 14: 3, 15: 4,
             }.items()
         ]
@@ -40,6 +40,7 @@ def _fixtures(monkeypatch, manager_capture_time="2026-11-20T10:00:00Z"):
                 "generated_at_utc": "2026-11-20T09:00:00Z",
                 "captured_at_utc": "2026-11-20T09:30:00Z",
             },
+            "source": {"raw_sha256": provider_hash},
         },
         "raw_archives": {
             "provider_response_base64": base64.b64encode(provider_raw).decode(),
@@ -47,6 +48,7 @@ def _fixtures(monkeypatch, manager_capture_time="2026-11-20T10:00:00Z"):
         },
         "player_metadata_provenance": {
             "captured_at_utc": "2026-11-20T09:35:00Z",
+            "raw_sha256": metadata_hash,
         },
     }
     picks = []
@@ -59,7 +61,7 @@ def _fixtures(monkeypatch, manager_capture_time="2026-11-20T10:00:00Z"):
             "is_captain": player_id == 10,
             "is_vice_captain": player_id == 11,
         })
-    manager_payload = {"entry_history": {"event": 12, "bank": 9}, "picks": picks}
+    manager_payload = {"active_chip": None, "entry_history": {"event": 12, "bank": 9}, "picks": picks}
     manager_raw = json.dumps(manager_payload, sort_keys=True).encode()
     manager_hash = hashlib.sha256(manager_raw).hexdigest()
     manager_capture = {
