@@ -64,6 +64,19 @@ Additional time controls require provider generation no later than capture, capt
 
 This is a tested execution interface, not yet a live provider integration or a release-ready recommendation. The integration tests use deterministic synthetic provider fixtures. A real decision run still requires a captured, eligible provider snapshot, current FPL metadata and the manager's timestamped 15-player squad state. The output is deliberately marked not release-eligible until M3 acceptance and decision backtesting are complete.
 
+
+### M3.2a — FPL Cat live-capture adapter
+
+Added:
+- `scripts/capture_fpl_cat_snapshot.py`
+- `tests/test_capture_fpl_cat_snapshot.py`
+
+The collector requests FPL Cat's documented public next-gameweek JSON endpoint and the official FPL bootstrap-static endpoint. It records the raw response hashes and capture timestamps independently, maps FPL Cat element IDs to the matching FPL bootstrap player metadata, checks that both sources agree on the target GW deadline, and refuses post-deadline captures, missing expected minutes, duplicate IDs or unmapped player IDs. Provider xP and expected minutes remain sourced from FPL Cat; price, position and team ID remain sourced from the separate FPL metadata snapshot.
+
+The decision runner now requires and carries metadata-source provenance as well as provider-source provenance, and rejects metadata snapshots captured at or after the deadline. The collector is invoked with `python scripts/capture_fpl_cat_snapshot.py --season 2026-27 --output <path>`; its output can be combined with the timestamped manager context for the decision runner.
+
+The collector and its deterministic mocked-response tests are committed, but a successful live capture and a fresh CI pass on the latest branch head have not yet been verified. Therefore this remains an integration implementation, not evidence that a real FPL Cat recommendation has been generated.
+
 ## 4. M3 work packages
 
 ### M3.1 — Provider-neutral forecast contract
