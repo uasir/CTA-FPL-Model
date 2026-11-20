@@ -21,7 +21,7 @@ Both source panels are fixture-grain. Aggregate each panel to player–Gameweek 
 - Require exact key-set equality after restricting the 2PM target rows to ABC's verified and conservative-cutoff eligible cohort.
 - Require ABC and 2PM actual total points to agree for every joined key (floating-point tolerance no larger than 1e-9). Any mismatch, duplicate ambiguity, missing target, or unmatched eligible key is a hard failure, not a silent inner-join drop.
 
-The ABC panel's `research_eligible_for_analysis` flag is the cohort gate. Do not infer eligibility from non-null features or identity alone.
+The aggregated ABC player–Gameweek panel's `research_eligible_for_model` flag is the cohort gate. It is derived only when all source fixture rows are analysis-eligible, target labels are complete, and the exact reference fixture-ID set matches. Do not infer eligibility from non-null features or identity alone.
 
 ## Common chronological folds
 
@@ -105,7 +105,7 @@ The published manifest contains counts, Gameweek lists, and hashes rather than r
 **Implementation status:** the shared matched-fold key reader now normalizes season labels, rejects duplicate/overlapping partitions, and refuses any manifest that is not in PASS_MATCHED_FOLD_MANIFEST state with every fold READY. Both evaluators now accept the private partition-key CSV plus the public manifest.
 
 - 2PM selects exact fit/calibration/test player-GW rows from the conventional FPL panel, while retaining the full conventional panel as the sequence-history index. It checks every requested key exists and records the three partition hashes in each fold report.
-- ABC selects fixture rows for the exact same player-GW partitions, fits only on fit fixtures, fits an affine calibration map on aggregated calibration player-GWs, and scores test player-GWs. It also evaluates the FPL-history-only reference on the same partitions.
+- ABC consumes the same aggregated player-GW panel used by the manifest. It fits one row per player-GW, uses summed DGW target points and consensus-only ABC features, calibrates on the shared calibration rows, and scores the exact test rows. It also evaluates the FPL-history-only reference on the same partitions.
 - The workflow now invokes both matched evaluators after the manifest gate. Raw player-ID partition keys and prediction rows remain runner-local; only aggregate reports and hashes are eligible for upload.
 
 **Validation boundary:** this code has not yet passed the full CI run or completed a matched evaluation. The first CI attempt was blocked by an existing ABC aggregation unit test expectation after a temporary schema change; that compatibility change has now been reverted. The same attempt also lacked the historical ABC panel because the preceding test failure skipped the conditional 11footy download/build chain. No matched scores are claimed until the corrected CI run builds the inputs, passes the manifest, and both evaluators finish successfully.
