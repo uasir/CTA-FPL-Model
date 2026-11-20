@@ -192,3 +192,29 @@ def test_post_transfer_plan_keeps_the_designated_starting_goalkeeper():
     assert 2 in result["current_squad_plan"]["starting_xi"]
     assert 2 in result["squad_plan"]["starting_xi"]
     assert 1 not in result["squad_plan"]["starting_xi"]
+
+
+def test_bench_transfer_preserves_emergency_order_and_moves_displaced_starter_into_outgoing_slot():
+    result = recommend_personal_squad(request())
+    assert result["transfer_recommendation"]["action"] == "TRANSFER"
+    outgoing = result["transfer_recommendation"]["best_candidate"]["transfer_out_id"]
+    assert outgoing in result["current_squad_plan"]["bench_order"]
+    displaced = next(
+        player_id for player_id in result["current_squad_plan"]["starting_xi"]
+        if player_id not in result["squad_plan"]["starting_xi"]
+    )
+    expected_bench = [
+        displaced if player_id == outgoing else player_id
+        for player_id in result["current_squad_plan"]["bench_order"]
+    ]
+    assert result["squad_plan"]["bench_order"] == expected_bench
+
+
+def test_starter_transfer_keeps_existing_emergency_bench_order():
+    payload = request()
+    payload["starting_xi"] = [1, 3, 4, 5, 6, 8, 9, 10, 11, 13, 14]
+    result = recommend_personal_squad(payload)
+    if result["transfer_recommendation"]["action"] == "TRANSFER":
+        outgoing = result["transfer_recommendation"]["best_candidate"]["transfer_out_id"]
+        if outgoing in result["current_squad_plan"]["starting_xi"]:
+            assert result["squad_plan"]["bench_order"] == result["current_squad_plan"]["bench_order"]
