@@ -67,6 +67,8 @@ def validate_field_context(snapshot: Mapping[str, Any], rows: list[Mapping[str, 
     as_of = _time(candidate.get("as_of_utc"), "candidate.as_of_utc")
     if captured >= deadline or as_of >= deadline:
         raise FieldContextContractError("pre-deadline comparison requires capture and decision before deadline")
+    if captured >= as_of:
+        raise FieldContextContractError("field snapshot must be captured strictly before the frozen M3 decision")
     if candidate.get("season") != snapshot["season"]:
         raise FieldContextContractError("candidate season does not match field snapshot")
     if int(candidate.get("target_gameweek", -1)) != gw:
