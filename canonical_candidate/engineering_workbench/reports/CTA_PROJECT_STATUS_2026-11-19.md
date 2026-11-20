@@ -216,3 +216,10 @@ Source limitations confirmed by the full data:
 - The danger-zone entry geometry remains a provisional proxy, not xG or calibrated box-entry truth.
 
 The private review bundle is under research/wyscout-2017-18/identity-review-attempt-001 in CTA-FPL-Private-Archive. The manual-only workflow is retained for future reproducible runs. Next: inspect the single-goal reconciliation difference, review P1/P2 candidate evidence, create a separately approved verified crosswalk, then build the ABC player-fixture panel. No ABC-versus-2PM performance claim is available yet.
+
+
+## Goal reconciliation diagnostic improvement — 2026-11-20
+
+The Wyscout player-match builder now reports goal-tag reconciliation at the individual-match level, not only as a season-wide total. This prevents offsetting match errors from cancelling in an aggregate total. The diagnostic lists the mismatched match ID, teams/scores, shot-goal tags, free-kick goal tags, own-goal tags and delta. The new synthetic regression test confirms that a goalkeeper Save attempt carrying the goal tag is not miscounted as a player goal.
+
+Engineering CI [run 44660188679](https://github.com/uasir/CTA-FPL-Model/actions/runs/44660188679) passed: **458 tests, 1 skipped, 3 subtests**. The private source-ingestion workflow is rerunning against this updated builder into identity-review-attempt-002 so the one-goal discrepancy can be isolated. Attempt 001 remains immutable.
