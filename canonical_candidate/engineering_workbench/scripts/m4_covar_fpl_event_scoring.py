@@ -65,14 +65,14 @@ def calculate_fpl_points_2026_27(position: str, events: Mapping[str, Any]) -> di
     if bonus > 3:
         raise CovarEventScoringError("bonus_points must be between 0 and 3")
     goalkeeping_duties = events.get("goalkeeping_duties", position == "GK")
-    if goalkeeping_duties not in (True, False):
+    if not isinstance(goalkeeping_duties, bool):
         raise CovarEventScoringError("goalkeeping_duties must be an explicit boolean")
     is_goalkeeper_in_match = position == "GK" or goalkeeping_duties
     if (saves or penalty_saves) and not is_goalkeeper_in_match:
         raise CovarEventScoringError("save events require goalkeeping duties")
     if position not in ("GK", "DEF") and goals_conceded:
         raise CovarEventScoringError("goals-conceded deductions apply only to GK and DEF")
-    if events.get("clean_sheet") not in (True, False):
+    if not isinstance(events.get("clean_sheet"), bool):
         raise CovarEventScoringError("clean_sheet must be an explicit boolean")
     if events["clean_sheet"] and goals_conceded > 0:
         raise CovarEventScoringError(
