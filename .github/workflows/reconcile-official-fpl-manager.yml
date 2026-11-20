@@ -33,9 +33,7 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python -m pip install pytest
-          PYTHONPATH=scripts python -m pytest -q \\
-            tests/test_evaluate_external_benchmark_decisions.py \\
-            tests/test_reconcile_official_fpl_manager_result.py
+          PYTHONPATH=scripts python -m pytest -q tests/test_evaluate_external_benchmark_decisions.py tests/test_reconcile_official_fpl_manager_result.py
       - name: Capture and reconcile official manager result
         working-directory: canonical_candidate/engineering_workbench
         run: |
