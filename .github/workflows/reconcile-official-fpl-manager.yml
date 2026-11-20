@@ -76,10 +76,14 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         run: |
           MANIFEST_ARGS=()
+          RECOMMENDATION_ARGS=()
           if [ -f official-fpl-decision-evidence-manifests.json ]; then
             MANIFEST_ARGS+=(--decision-manifests official-fpl-decision-evidence-manifests.json)
           fi
-          python scripts/audit_official_fpl_manager_batch.py official-fpl-manager-reconciliation-batch.json "${MANIFEST_ARGS[@]}" --output official-fpl-manager-reconciliation-audit.json
+          if [ -f official-fpl-predeadline-m3-recommendation.json ]; then
+            RECOMMENDATION_ARGS+=(--predeadline-recommendation official-fpl-predeadline-m3-recommendation.json)
+          fi
+          python scripts/audit_official_fpl_manager_batch.py official-fpl-manager-reconciliation-batch.json "${MANIFEST_ARGS[@]}" "${RECOMMENDATION_ARGS[@]}" --output official-fpl-manager-reconciliation-audit.json
       - name: Classify historical evidence admission
         id: admission
         if: always() && steps.audit.outcome == 'success'
