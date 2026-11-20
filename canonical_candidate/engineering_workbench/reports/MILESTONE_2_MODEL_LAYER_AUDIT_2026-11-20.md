@@ -75,4 +75,18 @@ A separate descriptive comparison may still be retained for historical context, 
 - [ ] External forecast benchmarks are captured with provider variant, generation time, capture time, coverage and immutable hashes.
 - [ ] Multi-season point-in-time validation and data-rights gates are satisfied before any recommendation weight is enabled.
 
+
+## 6. Additional reporting gap found in the 2PM workflow
+
+The evaluator computes matched conventional two-part, direct-Ridge and last-five persistence comparisons, plus paired cluster-bootstrap results. However, the successful Actions workflow's aggregate-only summary publishes the pooled Transformer point-error/probability diagnostics and the base-versus-position ablation, but omits those conventional comparator results and paired intervals.
+
+Therefore the 214,956-row base-model MAE/RMSE are descriptive model errors, not evidence that the Transformer beats a conventional baseline. The next 2PM reporting change must publish aggregate-only metrics for:
+- calibrated conventional two-part comparator;
+- direct Ridge comparator;
+- last-five persistence comparator;
+- paired player-season cluster-bootstrap deltas for Transformer versus each comparator;
+- validation cohort counts and fold coverage.
+
+Keep player-level predictions runner-local. This reporting change does not require uploading raw data or per-player predictions.
+
 **Current disposition:** 2PM base remains the control; position features are not adopted; ABC remains an exploratory independent candidate; no model is connected to recommendation weights.
