@@ -47,7 +47,7 @@ def anonymize_manager_pick_rows(
     if captured >= deadline:
         raise CovarFieldPortfolioError("manager picks must be captured before the deadline")
     if gameweek < 1 or rank_limit < 1 or not cohort.strip():
-        raise CovarFieldFieldPortfolioError("gameweek, rank_limit and cohort must be valid")
+        raise CovarFieldPortfolioError("gameweek, rank_limit and cohort must be valid")
 
     grouped: dict[str, list[Mapping[str, Any]]] = {}
     for row in rows:
