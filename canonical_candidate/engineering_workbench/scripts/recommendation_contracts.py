@@ -205,6 +205,7 @@ def validate_personal_squad_request(
             raise RecommendationContractError(f"squad_snapshot[{index}] must be a mapping")
         element_id = player.get("fpl_element_id")
         purchase_price = player.get("purchase_price")
+        selling_price_floor = player.get("selling_price_floor")
         if isinstance(element_id, bool) or not isinstance(element_id, int) or element_id < 1:
             raise RecommendationContractError(
                 f"squad_snapshot[{index}].fpl_element_id must be a positive integer"
@@ -213,15 +214,19 @@ def validate_personal_squad_request(
         if key in ids:
             raise RecommendationContractError(f"Duplicate squad FPL element ID {key}")
         ids.add(key)
-        if (isinstance(purchase_price, bool)
-                or not isinstance(purchase_price, (int, float))
-                or not math.isfinite(float(purchase_price))):
+        if purchase_price is not None:
+            if (isinstance(purchase_price, bool)
+                    or not isinstance(purchase_price, (int, float))
+                    or not math.isfinite(float(purchase_price)) or purchase_price <= 0):
+                raise RecommendationContractError(
+                    f"squad_snapshot[{index}].purchase_price must be a positive finite number"
+                )
+        elif (isinstance(selling_price_floor, bool)
+              or not isinstance(selling_price_floor, (int, float))
+              or not math.isfinite(float(selling_price_floor))
+              or selling_price_floor <= 0):
             raise RecommendationContractError(
-                f"squad_snapshot[{index}].purchase_price must be numeric"
-            )
-        if purchase_price <= 0:
-            raise RecommendationContractError(
-                f"squad_snapshot[{index}].purchase_price must be positive"
+                f"squad_snapshot[{index}] requires purchase_price or a positive selling_price_floor"
             )
 
     forecast_by_id = {
