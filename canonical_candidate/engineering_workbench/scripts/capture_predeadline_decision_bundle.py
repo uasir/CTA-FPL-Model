@@ -122,7 +122,9 @@ def capture_predeadline_decision_bundle(
 ) -> dict[str, Any]:
     if team_id <= 0 or gameweek <= 0:
         raise DecisionCaptureError("team_id and gameweek must be positive integers")
-    state = _validate_manager_state(manager_state, team_id)
+    # Preserve the manager identity separately from player metadata club IDs.
+    manager_id = team_id
+    state = _validate_manager_state(manager_state, manager_id)
     expected_ids = set(state["squad_15"])
     starting_xi_ids = set(state["starting_xi"])
 
@@ -308,11 +310,11 @@ def capture_predeadline_decision_bundle(
             now_cost, purchase_prices[str(player_id)], player_id
         ) / 10
 
-    manager_url = f"https://fantasy.premierleague.com/entry/{team_id}"
+    manager_url = f"https://fantasy.premierleague.com/entry/{manager_id}"
     manager_state_envelope = {
         "capture_kind": "USER_ATTESTED_PREDEADLINE_MANAGER_STATE",
         "capture_method": capture_method,
-        "manager_team_id": team_id,
+        "manager_team_id": manager_id,
         "target_gameweek": gameweek,
         "captured_at_utc": manager_provenance["captured_at_utc"],
         "source_urls": manager_provenance.get("source_urls", [manager_provenance["source_url"]]),
@@ -351,7 +353,7 @@ def capture_predeadline_decision_bundle(
         raise DecisionCaptureError("Decision-as-of timestamp must follow all captures and precede deadline")
 
     manifest = {
-        "manager_team_id": team_id,
+        "manager_team_id": manager_id,
         "season": provider["season"],
         "provider_snapshot": provider,
         "player_metadata": normalized_metadata,
@@ -397,6 +399,16 @@ def capture_predeadline_decision_bundle(
         ],
         "manager_state": manager_state_envelope["manager_state"],
     }
+    manager_source = next(
+        source for source in manifest["sources"]
+        if source["source_type"] == "manager_deadline_state"
+    )
+    if (
+        manifest["manager_team_id"] != manager_id
+        or manager_state_envelope["manager_team_id"] != manager_id
+        or manager_source["source_url"] != f"https://fantasy.premierleague.com/entry/{manager_id}"
+    ):
+        raise DecisionCaptureError("Manager identity was not preserved across the decision evidence bundle")
     return {str(gameweek): manifest}
 
 
