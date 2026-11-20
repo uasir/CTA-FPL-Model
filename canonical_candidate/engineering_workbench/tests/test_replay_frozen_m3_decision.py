@@ -278,3 +278,44 @@ def test_replay_reconstructs_manager_purchase_prices_from_previous_gameweek_pick
     assert result["status"] == "PASSED"
     assert result["replay_type"] == "DETERMINISTIC_RAW_AND_CANONICAL_INPUT_REEXECUTION"
 
+def test_replay_reconstructs_manager_purchase_prices_from_gw1_and_transfer_history(monkeypatch):
+    bundle, frozen = _prepare(monkeypatch)
+    manifest = bundle["12"]
+    sources = {row["source_type"]: row for row in manifest["sources"]}
+    manager_source = sources["manager_deadline_state"]
+    envelope = json.loads(base64.b64decode(manager_source["raw_payload_base64"]))
+    picks = json.loads(base64.b64decode(envelope["raw_manager_picks_base64"]))
+    previous = copy.deepcopy(picks)
+    previous["entry_history"]["event"] = 11
+    gw1 = copy.deepcopy(picks)
+    gw1["entry_history"]["event"] = 1
+    history = {"chips": []}
+    bootstrap = json.loads(base64.b64decode(sources["player_metadata"]["raw_payload_base64"]))
+    def encoded(value):
+        return base64.b64encode(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).decode()
+    wrapper = {
+        "source_type": "FPL_SEASON_HISTORY_RECONSTRUCTION",
+        "previous_gameweek_picks": encoded(previous),
+        "gw1_picks": encoded(gw1),
+        "transfers": encoded([]),
+        "history": encoded(history),
+        "bootstrap": encoded(bootstrap),
+    }
+    envelope["capture_method"] = "USER_CONFIRMED_WITH_OFFICIAL_HISTORY"
+    envelope["source_urls"] = [
+        "https://fantasy.premierleague.com/api/entry/421025/event/11/picks/",
+        "https://fantasy.premierleague.com/api/entry/421025/event/1/picks/",
+        "https://fantasy.premierleague.com/api/entry/421025/transfers/",
+        "https://fantasy.premierleague.com/api/entry/421025/history/",
+        "https://fantasy.premierleague.com/api/bootstrap-static/",
+    ]
+    envelope["history_archive_base64"] = encoded(wrapper)
+    envelope["raw_manager_picks_base64"] = None
+    raw = json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode()
+    digest = hashlib.sha256(raw).hexdigest()
+    manager_source["raw_payload_base64"] = base64.b64encode(raw).decode()
+    manager_source["raw_sha256"] = digest
+    manager_source["raw_snapshot_id"] = "sha256:" + digest
+    result = replay.replay_frozen_decision(bundle, frozen, software_commit="b" * 40)
+    assert result["status"] == "PASSED"
+
