@@ -39,7 +39,7 @@ def capture_manager_context(
     expected_element_ids: set[int] | None = None,
     expected_bank: float | None = None,
 ) -> dict[str, Any]:
-    url = f"https://fantasy.premierleague.com/api/entry/{team_id}/event/{gameweek}/picks/"
+    if isinstance(free_transfers, bool) or not isinstance(free_transfers, int) or not 0 <= free_transfers <= 5:\n        raise CaptureError("free_transfers must be an integer from 0 to 5")\n    if personal_risk_profile not in {"conservative", "balanced", "aggressive"}:\n        raise CaptureError("personal_risk_profile must be conservative, balanced, or aggressive")\n    if formation not in {"3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-2-3", "5-3-2", "5-4-1"}:\n        raise CaptureError("formation is not a supported FPL formation")\n\n    url = f"https://fantasy.premierleague.com/api/entry/{team_id}/event/{gameweek}/picks/"
     raw = fetch(url)
     captured_at = utc_now()
     try:
