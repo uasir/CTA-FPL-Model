@@ -424,13 +424,30 @@ def _set_official_recommended_plan(batch):
     archive["raw_sha256"] = hashlib.sha256(raw).hexdigest()
 
 
+def _replay_report(recommendation):
+    candidate = recommendation["evaluation_candidate"]
+    return {
+        "status": "PASSED",
+        "replay_type": "DETERMINISTIC_RAW_AND_CANONICAL_INPUT_REEXECUTION",
+        "manager_team_id": recommendation["manager_team_id"],
+        "target_gameweek": recommendation["target_gameweek"],
+        "software_commit": candidate["software_commit"],
+        "decision_sha256": recommendation["frozen_decision"]["decision_sha256"],
+        "replayed_payload_sha256": "e" * 64,
+        "recommendation_match": True,
+        "frozen_decision_match": True,
+        "raw_archive_hashes_verified": True,
+        "release_eligible": False,
+    }
+
+
 def test_audits_frozen_recommendation_when_manager_executes_it():
     batch = _batch()
     manifests = _decision_manifest_with_attested_manager_state(batch)
     manifest = manifests["5"]
     recommendation = _frozen_recommendation(manifest)
     _set_official_recommended_plan(batch)
-    result = audit_batch(batch, manifests, recommendation)
+    result = audit_batch(batch, manifests, recommendation, _replay_report(recommendation))
     verified = result["events"][0]["predeadline_recommendation"]
     assert verified["status"] == "VERIFIED"
     assert verified["action"] == "TRANSFER"
@@ -445,6 +462,34 @@ def test_audits_frozen_recommendation_when_manager_holds_instead():
     verified = result["events"][0]["predeadline_recommendation"]
     assert verified["status"] == "VERIFIED"
     assert verified["execution_match"] == "HOLD_BASELINE_MATCHED"
+
+
+def test_rejects_recommendation_without_independent_replay_report():
+    batch = _batch()
+    manifests = _decision_manifest_with_attested_manager_state(batch)
+    recommendation = _frozen_recommendation(manifests["5"])
+    with pytest.raises(BatchAuditError, match="requires an independent replay report"):
+        audit_batch(batch, manifests, recommendation)
+
+
+def test_rejects_replay_report_bound_to_different_software_commit():
+    batch = _batch()
+    manifests = _decision_manifest_with_attested_manager_state(batch)
+    recommendation = _frozen_recommendation(manifests["5"])
+    replay = _replay_report(recommendation)
+    replay["software_commit"] = "b" * 40
+    with pytest.raises(BatchAuditError, match="replay report failed"):
+        audit_batch(batch, manifests, recommendation, replay)
+
+
+def test_rejects_replay_report_with_wrong_decision_hash():
+    batch = _batch()
+    manifests = _decision_manifest_with_attested_manager_state(batch)
+    recommendation = _frozen_recommendation(manifests["5"])
+    replay = _replay_report(recommendation)
+    replay["decision_sha256"] = "f" * 64
+    with pytest.raises(BatchAuditError, match="replay report failed"):
+        audit_batch(batch, manifests, recommendation, replay)
 
 
 def test_rejects_recommendation_with_changed_frozen_decision_hash():
