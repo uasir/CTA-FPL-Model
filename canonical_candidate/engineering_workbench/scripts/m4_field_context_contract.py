@@ -17,7 +17,9 @@ class FieldContextContractError(ValueError):
 
 
 CONTRACT_VERSION = "1.0.0"
-REQUIRED_EO_FIELDS = ("owned_by_pct", "effective_ownership_pct")
+OPTIONAL_EO_FIELDS = ("owned_by_pct", "effective_ownership_pct", "starting_pct",
+                     "captain_pct", "triple_captain_pct", "scoring_exposure_pct",
+                     "effective_ownership_ci_low", "effective_ownership_ci_high")
 
 
 def _time(value: Any, label: str) -> datetime:
@@ -104,13 +106,13 @@ def validate_field_context(snapshot: Mapping[str, Any], rows: list[Mapping[str, 
         if not player_id or player_id in by_id:
             raise FieldContextContractError("EO rows contain a missing or duplicate player ID")
         normalized = dict(row)
-        for field in REQUIRED_EO_FIELDS:
-            _finite_nonnegative(row.get(field), f"{player_id}.{field}")
-        for field in ("starting_pct", "captain_pct", "triple_captain_pct",
-                      "scoring_exposure_pct", "effective_ownership_ci_low",
-                      "effective_ownership_ci_high"):
-            if row.get(field) not in (None, ""):
+        for field in OPTIONAL_EO_FIELDS:
+            if field not in row:
+                raise FieldContextContractError(f"{player_id}.{field} key is required; use null when unavailable")
+            if row[field] not in (None, ""):
                 _finite_nonnegative(row[field], f"{player_id}.{field}")
+            else:
+                normalized[field] = None
         by_id[player_id] = normalized
 
     covered_ids = set(str(value) for value in coverage.get("covered_player_ids", []))
