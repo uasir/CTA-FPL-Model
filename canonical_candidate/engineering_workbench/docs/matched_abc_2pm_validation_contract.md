@@ -118,8 +118,8 @@ The matched evaluator outputs are accompanied by runner-local player–Gameweek 
 - Requires exact prediction-key equality with every manifest test key, fold by fold.
 - Rechecks fold IDs, test-key hashes and actual points across ABC and 2PM.
 - Compares ABC calibrated output with 2PM affine-calibrated output as the primary head-to-head; raw forecasts and the shared FPL-history reference are secondary diagnostics.
-- Reports MAE, RMSE, error tails, and deadline-local ranking (Spearman, top-100 selected mean, lift and regret).
-- Uses paired player-season cluster bootstrap intervals for point-error deltas and paired test-deadline bootstrap intervals for ranking deltas.
+- Reports MAE, RMSE, error tails, and deadline-local ranking (Spearman, top-10 selection and top-quintile selection, lift and regret).
+- Uses paired player-season cluster bootstrap intervals for point-error deltas and paired test-deadline bootstrap intervals for ranking deltas. The top-10 cutoff avoids the degenerate case where a top-100 selection contains the entire restricted historical identity cohort.
 - Marks deadline uncertainty as descriptive because this historical experiment contains only one season.
 
 The comparison JSON is aggregate-only and is eligible for upload. A result is accepted only if the script exits successfully after exact key and actual-point checks. It does not compare ABC against the previous nine-season 2PM aggregate report.
