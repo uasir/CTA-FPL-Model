@@ -84,6 +84,11 @@ class TestM4CovarScenarioScoring(unittest.TestCase):
             low_eo["baseline_comparison"]["expected_points_difference"], -2.0
         )
         self.assertEqual(doc["players"][1]["effective_ownership_pct"], 8)
+        # Marginal EO does not create a manager-level field portfolio or relative-score claim.
+        self.assertEqual(
+            result["field_comparison_status"],
+            "NOT_AVAILABLE_NO_EXPLICIT_FIELD_PORTFOLIO",
+        )
 
     def test_rejects_unknown_mode(self):
         doc = fixture()
