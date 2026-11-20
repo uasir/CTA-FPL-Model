@@ -64,7 +64,7 @@ The evidence subtasks are additional implementation work that closes the origina
 
 ## 6. CoVar manager-level field portfolio bridge
 
-Implemented on the M4 CoVar branch: the existing pre-deadline rank-stratified capture now emits a separate manager-ID-stripped 15-player portfolio sample with captaincy, Triple Captain multiplier, rank-page stratum and normalized expansion weights. The artifact is SHA-256-bound to the capture report and uploaded separately with 7-day retention; it is not committed to the repository. Entry IDs and exact ranks are discarded, but distinctive squad combinations may remain identifying, so the artifact is restricted manager-level data.
+Implemented on the M4 CoVar branch: the existing pre-deadline rank-stratified capture now emits a separate manager-ID-stripped 15-player portfolio sample with captaincy, Triple Captain multiplier, rank-page stratum and normalized expansion weights. The artifact is SHA-256-bound to the capture report and can only be exported with an explicit local output path; the normal public Actions workflow never writes or uploads it. Entry IDs and exact ranks are discarded, but distinctive squad combinations may remain identifying, so any local artifact is restricted manager-level data and must not be committed or uploaded.
 
 The adapter projects each sampled portfolio onto an explicit fixture player universe, renormalizes weights for any selected rank strata, and retains managers with no relevant fixture players as zero-point field slices. This preserves observed within-manager co-occurrence; it does not reconstruct joint portfolios from marginal EO.
 
