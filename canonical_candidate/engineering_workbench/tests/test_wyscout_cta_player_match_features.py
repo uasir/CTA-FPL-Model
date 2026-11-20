@@ -145,6 +145,7 @@ def test_wyscout_goal_and_own_goal_tags_reconcile_to_match_score():
     assert report["goal_reconciliation"]["player_attributed_goal_total"] == 3
     assert report["goal_reconciliation"]["player_attributed_minus_metadata_goal_delta"] == 0
     assert report["goal_reconciliation"]["status"] == "PASS_EXACT"
+    assert report["goal_reconciliation"]["mismatched_match_count"] == 0
 
 
 def test_wyscout_player_match_captures_defensive_actions_by_event_subtype():
@@ -186,3 +187,47 @@ def test_wyscout_player_match_captures_defensive_actions_by_event_subtype():
     assert row["clearance_events"] == 1
     assert row["foul_events"] == 1
     assert row["interception_events"] == 1
+
+
+
+def test_wyscout_goal_reconciliation_identifies_match_level_missing_goal():
+    events = [
+        {
+            "id": 1, "matchId": 10, "playerId": 100, "teamId": 1,
+            "eventName": "Shot", "subEventName": "Shot",
+            "positions": [{"x": 90, "y": 50}], "tags": [{"id": 101}],
+        },
+        {
+            "id": 2, "matchId": 11, "playerId": 101, "teamId": 1,
+            "eventName": "Save attempt", "subEventName": "Save attempt",
+            "positions": [{"x": 10, "y": 50}], "tags": [{"id": 101}],
+        },
+    ]
+    matches = [
+        {
+            "wyId": 10, "dateutc": "2018-04-01 15:00:00",
+            "teamsData": {
+                "1": {"teamId": 1, "side": "home", "score": 1},
+                "2": {"teamId": 2, "side": "away", "score": 0},
+            },
+        },
+        {
+            "wyId": 11, "dateutc": "2018-04-02 15:00:00",
+            "teamsData": {
+                "1": {"teamId": 1, "side": "home", "score": 1},
+                "2": {"teamId": 2, "side": "away", "score": 0},
+            },
+        },
+    ]
+    _, report = build_player_match_features(
+        events, matches,
+        [{"wyId": 100, "shortName": "Scorer"}, {"wyId": 101, "shortName": "Goalkeeper"}],
+        [{"wyId": 1, "name": "Home FC"}, {"wyId": 2, "name": "Away FC"}],
+    )
+    reconciliation = report["goal_reconciliation"]
+    assert reconciliation["match_metadata_goals"] == 2
+    assert reconciliation["player_attributed_goal_total"] == 1
+    assert reconciliation["mismatched_match_count"] == 1
+    assert reconciliation["mismatched_matches"][0]["match_id"] == "11"
+    assert reconciliation["mismatched_matches"][0]["delta"] == -1
+    assert reconciliation["status"] == "REVIEW_REQUIRED"
