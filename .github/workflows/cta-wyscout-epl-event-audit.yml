@@ -17,6 +17,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/verify_cross_provider_fpl_identity.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_vaastav_fpl_multiseason_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_vaastav_fpl_multiseason_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_abc_expected_fixture_universe.py
       - canonical_candidate/engineering_workbench/scripts/aggregate_abc_player_gameweeks.py
       - canonical_candidate/engineering_workbench/tests/test_build_abc_expected_fixture_universe.py
@@ -64,6 +66,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_vaastav_fpl_multiseason_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_vaastav_fpl_multiseason_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_abc_expected_fixture_universe.py
       - canonical_candidate/engineering_workbench/scripts/aggregate_abc_player_gameweeks.py
       - canonical_candidate/engineering_workbench/tests/test_build_abc_expected_fixture_universe.py
