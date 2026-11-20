@@ -58,6 +58,16 @@ class TestM4CovarFplEventScoring(unittest.TestCase):
         })
         self.assertEqual(result["fpl_points"], 1)
 
+    def test_outfield_player_can_score_saves_when_taking_goalkeeping_duties(self):
+        result = calculate_fpl_points_2026_27("MID", {
+            "minutes": 90, "goals": 0, "assists": 0, "clean_sheet": True,
+            "goals_conceded_while_on_pitch": 0, "goalkeeping_duties": True,
+            "saves": 3, "penalty_saves": 0,
+        })
+        self.assertEqual(result["point_breakdown"]["saves"], 1)
+        self.assertEqual(result["point_breakdown"]["clean_sheet"], 1)
+        self.assertEqual(result["fpl_points"], 4)
+
     def test_rejects_non_goalkeeper_save_events(self):
         with self.assertRaisesRegex(CovarEventScoringError, "only scored for GK"):
             calculate_fpl_points_2026_27("MID", {
