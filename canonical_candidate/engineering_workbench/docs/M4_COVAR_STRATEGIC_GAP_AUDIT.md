@@ -49,11 +49,13 @@ Current M4 compares a frozen candidate's exposure to the field; it does not comp
 
 **Required:** compare like-for-like legal portfolios under identical budgets and point-in-time inputs. Keep projected points, field EO and simulated outcome distributions as separate quantities. Report EV difference and changes in probability of beating the chosen field cohort.
 
-### G4 — Cohort-specific field comparison
+### G4 — Cohort-specific field comparison (Free Hit optional)
 
 The pre-deadline pipeline currently documents a top-10,000 rank-stratified sample. It does not classify Free Hit users versus non-Free Hit users for CoVar evaluation.
 
-**Required:** support a cohort identifier and sample metadata in the scenario comparison contract. Free Hit/non-Free Hit segmentation is optional and must be withheld when reliable chip-use cohort data are unavailable.
+**Default requirement:** regular-GW CoVar must work with the existing overall/rank-stratified field cohort and must not depend on chip-use classification.
+
+**Optional extension:** when the user explicitly activates Free Hit and reliable chip-use cohort data are available, support Free Hit users, non-Free Hit users and the combined overall field. If chip-use classification is unavailable, disclose the limitation and use only the available, clearly labelled field benchmark.
 
 ### G5 — Objective and risk profile
 
@@ -63,7 +65,7 @@ The current gate measures evidence readiness, not whether a strategy suits a ran
 
 ## 4. Smallest useful prototype — proposed scope
 
-Build a deterministic, synthetic one-fixture research prototype before attempting a full-season model. It should compare a small set of explicitly supplied portfolios, not optimize a full 15-player squad.
+Build a deterministic, synthetic one-fixture research prototype before attempting a full-season model. Regular-GW mode is the default. It should compare a small set of explicitly supplied portfolios, not optimize a full 15-player squad. Free Hit-specific behavior is out of scope for this first prototype and may be added later as an optional mode.
 
 ### Inputs
 
@@ -97,6 +99,7 @@ All probabilities and player assumptions must be supplied as fixture inputs; the
 ### Explicit exclusions
 
 - No live recommendations or transfer optimization.
+- No assumption that the user is using Free Hit; regular-GW mode is the default unless chip activation is explicitly supplied.
 - No production data inference from synthetic examples.
 - No personal team/rank/bank/transfer state in squad-independent market rankings.
 - No alteration to M3 EV, frozen decisions, legality or decision hashes.
@@ -113,7 +116,7 @@ Created:
 
 The versioned v1.0.0 contract validates fixture identity and deadline timing, team/player identities, explicit player outcomes, team-score consistency, scenario probabilities, portfolio membership and captaincy. It accepts only `SYNTHETIC_FIXTURE_ONLY` inputs. It preserves negative player point totals where scoring deductions apply, and returns hard-coded `decision_weight = 0.0` and `production_eligible = false`.
 
-This is an input contract, not yet an FPL event-scoring engine or portfolio simulator. The next task is to implement deterministic scenario scoring and portfolio comparison using these validated inputs. Do not build a live-data adapter until synthetic mechanics and tests are stable.
+This is an input contract, not yet an FPL event-scoring engine or portfolio simulator. The next task is to implement deterministic scenario scoring and portfolio comparison using these validated inputs, with regular-GW mode as the default. The contract and first engine must not require Free Hit classification. Do not build a live-data adapter until synthetic mechanics and tests are stable.
 
 The prototype should demonstrate mechanics and EV opportunity-cost reporting, not claim predictive validity. Predictive validation remains a later, independent task.
 
