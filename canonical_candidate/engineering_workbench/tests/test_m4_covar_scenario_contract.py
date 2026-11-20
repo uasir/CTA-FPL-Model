@@ -112,6 +112,23 @@ class TestM4CovarScenarioContract(unittest.TestCase):
         result = validate_scenario_document(doc)
         self.assertEqual(result["validation_status"], "VALID_SYNTHETIC_RESEARCH_INPUT")
 
+    def test_allows_clean_sheet_when_player_was_substituted_before_concession(self):
+        doc = fixture()
+        doc["scenarios"][0]["team_states"][0]["goals_against"] = 1
+        player = doc["scenarios"][0]["player_outcomes"][0]
+        player["minutes"] = 70
+        player["goals_conceded_while_on_pitch"] = 0
+        result = validate_scenario_document(doc)
+        self.assertEqual(result["validation_status"], "VALID_SYNTHETIC_RESEARCH_INPUT")
+
+    def test_rejects_clean_sheet_if_player_conceded_while_on_pitch(self):
+        doc = fixture()
+        player = doc["scenarios"][0]["player_outcomes"][0]
+        player["goals_conceded_while_on_pitch"] = 1
+        doc["scenarios"][0]["team_states"][0]["goals_against"] = 1
+        with self.assertRaisesRegex(CovarScenarioContractError, "inconsistent clean-sheet"):
+            validate_scenario_document(doc)
+
     def test_rejects_goal_allocation_above_team_goals(self):
         doc = fixture()
         doc["scenarios"][0]["player_outcomes"][0]["goals"] = 3
