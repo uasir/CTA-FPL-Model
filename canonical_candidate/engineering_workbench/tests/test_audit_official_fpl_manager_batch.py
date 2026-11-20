@@ -234,7 +234,15 @@ def _decision_manifest_with_attested_manager_state(batch):
     metadata["raw_payload_base64"] = base64.b64encode(metadata_raw).decode()
     metadata["raw_sha256"] = hashlib.sha256(metadata_raw).hexdigest()
     metadata["source_url"] = "https://fantasy.premierleague.com/api/bootstrap-static/"
-    return {"5": {"sources": sources}}
+    manifest = {
+        "target_gameweek": gw,
+        "deadline_utc": "2026-10-01T11:00:00Z",
+        "decision_as_of_utc": captured,
+        "evidence_is_point_in_time": True,
+        "manager_state": state,
+        "sources": sources,
+    }
+    return {"5": manifest}
 
 
 def _encoded_archive(value):
@@ -275,3 +283,166 @@ def test_rejects_manager_price_reconstruction_from_different_bootstrap_snapshot(
     metadata["raw_sha256"] = hashlib.sha256(raw).hexdigest()
     with pytest.raises(BatchAuditError, match="bootstrap differs"):
         audit_batch(batch, manifests)
+
+
+def _frozen_recommendation(manifest):
+    state = manifest["manager_state"]
+    squad = state["squad_15"]
+    position_by_id = {
+        1: "GKP", 2: "DEF", 3: "DEF", 4: "DEF", 5: "DEF",
+        6: "MID", 7: "MID", 8: "MID", 9: "FWD", 10: "FWD",
+        11: "FWD", 12: "GKP", 13: "DEF", 14: "MID", 15: "FWD",
+    }
+    roster = [
+        {"fpl_element_id": player_id, "position": position_by_id[player_id],
+         "team_id": player_id, "purchase_price": state["purchase_prices"][str(player_id)],
+         "current_price": 5.0}
+        for player_id in squad
+    ]
+    frozen_body = {
+        "action": "TRANSFER",
+        "transfer_out_id": 15,
+        "transfer_in_id": 16,
+        "incoming_player": {
+            "fpl_element_id": 16, "position": "FWD", "team_id": 16,
+            "purchase_price": 5.0, "current_price": 5.0,
+        },
+        "transfer_hit_points": 0,
+        "squad_plan": {
+            "squad_ids": list(range(1, 15)) + [16],
+            "starting_xi": list(range(1, 11)) + [16],
+            "bench_order": [13, 14, 11],
+            "reserve_goalkeeper_id": 12,
+            "captain_id": 10,
+            "vice_captain_id": 9,
+            "formation": "4-3-3",
+        },
+    }
+    frozen = {
+        **frozen_body,
+        "decision_sha256": hashlib.sha256(
+            json.dumps(frozen_body, sort_keys=True, separators=(",", ":"),
+                       allow_nan=False).encode()
+        ).hexdigest(),
+    }
+    source_map = {
+        "provider_forecast": "provider",
+        "player_metadata": "player_metadata",
+        "manager_deadline_state": "manager_state",
+    }
+    candidate_sources = []
+    for manifest_type, candidate_type in source_map.items():
+        source = next(row for row in manifest["sources"]
+                      if row["source_type"] == manifest_type)
+        candidate_sources.append({
+            "source_type": candidate_type,
+            "source_url": source["source_url"],
+            "raw_snapshot_id": source["raw_snapshot_id"],
+            "raw_sha256": source["raw_sha256"],
+            "captured_at_utc": source["captured_at_utc"],
+            "raw_payload_base64": source["raw_payload_base64"],
+            **({"generated_at_utc": source["generated_at_utc"]}
+               if manifest_type == "provider_forecast" else {}),
+        })
+    hold_plan = {
+        "squad_ids": sorted(squad),
+        "starting_xi": list(state["starting_xi"]),
+        "bench_order": list(state["bench_order"]),
+        "reserve_goalkeeper_id": state["reserve_goalkeeper_id"],
+        "captain_id": state["captain_id"],
+        "vice_captain_id": state["vice_captain_id"],
+        "formation": state["formation"],
+    }
+    candidate = {
+        "evidence_class": "REAL_CANDIDATE",
+        "manager_team_id": 421025,
+        "target_gameweek": 5,
+        "deadline_utc": manifest["deadline_utc"],
+        "as_of_utc": manifest["decision_as_of_utc"],
+        "season": "2026-27",
+        "provider_snapshot_id": "fplcat-gw5-test",
+        "provider_identity": {"name": "FPL Cat"},
+        "decision_contract_version": "1.0.0",
+        "software_commit": "a" * 40,
+        "source_archives": candidate_sources,
+        "manager_state": {
+            "squad_snapshot": roster,
+            "bank": state["bank"],
+            "free_transfers": state["free_transfers"],
+            "personal_risk_profile": "aggressive",
+            "formation": state["formation"],
+            "chip": "NONE",
+            "hold_plan": hold_plan,
+        },
+        "frozen_decision": frozen,
+        "evaluation_status": "AWAITING_FINALIZED_OFFICIAL_POINTS_AND_ADMISSION",
+    }
+    return {
+        "manager_team_id": 421025,
+        "target_gameweek": 5,
+        "decision_as_of_utc": manifest["decision_as_of_utc"],
+        "deadline_utc": manifest["deadline_utc"],
+        "recommendation_status": "EXPLORATORY_ONLY",
+        "release_eligible": False,
+        "frozen_decision": frozen,
+        "evaluation_candidate": candidate,
+    }
+
+
+def _set_official_recommended_plan(batch):
+    record = batch["results"][0]["result"]
+    archive = next(row for row in record["source_archives"]
+                   if row["source_type"] == "manager_picks")
+    types = {
+        1: 1, 2: 2, 3: 2, 4: 2, 5: 2,
+        6: 3, 7: 3, 8: 3, 9: 4, 10: 4, 11: 4,
+        12: 1, 13: 2, 14: 3, 16: 4,
+    }
+    ids_by_position = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 12, 13, 14, 11]
+    official = {
+        "active_chip": None,
+        "automatic_subs": [],
+        "entry_history": {"event": 5, "bank": 9},
+        "picks": [
+            {"element": player_id, "position": position,
+             "element_type": types[player_id],
+             "is_captain": player_id == 10,
+             "is_vice_captain": player_id == 9}
+            for position, player_id in enumerate(ids_by_position, 1)
+        ],
+    }
+    raw = json.dumps(official).encode()
+    archive["raw_payload_base64"] = base64.b64encode(raw).decode()
+    archive["raw_sha256"] = hashlib.sha256(raw).hexdigest()
+
+
+def test_audits_frozen_recommendation_when_manager_executes_it():
+    batch = _batch()
+    manifests = _decision_manifest_with_attested_manager_state(batch)
+    manifest = manifests["5"]
+    recommendation = _frozen_recommendation(manifest)
+    _set_official_recommended_plan(batch)
+    result = audit_batch(batch, manifests, recommendation)
+    verified = result["events"][0]["predeadline_recommendation"]
+    assert verified["status"] == "VERIFIED"
+    assert verified["action"] == "TRANSFER"
+    assert verified["execution_match"] == "RECOMMENDATION_MATCHED"
+
+
+def test_audits_frozen_recommendation_when_manager_holds_instead():
+    batch = _batch()
+    manifests = _decision_manifest_with_attested_manager_state(batch)
+    recommendation = _frozen_recommendation(manifests["5"])
+    result = audit_batch(batch, manifests, recommendation)
+    verified = result["events"][0]["predeadline_recommendation"]
+    assert verified["status"] == "VERIFIED"
+    assert verified["execution_match"] == "HOLD_BASELINE_MATCHED"
+
+
+def test_rejects_recommendation_with_changed_frozen_decision_hash():
+    batch = _batch()
+    manifests = _decision_manifest_with_attested_manager_state(batch)
+    recommendation = _frozen_recommendation(manifests["5"])
+    recommendation["frozen_decision"]["transfer_out_id"] = 14
+    with pytest.raises(BatchAuditError, match="decision hash mismatch"):
+        audit_batch(batch, manifests, recommendation)
