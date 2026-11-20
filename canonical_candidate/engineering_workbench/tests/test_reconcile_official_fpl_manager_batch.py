@@ -49,3 +49,15 @@ def test_batch_rejects_duplicate_or_empty_gameweek_lists():
         reconcile_batch(421025, [1, 1], lambda *_: {})
     with pytest.raises(ValueError, match="unique positive"):
         reconcile_batch(421025, [], lambda *_: {})
+
+
+def test_batch_retains_diagnostic_record_for_failed_real_gameweek():
+    diagnostic = {"target_gameweek": 5, "source_archives": [{"raw_sha256": "abc"}]}
+    def capture(_manager, _gw):
+        exc = RuntimeError("autosub mismatch")
+        exc.diagnostic_record = diagnostic
+        raise exc
+
+    result = reconcile_batch(421025, [5], capture)
+    assert result["excluded_count"] == 1
+    assert result["results"][0]["diagnostic_record"] == diagnostic
