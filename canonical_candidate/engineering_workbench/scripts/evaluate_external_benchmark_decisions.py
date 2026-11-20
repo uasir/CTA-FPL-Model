@@ -221,22 +221,27 @@ def _validate_plan(plan: Any, roster_by_id: Mapping[int, Mapping[str, Any]], nam
     }
 
 
+def _played(row: Mapping[str, Any]) -> bool:
+    # FPL counts a player as having played if they appeared or received a card.
+    return row["minutes"] > 0 or row["yellow_cards"] > 0 or row["red_cards"] > 0
+
+
 def _score_plan(plan: Mapping[str, Any], roster_by_id: Mapping[int, Mapping[str, Any]],
                 realised: Mapping[int, Mapping[str, Any]]) -> dict[str, Any]:
     xi = list(plan["starting_xi"])
     on_pitch = list(xi)
-    absent = [player_id for player_id in xi if realised[player_id]["minutes"] == 0]
+    absent = [player_id for player_id in xi if not _played(realised[player_id])]
     starting_gk = next(player_id for player_id in xi if roster_by_id[player_id]["position"] == "GKP")
     if starting_gk in absent:
         reserve_gk = plan["reserve_goalkeeper_id"]
-        if realised[reserve_gk]["minutes"] > 0:
+        if _played(realised[reserve_gk]):
             on_pitch[on_pitch.index(starting_gk)] = reserve_gk
         absent.remove(starting_gk)
 
     substitutions: list[dict[str, int]] = []
     outfield_absent = [player_id for player_id in absent if roster_by_id[player_id]["position"] != "GKP"]
     for bench_id in plan["bench_order"]:
-        if realised[bench_id]["minutes"] <= 0 or not outfield_absent:
+        if not _played(realised[bench_id]) or not outfield_absent:
             continue
         bench_position = roster_by_id[bench_id]["position"]
         chosen = None
@@ -257,8 +262,8 @@ def _score_plan(plan: Mapping[str, Any], roster_by_id: Mapping[int, Mapping[str,
     gross = sum(realised[player_id]["total_points"] for player_id in on_pitch)
     captain_id = plan["captain_id"]
     vice_id = plan["vice_captain_id"]
-    effective_captain = captain_id if realised[captain_id]["minutes"] > 0 else (
-        vice_id if realised[vice_id]["minutes"] > 0 else None
+    effective_captain = captain_id if _played(realised[captain_id]) else (
+        vice_id if _played(realised[vice_id]) else None
     )
     captain_bonus = realised[effective_captain]["total_points"] if effective_captain is not None else 0.0
     return {
