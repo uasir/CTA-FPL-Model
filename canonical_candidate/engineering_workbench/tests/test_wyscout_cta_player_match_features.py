@@ -257,6 +257,7 @@ def test_manual_goal_correction_preserves_raw_values_and_reconciles_explicitly()
     corrections = [{
         "provider_match_id": "10",
         "provider_player_id": "100",
+        "provider_team_id": "1",
         "goals_delta": "1",
         "shot_attempts_delta": "0",
         "accurate_shot_attempts_delta": "1",
@@ -301,7 +302,7 @@ def test_manual_goal_correction_cannot_be_applied_to_an_already_exact_match():
         },
     }]
     corrections = [{
-        "provider_match_id": "10", "provider_player_id": "100",
+        "provider_match_id": "10", "provider_player_id": "100", "provider_team_id": "1",
         "goals_delta": "1", "source_name": "Official match report",
         "source_url": "https://example.com/match-report", "reason": "test",
     }]
