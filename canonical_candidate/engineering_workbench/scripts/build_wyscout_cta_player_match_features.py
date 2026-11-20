@@ -123,7 +123,7 @@ def _match_context(matches, teams):
 def apply_manual_corrections(rows, corrections):
     allowed_fields = ("goals", "shot_attempts", "accurate_shot_attempts")
     rows_by_key = {
-        (str(row["provider_match_id"]), str(row["provider_player_id"])): row
+        (str(row["provider_match_id"]), str(row["provider_player_id"]), str(row["provider_team_id"])): row
         for row in rows
     }
     if len(rows_by_key) != len(rows):
@@ -136,10 +136,13 @@ def apply_manual_corrections(rows, corrections):
     seen = set()
     applied = []
     for correction in corrections or []:
-        key = (str(correction.get("provider_match_id", "")).strip(),
-               str(correction.get("provider_player_id", "")).strip())
+        key = (
+            str(correction.get("provider_match_id", "")).strip(),
+            str(correction.get("provider_player_id", "")).strip(),
+            str(correction.get("provider_team_id", "")).strip(),
+        )
         if not all(key):
-            raise ValueError("Manual correction requires provider_match_id and provider_player_id")
+            raise ValueError("Manual correction requires provider_match_id, provider_player_id and provider_team_id")
         if key in seen:
             raise ValueError(f"Duplicate manual correction for match/player {key}")
         seen.add(key)
@@ -172,6 +175,7 @@ def apply_manual_corrections(rows, corrections):
         applied.append({
             "provider_match_id": key[0],
             "provider_player_id": key[1],
+            "provider_team_id": key[2],
             "field_deltas": deltas,
             "source_name": source_name,
             "source_url": source_url,
