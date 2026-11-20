@@ -122,6 +122,24 @@ The user's baseline selection is 4-3-3: starters Rushworth; Konsa, Calafiori, De
 This is a user-confirmed current squad/lineup snapshot, not a claim that the pre-deadline official GW11 picks endpoint is accessible. The workflow's expected 15 FPL element IDs already match this confirmation. Prior-GW picks and transfer history may supply purchase-price evidence only; they do not override the user-confirmed current squad. The engine's recommended XI, bench and captaincy remain decision outputs and must not be confused with this baseline selection. No recommendation is released by recording this input.
 
 
+
+### M3.3e — First live decision run and post-transfer squad-plan correction
+
+Live workflow run [44764165317](https://github.com/uasir/CTA-FPL-Model/actions/runs/44764165317) completed successfully before the GW11 deadline:
+- FPL Cat snapshot: 672 forecast rows and 672 official FPL metadata rows; provider generation 2026-11-20T15:25:07.256Z, capture 2026-11-20T15:31:50.686Z, deadline 2026-11-21T11:00:00Z.
+- Manager context: 15 rows; user-confirmed GW11 IDs exactly matched the official GW10 picks IDs. The GW10 picks response contained no purchase_price fields, so the implementation correctly used the season-history reconstruction path instead of treating GW10 as price evidence.
+- Purchase-price reconstruction: the current squad's 15 costs were populated from official transfer-in costs where available and season-start costs for initial holdings; Free Hit GW9 transfers were excluded. The archived manager source bundle decoded successfully and its SHA-256 matched the recorded hash.
+- Decision input assembled and one conventional FPL Cat personal-squad run completed. The output remains exploratory-only and release-ineligible.
+
+The first output exposed an integration defect: the transfer optimiser selected a transfer but the returned squad plan still described the pre-transfer 15-player squad. In this live run it recommended Callum Olusesi (524) out for Diego Gómez (127), but the original bench still contained Olusesi. The output was therefore not coherent enough to deliver as an actionable recommendation.
+
+The Python and JavaScript personal-squad engines have now been corrected in commit series ending at [689fe6b](https://github.com/uasir/CTA-FPL-Model/commit/689fe6be180631576a4039514d466390bca8b89d). Outputs now preserve `current_squad_plan` as the pre-transfer baseline and set `squad_plan` to a re-optimised legal plan for the post-transfer 15-player squad when action is TRANSFER. HOLD retains the current squad plan. A regression test asserts the outgoing player is absent and incoming player present in the recommended plan.
+
+**CI verification:** [run 44764930307](https://github.com/uasir/CTA-FPL-Model/actions/runs/44764930307) passed: 39 JavaScript tests, 302 Python engineering tests, 3 subtests, and all four identity crosswalk checks.
+
+A fresh live workflow execution is still required to generate the corrected post-transfer recommendation artifact. No recommendation is released until the updated live output and remaining M3 acceptance gates are checked.
+
+
 ## 4. M3 work packages
 
 ### M3.1 — Provider-neutral forecast contract
