@@ -44,8 +44,8 @@ def test_reference_fixture_universe_normalizes_season_and_matches_targets():
 
 def test_missing_abc_double_gameweek_fixture_excludes_only_that_player_gameweek():
     expected, report = build_expected_fixture_rows(
-        [abc("101")],
-        [fpl("101"), fpl("102", "5", "75")],
+        [abc("101"), {**abc("201"), "fpl_element_id": "20"}],
+        [fpl("101"), fpl("102", "5", "75"), {**fpl("201"), "fpl_element_id": "20"}],
     )
     assert report["status"] == "PASS_WITH_EXCLUSIONS"
     assert report["mismatch_reason_counts"]["ABC_FIXTURE_MISSING"] == 1
@@ -56,8 +56,8 @@ def test_missing_abc_double_gameweek_fixture_excludes_only_that_player_gameweek(
 
 def test_target_mismatch_excludes_only_that_player_gameweek():
     expected, report = build_expected_fixture_rows(
-        [abc("101", "3", "90")],
-        [fpl("101", "4", "90")],
+        [abc("101", "3", "90"), {**abc("201"), "fpl_element_id": "20"}],
+        [fpl("101", "4", "90"), {**fpl("201"), "fpl_element_id": "20"}],
     )
     assert report["status"] == "PASS_WITH_EXCLUSIONS"
     assert report["mismatch_reason_counts"]["TARGET_MISMATCH"] == 1
@@ -66,8 +66,8 @@ def test_target_mismatch_excludes_only_that_player_gameweek():
 
 def test_abc_fixture_absent_from_fpl_reference_excludes_only_that_player_gameweek():
     expected, report = build_expected_fixture_rows(
-        [abc("101"), abc("102", "5", "75")],
-        [fpl("101")],
+        [abc("101"), abc("102", "5", "75"), {**abc("201"), "fpl_element_id": "20"}],
+        [fpl("101"), {**fpl("201"), "fpl_element_id": "20"}],
     )
     assert report["status"] == "PASS_WITH_EXCLUSIONS"
     assert report["mismatch_reason_counts"]["FPL_REFERENCE_FIXTURE_MISSING"] == 1
