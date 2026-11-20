@@ -131,7 +131,7 @@ A separate deterministic transition module is now implemented in scripts/transit
 - Wildcard/Free Hit preservation of banked free transfers, permanent Wildcard changes and Free Hit squad/bank restoration;
 - two-half chip inventory, including the GW19/GW20 consecutive Free Hit restriction.
 
-Engineering CI passed **443 tests, 1 skipped, 3 subtests** in [run 44657153882](https://github.com/uasir/CTA-FPL-Model/actions/runs/44657153882). The module is a single state-transition primitive, not yet a multi-Gameweek policy runner or integrated scorer. It still requires consecutive official-history parity checks for bank, selling prices, free transfers, transfers and chips before sequential decision-value results can be trusted.
+Engineering CI passed **450 tests, 1 skipped, 3 subtests** in [run 44658968955](https://github.com/uasir/CTA-FPL-Model/actions/runs/44658968955). The state-transition primitive now persists lineups, restores the original lineup after Free Hit, and supports terminal Gameweeks without synthetic next deadlines.
 
 The sequential architecture deliberately diverges policy states after a common initial state: hold, conventional and CTA-informed each carry forward their own squad, bank, free transfers and chip inventory. Reusing the actual manager's later squad for every policy would be one-step evaluation, not sequential policy evaluation.
 
@@ -160,3 +160,20 @@ Additional diagnostics:
 - Free-transfer counts at the GW11 starting state: 25 managers with 1, 32 with 2, 17 with 3, 6 with 4, and 14 with 5.
 - One state has a temporary over-three-club warning; it is preserved for review.
 - The 94 states passed individual validation, but the full 100-manager wave is marked incomplete. Do not report an overall weighted policy result as representative until missingness is resolved or explicitly bounded.
+
+
+## Sequential paired policy runner — 2026-11-20
+
+A separate runner is now implemented in scripts/replay_fpl_policy_trajectories.py, with its contract in docs/FPL_SEQUENTIAL_POLICY_REPLAY_CONTRACT.md. It executes hold, conventional and CTA-informed policies from the same initial state, then carries each policy's own squad, bank, free transfers, chips and lineup forward independently.
+
+The runner:
+- verifies per-policy starting-state SHA-256 hashes and forecast/decision timestamps before each deadline;
+- enforces Hold as a true no-op (no transfers, no chip, no lineup/captain/bench changes);
+- applies transfers/chips through the state-transition engine and scores each Gameweek through the validated one-Gameweek scorer;
+- supports a terminal final Gameweek without inventing a future deadline;
+- produces paired cumulative net-point deltas against Hold;
+- preserves original panel design weights and labels incomplete results CAPTURED_SUBSET_ONLY rather than renormalizing missing managers into a population claim.
+
+The runner and terminal/lineup transition tests pass in [engineering CI run 44658968955](https://github.com/uasir/CTA-FPL-Model/actions/runs/44658968955): **450 passed, 1 skipped, 3 subtests**.
+
+**Important boundary:** no real conventional or CTA-informed action bundles have been frozen or replayed yet. This is replay infrastructure, not evidence of decision value. Next is the action-generation/freeze layer, then consecutive official-history parity checks, followed by actual paired trajectories. Current GW11 state coverage is 94/100 with 24.69% of the original design weight missing, so any captured-subset result must be labelled accordingly.
