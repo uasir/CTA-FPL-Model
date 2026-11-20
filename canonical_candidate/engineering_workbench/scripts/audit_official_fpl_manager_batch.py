@@ -136,6 +136,8 @@ def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
             _require(payload.get("entry_history", {}).get("event") == gameweek,
                      f"GW{gameweek}: manager deadline-state payload Gameweek mismatch")
         generated = archive.get("generated_at_utc")
+        provider_id = archive.get("provider_id")
+        provider_variant = archive.get("provider_variant")
         if source_type == "provider_forecast":
             try:
                 generated_time = datetime.fromisoformat(generated.replace("Z", "+00:00"))
@@ -145,6 +147,9 @@ def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
                 ) from exc
             _require(generated_time.tzinfo is not None and generated_time.utcoffset() is not None,
                      f"GW{gameweek}: provider generation timestamp must be timezone-aware")
+            _require(isinstance(provider_id, str) and provider_id
+                     and isinstance(provider_variant, str) and provider_variant,
+                     f"GW{gameweek}: provider identity and variant are required")
         decision_sources_out.append({
             "source_type": source_type,
             "raw_snapshot_id": snapshot_id,
@@ -152,6 +157,8 @@ def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
             "captured_at_utc": captured,
             "source_url": url,
             "generated_at_utc": generated,
+            "provider_id": provider_id,
+            "provider_variant": provider_variant,
             "bytes": len(raw),
         })
     _require(not decision_archives or seen_decision_types == allowed_decision_types,
