@@ -53,26 +53,40 @@ This is a fixture-slice comparison, not a full-GW manager score. A complete
 Gameweek comparison requires all relevant fixtures, player outcomes and
 Gameweek scoring mechanics, including autosubs and chip effects.
 
-## Run
+## Run locally
 
-After downloading both the standard EO/report artifact and the restricted
-manager-portfolio artifact from the same workflow run:
+The public GitHub Actions workflow intentionally does not export manager-level
+portfolios. Run the capture locally at the relevant pre-deadline window and
+choose a private path outside the repository working tree:
+
+```bash
+python canonical_candidate/engineering_workbench/scripts/capture_predeadline_field_eo.py \
+  --out-dir /tmp/fpl-eo-gw12 \
+  --manager-portfolio-output /secure/private/fpl_predeadline_manager_portfolios.json
+```
+
+The report and aggregate EO CSV are written under `--out-dir`; the report
+contains a SHA-256 manifest for the separate local portfolio file. Keep both
+files private and do not commit or upload the portfolio file.
+
+Then adapt the local artifact to a fixture slice:
 
 ```bash
 cd canonical_candidate/engineering_workbench
 PYTHONPATH=scripts python scripts/m4_covar_field_portfolio_adapter.py \
-  --artifact path/to/fpl_predeadline_manager_portfolios.json \
-  --report path/to/fpl_predeadline_field_report.json \
+  --artifact /secure/private/fpl_predeadline_manager_portfolios.json \
+  --report /tmp/fpl-eo-gw12/fpl_predeadline_field_report.json \
   --modeled-player-ids 101,205,311 \
   --gameweek 12 \
   --deadline 2026-11-28T11:00:00Z \
   --as-of 2026-11-27T18:00:00Z \
-  --output run_artifacts/m4_covar_field_portfolios_gw12.json
+  --output /secure/private/m4_covar_field_portfolios_gw12.json
 ```
 
 Add `--rank-strata 1,2,3` to select specific 50-rank-page strata. The as-of
 timestamp must be strictly after field capture and strictly before the same
-Gameweek deadline.
+Gameweek deadline. The adapted output also contains manager-level squad
+combinations and must remain at a private local path.
 
 ## Contract boundary
 
