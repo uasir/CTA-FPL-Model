@@ -1,6 +1,7 @@
 import pytest
 
 from replay_fpl_gameweek_decisions import replay_gameweek, compare_policy_replays
+from audit_fpl_replay_against_official_manager_history import autosub_pairs_are_scoring_relevant
 
 
 def make_roster():
@@ -277,3 +278,10 @@ def test_policy_comparison_aggregates_multiple_manager_states_per_deadline():
     assert report["deadlines"][0]["n_starting_states"] == 2
     assert "private-state-a" not in str(report)
     assert "private-state-b" not in str(report)
+
+
+
+def test_bench_boost_autosub_pairs_are_excluded_from_pair_accuracy():
+    assert autosub_pairs_are_scoring_relevant("bench_boost", [{"element_in": 1, "element_out": 2}]) is False
+    assert autosub_pairs_are_scoring_relevant("triple_captain", [{"element_in": 1, "element_out": 2}]) is True
+    assert autosub_pairs_are_scoring_relevant("bench_boost", None) is False
