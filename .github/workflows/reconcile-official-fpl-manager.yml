@@ -61,6 +61,10 @@ jobs:
         if: inputs.decision_evidence_run_id != ''
         working-directory: canonical_candidate/engineering_workbench
         run: |
+          if [[ "${{ inputs.gameweeks }}" == *","* ]]; then
+            echo "Decision evidence run IDs are currently one capture run per Gameweek; supply a single Gameweek."
+            exit 1
+          fi
           test -f decision-evidence/predeadline-decision-evidence.json
           cp decision-evidence/predeadline-decision-evidence.json official-fpl-decision-evidence-manifests.json
       - name: Audit batch hashes and reconciliation coverage
