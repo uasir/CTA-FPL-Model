@@ -145,6 +145,7 @@ def validate_scenario_document(document: Mapping[str, Any]) -> dict[str, Any]:
             raise CovarScenarioContractError(f"scenario {scenario_id}.player_outcomes must be a list")
         outcome_ids = set()
         goals_by_team = {team_id: 0 for team_id in team_ids}
+        assists_by_team = {team_id: 0 for team_id in team_ids}
         for outcome in outcomes:
             if not isinstance(outcome, Mapping):
                 raise CovarScenarioContractError("player outcome must be an object")
@@ -160,7 +161,9 @@ def validate_scenario_document(document: Mapping[str, Any]) -> dict[str, Any]:
             # FPL player totals can be negative after cards/own goals; do not clamp them.
             if outcome.get("fpl_points") is not None:
                 _number(outcome["fpl_points"], f"{scenario_id}.{player_id}.fpl_points")
-            goals_by_team[player_by_id[player_id]["team_id"]] += goals
+            outcome_team_id = player_by_id[player_id]["team_id"]
+            goals_by_team[outcome_team_id] += goals
+            assists_by_team[outcome_team_id] += assists
             if not isinstance(outcome.get("clean_sheet"), bool):
                 raise CovarScenarioContractError("clean_sheet must be an explicit boolean")
             team_id = player_by_id[player_id]["team_id"]
@@ -178,13 +181,13 @@ def validate_scenario_document(document: Mapping[str, Any]) -> dict[str, Any]:
                 raise CovarScenarioContractError(
                     f"{scenario_id}.{player_id} has an inconsistent clean-sheet flag"
                 )
-            if assists > sum(state["goals_for"] for state in state_by_team.values()):
-                raise CovarScenarioContractError(f"{scenario_id}.{player_id} assists exceed fixture goals")
         if outcome_ids != set(player_by_id):
             raise CovarScenarioContractError(f"scenario {scenario_id} must include every declared player outcome")
         for team_id, goals in goals_by_team.items():
             if goals > state_by_team[team_id]["goals_for"]:
                 raise CovarScenarioContractError(f"scenario {scenario_id} player goals exceed {team_id} team goals")
+            if assists_by_team[team_id] > state_by_team[team_id]["goals_for"]:
+                raise CovarScenarioContractError(f"scenario {scenario_id} player assists exceed {team_id} team goals")
     if not math.isclose(probability_total, 1.0, rel_tol=0, abs_tol=1e-9):
         raise CovarScenarioContractError("scenario probabilities must sum to 1")
 
