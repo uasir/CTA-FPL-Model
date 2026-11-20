@@ -267,6 +267,8 @@ def transition_manager_state(
     else:
         next_lineup = lineup
 
+    if not isinstance(next_player_data, Mapping):
+        raise ValueError("next_player_data must be a mapping for non-terminal transitions")
     updated_squad = []
     for player_id, player in next_squad_by_id.items():
         market = next_player_data.get(player_id)
