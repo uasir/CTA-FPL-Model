@@ -37,7 +37,7 @@ def row(fixture_id, **overrides):
 def test_single_fixture_player_gameweek_retains_consistent_snapshots_and_labels():
     result = aggregate_player_gameweeks(
         [row("101")],
-        {("2017/18", "10", 7): 1},
+        {("2017/18", "10", 7): {"101"}},
     )[0]
     assert result["fixture_count_observed"] == 1
     assert result["fixture_completeness_status"] == "PASS"
@@ -50,7 +50,7 @@ def test_single_fixture_player_gameweek_retains_consistent_snapshots_and_labels(
 def test_double_gameweek_sums_labels_but_does_not_sum_rolling_features():
     result = aggregate_player_gameweeks(
         [row("101"), row("102")],
-        {("2017/18", "10", 7): 2},
+        {("2017/18", "10", 7): {"101", "102"}},
     )[0]
     assert result["target_fpl_total_points"] == 6.0
     assert result["target_fpl_minutes"] == 180.0
@@ -62,7 +62,7 @@ def test_double_gameweek_sums_labels_but_does_not_sum_rolling_features():
 def test_double_gameweek_conflicting_opponent_context_is_null_not_averaged():
     result = aggregate_player_gameweeks(
         [row("101"), row("102", abc_defensive_exposure="61")],
-        {("2017/18", "10", 7): 2},
+        {("2017/18", "10", 7): {"101", "102"}},
     )[0]
     assert result["abc_defensive_exposure"] is None
     assert result["abc_feature_aggregation_status"]["abc_defensive_exposure"] == "CONFLICT"
@@ -72,7 +72,7 @@ def test_double_gameweek_conflicting_opponent_context_is_null_not_averaged():
 def test_partial_feature_coverage_stays_null_and_explicit():
     result = aggregate_player_gameweeks(
         [row("101"), row("102", abc_progressive_passes="")],
-        {("2017/18", "10", 7): 2},
+        {("2017/18", "10", 7): {"101", "102"}},
     )[0]
     assert result["abc_progressive_passes"] is None
     assert result["abc_feature_aggregation_status"]["abc_progressive_passes"] == "PARTIAL"
@@ -82,13 +82,13 @@ def test_missing_expected_fixture_count_blocks_model_eligibility():
     result = aggregate_player_gameweeks([row("101")])[0]
     assert result["fixture_completeness_status"] == "NOT_CHECKED"
     assert result["research_eligible_for_model"] is False
-    assert "EXPECTED_FIXTURE_COUNT_NOT_SUPPLIED" in result["exclusion_reasons"]
+    assert "OFFICIAL_FIXTURE_IDS_NOT_SUPPLIED" in result["exclusion_reasons"]
 
 
 def test_incomplete_double_gameweek_blocks_model_eligibility():
     result = aggregate_player_gameweeks(
         [row("101")],
-        {("2017/18", "10", 7): 2},
+        {("2017/18", "10", 7): {"101", "102"}},
     )[0]
     assert result["fixture_completeness_status"] == "MISMATCH"
     assert result["research_eligible_for_model"] is False
@@ -98,14 +98,14 @@ def test_duplicate_player_fixture_rows_fail_closed():
     with pytest.raises(ValueError, match="Duplicate player-fixture"):
         aggregate_player_gameweeks(
             [row("101"), row("101")],
-            {("2017/18", "10", 7): 1},
+            {("2017/18", "10", 7): {"101"}},
         )
 
 
 def test_inconsistent_predeadline_snapshot_cutoff_blocks_eligibility():
     result = aggregate_player_gameweeks(
         [row("101"), row("102", feature_cutoff_time_utc="2017-09-02T00:00:00Z")],
-        {("2017/18", "10", 7): 2},
+        {("2017/18", "10", 7): {"101", "102"}},
     )[0]
     assert result["research_eligible_for_model"] is False
     assert "CONFLICTING_FEATURE_CUTOFF_TIME_UTC" in result["exclusion_reasons"]
