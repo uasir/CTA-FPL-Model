@@ -29,6 +29,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Run scorer and reconciliation contract tests
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python -m pip install pytest
+          PYTHONPATH=scripts python -m pytest -q \\
+            tests/test_evaluate_external_benchmark_decisions.py \\
+            tests/test_reconcile_official_fpl_manager_result.py
       - name: Capture and reconcile official manager result
         working-directory: canonical_candidate/engineering_workbench
         run: |
