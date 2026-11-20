@@ -175,6 +175,15 @@ def _validate_attested_manager_state(envelope: dict[str, Any], archive: dict[str
         }
         _require(official_purchase_prices == state["purchase_prices"],
                  f"GW{gameweek}: purchase prices differ from official target picks")
+        official_selling_prices = {
+            str(row["element"]): row["selling_price"] / 10
+            for row in picks if isinstance(row, dict)
+            and isinstance(row.get("selling_price"), int)
+            and not isinstance(row.get("selling_price"), bool)
+        }
+        if official_selling_prices:
+            _require(official_selling_prices == state["selling_prices"],
+                     f"GW{gameweek}: selling prices differ from official target picks")
         bank_raw = picks_payload.get("entry_history", {}).get("bank")
         _require(isinstance(bank_raw, int) and not isinstance(bank_raw, bool)
                  and abs(bank_raw / 10 - state["bank"]) < 0.0001,
@@ -434,6 +443,20 @@ def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
                 manager_envelope, decision_archive_rows["manager_deadline_state"],
                 manager_team_id, gameweek
             )
+            if manager_envelope.get("capture_method") == "USER_CONFIRMED_WITH_OFFICIAL_HISTORY":
+                _, wrapper = _decode_archive(
+                    manager_envelope.get("history_archive_base64"),
+                    f"GW{gameweek}/manager history wrapper"
+                )
+                nested_bootstrap_raw, _ = _decode_archive(
+                    wrapper.get("bootstrap"), f"GW{gameweek}/manager history bootstrap"
+                )
+                metadata_raw, _ = _decode_archive(
+                    decision_archive_rows["player_metadata"].get("raw_payload_base64"),
+                    f"GW{gameweek}/player metadata"
+                )
+                _require(nested_bootstrap_raw == metadata_raw,
+                         f"GW{gameweek}: manager price-history bootstrap differs from player metadata archive")
             _verify_selling_prices(
                 manager_state, decision_payloads["player_metadata"], gameweek
             )
