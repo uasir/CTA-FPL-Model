@@ -79,6 +79,7 @@ class TestM4FieldContextContract(unittest.TestCase):
     def test_rejects_missing_candidate_player(self):
         snapshot, rows, candidate = fixture()
         rows.pop()
+        snapshot["coverage"]["covered_player_ids"].remove("16")
         with self.assertRaisesRegex(FieldContextContractError, "lacks candidate squad"):
             validate_field_context(snapshot, rows, candidate)
 
@@ -93,6 +94,12 @@ class TestM4FieldContextContract(unittest.TestCase):
         rows[0]["gameweek"] = "10"
         with self.assertRaisesRegex(FieldContextContractError, "target Gameweek"):
             validate_field_context(snapshot, rows, candidate)
+
+    def test_preserves_null_eo_instead_of_zero_filling(self):
+        snapshot, rows, candidate = fixture()
+        rows[0]["effective_ownership_pct"] = None
+        result = validate_field_context(snapshot, rows, candidate)
+        self.assertIsNone(result["field_eo_rows"][0]["effective_ownership_pct"])
 
     def test_rejects_invalid_source_hash(self):
         snapshot, rows, candidate = fixture()
