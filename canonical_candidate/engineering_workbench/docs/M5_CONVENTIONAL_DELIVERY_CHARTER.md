@@ -45,7 +45,7 @@ If M4 is absent, stale, invalid or unavailable, the conventional M3 result must 
 Define the initial conventional-only product, withheld products, output separation and user constraints. **This charter completes T1.**
 
 ### M5-T2 — Input and output acceptance contract
-Freeze the required provider snapshot, manager state, decision timestamp, output schema, provenance and fail-closed conditions. Ensure one exact input bundle can reproduce the same result.
+**Completed and CI-tested.** `m5_conventional_delivery_contract.py` validates the frozen M3 conventional output, provider identity, strict decision/deadline timing, frozen-decision hash and embedded candidate, alternatives suppression, original and post-transfer 15-player squads, XI/bench/reserve goalkeeper, formation and captaincy, plus explicit release blockers. It preserves non-release status and does not recalculate EV or depend on M4.
 
 ### M5-T3 — Live benchmark decision evidence
 Run a real pre-deadline FPL Cat capture and manager-backed decision for the target Gameweek. Verify provider generation time, capture time, metadata time, manager squad, bank, free transfers, purchase prices, and deadline. Inspect the complete post-transfer squad plan. A successful capture alone is not a recommendation acceptance.
