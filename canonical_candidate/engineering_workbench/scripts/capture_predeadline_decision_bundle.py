@@ -165,15 +165,15 @@ def capture_predeadline_decision_bundle(
     manager_archive_raw, manager_archive = _decode_json(
         manager_provenance["raw_response_base64"], "manager source archive"
     )
-    fallback = manager_archive.get("source_type") == "FPL_SEASON_HISTORY_RECONSTRUCTION"
+    if hashlib.sha256(manager_archive_raw).hexdigest() != manager_provenance.get("raw_sha256"):
+        raise DecisionCaptureError("Manager source archive hash does not match capture provenance")
+    manager_archive_type = manager_archive.get("source_type")
+    fallback = manager_archive_type in {
+        "FPL_SEASON_HISTORY_RECONSTRUCTION", "PREVIOUS_GAMEWEEK_PICKS"
+    }
     if fallback:
-        required_archives = {
-            "previous_gameweek_picks", "gw1_picks", "transfers", "history", "bootstrap"
-        }
-        if not required_archives.issubset(manager_archive):
-            raise DecisionCaptureError("Official manager history archive is incomplete")
-        metadata_raw_b64 = manager_archive["bootstrap"]
-        metadata_raw, metadata_payload = _decode_json(metadata_raw_b64, "manager bootstrap")
+        history_archive_b64 = manager_provenance["raw_response_base64"]
+        raw_manager_picks_b64 = None
         history_raw, history_payload = _decode_json(manager_archive["history"], "manager history")
         chips = history_payload.get("chips")
         if not isinstance(chips, list) or any(
@@ -181,10 +181,23 @@ def capture_predeadline_decision_bundle(
             for chip in chips
         ):
             raise DecisionCaptureError("Manager history does not confirm a no-chip target Gameweek")
-        capture_method = "USER_CONFIRMED_WITH_OFFICIAL_HISTORY"
-        history_archive_b64 = manager_provenance["raw_response_base64"]
-        raw_manager_picks_b64 = None
-        metadata_captured_text = manager_captured.isoformat().replace("+00:00", "Z")
+        if manager_archive_type == "FPL_SEASON_HISTORY_RECONSTRUCTION":
+            required_archives = {
+                "previous_gameweek_picks", "gw1_picks", "transfers", "history", "bootstrap"
+            }
+            if not required_archives.issubset(manager_archive):
+                raise DecisionCaptureError("Official manager history archive is incomplete")
+            metadata_raw_b64 = manager_archive["bootstrap"]
+            metadata_raw, metadata_payload = _decode_json(metadata_raw_b64, "manager bootstrap")
+            capture_method = "USER_CONFIRMED_WITH_OFFICIAL_HISTORY"
+            metadata_captured_text = manager_captured.isoformat().replace("+00:00", "Z")
+        else:
+            if not {"previous_gameweek_picks", "history"}.issubset(manager_archive):
+                raise DecisionCaptureError("Previous-Gameweek manager archive is incomplete")
+            metadata_raw_b64 = provider_capture["raw_archives"]["fpl_bootstrap_response_base64"]
+            metadata_raw, metadata_payload = _decode_json(metadata_raw_b64, "player metadata")
+            capture_method = "USER_CONFIRMED_WITH_PREVIOUS_GW_PICKS"
+            metadata_captured_text = provider_capture["player_metadata_provenance"]["captured_at_utc"]
     else:
         metadata_raw_b64 = provider_capture["raw_archives"]["fpl_bootstrap_response_base64"]
         metadata_raw, metadata_payload = _decode_json(metadata_raw_b64, "player metadata")
@@ -258,7 +271,7 @@ def capture_predeadline_decision_bundle(
     manager_hash = hashlib.sha256(manager_state_raw).hexdigest()
     if provider_hash != provider.get("source", {}).get("raw_sha256"):
         raise DecisionCaptureError("Provider raw archive hash does not match capture provenance")
-    if fallback:
+    if fallback and manager_archive_type == "FPL_SEASON_HISTORY_RECONSTRUCTION":
         if metadata_hash != hashlib.sha256(metadata_raw).hexdigest():
             raise DecisionCaptureError("Manager bootstrap hash could not be verified")
     elif metadata_hash != provider_capture.get("player_metadata_provenance", {}).get("raw_sha256"):
