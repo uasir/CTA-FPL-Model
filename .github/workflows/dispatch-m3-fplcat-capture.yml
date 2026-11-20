@@ -23,6 +23,10 @@ on:
         description: Confirmed free transfers available for GW11
         required: true
         default: "1"
+      starting_xi_ids:
+        description: Manager-confirmed fixed starting XI element IDs (comma-separated)
+        required: true
+        default: "110,31,8,115,229,154,124,426,166,79,411"
 
 permissions:
   contents: read
@@ -66,6 +70,7 @@ jobs:
             --personal-risk-profile "aggressive" \
             --allow-user-confirmed-fallback \
             --formation "4-3-3" \
+            --starting-xi-ids "${{ inputs.starting_xi_ids }}" \
             --expected-element-ids "110,497,31,8,115,229,282,154,124,426,183,524,166,79,411" \
             --output "artifacts/fplcat/manager-context-${{ inputs.gameweek }}-${{ github.run_id }}.json"
 
