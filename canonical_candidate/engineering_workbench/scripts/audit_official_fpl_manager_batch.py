@@ -281,8 +281,6 @@ def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
             raw = base64.b64decode(raw_b64, validate=True)
         except Exception as exc:
             raise BatchAuditError(f"GW{gameweek}/{source_type}: invalid base64 payload") from exc
-        decision_payloads[source_type] = payload
-        decision_archive_rows[source_type] = archive
         digest = hashlib.sha256(raw).hexdigest()
         _require(digest == archive.get("raw_sha256"),
                  f"GW{gameweek}/{source_type}: SHA-256 mismatch")
@@ -357,6 +355,8 @@ def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
             ) from exc
         _require(isinstance(payload, (dict, list)),
                  f"GW{gameweek}/{source_type}: payload must be a JSON object or array")
+        decision_payloads[source_type] = payload
+        decision_archive_rows[source_type] = archive
         digest = hashlib.sha256(raw).hexdigest()
         _require(digest == archive.get("raw_sha256"),
                  f"GW{gameweek}/{source_type}: SHA-256 mismatch")
