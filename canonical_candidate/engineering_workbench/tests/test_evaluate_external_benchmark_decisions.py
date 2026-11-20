@@ -338,3 +338,10 @@ def test_output_retains_input_and_raw_source_hashes():
     assert {item["source_type"] for item in result["source_provenance"]} == {
         "provider", "player_metadata", "manager_state", "realised_points"
     }
+
+def test_rejects_malformed_transfer_identifiers_without_uncaught_type_errors():
+    record = _record()
+    record["frozen_decision"]["transfer_out_id"] = [7]
+    _seal(record["frozen_decision"])
+    with pytest.raises(DecisionEvaluationError, match="transfer_out_id must identify an owned player"):
+        evaluate_decision_record(record)
