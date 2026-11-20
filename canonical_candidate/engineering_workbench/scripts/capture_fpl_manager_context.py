@@ -156,7 +156,12 @@ def capture_manager_context(
         transfers_raw = fetch(transfers_url)
         history_raw = fetch(history_url)
         gw1_payload = _json(gw1_raw, "GW1 picks")
-        transfers_payload = _json(transfers_raw, "transfer history")
+        try:
+            transfers_payload = json.loads(transfers_raw)
+        except (json.JSONDecodeError, UnicodeDecodeError) as parse_error:
+            raise CaptureError("transfer history response is not valid JSON") from parse_error
+        if not isinstance(transfers_payload, list):
+            raise CaptureError("transfer history response must be a JSON list")
         history_payload = _json(history_raw, "manager history")
         squad = reconstruct_purchase_prices(
             gw1_payload, transfers_payload, history_payload, gameweek, expected_element_ids
