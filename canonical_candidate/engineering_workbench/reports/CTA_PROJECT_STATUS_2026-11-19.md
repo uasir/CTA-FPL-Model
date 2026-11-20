@@ -223,3 +223,14 @@ The private review bundle is under research/wyscout-2017-18/identity-review-atte
 The Wyscout player-match builder now reports goal-tag reconciliation at the individual-match level, not only as a season-wide total. This prevents offsetting match errors from cancelling in an aggregate total. The diagnostic lists the mismatched match ID, teams/scores, shot-goal tags, free-kick goal tags, own-goal tags and delta. The new synthetic regression test confirms that a goalkeeper Save attempt carrying the goal tag is not miscounted as a player goal.
 
 Engineering CI [run 44660188679](https://github.com/uasir/CTA-FPL-Model/actions/runs/44660188679) passed: **458 tests, 1 skipped, 3 subtests**. The private source-ingestion workflow is rerunning against this updated builder into identity-review-attempt-002 so the one-goal discrepancy can be isolated. Attempt 001 remains immutable.
+
+
+## Sourced repair of the single Wyscout goal discrepancy — 2026-11-20
+
+The per-match diagnostic isolated the raw mismatch to Wyscout match 2499781, Chelsea 0-1 Manchester City. The event log has a goalkeeper Save attempt carrying the goal tag but no attributed shot/goal event for the scorer. The identity review queue maps Wyscout player 38021 to Kevin De Bruyne (FPL element 252); his raw Wyscout season goals are 7 versus 8 in FPL, with exactly one goal-signature mismatch.
+
+The official Premier League match report confirms Kevin De Bruyne scored the 67th-minute winner from a left-footed shot on 30 September 2017: https://www.premierleague.com/en/match/918955/chelsea-vs-manchester-city
+
+A versioned correction is now recorded in canonical_candidate/data/wyscout_manual_event_corrections.csv: +1 goal, +1 shot attempt and +1 accurate shot for Wyscout player 38021 in match 2499781. This is not a silent rewrite: the builder preserves raw and corrected fields, records the source URL/reason and distinguishes PASS_EXACT_WITH_MANUAL_CORRECTIONS from a raw PASS_EXACT. It rejects corrections that do not target a raw mismatch or do not reconcile the match.
+
+Engineering CI [run 44660852510](https://github.com/uasir/CTA-FPL-Model/actions/runs/44660852510) passed: **460 tests, 1 skipped, 3 subtests**. Next private ingestion attempt will apply this correction and verify that corrected goal totals reconcile while the raw discrepancy remains visible.
