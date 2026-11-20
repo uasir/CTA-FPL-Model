@@ -111,11 +111,13 @@ def _validate_attested_manager_state(envelope: dict[str, Any], archive: dict[str
             previous_ids = {row.get("element") for row in previous_picks if isinstance(row, dict)}
             _require(previous_ids == set(squad),
                      f"GW{gameweek}: previous-Gameweek squad does not match attested squad")
-            prior_prices = {
-                str(row["element"]): row.get("purchase_price") / 10
-                for row in previous_picks
-                if isinstance(row, dict) and isinstance(row.get("purchase_price"), int)
-            }
+            prior_prices = {}
+            for row in previous_picks:
+                _require(isinstance(row, dict)
+                         and isinstance(row.get("purchase_price"), int)
+                         and not isinstance(row.get("purchase_price"), bool),
+                         f"GW{gameweek}: previous picks purchase_price missing")
+                prior_prices[str(row["element"])] = row["purchase_price"] / 10
             _require(prior_prices == state["purchase_prices"],
                      f"GW{gameweek}: purchase prices do not match official previous-Gameweek picks")
         else:
@@ -165,6 +167,15 @@ def _validate_attested_manager_state(envelope: dict[str, Any], archive: dict[str
         _require(isinstance(picks, list) and len(picks) == 15
                  and {row.get("element") for row in picks} == set(squad),
                  f"GW{gameweek}: official target picks do not match attested squad")
+        official_purchase_prices = {
+            str(row["element"]): row.get("purchase_price") / 10
+            for row in picks if isinstance(row, dict)
+            and isinstance(row.get("purchase_price"), int)
+            and not isinstance(row.get("purchase_price"), bool)
+        }
+        if official_purchase_prices:
+            _require(official_purchase_prices == state["purchase_prices"],
+                     f"GW{gameweek}: purchase prices differ from official target picks")
     else:
         raise BatchAuditError(f"GW{gameweek}: unsupported manager attestation capture method")
     return state
@@ -213,7 +224,10 @@ def _verify_finalized_manager_state(record: dict[str, Any], state: dict[str, Any
              f"GW{gameweek}: finalized official bank differs from predeadline attestation")
 
     positions = {row["element"]: row["position"] for row in picks}
-    for substitution in payload.get("automatic_subs", []):
+    automatic_subs = payload.get("automatic_subs", [])
+    _require(isinstance(automatic_subs, list),
+             f"GW{gameweek}: official automatic_subs must be a list")
+    for substitution in automatic_subs:
         incoming, outgoing = substitution.get("element_in"), substitution.get("element_out")
         _require(incoming in positions and outgoing in positions,
                  f"GW{gameweek}: malformed official autosub pair")
@@ -237,6 +251,17 @@ def _verify_finalized_manager_state(record: dict[str, Any], state: dict[str, Any
     vice_captains = [row["element"] for row in picks if row.get("is_vice_captain") is True]
     _require(captains == [state["captain_id"]] and vice_captains == [state["vice_captain_id"]],
              f"GW{gameweek}: captain/vice-captain differs from predeadline attestation")
+    actual_counts = {
+        position: sum(element_types.get(player_id) == element_type
+                      for player_id in state["starting_xi"])
+        for element_type, position in ((1, "GKP"), (2, "DEF"), (3, "MID"), (4, "FWD"))
+    }
+    expected_counts = dict(zip(("DEF", "MID", "FWD"),
+                               (int(value) for value in state["formation"].split("-"))))
+    _require(actual_counts["GKP"] == 1 and all(
+        actual_counts[position] == expected_counts[position]
+        for position in ("DEF", "MID", "FWD")
+    ), f"GW{gameweek}: attested formation does not match finalized official lineup")
 
 
 def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
