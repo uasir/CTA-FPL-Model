@@ -113,9 +113,10 @@ def _validate_chip_inventory(inventory: Mapping) -> dict:
 def transition_manager_state(
     state: Mapping,
     action: Mapping,
-    next_player_data: Mapping,
-    next_gameweek: int,
-    next_deadline_utc: str,
+    next_player_data: Mapping | None = None,
+    next_gameweek: int | None = None,
+    next_deadline_utc: str | None = None,
+    terminal: bool = False,
 ) -> dict:
     """Apply one deadline's transfers/chip and create the next pre-deadline state.
 
@@ -124,13 +125,17 @@ def transition_manager_state(
     next_player_data maps player_id to {current_price_tenths, team_id}.
     """
     gameweek = _int(state.get("gameweek"), "state.gameweek", 1)
-    next_gameweek = _int(next_gameweek, "next_gameweek", 1)
-    if next_gameweek != gameweek + 1:
-        raise ValueError("Sequential transition requires the immediately following Gameweek")
     current_deadline = _utc(state.get("deadline_utc"), "state.deadline_utc")
-    next_deadline = _utc(next_deadline_utc, "next_deadline_utc")
-    if next_deadline <= current_deadline:
-        raise ValueError("Next deadline must be later than the current deadline")
+    if terminal:
+        if next_gameweek is not None or next_deadline_utc is not None:
+            raise ValueError("Terminal transitions must not supply a next Gameweek or deadline")
+    else:
+        next_gameweek = _int(next_gameweek, "next_gameweek", 1)
+        if next_gameweek != gameweek + 1:
+            raise ValueError("Sequential transition requires the immediately following Gameweek")
+        next_deadline = _utc(next_deadline_utc, "next_deadline_utc")
+        if next_deadline <= current_deadline:
+            raise ValueError("Next deadline must be later than the current deadline")
 
     bank = _int(state.get("bank_tenths"), "state.bank_tenths")
     free_transfers = _int(state.get("free_transfers"), "state.free_transfers", 1)
@@ -236,6 +241,23 @@ def transition_manager_state(
                 MAX_FREE_TRANSFERS,
                 max(1, free_transfers - len(transfers) + 1),
             )
+
+    if terminal:
+        return {
+            "status": "TERMINAL_GAMEWEEK_ACTION_APPLIED",
+            "current_gameweek": gameweek,
+            "next_gameweek": None,
+            "transfers_made": len(transfers),
+            "transfer_hit_points": hit_points,
+            "bank_after_transfers_tenths": bank_after,
+            "next_bank_tenths": next_bank,
+            "next_free_transfers": next_free_transfers,
+            "chip_used": chip,
+            "gameweek_squad": sorted(gameweek_squad, key=lambda row: row["player_id"]),
+            "gameweek_lineup": lineup,
+            "next_state": None,
+            "scope": "TERMINAL_ACTION_ONLY; NO NEXT STATE",
+        }
 
     updated_squad = []
     for player_id, player in next_squad_by_id.items():
