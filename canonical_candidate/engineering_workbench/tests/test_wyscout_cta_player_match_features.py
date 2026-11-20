@@ -230,4 +230,6 @@ def test_wyscout_goal_reconciliation_identifies_match_level_missing_goal():
     assert reconciliation["mismatched_match_count"] == 1
     assert reconciliation["mismatched_matches"][0]["match_id"] == "11"
     assert reconciliation["mismatched_matches"][0]["delta"] == -1
+    diagnostic_names = {event["event_name"] for event in reconciliation["mismatched_matches"][0]["diagnostic_events"]}
+    assert diagnostic_names == {"Shot", "Save attempt"}
     assert reconciliation["status"] == "REVIEW_REQUIRED"
