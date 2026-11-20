@@ -72,6 +72,10 @@ def calculate_fpl_points_2026_27(position: str, events: Mapping[str, Any]) -> di
         raise CovarEventScoringError("goals-conceded deductions apply only to GK and DEF")
     if events.get("clean_sheet") not in (True, False):
         raise CovarEventScoringError("clean_sheet must be an explicit boolean")
+    if events["clean_sheet"] and goals_conceded > 0:
+        raise CovarEventScoringError(
+            "clean_sheet cannot be true when a goal was conceded while the player was on pitch"
+        )
 
     points: dict[str, int] = {}
     points["appearance"] = 2 if minutes >= 60 else (1 if minutes > 0 else 0)
