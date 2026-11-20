@@ -180,34 +180,81 @@ def capture_manager_context(
         if expected_bank is None:
             raise CaptureError("pre-deadline fallback requires an explicitly supplied bank value") from exc
 
+        previous_gameweek = gameweek - 1
+        previous_picks_url = f"{base}/event/{previous_gameweek}/picks/"
         gw1_url = f"{base}/event/1/picks/"
         transfers_url = f"{base}/transfers/"
         history_url = f"{base}/history/"
         bootstrap_url = "https://fantasy.premierleague.com/api/bootstrap-static/"
-        gw1_raw = fetch(gw1_url)
-        transfers_raw = fetch(transfers_url)
+        previous_picks_raw = fetch(previous_picks_url)
         history_raw = fetch(history_url)
-        bootstrap_raw = fetch(bootstrap_url)
-        gw1_payload = _json(gw1_raw, "GW1 picks")
-        try:
-            transfers_payload = json.loads(transfers_raw)
-        except (json.JSONDecodeError, UnicodeDecodeError) as parse_error:
-            raise CaptureError("transfer history response is not valid JSON") from parse_error
-        if not isinstance(transfers_payload, list):
-            raise CaptureError("transfer history response must be a JSON list")
+        previous_payload = _json(previous_picks_raw, f"GW{previous_gameweek} picks")
         history_payload = _json(history_raw, "manager history")
-        bootstrap_payload = _json(bootstrap_raw, "FPL bootstrap")
-        squad = reconstruct_purchase_prices(
-            gw1_payload, transfers_payload, history_payload, gameweek,
-            expected_element_ids, bootstrap_payload,
-        )
-        archive = {
-            "source_type": "FPL_SEASON_HISTORY_RECONSTRUCTION",
-            "gw1_picks": base64.b64encode(gw1_raw).decode("ascii"),
-            "transfers": base64.b64encode(transfers_raw).decode("ascii"),
-            "history": base64.b64encode(history_raw).decode("ascii"),
-            "bootstrap": base64.b64encode(bootstrap_raw).decode("ascii"),
+        chips = history_payload.get("chips")
+        if not isinstance(chips, list):
+            raise CaptureError("manager history is missing its chips list")
+        free_hit_events = {
+            chip.get("event") for chip in chips
+            if isinstance(chip, dict) and chip.get("name") == "freehit"
         }
+
+        previous_rows = previous_payload.get("picks")
+        previous_history = previous_payload.get("entry_history")
+        previous_ids = {
+            row.get("element") for row in previous_rows
+            if isinstance(row, dict) and isinstance(row.get("element"), int)
+        } if isinstance(previous_rows, list) else set()
+        previous_squad = None
+        if (
+            previous_history.get("event") == previous_gameweek
+            if isinstance(previous_history, dict) else False
+        ) and previous_gameweek not in free_hit_events and previous_ids == expected_element_ids and len(previous_rows) == 15:
+            direct_rows = []
+            try:
+                for row in previous_rows:
+                    price = _valid_price(row.get("purchase_price"), f"GW{previous_gameweek} purchase_price for player {row['element']}")
+                    direct_rows.append({"fpl_element_id": row["element"], "purchase_price": price / 10})
+                previous_squad = direct_rows
+            except CaptureError:
+                previous_squad = None
+
+        if previous_squad is not None:
+            squad = previous_squad
+            purchase_price_source = f"Official FPL GW{previous_gameweek} picks purchase_price; exact squad identity match; previous GW not a Free Hit"
+            source_type = "PREVIOUS_GAMEWEEK_PICKS"
+            archive = {
+                "source_type": source_type,
+                "previous_gameweek_picks": base64.b64encode(previous_picks_raw).decode("ascii"),
+                "history": base64.b64encode(history_raw).decode("ascii"),
+            }
+            source_urls = [previous_picks_url, history_url]
+        else:
+            gw1_raw = fetch(gw1_url)
+            transfers_raw = fetch(transfers_url)
+            bootstrap_raw = fetch(bootstrap_url)
+            gw1_payload = _json(gw1_raw, "GW1 picks")
+            try:
+                transfers_payload = json.loads(transfers_raw)
+            except (json.JSONDecodeError, UnicodeDecodeError) as parse_error:
+                raise CaptureError("transfer history response is not valid JSON") from parse_error
+            if not isinstance(transfers_payload, list):
+                raise CaptureError("transfer history response must be a JSON list")
+            bootstrap_payload = _json(bootstrap_raw, "FPL bootstrap")
+            squad = reconstruct_purchase_prices(
+                gw1_payload, transfers_payload, history_payload, gameweek,
+                expected_element_ids, bootstrap_payload,
+            )
+            purchase_price_source = "FPL GW1 picks; missing initial prices derived from bootstrap now_cost minus cost_change_start; chronological transfer-in costs applied; free-hit event transfers excluded"
+            source_type = "FPL_SEASON_HISTORY_RECONSTRUCTION"
+            archive = {
+                "source_type": source_type,
+                "previous_gameweek_picks": base64.b64encode(previous_picks_raw).decode("ascii"),
+                "gw1_picks": base64.b64encode(gw1_raw).decode("ascii"),
+                "transfers": base64.b64encode(transfers_raw).decode("ascii"),
+                "history": base64.b64encode(history_raw).decode("ascii"),
+                "bootstrap": base64.b64encode(bootstrap_raw).decode("ascii"),
+            }
+            source_urls = [previous_picks_url, gw1_url, transfers_url, history_url, bootstrap_url]
         archive_raw = json.dumps(archive, sort_keys=True, separators=(",", ":")).encode("utf-8")
         captured_at = utc_now()
         return {
@@ -217,8 +264,9 @@ def capture_manager_context(
                 "captured_at_utc": captured_at,
                 "source_url": target_url,
                 "source_type": "USER_CONFIRMED_SQUAD_WITH_FPL_HISTORY_PRICES",
-                "identity_verification_method": "user-confirmed GW squad IDs cross-checked against GW1 picks and season transfer history",
-                "source_urls": [gw1_url, transfers_url, history_url, bootstrap_url],
+                "price_source_type": source_type,
+                "identity_verification_method": "user-confirmed GW squad IDs cross-checked against official prior-GW picks or GW1 picks and season transfer history",
+                "source_urls": source_urls,
                 "raw_sha256": hashlib.sha256(archive_raw).hexdigest(),
                 "raw_response_base64": base64.b64encode(archive_raw).decode("ascii"),
                 "row_count": 15,
@@ -231,7 +279,7 @@ def capture_manager_context(
                 "personal_risk_profile": personal_risk_profile,
                 "formation": formation,
                 "entry_history": {},
-                "purchase_price_source": "FPL GW1 picks; missing initial prices derived from bootstrap now_cost minus cost_change_start; chronological transfer-in costs applied; free-hit event transfers excluded",
+                "purchase_price_source": purchase_price_source,
             },
         }
 
