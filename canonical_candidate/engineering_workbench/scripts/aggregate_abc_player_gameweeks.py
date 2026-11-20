@@ -5,8 +5,8 @@ ABC features are pre-deadline rolling snapshots or rates, not fixture outcomes.
 They are never summed or blindly averaged across a DGW. A feature is retained
 only when every observed fixture row has the same non-null value. Conflicts and
 partial coverage remain explicit and block that feature for the player-GW.
-Model eligibility also requires the exact independently supplied official fixture-ID
-set, preventing an incomplete or mismatched DGW from being mistaken for a complete cohort.
+Model eligibility also requires the exact reference fixture-ID set from the pinned FPL
+history export, preventing an incomplete or mismatched DGW from being accepted.
 """
 from __future__ import annotations
 
@@ -14,7 +14,8 @@ import argparse
 import csv
 import json
 import math
-from collections import defaultdict
+import hashlib
+from collections import Counter, defaultdict
 from pathlib import Path
 
 from cta_four_layer_pipeline import LAYER_FEATURES
@@ -84,13 +85,13 @@ def aggregate_player_gameweeks(rows, expected_fixture_ids=None):
     for (season, player, gw), fixtures in sorted(grouped.items()):
         fixture_ids = [str(row["fixture_id"]) for row in fixtures]
         if len(fixture_ids) != len(set(fixture_ids)):
-            raise ValueError(f"Duplicate player-fixture row for {(season, player, gw)}")
+            raise ValueError("Duplicate player-fixture row")
         key = (season, player, gw)
         expected_ids = expected_fixture_ids.get(key)
         if expected_ids is not None:
             expected_ids = {str(value) for value in expected_ids}
             if not expected_ids:
-                raise ValueError(f"Expected fixture ID set cannot be empty for {key}")
+                raise ValueError("Expected fixture ID set cannot be empty")
 
         reasons = []
         if expected_ids is None:
@@ -170,7 +171,7 @@ def read_expected_fixture_ids(path):
         key = (str(row["season"]), str(row["fpl_element_id"]), int(row["gameweek"]))
         fixture_id = str(row["fixture_id"])
         if not fixture_id:
-            raise ValueError(f"Blank official fixture ID for {key}")
+            raise ValueError("Blank reference fixture ID")
         expected[key].add(fixture_id)
     return dict(expected)
 
@@ -180,6 +181,7 @@ def main():
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--expected-fixtures", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--report-out", type=Path, required=True)
     args = parser.parse_args()
     aggregated = aggregate_player_gameweeks(
         read_csv(args.input), read_expected_fixture_ids(args.expected_fixtures)
@@ -197,15 +199,28 @@ def main():
                 for key, value in row.items()
             }
             writer.writerow(serializable)
+    feature_status_counts = {
+        field: dict(Counter(row["abc_feature_aggregation_status"][field] for row in aggregated))
+        for field in ABC_FEATURES
+    }
+    exclusion_reason_counts = Counter(
+        reason for row in aggregated for reason in row["exclusion_reasons"]
+    )
     report = {
         "status": "PASS_STRUCTURAL_ONLY",
         "player_gameweeks": len(aggregated),
         "eligible_player_gameweeks": sum(row["research_eligible_for_model"] for row in aggregated),
         "excluded_player_gameweeks": sum(not row["research_eligible_for_model"] for row in aggregated),
+        "exclusion_reason_counts": dict(sorted(exclusion_reason_counts.items())),
+        "feature_status_counts": feature_status_counts,
         "feature_aggregation_policy": "CONSENSUS_ONLY_NO_SUM_OR_BLIND_AVERAGE",
         "dgw_policy": "Require exact fixture-ID set from the pinned FPL history reference; each repeated pre-deadline snapshot must agree across fixture rows.",
+        "input_panel_sha256": hashlib.sha256(args.input.read_bytes()).hexdigest(),
+        "expected_fixture_reference_sha256": hashlib.sha256(args.expected_fixtures.read_bytes()).hexdigest(),
         "promotion_status": "RESEARCH_ONLY_DO_NOT_PROMOTE",
     }
+    args.report_out.parent.mkdir(parents=True, exist_ok=True)
+    args.report_out.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
     return 0
 
