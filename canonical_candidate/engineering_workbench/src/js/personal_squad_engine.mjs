@@ -36,14 +36,16 @@ function formationCounts(value) {
   return counts;
 }
 
-function selectForFormation(owned, byId, formation) {
+function selectForFormation(owned, byId, formation, startingGoalkeeperId = null) {
   const [defenders, midfielders, forwards] = formation;
   const counts = { GKP: 1, DEF: defenders, MID: midfielders, FWD: forwards };
   const selected = [];
   for (const position of POSITIONS) {
     const candidates = owned
       .map((player) => byId.get(player.fpl_element_id))
-      .filter((player) => player.position === position)
+      .filter((player) => player.position === position
+        && (position !== "GKP" || startingGoalkeeperId === null
+          || player.fpl_element_id === startingGoalkeeperId))
       .sort(playerOrder);
     if (candidates.length < counts[position]) {
       throw new RecommendationContractError("Not enough players for requested formation: " + position);
@@ -53,7 +55,7 @@ function selectForFormation(owned, byId, formation) {
   return selected;
 }
 
-function bestStartingXi(owned, byId, formationValue, startingXiValue) {
+function bestStartingXi(owned, byId, formationValue, startingXiValue, startingGoalkeeperId = null) {
   const requested = formationValue !== null && formationValue !== undefined
     ? formationCounts(formationValue) : null;
   let formation;
@@ -74,9 +76,14 @@ function bestStartingXi(owned, byId, formationValue, startingXiValue) {
     if (requested !== null && formation.some((count, index) => count !== requested[index])) {
       throw new RecommendationContractError("starting_xi does not match requested formation");
     }
+    if (startingGoalkeeperId !== null
+      && !selected.some((player) => player.position === "GKP"
+        && player.fpl_element_id === startingGoalkeeperId)) {
+      throw new RecommendationContractError("starting XI must retain the designated starting goalkeeper");
+    }
   } else if (requested !== null) {
     formation = requested;
-    selected = selectForFormation(owned, byId, formation);
+    selected = selectForFormation(owned, byId, formation, startingGoalkeeperId);
   } else {
     let best = null;
     for (let defenders = 3; defenders <= 5; defenders += 1) {
@@ -84,7 +91,7 @@ function bestStartingXi(owned, byId, formationValue, startingXiValue) {
         const forwards = 10 - defenders - midfielders;
         if (forwards < 1 || forwards > 3) continue;
         const candidate = [defenders, midfielders, forwards];
-        const xi = selectForFormation(owned, byId, candidate);
+        const xi = selectForFormation(owned, byId, candidate, startingGoalkeeperId);
         const score = xi.reduce((sum, player) => sum + player.expected_points, 0);
         if (best === null || score > best.score + 1e-12) {
           best = { score, formation: candidate, xi };
@@ -136,11 +143,26 @@ function transferCandidates(request, forecasts) {
     throw new RecommendationContractError("personal_preferences.max_transfer_alternatives must be an integer from 1 to 20");
   }
   const appliedHitCost = request.free_transfers > 0 ? 0 : hitCost;
+  const baselinePlan = request._baseline_squad_plan ?? null;
+  const baselineXi = new Set(baselinePlan?.starting_xi ?? []);
+  const baselineByPosition = new Map();
+  if (baselinePlan) {
+    for (const playerId of baselinePlan.starting_xi) {
+      const player = forecastById.get(playerId);
+      if (!baselineByPosition.has(player.position)) baselineByPosition.set(player.position, []);
+      baselineByPosition.get(player.position).push(player);
+    }
+    for (const players of baselineByPosition.values()) players.sort(playerOrder);
+  }
   const candidates = [];
   for (const outgoing of squad) {
     const outId = outgoing.fpl_element_id;
     const outForecast = forecastById.get(outId);
-    const sellPrice = sellingPrice(outForecast.price, outgoing.purchase_price);
+    // The goalkeeper is a fixed starter/reserve pair, never a rotation slot.
+    if (outForecast.position === "GKP") continue;
+    const sellPrice = Object.hasOwn(outgoing, "purchase_price")
+      ? sellingPrice(outForecast.price, outgoing.purchase_price)
+      : Math.min(outForecast.price, outgoing.selling_price_floor);
     const teamAfter = new Map(teamCounts);
     teamAfter.set(outForecast.team_id, (teamAfter.get(outForecast.team_id) ?? 0) - 1);
     const available = request.bank + sellPrice;
@@ -150,11 +172,19 @@ function transferCandidates(request, forecasts) {
       if ((teamAfter.get(incoming.team_id) ?? 0) >= 3) continue;
       if (incoming.price > available + 1e-9) continue;
         const delta = incoming.expected_points - outForecast.expected_points;
-      const net = delta - appliedHitCost;
+      let xiDelta = delta;
+      if (baselinePlan && !baselineXi.has(outId)) {
+        const starters = baselineByPosition.get(outForecast.position) ?? [];
+        if (starters.length === 0) continue;
+        // Bench replacements count only when they can displace a current starter.
+        xiDelta = incoming.expected_points - starters[starters.length - 1].expected_points;
+      }
+      const net = xiDelta - appliedHitCost;
       candidates.push({
         transfer_out_id: outId,
         transfer_in_id: inId,
         expected_points_delta: delta,
+        starting_xi_expected_points_delta: xiDelta,
         hit_cost_points: appliedHitCost,
         net_expected_points_gain: net,
         selling_price: Number(sellPrice.toFixed(2)),
@@ -165,7 +195,7 @@ function transferCandidates(request, forecasts) {
   }
   candidates.sort((a, b) =>
     b.net_expected_points_gain - a.net_expected_points_gain
-    || b.expected_points_delta - a.expected_points_delta
+    || b.starting_xi_expected_points_delta - a.starting_xi_expected_points_delta
     || a.transfer_out_id - b.transfer_out_id
     || a.transfer_in_id - b.transfer_in_id);
   const alternatives = candidates.slice(0, maxAlternatives);
@@ -179,25 +209,14 @@ function transferCandidates(request, forecasts) {
     minimum_gain_threshold: minGain,
     free_transfers_available: request.free_transfers,
     candidate_count: candidates.length,
+    selling_price_basis: squad.every((row) => Object.hasOwn(row, "purchase_price"))
+      ? "EXACT_PURCHASE_PRICE" : "CONSERVATIVE_CURRENT_PRICE_FLOOR",
     scope: "one-transfer lookahead only",
   };
 }
 
-export function recommendPersonalSquad(payload) {
-  const request = validatePersonalSquadRequest(payload);
-  const forecasts = request.player_forecasts;
-  const forecastById = new Map(forecasts.map((player) => [player.fpl_element_id, player]));
-  const squad = request.squad_snapshot;
-  const ownedIds = new Set(squad.map((player) => player.fpl_element_id));
-  const owned = [...ownedIds].map((id) => forecastById.get(id));
-  const preferences = request.personal_preferences ?? {};
-  if (preferences === null || typeof preferences !== "object" || Array.isArray(preferences)) {
-    throw new RecommendationContractError("personal_preferences must be an object");
-  }
-  const formationValue = request.formation ?? preferences.formation ?? null;
-  const startingValue = request.starting_xi ?? preferences.starting_xi ?? null;
-  const benchValue = request.bench_order ?? preferences.bench_order ?? null;
-  const { starting, formation } = bestStartingXi(owned, forecastById, formationValue, startingValue);
+function buildSquadPlan(owned, byId, formationValue = null, startingXiValue = null, benchValue = null, startingGoalkeeperId = null) {
+  const { starting, formation } = bestStartingXi(owned, byId, formationValue, startingXiValue, startingGoalkeeperId);
   const startingIds = new Set(starting.map((player) => player.fpl_element_id));
   const remaining = owned.filter((player) => !startingIds.has(player.fpl_element_id));
   const reserveGk = remaining.filter((player) => player.position === "GKP");
@@ -206,7 +225,7 @@ export function recommendPersonalSquad(payload) {
     throw new RecommendationContractError("Squad must leave one reserve goalkeeper and three outfield bench players");
   }
   let benchOrder;
-  if (benchValue !== null) {
+  if (benchValue !== null && benchValue !== undefined) {
     if (!Array.isArray(benchValue) || benchValue.length !== 3
       || benchValue.some((id) => !Number.isInteger(id) || id < 1)) {
       throw new RecommendationContractError("bench_order must contain exactly three positive integer outfield player IDs");
@@ -224,7 +243,74 @@ export function recommendPersonalSquad(payload) {
   const vice = captaincy[1];
   const expectedPoints = starting.reduce((sum, player) => sum + player.expected_points, 0)
     + captain.expected_points;
-  const transfer = transferCandidates(request, forecasts);
+  return {
+    formation: formation.join("-"),
+    starting_xi: starting.map((player) => player.fpl_element_id),
+    captain: captain.fpl_element_id,
+    vice_captain: vice.fpl_element_id,
+    reserve_goalkeeper: reserveGk[0].fpl_element_id,
+    bench_order: benchOrder,
+    expected_starting_points: expectedPoints,
+  };
+}
+
+export function recommendPersonalSquad(payload) {
+  const request = validatePersonalSquadRequest(payload);
+  const forecasts = request.player_forecasts;
+  const forecastById = new Map(forecasts.map((player) => [player.fpl_element_id, player]));
+  const squad = request.squad_snapshot;
+  const ownedIds = new Set(squad.map((player) => player.fpl_element_id));
+  const owned = [...ownedIds].map((id) => forecastById.get(id));
+  const preferences = request.personal_preferences ?? {};
+  if (preferences === null || typeof preferences !== "object" || Array.isArray(preferences)) {
+    throw new RecommendationContractError("personal_preferences must be an object");
+  }
+  const formationValue = request.formation ?? preferences.formation ?? null;
+  const startingValue = request.starting_xi ?? preferences.starting_xi ?? null;
+  const benchValue = request.bench_order ?? preferences.bench_order ?? null;
+
+  const currentSquadPlan = buildSquadPlan(owned, forecastById, formationValue, startingValue, benchValue);
+  const transfer = transferCandidates({ ...request, _baseline_squad_plan: currentSquadPlan }, forecasts);
+  let recommendedSquadPlan = currentSquadPlan;
+  let squadPlanState = "CURRENT_SQUAD_HOLD";
+  if (transfer.action === "TRANSFER" && transfer.best_candidate !== null) {
+    const incomingId = transfer.best_candidate.transfer_in_id;
+    const outgoingId = transfer.best_candidate.transfer_out_id;
+    const postTransferOwned = owned.filter((player) => player.fpl_element_id !== outgoingId);
+    postTransferOwned.push(forecastById.get(incomingId));
+    // Preserve the manager's XI. A starter transfer replaces that starter;
+    // a bench transfer can only displace the weakest starter in its position.
+    const postStartingXi = [...currentSquadPlan.starting_xi];
+    let replacementIndex = postStartingXi.indexOf(outgoingId);
+    let postBenchOrder;
+    if (replacementIndex >= 0) {
+      postBenchOrder = [...currentSquadPlan.bench_order];
+    } else {
+      const eligible = postStartingXi
+        .map((playerId, index) => ({ playerId, index, player: forecastById.get(playerId) }))
+        .filter((row) => row.player.position === forecastById.get(incomingId).position)
+        .sort((a, b) => a.player.expected_points - b.player.expected_points
+          || b.player.expected_minutes - a.player.expected_minutes
+          || b.player.fpl_element_id - a.player.fpl_element_id);
+      if (eligible.length === 0) {
+        throw new RecommendationContractError("Transfer cannot preserve the current formation");
+      }
+      replacementIndex = eligible[0].index;
+      const displacedId = postStartingXi[replacementIndex];
+      postBenchOrder = currentSquadPlan.bench_order.map(
+        (playerId) => playerId === outgoingId ? displacedId : playerId,
+      );
+    }
+    postStartingXi[replacementIndex] = incomingId;
+    const startingGoalkeeperId = currentSquadPlan.starting_xi.find(
+      (playerId) => forecastById.get(playerId).position === "GKP",
+    );
+    recommendedSquadPlan = buildSquadPlan(
+      postTransferOwned, forecastById, formationValue, postStartingXi, postBenchOrder, startingGoalkeeperId,
+    );
+    squadPlanState = "POST_TRANSFER";
+  }
+
   const quality = request.forecast_quality;
   return {
     system: "personal_squad",
@@ -244,15 +330,9 @@ export function recommendPersonalSquad(payload) {
       rank_target: request.rank_target ?? null,
     },
     transfer_recommendation: transfer,
-    squad_plan: {
-      formation: formation.join("-"),
-      starting_xi: starting.map((player) => player.fpl_element_id),
-      captain: captain.fpl_element_id,
-      vice_captain: vice.fpl_element_id,
-      reserve_goalkeeper: reserveGk[0].fpl_element_id,
-      bench_order: benchOrder,
-      expected_starting_points: expectedPoints,
-    },
+    current_squad_plan: currentSquadPlan,
+    squad_plan: recommendedSquadPlan,
+    squad_plan_state: squadPlanState,
     portfolio_risk: {
       covar_used: false,
       risk_profile_applied: false,
@@ -265,7 +345,12 @@ export function recommendPersonalSquad(payload) {
       "The supplied risk profile is recorded but not applied until calibrated player-level variance is available.",
       "Only one transfer is evaluated; multi-transfer sequences, future price changes and transfer flexibility are not modelled.",
       "Chip effects are not simulated in this version.",
-      "The starting XI is selected by expected points under the requested legal formation; bench order is a minutes/points proxy.",
+      "When exact purchase prices are unavailable, transfer affordability uses current price as a conservative lower bound; this may omit affordable options but will not overstate sale proceeds.",
+      "Transfers are evaluated by their effect on the starting XI; a bench-to-bench upgrade is not sufficient reason to transfer.",
+    "Goalkeeper transfers are excluded: the starting goalkeeper is not treated as a rotation position.",
+    "The bench is treated as budget emergency cover, not a routine rotation pool; bench order remains relevant only for automatic substitutions.",
+    "The starting XI is selected by expected points under the requested legal formation; bench order is a minutes/points proxy.",
+      "When a transfer is recommended, squad_plan is re-optimised for the post-transfer 15-player squad; current_squad_plan preserves the baseline.",
     ],
   };
 }
