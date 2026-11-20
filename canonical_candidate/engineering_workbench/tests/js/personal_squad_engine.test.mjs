@@ -93,3 +93,26 @@ test("personal squad validated status requires fresh verified forecast", () => {
   const result = recommendPersonalSquad(payload);
   assert.equal(result.recommendation_status, "VALIDATED");
 });
+
+
+test("current-price floor is used conservatively when purchase price is unknown", () => {
+  const payload = request();
+  for (const row of payload.squad_snapshot) {
+    const forecast = payload.player_forecasts.find(
+      (player) => player.fpl_element_id === row.fpl_element_id,
+    );
+    row.selling_price_floor = forecast.price;
+    delete row.purchase_price;
+  }
+  const result = recommendPersonalSquad(payload);
+  assert.equal(
+    result.transfer_recommendation.selling_price_basis,
+    "CONSERVATIVE_CURRENT_PRICE_FLOOR",
+  );
+  for (const candidate of result.transfer_recommendation.alternatives) {
+    const forecast = payload.player_forecasts.find(
+      (player) => player.fpl_element_id === candidate.transfer_out_id,
+    );
+    assert.ok(candidate.selling_price <= forecast.price);
+  }
+});
