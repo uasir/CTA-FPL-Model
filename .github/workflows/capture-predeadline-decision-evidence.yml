@@ -47,7 +47,8 @@ jobs:
             tests/test_capture_predeadline_decision_bundle.py \
             tests/test_classify_historical_fpl_evidence.py \
             tests/test_audit_official_fpl_manager_batch.py \
-            tests/test_run_predeadline_m3_decision.py
+            tests/test_run_predeadline_m3_decision.py \
+            tests/test_replay_frozen_m3_decision.py
       - name: Capture and seal pre-deadline decision evidence
         working-directory: canonical_candidate/engineering_workbench
         env:
@@ -68,6 +69,16 @@ jobs:
             predeadline-decision-evidence.json \
             --software-commit "$M3_CODE_SHA" \
             --output predeadline-m3-recommendation.json
+      - name: Independently re-execute the frozen decision from the captured bundle
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          M3_CODE_SHA: ${{ steps.checkout.outputs.commit }}
+        run: |
+          PYTHONPATH=scripts python scripts/replay_frozen_m3_decision.py \
+            predeadline-decision-evidence.json \
+            predeadline-m3-recommendation.json \
+            --software-commit "$M3_CODE_SHA" \
+            --output predeadline-m3-replay-report.json
       - name: Upload immutable pre-deadline decision evidence and recommendation
         uses: actions/upload-artifact@v4
         with:
@@ -75,5 +86,6 @@ jobs:
           path: |
             canonical_candidate/engineering_workbench/predeadline-decision-evidence.json
             canonical_candidate/engineering_workbench/predeadline-m3-recommendation.json
+            canonical_candidate/engineering_workbench/predeadline-m3-replay-report.json
           if-no-files-found: error
           retention-days: 90
