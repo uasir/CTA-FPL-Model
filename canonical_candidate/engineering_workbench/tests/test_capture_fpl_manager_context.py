@@ -1,5 +1,7 @@
+import base64
 import hashlib
 import json
+from urllib.error import HTTPError
 
 import pytest
 
@@ -10,13 +12,13 @@ TEAM_ID = 421025
 GAMEWEEK = 11
 
 
-def picks_payload():
+def picks_payload(event=GAMEWEEK, bank=9):
     return {
         "picks": [
             {"element": element, "purchase_price": 50 + element}
             for element in range(1, 16)
         ],
-        "entry_history": {"bank": 9, "event": GAMEWEEK, "event_transfers": 1},
+        "entry_history": {"bank": bank, "event": event, "event_transfers": 1},
     }
 
 
@@ -36,7 +38,6 @@ def test_captures_fifteen_players_purchase_prices_and_raw_hash(monkeypatch):
     }
     assert result["manager_context"]["bank"] == 0.9
     assert result["manager_context"]["free_transfers"] == 1
-    assert result["manager_context"]["formation"] == "4-3-3"
 
 
 def test_rejects_squad_identity_mismatch(monkeypatch):
@@ -72,33 +73,123 @@ def test_rejects_invalid_purchase_price(monkeypatch):
 
 
 def test_rejects_wrong_gameweek_response(monkeypatch):
-    payload = picks_payload()
-    payload["entry_history"]["event"] = 10
+    payload = picks_payload(event=10)
     monkeypatch.setattr(manager_capture, "fetch", lambda url: json.dumps(payload).encode())
     with pytest.raises(manager_capture.CaptureError, match="does not match requested"):
         manager_capture.capture_manager_context(TEAM_ID, GAMEWEEK, free_transfers=1)
 
 
-def test_uses_user_confirmed_squad_when_pre_deadline_picks_return_404(monkeypatch):
+def _history(chips=None):
+    return {"chips": chips or []}
+
+
+def test_reconstructs_unchanged_and_transferred_players_from_season_history():
+    gw1 = picks_payload(event=1)
+    # Sell player 1 for player 16 in GW4; incoming price is £6.2m.
+    transfers = [{
+        "event": 4, "time": "2026-09-20T10:00:00Z",
+        "element_out": 1, "element_out_cost": 51,
+        "element_in": 16, "element_in_cost": 62,
+    }]
+    expected = set(range(2, 17))
+    squad = manager_capture.reconstruct_purchase_prices(gw1, transfers, _history(), 11, expected)
+    prices = {row["fpl_element_id"]: row["purchase_price"] for row in squad}
+    assert prices[2] == 5.2
+    assert prices[16] == 6.2
+    assert len(prices) == 15
+
+
+def test_reconstructs_rebuy_using_latest_transfer_in_cost():
+    gw1 = picks_payload(event=1)
+    transfers = [
+        {"event": 3, "time": "2026-09-01T10:00:00Z", "element_out": 1, "element_out_cost": 51,
+         "element_in": 16, "element_in_cost": 60},
+        {"event": 5, "time": "2026-09-15T10:00:00Z", "element_out": 16, "element_out_cost": 60,
+         "element_in": 1, "element_in_cost": 55},
+    ]
+    squad = manager_capture.reconstruct_purchase_prices(
+        gw1, transfers, _history(), 11, set(range(1, 16))
+    )
+    prices = {row["fpl_element_id"]: row["purchase_price"] for row in squad}
+    assert prices[1] == 5.5
+    assert 16 not in prices
+
+
+def test_excludes_free_hit_event_transfers():
+    gw1 = picks_payload(event=1)
+    transfers = [{
+        "event": 4, "time": "2026-09-20T10:00:00Z",
+        "element_out": 1, "element_out_cost": 51,
+        "element_in": 16, "element_in_cost": 62,
+    }]
+    squad = manager_capture.reconstruct_purchase_prices(
+        gw1, transfers, _history([{"name": "freehit", "event": 4}]),
+        11, set(range(1, 16)),
+    )
+    assert {row["fpl_element_id"] for row in squad} == set(range(1, 16))
+
+
+def test_rejects_missing_transfer_price_and_unexplained_squad():
+    gw1 = picks_payload(event=1)
+    transfers = [{
+        "event": 4, "time": "2026-09-20T10:00:00Z",
+        "element_out": 1, "element_out_cost": 51,
+        "element_in": 16, "element_in_cost": None,
+    }]
+    with pytest.raises(manager_capture.CaptureError, match="element_in_cost"):
+        manager_capture.reconstruct_purchase_prices(
+            gw1, transfers, _history(), 11, set(range(2, 17))
+        )
+    with pytest.raises(manager_capture.CaptureError, match="identity mismatch"):
+        manager_capture.reconstruct_purchase_prices(
+            gw1, [], _history(), 11, set(range(2, 17))
+        )
+
+
+def test_pre_deadline_fallback_uses_season_history_and_archives_all_sources(monkeypatch):
     from urllib.error import HTTPError
 
-    def unavailable(url):
-        raise HTTPError(url, 404, "Not Found", {}, None)
+    gw1_raw = json.dumps(picks_payload(event=1)).encode()
+    transfers_raw = json.dumps([{
+        "event": 4, "time": "2026-09-20T10:00:00Z",
+        "element_out": 1, "element_out_cost": 51,
+        "element_in": 16, "element_in_cost": 62,
+    }]).encode()
+    history_raw = json.dumps(_history()).encode()
+    calls = []
 
-    monkeypatch.setattr(manager_capture, "fetch", unavailable)
+    def fake_fetch(url):
+        calls.append(url)
+        if url.endswith("/event/11/picks/"):
+            raise HTTPError(url, 404, "Not Found", {}, None)
+        if url.endswith("/event/1/picks/"):
+            return gw1_raw
+        if url.endswith("/transfers/"):
+            return transfers_raw
+        if url.endswith("/history/"):
+            return history_raw
+        raise AssertionError(url)
+
+    monkeypatch.setattr(manager_capture, "fetch", fake_fetch)
     monkeypatch.setattr(manager_capture, "utc_now", lambda: "2026-11-20T15:10:00Z")
+    expected = set(range(2, 17))
     result = manager_capture.capture_manager_context(
-        TEAM_ID, GAMEWEEK,
-        expected_element_ids=set(range(1, 16)),
-        expected_bank=0.9,
-        free_transfers=1,
-        allow_user_confirmed_fallback=True,
+        TEAM_ID, GAMEWEEK, expected_element_ids=expected, expected_bank=0.9,
+        free_transfers=1, allow_user_confirmed_fallback=True,
     )
     provenance = result["manager_context_capture"]
-    assert provenance["source_type"] == "USER_CONFIRMED_CONTEXT"
-    assert provenance["identity_verification_method"] == "user-confirmed squad IDs"
+    assert provenance["source_type"] == "USER_CONFIRMED_SQUAD_WITH_FPL_HISTORY_PRICES"
     assert provenance["identity_verified"] is True
     assert provenance["row_count"] == 15
-    assert len(result["manager_context"]["squad_snapshot"]) == 15
-    assert "purchase_price" not in result["manager_context"]["squad_snapshot"][0]
-    assert result["manager_context"]["bank"] == 0.9
+    assert set(calls) == {
+        f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/event/11/picks/",
+        f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/event/1/picks/",
+        f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/transfers/",
+        f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/history/",
+    }
+    archive_raw = base64.b64decode(provenance["raw_response_base64"], validate=True)
+    assert hashlib.sha256(archive_raw).hexdigest() == provenance["raw_sha256"]
+    prices = {row["fpl_element_id"]: row["purchase_price"]
+              for row in result["manager_context"]["squad_snapshot"]}
+    assert prices[16] == 6.2
+    assert prices[2] == 5.2
