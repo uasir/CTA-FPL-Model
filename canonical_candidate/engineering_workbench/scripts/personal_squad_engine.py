@@ -257,6 +257,7 @@ def recommend_personal_squad(payload):
         post_starting_xi = list(current_squad_plan["starting_xi"])
         if outgoing_id in post_starting_xi:
             replacement_index = post_starting_xi.index(outgoing_id)
+            post_bench_order = list(current_squad_plan["bench_order"])
         else:
             eligible = [
                 (index, forecast_by_id[player_id])
@@ -268,6 +269,11 @@ def recommend_personal_squad(payload):
             replacement_index = min(
                 eligible, key=lambda item: (item[1]["expected_points"], -item[1]["expected_minutes"], -item[1]["fpl_element_id"])
             )[0]
+            displaced_id = post_starting_xi[replacement_index]
+            post_bench_order = [
+                displaced_id if player_id == outgoing_id else player_id
+                for player_id in current_squad_plan["bench_order"]
+            ]
         post_starting_xi[replacement_index] = incoming_id
         starting_goalkeeper_id = next(
             player_id for player_id in current_squad_plan["starting_xi"]
@@ -275,6 +281,7 @@ def recommend_personal_squad(payload):
         )
         recommended_squad_plan = _build_squad_plan(
             post_transfer_owned, forecast_by_id, formation_value, post_starting_xi,
+            bench_value=post_bench_order,
             starting_goalkeeper_id=starting_goalkeeper_id,
         )
         squad_plan_state = "POST_TRANSFER"
