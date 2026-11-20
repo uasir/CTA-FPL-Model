@@ -116,7 +116,7 @@ The audit is still a scoring-engine validation sample, conditioned on current ra
 Private repository work:
 - Added the manager-panel selection protocol, linked from the decision-replay archive protocol.
 - Added deterministic selector script, which samples full pages from five fixed overall-rank bands, then selects a fixed quota per band. It records the seed, page frame, frame hash, rank, weights and excluded partial tail.
-- Added selector tests and wired them into private CI. Run [44656783106](https://github.com/uasir/CTA-FPL-Private-Archive/actions/runs/44656783106) passed 11 tests. The selector weight field was then aligned with the archive validator contract; a follow-up CI run is in progress.
+- Added selector tests and wired them into private CI. Run [44656783106](https://github.com/uasir/CTA-FPL-Private-Archive/actions/runs/44656783106) passed 11 tests. The selector weight field was then aligned with the archive validator contract; follow-up private CI run [44656852143](https://github.com/uasir/CTA-FPL-Private-Archive/actions/runs/44656852143) passed.
 - Added manual workflow to create the private season manifest and candidate frame. It refuses to overwrite an existing panel.
 
 **Still outstanding:** run the manual selection workflow for the next prospective Gameweek; inspect and freeze the resulting panel; capture the first complete pre-deadline manager-state wave and forecasts/decisions for hold, conventional and CTA-informed; validate the archive; then score actual outcomes. No manager cohort has yet been selected.
