@@ -18,7 +18,10 @@ def _archive(source_type, generated=False):
         "source_url": f"https://synthetic.invalid/{source_type}",
         "raw_snapshot_id": f"synthetic-{source_type}-1",
         "raw_sha256": hashlib.sha256(raw).hexdigest(),
-        "captured_at_utc": "2026-10-01T10:00:00Z",
+        "captured_at_utc": (
+            "2026-10-03T10:00:00Z" if source_type == "realised_points"
+            else "2026-10-01T10:00:00Z"
+        ),
         "raw_payload_base64": base64.b64encode(raw).decode(),
     }
     if generated:
@@ -112,6 +115,7 @@ def _record():
             _archive("provider", generated=True),
             _archive("player_metadata"),
             _archive("manager_state"),
+            _archive("realised_points"),
         ],
         "manager_state": {
             "bank": 0.5,
@@ -271,3 +275,10 @@ def test_uses_reserve_goalkeeper_when_starting_goalkeeper_does_not_play():
         "player_out_id": 1, "player_in_id": 2
     }
     assert 2 in result["recommended"]["on_pitch_ids_after_substitutions"]
+
+
+def test_rejects_realised_points_archive_captured_before_deadline():
+    record = _record()
+    record["source_archives"][3]["captured_at_utc"] = "2026-10-01T10:45:00Z"
+    with pytest.raises(DecisionEvaluationError, match="realised_points archive must be captured after"):
+        evaluate_decision_record(record)
