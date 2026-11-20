@@ -10,10 +10,10 @@ co-occurrence and captaincy.
 
 ## Capture output
 
-`capture_predeadline_field_eo.py` now emits a separate
-`fpl_predeadline_manager_portfolios.json` artifact alongside the existing EO
-CSV and report. It is built in memory from the exact manager-pick rows already
-used by the EO estimator.
+`capture_predeadline_field_eo.py` builds the manager-level portfolio
+representation in memory from the exact manager-pick rows already used by the
+EO estimator. It writes `fpl_predeadline_manager_portfolios.json` only when
+the caller explicitly supplies `--manager-portfolio-output`.
 
 The portfolio artifact:
 - contains one sampled portfolio per captured manager;
