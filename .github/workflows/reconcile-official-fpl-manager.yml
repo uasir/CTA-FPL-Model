@@ -57,8 +57,8 @@ jobs:
           path: |\n            canonical_candidate/engineering_workbench/official-fpl-manager-reconciliation-batch.json\n            canonical_candidate/engineering_workbench/official-fpl-manager-reconciliation-audit.json
           if-no-files-found: error
           retention-days: 90
-      - name: Fail job if any requested Gameweek was excluded
-        if: steps.reconcile.outcome == 'failure'
+      - name: Fail job if any requested Gameweek was excluded or audit failed
+        if: steps.reconcile.outcome == 'failure' || steps.audit.outcome == 'failure'
         run: |
           echo "One or more requested Gameweeks could not be reconciled; inspect the uploaded batch artifact."
           exit 1
