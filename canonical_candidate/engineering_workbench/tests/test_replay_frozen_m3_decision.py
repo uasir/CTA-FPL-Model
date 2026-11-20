@@ -247,3 +247,34 @@ def test_replay_rejects_manager_attestation_change_even_when_archive_hash_is_reb
     with pytest.raises(replay.DecisionReplayError, match="canonical manager state differs"):
         replay.replay_frozen_decision(bundle, frozen, software_commit="b" * 40)
 
+def test_replay_reconstructs_manager_purchase_prices_from_previous_gameweek_picks(monkeypatch):
+    bundle, frozen = _prepare(monkeypatch)
+    manifest = bundle["12"]
+    source = next(row for row in manifest["sources"] if row["source_type"] == "manager_deadline_state")
+    envelope = json.loads(base64.b64decode(source["raw_payload_base64"]))
+    previous = json.loads(base64.b64decode(envelope["raw_manager_picks_base64"]))
+    previous["entry_history"]["event"] = 11
+    history = {"chips": []}
+    def encoded(value):
+        return base64.b64encode(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).decode()
+    wrapper = {
+        "source_type": "PREVIOUS_GAMEWEEK_PICKS",
+        "previous_gameweek_picks": encoded(previous),
+        "history": encoded(history),
+    }
+    envelope["capture_method"] = "USER_CONFIRMED_WITH_PREVIOUS_GW_PICKS"
+    envelope["source_urls"] = [
+        "https://fantasy.premierleague.com/api/entry/421025/event/11/picks/",
+        "https://fantasy.premierleague.com/api/entry/421025/history/",
+    ]
+    envelope["history_archive_base64"] = encoded(wrapper)
+    envelope["raw_manager_picks_base64"] = None
+    raw = json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode()
+    digest = hashlib.sha256(raw).hexdigest()
+    source["raw_payload_base64"] = base64.b64encode(raw).decode()
+    source["raw_sha256"] = digest
+    source["raw_snapshot_id"] = "sha256:" + digest
+    result = replay.replay_frozen_decision(bundle, frozen, software_commit="b" * 40)
+    assert result["status"] == "PASSED"
+    assert result["replay_type"] == "DETERMINISTIC_RAW_AND_CANONICAL_INPUT_REEXECUTION"
+
