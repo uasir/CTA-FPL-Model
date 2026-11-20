@@ -78,7 +78,7 @@ def test_provider_csv_schemas_variants_and_numeric_values_are_explicit():
     assert rogue["provider_captured_at"] == "2026-11-19T09:45:00Z"
     with pytest.raises(ValueError, match="different target gameweek"):
         validate_payload("fpl_rogue_accepted_xpts_csv", ROGUE_CSV.replace(b",11,", b",12,"), 11, "text/csv")
-    with pytest.raises(ValueError, match="not numeric"):
+    with pytest.raises(ValueError, match="must be finite"):
         validate_payload("fpl_lucho_served_xp_csv", LUCHO_CSV.replace(b",4.2,", b",NaN,"), 11, "text/csv")
 
 
