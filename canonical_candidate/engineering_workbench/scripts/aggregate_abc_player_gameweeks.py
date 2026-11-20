@@ -66,9 +66,10 @@ def _sum_target(rows, field):
     return sum(values), "COMPLETE"
 
 
-def aggregate_player_gameweeks(rows, expected_fixture_ids=None):
+def aggregate_player_gameweeks(rows, expected_fixture_ids=None, reference_invalid_keys=None):
     """Aggregate rows; expected_fixture_ids maps (season, element, GW) to reference fixture-ID sets."""
     expected_fixture_ids = expected_fixture_ids or {}
+    reference_invalid_keys = reference_invalid_keys or set()
     grouped = defaultdict(list)
     for row in rows:
         season = str(row.get("season") or "")
@@ -98,6 +99,8 @@ def aggregate_player_gameweeks(rows, expected_fixture_ids=None):
             reasons.append("REFERENCE_FIXTURE_IDS_NOT_SUPPLIED")
         elif set(fixture_ids) != expected_ids:
             reasons.append("FIXTURE_ID_SET_MISMATCH")
+        if key in reference_invalid_keys:
+            reasons.append("FPL_REFERENCE_TARGET_OR_FIXTURE_MISMATCH")
 
         if not all(truth(row.get("identity_verified")) for row in fixtures):
             reasons.append("IDENTITY_NOT_VERIFIED")
@@ -119,7 +122,8 @@ def aggregate_player_gameweeks(rows, expected_fixture_ids=None):
             "fixture_count_observed": len(fixtures),
             "fixture_count_expected": len(expected_ids) if expected_ids is not None else None,
             "fixture_completeness_status": (
-                "PASS" if expected_ids is not None and set(fixture_ids) == expected_ids
+                "REFERENCE_INVALID" if key in reference_invalid_keys
+                else "PASS" if expected_ids is not None and set(fixture_ids) == expected_ids
                 else "NOT_CHECKED" if expected_ids is None else "MISMATCH"
             ),
             "target_fpl_total_points": points,
@@ -167,13 +171,16 @@ def read_csv(path):
 
 def read_expected_fixture_ids(path):
     expected = defaultdict(set)
+    invalid_keys = set()
     for row in read_csv(path):
         key = (str(row["season"]), str(row["fpl_element_id"]), int(row["gameweek"]))
         fixture_id = str(row["fixture_id"])
         if not fixture_id:
             raise ValueError("Blank reference fixture ID")
         expected[key].add(fixture_id)
-    return dict(expected)
+        if str(row.get("reference_status", "PASS")).upper() != "PASS":
+            invalid_keys.add(key)
+    return dict(expected), invalid_keys
 
 
 def main():
@@ -183,8 +190,9 @@ def main():
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--report-out", type=Path, required=True)
     args = parser.parse_args()
+    expected_fixture_ids, reference_invalid_keys = read_expected_fixture_ids(args.expected_fixtures)
     aggregated = aggregate_player_gameweeks(
-        read_csv(args.input), read_expected_fixture_ids(args.expected_fixtures)
+        read_csv(args.input), expected_fixture_ids, reference_invalid_keys
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", newline="", encoding="utf-8") as handle:
@@ -207,10 +215,15 @@ def main():
         reason for row in aggregated for reason in row["exclusion_reasons"]
     )
     report = {
-        "status": "PASS_STRUCTURAL_ONLY",
+        "status": (
+            "PASS_STRUCTURAL_WITH_EXCLUSIONS"
+            if any(not row["research_eligible_for_model"] for row in aggregated)
+            else "PASS_STRUCTURAL_ONLY"
+        ),
         "player_gameweeks": len(aggregated),
         "eligible_player_gameweeks": sum(row["research_eligible_for_model"] for row in aggregated),
         "excluded_player_gameweeks": sum(not row["research_eligible_for_model"] for row in aggregated),
+        "reference_invalid_player_gameweeks": len(reference_invalid_keys),
         "exclusion_reason_counts": dict(sorted(exclusion_reason_counts.items())),
         "feature_status_counts": feature_status_counts,
         "feature_aggregation_policy": "CONSENSUS_ONLY_NO_SUM_OR_BLIND_AVERAGE",
