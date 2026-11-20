@@ -98,10 +98,12 @@ def score_scenario_portfolios(
     raw_scores: dict[str, list[float]] = {}
     for portfolio_id, portfolio in portfolio_rows.items():
         selected = [str(value) for value in portfolio["player_ids"]]
-        captain_id = str(portfolio["captain_id"])
+        captain_value = portfolio.get("captain_id")
+        captain_id = str(captain_value) if captain_value is not None else None
         captain_multiplier = float(portfolio.get("captain_multiplier", 2))
         coefficients = {player_id: 1.0 for player_id in selected}
-        coefficients[captain_id] = captain_multiplier
+        if captain_id is not None:
+            coefficients[captain_id] = captain_multiplier
 
         scenario_scores: list[float] = []
         for outcome_map in outcome_maps:
