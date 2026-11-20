@@ -42,6 +42,11 @@ def test_personal_squad_builds_legal_xi_and_transfer_recommendation():
     best = result["transfer_recommendation"]["best_candidate"]
     assert best["transfer_out_id"] == 6
     assert best["transfer_in_id"] == 17
+    assert result["squad_plan_state"] == "POST_TRANSFER"
+    assert 6 in result["current_squad_plan"]["bench_order"]
+    assert 6 not in result["squad_plan"]["starting_xi"]
+    assert 6 not in result["squad_plan"]["bench_order"]
+    assert 17 in result["squad_plan"]["starting_xi"] + result["squad_plan"]["bench_order"]
     same_team_replacement = next(
         candidate for candidate in result["transfer_recommendation"]["alternatives"]
         if candidate["transfer_out_id"] == 3 and candidate["transfer_in_id"] == 16
