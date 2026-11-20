@@ -199,6 +199,9 @@ def validate_scenario_document(document: Mapping[str, Any]) -> dict[str, Any]:
         if not portfolio_id or portfolio_id in portfolio_ids:
             raise CovarScenarioContractError("portfolio IDs must be unique and non-empty")
         portfolio_ids.add(portfolio_id)
+        role = portfolio.get("portfolio_role", "CANDIDATE")
+        if role not in ("CANDIDATE", "FIELD"):
+            raise CovarScenarioContractError("portfolio_role must be CANDIDATE or FIELD")
         selected = portfolio.get("player_ids")
         if not isinstance(selected, list) or not selected or len(set(map(str, selected))) != len(selected):
             raise CovarScenarioContractError(f"portfolio {portfolio_id} must have unique player_ids")
@@ -210,6 +213,22 @@ def validate_scenario_document(document: Mapping[str, Any]) -> dict[str, Any]:
         if multiplier not in (2.0, 3.0):
             raise CovarScenarioContractError("captain_multiplier must be 2 or 3 for this prototype")
 
+    field_portfolios = [
+        row for row in portfolios if row.get("portfolio_role", "CANDIDATE") == "FIELD"
+    ]
+    field_weights = []
+    for portfolio in field_portfolios:
+        weight = _number(
+            portfolio.get("field_weight"),
+            f"portfolio {portfolio['portfolio_id']}.field_weight",
+            minimum=0,
+        )
+        if weight <= 0:
+            raise CovarScenarioContractError("field portfolio weights must be > 0")
+        field_weights.append(weight)
+    if field_portfolios and not math.isclose(sum(field_weights), 1.0, rel_tol=0, abs_tol=1e-9):
+        raise CovarScenarioContractError("field portfolio weights must sum to 1")
+
     normalized = dict(document)
     normalized["contract_version"] = CONTRACT_VERSION
     normalized["validation_status"] = "VALID_SYNTHETIC_RESEARCH_INPUT"
@@ -217,6 +236,7 @@ def validate_scenario_document(document: Mapping[str, Any]) -> dict[str, Any]:
     normalized["player_count"] = len(player_by_id)
     normalized["scenario_count"] = len(scenario_ids)
     normalized["portfolio_count"] = len(portfolio_ids)
+    normalized["field_portfolio_count"] = len(field_portfolios)
     normalized["production_eligible"] = False
     normalized["decision_weight"] = 0.0
     return normalized
