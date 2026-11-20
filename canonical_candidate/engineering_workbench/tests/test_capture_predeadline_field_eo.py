@@ -7,7 +7,8 @@ from capture_predeadline_field_eo import capture_predeadline
 
 
 def make_bootstrap(deadline="2026-11-20T21:00:00Z"):
-    return {"events": [{"id": 12, "deadline_time": deadline}],\n            "elements": [{"id": element} for element in range(1, 16)]}
+    return {"events": [{"id": 12, "deadline_time": deadline}],
+            "elements": [{"id": element} for element in range(1, 16)]}
 
 
 class Clock:
