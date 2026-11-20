@@ -55,6 +55,18 @@ def available_features(rows, candidates):
     return [name for name in candidates if any(number(r.get(name)) is not None for r in rows)]
 
 
+def feature_coverage(rows, features):
+    total = len(rows)
+    return {
+        name: {
+            "observed_rows": sum(number(row.get(name)) is not None for row in rows),
+            "missing_rows": sum(number(row.get(name)) is None for row in rows),
+            "coverage_rate": sum(number(row.get(name)) is not None for row in rows) / total if total else None,
+        }
+        for name in features
+    }
+
+
 def aggregate_player_gameweek(rows, predictions, default_season="2017/18"):
     grouped = {}
     for row, prediction in zip(rows, predictions):
@@ -264,7 +276,10 @@ def evaluate(rows, source_report, ridge_lambda=1.0, n_boot=1000,
             this_fold["models"][name] = {
                 "status": "EVALUATED",
                 "feature_count": len(features),
+                "design_feature_count_including_missingness_indicators": 2 * len(features),
                 "features_used": features,
+                "feature_coverage_on_training_rows": feature_coverage(train, features),
+                "missing_value_policy": "TRAINING_MEDIAN_PLUS_MISSINGNESS_INDICATOR",
                 "metrics": metrics(player_gw),
             }
         fold_reports.append(this_fold)
@@ -312,6 +327,8 @@ def evaluate(rows, source_report, ridge_lambda=1.0, n_boot=1000,
         "pooled_models": pooled_reports,
         "paired_player_cluster_bootstrap_vs_fpl_history": paired,
         "features_used_across_folds": model_features,
+        "feature_coverage_policy": "Report observed/missing counts and rates per training fold; no minimum-coverage threshold is imposed in this exploratory run.",
+        "missing_value_policy": "TRAINING_MEDIAN_PLUS_MISSINGNESS_INDICATOR; imputation parameters fitted on training rows only.",
         "ridge_lambda": ridge_lambda,
         "point_in_time_status": "NOT_VERIFIED_RETROSPECTIVE_SOURCE_VINTAGES",
         "promotion_status": "RESEARCH_ONLY_DO_NOT_PROMOTE",
