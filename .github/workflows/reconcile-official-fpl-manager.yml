@@ -39,7 +39,7 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python -m pip install pytest
-          PYTHONPATH=scripts python -m pytest -q tests/test_evaluate_external_benchmark_decisions.py tests/test_reconcile_official_fpl_manager_result.py tests/test_reconcile_official_fpl_manager_batch.py tests/test_audit_official_fpl_manager_batch.py tests/test_classify_historical_fpl_evidence.py
+          PYTHONPATH=scripts python -m pytest -q tests/test_assemble_m3_real_evaluation_record.py tests/test_evaluate_external_benchmark_decisions.py tests/test_reconcile_official_fpl_manager_result.py tests/test_reconcile_official_fpl_manager_batch.py tests/test_audit_official_fpl_manager_batch.py tests/test_classify_historical_fpl_evidence.py
       - name: Capture and reconcile requested completed Gameweeks
         id: reconcile
         continue-on-error: true
@@ -101,6 +101,49 @@ jobs:
             MANIFEST_ARGS+=(--decision-manifests official-fpl-decision-evidence-manifests.json)
           fi
           python scripts/classify_historical_fpl_evidence.py official-fpl-manager-reconciliation-batch.json "${MANIFEST_ARGS[@]}" --audit-report official-fpl-manager-reconciliation-audit.json --output official-fpl-historical-evidence-admission.json
+      - name: Check decision backtest admission
+        id: decision_admission
+        if: steps.admission.outcome == 'success' && steps.reconcile.outcome == 'success' && inputs.decision_evidence_run_id != ''
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          TARGET_GAMEWEEK: ${{ inputs.gameweeks }}
+        run: |
+          python - <<'PY'
+          import json, os
+          gameweeks = [part.strip() for part in os.environ["TARGET_GAMEWEEK"].split(",") if part.strip()]
+          if len(gameweeks) != 1:
+              raise SystemExit("Decision evaluation requires exactly one target Gameweek")
+          report = json.load(open("official-fpl-historical-evidence-admission.json", encoding="utf-8"))
+          event = next((row for row in report.get("events", [])
+                        if row.get("gameweek") == int(gameweeks[0])), None)
+          eligible = bool(event and event.get("classification") == "DECISION_BACKTEST_ELIGIBLE"
+                          and event.get("historical_evidence_admitted") is True)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"eligible={'true' if eligible else 'false'}\\n")
+          print(json.dumps({"target_gameweek": int(gameweeks[0]), "decision_backtest_eligible": eligible}))
+          PY
+      - name: Assemble real M3 evaluation record
+        id: assembly
+        if: steps.decision_admission.outputs.eligible == 'true'
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/assemble_m3_real_evaluation_record.py \\
+            official-fpl-predeadline-m3-recommendation.json \\
+            --batch official-fpl-manager-reconciliation-batch.json \\
+            --audit-report official-fpl-manager-reconciliation-audit.json \\
+            --admission-report official-fpl-historical-evidence-admission.json \\
+            --output official-fpl-m3-evaluation-record.json
+      - name: Score admitted real M3 decision event
+        id: evaluation
+        if: steps.assembly.outcome == 'success'
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/evaluate_external_benchmark_decisions.py \\
+            official-fpl-m3-evaluation-record.json \\
+            --admission-report official-fpl-historical-evidence-admission.json \\
+            --audit-report official-fpl-manager-reconciliation-audit.json \\
+            --batch official-fpl-manager-reconciliation-batch.json \\
+            --output official-fpl-m3-evaluation-result.json
       - name: Upload immutable batch evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -113,10 +156,12 @@ jobs:
             canonical_candidate/engineering_workbench/official-fpl-decision-evidence-manifests.json
             canonical_candidate/engineering_workbench/official-fpl-predeadline-m3-recommendation.json
             canonical_candidate/engineering_workbench/official-fpl-predeadline-m3-replay-report.json
+            canonical_candidate/engineering_workbench/official-fpl-m3-evaluation-record.json
+            canonical_candidate/engineering_workbench/official-fpl-m3-evaluation-result.json
           if-no-files-found: warn
           retention-days: 90
       - name: Fail job if any requested Gameweek was excluded or audit failed
-        if: steps.reconcile.outcome == 'failure' || steps.audit.outcome == 'failure'
+        if: steps.reconcile.outcome == 'failure' || steps.audit.outcome == 'failure' || steps.assembly.outcome == 'failure' || steps.evaluation.outcome == 'failure'
         run: |
           echo "One or more requested Gameweeks could not be reconciled; inspect the uploaded batch artifact."
           exit 1
