@@ -125,3 +125,11 @@ def test_rejects_mismatched_coverage_and_bad_hash():
     source["source"]["raw_sha256"] = "not-a-hash"
     with pytest.raises(ForecastContractError, match="SHA-256"):
         normalize_provider_snapshot(source)
+
+
+def test_rejects_provider_generation_after_snapshot_capture():
+    source = payload()
+    source["timing"]["generated_at_utc"] = "2026-11-20T09:01:00Z"
+    source["timing"]["captured_at_utc"] = "2026-11-20T09:00:00Z"
+    with pytest.raises(ForecastContractError, match="cannot be later than snapshot capture"):
+        normalize_provider_snapshot(source)
