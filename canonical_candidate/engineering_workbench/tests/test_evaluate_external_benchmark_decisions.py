@@ -350,3 +350,21 @@ def test_rejects_malformed_transfer_identifiers_without_uncaught_type_errors():
     _seal(record["frozen_decision"])
     with pytest.raises(DecisionEvaluationError, match="transfer_out_id must identify an owned player"):
         evaluate_decision_record(record)
+
+def test_output_retains_manager_provider_identity_and_does_not_apply_risk_profile():
+    result = evaluate_decision_record(_record())
+    assert result["manager_team_id"] == 421025
+    assert result["provider_snapshot_id"] == "synthetic-fplcat-gw11"
+    assert result["personal_risk_profile"] == "aggressive"
+    assert result["risk_profile_applied"] is False
+
+
+def test_rejects_invalid_manager_risk_profile_and_formation():
+    record = _record()
+    record["manager_state"]["personal_risk_profile"] = "extreme"
+    with pytest.raises(DecisionEvaluationError, match="personal_risk_profile is invalid"):
+        evaluate_decision_record(record)
+    record = _record()
+    record["manager_state"]["formation"] = "2-5-3"
+    with pytest.raises(DecisionEvaluationError, match="legal FPL formation"):
+        evaluate_decision_record(record)
