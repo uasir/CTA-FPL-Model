@@ -72,6 +72,8 @@ def capture_predeadline_decision_bundle(
         raise DecisionCaptureError("free_transfers must be an integer from 0 to 5")
     if chip_state != "NONE":
         raise DecisionCaptureError("Only chip_state NONE is supported by the initial decision contract")
+    if formation not in {"3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-2-3", "5-3-2", "5-4-1"}:
+        raise DecisionCaptureError("Unsupported FPL formation")
 
     provider_capture = capture_fpl_cat_snapshot(season=season)
     provider = provider_capture["provider_snapshot"]
@@ -185,9 +187,31 @@ def capture_predeadline_decision_bundle(
     if decision_as_of < max(provider_captured, metadata_captured, manager_captured):
         raise DecisionCaptureError("Decision-as-of timestamp cannot precede one of its source captures")
 
+    # Independently bind the exact bytes to the hashes returned by the capture layers.
     provider_hash = hashlib.sha256(provider_raw).hexdigest()
     metadata_hash = hashlib.sha256(metadata_raw).hexdigest()
     manager_hash = hashlib.sha256(manager_raw).hexdigest()
+    if provider_hash != provider.get("source", {}).get("raw_sha256"):
+        raise DecisionCaptureError("Provider raw archive hash does not match capture provenance")
+    if metadata_hash != provider_capture.get("player_metadata_provenance", {}).get("raw_sha256"):
+        raise DecisionCaptureError("Player metadata raw archive hash does not match capture provenance")
+    if manager_hash != manager_provenance.get("raw_sha256"):
+        raise DecisionCaptureError("Manager raw archive hash does not match capture provenance")
+    if "active_chip" not in manager_payload or manager_payload.get("active_chip") is not None:
+        raise DecisionCaptureError("Manager picks must explicitly confirm no active chip")
+    element_position = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+    actual_counts = {
+        position: sum(element_types.get(player_id) == element_type
+                      for player_id in starting_xi)
+        for element_type, position in element_position.items()
+    }
+    expected_counts = dict(zip(("DEF", "MID", "FWD"),
+                               (int(value) for value in formation.split("-"))))
+    if actual_counts["GKP"] != 1 or any(
+        actual_counts[position] != expected_counts[position]
+        for position in ("DEF", "MID", "FWD")
+    ):
+        raise DecisionCaptureError("Live starting XI does not match the requested formation")
     manager_url = manager_provenance["source_url"]
     manifest = {
         "target_gameweek": gameweek,
