@@ -90,6 +90,36 @@ class TestM4CovarScenarioScoring(unittest.TestCase):
             "NOT_AVAILABLE_NO_EXPLICIT_FIELD_PORTFOLIO",
         )
 
+    def test_explicit_weighted_field_portfolios_produce_relative_score_distribution(self):
+        doc = fixture()
+        conventional = dict(doc["portfolios"][0])
+        conventional.update({
+            "portfolio_id": "field-manager-a",
+            "portfolio_role": "FIELD",
+            "field_weight": 0.75,
+        })
+        stack = dict(doc["portfolios"][1])
+        stack.update({
+            "portfolio_id": "field-manager-b",
+            "portfolio_role": "FIELD",
+            "field_weight": 0.25,
+        })
+        doc["portfolios"].extend([conventional, stack])
+        result = score_scenario_portfolios(doc)
+        self.assertEqual(
+            result["field_comparison_status"],
+            "AVAILABLE_EXPLICIT_FIELD_PORTFOLIOS",
+        )
+        comparison = result["portfolio_results"]["conventional"]["field_comparison"]
+        self.assertEqual(comparison["field_portfolio_count"], 2)
+        self.assertAlmostEqual(comparison["field_expected_points"], 21.625)
+        self.assertAlmostEqual(
+            comparison["expected_points_difference_vs_weighted_field"], 0.875
+        )
+        self.assertAlmostEqual(
+            comparison["probability_outscoring_random_field_portfolio"], 0.125
+        )
+
     def test_rejects_unknown_mode(self):
         doc = fixture()
         doc["mode"] = "AUTO"
