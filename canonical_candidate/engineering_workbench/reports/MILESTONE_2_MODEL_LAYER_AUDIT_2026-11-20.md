@@ -76,6 +76,12 @@ A separate descriptive comparison may still be retained for historical context, 
 - [ ] Multi-season point-in-time validation and data-rights gates are satisfied before any recommendation weight is enabled.
 
 
+
+
+### Follow-up implementation — 2026-11-20 11:17 UTC
+
+The 2PM workflow summary was updated in commit `1c79ce45506bfe5123db58978bbec9255611d345` to publish aggregate-only base-model comparator metrics, paired bootstrap outputs, calibrated expected-points metrics and per-season fold coverage. Player-level predictions remain runner-local. The rerun is queued as Actions run [44726375243](https://github.com/uasir/CTA-FPL-Model/actions/runs/44726375243); this gate remains pending until it completes and the aggregate outputs are reviewed.
+
 ## 6. Additional reporting gap found in the 2PM workflow
 
 The evaluator computes matched conventional two-part, direct-Ridge and last-five persistence comparisons, plus paired cluster-bootstrap results. However, the successful Actions workflow's aggregate-only summary publishes the pooled Transformer point-error/probability diagnostics and the base-versus-position ablation, but omits those conventional comparator results and paired intervals.
