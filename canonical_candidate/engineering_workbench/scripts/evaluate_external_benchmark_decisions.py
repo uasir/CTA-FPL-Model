@@ -152,6 +152,14 @@ def _validate_evidence(record: Mapping[str, Any]) -> None:
         _fail("provider generation cannot be later than provider capture")
 
 
+def _selling_price(current_price: float, purchase_price: float) -> float:
+    current_tenths = int(round(current_price * 10))
+    purchase_tenths = int(round(purchase_price * 10))
+    if current_tenths <= purchase_tenths:
+        return current_tenths / 10.0
+    return (purchase_tenths + (current_tenths - purchase_tenths) // 2) / 10.0
+
+
 def _validate_roster(roster: Any, name: str) -> tuple[dict[int, Mapping[str, Any]], dict[str, int]]:
     if not isinstance(roster, list) or len(roster) != 15:
         _fail(f"{name} must contain exactly 15 player records")
@@ -332,6 +340,9 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
         in_id = decision.get("transfer_in_id")
         if out_id not in manager_roster or in_id in manager_roster:
             _fail("TRANSFER must name one owned outgoing and one unowned incoming player")
+        outgoing_player = manager_roster[out_id]
+        if outgoing_player["position"] == "GKP":
+            _fail("goalkeeper transfers are excluded by the manager strategy contract")
         expected_hit = 0 if manager["free_transfers"] > 0 else 4
         if hit_points != expected_hit:
             _fail(f"one-transfer hit must be {expected_hit} under the captured free-transfer count")
@@ -340,12 +351,16 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
         incoming = decision["incoming_player"]
         if not isinstance(incoming, Mapping) or incoming.get("fpl_element_id") != in_id:
             _fail("incoming_player metadata must match transfer_in_id")
-        if incoming.get("position") != manager_roster[out_id]["position"]:
+        if incoming.get("position") != outgoing_player["position"]:
             _fail("transfer must preserve player position")
         if isinstance(incoming.get("team_id"), bool) or not isinstance(incoming.get("team_id"), int) or incoming.get("team_id") < 1:
             _fail("incoming player team metadata is invalid")
         for price_field in ("purchase_price", "current_price"):
             _finite_number(incoming.get(price_field), f"incoming_player.{price_field}", 0.1)
+        sale_price = _selling_price(outgoing_player["current_price"], outgoing_player["purchase_price"])
+        bank_after = manager["bank"] + sale_price - incoming["current_price"]
+        if bank_after < -1e-9:
+            _fail("transfer is unaffordable using captured bank and FPL selling-price rules")
         if set(plan["squad_ids"]) != (set(manager_roster) - {out_id}) | {in_id}:
             _fail("post-transfer plan must replace exactly the outgoing player with the incoming player")
         if plan["reserve_goalkeeper_id"] != manager_plan["reserve_goalkeeper_id"]:
@@ -424,6 +439,13 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
         "target_gameweek": record["target_gameweek"],
         "provider_identity": dict(record["provider_identity"]),
         "recommended_action": decision["action"],
+        "transfer_financials": (
+            {
+                "outgoing_selling_price": sale_price,
+                "incoming_price": incoming["current_price"],
+                "bank_after_transfer": bank_after,
+            } if decision["action"] == "TRANSFER" else None
+        ),
         "recommended": {**recommendation_score, "transfer_hit_points": hit_points, "net_points": net_recommended},
         "hold": {**hold_score, "transfer_hit_points": 0.0, "net_points": net_hold},
         "net_points_delta_vs_hold": net_recommended - net_hold,
