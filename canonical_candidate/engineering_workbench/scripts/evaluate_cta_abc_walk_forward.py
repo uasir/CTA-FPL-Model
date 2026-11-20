@@ -18,6 +18,7 @@ from cta_four_layer_pipeline import LAYER_FEATURES
 from evaluate_fpl_decision_quality import evaluate_forecast
 from evaluate_fpl_walk_forward import cluster_bootstrap_paired_errors
 from train_fpl_exploratory_ridge import fit_ridge, predict
+from matched_fold_keys import sha_keys, load_partition_keys, verify_manifest_partition_hashes
 
 BASELINE_FEATURES = (
     "fpl_total_points_prior_3_avg",
@@ -66,6 +67,7 @@ def aggregate_player_gameweek(rows, predictions):
     result = []
     for (player_id, gameweek), values in sorted(grouped.items(), key=lambda x: (x[0][1], x[0][0])):
         result.append({
+            "season": str(rows[0].get("season") or "2017-18") if rows else "2017-18",
             "player_id": player_id,
             "gameweek": gameweek,
             "actual": values["actual"],
@@ -138,8 +140,161 @@ def build_folds(gameweeks, min_train_gameweeks=18, test_window=4):
     ]
 
 
+
+def fit_affine_calibrator(predicted, actual):
+    if len(predicted) != len(actual) or len(predicted) < 2:
+        raise ValueError("Matched ABC calibration needs at least two player-Gameweek rows")
+    mean_x = sum(predicted) / len(predicted)
+    mean_y = sum(actual) / len(actual)
+    variance = sum((x - mean_x) ** 2 for x in predicted)
+    slope = sum((x - mean_x) * (y - mean_y) for x, y in zip(predicted, actual)) / variance if variance > 1e-10 else 1.0
+    slope = max(0.0, slope)
+    return slope, mean_y - slope * mean_x
+
+
+def evaluate_matched(rows, source_report, partitions, manifest, ridge_lambda=1.0,
+                     n_boot=1000):
+    if matched_fold_keys is not None:
+        if matched_manifest is None:
+            raise ValueError("Matched ABC evaluation requires the public fold manifest")
+        verify_manifest_partition_hashes(matched_fold_keys, matched_manifest)
+        return evaluate_matched(rows, source_report, matched_fold_keys, matched_manifest,
+                                ridge_lambda=ridge_lambda, n_boot=n_boot)
+    eligible = [
+        row for row in rows
+        if truth(row.get("research_eligible_for_analysis"))
+        and number(row.get("target_fpl_total_points")) is not None
+        and number(row.get("gameweek")) is not None
+        and row.get("fpl_element_id") not in (None, "")
+    ]
+    by_key = defaultdict(list)
+    for row in eligible:
+        season = str(row.get("season") or "2017-18").strip()
+        key = (season, str(row["fpl_element_id"]).strip(), int(float(row["gameweek"])))
+        by_key[key].append(row)
+    candidates = candidate_sets()
+    pooled = defaultdict(list)
+    fold_reports = []
+    pooled_predictions = defaultdict(list)
+    for fold_id, parts in sorted(partitions.items()):
+        selected = {}
+        for part in ("fit", "calibration", "test"):
+            missing = [key for key in parts[part] if key not in by_key]
+            if missing:
+                raise ValueError(f"Matched ABC {part} keys missing from eligible ABC fixture panel: {len(missing)}")
+            selected[part] = [row for key in parts[part] for row in by_key[key]]
+            actual_hash = sha_keys(parts[part])
+            expected = manifest["folds"][fold_id - 1][f"{part}_key_sha256"]
+            if actual_hash != expected:
+                raise ValueError(f"Matched ABC {part} partition hash differs from manifest")
+        fit_rows = selected["fit"]
+        calibration_rows = selected["calibration"]
+        test_rows = selected["test"]
+        fold_model_reports = {}
+        fold_records = {}
+        for model_name in ("FPL_HISTORY_ONLY", "ABC_ONLY_ABC"):
+            feature_candidates = candidates[model_name]
+            features = available_features(fit_rows, feature_candidates)
+            if not features:
+                raise ValueError(f"Matched ABC {model_name} has no observed fit features")
+            if model_name == "FPL_HISTORY_ONLY" and not all(name in features for name in BASELINE_FEATURES):
+                raise ValueError("Matched ABC FPL history reference has incomplete baseline features")
+            model = fit_ridge(fit_rows, "target_fpl_total_points", features, ridge_lambda)
+            calibration_fixture_predictions = [predict(model, row) for row in calibration_rows]
+            test_fixture_predictions = [predict(model, row) for row in test_rows]
+            calibration_gw = aggregate_player_gameweek(calibration_rows, calibration_fixture_predictions)
+            test_gw = aggregate_player_gameweek(test_rows, test_fixture_predictions)
+            calibration_keys = [(r["season"], r["player_id"], r["gameweek"]) for r in calibration_gw]
+            expected_calibration = [(k[0], k[1], k[2]) for k in parts["calibration"]]
+            test_keys = [(r["season"], r["player_id"], r["gameweek"]) for r in test_gw]
+            expected_test = [(k[0], k[1], k[2]) for k in parts["test"]]
+            if sorted(calibration_keys) != sorted(expected_calibration):
+                raise ValueError("Matched ABC calibration aggregation changed the manifest key set")
+            if sorted(test_keys) != sorted(expected_test):
+                raise ValueError("Matched ABC test aggregation changed the manifest key set")
+            slope, intercept = fit_affine_calibrator(
+                [r["predicted"] for r in calibration_gw],
+                [r["actual"] for r in calibration_gw],
+            )
+            for record in test_gw:
+                record["predicted_raw"] = record["predicted"]
+                record["predicted"] = max(0.0, intercept + slope * record["predicted"])
+            fold_records[model_name] = test_gw
+            pooled[model_name].extend(test_gw)
+            fold_model_reports[model_name] = {
+                "status": "EVALUATED",
+                "features_used": features,
+                "feature_count": len(features),
+                "calibration": {
+                    "method": "PLAYER_GAMEWEEK_AFFINE_MAP_FIT_ON_SHARED_CALIBRATION_PARTITION",
+                    "slope": slope,
+                    "intercept": intercept,
+                    "calibration_player_gameweeks": len(calibration_gw),
+                },
+                "metrics": metrics(test_gw, top_k=100),
+            }
+        abc_records = fold_records["ABC_ONLY_ABC"]
+        fpl_records = fold_records["FPL_HISTORY_ONLY"]
+        if [(r["season"], r["player_id"], r["gameweek"], r["actual"]) for r in abc_records] != [
+            (r["season"], r["player_id"], r["gameweek"], r["actual"]) for r in fpl_records
+        ]:
+            raise ValueError("Matched ABC and FPL reference test cohorts differ")
+        cluster_ids = [f"{r['season']}:{r['player_id']}" for r in abc_records]
+        paired = cluster_bootstrap_paired_errors(
+            [r["actual"] for r in abc_records],
+            [r["predicted"] for r in abc_records],
+            [r["predicted"] for r in fpl_records],
+            cluster_ids, n_boot=n_boot, seed=20261119 + fold_id,
+        )
+        fold_reports.append({
+            "fold": fold_id,
+            "fit_player_gameweeks": len(parts["fit"]),
+            "calibration_player_gameweeks": len(parts["calibration"]),
+            "test_player_gameweeks": len(parts["test"]),
+            "fit_key_sha256": sha_keys(parts["fit"]),
+            "calibration_key_sha256": sha_keys(parts["calibration"]),
+            "test_key_sha256": sha_keys(parts["test"]),
+            "models": fold_model_reports,
+            "paired_abc_vs_fpl_history_cluster_bootstrap": paired,
+        })
+    pooled_reports = {name: metrics(records, top_k=100) for name, records in pooled.items()}
+    baseline = pooled["FPL_HISTORY_ONLY"]
+    abc = pooled["ABC_ONLY_ABC"]
+    if [(r["season"], r["player_id"], r["gameweek"], r["actual"]) for r in abc] != [
+        (r["season"], r["player_id"], r["gameweek"], r["actual"]) for r in baseline
+    ]:
+        raise ValueError("Pooled matched ABC and FPL reference cohorts differ")
+    clusters = [f"{r['season']}:{r['player_id']}" for r in abc]
+    pooled_paired = cluster_bootstrap_paired_errors(
+        [r["actual"] for r in abc], [r["predicted"] for r in abc],
+        [r["predicted"] for r in baseline], clusters,
+        n_boot=n_boot, seed=20261177,
+    )
+    return {
+        "status": "PASS_MATCHED_FOLD_KEYS_RESEARCH_ONLY",
+        "model_track": "INDEPENDENT_INTEGRATED_ABC",
+        "comparison_design": "Manifest-driven shared fit/calibration/test player-Gameweek partitions",
+        "season": manifest.get("season"),
+        "fold_count": len(fold_reports),
+        "folds": fold_reports,
+        "pooled_models": pooled_reports,
+        "pooled_paired_abc_vs_fpl_history_cluster_bootstrap": pooled_paired,
+        "point_in_time_status": "NOT_VERIFIED_RETROSPECTIVE_SOURCE_VINTAGES",
+        "promotion_status": "RESEARCH_ONLY_DO_NOT_PROMOTE",
+        "source_hashes": source_report.get("source_hashes", {}),
+        "limitations": [
+            "One historical EPL season and one event-data provider; this is not external-season validation.",
+            "Historical Wyscout and FPL source vintages are retrospective, not archived at each FPL deadline.",
+            "The Wyscout identity bridge covers a small, survivorship-biased subset of FPL players.",
+            "ABC ridge models are fitted on fixture rows and scored after aggregation to player-Gameweek.",
+            "Affine calibration is fitted only on the manifest's shared calibration partition.",
+        ],
+    }
+
+
 def evaluate(rows, source_report, ridge_lambda=1.0, n_boot=1000,
-             min_train_gameweeks=18, test_window=4, return_predictions=False):
+             min_train_gameweeks=18, test_window=4, return_predictions=False,
+             matched_fold_keys=None, matched_manifest=None):
     eligible = [
         row for row in rows
         if truth(row.get("research_eligible_for_analysis"))
@@ -272,10 +427,15 @@ def main():
     if args.bootstrap_replicates < 100:
         parser.error("--bootstrap-replicates must be at least 100")
     source_report = json.loads(args.source_report.read_text(encoding="utf-8"))
+    matched_keys = load_partition_keys(args.matched_partition_keys) if args.matched_partition_keys else None
+    matched_manifest = json.loads(args.matched_manifest.read_text(encoding="utf-8")) if args.matched_manifest else None
+    if bool(matched_keys) != bool(matched_manifest):
+        parser.error("--matched-partition-keys and --matched-manifest must be supplied together")
     report = evaluate(
         read_csv(args.abc_panel), source_report,
         args.ridge_lambda, args.bootstrap_replicates,
         args.min_train_gameweeks, args.test_window,
+        matched_fold_keys=matched_keys, matched_manifest=matched_manifest,
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2, allow_nan=False), encoding="utf-8")
