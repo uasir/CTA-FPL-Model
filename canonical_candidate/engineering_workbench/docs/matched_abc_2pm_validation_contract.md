@@ -82,3 +82,24 @@ The comparison is valid only if all structural parity gates pass. A model is not
 3. Adapt both evaluators to consume the same manifest and partitions.
 4. Run fold-level paired evaluations and tests.
 5. Publish the research report with limitations; retain the existing multi-season 2PM results as a separate evidence stream.
+
+
+## Implemented gate: shared fold-manifest builder
+
+The first implementation is `scripts/build_matched_abc_2pm_fold_manifest.py`.
+
+It consumes the strict ABC player–Gameweek aggregation output and the pinned conventional FPL fixture panel. Before emitting folds it:
+
+- excludes GW1 to match the current 2PM evaluator's existing target eligibility;
+- rejects duplicate ABC player–Gameweek rows and duplicate FPL player-fixture rows;
+- aggregates conventional FPL fixture targets to player–Gameweek, including DGWs;
+- checks the exact fixture-ID set, summed actual points, and summed actual minutes against ABC for every eligible ABC key;
+- checks that lagged conventional FPL features do not conflict across a player's DGW fixture rows;
+- fails closed with hashed mismatch keys and no folds if any target or fixture parity check fails;
+- records source-file SHA-256 hashes, common-cohort hash, and per-partition key hashes;
+- creates expanding whole-Gameweek fit/calibration/test partitions with the latest 20% of pre-test training Gameweeks reserved for calibration;
+- blocks a fold if fit/calibration/test counts are too small or a test key lacks the 2PM last-five baseline required by its existing evaluator.
+
+The manifest contains counts, Gameweek lists, and hashes rather than raw player IDs. Its unit tests cover exact parity, target mismatch, missing fixture, DGW aggregation, inconsistent lagged features, and ABC eligibility.
+
+**Important implementation boundary:** this builder validates and freezes the cohort/fold contract; it does not train either model. The current 2PM evaluator still has a season-level `evaluate_fold` entry point and the ABC evaluator still builds its own fold partitions. The next M2 implementation task is to adapt both runners to consume this manifest and prove that each runner's actual fit, calibration, and test keys match the manifest hashes. Until that is done, no ABC-versus-2PM score should be interpreted as a matched-fold result.
