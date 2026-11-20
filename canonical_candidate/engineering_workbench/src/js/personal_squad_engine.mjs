@@ -36,14 +36,16 @@ function formationCounts(value) {
   return counts;
 }
 
-function selectForFormation(owned, byId, formation) {
+function selectForFormation(owned, byId, formation, startingGoalkeeperId = null) {
   const [defenders, midfielders, forwards] = formation;
   const counts = { GKP: 1, DEF: defenders, MID: midfielders, FWD: forwards };
   const selected = [];
   for (const position of POSITIONS) {
     const candidates = owned
       .map((player) => byId.get(player.fpl_element_id))
-      .filter((player) => player.position === position)
+      .filter((player) => player.position === position
+        && (position !== "GKP" || startingGoalkeeperId === null
+          || player.fpl_element_id === startingGoalkeeperId))
       .sort(playerOrder);
     if (candidates.length < counts[position]) {
       throw new RecommendationContractError("Not enough players for requested formation: " + position);
