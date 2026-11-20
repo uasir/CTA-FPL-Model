@@ -54,7 +54,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: official-fpl-reconciliation-manager-${{ inputs.manager_team_id }}-batch
-          path: |\n            canonical_candidate/engineering_workbench/official-fpl-manager-reconciliation-batch.json\n            canonical_candidate/engineering_workbench/official-fpl-manager-reconciliation-audit.json
+          path: |
+            canonical_candidate/engineering_workbench/official-fpl-manager-reconciliation-batch.json
+            canonical_candidate/engineering_workbench/official-fpl-manager-reconciliation-audit.json
           if-no-files-found: error
           retention-days: 90
       - name: Fail job if any requested Gameweek was excluded or audit failed
