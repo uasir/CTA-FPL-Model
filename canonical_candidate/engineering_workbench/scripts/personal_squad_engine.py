@@ -114,10 +114,22 @@ def _transfer_candidates(request,forecasts):
     if isinstance(max_alternatives,bool) or not isinstance(max_alternatives,int) or not 1<=max_alternatives<=20:
         raise RecommendationContractError("personal_preferences.max_transfer_alternatives must be an integer from 1 to 20")
     applied_hit_cost=0.0 if request["free_transfers"]>0 else float(hit_cost)
+    baseline_plan = request.get("_baseline_squad_plan")
+    baseline_xi = set(baseline_plan["starting_xi"]) if baseline_plan else set()
+    baseline_by_position = {}
+    if baseline_plan:
+        for player_id in baseline_plan["starting_xi"]:
+            player = forecast_by_id[player_id]
+            baseline_by_position.setdefault(player["position"], []).append(player)
+        for position in baseline_by_position:
+            baseline_by_position[position].sort(key=_player_order)
     candidates=[]
     for outgoing in squad:
         out_id=int(outgoing["fpl_element_id"])
         out_forecast=forecast_by_id[out_id]
+        # The goalkeeper is a fixed starter/reserve pair, never a rotation slot.
+        if out_forecast["position"] == "GKP":
+            continue
         if "purchase_price" in outgoing:
             sell_price = _selling_price(out_forecast["price"], outgoing["purchase_price"])
         else:
@@ -134,17 +146,29 @@ def _transfer_candidates(request,forecasts):
             if incoming["price"]>available+1e-9:
                 continue
             delta=incoming["expected_points"]-out_forecast["expected_points"]
-            net=delta-applied_hit_cost
+            if baseline_plan:
+                if out_id in baseline_xi:
+                    xi_delta = delta
+                else:
+                    starters = baseline_by_position.get(out_forecast["position"], [])
+                    if not starters:
+                        continue
+                    # Bench replacements count only when they can displace a starter.
+                    xi_delta = incoming["expected_points"] - starters[-1]["expected_points"]
+            else:
+                xi_delta = delta
+            net=xi_delta-applied_hit_cost
             candidates.append({
                 "transfer_out_id":out_id,"transfer_in_id":in_id,
                 "expected_points_delta":delta,
+                "starting_xi_expected_points_delta":xi_delta,
                 "hit_cost_points":applied_hit_cost,
                 "net_expected_points_gain":net,
                 "selling_price":round(sell_price,2),
                 "incoming_price":round(incoming["price"],2),
                 "bank_after_transfer":round(available-incoming["price"],2),
             })
-    candidates.sort(key=lambda x:(-x["net_expected_points_gain"],-x["expected_points_delta"],x["transfer_out_id"],x["transfer_in_id"]))
+    candidates.sort(key=lambda x:(-x["net_expected_points_gain"],-x["starting_xi_expected_points_delta"],x["transfer_out_id"],x["transfer_in_id"]))
     top=candidates[:max_alternatives]
     best=top[0] if top else None
     action="TRANSFER" if best and best["net_expected_points_gain"]>min_gain else "HOLD"
@@ -214,7 +238,7 @@ def recommend_personal_squad(payload):
     bench_value = request.get("bench_order") if request.get("bench_order") is not None else preferences.get("bench_order")
 
     current_squad_plan = _build_squad_plan(owned, forecast_by_id, formation_value, starting_value, bench_value)
-    transfer = _transfer_candidates(request, forecasts)
+    transfer = _transfer_candidates({**request, "_baseline_squad_plan": current_squad_plan}, forecasts)
     recommended_squad_plan = current_squad_plan
     squad_plan_state = "CURRENT_SQUAD_HOLD"
     if transfer["action"] == "TRANSFER" and transfer["best_candidate"] is not None:
@@ -234,6 +258,9 @@ def recommend_personal_squad(payload):
         "Only one transfer is evaluated; multi-transfer sequences, future price changes and transfer flexibility are not modelled.",
         "Chip effects are not simulated in this version.",
         "When exact purchase prices are unavailable, transfer affordability uses current price as a conservative lower bound; this may omit affordable options but will not overstate sale proceeds.",
+        "Transfers are evaluated by their effect on the starting XI; a bench-to-bench upgrade is not sufficient reason to transfer.",
+        "Goalkeeper transfers are excluded: the starting goalkeeper is not treated as a rotation position.",
+        "The bench is treated as budget emergency cover, not a routine rotation pool; bench order remains relevant only for automatic substitutions.",
         "The starting XI is selected by expected points under the requested legal formation; bench order is a minutes/points proxy.",
         "When a transfer is recommended, squad_plan is re-optimised for the post-transfer 15-player squad; current_squad_plan preserves the baseline.",
     ]
