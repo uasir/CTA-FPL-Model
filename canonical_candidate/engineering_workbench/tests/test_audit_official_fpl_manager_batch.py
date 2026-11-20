@@ -229,7 +229,7 @@ def _decision_manifest_with_attested_manager_state(batch):
         },
     ]
     # Keep the player-metadata archive byte-identical to the bootstrap used in the attested price chain.
-    metadata_raw = json.dumps(bootstrap).encode()
+    metadata_raw = base64.b64decode(wrapper["bootstrap"])
     metadata = sources[1]
     metadata["raw_payload_base64"] = base64.b64encode(metadata_raw).decode()
     metadata["raw_sha256"] = hashlib.sha256(metadata_raw).hexdigest()
