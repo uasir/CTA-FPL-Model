@@ -437,6 +437,11 @@ def build_player_match_features(events, matches, players, teams, manual_correcti
     all_own_goal_tag_events = sum(own_goal_tag_types.values())
     player_attributed_goals = shot_tagged_goals + free_kick_tagged_goals
     player_attributed_own_goals = all_own_goal_tag_events
+    mismatched_match_ids = {row["match_id"] for row in mismatched_matches}
+    for correction in applied_corrections:
+        if correction["provider_match_id"] not in mismatched_match_ids:
+            raise ValueError(f"Manual correction must target a raw goal-mismatched match: {correction['provider_match_id']}")
+
     report = {
         "provider": "Wyscout",
         "season": "2017/18",
@@ -470,7 +475,7 @@ def build_player_match_features(events, matches, players, teams, manual_correcti
             "mismatched_matches": mismatched_matches,
             "status": (
                 "PASS_EXACT"
-                if matches_with_score == len(matches) and not mismatched_matches
+                if matches_with_score == len(matches) and not mismatched_matches and not applied_corrections
                 else "PASS_EXACT_WITH_MANUAL_CORRECTIONS"
                 if matches_with_score == len(matches) and applied_corrections and all(x["corrected_delta"] == 0 for x in mismatched_matches)
                 else "REVIEW_REQUIRED"
