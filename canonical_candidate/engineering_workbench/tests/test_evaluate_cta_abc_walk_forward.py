@@ -68,3 +68,17 @@ def test_abc_2pm_comparator_key_includes_normalized_season():
 
     assert key("2017/18", "10", 1) == ("2017-18", "10", 1)
     assert key("2018/19", "10", 1) != key("2017/18", "10", 1)
+
+
+def test_abc_feature_coverage_reports_observed_and_missing_rows():
+    rows = [
+        {"abc_a": "1.0", "abc_b": ""},
+        {"abc_a": "0.0", "abc_b": "2.0"},
+        {"abc_a": None, "abc_b": None},
+    ]
+    coverage = feature_coverage(rows, ["abc_a", "abc_b"])
+    assert coverage["abc_a"]["observed_rows"] == 2
+    assert coverage["abc_a"]["missing_rows"] == 1
+    assert coverage["abc_a"]["coverage_rate"] == 2 / 3
+    assert coverage["abc_b"]["observed_rows"] == 1
+    assert coverage["abc_b"]["missing_rows"] == 2
