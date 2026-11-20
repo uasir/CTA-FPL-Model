@@ -223,9 +223,9 @@ A decision manifest must bind the manager ID and target Gameweek and include:
 3. raw player metadata archive with pre-deadline capture time, snapshot ID and SHA-256;
 4. raw manager deadline-state archive with pre-deadline capture time, snapshot ID and SHA-256;
 5. exact 15-player squad, bank, free transfers, purchase and selling prices for every squad player, chip state, intended starting XI, ordered bench, reserve goalkeeper, captain and vice-captain;
-6. an explicit point-in-time evidence attestation.
+6. an explicit point-in-time evidence attestation;\n7. an independent raw-archive audit attestation (`archives_verified: true`) proving that the referenced bytes, hashes, source identities and timestamps have actually been checked.
 
-Missing or reconstructed purchase/selling prices, missing bank/free-transfer state, post-deadline manager captures, provider snapshots without a pre-deadline generation timestamp, or incomplete player metadata prevent decision-backtest admission. The classifier preserves the reasons for each non-admission. A manifest is evidence metadata, not a substitute for the raw archives: downstream evidence audit must verify each referenced archive's bytes, hash, source identity and timestamp before any production backtest.
+Missing or reconstructed purchase/selling prices, missing bank/free-transfer state, post-deadline manager captures, provider snapshots without a pre-deadline generation timestamp, or incomplete player metadata prevent decision-backtest admission. The classifier preserves the reasons for each non-admission. A manifest is evidence metadata, not a substitute for the raw archives. The classifier will not mark a record decision-backtest eligible unless the independent raw-archive audit has passed and the manifest records `archives_verified: true`.
 
 Scoring-only records may support tests of the official points/substitution reconciliation harness, but must never be passed to the recommendation-vs-hold decision scorer as historical decision records. Synthetic fixtures remain synthetic and cannot be promoted by this classifier.
 
