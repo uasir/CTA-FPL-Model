@@ -243,7 +243,7 @@ The prospective capture command is `scripts/capture_predeadline_decision_bundle.
 The capture is deliberately fail-closed:
 - FPL Cat must return the requested target Gameweek, an explicit timezone-aware `computed_at`, and the same deadline as official FPL bootstrap metadata.
 - Provider generation, provider retrieval, player-metadata retrieval and manager-state retrieval must all occur strictly before the official deadline.
-- The manager target-Gameweek picks endpoint must return a live 15-player state matching the exact 15 FPL element IDs confirmed at dispatch. The fallback that reconstructs prices from prior events is not used for decision admission.
+- The manager target-Gameweek picks endpoint must return a live 15-player state. An optional user-supplied 15-ID list can provide an additional exact-identity cross-check. The fallback that reconstructs prices from prior events is not used for decision admission.
 - The official manager payload must identify the target Gameweek, explicitly report no active chip, and provide purchase and selling prices for all 15 players. Bank is read from official manager history; free transfers are supplied as a manager-confirmed workflow input.
 - The intended starting XI, ordered three outfield substitutes, reserve goalkeeper, captain and vice-captain are derived from the captured official picks and bootstrap position metadata. The derived XI must match the requested legal formation.
 - All three raw payloads are embedded in the artifact manifest with independently recomputed SHA-256, source URL, snapshot ID and capture timestamp. Provider identity, variant and generation timestamp are also bound.
