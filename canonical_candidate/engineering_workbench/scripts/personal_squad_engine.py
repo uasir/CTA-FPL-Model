@@ -118,7 +118,10 @@ def _transfer_candidates(request,forecasts):
     for outgoing in squad:
         out_id=int(outgoing["fpl_element_id"])
         out_forecast=forecast_by_id[out_id]
-        sell_price=_selling_price(out_forecast["price"],outgoing["purchase_price"])
+        if "purchase_price" in outgoing:
+            sell_price = _selling_price(out_forecast["price"], outgoing["purchase_price"])
+        else:
+            sell_price = min(float(out_forecast["price"]), float(outgoing["selling_price_floor"]))
         team_after=dict(team_counts)
         team_after[out_forecast["team_id"]]-=1
         available=request["bank"]+sell_price
@@ -153,6 +156,10 @@ def _transfer_candidates(request,forecasts):
         "minimum_gain_threshold":float(min_gain),
         "free_transfers_available":request["free_transfers"],
         "candidate_count":len(candidates),
+        "selling_price_basis": (
+            "EXACT_PURCHASE_PRICE" if all("purchase_price" in row for row in squad)
+            else "CONSERVATIVE_CURRENT_PRICE_FLOOR"
+        ),
         "scope":"one-transfer lookahead only",
     }
 
@@ -202,6 +209,7 @@ def recommend_personal_squad(payload):
         "The supplied risk profile is recorded but not applied until calibrated player-level variance is available.",
         "Only one transfer is evaluated; multi-transfer sequences, future price changes and transfer flexibility are not modelled.",
         "Chip effects are not simulated in this version.",
+        "When exact purchase prices are unavailable, transfer affordability uses current price as a conservative lower bound; this may omit affordable options but will not overstate sale proceeds.",
         "The starting XI is selected by expected points under the requested legal formation; bench order is a minutes/points proxy.",
     ]
     return {
