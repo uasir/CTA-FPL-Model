@@ -55,7 +55,7 @@ def capture_predeadline_decision_bundle(
     team_id: int,
     gameweek: int,
     season: str,
-    expected_element_ids: set[int],
+    expected_element_ids: set[int] | None,
     free_transfers: int,
     formation: str = "4-3-3",
     chip_state: str = "NONE",
@@ -63,11 +63,13 @@ def capture_predeadline_decision_bundle(
 ) -> dict[str, Any]:
     if team_id <= 0 or gameweek <= 0:
         raise DecisionCaptureError("team_id and gameweek must be positive integers")
-    if len(expected_element_ids) != 15 or any(
-        isinstance(value, bool) or not isinstance(value, int) or value <= 0
-        for value in expected_element_ids
+    if expected_element_ids is not None and (
+        len(expected_element_ids) != 15 or any(
+            isinstance(value, bool) or not isinstance(value, int) or value <= 0
+            for value in expected_element_ids
+        )
     ):
-        raise DecisionCaptureError("expected_element_ids must contain exactly 15 unique positive IDs")
+        raise DecisionCaptureError("expected_element_ids must contain exactly 15 unique positive IDs when supplied")
     if isinstance(free_transfers, bool) or not isinstance(free_transfers, int) or not 0 <= free_transfers <= 5:
         raise DecisionCaptureError("free_transfers must be an integer from 0 to 5")
     if chip_state != "NONE":
@@ -135,7 +137,7 @@ def capture_predeadline_decision_bundle(
     if set(picks_by_position) != set(range(1, 16)):
         raise DecisionCaptureError("Manager picks must contain positions 1 through 15")
     pick_ids = {pick["element"] for pick in picks_by_position.values()}
-    if pick_ids != expected_element_ids:
+    if expected_element_ids is not None and pick_ids != expected_element_ids:
         raise DecisionCaptureError("Live manager picks do not match the user-confirmed 15-player squad")
 
     elements = metadata_payload.get("elements")
@@ -270,15 +272,15 @@ def main() -> int:
     parser.add_argument("--team-id", type=int, required=True)
     parser.add_argument("--gameweek", type=int, required=True)
     parser.add_argument("--season", required=True)
-    parser.add_argument("--expected-element-ids", required=True,
-                        help="Comma-separated exact 15 FPL element IDs confirmed by the manager")
+    parser.add_argument("--expected-element-ids", default="",
+                        help="Optional comma-separated exact 15 FPL element IDs for an additional identity cross-check")
     parser.add_argument("--free-transfers", type=int, required=True,
                         help="Manager-confirmed free transfers available before the deadline")
     parser.add_argument("--formation", default="4-3-3")
     parser.add_argument("--chip-state", default="NONE")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    ids = {int(value.strip()) for value in args.expected_element_ids.split(",") if value.strip()}
+    ids = {int(value.strip()) for value in args.expected_element_ids.split(",") if value.strip()} or None
     result = capture_predeadline_decision_bundle(
         team_id=args.team_id,
         gameweek=args.gameweek,
