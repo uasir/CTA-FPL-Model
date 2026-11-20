@@ -55,17 +55,19 @@ def available_features(rows, candidates):
     return [name for name in candidates if any(number(r.get(name)) is not None for r in rows)]
 
 
-def aggregate_player_gameweek(rows, predictions):
+def aggregate_player_gameweek(rows, predictions, default_season="2017/18"):
     grouped = {}
     for row, prediction in zip(rows, predictions):
-        key = (str(row["fpl_element_id"]), int(float(row["gameweek"])))
+        season = str(row.get("season") or default_season)
+        key = (season, str(row["fpl_element_id"]), int(float(row["gameweek"])))
         item = grouped.setdefault(key, {"actual": 0.0, "predicted": 0.0, "fixture_rows": 0})
         item["actual"] += float(row["target_fpl_total_points"])
         item["predicted"] += float(prediction)
         item["fixture_rows"] += 1
     result = []
-    for (player_id, gameweek), values in sorted(grouped.items(), key=lambda x: (x[0][1], x[0][0])):
+    for (season, player_id, gameweek), values in sorted(grouped.items(), key=lambda x: (x[0][0], x[0][2], x[0][1])):
         result.append({
+            "season": season,
             "player_id": player_id,
             "gameweek": gameweek,
             "actual": values["actual"],
@@ -108,23 +110,25 @@ def deadline_local_ranking(records, top_k=20):
 
     grouped = defaultdict(list)
     for row in records:
-        grouped[int(row["gameweek"])].append(row)
-    by_gameweek = {}
-    for gameweek, rows in sorted(grouped.items()):
+        grouped[(str(row.get("season", "2017/18")), int(row["gameweek"]))].append(row)
+    by_deadline = {}
+    for (season, gameweek), rows in sorted(grouped.items()):
         actual = [float(row["actual"]) for row in rows]
         predicted = [float(row["predicted"]) for row in rows]
         quality = rank_quality(actual, predicted, top_k=top_k)
-        by_gameweek[str(gameweek)] = {
+        by_deadline[f"{season}:GW{gameweek}"] = {
             **quality,
+            "season": season,
+            "gameweek": gameweek,
             "spearman": _spearman(actual, predicted),
         }
     def macro(field):
-        values = [row[field] for row in by_gameweek.values() if row.get(field) is not None]
+        values = [row[field] for row in by_deadline.values() if row.get(field) is not None]
         return sum(values) / len(values) if values else None
-    spearman_values = [row["spearman"] for row in by_gameweek.values() if row["spearman"] is not None]
+    spearman_values = [row["spearman"] for row in by_deadline.values() if row["spearman"] is not None]
     return {
-        "method": "RANK_WITHIN_EACH_FPL_GAMEWEEK_THEN_MACRO_AVERAGE",
-        "n_deadlines": len(by_gameweek),
+        "method": "RANK_WITHIN_EACH_SEASON_GAMEWEEK_THEN_MACRO_AVERAGE",
+        "n_deadlines": len(by_deadline),
         "top_k_per_deadline": top_k,
         "macro_spearman": sum(spearman_values) / len(spearman_values) if spearman_values else None,
         "macro_selected_mean_points": macro("selected_mean_points"),
@@ -132,7 +136,7 @@ def deadline_local_ranking(records, top_k=20):
         "macro_oracle_top_k_mean_points": macro("oracle_top_k_mean_points"),
         "macro_top_k_lift_over_universe": macro("top_k_lift_over_universe"),
         "macro_top_k_regret_vs_oracle": macro("top_k_regret_vs_oracle"),
-        "by_gameweek": by_gameweek,
+        "by_deadline": by_deadline,
     }
 
 
@@ -151,7 +155,7 @@ def metrics(records, top_k=20):
         "forecast": report,
         "deadline_local_ranking": deadline_local_ranking(records, top_k=top_k),
         "n_player_gameweeks": len(records),
-        "n_unique_players": len({r["player_id"] for r in records}),
+        "n_unique_players": len({(str(r.get("season", "2017/18")), r["player_id"]) for r in records}),
         "mean_signed_error_predicted_minus_actual": sum(signed) / len(signed) if signed else None,
         "absolute_error_p50": quantile(0.50),
         "absolute_error_p90": quantile(0.90),
@@ -187,15 +191,15 @@ def candidate_sets():
     }
 
 
-def build_folds(gameweeks, min_train_gameweeks=18, test_window=4):
-    if len(gameweeks) <= min_train_gameweeks:
-        raise ValueError("Not enough distinct gameweeks for expanding walk-forward evaluation")
-    first_test = max(min_train_gameweeks, len(gameweeks) // 2)
-    remaining = gameweeks[first_test:]
+def build_folds(deadlines, min_train_gameweeks=18, test_window=4):
+    if len(deadlines) <= min_train_gameweeks:
+        raise ValueError("Not enough distinct season-Gameweek deadlines for expanding walk-forward evaluation")
+    first_test = max(min_train_gameweeks, len(deadlines) // 2)
+    remaining = deadlines[first_test:]
     blocks = [remaining[i:i + test_window] for i in range(0, len(remaining), test_window)]
     return [
-        {"train_gameweeks": gameweeks[:first_test + i * test_window],
-         "test_gameweeks": block}
+        {"train_deadlines": deadlines[:first_test + i * test_window],
+         "test_deadlines": block}
         for i, block in enumerate(blocks) if block
     ]
 
@@ -211,26 +215,31 @@ def evaluate(rows, source_report, ridge_lambda=1.0, n_boot=1000,
     ]
     if not eligible:
         raise ValueError("No verified, conservative-cutoff player-fixture rows are eligible")
-    eligible.sort(key=lambda r: (int(float(r["gameweek"])), str(r["kickoff_time_utc"]), str(r["fpl_element_id"])))
-    gameweeks = sorted({int(float(r["gameweek"])) for r in eligible})
-    folds = build_folds(gameweeks, min_train_gameweeks, test_window)
+    default_season = str(source_report.get("season") or "2017/18")
+    def deadline_key(row):
+        return (str(row.get("season") or default_season), int(float(row["gameweek"])))
+    eligible.sort(key=lambda r: (deadline_key(r), str(r["kickoff_time_utc"]), str(r["fpl_element_id"])))
+    deadlines = sorted({deadline_key(r) for r in eligible})
+    seasons = sorted({season for season, _ in deadlines})
+    gameweeks = sorted({gameweek for _, gameweek in deadlines})
+    folds = build_folds(deadlines, min_train_gameweeks, test_window)
     candidates = candidate_sets()
     pooled = defaultdict(list)
     unavailable_in_any_fold = set()
     fold_reports = []
     model_features = {}
     for fold_index, fold in enumerate(folds):
-        train_gws = set(fold["train_gameweeks"])
-        test_gws = set(fold["test_gameweeks"])
-        train = [r for r in eligible if int(float(r["gameweek"])) in train_gws]
-        test = [r for r in eligible if int(float(r["gameweek"])) in test_gws]
+        train_deadlines = set(fold["train_deadlines"])
+        test_deadlines = set(fold["test_deadlines"])
+        train = [r for r in eligible if deadline_key(r) in train_deadlines]
+        test = [r for r in eligible if deadline_key(r) in test_deadlines]
         if len(train) < 50 or len(test) < 30:
             continue
         actual_by_model = None
         this_fold = {
             "fold": fold_index + 1,
-            "train_gameweeks": fold["train_gameweeks"],
-            "test_gameweeks": fold["test_gameweeks"],
+            "train_deadlines": [{"season": s, "gameweek": gw} for s, gw in fold["train_deadlines"]],
+            "test_deadlines": [{"season": s, "gameweek": gw} for s, gw in fold["test_deadlines"]],
             "train_fixture_rows": len(train),
             "test_fixture_rows": len(test),
             "models": {},
@@ -245,10 +254,10 @@ def evaluate(rows, source_report, ridge_lambda=1.0, n_boot=1000,
                 raise ValueError("Conventional FPL baseline feature coverage is incomplete")
             model = fit_ridge(train, "target_fpl_total_points", features, ridge_lambda)
             fixture_predictions = [predict(model, row) for row in test]
-            player_gw = aggregate_player_gameweek(test, fixture_predictions)
+            player_gw = aggregate_player_gameweek(test, fixture_predictions, default_season)
             if actual_by_model is None:
-                actual_by_model = [(r["player_id"], r["gameweek"], r["actual"]) for r in player_gw]
-            elif [(r["player_id"], r["gameweek"], r["actual"]) for r in player_gw] != actual_by_model:
+                actual_by_model = [(r["season"], r["player_id"], r["gameweek"], r["actual"]) for r in player_gw]
+            elif [(r["season"], r["player_id"], r["gameweek"], r["actual"]) for r in player_gw] != actual_by_model:
                 raise AssertionError("Model player-gameweek cohorts diverged within a fold")
             pooled[name].extend(player_gw)
             model_features[name] = sorted(set(model_features.get(name, [])) | set(features))
@@ -272,12 +281,12 @@ def evaluate(rows, source_report, ridge_lambda=1.0, n_boot=1000,
     if baseline:
         base_actual = [r["actual"] for r in baseline]
         base_pred = [r["predicted"] for r in baseline]
-        cluster_ids = [f"2017/18:{r['player_id']}" for r in baseline]
+        cluster_ids = [f"{r['season']}:{r['player_id']}" for r in baseline]
         for name, records in pooled.items():
             if name == "FPL_HISTORY_ONLY":
                 continue
-            if [(r["player_id"], r["gameweek"]) for r in records] != [
-                (r["player_id"], r["gameweek"]) for r in baseline
+            if [(r["season"], r["player_id"], r["gameweek"]) for r in records] != [
+                (r["season"], r["player_id"], r["gameweek"]) for r in baseline
             ]:
                 raise AssertionError(f"Common cohort mismatch for {name}")
             paired[name] = cluster_bootstrap_paired_errors(
@@ -290,13 +299,15 @@ def evaluate(rows, source_report, ridge_lambda=1.0, n_boot=1000,
         "model_track": "INDEPENDENT_INTEGRATED_ABC",
         "target": "official historical FPL player-gameweek total_points",
         "provider": "Wyscout + independently corroborated 11footy identity",
-        "season": "2017/18",
+        "season": seasons[0] if len(seasons) == 1 else None,
+        "seasons_available": seasons,
         "eligible_fixture_rows": len(eligible),
-        "eligible_player_gameweeks": len({(r["fpl_element_id"], int(float(r["gameweek"]))) for r in eligible}),
-        "unique_players": len({str(r["fpl_element_id"]) for r in eligible}),
+        "eligible_player_gameweeks": len({deadline_key(r) + (str(r["fpl_element_id"]),) for r in eligible}),
+        "unique_players": len({(str(r.get("season") or default_season), str(r["fpl_element_id"])) for r in eligible}),
         "gameweeks_available": gameweeks,
+        "deadlines_available": [{"season": s, "gameweek": gw} for s, gw in deadlines],
         "fold_count": len(fold_reports),
-        "split_policy": "Expanding chronological folds split only at whole FPL gameweek boundaries; all fixtures in a player-GW are aggregated before scoring.",
+        "split_policy": "Expanding chronological folds split only at whole season-Gameweek boundaries; all fixtures in a player-season-GW are aggregated before scoring.",
         "folds": fold_reports,
         "pooled_models": pooled_reports,
         "paired_player_cluster_bootstrap_vs_fpl_history": paired,
