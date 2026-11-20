@@ -173,7 +173,7 @@ function sellingPrice(currentPrice, purchasePrice) {
   return (purchaseTenths + Math.floor((currentTenths - purchaseTenths) / 2)) / 10;
 }
 
-function transferCandidates(request, forecasts) {
+function transferCandidates(request, forecasts, starting, formation, captain) {
   const squad = request.squad_snapshot;
   const ownedIds = new Set(squad.map((player) => player.fpl_element_id));
   const forecastById = new Map(forecasts.map((player) => [player.fpl_element_id, player]));
@@ -198,6 +198,15 @@ function transferCandidates(request, forecasts) {
     throw new RecommendationContractError("personal_preferences.max_transfer_alternatives must be an integer from 1 to 20");
   }
   const appliedHitCost = request.free_transfers > 0 ? 0 : hitCost;
+  const currentStartingIds = new Set(starting.map((player) => player.fpl_element_id));
+  const currentStartingPoints = starting.reduce((sum, player) => sum + player.expected_points, 0);
+  const currentDecisionPoints = currentStartingPoints + captain.expected_points;
+  const currentBench = [...ownedIds]
+    .filter((id) => !currentStartingIds.has(id) && forecastById.get(id).position !== "GKP")
+    .map((id) => forecastById.get(id));
+  const currentBenchDepth = [...currentBench].sort(playerOrder).slice(0, 2)
+    .reduce((sum, player) => sum + player.expected_points, 0);
+  const formationValue = formation.join("-");
   const candidates = [];
   for (const outgoing of squad) {
     const outId = outgoing.fpl_element_id;
@@ -211,14 +220,39 @@ function transferCandidates(request, forecasts) {
       if (ownedIds.has(inId) || incoming.position !== outForecast.position) continue;
       if ((teamAfter.get(incoming.team_id) ?? 0) >= 3) continue;
       if (incoming.price > available + 1e-9) continue;
-        const delta = incoming.expected_points - outForecast.expected_points;
-      const net = delta - appliedHitCost;
+
+      const candidateIds = [...ownedIds].filter((id) => id !== outId).concat(inId).sort((a, b) => a - b);
+      const candidateOwned = candidateIds.map((id) => forecastById.get(id));
+      const candidateStarting = bestStartingXI(candidateOwned, forecastById, formationValue, null).starting;
+      const candidateStartingIds = new Set(candidateStarting.map((player) => player.fpl_element_id));
+      const candidateStartingPoints = candidateStarting.reduce((sum, player) => sum + player.expected_points, 0);
+      const candidateCaptain = [...candidateStarting].sort(playerOrder)[0];
+      const candidateDecisionPoints = candidateStartingPoints + candidateCaptain.expected_points;
+      const candidateBench = candidateOwned.filter((player) =>
+        !candidateStartingIds.has(player.fpl_element_id) && player.position !== "GKP");
+      const candidateBenchDepth = [...candidateBench].sort(playerOrder).slice(0, 2)
+        .reduce((sum, player) => sum + player.expected_points, 0);
+
+      const playerDelta = incoming.expected_points - outForecast.expected_points;
+      const startingDelta = candidateStartingPoints - currentStartingPoints;
+      const captaincyDelta = candidateCaptain.expected_points - captain.expected_points;
+      const decisionDelta = candidateDecisionPoints - currentDecisionPoints;
+      const benchDelta = candidateBenchDepth - currentBenchDepth;
+      const net = decisionDelta - appliedHitCost;
       candidates.push({
         transfer_out_id: outId,
         transfer_in_id: inId,
-        expected_points_delta: delta,
+        expected_points_delta: Number(decisionDelta.toFixed(8)),
+        player_expected_points_delta: Number(playerDelta.toFixed(8)),
+        starting_xi_expected_points_delta: Number(startingDelta.toFixed(8)),
+        captaincy_expected_points_delta: Number(captaincyDelta.toFixed(8)),
+        bench_depth_expected_points_delta: Number(benchDelta.toFixed(8)),
+        current_decision_expected_points: Number(currentDecisionPoints.toFixed(8)),
+        candidate_decision_expected_points: Number(candidateDecisionPoints.toFixed(8)),
+        starting_xi_after_transfer_ids: candidateStarting.map((player) => player.fpl_element_id),
+        captain_after_transfer_id: candidateCaptain.fpl_element_id,
         hit_cost_points: appliedHitCost,
-        net_expected_points_gain: net,
+        net_expected_points_gain: Number(net.toFixed(8)),
         selling_price: Number(sellPrice.toFixed(2)),
         incoming_price: Number(incoming.price.toFixed(2)),
         bank_after_transfer: Number((available - incoming.price).toFixed(2)),
@@ -227,7 +261,9 @@ function transferCandidates(request, forecasts) {
   }
   candidates.sort((a, b) =>
     b.net_expected_points_gain - a.net_expected_points_gain
-    || b.expected_points_delta - a.expected_points_delta
+    || b.starting_xi_expected_points_delta - a.starting_xi_expected_points_delta
+    || b.bench_depth_expected_points_delta - a.bench_depth_expected_points_delta
+    || b.player_expected_points_delta - a.player_expected_points_delta
     || a.transfer_out_id - b.transfer_out_id
     || a.transfer_in_id - b.transfer_in_id);
   const alternatives = candidates.slice(0, maxAlternatives);
@@ -251,7 +287,7 @@ function transferCandidates(request, forecasts) {
     minimum_gain_threshold: minGain,
     free_transfers_available: request.free_transfers,
     candidate_count: candidates.length,
-    scope: "one-transfer lookahead only",
+    scope: "one-transfer lookahead ranked by marginal starting-XI plus captaincy EV; bench-depth change reported separately",
   };
 }
 
@@ -376,7 +412,7 @@ export function recommendPersonalSquad(payload) {
   const vice = captaincy[1];
   const expectedPoints = starting.reduce((sum, player) => sum + player.expected_points, 0)
     + captain.expected_points;
-  const transfer = transferCandidates(request, forecasts);
+  const transfer = transferCandidates(request, forecasts, starting, formation, captain);
   const supportMetrics = squadSupportMetrics(owned, starting, benchOrder, forecastById, captain);
   const audit = decisionAudit(request, transfer, starting, formation, captain, vice);
   const quality = request.forecast_quality;
