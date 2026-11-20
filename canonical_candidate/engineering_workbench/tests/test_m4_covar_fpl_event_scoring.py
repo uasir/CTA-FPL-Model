@@ -109,7 +109,10 @@ class TestM4CovarFplEventScoring(unittest.TestCase):
                     "saves": 0, "penalty_saves": 0,
                     "defensive_contribution_count": 0, "penalty_misses": 0,
                     "bonus_points": 0,
-                    "goals_conceded_while_on_pitch": goals_conceded_by_team[player["team_id"]],
+                    "goals_conceded_while_on_pitch": (
+                        goals_conceded_by_team[player["team_id"]]
+                        if player["position"] in ("GK", "DEF") else 0
+                    ),
                     "yellow_cards": 0, "red_cards": 0, "own_goals": 0,
                 })
                 outcome.pop("fpl_points", None)
