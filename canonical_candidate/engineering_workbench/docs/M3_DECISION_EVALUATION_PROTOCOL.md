@@ -169,3 +169,16 @@ Each record also binds the manager team ID, provider snapshot ID, decision-contr
 The realised-points archive must carry a Gameweek finalisation timestamp and be captured after finalisation. A post-deadline but pre-finalisation points snapshot is not eligible for scoring. Player rows require official integer `total_points`, minutes, yellow cards and red cards; the appearance test follows the official FPL rule that a player counts as having played if they appeared or received a yellow/red card.
 
 For a one-transfer action, the contract verifies the transfer hit (zero when a free transfer is available, otherwise four points), outgoing selling price using FPL half-profit rounding, incoming price and non-negative post-transfer bank. It returns the calculated financials alongside the paired score.
+
+## 12. Independent official-manager reconciliation harness
+
+The separate `scripts/reconcile_official_fpl_manager_result.py` module compares a local hold-plan score with the completed official manager picks response and official event-live points. It checks:
+- the official manager event number and exact frozen starting XI, outfield bench order, reserve goalkeeper, captain and vice-captain;
+- the official `automatic_subs` pairs against the locally simulated outfield and goalkeeper substitutions;
+- the effective captain selected by the official player multipliers against local captain/vice fallback;
+- the official multiplier-weighted gross score against the local gross score;
+- the official gross score less `event_transfers_cost` against `entry_history.points`.
+
+Chip gameweeks, unsupported multipliers, missing player live points, duplicate picks, inconsistent official event totals and lineup mismatches fail closed. The output is labelled `RECONCILED` only for that specific manager/gameweek score comparison and explicitly sets `historical_evidence_admitted: false`; it does not by itself admit a record into the historical cohort or validate forecast quality.
+
+Synthetic contract tests are added in `tests/test_reconcile_official_fpl_manager_result.py`. These verify the comparison logic only. No completed official manager payload has yet been reconciled in this implementation step; the next acceptance action is to archive a completed, non-chip manager picks response and matching event-live payload, run the harness, and independently confirm the event history score. Until that is done, the scorer remains **PROVISIONAL / NOT INDEPENDENTLY RECONCILED**.
