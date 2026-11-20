@@ -120,6 +120,25 @@ class TestM4CovarScenarioScoring(unittest.TestCase):
             comparison["probability_outscoring_random_field_portfolio"], 0.125
         )
 
+    def test_scores_field_portfolio_with_no_fixture_players_as_zero(self):
+        doc = fixture()
+        doc["portfolios"].append({
+            "portfolio_id": "field-no-fixture-players",
+            "portfolio_role": "FIELD",
+            "player_ids": [],
+            "captain_id": None,
+            "captain_multiplier": 1,
+            "field_weight": 1.0,
+        })
+        result = score_scenario_portfolios(doc)
+        field = result["portfolio_results"]["field-no-fixture-players"]
+        self.assertEqual(field["expected_points"], 0.0)
+        self.assertEqual(field["variance"], 0.0)
+        self.assertEqual(
+            result["portfolio_results"]["conventional"]["field_comparison"]["field_expected_points"],
+            0.0,
+        )
+
     def test_rejects_unknown_mode(self):
         doc = fixture()
         doc["mode"] = "AUTO"
