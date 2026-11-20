@@ -88,6 +88,21 @@ def _decision_eligibility(manifest: Any, gameweek: int, manager_id: int,
             or len(recommendation_audit.get("decision_sha256", "")) != 64
         ):
             reasons.append("Frozen predeadline recommendation and hold/execution state were not independently verified")
+        replay_audit = (
+            audit_event.get("predeadline_replay")
+            if isinstance(audit_event, Mapping) else None
+        )
+        if (
+            not isinstance(replay_audit, Mapping)
+            or replay_audit.get("status") != "VERIFIED"
+            or replay_audit.get("replay_type") != "DETERMINISTIC_RAW_AND_CANONICAL_INPUT_REEXECUTION"
+            or replay_audit.get("decision_sha256") != (
+                recommendation_audit.get("decision_sha256")
+                if isinstance(recommendation_audit, Mapping) else None
+            )
+            or replay_audit.get("raw_archive_hashes_verified") is not True
+        ):
+            reasons.append("Independent frozen-decision replay was not verified by the archive audit")
 
     audited_archives = (
         audit_event.get("decision_sources", []) if isinstance(audit_event, Mapping) else []
