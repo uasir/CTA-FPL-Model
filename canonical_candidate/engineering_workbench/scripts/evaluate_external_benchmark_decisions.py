@@ -391,19 +391,31 @@ def _verify_real_admission(record: Mapping[str, Any], admission_report: Any,
     if not isinstance(archived_state, Mapping) or not isinstance(evaluated_state, Mapping):
         _fail("manager-state archive or evaluation manager_state is missing")
     roster_rows = evaluated_state.get("squad_snapshot")
-    if not isinstance(roster_rows, list):
-        _fail("evaluation manager roster is missing")
-    roster_by_id = {
-        row.get("fpl_element_id"): row for row in roster_rows if isinstance(row, Mapping)
-    }
-    archived_squad = archived_state.get("squad_15")
-    if (not isinstance(archived_squad, list) or len(archived_squad) != 15
-            or len(set(archived_squad)) != 15
-            or set(archived_squad) != set(roster_by_id)):
+    if not isinstance(roster_rows, list) or len(roster_rows) != 15 or any(
+        not isinstance(row, Mapping) for row in roster_rows
+    ):
+        _fail("evaluation manager roster must contain 15 player records")
+    roster_by_id = {}
+    for row in roster_rows:
+        player_id = row.get("fpl_element_id")
+        if isinstance(player_id, bool) or not isinstance(player_id, int) or player_id < 1 or player_id in roster_by_id:
+            _fail("evaluation manager roster contains an invalid or duplicate player ID")
+        roster_by_id[player_id] = row
+    archived_squad = _positive_ids(archived_state.get("squad_15"), "archived manager squad_15", 15)
+    if set(archived_squad) != set(roster_by_id):
         _fail("evaluation manager roster does not match the archived 15-player deadline squad")
-    for field in ("bank", "free_transfers", "formation"):
-        if evaluated_state.get(field) != archived_state.get(field):
-            _fail(f"evaluation manager_state {field} does not match the archived deadline state")
+    archived_bank = _finite_number(archived_state.get("bank"), "archived manager bank", 0)
+    evaluated_bank = _finite_number(evaluated_state.get("bank"), "evaluation manager bank", 0)
+    if not math.isclose(evaluated_bank, archived_bank, abs_tol=1e-9):
+        _fail("evaluation manager_state bank does not match the archived deadline state")
+    archived_ft = archived_state.get("free_transfers")
+    evaluated_ft = evaluated_state.get("free_transfers")
+    if (isinstance(archived_ft, bool) or not isinstance(archived_ft, int)
+            or archived_ft != evaluated_ft):
+        _fail("evaluation manager_state free_transfers does not match the archived deadline state")
+    if (not isinstance(archived_state.get("formation"), str)
+            or evaluated_state.get("formation") != archived_state.get("formation")):
+        _fail("evaluation manager_state formation does not match the archived deadline state")
     if archived_state.get("chip_state") != "NONE" or evaluated_state.get("chip") not in (None, "NONE"):
         _fail("manager-state archive or evaluation record is outside the no-chip contract")
     hold_plan = evaluated_state.get("hold_plan")
@@ -435,9 +447,15 @@ def _verify_real_admission(record: Mapping[str, Any], admission_report: Any,
             archived_state["selling_prices"].get(str(player_id), archived_state["selling_prices"].get(player_id)),
             f"archived selling price for player {player_id}", 0.1
         )
-        if not math.isclose(player.get("purchase_price", float("nan")), purchase, abs_tol=1e-9):
+        evaluated_purchase = _finite_number(
+            player.get("purchase_price"), f"evaluation purchase price for player {player_id}", 0.1
+        )
+        current_price = _finite_number(
+            player.get("current_price"), f"evaluation current price for player {player_id}", 0.1
+        )
+        if not math.isclose(evaluated_purchase, purchase, abs_tol=1e-9):
             _fail(f"evaluation purchase price for player {player_id} does not match archived manager state")
-        expected_selling = _selling_price(player.get("current_price"), purchase)
+        expected_selling = _selling_price(current_price, purchase)
         if not math.isclose(selling, expected_selling, abs_tol=1e-9):
             _fail(f"archived selling price for player {player_id} does not match official FPL price rules")
 
