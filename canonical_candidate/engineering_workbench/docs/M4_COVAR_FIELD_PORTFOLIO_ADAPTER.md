@@ -17,8 +17,12 @@ the caller explicitly supplies `--manager-portfolio-output`.
 
 The portfolio artifact:
 - contains one sampled portfolio per captured manager;
-- retains all 15 FPL element IDs, captain, Triple Captain multiplier, sample
-  expansion weight and 1-based 50-rank-page stratum;
+- retains all 15 FPL element IDs in pick order, starting XI, starting and reserve
+  goalkeepers, outfield bench order, bootstrap-derived player positions, captain,
+  vice-captain, Triple Captain multiplier, sample expansion weight and 1-based
+  50-rank-page stratum;
+- uses artifact schema version `1.1.0`; older lineup-incomplete `1.0.0` artifacts
+  are rejected by the adapter;
 - discards manager entry IDs and exact ranks;
 - is bound to the same Gameweek, deadline and pre-deadline pick capture time;
 - is provisional: managers may still change picks before lock.
