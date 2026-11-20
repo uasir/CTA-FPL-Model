@@ -41,7 +41,9 @@ def fixture():
     rows = [
         {"gameweek": "11", "fpl_element_id": str(i),
          "owned_by_pct": 10.0, "effective_ownership_pct": 12.0,
-         "starting_pct": 8.0}
+         "starting_pct": 8.0, "captain_pct": None, "triple_captain_pct": None,
+         "scoring_exposure_pct": None, "effective_ownership_ci_low": None,
+         "effective_ownership_ci_high": None}
         for i in range(1, 17)
     ]
     return snapshot, rows, candidate
