@@ -159,6 +159,7 @@ def capture_manager_context(
     free_transfers: int,
     personal_risk_profile: str = "aggressive",
     formation: str = "4-3-3",
+    starting_xi_ids: set[int] | None = None,
     allow_user_confirmed_fallback: bool = False,
 ) -> dict[str, Any]:
     if isinstance(free_transfers, bool) or not isinstance(free_transfers, int) or not 0 <= free_transfers <= 5:
@@ -167,6 +168,15 @@ def capture_manager_context(
         raise CaptureError("personal_risk_profile must be conservative, balanced, or aggressive")
     if formation not in {"3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-2-3", "5-3-2", "5-4-1"}:
         raise CaptureError("formation is not a supported FPL formation")
+
+    if starting_xi_ids is not None:
+        if len(starting_xi_ids) != 11 or any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 1
+            for value in starting_xi_ids
+        ):
+            raise CaptureError("starting_xi_ids must contain exactly 11 unique positive FPL element IDs")
+        if expected_element_ids is not None and not starting_xi_ids.issubset(expected_element_ids):
+            raise CaptureError("starting_xi_ids must be a subset of the confirmed 15-player squad")
 
     base = f"https://fantasy.premierleague.com/api/entry/{team_id}"
     target_url = f"{base}/event/{gameweek}/picks/"
@@ -278,6 +288,7 @@ def capture_manager_context(
                 "free_transfers": free_transfers,
                 "personal_risk_profile": personal_risk_profile,
                 "formation": formation,
+                "starting_xi": sorted(starting_xi_ids) if starting_xi_ids is not None else None,
                 "entry_history": {},
                 "purchase_price_source": purchase_price_source,
             },
@@ -334,6 +345,7 @@ def capture_manager_context(
             "free_transfers": free_transfers,
             "personal_risk_profile": personal_risk_profile,
             "formation": formation,
+            "starting_xi": sorted(starting_xi_ids) if starting_xi_ids is not None else None,
             "entry_history": history,
         },
     }
@@ -348,14 +360,17 @@ def main() -> int:
     parser.add_argument("--free-transfers", type=int, required=True)
     parser.add_argument("--personal-risk-profile", default="aggressive")
     parser.add_argument("--formation", default="4-3-3")
+    parser.add_argument("--starting-xi-ids", default="")
     parser.add_argument("--allow-user-confirmed-fallback", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     expected = {int(value) for value in args.expected_element_ids.split(",") if value.strip()}
+    starting_xi = {int(value) for value in args.starting_xi_ids.split(",") if value.strip()}
     result = capture_manager_context(
         args.team_id, args.gameweek, expected_element_ids=expected or None,
         expected_bank=args.expected_bank, free_transfers=args.free_transfers,
         personal_risk_profile=args.personal_risk_profile, formation=args.formation,
+        starting_xi_ids=starting_xi or None,
         allow_user_confirmed_fallback=args.allow_user_confirmed_fallback,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
