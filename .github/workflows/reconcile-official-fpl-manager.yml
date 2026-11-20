@@ -13,8 +13,14 @@ on:
         required: true
         default: "1,2,3,4,5,6,7,8,10"
         type: string
+      decision_evidence_run_id:
+        description: Optional successful pre-deadline capture workflow run ID for this manager/Gameweek cohort
+        required: false
+        default: ""
+        type: string
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -43,6 +49,20 @@ jobs:
             --manager-team-id "${{ inputs.manager_team_id }}" \
             --gameweeks "${{ inputs.gameweeks }}" \
             --output official-fpl-manager-reconciliation-batch.json
+      - name: Retrieve pre-deadline decision evidence artifact
+        if: inputs.decision_evidence_run_id != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: predeadline-decision-evidence-manager-${{ inputs.manager_team_id }}-gw${{ inputs.gameweeks }}
+          run-id: ${{ inputs.decision_evidence_run_id }}
+          github-token: ${{ github.token }}
+          path: canonical_candidate/engineering_workbench/decision-evidence
+      - name: Install retrieved decision evidence manifest
+        if: inputs.decision_evidence_run_id != ''
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          test -f decision-evidence/predeadline-decision-evidence.json
+          cp decision-evidence/predeadline-decision-evidence.json official-fpl-decision-evidence-manifests.json
       - name: Audit batch hashes and reconciliation coverage
         id: audit
         if: always() && steps.reconcile.outcome != 'skipped'
