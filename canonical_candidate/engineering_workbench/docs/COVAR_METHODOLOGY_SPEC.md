@@ -255,8 +255,8 @@ Until a separately reviewed implementation and validation pass:
 1. Review and accept this methodology and terminology.
 2. Audit current covariance artifacts and map each to the concepts above; identify what they can and cannot measure.
 3. Define a versioned scenario/event data contract and point-in-time source requirements.
-4. Build a small, deterministic joint-event prototype for one fixture and a few player archetypes.
-5. Add defensive-stack, attacking-stack and opposing-exposure test scenarios, including boom/bust cases.
+4. Build a small, deterministic scenario portfolio aggregator for one fixture and a few player archetypes. The current scorer consumes explicit scenario-level FPL points; it does not yet convert raw football events into FPL points.
+5. Add defensive-stack, attacking-stack and opposing-exposure test scenarios, including boom/bust cases, and separately validate the event-to-FPL-scoring layer before treating scenario points as model-generated.
 6. Add manager-level field portfolio sampling and relative-score evaluation for regular-GW mode first; add Free Hit cohort support only as an optional extension.
 7. Backtest against independent-player and non-CoVar baselines.
 8. Extend the fail-closed gate with joint-event and field-composition evidence.
