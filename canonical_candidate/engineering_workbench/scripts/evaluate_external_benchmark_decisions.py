@@ -128,6 +128,11 @@ def _validate_evidence(record: Mapping[str, Any]) -> None:
         if source_type == "realised_points":
             if captured <= deadline:
                 _fail("realised_points archive must be captured after the FPL deadline")
+            if "finalized_at_utc" not in source:
+                _fail("realised_points archive requires finalized_at_utc")
+            finalized = _timestamp(source["finalized_at_utc"], "realised_points.finalized_at_utc")
+            if finalized <= deadline or captured < finalized:
+                _fail("realised_points archive must be captured after gameweek finalization")
         else:
             if captured >= deadline:
                 _fail(f"{source_type} archive was captured at or after the deadline")
@@ -385,11 +390,19 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
         player_id = row.get("fpl_element_id")
         if isinstance(player_id, bool) or not isinstance(player_id, int) or player_id < 1 or player_id in realised:
             _fail(f"realised_player_points[{index}] has invalid or duplicate player ID")
-        points = _finite_number(row.get("total_points"), f"realised_player_points[{index}].total_points")
+        points = row.get("total_points")
+        if isinstance(points, bool) or not isinstance(points, int):
+            _fail(f"realised_player_points[{index}].total_points must be an integer")
         minutes = _finite_number(row.get("minutes"), f"realised_player_points[{index}].minutes", 0)
         if minutes != int(minutes):
             _fail(f"realised_player_points[{index}].minutes must be an integer")
-        realised[player_id] = {"total_points": points, "minutes": minutes}
+        cards = {}
+        for card_field in ("yellow_cards", "red_cards"):
+            card_count = row.get(card_field)
+            if isinstance(card_count, bool) or not isinstance(card_count, int) or card_count < 0:
+                _fail(f"realised_player_points[{index}].{card_field} must be a non-negative integer")
+            cards[card_field] = card_count
+        realised[player_id] = {"total_points": points, "minutes": int(minutes), **cards}
     expected_ids = set(manager_roster) if decision["action"] == "HOLD" else (
         set(manager_roster) | {decision["transfer_in_id"]}
     )
