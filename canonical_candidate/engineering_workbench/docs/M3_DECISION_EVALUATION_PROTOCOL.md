@@ -137,3 +137,24 @@ The personal-squad decision engine must represent the manager's actual operating
 - The workflow captures the manager-confirmed starting XI as a separate input. The lineup must contain 11 unique players from the confirmed 15-player squad and must pass the normal formation/position checks.
 
 These are manager-specific constraints, not universal FPL rules. They do not imply that a transfer is worthwhile merely because it can change the XI; affordability, legal squad construction, hit cost and positive starting-XI gain still apply.
+
+
+## 10. Initial deterministic scorer contract (synthetic-only implementation)
+
+The first scorer is implemented in `scripts/evaluate_external_benchmark_decisions.py`. It validates a frozen record before scoring and currently admits only `SYNTHETIC_TEST` records. `REAL_CANDIDATE` records fail closed until a separate historical-evidence admission process is implemented.
+
+Required evidence archives are separately hashed for:
+- provider forecast (including provider generation timestamp);
+- pre-deadline official player metadata;
+- pre-deadline manager state;
+- post-deadline realised player points, captured only after the Gameweek is finalised.
+
+The frozen decision is independently SHA-256 sealed. The contract checks deadline ordering, raw archive hashes, full 15-player squad composition, team limits, prices, legal formation, captain/vice, reserve goalkeeper, transfer legality, exact post-transfer roster, fixed starting-XI replacement constraints, and realised-points coverage. A transfer comparison requires realised rows for the 15 original players plus the incoming player (16 rows), so the outgoing player's hold-baseline score is not lost.
+
+The scorer uses official FPL per-player `total_points` as its realised points input; it does not independently reconstruct goals, assists, clean sheets, bonus points or other player-level scoring events. It applies the manager-level effects: ordered automatic substitutions, reserve-goalkeeper substitution, captain/vice fallback and the one-transfer four-point hit rule. It rejects chips in this initial implementation.
+
+The appearance flag follows FPL's published definition: a player counts as having played if they appeared or received a yellow/red card. Therefore zero minutes alone is not enough to qualify a player as absent. Official rule references:
+- https://fantasy.premierleague.com/help/faqs
+- https://www.premierleague.com/en/news/2174899
+
+The scoring implementation remains provisional until independently reconciled against completed official FPL manager Gameweek scores and substitution outcomes. Synthetic test success demonstrates deterministic software behaviour only; it is not evidence of historical decision value or release eligibility.
