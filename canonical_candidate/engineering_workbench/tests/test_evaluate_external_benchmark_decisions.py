@@ -353,12 +353,16 @@ def test_real_candidate_rejects_valid_but_unrelated_provider_archive():
         evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
 
 
-def test_real_candidate_rejects_provider_identity_substitution():
+def test_real_candidate_rejects_provider_snapshot_substitution():
     record = _record()
     record["evidence_class"] = "REAL_CANDIDATE"
     admission, audit, batch = _real_admission_inputs(record)
-    record["provider_identity"]["name"] = "Different Provider"
-    with pytest.raises(DecisionEvaluationError, match="provider identity does not match"):
+    provider_source = next(
+        row for row in audit["events"][0]["decision_sources"]
+        if row["source_type"] == "provider_forecast"
+    )
+    provider_source["raw_snapshot_id"] = "different-provider-snapshot"
+    with pytest.raises(DecisionEvaluationError, match="raw_snapshot_id does not match"):
         evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
 
 
