@@ -163,9 +163,46 @@ def test_rejects_missing_transfer_price_and_unexplained_squad():
         )
 
 
+def test_uses_exact_previous_gameweek_picks_when_squad_matches_and_no_free_hit(monkeypatch):
+    from urllib.error import HTTPError
+
+    previous = picks_payload(event=10)
+    expected = set(range(1, 16))
+    previous_raw = json.dumps(previous).encode()
+    history_raw = json.dumps(_history()).encode()
+    calls = []
+
+    def fake_fetch(url):
+        calls.append(url)
+        if url.endswith("/event/11/picks/"):
+            raise HTTPError(url, 404, "Not Found", {}, None)
+        if url.endswith("/event/10/picks/"):
+            return previous_raw
+        if url.endswith("/history/"):
+            return history_raw
+        raise AssertionError(url)
+
+    monkeypatch.setattr(manager_capture, "fetch", fake_fetch)
+    result = manager_capture.capture_manager_context(
+        TEAM_ID, GAMEWEEK, expected_element_ids=expected, expected_bank=0.9,
+        free_transfers=1, allow_user_confirmed_fallback=True,
+    )
+    prices = {row["fpl_element_id"]: row["purchase_price"]
+              for row in result["manager_context"]["squad_snapshot"]}
+    assert prices[1] == 5.1
+    assert result["manager_context"]["purchase_price_source"].startswith("Official FPL GW10")
+    assert result["manager_context_capture"]["price_source_type"] == "PREVIOUS_GAMEWEEK_PICKS"
+    assert calls == [
+        f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/event/11/picks/",
+        f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/event/10/picks/",
+        f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/history/",
+    ]
+
+
 def test_pre_deadline_fallback_uses_season_history_and_archives_all_sources(monkeypatch):
     from urllib.error import HTTPError
 
+    previous_raw = json.dumps(picks_payload(event=10)).encode()
     gw1_raw = json.dumps(picks_payload(event=1)).encode()
     transfers_raw = json.dumps([{
         "event": 4, "time": "2026-09-20T10:00:00Z",
@@ -180,6 +217,8 @@ def test_pre_deadline_fallback_uses_season_history_and_archives_all_sources(monk
         calls.append(url)
         if url.endswith("/event/11/picks/"):
             raise HTTPError(url, 404, "Not Found", {}, None)
+        if url.endswith("/event/10/picks/"):
+            return previous_raw
         if url.endswith("/event/1/picks/"):
             return gw1_raw
         if url.endswith("/transfers/"):
@@ -203,6 +242,7 @@ def test_pre_deadline_fallback_uses_season_history_and_archives_all_sources(monk
     assert provenance["row_count"] == 15
     assert set(calls) == {
         f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/event/11/picks/",
+        f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/event/10/picks/",
         f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/event/1/picks/",
         f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/transfers/",
         f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/history/",
@@ -215,3 +255,4 @@ def test_pre_deadline_fallback_uses_season_history_and_archives_all_sources(monk
     assert prices[16] == 6.2
     assert prices[2] == 5.2
     assert "bootstrap" in json.loads(archive_raw)
+    assert "previous_gameweek_picks" in json.loads(archive_raw)
