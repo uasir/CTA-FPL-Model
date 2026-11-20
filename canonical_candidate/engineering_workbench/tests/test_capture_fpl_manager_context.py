@@ -275,5 +275,5 @@ def test_rejects_starting_xi_not_contained_in_confirmed_squad(monkeypatch):
     with pytest.raises(manager_capture.CaptureError, match="subset"):
         manager_capture.capture_manager_context(
             TEAM_ID, GAMEWEEK, expected_element_ids=set(range(1, 16)),
-            free_transfers=1, starting_xi_ids=set(range(5, 16)),
+            free_transfers=1, starting_xi_ids=set(range(6, 17)),
         )
