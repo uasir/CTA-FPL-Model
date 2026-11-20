@@ -182,7 +182,7 @@ def test_replay_rejects_modified_frozen_recommendation(monkeypatch):
     bundle, frozen = _prepare(monkeypatch)
     frozen = copy.deepcopy(frozen)
     frozen["frozen_decision"]["transfer_in_id"] = 999
-    with pytest.raises(replay.DecisionReplayError, match="canonical player metadata cannot be reconstructed"):
+    with pytest.raises(replay.DecisionReplayError, match="replayed frozen decision differs"):
         replay.replay_frozen_decision(bundle, frozen, software_commit="b" * 40)
 
 
@@ -190,5 +190,5 @@ def test_replay_rejects_changed_player_metadata(monkeypatch):
     bundle, frozen = _prepare(monkeypatch)
     bundle = copy.deepcopy(bundle)
     next(row for row in bundle["12"]["player_metadata"] if row["fpl_element_id"] == 20)["price"] = 6.0
-    with pytest.raises(replay.DecisionReplayError, match="replayed frozen decision differs"):
+    with pytest.raises(replay.DecisionReplayError, match="canonical player metadata cannot be reconstructed"):
         replay.replay_frozen_decision(bundle, frozen, software_commit="b" * 40)
