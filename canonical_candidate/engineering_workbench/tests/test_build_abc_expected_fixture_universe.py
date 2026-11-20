@@ -31,7 +31,8 @@ def test_reference_fixture_universe_normalizes_season_and_matches_targets():
         [fpl("101"), fpl("102", "5", "75")],
     )
     assert [row["fixture_id"] for row in expected] == ["101", "102"]
-    assert expected[0]["season"] == "2017/18"\n    assert report["status"] == "PASS"
+    assert expected[0]["season"] == "2017/18"
+    assert report["status"] == "PASS"
     assert report["expected_player_fixture_rows"] == 2
 
 
