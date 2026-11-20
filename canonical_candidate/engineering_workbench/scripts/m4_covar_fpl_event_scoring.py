@@ -24,7 +24,9 @@ SCORING_VERSION = "FPL_2026_27"
 
 
 def _count(events: Mapping[str, Any], key: str) -> int:
-    value = events.get(key, 0)
+    if key not in events:
+        raise CovarEventScoringError(f"{key} must be explicitly supplied; missing is not zero")
+    value = events[key]
     if isinstance(value, bool):
         raise CovarEventScoringError(f"{key} must be a non-negative integer")
     try:
