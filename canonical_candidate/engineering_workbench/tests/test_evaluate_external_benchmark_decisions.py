@@ -258,6 +258,47 @@ def _real_admission_inputs(record):
     gameweek = record["target_gameweek"]
     manager_id = record["manager_team_id"]
     decision = record["frozen_decision"]
+    manager_archive = next(
+        row for row in record["source_archives"] if row["source_type"] == "manager_state"
+    )
+    manager_state = record["manager_state"]
+    roster = manager_state["squad_snapshot"]
+    purchase_prices = {str(row["fpl_element_id"]): row["purchase_price"] for row in roster}
+    selling_prices = {}
+    for row in roster:
+        current_tenths = round(row["current_price"] * 10)
+        purchase_tenths = round(row["purchase_price"] * 10)
+        selling_prices[str(row["fpl_element_id"])] = (
+            current_tenths if current_tenths <= purchase_tenths
+            else purchase_tenths + (current_tenths - purchase_tenths) // 2
+        ) / 10
+    hold = manager_state["hold_plan"]
+    manager_envelope = {
+        "capture_kind": "USER_ATTESTED_PREDEADLINE_MANAGER_STATE",
+        "manager_team_id": manager_id,
+        "target_gameweek": gameweek,
+        "captured_at_utc": manager_archive["captured_at_utc"],
+        "manager_state": {
+            "squad_15": sorted(manager_state["hold_plan"]["squad_ids"]),
+            "bank": manager_state["bank"],
+            "free_transfers": manager_state["free_transfers"],
+            "formation": manager_state["formation"],
+            "starting_xi": hold["starting_xi"],
+            "bench_order": hold["bench_order"],
+            "reserve_goalkeeper_id": hold["reserve_goalkeeper_id"],
+            "captain_id": hold["captain_id"],
+            "vice_captain_id": hold["vice_captain_id"],
+            "chip_state": "NONE",
+            "purchase_prices": purchase_prices,
+            "selling_prices": selling_prices,
+        },
+    }
+    manager_raw = json.dumps(manager_envelope, sort_keys=True, separators=(",", ":")).encode()
+    manager_archive.update({
+        "raw_snapshot_id": "official-manager-state-gw11",
+        "raw_sha256": hashlib.sha256(manager_raw).hexdigest(),
+        "raw_payload_base64": base64.b64encode(manager_raw).decode(),
+    })
     source_type_map = {
         "provider": "provider_forecast",
         "player_metadata": "player_metadata",
@@ -413,6 +454,42 @@ def test_real_candidate_rejects_realised_points_detached_from_official_live_rows
     admission, audit, batch = _real_admission_inputs(record)
     record["realised_player_points"][0]["total_points"] += 1
     with pytest.raises(DecisionEvaluationError, match="does not match official event-live scoring"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
+
+
+def test_real_candidate_rejects_detached_manager_roster():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    record["manager_state"]["squad_snapshot"][-1]["fpl_element_id"] = 99
+    with pytest.raises(DecisionEvaluationError, match="does not match the archived 15-player"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
+
+
+def test_real_candidate_rejects_detached_manager_bank():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    record["manager_state"]["bank"] += 0.1
+    with pytest.raises(DecisionEvaluationError, match="bank does not match the archived"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
+
+
+def test_real_candidate_rejects_detached_hold_bench_order():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    record["manager_state"]["hold_plan"]["bench_order"] = [11, 7, 12]
+    with pytest.raises(DecisionEvaluationError, match="bench_order does not match the archived"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
+
+
+def test_real_candidate_rejects_purchase_price_detached_from_manager_archive():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    record["manager_state"]["squad_snapshot"][0]["purchase_price"] += 0.1
+    with pytest.raises(DecisionEvaluationError, match="purchase price .* does not match archived"):
         evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
 
 
