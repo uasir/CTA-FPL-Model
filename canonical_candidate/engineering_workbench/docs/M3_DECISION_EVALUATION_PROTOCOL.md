@@ -123,3 +123,17 @@ Software tests establish implementation behaviour, not forecast accuracy, decisi
 ## 11. Next implementation task
 
 Implement a fail-closed evaluation input contract and deterministic scoring harness against synthetic fixtures first. The harness must encode the rules above without pretending synthetic fixtures are historical evidence. Only after its tests pass should archived real gameweeks be admitted, one at a time, with source and eligibility audits.
+
+
+## Manager strategy constraints — fixed XI and budget bench
+
+The personal-squad decision engine must represent the manager's actual operating policy, not assume a routinely rotated 15-player squad.
+
+- The manager supplies the intended starting XI separately from the 15-player squad.
+- The starting XI is held fixed across a recommendation. A transfer of a starter replaces that starter; a transfer of a bench player may displace only the weakest starter in the same position, and only when the incoming forecast improves the starting XI.
+- A bench-to-bench points upgrade is not a sufficient reason to recommend a transfer.
+- Goalkeeper transfers are excluded. The designated starting goalkeeper is preserved in the post-transfer XI; the reserve goalkeeper is emergency cover, not a rotation option.
+- The three outfield substitutes are treated as budget emergency cover. Bench order remains relevant for automatic substitutions, not routine rotation.
+- The workflow captures the manager-confirmed starting XI as a separate input. The lineup must contain 11 unique players from the confirmed 15-player squad and must pass the normal formation/position checks.
+
+These are manager-specific constraints, not universal FPL rules. They do not imply that a transfer is worthwhile merely because it can change the XI; affordability, legal squad construction, hit cost and positive starting-XI gain still apply.
