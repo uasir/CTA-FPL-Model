@@ -24,11 +24,14 @@ The portfolio artifact:
 - is provisional: managers may still change picks before lock.
 
 **Privacy qualification:** removing entry IDs does not make a 15-player squad
-unidentifiable. Squad combinations may be distinctive. The portfolio artifact
-must be treated as restricted manager-level data, must not be committed to the
-repository, and is uploaded as a separate GitHub Actions artifact with a
-7-day retention period. The ordinary EO CSV/report retain their existing
-90-day artifact retention.
+unidentifiable. Squad combinations may be distinctive. The ordinary public
+workflow therefore never writes or uploads this manager-level artifact. It
+keeps the rows in memory, emits only aggregate EO CSV/report, and records
+`manager_portfolio_export_status: NOT_EXPORTED_LOCAL_ONLY`. A user may opt in
+with `--manager-portfolio-output` to write the manager-ID-stripped artifact to
+an explicitly chosen private local path. Do not commit it or upload it to the
+public repository's Actions artifacts. The ordinary EO CSV/report retain
+their existing workflow artifact retention.
 
 ## Scenario projection
 
