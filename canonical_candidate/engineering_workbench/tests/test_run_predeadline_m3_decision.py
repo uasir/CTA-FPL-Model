@@ -90,7 +90,7 @@ def _engine_result():
         "squad_plan": {
             "formation": "4-3-3",
             "starting_xi": [1, 2, 3, 4, 5, 6, 7, 20, 9, 10, 11],
-            "bench_order": [13, 14, 15],
+            "bench_order": [13, 14, 8],
             "reserve_goalkeeper": 12,
             "captain": 10,
             "vice_captain": 11,
