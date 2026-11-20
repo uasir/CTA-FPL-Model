@@ -185,3 +185,10 @@ Synthetic contract tests are added in `tests/test_reconcile_official_fpl_manager
 
 
 The manual workflow `.github/workflows/reconcile-official-fpl-manager.yml` runs `scripts/capture_and_reconcile_official_fpl_manager_result.py` for a selected manager and completed Gameweek (defaults: manager 421025, GW10). It fetches the official bootstrap, manager picks and event-live endpoints, requires the event to be both finished and data-checked, preserves each raw response as base64 with SHA-256 and capture time, derives the actual deadline XI/bench/captain state, and runs the independent comparison. The uploaded artifact is a reconciliation record only; historical evidence admission remains false. This workflow must be run and its artifact inspected before claiming real-world reconciliation.
+
+
+## 13. Multi-Gameweek official manager reconciliation
+
+The manual workflow now accepts a comma-separated list of completed Gameweeks (default manager 421025; default requested events 1–8 and 10) and runs the independent official scorer for each event. The batch runner preserves each successful Gameweek's raw source archives and reports, separately and explicitly, any requested Gameweek excluded because its official data is unavailable, unfinished, chip-based or otherwise unsupported. A partial batch still uploads its diagnostic artifact and then fails the workflow so exclusions cannot be mistaken for a complete pass.
+
+The batch summary identifies which reconciled events contained official automatic substitutions and which incurred transfer costs. Each event remains an independent reconciliation; no aggregate score is treated as forecast or decision validation. `historical_evidence_admitted` remains false for the batch and every child record. The batch harness has synthetic tests for ordered input parsing, duplicate/invalid event rejection, explicit exclusions, autosub identification and transfer-hit identification. Real multi-event results must be inspected before this task can be marked complete.
