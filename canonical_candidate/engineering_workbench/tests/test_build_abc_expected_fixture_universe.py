@@ -34,42 +34,51 @@ def test_reference_fixture_universe_normalizes_season_and_matches_targets():
     )
     assert [row["fixture_id"] for row in expected] == ["101", "102"]
     assert expected[0]["season"] == "2017/18"
+    assert all(row["reference_status"] == "PASS" for row in expected)
     assert report["status"] == "PASS"
-    assert report["expected_player_fixture_rows"] == 2
+    assert report["valid_player_gameweeks"] == 1
+    assert report["excluded_player_gameweeks"] == 0
     assert report["fpl_panel_sha256"] == "panel123"
     assert report["abc_source_hashes"] == {"wyscout": "abc123"}
 
 
-def test_reference_universe_reports_missing_abc_double_gameweek_fixture_without_player_keys():
+def test_missing_abc_double_gameweek_fixture_excludes_only_that_player_gameweek():
     expected, report = build_expected_fixture_rows(
         [abc("101")],
         [fpl("101"), fpl("102", "5", "75")],
     )
-    assert report["status"] == "FAIL_CLOSED"
+    assert report["status"] == "PASS_WITH_EXCLUSIONS"
     assert report["mismatch_reason_counts"]["ABC_FIXTURE_MISSING"] == 1
+    assert report["excluded_player_gameweeks"] == 1
+    assert all(row["reference_status"] == "FAIL" for row in expected)
     assert "fpl_element_id" not in report
-    assert expected == [{"season": "2017/18", "fpl_element_id": "10",
-                         "gameweek": 7, "fixture_id": "101"},
-                        {"season": "2017/18", "fpl_element_id": "10",
-                         "gameweek": 7, "fixture_id": "102"}]
 
 
-def test_reference_universe_reports_target_mismatch_without_player_keys():
-    _, report = build_expected_fixture_rows(
+def test_target_mismatch_excludes_only_that_player_gameweek():
+    expected, report = build_expected_fixture_rows(
         [abc("101", "3", "90")],
         [fpl("101", "4", "90")],
     )
-    assert report["status"] == "FAIL_CLOSED"
+    assert report["status"] == "PASS_WITH_EXCLUSIONS"
     assert report["mismatch_reason_counts"]["TARGET_MISMATCH"] == 1
+    assert expected[0]["reference_status"] == "FAIL"
 
 
-def test_reference_universe_detects_abc_fixture_absent_from_fpl_reference():
-    _, report = build_expected_fixture_rows(
+def test_abc_fixture_absent_from_fpl_reference_excludes_only_that_player_gameweek():
+    expected, report = build_expected_fixture_rows(
         [abc("101"), abc("102", "5", "75")],
         [fpl("101")],
     )
-    assert report["status"] == "FAIL_CLOSED"
+    assert report["status"] == "PASS_WITH_EXCLUSIONS"
     assert report["mismatch_reason_counts"]["FPL_REFERENCE_FIXTURE_MISSING"] == 1
+    assert expected[0]["reference_status"] == "FAIL"
+
+
+def test_missing_player_gameweek_reference_fails_closed_if_no_valid_rows_remain():
+    _, report = build_expected_fixture_rows([abc("101")], [])
+    assert report["status"] == "FAIL_CLOSED"
+    assert report["missing_player_gameweek_key_count"] == 1
+    assert report["valid_player_gameweeks"] == 0
 
 
 def test_reference_universe_requires_player_gameweek_key():
