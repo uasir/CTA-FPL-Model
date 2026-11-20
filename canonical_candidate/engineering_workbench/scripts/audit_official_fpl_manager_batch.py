@@ -121,6 +121,8 @@ def audit_batch(batch: dict[str, Any]) -> dict[str, Any]:
         archives = _audit_archives(record, manager_id, gw)
         audited_events.append({"gameweek": gw, "status": status, "archives": archives})
 
+    _require(batch.get("reconciled_count") == len(reconciled_gws), "reconciled Gameweek count mismatch")
+    _require(batch.get("excluded_count") == len(excluded_gws), "excluded Gameweek count mismatch")
     _require(batch.get("reconciled_gameweeks") == reconciled_gws, "reconciled Gameweek summary mismatch")
     _require(batch.get("excluded_gameweeks") == excluded_gws, "excluded Gameweek summary mismatch")
     _require(batch.get("gameweeks_with_automatic_substitutions") == autosub_gws,
