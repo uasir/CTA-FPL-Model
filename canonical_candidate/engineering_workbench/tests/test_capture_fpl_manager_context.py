@@ -77,3 +77,28 @@ def test_rejects_wrong_gameweek_response(monkeypatch):
     monkeypatch.setattr(manager_capture, "fetch", lambda url: json.dumps(payload).encode())
     with pytest.raises(manager_capture.CaptureError, match="does not match requested"):
         manager_capture.capture_manager_context(TEAM_ID, GAMEWEEK, free_transfers=1)
+
+
+def test_uses_user_confirmed_squad_when_pre_deadline_picks_return_404(monkeypatch):
+    from urllib.error import HTTPError
+
+    def unavailable(url):
+        raise HTTPError(url, 404, "Not Found", {}, None)
+
+    monkeypatch.setattr(manager_capture, "fetch", unavailable)
+    monkeypatch.setattr(manager_capture, "utc_now", lambda: "2026-11-20T15:10:00Z")
+    result = manager_capture.capture_manager_context(
+        TEAM_ID, GAMEWEEK,
+        expected_element_ids=set(range(1, 16)),
+        expected_bank=0.9,
+        free_transfers=1,
+        allow_user_confirmed_fallback=True,
+    )
+    provenance = result["manager_context_capture"]
+    assert provenance["source_type"] == "USER_CONFIRMED_CONTEXT"
+    assert provenance["identity_verification_method"] == "user-confirmed squad IDs"
+    assert provenance["identity_verified"] is True
+    assert provenance["row_count"] == 15
+    assert len(result["manager_context"]["squad_snapshot"]) == 15
+    assert "purchase_price" not in result["manager_context"]["squad_snapshot"][0]
+    assert result["manager_context"]["bank"] == 0.9
