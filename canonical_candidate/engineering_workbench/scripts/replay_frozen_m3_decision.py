@@ -169,6 +169,12 @@ def _reconstruct_provider_and_metadata(manifest: Mapping[str, Any],
     bootstrap_captured = parse_time(metadata_source.get("captured_at_utc"), "metadata capture")
     if not generated < captured < deadline or not bootstrap_captured < deadline:
         raise DecisionReplayError("raw provider/metadata timing is not strictly pre-deadline")
+    if _utc_text(provider_source.get("generated_at_utc"), "provider source generation") != generated.isoformat().replace("+00:00", "Z"):
+        raise DecisionReplayError("provider generation timestamp differs from the raw provider response")
+    events = bootstrap.get("events")
+    matching_events = [row for row in events if isinstance(row, dict) and row.get("id") == gw] if isinstance(events, list) else []
+    if len(matching_events) != 1 or _utc_text(matching_events[0].get("deadline_time"), "official FPL deadline") != deadline.isoformat().replace("+00:00", "Z"):
+        raise DecisionReplayError("raw provider deadline does not match the official bootstrap event deadline")
     token = captured.strftime("%Y%m%dT%H%M%S%fZ")
     expected_snapshot = {
         "snapshot_id": f"fplcat-gw{gw}-{token}",
