@@ -25,6 +25,9 @@ def captures():
             "gameweek": 11,
             "team_id": 421025,
             "identity_verified": True,
+            "row_count": 15,
+            "raw_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "raw_response_base64": "e30=",
             "captured_at_utc": "2026-11-20T14:49:00Z",
         },
         "manager_context": {
