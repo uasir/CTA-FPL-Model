@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+from m4_covar_scenario_scoring import score_scenario_portfolios
 from m4_covar_fpl_event_scoring import (
     CovarEventScoringError,
     calculate_fpl_points_2026_27,
@@ -14,9 +15,9 @@ class TestM4CovarFplEventScoring(unittest.TestCase):
     def test_goalkeeper_scoring(self):
         result = calculate_fpl_points_2026_27("GK", {
             "minutes": 90, "goals": 1, "assists": 0, "clean_sheet": True,
-            "goals_conceded_while_on_pitch": 0, "saves": 4, "penalty_saves": 1, "defensive_contribution_count": 0,
+            "saves": 4, "penalty_saves": 1, "defensive_contribution_count": 0,
             "penalty_misses": 0, "bonus_points": 3,
-            "goals_conceded_while_on_pitch": 0, "yellow_cards": 0,
+            "yellow_cards": 0,
             "red_cards": 0, "own_goals": 0,
         })
         self.assertEqual(result["fpl_points"], 25)
@@ -26,9 +27,9 @@ class TestM4CovarFplEventScoring(unittest.TestCase):
     def test_defender_scoring_and_goals_conceded_floor(self):
         result = calculate_fpl_points_2026_27("DEF", {
             "minutes": 90, "goals": 1, "assists": 1, "clean_sheet": False,
-            "goals_conceded_while_on_pitch": 3, "saves": 0, "penalty_saves": 0, "defensive_contribution_count": 20,
+            "saves": 0, "penalty_saves": 0, "defensive_contribution_count": 20,
             "penalty_misses": 0, "bonus_points": 2,
-            "goals_conceded_while_on_pitch": 3, "yellow_cards": 1,
+            "yellow_cards": 1,
             "red_cards": 0, "own_goals": 1,
         })
         self.assertEqual(result["fpl_points"], 11)
@@ -101,6 +102,16 @@ class TestM4CovarFplEventScoring(unittest.TestCase):
             scored["scenarios"][0]["player_outcomes"][0]["scoring_version"],
             "FPL_2026_27",
         )
+        portfolio_result = score_scenario_portfolios(scored)
+        self.assertIn("conventional", portfolio_result["portfolio_results"])
+
+    def test_portfolio_aggregator_rejects_unscored_event_inputs(self):
+        doc = fixture()
+        for scenario in doc["scenarios"]:
+            for outcome in scenario["player_outcomes"]:
+                outcome.pop("fpl_points", None)
+        with self.assertRaisesRegex(ValueError, "run event scoring first"):
+            score_scenario_portfolios(doc)
 
     def test_event_scoring_requires_position(self):
         with self.assertRaisesRegex(CovarEventScoringError, "requires a position"):
