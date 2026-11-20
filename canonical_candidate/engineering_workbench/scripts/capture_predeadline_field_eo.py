@@ -136,6 +136,11 @@ def capture_predeadline(
         evidence_role="PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE",
         cohort=metadata["cohort"],
         rank_limit=rank_limit,
+        player_positions_by_id={
+            str(element["id"]): {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"}.get(int(element["element_type"]), "")
+            for element in bootstrap.get("elements", [])
+            if "id" in element and "element_type" in element
+        },
     )
     return eo_rows, metadata
 
