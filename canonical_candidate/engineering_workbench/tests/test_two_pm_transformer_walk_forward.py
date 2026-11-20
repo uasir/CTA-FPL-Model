@@ -87,3 +87,63 @@ def test_affine_expected_points_calibrator_never_reverses_prediction_order():
     )
     assert slope == 0.0
     assert intercept == pytest.approx(5.0)
+
+
+def test_deadline_local_ranking_summary_averages_deadlines_not_pooled_player_rows():
+    from evaluate_two_pm_transformer_walk_forward import summarize_deadline_ranking_rows
+
+    rows = {
+        ("2017-18", 1): {
+            "n": 100, "spearman": 0.5, "selected_mean_points": 4.0,
+            "oracle_top_k_mean_points": 10.0, "top_k_lift_over_universe": 1.0,
+            "top_k_regret_vs_oracle": 6.0,
+        },
+        ("2017-18", 2): {
+            "n": 1000, "spearman": 0.7, "selected_mean_points": 6.0,
+            "oracle_top_k_mean_points": 12.0, "top_k_lift_over_universe": 2.0,
+            "top_k_regret_vs_oracle": 6.0,
+        },
+        ("2018-19", 1): {
+            "n": 200, "spearman": 0.9, "selected_mean_points": 8.0,
+            "oracle_top_k_mean_points": 14.0, "top_k_lift_over_universe": 3.0,
+            "top_k_regret_vs_oracle": 6.0,
+        },
+    }
+    summary = summarize_deadline_ranking_rows(rows, top_k=100)
+    assert summary["n_deadlines"] == 3
+    assert summary["n_seasons"] == 2
+    assert summary["macro_spearman"] == pytest.approx(0.7)
+    assert summary["macro_selected_mean_points"] == pytest.approx(6.0)
+    assert summary["by_season"]["2017-18"]["selected_mean_points"] == pytest.approx(5.0)
+
+
+def test_paired_deadline_ranking_bootstrap_is_paired_and_candidate_minus_reference():
+    from evaluate_two_pm_transformer_walk_forward import paired_deadline_ranking_bootstrap
+
+    reference = {
+        ("2017-18", 1): {"selected_mean_points": 4.0, "spearman": 0.5},
+        ("2017-18", 2): {"selected_mean_points": 5.0, "spearman": 0.6},
+        ("2018-19", 1): {"selected_mean_points": 6.0, "spearman": 0.7},
+    }
+    candidate = {
+        key: {"selected_mean_points": row["selected_mean_points"] + 1.0,
+              "spearman": row["spearman"] + 0.1}
+        for key, row in reference.items()
+    }
+    report = paired_deadline_ranking_bootstrap(candidate, reference, n_boot=100)
+    assert report["season_clusters"] == 2
+    assert report["deadline_clusters"] == 3
+    assert report["candidate_minus_reference_macro_selected_mean_points"] == pytest.approx(1.0)
+    assert report["candidate_minus_reference_macro_spearman"] == pytest.approx(0.1)
+    assert report["selected_mean_points_delta_ci95"] == pytest.approx([1.0, 1.0])
+
+
+def test_paired_deadline_ranking_bootstrap_rejects_nonidentical_deadlines():
+    from evaluate_two_pm_transformer_walk_forward import paired_deadline_ranking_bootstrap
+
+    with pytest.raises(ValueError, match="identical deadlines"):
+        paired_deadline_ranking_bootstrap(
+            {("2017-18", 1): {"selected_mean_points": 4.0, "spearman": 0.5}},
+            {("2017-18", 2): {"selected_mean_points": 4.0, "spearman": 0.5}},
+            n_boot=10,
+        )
