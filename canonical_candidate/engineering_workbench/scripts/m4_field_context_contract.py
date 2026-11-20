@@ -19,7 +19,7 @@ class FieldContextContractError(ValueError):
 CONTRACT_VERSION = "1.0.0"
 OPTIONAL_EO_FIELDS = ("owned_by_pct", "effective_ownership_pct", "starting_pct",
                      "captain_pct", "triple_captain_pct", "scoring_exposure_pct",
-                     "effective_ownership_ci_low", "effective_ownership_ci_high")
+                     "effective_ownership_pct_ci95_low", "effective_ownership_pct_ci95_high")
 
 
 def _time(value: Any, label: str) -> datetime:
@@ -115,9 +115,11 @@ def validate_field_context(snapshot: Mapping[str, Any], rows: list[Mapping[str, 
                 normalized[field] = None
         by_id[player_id] = normalized
 
-    covered_ids = set(str(value) for value in coverage.get("covered_player_ids", []))
-    missing_ids = set(str(value) for value in coverage.get("missing_player_ids", []))
-    if covered_ids and covered_ids != set(by_id):
+    if not isinstance(coverage.get("covered_player_ids"), list) or not isinstance(coverage.get("missing_player_ids"), list):
+        raise FieldContextContractError("coverage must explicitly list covered_player_ids and missing_player_ids")
+    covered_ids = set(str(value) for value in coverage["covered_player_ids"])
+    missing_ids = set(str(value) for value in coverage["missing_player_ids"])
+    if covered_ids != set(by_id):
         raise FieldContextContractError("coverage covered_player_ids do not match EO rows")
     if covered_ids & missing_ids:
         raise FieldContextContractError("a player cannot be both covered and missing")
