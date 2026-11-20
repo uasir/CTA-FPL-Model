@@ -39,9 +39,9 @@ jobs:
         continue-on-error: true
         working-directory: canonical_candidate/engineering_workbench
         run: |
-          python scripts/reconcile_official_fpl_manager_batch.py \\
-            --manager-team-id "${{ inputs.manager_team_id }}" \\
-            --gameweeks "${{ inputs.gameweeks }}" \\
+          python scripts/reconcile_official_fpl_manager_batch.py \
+            --manager-team-id "${{ inputs.manager_team_id }}" \
+            --gameweeks "${{ inputs.gameweeks }}" \
             --output official-fpl-manager-reconciliation-batch.json
       - name: Upload immutable batch evidence
         if: always()
