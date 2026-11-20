@@ -21,6 +21,9 @@ class TestM4FieldContextDiagnostics(unittest.TestCase):
 
     def test_preserves_null_metrics_and_intervals(self):
         binding = binding_fixture()
+        for row in binding["field_eo_rows"]:
+            row["effective_ownership_pct_ci95_low"] = 50.0
+            row["effective_ownership_pct_ci95_high"] = 70.0
         binding["field_eo_rows"][0]["effective_ownership_pct"] = None
         binding["field_eo_rows"][0]["effective_ownership_pct_ci95_low"] = None
         binding["field_eo_rows"][0]["effective_ownership_pct_ci95_high"] = None
@@ -32,6 +35,9 @@ class TestM4FieldContextDiagnostics(unittest.TestCase):
 
     def test_rejects_half_interval_and_inverted_interval(self):
         binding = binding_fixture()
+        for row in binding["field_eo_rows"]:
+            row["effective_ownership_pct_ci95_low"] = 50.0
+            row["effective_ownership_pct_ci95_high"] = 70.0
         binding["field_eo_rows"][0]["effective_ownership_pct_ci95_high"] = None
         with self.assertRaisesRegex(FieldDiagnosticsError, "incomplete"):
             build_field_context_diagnostics(binding)
