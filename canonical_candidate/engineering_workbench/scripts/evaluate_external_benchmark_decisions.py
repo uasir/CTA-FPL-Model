@@ -370,6 +370,57 @@ def _verify_real_admission(record: Mapping[str, Any], admission_report: Any,
             for field in ("generated_at_utc",):
                 if source.get(field) != audited_source.get(field):
                     _fail(f"provider archive {field} does not match the independent decision-source audit")
+    # Bind the realised-points rows to the exact finalized official event-live
+    # archive independently hashed by the auditor, then derive the comparison
+    # values from that raw payload rather than trusting a detached points table.
+    realised_source = record_by_type.get("realised_points")
+    audited_archives = audited.get("archives")
+    if not isinstance(realised_source, Mapping) or not isinstance(audited_archives, list):
+        _fail("realised-points archive is not bound to independently audited official scoring evidence")
+    official_live = next((row for row in audited_archives
+                          if isinstance(row, Mapping) and row.get("source_type") == "event_live"), None)
+    if not isinstance(official_live, Mapping):
+        _fail("independent audit is missing the official event-live scoring archive")
+    for field in ("raw_snapshot_id", "raw_sha256", "captured_at_utc", "source_url"):
+        if realised_source.get(field) != official_live.get(field):
+            _fail(f"realised_points archive {field} does not match the audited official event-live archive")
+    try:
+        realised_raw = base64.b64decode(realised_source["raw_payload_base64"], validate=True)
+        realised_payload = json.loads(realised_raw)
+    except (ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise DecisionEvaluationError("realised-points archive is not valid official event-live JSON") from exc
+    live_elements = realised_payload.get("elements") if isinstance(realised_payload, Mapping) else None
+    if not isinstance(live_elements, list):
+        _fail("realised-points archive must contain official event-live elements")
+    official_points: dict[int, dict[str, int]] = {}
+    for index, element in enumerate(live_elements):
+        if not isinstance(element, Mapping):
+            _fail(f"official event-live elements[{index}] must be an object")
+        player_id = element.get("id")
+        stats = element.get("stats")
+        if isinstance(player_id, bool) or not isinstance(player_id, int) or player_id < 1 or player_id in official_points:
+            _fail("official event-live archive contains invalid or duplicate player IDs")
+        if not isinstance(stats, Mapping):
+            _fail(f"official event-live stats missing for player {player_id}")
+        values = {}
+        for field in ("minutes", "yellow_cards", "red_cards", "total_points"):
+            value = stats.get(field)
+            if isinstance(value, bool) or not isinstance(value, int):
+                _fail(f"official event-live {field} missing or invalid for player {player_id}")
+            values[field] = value
+        official_points[player_id] = values
+    realised_rows = record.get("realised_player_points")
+    if not isinstance(realised_rows, list):
+        _fail("realised_player_points must be a list")
+    for row in realised_rows:
+        player_id = row.get("fpl_element_id") if isinstance(row, Mapping) else None
+        if player_id not in official_points:
+            _fail(f"realised player {player_id} is absent from the official event-live archive")
+        expected = official_points[player_id]
+        for field in ("minutes", "yellow_cards", "red_cards", "total_points"):
+            if row.get(field) != expected[field]:
+                _fail(f"realised player {player_id} {field} does not match official event-live scoring")
+
     batch_rows = batch.get("results")
     batch_event = next((row for row in batch_rows if isinstance(row, Mapping)
                         and row.get("gameweek") == gameweek), None) if isinstance(batch_rows, list) else None
