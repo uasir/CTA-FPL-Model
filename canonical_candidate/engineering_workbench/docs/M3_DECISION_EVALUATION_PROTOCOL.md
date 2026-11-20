@@ -321,3 +321,29 @@ python scripts/evaluate_external_benchmark_decisions.py \
 ```
 
 The assembler explicitly reports `scoring_performed=false` and `historical_evidence_admitted_by_assembler=false`. Only the evaluator can produce an event score, and even a real event score remains non-promotion evidence until the separate M3 acceptance protocol is satisfied. The personal risk profile is carried as metadata; no unvalidated CoVar or risk adjustment is applied.
+
+
+## 20. Multi-Gameweek real-decision performance aggregation
+
+`aggregate_m3_multigameweek_evaluations.py` consumes event-level outputs from the real evaluator; it does not consume raw candidate records and does not perform admission or scoring. Every input must already be labelled `REAL_CANDIDATE` with the exact real-event-scored status, remain explicitly non-promotion evidence, and include source provenance, provider identity, decision/input hashes, and internally consistent recommended/hold net points.
+
+The aggregator fails closed on synthetic or unadmitted records, mixed manager IDs, duplicate manager/Gameweek/provider variants, duplicate evaluation-input hashes, malformed/non-finite scores, inconsistent net deltas, and invalid hit costs. Provider name/product/variant cohorts remain separate; it never invents a consensus or pools unlike forecast products.
+
+For each provider cohort it reports:
+- number of scored Gameweeks and action counts (HOLD/TRANSFER);
+- positive, negative and neutral net-point deltas versus hold;
+- cumulative, mean and median net-point delta versus hold;
+- population standard deviation and positive-delta event rate;
+- total transfer-hit points and separate mean deltas for HOLD and TRANSFER events.
+
+The output is descriptive only. It sets both `promotion_eligible=false` and `historical_performance_validated=false`. It does not establish causal value, forecast accuracy, rank improvement, robustness, or release eligibility. Minimum sample-size requirements, uncertainty intervals, matched provider cohorts, and separate acceptance gates remain necessary before any promotion decision.
+
+Example:
+
+```bash
+python scripts/aggregate_m3_multigameweek_evaluations.py \
+  gw11-evaluation-result.json gw12-evaluation-result.json \
+  --output m3-multigameweek-performance.json
+```
+
+Only independently admitted real event outputs from the same manager should be supplied. Do not include synthetic test results or unadmitted scoring-reconciliation-only events.
