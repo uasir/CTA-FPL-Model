@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import hashlib
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -39,7 +41,7 @@ class BenchmarkDecisionRunError(ValueError):
 def run_external_benchmark_personal_squad(payload: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
         raise BenchmarkDecisionRunError("run input must be an object")
-    required = ("provider_snapshot", "player_metadata", "manager_context", "as_of_utc")
+    required = ("provider_snapshot", "player_metadata", "player_metadata_provenance", "manager_context", "as_of_utc")
     missing = [key for key in required if key not in payload]
     if missing:
         raise BenchmarkDecisionRunError("missing run fields: " + ", ".join(missing))
@@ -56,6 +58,31 @@ def run_external_benchmark_personal_squad(payload: Mapping[str, Any]) -> dict[st
         as_of_utc=payload["as_of_utc"],
         forecast_horizon_gameweeks=1,
     )
+    metadata_provenance = payload["player_metadata_provenance"]
+    if not isinstance(metadata_provenance, Mapping):
+        raise BenchmarkDecisionRunError("player_metadata_provenance must be an object")
+    provenance_required = ("source_url", "raw_snapshot_id", "raw_sha256", "captured_at_utc", "row_count")
+    missing_provenance = [key for key in provenance_required if key not in metadata_provenance]
+    if missing_provenance:
+        raise BenchmarkDecisionRunError("missing player metadata provenance: " + ", ".join(missing_provenance))
+    metadata_hash = metadata_provenance["raw_sha256"]
+    if not isinstance(metadata_hash, str) or len(metadata_hash) != 64 or any(c not in "0123456789abcdef" for c in metadata_hash.lower()):
+        raise BenchmarkDecisionRunError("player metadata raw_sha256 must be a 64-character SHA-256")
+    if metadata_provenance["row_count"] != len(payload["player_metadata"]):
+        raise BenchmarkDecisionRunError("player metadata provenance row_count does not match metadata rows")
+    try:
+        metadata_captured = datetime.fromisoformat(metadata_provenance["captured_at_utc"].replace("Z", "+00:00"))
+        as_of = datetime.fromisoformat(payload["as_of_utc"].replace("Z", "+00:00"))
+        deadline = datetime.fromisoformat(snapshot["timing"]["deadline_utc"].replace("Z", "+00:00"))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise BenchmarkDecisionRunError("metadata capture and as_of timestamps must be ISO-8601") from exc
+    if metadata_captured.tzinfo is None or as_of.tzinfo is None:
+        raise BenchmarkDecisionRunError("metadata capture and as_of timestamps must include timezone")
+    if metadata_captured > as_of.astimezone(timezone.utc):
+        raise BenchmarkDecisionRunError("player metadata capture cannot be later than decision as_of_utc")
+    if as_of.astimezone(timezone.utc) >= deadline.astimezone(timezone.utc):
+        raise BenchmarkDecisionRunError("decision as_of_utc must be strictly before the FPL deadline")
+
     manager = payload["manager_context"]
     if not isinstance(manager, Mapping):
         raise BenchmarkDecisionRunError("manager_context must be an object")
@@ -78,6 +105,7 @@ def run_external_benchmark_personal_squad(payload: Mapping[str, Any]) -> dict[st
             f"{snapshot['provider']['variant']}-{snapshot['snapshot_id']}"
         ),
         "provider_identity": snapshot["provider"],
+        "player_metadata_provenance": dict(metadata_provenance),
         "source_provenance": {
             "snapshot_id": snapshot["snapshot_id"],
             "source_url": snapshot["source"]["url"],
