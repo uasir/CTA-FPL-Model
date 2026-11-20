@@ -431,7 +431,7 @@ def replay_frozen_decision(
     decision_hash = hashlib.sha256(_canonical(actual_decision).encode("utf-8")).hexdigest()
     return {
         "status": "PASSED",
-        "replay_type": "DETERMINISTIC_CANONICAL_INPUT_REEXECUTION",
+        "replay_type": "DETERMINISTIC_RAW_AND_CANONICAL_INPUT_REEXECUTION",
         "manager_team_id": candidate["manager_team_id"],
         "target_gameweek": candidate["target_gameweek"],
         "software_commit": software_commit,
@@ -442,9 +442,9 @@ def replay_frozen_decision(
         "raw_archive_hashes_verified": True,
         "release_eligible": False,
         "limitations": [
-            "Replay uses the canonical normalized inputs stored in the capture manifest.",
-            "Raw-source-to-normalized-input reconstruction is not established by this replay alone.",
-            "A successful replay proves deterministic reproduction, not forecast accuracy or decision value.",
+            "The manager free-transfer count and, in fallback capture modes, bank and intended lineup remain explicitly user-attested because the selected public FPL endpoints do not expose a complete authoritative pre-deadline state.",
+            "The replay validates the attested manager state against official raw picks/history wherever those sources are available; it does not independently prove the truth of user-attested fields absent from those sources.",
+            "A successful replay proves deterministic reproduction and source-to-canonical consistency, not forecast accuracy or decision value.",
         ],
     }
 
