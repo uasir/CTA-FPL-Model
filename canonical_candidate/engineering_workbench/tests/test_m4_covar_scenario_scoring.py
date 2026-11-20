@@ -124,7 +124,7 @@ class TestM4CovarScenarioScoring(unittest.TestCase):
             comparison["probability_outscoring_random_field_portfolio"], 0.125
         )
 
-    def test_manager-ID-stripped_predeadline_sample_flows_into_scenario_field_comparison(self):
+    def test_manager_id_stripped_predeadline_sample_flows_into_scenario_field_comparison(self):
         rows = []
         manager_specs = [
             (700001, 1, ["a1", "a2", "b1"] + [f"x{i}" for i in range(12)], "a1", "3xc"),
