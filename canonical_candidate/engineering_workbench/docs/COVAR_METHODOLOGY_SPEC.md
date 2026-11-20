@@ -133,7 +133,9 @@ The model must support at least three distinct decision lenses:
 
 Do not maximize variance as a universal objective. Higher variance can increase both boom and bust. A recommendation must state which objective it serves and quantify the associated cost in expected points or downside risk.
 
-Free Hit and regular-gameweek decisions must be evaluated separately. A Free Hit permits a temporary, highly correlated portfolio that may be inappropriate for a persistent squad. Regular-GW analysis must respect the user's stated squad construction and transfer constraints; CoVar must not create routine rotation or low-value bench transfers.
+**Regular gameweeks are the default operating mode.** Unless the user explicitly declares that they are activating Free Hit for the target gameweek, the model must assume a normal gameweek and evaluate CoVar within the user's existing 15-player squad, available transfers, budget, formation, starting-XI and bench constraints. It must not assume Free Hit merely because a highly correlated temporary squad could offer upside.
+
+**Free Hit is an optional mode, not a prerequisite or default.** When explicitly activated by the user, evaluate the temporary one-week squad separately. Free Hit-specific logic and cohort segmentation must never leak into regular-GW recommendations. The core scenario and portfolio engine must work for regular gameweeks without requiring any Free Hit data.
 
 ## 7. Field-targeting decision hierarchy
 
@@ -165,16 +167,22 @@ A field-CoVar alternative should not be preferred merely because it has greater 
 
 The objective and acceptable EV trade-off must be declared for the decision. It may depend on current rank, distance to the target rank, remaining gameweeks, risk appetite and downside tolerance. Do not infer a universal risk preference from rank alone. Show alternative objective profiles where the appropriate trade-off is uncertain, and keep the user's selected objective explicit.
 
-### 7.3 Free Hit versus regular-GW field populations
+### 7.3 Default regular-GW mode and optional Free Hit mode
 
-For Free Hit analysis, distinguish at least:
-- Managers using Free Hit, whose temporary squad construction can create concentrated one-week exposures.
-- Managers not using Free Hit, whose squads may be constrained by longer-term structure and transfers.
-- The combined overall field, if that is the rank comparison the user wants to optimize.
+The mode must be explicit in each decision artifact, with values such as `REGULAR_GW` or `FREE_HIT`. If no chip activation is explicitly declared, default to `REGULAR_GW`.
 
-Use the most relevant cohort for the decision and report cohort sample sizes and uncertainty. Do not assume that overall EO alone describes the Free Hit population or its joint squad combinations.
+**Regular-GW mode (default):**
+- Use the relevant overall/rank-stratified field cohort.
+- Evaluate transfers and squad exposures against the user's persistent squad, budget, free-transfer and formation constraints.
+- Preserve the user's strong fixed starting XI, single starting goalkeeper and low-cost reserve/bench philosophy; do not propose routine rotation or bench-to-bench transfers without meaningful squad value.
+- Do not require Free Hit user classification or Free Hit-specific ownership data.
 
-For regular-GW analysis, use the relevant overall/rank-stratified field cohort and preserve the user's persistent squad constraints. Free Hit-specific portfolio logic must not be transferred automatically to regular-GW squad construction.
+**Free Hit mode (optional, explicit activation only):**
+- Evaluate the temporary one-week squad and its distinct opportunity set.
+- Where reliable chip-use data exist, distinguish managers using Free Hit, managers not using Free Hit and the combined overall field.
+- Report cohort sample sizes and uncertainty. If chip-use cohort data are unavailable, disclose the limitation and use only a clearly labelled available field benchmark.
+
+The core CoVar scenario engine and portfolio comparison must operate in regular-GW mode without Free Hit-specific dependencies. Free Hit analysis is an additional mode, not a prerequisite for the core framework.
 
 ### 7.4 Stack opportunity-cost examples
 
@@ -249,7 +257,7 @@ Until a separately reviewed implementation and validation pass:
 3. Define a versioned scenario/event data contract and point-in-time source requirements.
 4. Build a small, deterministic joint-event prototype for one fixture and a few player archetypes.
 5. Add defensive-stack, attacking-stack and opposing-exposure test scenarios, including boom/bust cases.
-6. Add manager-level field portfolio sampling and relative-score evaluation.
+6. Add manager-level field portfolio sampling and relative-score evaluation for regular-GW mode first; add Free Hit cohort support only as an optional extension.
 7. Backtest against independent-player and non-CoVar baselines.
 8. Extend the fail-closed gate with joint-event and field-composition evidence.
 9. Only after independent validation, request explicit review for any proposed production use.
