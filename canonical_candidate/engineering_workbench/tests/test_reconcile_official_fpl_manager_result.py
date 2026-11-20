@@ -95,6 +95,14 @@ def test_reconciles_official_autosubs_captain_fallback_and_net_score():
     assert result["historical_evidence_admitted"] is False
 
 
+def test_reports_transfer_hit_separately_from_gross_entry_history_points():
+    payload = _payload()
+    payload["official_picks"]["entry_history"]["event_transfers_cost"] = 8
+    result = _run(payload)
+    assert result["official_gross_points"] == 30
+    assert result["official_transfer_cost"] == 8
+    assert result["official_net_points"] == 22
+
 def test_rejects_local_autosub_mismatch():
     payload = _payload()
     payload["local_score"]["outfield_substitutions"][0]["player_in_id"] = 15
