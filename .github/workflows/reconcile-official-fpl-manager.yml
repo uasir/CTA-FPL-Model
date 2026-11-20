@@ -48,13 +48,21 @@ jobs:
         if: always() && steps.reconcile.outcome != 'skipped'
         working-directory: canonical_candidate/engineering_workbench
         run: |
-          python scripts/audit_official_fpl_manager_batch.py official-fpl-manager-reconciliation-batch.json --output official-fpl-manager-reconciliation-audit.json
+          MANIFEST_ARGS=()
+          if [ -f official-fpl-decision-evidence-manifests.json ]; then
+            MANIFEST_ARGS+=(--decision-manifests official-fpl-decision-evidence-manifests.json)
+          fi
+          python scripts/audit_official_fpl_manager_batch.py official-fpl-manager-reconciliation-batch.json "${MANIFEST_ARGS[@]}" --output official-fpl-manager-reconciliation-audit.json
       - name: Classify historical evidence admission
         id: admission
         if: always() && steps.audit.outcome == 'success'
         working-directory: canonical_candidate/engineering_workbench
         run: |
-          python scripts/classify_historical_fpl_evidence.py official-fpl-manager-reconciliation-batch.json --audit-report official-fpl-manager-reconciliation-audit.json --output official-fpl-historical-evidence-admission.json
+          MANIFEST_ARGS=()
+          if [ -f official-fpl-decision-evidence-manifests.json ]; then
+            MANIFEST_ARGS+=(--decision-manifests official-fpl-decision-evidence-manifests.json)
+          fi
+          python scripts/classify_historical_fpl_evidence.py official-fpl-manager-reconciliation-batch.json "${MANIFEST_ARGS[@]}" --audit-report official-fpl-manager-reconciliation-audit.json --output official-fpl-historical-evidence-admission.json
       - name: Upload immutable batch evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -64,6 +72,7 @@ jobs:
             canonical_candidate/engineering_workbench/official-fpl-manager-reconciliation-batch.json
             canonical_candidate/engineering_workbench/official-fpl-manager-reconciliation-audit.json
             canonical_candidate/engineering_workbench/official-fpl-historical-evidence-admission.json
+            canonical_candidate/engineering_workbench/official-fpl-decision-evidence-manifests.json
           if-no-files-found: error
           retention-days: 90
       - name: Fail job if any requested Gameweek was excluded or audit failed
