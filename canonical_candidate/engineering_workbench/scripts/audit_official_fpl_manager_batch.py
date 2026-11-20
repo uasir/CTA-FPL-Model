@@ -260,8 +260,7 @@ def main() -> int:
     manifests = (json.loads(args.decision_manifests.read_text(encoding="utf-8"))
                  if args.decision_manifests else None)
     audit = audit_batch(batch, manifests)
-    args.output.write_text(json.dumps(audit, indent=2, sort_keys=True) + "
-", encoding="utf-8")
+    args.output.write_text(json.dumps(audit, indent=2, sort_keys=True) + chr(10), encoding="utf-8")
     print(json.dumps({key: value for key, value in audit.items() if key != "events"}, indent=2))
     return 0
 
