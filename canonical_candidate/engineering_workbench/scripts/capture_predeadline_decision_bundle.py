@@ -238,6 +238,46 @@ def capture_predeadline_decision_bundle(
     }
     if set(map(int, purchase_prices)) != expected_ids or len(purchase_prices) != 15:
         raise DecisionCaptureError("Official purchase-price evidence does not cover the exact 15-player squad")
+    if not fallback:
+        if manager_archive.get("entry_history", {}).get("event") != gameweek:
+            raise DecisionCaptureError("Official target picks payload identifies the wrong Gameweek")
+        if manager_archive.get("active_chip") is not None:
+            raise DecisionCaptureError("Official target picks show an active chip")
+        picks = manager_archive.get("picks")
+        if not isinstance(picks, list) or len(picks) != 15:
+            raise DecisionCaptureError("Official target picks must contain exactly 15 players")
+        picks_by_position = {row.get("position"): row for row in picks if isinstance(row, dict)}
+        if set(picks_by_position) != set(range(1, 16)):
+            raise DecisionCaptureError("Official target picks positions must be 1 through 15")
+        if {row.get("element") for row in picks} != expected_ids:
+            raise DecisionCaptureError("Official target picks do not match the confirmed 15-player squad")
+        if {picks_by_position[pos]["element"] for pos in range(1, 12)} != set(state["starting_xi"]):
+            raise DecisionCaptureError("Official target picks starting XI differs from confirmed lineup")
+        direct_bench = [
+            picks_by_position[pos]["element"] for pos in range(12, 16)
+            if element_types.get(picks_by_position[pos]["element"]) != 1
+        ]
+        direct_gks = [
+            picks_by_position[pos]["element"] for pos in range(12, 16)
+            if element_types.get(picks_by_position[pos]["element"]) == 1
+        ]
+        if direct_bench != state["bench_order"] or direct_gks != [state["reserve_goalkeeper_id"]]:
+            raise DecisionCaptureError("Official target picks bench order/reserve goalkeeper differs from confirmed state")
+        direct_captains = [row["element"] for row in picks if row.get("is_captain") is True]
+        direct_vice = [row["element"] for row in picks if row.get("is_vice_captain") is True]
+        if direct_captains != [state["captain_id"]] or direct_vice != [state["vice_captain_id"]]:
+            raise DecisionCaptureError("Official target picks captain/vice-captain differs from confirmed state")
+        bank_raw = manager_archive.get("entry_history", {}).get("bank")
+        if not isinstance(bank_raw, int) or isinstance(bank_raw, bool) or abs(bank_raw / 10 - state["bank"]) > 0.0001:
+            raise DecisionCaptureError("Official target picks bank differs from confirmed manager state")
+        official_purchase_prices = {
+            str(row["element"]): row["purchase_price"] / 10
+            for row in picks if isinstance(row, dict)
+            and isinstance(row.get("purchase_price"), int)
+            and not isinstance(row.get("purchase_price"), bool)
+        }
+        if official_purchase_prices != purchase_prices:
+            raise DecisionCaptureError("Official target picks purchase prices differ from manager context")
     selling_prices = {}
     for player_id in expected_ids:
         now_cost = by_id[player_id].get("now_cost")
