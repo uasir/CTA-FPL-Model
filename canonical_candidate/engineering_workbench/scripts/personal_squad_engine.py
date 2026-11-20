@@ -32,20 +32,22 @@ def _formation_counts(value):
     return defenders,midfielders,forwards
 
 
-def _select_for_formation(owned,by_id,formation):
+def _select_for_formation(owned,by_id,formation,starting_goalkeeper_id=None):
     defenders,midfielders,forwards=formation
     counts={"GKP":1,"DEF":defenders,"MID":midfielders,"FWD":forwards}
     selected=[]
     for position in POSITIONS:
         candidates=sorted([by_id[player["fpl_element_id"]] for player in owned
-                           if by_id[player["fpl_element_id"]]["position"]==position],key=_player_order)
+                           if by_id[player["fpl_element_id"]]["position"]==position
+                           and (position != "GKP" or starting_goalkeeper_id is None
+                                or player["fpl_element_id"] == starting_goalkeeper_id)],key=_player_order)
         if len(candidates)<counts[position]:
             raise RecommendationContractError(f"Not enough {position} players for requested formation")
         selected.extend(candidates[:counts[position]])
     return selected
 
 
-def _best_starting_xi(owned,by_id,formation_value=None,starting_xi_value=None):
+def _best_starting_xi(owned,by_id,formation_value=None,starting_xi_value=None,starting_goalkeeper_id=None):
     requested=_formation_counts(formation_value) if formation_value is not None else None
     if starting_xi_value is not None:
         if not isinstance(starting_xi_value,list) or len(starting_xi_value)!=11:
@@ -61,9 +63,13 @@ def _best_starting_xi(owned,by_id,formation_value=None,starting_xi_value=None):
         if requested is not None and counts!=requested:
             raise RecommendationContractError("starting_xi does not match requested formation")
         formation=counts
+        if starting_goalkeeper_id is not None and not any(
+            p["position"] == "GKP" and p["fpl_element_id"] == starting_goalkeeper_id for p in selected
+        ):
+            raise RecommendationContractError("starting XI must retain the designated starting goalkeeper")
     elif requested is not None:
         formation=requested
-        selected=_select_for_formation(owned,by_id,formation)
+        selected=_select_for_formation(owned,by_id,formation,starting_goalkeeper_id)
     else:
         best=None
         for defenders in range(3,6):
@@ -71,7 +77,7 @@ def _best_starting_xi(owned,by_id,formation_value=None,starting_xi_value=None):
                 forwards=10-defenders-midfielders
                 if not 1<=forwards<=3: continue
                 candidate=(defenders,midfielders,forwards)
-                xi=_select_for_formation(owned,by_id,candidate)
+                xi=_select_for_formation(owned,by_id,candidate,starting_goalkeeper_id)
                 score=sum(p["expected_points"] for p in xi)
                 if best is None or score>best[0]+1e-12:
                     best=(score,candidate,xi)
@@ -188,8 +194,8 @@ def _transfer_candidates(request,forecasts):
     }
 
 
-def _build_squad_plan(owned, by_id, formation_value=None, starting_xi_value=None, bench_value=None):
-    starting, formation = _best_starting_xi(owned, by_id, formation_value, starting_xi_value)
+def _build_squad_plan(owned, by_id, formation_value=None, starting_xi_value=None, bench_value=None, starting_goalkeeper_id=None):
+    starting, formation = _best_starting_xi(owned, by_id, formation_value, starting_xi_value, starting_goalkeeper_id)
     starting_ids = {p["fpl_element_id"] for p in starting}
     remaining = [p for p in owned if p["fpl_element_id"] not in starting_ids]
     reserve_gk = [p for p in remaining if p["position"] == "GKP"]
@@ -247,7 +253,14 @@ def recommend_personal_squad(payload):
         post_transfer_owned = [player for player in owned if int(player["fpl_element_id"]) != outgoing_id]
         post_transfer_owned.append(forecast_by_id[incoming_id])
         # Fixed XI/bench inputs may include the outgoing player; re-optimise after the move.
-        recommended_squad_plan = _build_squad_plan(post_transfer_owned, forecast_by_id, formation_value)
+        starting_goalkeeper_id = next(
+            player_id for player_id in current_squad_plan["starting_xi"]
+            if forecast_by_id[player_id]["position"] == "GKP"
+        )
+        recommended_squad_plan = _build_squad_plan(
+            post_transfer_owned, forecast_by_id, formation_value,
+            starting_goalkeeper_id=starting_goalkeeper_id,
+        )
         squad_plan_state = "POST_TRANSFER"
 
     quality = request["forecast_quality"]
