@@ -40,8 +40,9 @@ def strip_manager_identifiers_from_manager_picks(
     evidence_role: str,
     cohort: str,
     rank_limit: int,
+    player_positions_by_id: Mapping[str, str],
 ) -> dict[str, Any]:
-    """Convert one row per manager-player pick into manager-ID-stripped 15-player portfolios."""
+    """Convert one row per manager-player pick into private, lineup-aware portfolios."""
     if evidence_role != "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE":
         raise CovarFieldPortfolioError("only pre-deadline provisional pick evidence is admitted")
     deadline = _time(deadline_utc, "deadline_utc")
@@ -86,13 +87,41 @@ def strip_manager_identifiers_from_manager_picks(
         if chip not in ("", "3xc", "bboost", "freehit", "wildcard"):
             raise CovarFieldPortfolioError("manager sample contains an unsupported active chip")
         picks_by_position = sorted(picks, key=lambda row: int(row["position"]))
+        player_ids = [str(row["fpl_element_id"]) for row in picks_by_position]
+        missing_positions = [pid for pid in player_ids if pid not in player_positions_by_id]
+        if missing_positions:
+            raise CovarFieldPortfolioError("bootstrap player positions missing for selected players")
+        positions_by_player = {pid: str(player_positions_by_id[pid]).upper() for pid in player_ids}
+        if any(value not in ("GK", "DEF", "MID", "FWD") for value in positions_by_player.values()):
+            raise CovarFieldPortfolioError("player positions must be GK, DEF, MID, or FWD")
+        starting, bench = player_ids[:11], player_ids[11:]
+        starting_positions = [positions_by_player[pid] for pid in starting]
+        if starting_positions.count("GK") != 1 or positions_by_player[bench[0]] != "GK":
+            raise CovarFieldPortfolioError("starting XI and first substitute must contain one goalkeeper each")
+        if any(positions_by_player[pid] == "GK" for pid in bench[1:]):
+            raise CovarFieldPortfolioError("outfield bench positions 13-15 cannot contain goalkeepers")
+        formation = {position: starting_positions.count(position) for position in ("DEF", "MID", "FWD")}
+        if not (formation["DEF"] >= 3 and formation["MID"] >= 2 and formation["FWD"] >= 1 and sum(formation.values()) == 10):
+            raise CovarFieldPortfolioError("starting XI does not satisfy legal FPL formation minimums")
+        vice_captains = [row for row in picks if row.get("is_vice_captain") is True]
+        if len(vice_captains) != 1 or int(vice_captains[0]["position"]) > 11:
+            raise CovarFieldPortfolioError("each manager must have exactly one starting vice-captain")
         captain_id = str(captains[0]["fpl_element_id"])
+        vice_captain_id = str(vice_captains[0]["fpl_element_id"])
+        if captain_id == vice_captain_id:
+            raise CovarFieldPortfolioError("captain and vice-captain must be different players")
         normalized.append({
             "_sort_rank": next(iter(ranks)),
             "_sort_key": manager_id,
             "weight": next(iter(weights)),
-            "player_ids": [str(row["fpl_element_id"]) for row in picks_by_position],
+            "player_ids": player_ids,
+            "starting_player_ids": starting,
+            "starting_goalkeeper_id": next(pid for pid in starting if positions_by_player[pid] == "GK"),
+            "reserve_goalkeeper_id": bench[0],
+            "bench_order": bench[1:],
+            "player_positions": positions_by_player,
             "captain_id": captain_id,
+            "vice_captain_id": vice_captain_id,
             "captain_multiplier": 3 if chip == "3xc" else 2,
             "rank_stratum": (next(iter(ranks)) - 1) // 50 + 1,
             "active_chip": chip or None,
@@ -105,7 +134,13 @@ def strip_manager_identifiers_from_manager_picks(
         portfolios.append({
             "portfolio_id": f"field_sample_{index:04d}",
             "player_ids": row["player_ids"],
+            "starting_player_ids": row["starting_player_ids"],
+            "starting_goalkeeper_id": row["starting_goalkeeper_id"],
+            "reserve_goalkeeper_id": row["reserve_goalkeeper_id"],
+            "bench_order": row["bench_order"],
+            "player_positions": row["player_positions"],
             "captain_id": row["captain_id"],
+            "vice_captain_id": row["vice_captain_id"],
             "captain_multiplier": row["captain_multiplier"],
             "field_weight": row["weight"] / total_weight,
             "rank_stratum": row["rank_stratum"],
@@ -114,7 +149,7 @@ def strip_manager_identifiers_from_manager_picks(
         })
 
     return {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "data_status": "MANAGER_ID_STRIPPED_MANAGER_PICK_SAMPLE",
         "metadata": {
             "gameweek": int(gameweek),
@@ -146,7 +181,7 @@ def adapt_field_portfolios_for_scenario(
     rank_strata: Sequence[int] | None = None,
 ) -> dict[str, Any]:
     """Project sampled full squads onto the modeled player universe, fail-closed."""
-    if artifact.get("schema_version") != "1.0.0" or artifact.get("data_status") != "MANAGER_ID_STRIPPED_MANAGER_PICK_SAMPLE":
+    if artifact.get("schema_version") != "1.1.0" or artifact.get("data_status") != "MANAGER_ID_STRIPPED_MANAGER_PICK_SAMPLE":
         raise CovarFieldPortfolioError("unsupported manager-ID-stripped field portfolio artifact")
     metadata = artifact.get("metadata")
     source_portfolios = artifact.get("portfolios")
