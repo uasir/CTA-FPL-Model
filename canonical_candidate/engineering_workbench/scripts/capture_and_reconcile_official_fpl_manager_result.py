@@ -83,9 +83,26 @@ def capture_and_reconcile(manager_team_id: int, gameweek: int) -> dict[str, Any]
     pick_rows = picks.get("picks")
     if not isinstance(pick_rows, list) or len(pick_rows) != 15:
         raise CaptureReconciliationError("official manager picks must contain exactly 15 players")
+    # The historical picks endpoint reports post-autosub positions. Reverse
+    # official swaps to recover the deadline XI, reserve GK and bench priority.
     ordered = sorted(pick_rows, key=lambda row: row.get("position", 0) if isinstance(row, dict) else 0)
     if [row.get("position") for row in ordered] != list(range(1, 16)):
         raise CaptureReconciliationError("official manager picks positions must be exactly 1..15")
+    position_by_id = {row["element"]: row["position"] for row in ordered}
+    automatic_subs = picks.get("automatic_subs", [])
+    if not isinstance(automatic_subs, list):
+        raise CaptureReconciliationError("official automatic_subs must be a list")
+    for sub in automatic_subs:
+        if not isinstance(sub, dict):
+            raise CaptureReconciliationError("official automatic substitution rows must be objects")
+        player_in, player_out = sub.get("element_in"), sub.get("element_out")
+        if player_in not in position_by_id or player_out not in position_by_id:
+            raise CaptureReconciliationError("official automatic substitution references a player outside the picks")
+        in_position, out_position = position_by_id[player_in], position_by_id[player_out]
+        if in_position > 11 or out_position < 12:
+            raise CaptureReconciliationError("official autosub positions are not in post-substitution XI/bench order")
+        position_by_id[player_in], position_by_id[player_out] = out_position, in_position
+    ordered = sorted(ordered, key=lambda row: position_by_id[row["element"]])
     starting_xi = [row["element"] for row in ordered[:11]]
     reserve_gk = ordered[11]["element"]
     bench_order = [row["element"] for row in ordered[12:15]]
