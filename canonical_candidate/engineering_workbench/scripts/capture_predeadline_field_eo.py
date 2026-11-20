@@ -23,7 +23,7 @@ from capture_fpl_ranked_manager_picks import (
 )
 from estimate_fpl_effective_ownership import estimate_effective_ownership
 from m4_covar_field_portfolio_adapter import (
-    anonymize_manager_pick_rows,
+    strip_manager_identifiers_from_manager_picks,
     canonical_artifact_sha256,
 )
 
@@ -126,9 +126,9 @@ def capture_predeadline(
     }
     metadata["estimator_status"] = metadata.get("status")
     metadata["status"] = "CAPTURED_PRE_DEADLINE_CURRENT_PICKS"
-    # Build an anonymised manager-level artifact while raw entry IDs are still
+    # Build an manager-ID-stripped manager-level artifact while raw entry IDs are still
     # in memory. Only sequential sample IDs and rank strata leave this function.
-    metadata["anonymized_manager_portfolios"] = anonymize_manager_pick_rows(
+    metadata["manager_id_stripped_portfolios"] = strip_manager_identifiers_from_manager_picks(
         rows,
         gameweek=int(event["id"]),
         deadline_utc=deadline.isoformat(),
@@ -158,7 +158,7 @@ def main() -> int:
     )
     args.out_dir.mkdir(parents=True, exist_ok=True)
     if rows:
-        manager_portfolio_artifact = metadata.pop("anonymized_manager_portfolios")
+        manager_portfolio_artifact = metadata.pop("manager_id_stripped_portfolios")
         manager_portfolio_path = args.out_dir / "fpl_predeadline_manager_portfolios.json"
         manager_portfolio_path.write_text(
             json.dumps(manager_portfolio_artifact, indent=2, sort_keys=True) + "\n",
@@ -168,7 +168,7 @@ def main() -> int:
             "filename": manager_portfolio_path.name,
             "sha256": canonical_artifact_sha256(manager_portfolio_artifact),
             "manager_count": manager_portfolio_artifact["metadata"]["manager_count"],
-            "manager_identifiers_retained": False,
+            "manager_entry_ids_retained": False,
         }
         fields = list(rows[0].keys())
         with (args.out_dir / "fpl_predeadline_effective_ownership.csv").open(
