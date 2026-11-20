@@ -101,11 +101,12 @@ def reconcile_official_manager_result(
                  for v in multipliers),
              "unsupported official multiplier or chip multiplier")
     official_gross = sum(live[p["element"]]["total_points"] * p["multiplier"] for p in picks)
+    # FPL entry_history.points is the gross event score; transfer cost is exposed separately.
     official_net = official_gross - transfer_cost
-    _require(official_net == history["points"],
-             f"official picks/live calculation mismatch: gross={official_gross}, "
-             f"transfer_cost={transfer_cost}, net={official_net}, "
-             f"entry_history.points={history['points']}")
+    _require(official_gross == history["points"],
+             f"official picks/live gross mismatch: calculated={official_gross}, "
+             f"entry_history.points={history['points']}, "
+             f"separate_transfer_cost={transfer_cost}, net_after_hit={official_net}")
 
     automatic_subs = official_picks.get("automatic_subs", [])
     _require(isinstance(automatic_subs, list), "official automatic_subs must be a list")
