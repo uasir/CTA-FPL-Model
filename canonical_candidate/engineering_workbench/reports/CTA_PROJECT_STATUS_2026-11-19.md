@@ -120,3 +120,17 @@ Private repository work:
 - Added manual workflow to create the private season manifest and candidate frame. It refuses to overwrite an existing panel.
 
 **Still outstanding:** run the manual selection workflow for the next prospective Gameweek; inspect and freeze the resulting panel; capture the first complete pre-deadline manager-state wave and forecasts/decisions for hold, conventional and CTA-informed; validate the archive; then score actual outcomes. No manager cohort has yet been selected.
+
+
+## Sequential manager-state transition groundwork — 2026-11-20
+
+A separate deterministic transition module is now implemented in scripts/transition_fpl_manager_state.py, with a contract in docs/FPL_SEQUENTIAL_STATE_TRANSITION_CONTRACT.md. It handles:
+- one-for-one same-position transfers, squad composition, budget and club-limit checks;
+- official selling-price arithmetic and next-deadline price refresh;
+- normal free-transfer rollover and the five-transfer cap;
+- Wildcard/Free Hit preservation of banked free transfers, permanent Wildcard changes and Free Hit squad/bank restoration;
+- two-half chip inventory, including the GW19/GW20 consecutive Free Hit restriction.
+
+Engineering CI passed **443 tests, 1 skipped, 3 subtests** in [run 44657153882](https://github.com/uasir/CTA-FPL-Model/actions/runs/44657153882). The module is a single state-transition primitive, not yet a multi-Gameweek policy runner or integrated scorer. It still requires consecutive official-history parity checks for bank, selling prices, free transfers, transfers and chips before sequential decision-value results can be trusted.
+
+The sequential architecture deliberately diverges policy states after a common initial state: hold, conventional and CTA-informed each carry forward their own squad, bank, free transfers and chip inventory. Reusing the actual manager's later squad for every policy would be one-step evaluation, not sequential policy evaluation.
