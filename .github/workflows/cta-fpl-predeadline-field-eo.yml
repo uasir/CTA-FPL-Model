@@ -38,6 +38,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cta-predeadline-field-eo-${{ github.run_id }}
-          path: run_artifacts/predeadline_field_eo/
+          path: |
+            run_artifacts/predeadline_field_eo/fpl_predeadline_effective_ownership.csv
+            run_artifacts/predeadline_field_eo/fpl_predeadline_field_report.json
           if-no-files-found: ignore
           retention-days: 90
+      - name: Upload restricted manager-ID-stripped portfolio sample
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-predeadline-manager-portfolios-${{ github.run_id }}
+          path: run_artifacts/predeadline_field_eo/fpl_predeadline_manager_portfolios.json
+          if-no-files-found: ignore
+          retention-days: 7
