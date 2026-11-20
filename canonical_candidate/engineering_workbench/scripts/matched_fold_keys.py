@@ -7,8 +7,15 @@ from pathlib import Path
 
 PARTITIONS = ("fit", "calibration", "test")
 
+def canonical_season(value):
+    raw = str(value).strip().replace("/", "-")
+    parts = raw.split("-")
+    if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit():
+        raise ValueError(f"Unsupported season label in matched keys: {raw!r}")
+    return f"{parts[0]}-{parts[1][-2:]}"
+
 def canonical_key(season, player_id, gameweek):
-    return (str(season).strip(), str(player_id).strip(), int(gameweek))
+    return (canonical_season(season), str(player_id).strip(), int(gameweek))
 
 def sha_keys(keys):
     payload = "\n".join("|".join(map(str, key)) for key in sorted(keys))
