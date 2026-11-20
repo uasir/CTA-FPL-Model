@@ -72,3 +72,18 @@ The private lifecycle protocol claimed a three-hour polling schedule, but the ac
 External benchmark capture is **partly implemented**, not complete. evmax and FPL Wildcard have concrete private capture evidence with different cohort/rights qualifications. FPL Cat, Sideline Quant and FPLRogue have defined capture surfaces and collector support but still require verified lifecycle-ledger evidence. FPL Lucho served xP is timestamp-unverified; its Odds xP variant is not captured. FPL Forecaster and FPL Review remain important unresolved approved-provider access paths.
 
 No external benchmark winner, production forecast weight, or model promotion is claimed by this audit.
+
+
+## Collector validation hardening — 20 November 2026
+
+The public capture collector was strengthened in commits `eeb3929f24f076806f6c26d1c8218ddb9172c9cf` and `eb14e3353d23f5155d9c4d3b760cde1bcc400cfa`:
+
+- Enforces timezone-aware provider timestamps and checks FPL Cat and Sideline Quant generation times plus FPLRogue's provider-reported captured_at against the official deadline.
+- Checks unique player IDs for player-GW CSV/JSON outputs and unique player-fixture keys for Sideline Quant.
+- Checks numeric finite expected-points values, provider row/player counts, FPLRogue timestamp/version consistency, and the FPL Cat deadline field.
+- Explicitly labels FPL Lucho served xP as timestamp-unverified rather than treating collector retrieval time as provider generation time.
+- Adds regression tests for duplicate IDs, non-finite forecasts, timezone-less timestamps, row-count mismatches and post-deadline provider timestamps.
+
+CI run [44749895158](https://github.com/uasir/CTA-FPL-Model/actions/runs/44749895158) completed successfully. The private archive lifecycle workflow was then pinned to the validated public collector commit `eb14e3353d23f5155d9c4d3b760cde1bcc400cfa` in private commit `b58334f82b12f856bbc66ddfb2799a57a9e2eb90`.
+
+The schedule is now configured and the collector is validated in CI. **A successful scheduled private-archive run and a new poll-log record are still required before declaring recurring capture operational.**
