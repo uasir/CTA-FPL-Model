@@ -17,30 +17,11 @@ on:
         required: true
         default: "2026-27"
         type: string
-      expected_element_ids:
-        description: Optional exact 15 FPL element IDs for an extra check; leave blank to use the official manager picks response
-        required: false
-        default: ""
-        type: string
-      free_transfers:
-        description: Free transfers available before the deadline
+      manager_state_json:
+        description: Confirmed squad, bank, free transfers, formation, starting XI, ordered outfield bench, reserve goalkeeper, captain, vice-captain and chip state (update if your team changes)
         required: true
-        default: "1"
+        default: '{"squad_15":[8,31,79,110,115,124,154,166,183,229,282,411,426,497,524],"bank":0.9,"free_transfers":1,"formation":"4-3-3","starting_xi":[110,31,8,115,229,154,124,426,166,79,411],"bench_order":[282,183,524],"reserve_goalkeeper_id":497,"captain_id":411,"vice_captain_id":154,"chip_state":"NONE"}'
         type: string
-      formation:
-        description: Intended starting formation
-        required: true
-        default: "4-3-3"
-        type: choice
-        options:
-          - "3-4-3"
-          - "3-5-2"
-          - "4-3-3"
-          - "4-4-2"
-          - "4-5-1"
-          - "5-2-3"
-          - "5-3-2"
-          - "5-4-1"
 
 permissions:
   contents: read
@@ -67,15 +48,14 @@ jobs:
             tests/test_audit_official_fpl_manager_batch.py
       - name: Capture and seal pre-deadline decision evidence
         working-directory: canonical_candidate/engineering_workbench
+        env:
+          MANAGER_STATE_JSON: ${{ inputs.manager_state_json }}
         run: |
           PYTHONPATH=scripts python scripts/capture_predeadline_decision_bundle.py \
             --team-id "${{ inputs.manager_team_id }}" \
             --gameweek "${{ inputs.gameweek }}" \
             --season "${{ inputs.season }}" \
-            --expected-element-ids "${{ inputs.expected_element_ids }}" \
-            --free-transfers "${{ inputs.free_transfers }}" \
-            --formation "${{ inputs.formation }}" \
-            --chip-state NONE \
+            --manager-state-json "$MANAGER_STATE_JSON" \
             --output predeadline-decision-evidence.json
       - name: Upload immutable pre-deadline decision evidence
         uses: actions/upload-artifact@v4
