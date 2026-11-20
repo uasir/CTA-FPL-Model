@@ -25,6 +25,30 @@ def _batch(chip=None):
     }
 
 
+def _audit_report(manifest=None):
+    manifest = manifest or _manifest()
+    archive_types = {
+        "provider_forecast": "provider_forecast",
+        "player_metadata": "bootstrap_static",
+        "manager_deadline_state": "manager_picks",
+    }
+    archives = []
+    for source in manifest["sources"]:
+        archives.append({
+            "source_type": archive_types[source["source_type"]],
+            "raw_snapshot_id": source["raw_snapshot_id"],
+            "raw_sha256": source["raw_sha256"],
+            "captured_at_utc": source["captured_at_utc"],
+            "source_url": source["source_url"],
+            "bytes": 100,
+        })
+    return {
+        "status": "PASSED",
+        "manager_team_id": 421025,
+        "events": [{"gameweek": 5, "status": "RECONCILED", "archives": archives}],
+    }
+
+
 def _manifest():
     squad = list(range(1, 16))
     prices = {str(player_id): 5.0 for player_id in squad}
@@ -40,19 +64,19 @@ def _manifest():
                 "raw_snapshot_id": "provider-5",
                 "raw_sha256": "a" * 64,
                 "generated_at_utc": "2026-10-01T09:00:00Z",
-                "captured_at_utc": "2026-10-01T09:30:00Z",
+                "captured_at_utc": "2026-10-01T09:30:00Z",\n                "source_url": "https://provider.example/forecast/gw5",
             },
             {
                 "source_type": "player_metadata",
                 "raw_snapshot_id": "metadata-5",
                 "raw_sha256": "b" * 64,
-                "captured_at_utc": "2026-10-01T09:35:00Z",
+                "captured_at_utc": "2026-10-01T09:35:00Z",\n                "source_url": "https://fantasy.premierleague.com/api/bootstrap-static/",
             },
             {
                 "source_type": "manager_deadline_state",
                 "raw_snapshot_id": "manager-5",
                 "raw_sha256": "c" * 64,
-                "captured_at_utc": "2026-10-01T09:40:00Z",
+                "captured_at_utc": "2026-10-01T09:40:00Z",\n                "source_url": "https://fantasy.premierleague.com/api/entry/421025/event/5/picks/",
             },
         ],
         "manager_state": {
@@ -81,7 +105,7 @@ def test_reconciled_history_without_deadline_evidence_is_scoring_only():
 
 
 def test_complete_timestamp_valid_manifest_is_decision_eligible():
-    result = classify_batch(_batch(), {"5": _manifest()})
+    manifest = _manifest()\n    result = classify_batch(_batch(), {"5": manifest}, _audit_report(manifest))
     assert result["events"][0]["classification"] == "DECISION_BACKTEST_ELIGIBLE"
     assert result["historical_evidence_admitted"] is True
 
@@ -89,7 +113,7 @@ def test_complete_timestamp_valid_manifest_is_decision_eligible():
 def test_post_deadline_manager_capture_fails_closed():
     manifest = _manifest()
     manifest["sources"][2]["captured_at_utc"] = "2026-10-01T11:00:00Z"
-    result = classify_batch(_batch(), {"5": manifest})
+    result = classify_batch(_batch(), {"5": manifest}, _audit_report(manifest))
     event = result["events"][0]
     assert event["classification"] == "SCORING_RECONCILIATION_ONLY"
     assert any("captured at/after deadline" in reason for reason in event["reasons"])
@@ -104,7 +128,7 @@ def test_missing_purchase_prices_prevents_decision_admission():
 
 
 def test_chip_gameweek_is_excluded():
-    result = classify_batch(_batch(chip="BENCH_BOOST"), {"5": _manifest()})
+    manifest = _manifest()\n    result = classify_batch(_batch(chip="BENCH_BOOST"), {"5": manifest}, _audit_report(manifest))
     assert result["events"][0]["classification"] == "EXCLUDED"
 
 
@@ -113,3 +137,29 @@ def test_rejects_batch_that_claims_prior_admission():
     batch["historical_evidence_admitted"] = True
     with pytest.raises(EvidenceAdmissionError, match="must retain"):
         classify_batch(batch)
+
+
+
+def test_boolean_archive_attestation_without_matching_audit_report_is_not_enough():
+    manifest = _manifest()
+    result = classify_batch(_batch(), {"5": manifest})
+    event = result["events"][0]
+    assert event["classification"] == "SCORING_RECONCILIATION_ONLY"
+    assert any("Independent archive audit report" in reason for reason in event["reasons"])
+
+
+def test_manifest_hash_mismatch_against_audited_bytes_fails_closed():
+    manifest = _manifest()
+    manifest["sources"][0]["raw_sha256"] = "f" * 64
+    result = classify_batch(_batch(), {"5": manifest}, _audit_report())
+    event = result["events"][0]
+    assert event["classification"] == "SCORING_RECONCILIATION_ONLY"
+    assert any("raw_sha256 does not match" in reason for reason in event["reasons"])
+
+
+def test_audit_report_manager_identity_mismatch_fails_closed():
+    manifest = _manifest()
+    audit = _audit_report(manifest)
+    audit["manager_team_id"] = 999
+    result = classify_batch(_batch(), {"5": manifest}, audit)
+    assert result["events"][0]["classification"] == "SCORING_RECONCILIATION_ONLY"
