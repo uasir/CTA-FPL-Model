@@ -36,6 +36,8 @@ FIELDS = [
     "threat_creation_pass_attempts", "threat_creation_pass_completions",
     "progressive_carry_attempts", "shot_attempts", "accurate_shot_attempts",
     "goals", "own_goals", "assists", "shot_opportunity_attempts", "dangerous_ball_losses",
+    "goals_raw", "shot_attempts_raw", "accurate_shot_attempts_raw",
+    "manual_correction_count", "manual_correction_sources",
     "offside_events", "duel_events", "duels_won", "duels_lost",
     "ground_defensive_duel_events", "ground_defensive_duels_won",
     "ground_defensive_duels_lost", "aerial_duel_events",
@@ -118,7 +120,67 @@ def _match_context(matches, teams):
     return result
 
 
-def build_player_match_features(events, matches, players, teams):
+def apply_manual_corrections(rows, corrections):
+    allowed_fields = ("goals", "shot_attempts", "accurate_shot_attempts")
+    rows_by_key = {
+        (str(row["provider_match_id"]), str(row["provider_player_id"])): row
+        for row in rows
+    }
+    if len(rows_by_key) != len(rows):
+        raise ValueError("Player-match rows are not unique by match/player key")
+    for row in rows:
+        for field in allowed_fields:
+            row[f"{field}_raw"] = int(row[field] or 0)
+        row["manual_correction_count"] = 0
+        row["manual_correction_sources"] = ""
+    seen = set()
+    applied = []
+    for correction in corrections or []:
+        key = (str(correction.get("provider_match_id", "")).strip(),
+               str(correction.get("provider_player_id", "")).strip())
+        if not all(key):
+            raise ValueError("Manual correction requires provider_match_id and provider_player_id")
+        if key in seen:
+            raise ValueError(f"Duplicate manual correction for match/player {key}")
+        seen.add(key)
+        if key not in rows_by_key:
+            raise ValueError(f"Manual correction does not match a player-match row: {key}")
+        source_name = str(correction.get("source_name", "")).strip()
+        source_url = str(correction.get("source_url", "")).strip()
+        reason = str(correction.get("reason", "")).strip()
+        if not source_name or not source_url.startswith("https://") or not reason:
+            raise ValueError("Manual correction requires source_name, https source_url and reason")
+        deltas = {}
+        for field in allowed_fields:
+            raw = correction.get(f"{field}_delta", 0)
+            try:
+                delta = int(raw or 0)
+            except (TypeError, ValueError):
+                raise ValueError(f"Manual correction {field}_delta must be an integer")
+            if delta:
+                deltas[field] = delta
+        if not deltas:
+            raise ValueError(f"Manual correction for {key} has no non-zero field deltas")
+        row = rows_by_key[key]
+        for field, delta in deltas.items():
+            updated = int(row[field] or 0) + delta
+            if updated < 0:
+                raise ValueError(f"Manual correction would make {field} negative for {key}")
+            row[field] = updated
+        row["manual_correction_count"] += 1
+        row["manual_correction_sources"] = source_name
+        applied.append({
+            "provider_match_id": key[0],
+            "provider_player_id": key[1],
+            "field_deltas": deltas,
+            "source_name": source_name,
+            "source_url": source_url,
+            "reason": reason,
+        })
+    return applied
+
+
+def build_player_match_features(events, matches, players, teams, manual_corrections=None):
     player_names = {
         int(p["wyId"]): str(p.get("shortName") or p.get("shortName2") or " ".join(
             x for x in (p.get("firstName"), p.get("middleName"), p.get("lastName")) if x
@@ -262,6 +324,17 @@ def build_player_match_features(events, matches, players, teams):
             row["interception_events"] = None
         output.append(row)
         totals.update(counts)
+    raw_aggregate_features = dict(totals)
+    applied_corrections = apply_manual_corrections(output, manual_corrections)
+    for correction in applied_corrections:
+        for field, delta in correction["field_deltas"].items():
+            totals[field] += delta
+
+    manual_goal_correction_total = sum(c["field_deltas"].get("goals", 0) for c in applied_corrections)
+    corrections_by_match = defaultdict(list)
+    for correction in applied_corrections:
+        corrections_by_match[str(correction["provider_match_id"])].append(correction)
+
     match_metadata_goals = 0
     matches_with_score = 0
     metadata_goals_by_match = {}
@@ -343,6 +416,10 @@ def build_player_match_features(events, matches, players, teams):
                 "own_goal_tags": counts["own_goal_tags"],
                 "player_attributed_goal_total": attributed_total,
                 "delta": attributed_total - metadata_total,
+                "manual_goal_correction_total": sum(x["field_deltas"].get("goals", 0) for x in corrections_by_match[match_id]),
+                "corrected_player_attributed_goal_total": attributed_total + sum(x["field_deltas"].get("goals", 0) for x in corrections_by_match[match_id]),
+                "corrected_delta": attributed_total + sum(x["field_deltas"].get("goals", 0) for x in corrections_by_match[match_id]) - metadata_total,
+                "manual_correction_sources": [x["source_name"] for x in corrections_by_match[match_id]],
                 "diagnostic_events": diagnostic_events,
             })
     goal_tag_types = Counter(
@@ -384,15 +461,24 @@ def build_player_match_features(events, matches, players, teams):
             "player_attributed_own_goal_events": player_attributed_own_goals,
             "player_attributed_goal_total": player_attributed_goals + player_attributed_own_goals,
             "player_attributed_minus_metadata_goal_delta": player_attributed_goals + player_attributed_own_goals - match_metadata_goals,
+            "raw_player_attributed_goal_total": player_attributed_goals + player_attributed_own_goals,
+            "manual_goal_correction_total": manual_goal_correction_total,
+            "corrected_player_attributed_goal_total": player_attributed_goals + player_attributed_own_goals + manual_goal_correction_total,
+            "corrected_minus_metadata_goal_delta": player_attributed_goals + player_attributed_own_goals + manual_goal_correction_total - match_metadata_goals,
+            "manual_corrections": applied_corrections,
             "mismatched_match_count": len(mismatched_matches),
             "mismatched_matches": mismatched_matches,
             "status": (
                 "PASS_EXACT"
                 if matches_with_score == len(matches) and not mismatched_matches
+                else "PASS_EXACT_WITH_MANUAL_CORRECTIONS"
+                if matches_with_score == len(matches) and applied_corrections and all(x["corrected_delta"] == 0 for x in mismatched_matches)
                 else "REVIEW_REQUIRED"
             ),
         },
         "aggregate_features": dict(totals),
+        "raw_aggregate_features": raw_aggregate_features,
+        "manual_correction_count": len(applied_corrections),
         "identity_mapping_status": "NOT_MAPPED_TO_FPL",
         "receiver_identity_status": "NOT_AVAILABLE_IN_PUBLIC_WYSCOUT_EVENT_SCHEMA",
         "xg_status": "NOT_AVAILABLE_IN_PUBLIC_WYSCOUT_EVENT_SCHEMA",
@@ -427,17 +513,23 @@ def main():
     parser.add_argument("--players-json", type=Path, required=True)
     parser.add_argument("--teams-json", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument("--manual-corrections", type=Path, default=None)
     args = parser.parse_args()
     events = _json_from_zip(args.events_zip, "events_England")
     matches = _json_from_zip(args.matches_zip, "matches_England")
     players = _read_json(args.players_json)
     teams = _read_json(args.teams_json)
-    rows, report = build_player_match_features(events, matches, players, teams)
+    manual_corrections = []
+    if args.manual_corrections:
+        with args.manual_corrections.open(newline="", encoding="utf-8-sig") as handle:
+            manual_corrections = list(csv.DictReader(handle))
+    rows, report = build_player_match_features(events, matches, players, teams, manual_corrections=manual_corrections)
     report["source_hashes"] = {
         "events_zip_sha256": _sha256(args.events_zip),
         "matches_zip_sha256": _sha256(args.matches_zip),
         "players_json_sha256": _sha256(args.players_json),
         "teams_json_sha256": _sha256(args.teams_json),
+        "manual_corrections_sha256": _sha256(args.manual_corrections) if args.manual_corrections else None,
     }
     args.out_dir.mkdir(parents=True, exist_ok=True)
     with (args.out_dir / "wyscout_cta_player_match.csv").open("w", newline="", encoding="utf-8") as handle:
