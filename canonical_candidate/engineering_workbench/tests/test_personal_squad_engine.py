@@ -85,10 +85,10 @@ def test_personal_squad_builds_legal_xi_and_transfer_recommendation():
 def test_no_transfer_when_only_available_candidate_fails_hit_cost():
     payload = request()
     payload["free_transfers"] = 0
-    payload["personal_preferences"] = {"hit_cost_points": 5}
+    payload["personal_preferences"] = {"hit_cost_points": 9}
     result = recommend_personal_squad(payload)
     assert result["transfer_recommendation"]["action"] == "HOLD"
-    assert result["transfer_recommendation"]["hit_cost_points_applied"] == 5.0
+    assert result["transfer_recommendation"]["hit_cost_points_applied"] == 9.0
 
 
 def test_hits_can_be_set_to_zero_explicitly():
@@ -109,6 +109,26 @@ def test_team_limit_and_budget_are_enforced_for_transfer_candidates():
     assert team_one_replacements
     assert all(candidate["transfer_out_id"] == 6 for candidate in team_one_replacements)
     assert all(candidate["transfer_in_id"] != 18 for candidate in alternatives)
+
+
+def test_bench_only_upgrade_is_not_misreported_as_starting_xi_gain():
+    payload = copy.deepcopy(FIXTURE["personal_squad"])
+    payload["player_forecasts"].append({
+        "fpl_element_id": 19, "expected_points": 3.8, "expected_minutes": 80,
+        "price": 6.0, "position": "MID", "team_id": 6,
+    })
+    result = recommend_personal_squad(payload)
+    assert result["transfer_recommendation"]["action"] == "HOLD"
+    candidate = next(
+        row for row in result["transfer_recommendation"]["alternatives"]
+        if row["transfer_out_id"] == 12 and row["transfer_in_id"] == 19
+    )
+    assert candidate["player_expected_points_delta"] == pytest.approx(0.2)
+    assert candidate["starting_xi_expected_points_delta"] == pytest.approx(0.0)
+    assert candidate["captaincy_expected_points_delta"] == pytest.approx(0.0)
+    assert candidate["expected_points_delta"] == pytest.approx(0.0)
+    assert candidate["bench_depth_expected_points_delta"] == pytest.approx(0.2)
+    assert candidate["net_expected_points_gain"] == pytest.approx(0.0)
 
 
 def test_invalid_formation_and_starting_xi_are_rejected():
