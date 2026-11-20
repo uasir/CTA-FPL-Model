@@ -51,6 +51,7 @@ def reconcile_batch(
                 "status": "EXCLUDED",
                 "error_type": type(exc).__name__,
                 "error": str(exc),
+                "diagnostic_record": getattr(exc, "diagnostic_record", None),
                 "historical_evidence_admitted": False,
             })
 
