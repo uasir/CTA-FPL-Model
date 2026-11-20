@@ -37,6 +37,9 @@ def _audit_report(manifest=None):
             "raw_sha256": source["raw_sha256"],
             "captured_at_utc": source["captured_at_utc"],
             "source_url": source["source_url"],
+            "generated_at_utc": source.get("generated_at_utc"),
+            "provider_id": source.get("provider_id"),
+            "provider_variant": source.get("provider_variant"),
             "bytes": 100,
         })
     return {
