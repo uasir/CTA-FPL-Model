@@ -159,7 +159,7 @@ def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
     return audited
 
 
-def audit_batch(batch: dict[str, Any]) -> dict[str, Any]:
+def audit_batch(batch: dict[str, Any],\n                decision_manifests: dict[str, Any] | None = None) -> dict[str, Any]:
     _require(batch.get("batch_contract_version") == "0.1.0", "unsupported batch contract version")
     manager_id = batch.get("manager_team_id")
     _require(isinstance(manager_id, int) and manager_id > 0, "invalid manager_team_id")
@@ -171,6 +171,7 @@ def audit_batch(batch: dict[str, Any]) -> dict[str, Any]:
     _require([row.get("gameweek") for row in results] == requested,
              "batch results must cover requested Gameweeks in order")
 
+    manifests = decision_manifests or {}
     audited_events = []
     reconciled_gws, excluded_gws, autosub_gws, hit_gws = [], [], [], []
     for row in results:
@@ -203,7 +204,22 @@ def audit_batch(batch: dict[str, Any]) -> dict[str, Any]:
             _require(record.get("historical_evidence_admitted") is False,
                      f"GW{gw}: diagnostic evidence admission must remain false")
         decision_sources = []
-        archives = _audit_archives(record, manager_id, gw, decision_sources)
+        manifest = manifests.get(str(gw), manifests.get(gw))
+        record_for_audit = record
+        if manifest is not None:
+            _require(isinstance(manifest, dict),
+                     f"GW{gw}: decision evidence manifest must be an object")
+            source_rows = manifest.get("sources")
+            _require(isinstance(source_rows, list)
+                     and len(source_rows) == 3
+                     and {source.get("source_type") for source in source_rows
+                          if isinstance(source, dict)} == {
+                              "provider_forecast", "player_metadata", "manager_deadline_state"
+                          },
+                     f"GW{gw}: decision manifest must contain all three unique source archives")
+            record_for_audit = dict(record)
+            record_for_audit["decision_source_archives"] = source_rows
+        archives = _audit_archives(record_for_audit, manager_id, gw, decision_sources)
         audited_events.append({
             "gameweek": gw, "status": status, "archives": archives,
             "decision_sources": decision_sources,
@@ -236,10 +252,11 @@ def audit_batch(batch: dict[str, Any]) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("batch", type=Path)
+    parser.add_argument("--decision-manifests", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     batch = json.loads(args.batch.read_text(encoding="utf-8"))
-    audit = audit_batch(batch)
+    manifests = (json.loads(args.decision_manifests.read_text(encoding="utf-8"))\n                 if args.decision_manifests else None)\n    audit = audit_batch(batch, manifests)
     args.output.write_text(json.dumps(audit, indent=2, sort_keys=True) + "
 ", encoding="utf-8")
     print(json.dumps({key: value for key, value in audit.items() if key != "events"}, indent=2))
