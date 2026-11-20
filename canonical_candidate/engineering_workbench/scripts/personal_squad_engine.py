@@ -158,7 +158,8 @@ def _selling_price(current_price,purchase_price):
     return (purchase_tenths+(current_tenths-purchase_tenths)//2)/10.0
 
 
-def _transfer_candidates(request,forecasts):
+def _transfer_candidates(request, forecasts, starting, formation, captain):
+    """Rank transfers by marginal squad decision value, not incoming-minus-outgoing points alone."""
     squad=request["squad_snapshot"]
     owned_ids={int(p["fpl_element_id"]) for p in squad}
     forecast_by_id={int(p["fpl_element_id"]):p for p in forecasts}
@@ -180,6 +181,18 @@ def _transfer_candidates(request,forecasts):
     if isinstance(max_alternatives,bool) or not isinstance(max_alternatives,int) or not 1<=max_alternatives<=20:
         raise RecommendationContractError("personal_preferences.max_transfer_alternatives must be an integer from 1 to 20")
     applied_hit_cost=0.0 if request["free_transfers"]>0 else float(hit_cost)
+
+    current_starting_ids={int(player["fpl_element_id"]) for player in starting}
+    current_starting_points=sum(float(player["expected_points"]) for player in starting)
+    current_decision_points=current_starting_points+float(captain["expected_points"])
+    current_bench=[
+        forecast_by_id[player_id] for player_id in owned_ids
+        if player_id not in current_starting_ids and forecast_by_id[player_id]["position"]!="GKP"
+    ]
+    current_bench_depth=sum(
+        player["expected_points"] for player in sorted(current_bench,key=_player_order)[:2]
+    )
+    formation_value="-".join(map(str,formation))
     candidates=[]
     for outgoing in squad:
         out_id=int(outgoing["fpl_element_id"])
@@ -196,18 +209,54 @@ def _transfer_candidates(request,forecasts):
                 continue
             if incoming["price"]>available+1e-9:
                 continue
-            delta=incoming["expected_points"]-out_forecast["expected_points"]
-            net=delta-applied_hit_cost
+
+            candidate_ids=sorted((owned_ids-{out_id})|{in_id})
+            candidate_owned=[forecast_by_id[player_id] for player_id in candidate_ids]
+            candidate_starting,_=_best_starting_xi(
+                candidate_owned,forecast_by_id,formation_value=formation_value
+            )
+            candidate_starting_ids={int(player["fpl_element_id"]) for player in candidate_starting}
+            candidate_starting_points=sum(float(player["expected_points"]) for player in candidate_starting)
+            candidate_captain=sorted(candidate_starting,key=_player_order)[0]
+            candidate_decision_points=candidate_starting_points+float(candidate_captain["expected_points"])
+            candidate_bench=[
+                player for player in candidate_owned
+                if int(player["fpl_element_id"]) not in candidate_starting_ids and player["position"]!="GKP"
+            ]
+            candidate_bench_depth=sum(
+                player["expected_points"] for player in sorted(candidate_bench,key=_player_order)[:2]
+            )
+
+            player_delta=incoming["expected_points"]-out_forecast["expected_points"]
+            starting_delta=candidate_starting_points-current_starting_points
+            captaincy_delta=candidate_captain["expected_points"]-captain["expected_points"]
+            decision_delta=candidate_decision_points-current_decision_points
+            bench_delta=candidate_bench_depth-current_bench_depth
+            net=decision_delta-applied_hit_cost
             candidates.append({
                 "transfer_out_id":out_id,"transfer_in_id":in_id,
-                "expected_points_delta":delta,
+                "expected_points_delta":round(decision_delta,8),
+                "player_expected_points_delta":round(player_delta,8),
+                "starting_xi_expected_points_delta":round(starting_delta,8),
+                "captaincy_expected_points_delta":round(captaincy_delta,8),
+                "bench_depth_expected_points_delta":round(bench_delta,8),
+                "current_decision_expected_points":round(current_decision_points,8),
+                "candidate_decision_expected_points":round(candidate_decision_points,8),
+                "starting_xi_after_transfer_ids":[player["fpl_element_id"] for player in candidate_starting],
+                "captain_after_transfer_id":candidate_captain["fpl_element_id"],
                 "hit_cost_points":applied_hit_cost,
-                "net_expected_points_gain":net,
+                "net_expected_points_gain":round(net,8),
                 "selling_price":round(sell_price,2),
                 "incoming_price":round(incoming["price"],2),
                 "bank_after_transfer":round(available-incoming["price"],2),
             })
-    candidates.sort(key=lambda x:(-x["net_expected_points_gain"],-x["expected_points_delta"],x["transfer_out_id"],x["transfer_in_id"]))
+    candidates.sort(key=lambda x:(
+        -x["net_expected_points_gain"],
+        -x["starting_xi_expected_points_delta"],
+        -x["bench_depth_expected_points_delta"],
+        -x["player_expected_points_delta"],
+        x["transfer_out_id"],x["transfer_in_id"]
+    ))
     top=candidates[:max_alternatives]
     has_cta_sidecar=any(isinstance(player.get("cta"),dict) for player in forecasts)
     if has_cta_sidecar:
@@ -226,7 +275,7 @@ def _transfer_candidates(request,forecasts):
         "minimum_gain_threshold":float(min_gain),
         "free_transfers_available":request["free_transfers"],
         "candidate_count":len(candidates),
-        "scope":"one-transfer lookahead only",
+        "scope":"one-transfer lookahead ranked by marginal starting-XI plus captaincy EV; bench-depth change reported separately",
     }
 
 
@@ -355,7 +404,7 @@ def recommend_personal_squad(payload):
     captain=captaincy[0]
     vice=captaincy[1]
     expected_points=sum(p["expected_points"] for p in starting)+captain["expected_points"]
-    transfer=_transfer_candidates(request,forecasts)
+    transfer=_transfer_candidates(request,forecasts,starting,formation,captain)
     support_metrics=_squad_support_metrics(owned,starting,bench_order,forecast_by_id,captain)
     decision_audit=_decision_audit(request,transfer,starting,formation,captain,vice)
     quality=request["forecast_quality"]
