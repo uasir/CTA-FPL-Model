@@ -281,12 +281,43 @@ def _real_admission_inputs(record):
                 "provider_variant": record["provider_identity"]["variant"],
             })
         decision_sources.append(source)
+    realised_archive = next(
+        row for row in record["source_archives"] if row["source_type"] == "realised_points"
+    )
+    live_payload = {
+        "elements": [
+            {
+                "id": row["fpl_element_id"],
+                "stats": {
+                    "minutes": row["minutes"],
+                    "yellow_cards": row["yellow_cards"],
+                    "red_cards": row["red_cards"],
+                    "total_points": row["total_points"],
+                },
+            }
+            for row in record["realised_player_points"]
+        ]
+    }
+    live_raw = json.dumps(live_payload, sort_keys=True).encode()
+    realised_archive.update({
+        "source_url": f"https://fantasy.premierleague.com/api/event/{gameweek}/live/",
+        "raw_snapshot_id": f"official-event-live-gw{gameweek}",
+        "raw_sha256": hashlib.sha256(live_raw).hexdigest(),
+        "raw_payload_base64": base64.b64encode(live_raw).decode(),
+    })
     audit = {
         "status": "PASSED",
         "manager_team_id": manager_id,
         "events": [{
             "gameweek": gameweek,
             "status": "RECONCILED",
+            "archives": [{
+                "source_type": "event_live",
+                "raw_snapshot_id": realised_archive["raw_snapshot_id"],
+                "raw_sha256": realised_archive["raw_sha256"],
+                "captured_at_utc": realised_archive["captured_at_utc"],
+                "source_url": realised_archive["source_url"],
+            }],
             "decision_sources": decision_sources,
             "predeadline_recommendation": {
                 "status": "VERIFIED",
@@ -365,6 +396,33 @@ def test_real_candidate_rejects_provider_snapshot_substitution():
     with pytest.raises(DecisionEvaluationError, match="raw_snapshot_id does not match"):
         evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
 
+
+
+def test_real_candidate_rejects_unrelated_realised_points_archive():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    audit["events"][0]["archives"][0]["raw_sha256"] = "f" * 64
+    with pytest.raises(DecisionEvaluationError, match="does not match the audited official event-live archive"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
+
+
+def test_real_candidate_rejects_realised_points_detached_from_official_live_rows():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    record["realised_player_points"][0]["total_points"] += 1
+    with pytest.raises(DecisionEvaluationError, match="does not match official event-live scoring"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
+
+
+def test_real_candidate_rejects_missing_audited_event_live_archive():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    audit["events"][0]["archives"] = []
+    with pytest.raises(DecisionEvaluationError, match="missing the official event-live scoring archive"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
 
 def test_real_candidate_rejects_missing_admission_chain():
     record = _record()
