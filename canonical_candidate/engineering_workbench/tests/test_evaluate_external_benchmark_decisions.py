@@ -181,7 +181,7 @@ def test_rejects_decision_timestamp_at_deadline():
 def test_rejects_missing_realised_player_points():
     record = _record()
     record["realised_player_points"].pop()
-    with pytest.raises(DecisionEvaluationError, match="exactly 15 player rows"):
+    with pytest.raises(DecisionEvaluationError, match="exactly 16 player rows"):
         evaluate_decision_record(record)
 
 
