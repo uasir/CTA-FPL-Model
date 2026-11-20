@@ -278,7 +278,7 @@ def _real_admission_inputs(record):
                 "team": row["team_id"],
                 "now_cost": round(row["current_price"] * 10),
             }
-            for row in metadata_cohort
+            for row in [*metadata_cohort, _player(17)]
         ]
     }
     metadata_raw = json.dumps(bootstrap, sort_keys=True, separators=(",", ":")).encode()
@@ -507,7 +507,7 @@ def test_real_candidate_rejects_detached_manager_roster():
     record = _record()
     record["evidence_class"] = "REAL_CANDIDATE"
     admission, audit, batch = _real_admission_inputs(record)
-    record["manager_state"]["squad_snapshot"][-1]["fpl_element_id"] = 99
+    record["manager_state"]["squad_snapshot"][-1]["fpl_element_id"] = 17
     with pytest.raises(DecisionEvaluationError, match="does not match the archived 15-player"):
         evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
 
