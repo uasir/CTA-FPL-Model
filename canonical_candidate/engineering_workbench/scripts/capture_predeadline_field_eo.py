@@ -161,7 +161,7 @@ def main() -> int:
         manager_portfolio_artifact = metadata.pop("anonymized_manager_portfolios")
         manager_portfolio_path = args.out_dir / "fpl_predeadline_manager_portfolios.json"
         manager_portfolio_path.write_text(
-            json.dumps(manager_portfolio_artifact, indent=2, sort_keys=True) + "\\n",
+            json.dumps(manager_portfolio_artifact, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
         metadata["manager_portfolio_artifact"] = {
