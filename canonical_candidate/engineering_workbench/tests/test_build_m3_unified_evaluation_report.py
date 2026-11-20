@@ -54,6 +54,21 @@ class UnifiedM3EvaluationReportTests(unittest.TestCase):
         reverse = build_unified_report(list(reversed(rows)), bootstrap_replicates=1000)
         self.assertEqual(forward, reverse)
 
+    def test_report_is_invariant_to_input_order_across_provider_cohorts(self):
+        rows = sample()
+        second_provider = copy.deepcopy(rows)
+        for row in second_provider:
+            row["provider_identity"]["name"] = "Alternative provider"
+            row["provider_identity"]["product"] = "FPL points"
+            row["provider_identity"]["variant"] = "player-GW"
+            row["evaluation_input_sha256"] = "e" + row["evaluation_input_sha256"][1:]
+            row["frozen_decision_sha256"] = "f" + row["frozen_decision_sha256"][1:]
+        combined = rows + second_provider
+        first = build_unified_report(combined, bootstrap_replicates=1000)
+        second = build_unified_report(list(reversed(combined)), bootstrap_replicates=1000)
+        self.assertEqual(first, second)
+        self.assertEqual(len(first["descriptive_performance"]["provider_cohorts"]), 2)
+
     def test_provider_variants_stay_separate(self):
         rows = sample()
         other = copy.deepcopy(rows[0])
@@ -61,8 +76,7 @@ class UnifiedM3EvaluationReportTests(unittest.TestCase):
         other["evaluation_input_sha256"] = "c" * 64
         other["frozen_decision_sha256"] = "d" * 64
         other["provider_identity"]["variant"] = "fixture"
-        rows.append(other)
-        report = build_unified_report(rows, bootstrap_replicates=1000)
+        report = build_unified_report(rows + [other], bootstrap_replicates=1000)
         self.assertEqual(len(report["descriptive_performance"]["provider_cohorts"]), 2)
         self.assertEqual(len(report["statistical_evidence"]["provider_cohorts"]), 2)
 
