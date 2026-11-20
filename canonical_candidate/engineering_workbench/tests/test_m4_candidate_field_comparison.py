@@ -40,8 +40,8 @@ def binding_fixture():
         "gameweek": "11", "fpl_element_id": str(i),
         "owned_by_pct": 30.0, "effective_ownership_pct": 45.0 if i == 1 else 20.0,
         "starting_pct": 25.0, "captain_pct": None, "triple_captain_pct": None,
-        "scoring_exposure_pct": None, "effective_ownership_ci_low": None,
-        "effective_ownership_ci_high": None,
+        "scoring_exposure_pct": None, "effective_ownership_pct_ci95_low": None,
+        "effective_ownership_pct_ci95_high": None,
     } for i in range(1, 17)]
     return validate_field_context(snapshot, rows, candidate)
 
