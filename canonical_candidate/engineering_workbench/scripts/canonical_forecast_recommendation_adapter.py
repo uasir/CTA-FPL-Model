@@ -83,8 +83,11 @@ def build_recommendation_forecast_payload(
         if meta is None:
             missing_metadata.append(player_id)
             continue
-        required = ("price", "position", "team_id", "expected_minutes")
+        required = ("price", "position", "team_id")
         missing = [field for field in required if field not in meta or meta[field] is None]
+        expected_minutes = record.get("expected_minutes", meta.get("expected_minutes"))
+        if expected_minutes is None:
+            missing.append("expected_minutes (provider forecast or metadata)")
         if missing:
             raise ForecastAdapterError(
                 f"metadata for FPL element {player_id} missing: {', '.join(missing)}"
@@ -92,7 +95,7 @@ def build_recommendation_forecast_payload(
         players.append({
             "fpl_element_id": player_id,
             "expected_points": record["expected_points"],
-            "expected_minutes": meta["expected_minutes"],
+            "expected_minutes": expected_minutes,
             "price": meta["price"],
             "position": meta["position"],
             "team_id": meta["team_id"],
