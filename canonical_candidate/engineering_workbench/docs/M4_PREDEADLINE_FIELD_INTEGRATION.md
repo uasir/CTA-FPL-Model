@@ -25,3 +25,9 @@ Candidate input accepts the real M3 output envelope (using its `evaluation_candi
 can change before lock. The comparison is descriptive exposure context, not a
 points/rank forecast or recommendation utility. EV and EO remain separate;
 CoVar remains disabled; output is not release eligible.
+
+## CoVar manager-level field portfolio extension
+
+The capture now also writes `fpl_predeadline_manager_portfolios.json` from the same in-memory sampled manager-pick rows. The adapter verifies its SHA-256 manifest against the capture report, preserves sample expansion weights, captain/Triple Captain and rank-page stratum, then projects each manager onto the explicit modeled fixture players. Managers with no modeled player are retained as zero-point field slices. The separate Actions artifact is retained for 7 days and is not committed to the repository. Squad combinations can still be identifying, so treat it as restricted manager-level data.
+
+This is a fixture-slice input bridge only. It does not yet provide full-Gameweek field scores, autosubs, complete chip effects or validated field-relative tail probabilities.
