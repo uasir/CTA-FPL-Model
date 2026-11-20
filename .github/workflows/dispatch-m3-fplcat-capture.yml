@@ -7,6 +7,18 @@ on:
         description: FPL season label
         required: true
         default: "2026-27"
+      manager_team_id:
+        description: Public FPL manager team ID
+        required: true
+        default: "421025"
+      gameweek:
+        description: Target gameweek
+        required: true
+        default: "11"
+      expected_bank:
+        description: Expected manager bank in £m for cross-check
+        required: true
+        default: "0.9"
 
 permissions:
   contents: read
@@ -33,14 +45,26 @@ jobs:
       - name: Capture FPL Cat and official FPL metadata
         working-directory: canonical_candidate/engineering_workbench
         run: |
+          set -euo pipefail
           python scripts/capture_fpl_cat_snapshot.py \
             --season "${{ inputs.season }}" \
             --output "artifacts/fplcat/fplcat-${{ inputs.season }}-snapshot.json"
 
+      - name: Capture and verify public manager squad and purchase prices
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          set -euo pipefail
+          python scripts/capture_fpl_manager_context.py \
+            --team-id "${{ inputs.manager_team_id }}" \
+            --gameweek "${{ inputs.gameweek }}" \
+            --expected-bank "${{ inputs.expected_bank }}" \
+            --expected-element-ids "110,497,31,8,115,229,282,154,124,426,183,524,166,79,411" \
+            --output "artifacts/fplcat/manager-context-${{ inputs.gameweek }}-${{ github.run_id }}.json"
+
       - name: Upload immutable capture bundle
         uses: actions/upload-artifact@v4
         with:
-          name: fplcat-${{ inputs.season }}-${{ github.run_id }}
+          name: fplcat-manager-context-${{ inputs.gameweek }}-${{ github.run_id }}
           path: canonical_candidate/engineering_workbench/artifacts/fplcat/*.json
           if-no-files-found: error
           retention-days: 90
