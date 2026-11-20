@@ -294,3 +294,30 @@ A failed reconstruction or replay fails the capture workflow and prevents a pass
 
 **Attestation boundary:** the free-transfer count remains manager-confirmed because the selected public FPL endpoints do not provide a direct authoritative pre-deadline value. In fallback capture modes, bank and intended XI/bench/captain state are also explicitly manager-attested rather than inferred from prior-week picks. The replay binds those values to the archived manager attestation and validates every field that the corresponding official source can independently corroborate; it does not claim to prove user-attested fields that are absent from official raw endpoints. The manager's squad identity and purchase prices are checked against the archived official picks/history source chain, and selling prices are recalculated from official bootstrap prices.
 
+
+
+## 19. Real evaluation-record assembly
+
+`assemble_m3_real_evaluation_record.py` assembles, but does not score or admit, a real candidate from the frozen predeadline recommendation, official reconciliation batch, independent archive audit and historical-evidence admission report. It fails closed unless the target event is `DECISION_BACKTEST_ELIGIBLE`, the exact frozen decision and deterministic replay are independently verified, and the manager/Gameweek identities agree across every input.
+
+The assembler reads the archived official bootstrap, manager-picks and event-live payloads from the reconciled batch, verifies their raw SHA-256 hashes and matches their snapshot IDs, hashes, capture timestamps and source URLs to the independent audit. It requires the bootstrap to show both `finished=true` and `data_checked=true`; the bootstrap capture timestamp is recorded as the conservative observation time at which finalized status was confirmed. The event-live archive must have been captured no earlier than that observation. The scorer-ready realized-points cohort contains all 15 hold-baseline players plus the incoming player for a transfer decision (16 players), or the 15 owned players for HOLD.
+
+Example after the target Gameweek has finalized and passed reconciliation, audit and admission:
+
+```bash
+python scripts/assemble_m3_real_evaluation_record.py \
+  official-fpl-predeadline-m3-recommendation.json \
+  --batch official-fpl-manager-reconciliation-batch.json \
+  --audit-report official-fpl-manager-reconciliation-audit.json \
+  --admission-report official-fpl-historical-evidence-admission.json \
+  --output official-fpl-m3-evaluation-record.json
+
+python scripts/evaluate_external_benchmark_decisions.py \
+  official-fpl-m3-evaluation-record.json \
+  --admission-report official-fpl-historical-evidence-admission.json \
+  --audit-report official-fpl-manager-reconciliation-audit.json \
+  --batch official-fpl-manager-reconciliation-batch.json \
+  --output official-fpl-m3-evaluation-result.json
+```
+
+The assembler explicitly reports `scoring_performed=false` and `historical_evidence_admitted_by_assembler=false`. Only the evaluator can produce an event score, and even a real event score remains non-promotion evidence until the separate M3 acceptance protocol is satisfied. The personal risk profile is carried as metadata; no unvalidated CoVar or risk adjustment is applied.
