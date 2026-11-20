@@ -78,6 +78,14 @@ The capture bundle now includes base64-preserved raw provider and FPL bootstrap 
 
 Regression tests cover missing generation timestamps and post-deadline metadata capture. The live capture has produced a real 672-row GW11 FPL Cat snapshot; a successful manager-backed recommendation run remains pending.
 
+### M3.3b — GW1 purchase-price fallback hardening
+
+The first live manager-history attempt confirmed that the GW11 picks endpoint returns HTTP 404 before the deadline and exposed a real data-shape gap: the GW1 picks response did not contain a usable `purchase_price` for player ID 496. The implementation now falls back only for missing GW1 purchase prices to the official bootstrap's season-start cost, calculated as `now_cost - cost_change_start`. That bootstrap response is archived with the other raw manager-history inputs. If neither source yields a positive integer cost, capture still fails closed.
+
+Regression coverage now includes missing GW1 purchase-price fallback, full raw-source archive integrity and the previous transfer-history cases. CI run [44762964953](https://github.com/uasir/CTA-FPL-Model/actions/runs/44762964953) passed: 39 JavaScript tests, 301 engineering pytest tests, 3 subtests, canonical Python tests and all four identity crosswalk checks.
+
+This is code-level verification only. The live manager capture has not yet succeeded; the workflow needs another run to validate the fallback against team 421025's actual bootstrap and transfer data.
+
 ### M3.3a — Manager context and purchase-price reconstruction
 
 The GW11 public picks endpoint can return HTTP 404 before the deadline. The pre-deadline path now preserves the user's confirmed GW11 15-player IDs, bank and free-transfer count while reconstructing the purchase prices independently from the season record:
