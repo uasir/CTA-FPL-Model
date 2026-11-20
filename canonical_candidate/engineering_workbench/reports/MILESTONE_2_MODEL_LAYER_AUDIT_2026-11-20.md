@@ -207,4 +207,15 @@ The first integrated run revealed that the pinned 2016/17-2017/18 FPL panel CSV 
 
 Updated the panel builder to select predictor features observed in the training partition only and record features excluded for having no observed training values. Added a regression test with entirely missing historical xG/xA. This allows the FPL panel and its report to be produced without weakening the point-in-time caveat. CI passed for the implementation; a new full Wyscout workflow run is in progress to verify that the fixture-reference and player-GW aggregation stages now execute.
 
+
+## 13. Deadline-local ranking evaluation added to standalone 2PM
+
+The 2PM evaluator now calculates ranking utility within each actual GW deadline, not by pooling player-GWs across a season:
+- per-deadline Spearman;
+- top-100 selected mean points, oracle mean, lift over the available universe and regret versus oracle;
+- macro aggregation across deadlines and per-season breakdowns;
+- paired season-cluster bootstrap deltas for raw and affine 2PM versus calibrated conventional two-part, direct Ridge and last-five persistence.
+
+The new test suite verifies equal-deadline macro weighting (so a large player pool in one GW cannot dominate) and paired candidate-minus-reference uncertainty. Engineering CI run [44733508147](https://github.com/uasir/CTA-FPL-Model/actions/runs/44733508147) passed. The full 2PM walk-forward run with the expanded aggregate summary is queued behind an earlier training run; results remain pending.
+
 **Current disposition:** 2PM base remains the control; position features are not adopted; ABC remains an exploratory independent candidate; no model is connected to recommendation weights.
