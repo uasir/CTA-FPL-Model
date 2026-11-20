@@ -46,7 +46,8 @@ jobs:
           PYTHONPATH=scripts python -m pytest -q \
             tests/test_capture_predeadline_decision_bundle.py \
             tests/test_classify_historical_fpl_evidence.py \
-            tests/test_audit_official_fpl_manager_batch.py
+            tests/test_audit_official_fpl_manager_batch.py \
+            tests/test_run_predeadline_m3_decision.py
       - name: Capture and seal pre-deadline decision evidence
         working-directory: canonical_candidate/engineering_workbench
         env:
@@ -58,7 +59,16 @@ jobs:
             --season "${{ inputs.season }}" \
             --manager-state-json "$MANAGER_STATE_JSON" \
             --output predeadline-decision-evidence.json
-      - name: Upload immutable pre-deadline decision evidence
+      - name: Generate and freeze the single conventional recommendation
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          M3_CODE_SHA: ${{ steps.checkout.outputs.commit }}
+        run: |
+          PYTHONPATH=scripts python scripts/run_predeadline_m3_decision.py \
+            predeadline-decision-evidence.json \
+            --software-commit "$M3_CODE_SHA" \
+            --output predeadline-m3-recommendation.json
+      - name: Upload immutable pre-deadline decision evidence and recommendation
         uses: actions/upload-artifact@v4
         with:
           name: predeadline-decision-evidence-manager-${{ inputs.manager_team_id }}-gw${{ inputs.gameweek }}
