@@ -5,7 +5,7 @@ import unittest
 from m4_covar_field_portfolio_adapter import (
     CovarFieldPortfolioError,
     adapt_field_portfolios_for_scenario,
-    anonymize_manager_pick_rows,
+    strip_manager_identifiers_from_manager_picks,
     canonical_artifact_sha256,
     verify_field_portfolio_artifact,
 )
@@ -40,7 +40,7 @@ def pick_rows():
 
 
 def artifact():
-    return anonymize_manager_pick_rows(
+    return strip_manager_identifiers_from_manager_picks(
         pick_rows(),
         gameweek=12,
         deadline_utc=DEADLINE,
@@ -55,7 +55,7 @@ class TestCovarFieldPortfolioAdapter(unittest.TestCase):
     def test_anonymizes_manager_ids_and_preserves_weighted_15_player_portfolios(self):
         result = artifact()
         self.assertEqual(result["metadata"]["manager_count"], 3)
-        self.assertFalse(result["metadata"]["manager_identifiers_retained"])
+        self.assertFalse(result["metadata"]["manager_entry_ids_retained"])
         self.assertEqual(len(result["portfolios"]), 3)
         self.assertAlmostEqual(sum(row["field_weight"] for row in result["portfolios"]), 1.0)
         self.assertEqual(len(result["portfolios"][0]["player_ids"]), 15)
@@ -90,7 +90,7 @@ class TestCovarFieldPortfolioAdapter(unittest.TestCase):
 
     def test_rejects_post_deadline_evidence(self):
         with self.assertRaisesRegex(CovarFieldPortfolioError, "only pre-deadline"):
-            anonymize_manager_pick_rows(
+            strip_manager_identifiers_from_manager_picks(
                 pick_rows(), gameweek=12, deadline_utc=DEADLINE,
                 captured_at_utc="2026-11-20T22:01:00Z",
                 evidence_role="POST_DEADLINE_LOCKED_FIELD",
@@ -127,12 +127,12 @@ class TestCovarFieldPortfolioAdapter(unittest.TestCase):
             "manager_portfolio_artifact": {
                 "sha256": canonical_artifact_sha256(field_artifact),
                 "manager_count": 3,
-                "manager_identifiers_retained": False,
+                "manager_entry_ids_retained": False,
             },
         }
         result = verify_field_portfolio_artifact(field_artifact, report)
-        self.assertEqual(result["status"], "PASS_ANONYMIZED_FIELD_PORTFOLIO_PROVENANCE")
-        self.assertFalse(result["manager_identifiers_retained"])
+        self.assertEqual(result["status"], "PASS_MANAGER_ID_STRIPPED_FIELD_PORTFOLIO_PROVENANCE")
+        self.assertFalse(result["manager_entry_ids_retained"])
         field_artifact["portfolios"][0]["player_ids"][0] = "999"
         with self.assertRaisesRegex(CovarFieldPortfolioError, "SHA-256"):
             verify_field_portfolio_artifact(field_artifact, report)
@@ -141,7 +141,7 @@ class TestCovarFieldPortfolioAdapter(unittest.TestCase):
         rows = pick_rows()
         rows.pop()
         with self.assertRaisesRegex(CovarFieldPortfolioError, "exactly 15 picks"):
-            anonymize_manager_pick_rows(
+            strip_manager_identifiers_from_manager_picks(
                 rows, gameweek=12, deadline_utc=DEADLINE,
                 captured_at_utc=CAPTURED,
                 evidence_role="PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE",
