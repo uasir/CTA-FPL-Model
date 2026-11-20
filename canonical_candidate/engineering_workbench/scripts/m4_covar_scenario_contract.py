@@ -203,15 +203,22 @@ def validate_scenario_document(document: Mapping[str, Any]) -> dict[str, Any]:
         if role not in ("CANDIDATE", "FIELD"):
             raise CovarScenarioContractError("portfolio_role must be CANDIDATE or FIELD")
         selected = portfolio.get("player_ids")
-        if not isinstance(selected, list) or not selected or len(set(map(str, selected))) != len(selected):
+        if not isinstance(selected, list) or len(set(map(str, selected))) != len(selected):
             raise CovarScenarioContractError(f"portfolio {portfolio_id} must have unique player_ids")
+        if role == "CANDIDATE" and not selected:
+            raise CovarScenarioContractError(f"candidate portfolio {portfolio_id} cannot be empty")
         if not set(map(str, selected)).issubset(player_by_id):
             raise CovarScenarioContractError(f"portfolio {portfolio_id} contains unknown player IDs")
-        if str(portfolio.get("captain_id", "")) not in set(map(str, selected)):
-            raise CovarScenarioContractError(f"portfolio {portfolio_id} captain must be selected")
+        captain_id = portfolio.get("captain_id")
         multiplier = _number(portfolio.get("captain_multiplier", 2), f"portfolio {portfolio_id}.captain_multiplier", minimum=1)
-        if multiplier not in (2.0, 3.0):
-            raise CovarScenarioContractError("captain_multiplier must be 2 or 3 for this prototype")
+        if role == "CANDIDATE":
+            if str(captain_id or "") not in set(map(str, selected)) or multiplier not in (2.0, 3.0):
+                raise CovarScenarioContractError("candidate captain must be selected with multiplier 2 or 3")
+        elif captain_id is None:
+            if multiplier != 1.0:
+                raise CovarScenarioContractError("field portfolio without an in-scope captain must use multiplier 1")
+        elif str(captain_id) not in set(map(str, selected)) or multiplier not in (2.0, 3.0):
+            raise CovarScenarioContractError("field captain must be selected with multiplier 2 or 3")
 
     field_portfolios = [
         row for row in portfolios if row.get("portfolio_role", "CANDIDATE") == "FIELD"
