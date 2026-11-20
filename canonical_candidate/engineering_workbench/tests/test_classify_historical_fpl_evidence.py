@@ -27,15 +27,10 @@ def _batch(chip=None):
 
 def _audit_report(manifest=None):
     manifest = manifest or _manifest()
-    archive_types = {
-        "provider_forecast": "provider_forecast",
-        "player_metadata": "bootstrap_static",
-        "manager_deadline_state": "manager_picks",
-    }
     archives = []
     for source in manifest["sources"]:
         archives.append({
-            "source_type": archive_types[source["source_type"]],
+            "source_type": source["source_type"],
             "raw_snapshot_id": source["raw_snapshot_id"],
             "raw_sha256": source["raw_sha256"],
             "captured_at_utc": source["captured_at_utc"],
@@ -45,7 +40,7 @@ def _audit_report(manifest=None):
     return {
         "status": "PASSED",
         "manager_team_id": 421025,
-        "events": [{"gameweek": 5, "status": "RECONCILED", "archives": archives}],
+        "events": [{"gameweek": 5, "status": "RECONCILED", "archives": [],\n                    "decision_sources": archives}],
     }
 
 
@@ -55,7 +50,6 @@ def _manifest():
     return {
         "target_gameweek": 5,
         "evidence_is_point_in_time": True,
-        "archives_verified": True,
         "deadline_utc": "2026-10-01T11:00:00Z",
         "decision_as_of_utc": "2026-10-01T10:30:00Z",
         "sources": [
@@ -117,7 +111,7 @@ def test_complete_timestamp_valid_manifest_is_decision_eligible():
 def test_post_deadline_manager_capture_fails_closed():
     manifest = _manifest()
     manifest["sources"][2]["captured_at_utc"] = "2026-10-01T11:00:00Z"
-    result = classify_batch(_batch(), {"5": manifest}, _audit_report(manifest))
+    result = classify_batch(_batch(), {"5": manifest}, _audit_report())
     event = result["events"][0]
     assert event["classification"] == "SCORING_RECONCILIATION_ONLY"
     assert any("captured at/after deadline" in reason for reason in event["reasons"])
