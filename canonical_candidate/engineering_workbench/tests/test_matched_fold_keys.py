@@ -59,8 +59,8 @@ def test_manifest_hash_mismatch_fails_closed(tmp_path):
         writer.writerow([1, "calibration", "2017-18", "11", 3])
         writer.writerow([1, "test", "2017-18", "12", 4])
     partitions = load_partition_keys(path)
-    manifest = {"folds": [{
-        "fold": 1,
+    manifest = {"status": "PASS_MATCHED_FOLD_MANIFEST", "folds": [{
+        "fold": 1, "status": "READY",
         "fit_key_sha256": "wrong",
         "calibration_key_sha256": sha_keys(partitions[1]["calibration"]),
         "test_key_sha256": sha_keys(partitions[1]["test"]),
