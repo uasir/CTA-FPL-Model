@@ -40,7 +40,7 @@ class TestM4PortfolioExposureBaseline(unittest.TestCase):
     def test_rejects_missing_squad_coverage(self):
         binding = binding_fixture()
         binding["field_eo_rows"] = [
-            row for row in binding["field_eo_rows"] if row["fpl_element_id"] != "16"
+            row for row in binding["field_eo_rows"] if row["fpl_element_id"] != "15"
         ]
         with self.assertRaisesRegex(PortfolioBaselineError, "missing squad players"):
             build_portfolio_exposure_baseline(binding)
