@@ -65,9 +65,9 @@ def _sum_target(rows, field):
     return sum(values), "COMPLETE"
 
 
-def aggregate_player_gameweeks(rows, expected_fixture_counts=None):
-    """Aggregate rows; expected_fixture_counts maps (season, element, GW) to count."""
-    expected_fixture_counts = expected_fixture_counts or {}
+def aggregate_player_gameweeks(rows, expected_fixture_ids=None):
+    """Aggregate rows; expected_fixture_ids maps (season, element, GW) to official fixture-ID sets."""
+    expected_fixture_ids = expected_fixture_ids or {}
     grouped = defaultdict(list)
     for row in rows:
         season = str(row.get("season") or "")
@@ -86,15 +86,17 @@ def aggregate_player_gameweeks(rows, expected_fixture_counts=None):
         if len(fixture_ids) != len(set(fixture_ids)):
             raise ValueError(f"Duplicate player-fixture row for {(season, player, gw)}")
         key = (season, player, gw)
-        expected = expected_fixture_counts.get(key)
-        if expected is not None and (not isinstance(expected, int) or expected < 1):
-            raise ValueError(f"Expected fixture count must be a positive integer for {key}")
+        expected_ids = expected_fixture_ids.get(key)
+        if expected_ids is not None:
+            expected_ids = {str(value) for value in expected_ids}
+            if not expected_ids:
+                raise ValueError(f"Expected fixture ID set cannot be empty for {key}")
 
         reasons = []
-        if expected is None:
-            reasons.append("EXPECTED_FIXTURE_COUNT_NOT_SUPPLIED")
-        elif len(fixtures) != expected:
-            reasons.append("FIXTURE_COUNT_MISMATCH")
+        if expected_ids is None:
+            reasons.append("OFFICIAL_FIXTURE_IDS_NOT_SUPPLIED")
+        elif set(fixture_ids) != expected_ids:
+            reasons.append("FIXTURE_ID_SET_MISMATCH")
 
         if not all(truth(row.get("identity_verified")) for row in fixtures):
             reasons.append("IDENTITY_NOT_VERIFIED")
@@ -114,10 +116,10 @@ def aggregate_player_gameweeks(rows, expected_fixture_counts=None):
             "gameweek": gw,
             "fixture_ids": sorted(fixture_ids),
             "fixture_count_observed": len(fixtures),
-            "fixture_count_expected": expected,
+            "fixture_count_expected": len(expected_ids) if expected_ids is not None else None,
             "fixture_completeness_status": (
-                "PASS" if expected is not None and len(fixtures) == expected
-                else "NOT_CHECKED" if expected is None else "MISMATCH"
+                "PASS" if expected_ids is not None and set(fixture_ids) == expected_ids
+                else "NOT_CHECKED" if expected_ids is None else "MISMATCH"
             ),
             "target_fpl_total_points": points,
             "target_fpl_minutes": minutes,
@@ -162,24 +164,25 @@ def read_csv(path):
         return list(csv.DictReader(handle))
 
 
-def read_expected_fixture_counts(path):
-    counts = {}
+def read_expected_fixture_ids(path):
+    expected = defaultdict(set)
     for row in read_csv(path):
         key = (str(row["season"]), str(row["fpl_element_id"]), int(row["gameweek"]))
-        if key in counts:
-            raise ValueError(f"Duplicate expected fixture count key: {key}")
-        counts[key] = int(row["expected_fixture_count"])
-    return counts
+        fixture_id = str(row["fixture_id"])
+        if not fixture_id:
+            raise ValueError(f"Blank official fixture ID for {key}")
+        expected[key].add(fixture_id)
+    return dict(expected)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, required=True)
-    parser.add_argument("--expected-fixture-counts", type=Path, required=True)
+    parser.add_argument("--expected-fixtures", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     aggregated = aggregate_player_gameweeks(
-        read_csv(args.input), read_expected_fixture_counts(args.expected_fixture_counts)
+        read_csv(args.input), read_expected_fixture_ids(args.expected_fixtures)
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", newline="", encoding="utf-8") as handle:
@@ -200,7 +203,7 @@ def main():
         "eligible_player_gameweeks": sum(row["research_eligible_for_model"] for row in aggregated),
         "excluded_player_gameweeks": sum(not row["research_eligible_for_model"] for row in aggregated),
         "feature_aggregation_policy": "CONSENSUS_ONLY_NO_SUM_OR_BLIND_AVERAGE",
-        "dgw_policy": "Require official expected fixture count; each repeated pre-deadline snapshot must agree across fixture rows.",
+        "dgw_policy": "Require exact official fixture-ID set; each repeated pre-deadline snapshot must agree across fixture rows.",
         "promotion_status": "RESEARCH_ONLY_DO_NOT_PROMOTE",
     }
     print(json.dumps(report, indent=2))
