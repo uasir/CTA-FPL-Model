@@ -10,7 +10,9 @@ from pathlib import Path
 from m4_predeadline_field_artifact_adapter import (
     PredeadlineArtifactError, load_predeadline_field_artifact,
 )
-from m4_predeadline_field_comparison import (\n    adapt_m3_evaluation_candidate, build_predeadline_comparison,\n)
+from m4_predeadline_field_comparison import (
+    adapt_m3_evaluation_candidate, build_predeadline_comparison,
+)
 
 
 def fixture(root: Path, *, status="CAPTURED_PRE_DEADLINE_CURRENT_PICKS",
