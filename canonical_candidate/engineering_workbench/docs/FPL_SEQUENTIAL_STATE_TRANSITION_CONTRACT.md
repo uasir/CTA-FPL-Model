@@ -1,6 +1,6 @@
 # FPL Sequential Manager-State Transition Contract
 
-Status: **STATE-TRANSITION MODULE IMPLEMENTED; 443 TESTS PASS IN ENGINEERING CI; OFFICIAL-HISTORY PARITY AUDIT PENDING; NOT YET INTEGRATED WITH MULTI-GAMEWEEK SCORING**
+Status: **STATE-TRANSITION MODULE AND SEQUENTIAL POLICY RUNNER IMPLEMENTED; 450 TESTS PASS; OFFICIAL-HISTORY PARITY AUDIT PENDING; NO REAL POLICY TRAJECTORY RESULTS YET**
 
 Implementation:
 - scripts/transition_fpl_manager_state.py
@@ -51,11 +51,13 @@ For Free Hit, gameweek_squad is the temporary squad while next_state.squad is re
 ## Deliberate boundaries
 
 - This is a single state transition, not yet a complete season policy runner.
-- The module does not score the Gameweek. Feed the returned Gameweek squad/lineup into the separately validated one-Gameweek scorer with official points, minutes, positions and played status.
+- The module does not score the Gameweek. The sequential runner feeds the returned Gameweek squad/lineup into the separately validated one-Gameweek scorer with official points, minutes, positions and played status.
 - It assumes incoming transfer prices, current squad prices and next-deadline market prices are supplied from point-in-time snapshots. It does not query FPL or infer missing prices.
 - It does not independently verify that a transfer action was frozen before the deadline; the archive validator must verify chronology and source hashes.
 - It does not yet handle manager deletion, team merges, postponed/cancelled Gameweeks, mid-season rule changes or unmodeled special transfer adjustments.
-- It does not yet construct policy trajectories from frozen forecasts. A separate policy runner must apply each policy to its own current state at each deadline.
+- The separate sequential policy runner applies each policy to its own current state at each deadline, verifies frozen decision/forecast timestamps and state hashes, and compares paired cumulative net points. Its contract is documented in docs/FPL_SEQUENTIAL_POLICY_REPLAY_CONTRACT.md.
+- The selected lineup is carried forward in next_state. Free Hit restores the prior permanent lineup as well as the prior squad and bank.
+- Terminal Gameweeks can apply and score an action without inventing a synthetic next deadline or next market snapshot.
 - Sequential results must be compared from a shared initial state and identical official outcomes, with paired uncertainty clustered by manager trajectory.
 
 ## Official 2026/27 rule references
