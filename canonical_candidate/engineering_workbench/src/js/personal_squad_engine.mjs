@@ -278,12 +278,28 @@ export function recommendPersonalSquad(payload) {
     const outgoingId = transfer.best_candidate.transfer_out_id;
     const postTransferOwned = owned.filter((player) => player.fpl_element_id !== outgoingId);
     postTransferOwned.push(forecastById.get(incomingId));
-    // Fixed XI/bench inputs may include the outgoing player; re-optimise after the move.
+    // Preserve the manager's XI. A starter transfer replaces that starter;
+    // a bench transfer can only displace the weakest starter in its position.
+    const postStartingXi = [...currentSquadPlan.starting_xi];
+    let replacementIndex = postStartingXi.indexOf(outgoingId);
+    if (replacementIndex < 0) {
+      const eligible = postStartingXi
+        .map((playerId, index) => ({ playerId, index, player: forecastById.get(playerId) }))
+        .filter((row) => row.player.position === forecastById.get(incomingId).position)
+        .sort((a, b) => a.player.expected_points - b.player.expected_points
+          || b.player.expected_minutes - a.player.expected_minutes
+          || b.player.fpl_element_id - a.player.fpl_element_id);
+      if (eligible.length === 0) {
+        throw new RecommendationContractError("Transfer cannot preserve the current formation");
+      }
+      replacementIndex = eligible[0].index;
+    }
+    postStartingXi[replacementIndex] = incomingId;
     const startingGoalkeeperId = currentSquadPlan.starting_xi.find(
       (playerId) => forecastById.get(playerId).position === "GKP",
     );
     recommendedSquadPlan = buildSquadPlan(
-      postTransferOwned, forecastById, formationValue, null, null, startingGoalkeeperId,
+      postTransferOwned, forecastById, formationValue, postStartingXi, null, startingGoalkeeperId,
     );
     squadPlanState = "POST_TRANSFER";
   }
