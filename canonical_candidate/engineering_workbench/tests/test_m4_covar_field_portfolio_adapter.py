@@ -39,15 +39,29 @@ def pick_rows():
     return rows
 
 
-def artifact():
+def positions_for(rows):
+    result = {}
+    for row in rows:
+        slot = (int(row["position"]) - 1) % 15 + 1
+        result[str(row["fpl_element_id"])] = (
+            "GK" if slot in (1, 12) else
+            "DEF" if 2 <= slot <= 5 else
+            "MID" if 6 <= slot <= 10 else "FWD"
+        )
+    return result
+
+
+def artifact(rows=None):
+    rows = rows or pick_rows()
     return strip_manager_identifiers_from_manager_picks(
-        pick_rows(),
+        rows,
         gameweek=12,
         deadline_utc=DEADLINE,
         captured_at_utc=CAPTURED,
         evidence_role="PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE",
         cohort="overall top 150",
         rank_limit=150,
+        player_positions_by_id=positions_for(rows),
     )
 
 
@@ -62,6 +76,14 @@ class TestCovarFieldPortfolioAdapter(unittest.TestCase):
         self.assertEqual(len(result["portfolios"][0]["player_ids"]), 15)
         self.assertNotIn("900001", str(result))
         self.assertEqual(result["portfolios"][0]["captain_multiplier"], 3)
+        first = result["portfolios"][0]
+        self.assertEqual(len(first["starting_player_ids"]), 11)
+        self.assertEqual(first["starting_goalkeeper_id"], "1")
+        self.assertEqual(first["reserve_goalkeeper_id"], "12")
+        self.assertEqual(first["bench_order"], ["13", "14", "15"])
+        self.assertEqual(first["vice_captain_id"], "2")
+        self.assertEqual(first["player_positions"]["1"], "GK")
+        self.assertEqual(result["schema_version"], "1.1.0")
 
     def test_projects_to_fixture_players_and_retains_zero_exposure_managers(self):
         result = adapt_field_portfolios_for_scenario(
@@ -139,6 +161,36 @@ class TestCovarFieldPortfolioAdapter(unittest.TestCase):
         field_artifact["portfolios"][0]["player_ids"][0] = "999"
         with self.assertRaisesRegex(CovarFieldPortfolioError, "SHA-256"):
             verify_field_portfolio_artifact(field_artifact, report)
+
+    def test_rejects_missing_vice_captain(self):
+        rows = pick_rows()
+        for row in rows:
+            row["is_vice_captain"] = False
+        with self.assertRaisesRegex(CovarFieldPortfolioError, "exactly one starting vice-captain"):
+            artifact(rows)
+
+    def test_rejects_illegal_starting_formation(self):
+        rows = pick_rows()
+        positions = positions_for(rows)
+        for row in rows:
+            if row["position"] == 11:
+                positions[str(row["fpl_element_id"])] = "DEF"
+        with self.assertRaisesRegex(CovarFieldPortfolioError, "legal FPL formation"):
+            strip_manager_identifiers_from_manager_picks(
+                rows, gameweek=12, deadline_utc=DEADLINE, captured_at_utc=CAPTURED,
+                evidence_role="PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE",
+                cohort="overall top 150", rank_limit=150, player_positions_by_id=positions,
+            )
+
+    def test_rejects_missing_bootstrap_player_position(self):
+        positions = positions_for(pick_rows())
+        positions.pop("1")
+        with self.assertRaisesRegex(CovarFieldPortfolioError, "bootstrap player positions missing"):
+            strip_manager_identifiers_from_manager_picks(
+                pick_rows(), gameweek=12, deadline_utc=DEADLINE, captured_at_utc=CAPTURED,
+                evidence_role="PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE",
+                cohort="overall top 150", rank_limit=150, player_positions_by_id=positions,
+            )
 
     def test_rejects_malformed_manager_squad(self):
         rows = pick_rows()
