@@ -482,7 +482,8 @@ def _verify_finalized_manager_state(record: dict[str, Any], state: dict[str, Any
 
 
 def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
-                    decision_sources_out: list[dict[str, Any]]) -> list[dict[str, Any]]:
+                    decision_sources_out: list[dict[str, Any]],
+                    recommended_decision: dict[str, Any] | None = None) -> tuple[list[dict[str, Any]], str | None]:
     archives = record.get("source_archives")
     _require(isinstance(archives, list), f"GW{gameweek}: source_archives must be a list")
     by_type = {row.get("source_type"): row for row in archives if isinstance(row, dict)}
@@ -656,8 +657,14 @@ def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
             _verify_selling_prices(
                 manager_state, decision_payloads["player_metadata"], gameweek
             )
-            _verify_finalized_manager_state(record, manager_state, manager_team_id, gameweek)
-    return audited
+            execution_match = _verify_finalized_manager_state(
+                record, manager_state, manager_team_id, gameweek, recommended_decision
+            )
+        else:
+            execution_match = None
+    else:
+        execution_match = None
+    return audited, execution_match
 
 
 def audit_batch(batch: dict[str, Any],
