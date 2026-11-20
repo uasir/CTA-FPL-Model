@@ -157,4 +157,26 @@ The evaluator must report (a) full-cohort MAE/RMSE/bias and tail errors, (b) wit
 
 **Next implementation task:** build and test the ABC player-GW feature aggregator and fold-plan contract first. Do not attempt the joint model comparison until this grain contract passes its tests.
 
+
+## 9. ABC player-GW aggregation contract implemented
+
+Added:
+- `scripts/aggregate_abc_player_gameweeks.py`
+- `tests/test_aggregate_abc_player_gameweeks.py`
+
+The aggregator now:
+- groups by exact season + FPL element ID + GW;
+- sums only fixture-level target points and minutes labels;
+- retains an ABC or conventional-history feature only when all fixture rows agree within tolerance;
+- marks feature values as MISSING, PARTIAL or CONFLICT rather than summing or blindly averaging them;
+- requires the exact official fixture-ID set for each player-GW, not just a fixture count, before marking the row eligible;
+- rejects duplicate player-fixture rows and blocks incomplete target labels or inconsistent feature cutoffs;
+- retains source provenance and per-feature aggregation status.
+
+This is deliberately conservative. Conflicting fixture-specific opponent context becomes null at player-GW grain until a separate context aggregation is specified. Missing/conflicting feature values do not become zero.
+
+CI run [44732404991](https://github.com/uasir/CTA-FPL-Model/actions/runs/44732404991) completed successfully on commit `30358957ac30be59f59503111693b6f439b36517`: JavaScript contracts, Python core tests, the full engineering pytest suite, and all four identity-crosswalk validators passed. The new aggregation tests are included in the successful engineering suite.
+
+**Remaining before fold-aligned comparison:** provide the independent official player-GW fixture-ID universe file, run the aggregator on the historical Wyscout panel, inspect the conflict/coverage report, and then construct identical fit/calibration/validation cohorts for ABC and 2PM.
+
 **Current disposition:** 2PM base remains the control; position features are not adopted; ABC remains an exploratory independent candidate; no model is connected to recommendation weights.
