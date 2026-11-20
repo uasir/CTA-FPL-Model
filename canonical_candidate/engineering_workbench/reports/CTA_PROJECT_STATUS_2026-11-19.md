@@ -177,3 +177,19 @@ The runner:
 The runner and terminal/lineup transition tests pass in [engineering CI run 44658968955](https://github.com/uasir/CTA-FPL-Model/actions/runs/44658968955): **450 passed, 1 skipped, 3 subtests**.
 
 **Important boundary:** no real conventional or CTA-informed action bundles have been frozen or replayed yet. This is replay infrastructure, not evidence of decision value. Next is the action-generation/freeze layer, then consecutive official-history parity checks, followed by actual paired trajectories. Current GW11 state coverage is 94/100 with 24.69% of the original design weight missing, so any captured-subset result must be labelled accordingly.
+
+
+## Independent ABC evaluation hardening — 2026-11-20
+
+The ABC walk-forward evaluator now uses season-Gameweek as the deadline key throughout:
+- Player-fixture rows aggregate to player-season-Gameweek, preventing same player IDs and Gameweek numbers from different seasons being collapsed.
+- Ranking is computed within each season-Gameweek, then macro-averaged across deadlines.
+- Expanding folds preserve chronological season-Gameweek boundaries.
+- Paired error bootstrap clusters by season-player, not player ID alone.
+- Feature coverage diagnostics report observed/missing training rows and coverage rates per feature and fold; the model's training-only median imputation plus missingness-indicator policy is explicit.
+- Layer-level availability summaries distinguish declared ABC features from features actually observed in the source panel.
+- The ABC-vs-2PM matching key includes normalized season. The current 2PM comparison explicitly restricts its validated overlap to 2017-18 rather than silently pooling or pretending to support multi-season 2PM training.
+
+Engineering CI [run 44659599769](https://github.com/uasir/CTA-FPL-Model/actions/runs/44659599769) passed: **457 tests, 1 skipped, 3 subtests**.
+
+This is evaluation and coverage hardening, not evidence that ABC improved. The repository currently contains empty provider identity crosswalk placeholders and no full Wyscout event archive or FPL player-fixture history. No numeric ABC-vs-2PM result has been generated from a complete source panel yet. A private workflow is now downloading pinned Wyscout 2017-18 and FPL source snapshots to produce a pending-only identity review queue; no player identity will be automatically promoted to verified.
