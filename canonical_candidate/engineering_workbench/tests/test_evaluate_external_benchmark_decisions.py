@@ -278,7 +278,7 @@ def _real_admission_inputs(record):
                 "team": row["team_id"],
                 "now_cost": round(row["current_price"] * 10),
             }
-            for row in [*metadata_cohort, _player(17)]
+            for row in [*metadata_cohort, {**metadata_cohort[-1], "fpl_element_id": 17}]
         ]
     }
     metadata_raw = json.dumps(bootstrap, sort_keys=True, separators=(",", ":")).encode()
