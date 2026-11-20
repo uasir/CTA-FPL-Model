@@ -1,6 +1,6 @@
 # M4 CoVar Strategic Gap Audit
 
-**Status:** Strategic audit complete; synthetic scenario contract, 2026/27 event-to-points scorer and deterministic portfolio aggregation implemented; field-relative simulation pending  
+**Status:** Synthetic contract, 2026/27 event scorer and deterministic portfolio aggregation implemented; initial defensive-stack, opposing-player hedge and low-EO captaincy mechanics covered by tests; full-GW field-relative simulation pending  
 **Branch:** `feat/m4-field-portfolio-intelligence`  
 **Scope:** Map the article-derived Field CoVar methodology to existing M4 components.  
 **Production status:** Research only; CoVar decision weight remains 0 and production eligibility remains false.
@@ -87,13 +87,17 @@ All probabilities and player assumptions must be supplied as fixture inputs; the
 5. Report the EV opportunity cost and changes in probability of beating the field.
 6. Explain which scenarios create each portfolio's boom and bust.
 
+**Prototype coverage added:** tests now demonstrate positive covariance in a same-team two-player stack, negative covariance contribution for an opposing-player pair in the supplied two-scenario fixture, and the expected-points cost of changing captain to a lower-EO player. The lower-EO test deliberately confirms that marginal EO alone does not produce a field-relative result; `field_comparison_status` remains `NOT_AVAILABLE_NO_EXPLICIT_FIELD_PORTFOLIO`. These are controlled mechanics tests, not evidence that a particular real-world stack or captain is optimal.
+
+**Still not implemented:** set-piece taker/target attribution, event-based BPS, a robust multi-fixture/full-GW scenario space, and field-relative comparison against explicit manager-level portfolios. The current scenario fixture's points are hand-supplied; event scoring is tested separately and must be run before portfolio aggregation when using event inputs. The current scorer does not infer a set-piece link merely because two players share a team.
+
 ### Required first test cases
 
 - Same-team goalkeeper/defender stack: clean-sheet boom and conceded-goal bust.
 - Same-team attacking stack: multi-goal upside and attacking blank downside.
 - Opposing attacker versus own defender: show the hedge effect without assuming perfect negative correlation.
 - Lower-EO captaincy: demonstrate the captain multiplier and field-relative effect.
-- Same-team set-piece taker plus target: score only when the supplied event allocation supports the combination.
+- Same-team set-piece taker plus target: pending an explicit set-piece event/assist attribution schema; do not infer the link from team membership.
 - Rejection case: a stack with lower EV than the alternative and no sufficient improvement in the declared relative-outcome objective.
 
 ### Explicit exclusions
