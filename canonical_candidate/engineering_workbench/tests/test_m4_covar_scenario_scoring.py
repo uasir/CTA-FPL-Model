@@ -4,6 +4,10 @@ import copy
 import unittest
 
 from m4_covar_scenario_scoring import CovarScoringError, score_scenario_portfolios
+from m4_covar_field_portfolio_adapter import (
+    adapt_field_portfolios_for_scenario,
+    anonymize_manager_pick_rows,
+)
 from test_m4_covar_scenario_contract import fixture
 
 
@@ -119,6 +123,43 @@ class TestM4CovarScenarioScoring(unittest.TestCase):
         self.assertAlmostEqual(
             comparison["probability_outscoring_random_field_portfolio"], 0.125
         )
+
+    def test_anonymized_predeadline_sample_flows_into_scenario_field_comparison(self):
+        rows = []
+        manager_specs = [
+            (700001, 1, ["a1", "a2", "b1"] + [f"x{i}" for i in range(12)], "a1", "3xc"),
+            (700002, 51, ["a1", "a2", "b1"] + [f"y{i}" for i in range(12)], "y0", ""),
+            (700003, 101, ["a1", "a2", "b1"] + [f"z{i}" for i in range(12)], "a2", ""),
+        ]
+        for entry, rank, players, captain, chip in manager_specs:
+            for position, player_id in enumerate(players, start=1):
+                rows.append({
+                    "gameweek": 12, "entry_id": entry, "rank_before_deadline": rank,
+                    "sample_weight": 50, "fpl_element_id": player_id,
+                    "position": position, "is_captain": player_id == captain,
+                    "is_vice_captain": False, "active_chip": chip,
+                })
+        raw_artifact = anonymize_manager_pick_rows(
+            rows, gameweek=12, deadline_utc="2026-11-28T11:00:00Z",
+            captured_at_utc="2026-11-27T17:00:00Z",
+            evidence_role="PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE",
+            cohort="overall top 150", rank_limit=150,
+        )
+        adapted = adapt_field_portfolios_for_scenario(
+            raw_artifact, ["a1", "a2", "b1"], expected_gameweek=12,
+            deadline_utc="2026-11-28T11:00:00Z",
+            as_of_utc="2026-11-27T18:00:00Z",
+        )
+        doc = fixture()
+        doc["portfolios"].extend(adapted["portfolios"])
+        result = score_scenario_portfolios(doc)
+        self.assertEqual(result["field_comparison_status"], "AVAILABLE_EXPLICIT_FIELD_PORTFOLIOS")
+        self.assertEqual(
+            result["portfolio_results"]["conventional"]["field_comparison"]["field_portfolio_count"],
+            3,
+        )
+        self.assertEqual(adapted["metadata"]["manager_projection_coverage"], 1.0)
+        self.assertFalse(adapted["metadata"]["manager_identifiers_retained"])
 
     def test_scores_field_portfolio_with_no_fixture_players_as_zero(self):
         doc = fixture()
