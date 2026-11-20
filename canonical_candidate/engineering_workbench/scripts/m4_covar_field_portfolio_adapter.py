@@ -273,8 +273,10 @@ def verify_field_portfolio_artifact(
         raise CovarFieldPortfolioError("portfolio artifact privacy or lock-status flags are inconsistent")
     if (
         int(metadata.get("gameweek", -1)) != int(capture_report.get("gameweek", -2))
-        or metadata.get("deadline_utc") != capture_report.get("deadline_time_utc")
-        or metadata.get("captured_at_utc") != capture_report.get("picks_captured_at_utc")
+        or _time(metadata.get("deadline_utc"), "artifact.deadline_utc")
+        != _time(capture_report.get("deadline_time_utc"), "report.deadline_time_utc")
+        or _time(metadata.get("captured_at_utc"), "artifact.captured_at_utc")
+        != _time(capture_report.get("picks_captured_at_utc"), "report.picks_captured_at_utc")
         or int(metadata.get("manager_count", -1)) != int(manifest.get("manager_count", -2))
     ):
         raise CovarFieldPortfolioError("portfolio artifact identity differs from capture report")
