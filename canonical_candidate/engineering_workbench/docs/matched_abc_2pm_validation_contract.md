@@ -109,3 +109,17 @@ The published manifest contains counts, Gameweek lists, and hashes rather than r
 - The workflow now invokes both matched evaluators after the manifest gate. Raw player-ID partition keys and prediction rows remain runner-local; only aggregate reports and hashes are eligible for upload.
 
 **Validation boundary:** CI run #559 completed successfully. It built the historical inputs, passed the manifest gate with 2,512 eligible player-GWs across 91 players and five folds, and ran both evaluators on matching partition hashes. The first matched ABC implementation nevertheless trained on fixture rows, so its score is not accepted as a valid head-to-head result. The ABC path has now been corrected to train on the aggregated player-GW panel, with a regression test guarding the training grain; a new CI run is required before accepting ABC metrics. The 2PM matched report from run #559 is a valid standalone result on the manifest cohort, but remains retrospective and research-only.
+
+
+## Paired ABC-versus-2PM comparison
+
+The matched evaluator outputs are accompanied by runner-local player–Gameweek prediction CSVs. These CSVs contain player identifiers and are never uploaded as workflow artifacts. The aggregate paired comparison script:
+
+- Requires exact prediction-key equality with every manifest test key, fold by fold.
+- Rechecks fold IDs, test-key hashes and actual points across ABC and 2PM.
+- Compares ABC calibrated output with 2PM affine-calibrated output as the primary head-to-head; raw forecasts and the shared FPL-history reference are secondary diagnostics.
+- Reports MAE, RMSE, error tails, and deadline-local ranking (Spearman, top-100 selected mean, lift and regret).
+- Uses paired player-season cluster bootstrap intervals for point-error deltas and paired test-deadline bootstrap intervals for ranking deltas.
+- Marks deadline uncertainty as descriptive because this historical experiment contains only one season.
+
+The comparison JSON is aggregate-only and is eligible for upload. A result is accepted only if the script exits successfully after exact key and actual-point checks. It does not compare ABC against the previous nine-season 2PM aggregate report.
