@@ -261,6 +261,32 @@ def _real_admission_inputs(record):
     manager_archive = next(
         row for row in record["source_archives"] if row["source_type"] == "manager_state"
     )
+    metadata_archive = next(
+        row for row in record["source_archives"] if row["source_type"] == "player_metadata"
+    )
+    roster_for_metadata = record["manager_state"]["squad_snapshot"]
+    incoming_for_metadata = record["frozen_decision"].get("incoming_player")
+    metadata_cohort = list(roster_for_metadata)
+    if isinstance(incoming_for_metadata, dict):
+        metadata_cohort.append(incoming_for_metadata)
+    element_type_by_position = {"GKP": 1, "DEF": 2, "MID": 3, "FWD": 4}
+    bootstrap = {
+        "elements": [
+            {
+                "id": row["fpl_element_id"],
+                "element_type": element_type_by_position[row["position"]],
+                "team": row["team_id"],
+                "now_cost": round(row["current_price"] * 10),
+            }
+            for row in metadata_cohort
+        ]
+    }
+    metadata_raw = json.dumps(bootstrap, sort_keys=True, separators=(",", ":")).encode()
+    metadata_archive.update({
+        "raw_snapshot_id": "official-bootstrap-gw11",
+        "raw_sha256": hashlib.sha256(metadata_raw).hexdigest(),
+        "raw_payload_base64": base64.b64encode(metadata_raw).decode(),
+    })
     manager_state = record["manager_state"]
     roster = manager_state["squad_snapshot"]
     purchase_prices = {str(row["fpl_element_id"]): row["purchase_price"] for row in roster}
@@ -454,6 +480,26 @@ def test_real_candidate_rejects_realised_points_detached_from_official_live_rows
     admission, audit, batch = _real_admission_inputs(record)
     record["realised_player_points"][0]["total_points"] += 1
     with pytest.raises(DecisionEvaluationError, match="does not match official event-live scoring"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
+
+
+def test_real_candidate_rejects_current_price_detached_from_official_metadata():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    record["manager_state"]["squad_snapshot"][0]["current_price"] += 0.1
+    with pytest.raises(DecisionEvaluationError, match="does not match official bootstrap metadata"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
+
+
+def test_real_candidate_rejects_incoming_player_club_detached_from_official_metadata():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    record["frozen_decision"]["incoming_player"]["team_id"] += 1
+    _seal(record["frozen_decision"])
+    audit["events"][0]["predeadline_recommendation"]["decision_sha256"] = record["frozen_decision"]["decision_sha256"]
+    with pytest.raises(DecisionEvaluationError, match="does not match official bootstrap metadata"):
         evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
 
 
