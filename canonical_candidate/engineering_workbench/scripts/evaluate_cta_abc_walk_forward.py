@@ -18,7 +18,7 @@ from cta_four_layer_pipeline import LAYER_FEATURES
 from evaluate_fpl_decision_quality import evaluate_forecast
 from evaluate_fpl_walk_forward import cluster_bootstrap_paired_errors
 from train_fpl_exploratory_ridge import fit_ridge, predict
-from matched_fold_keys import sha_keys, load_partition_keys, verify_manifest_partition_hashes
+from matched_fold_keys import sha_keys, canonical_key, load_partition_keys, verify_manifest_partition_hashes
 
 BASELINE_FEATURES = (
     "fpl_total_points_prior_3_avg",
@@ -67,7 +67,7 @@ def aggregate_player_gameweek(rows, predictions):
     result = []
     for (player_id, gameweek), values in sorted(grouped.items(), key=lambda x: (x[0][1], x[0][0])):
         result.append({
-            "season": str(rows[0].get("season") or "2017-18") if rows else "2017-18",
+            "season": canonical_key(rows[0].get("season") or "2017/18", rows[0]["fpl_element_id"], rows[0]["gameweek"])[0] if rows else "2017-18",
             "player_id": player_id,
             "gameweek": gameweek,
             "actual": values["actual"],
@@ -169,8 +169,8 @@ def evaluate_matched(rows, source_report, partitions, manifest, ridge_lambda=1.0
     ]
     by_key = defaultdict(list)
     for row in eligible:
-        season = str(row.get("season") or "2017-18").strip()
-        key = (season, str(row["fpl_element_id"]).strip(), int(float(row["gameweek"])))
+        season = str(row.get("season") or "2017/18").strip()
+        key = canonical_key(season, row["fpl_element_id"], int(float(row["gameweek"])))
         by_key[key].append(row)
     candidates = candidate_sets()
     pooled = defaultdict(list)
