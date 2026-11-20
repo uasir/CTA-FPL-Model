@@ -273,6 +273,8 @@ def _reconstruct_manager_state(manifest: Mapping[str, Any],
     manager_urls = envelope.get("source_urls")
     if not isinstance(manager_urls, list) or not manager_urls:
         raise DecisionReplayError("manager attestation source URLs are missing")
+    if source.get("source_url") != f"https://fantasy.premierleague.com/entry/{manager_id}":
+        raise DecisionReplayError("manager archive profile URL does not match the attested manager")
     if method == "OFFICIAL_TARGET_GAMEWEEK_PICKS":
         expected_url = f"https://fantasy.premierleague.com/api/entry/{manager_id}/event/{gameweek}/picks/"
         if expected_url not in manager_urls:
@@ -352,8 +354,17 @@ def _reconstruct_manager_state(manifest: Mapping[str, Any],
             }
             if not expected_urls.issubset(set(manager_urls)):
                 raise DecisionReplayError("previous-Gameweek manager source URLs do not match manager/Gameweek")
-            if {row.get("element") for row in previous.get("picks", [])} != set(squad):
+            previous_picks = previous.get("picks")
+            if not isinstance(previous_picks, list) or len(previous_picks) != 15 or {row.get("element") for row in previous_picks if isinstance(row, dict)} != set(squad):
                 raise DecisionReplayError("previous manager picks do not reproduce the attested squad")
+            chips = history.get("chips")
+            if not isinstance(chips, list) or any(
+                isinstance(chip, dict) and (
+                    chip.get("event") == gameweek or
+                    (chip.get("name") == "freehit" and chip.get("event") == gameweek - 1)
+                ) for chip in chips
+            ):
+                raise DecisionReplayError("manager history does not prove eligible no-chip previous/target events")
             reconstructed = {
                 str(row["element"]): row["purchase_price"] / 10
                 for row in previous["picks"]
