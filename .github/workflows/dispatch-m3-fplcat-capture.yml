@@ -63,7 +63,8 @@ jobs:
             --gameweek "${{ inputs.gameweek }}" \
             --expected-bank "${{ inputs.expected_bank }}" \
             --free-transfers "${{ inputs.free_transfers }}" \
-            --personal-risk-profile "aggressive" \
+            --personal-risk-profile "aggressive"
+            --allow-user-confirmed-fallback \
             --formation "4-3-3" \
             --expected-element-ids "110,497,31,8,115,229,282,154,124,426,183,524,166,79,411" \
             --output "artifacts/fplcat/manager-context-${{ inputs.gameweek }}-${{ github.run_id }}.json"
