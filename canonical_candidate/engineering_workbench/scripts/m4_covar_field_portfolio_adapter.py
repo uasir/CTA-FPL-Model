@@ -156,6 +156,8 @@ def adapt_field_portfolios_for_scenario(
         raise CovarFieldPortfolioError("only pre-deadline provisional evidence is admitted")
     if metadata.get("picks_lock_verified") is not False or metadata.get("provisional_picks") is not True:
         raise CovarFieldPortfolioError("field picks must be explicitly provisional and not lock-verified")
+    if metadata.get("manager_entry_ids_retained") is not False:
+        raise CovarFieldPortfolioError("source artifact must confirm manager entry IDs were discarded")
     if int(metadata.get("gameweek", -1)) != int(expected_gameweek):
         raise CovarFieldPortfolioError("field artifact Gameweek mismatch")
     source_deadline = _time(metadata.get("deadline_utc"), "artifact.deadline_utc")
@@ -183,16 +185,27 @@ def adapt_field_portfolios_for_scenario(
         source_players = source.get("player_ids")
         if not isinstance(source_players, list) or len(source_players) != 15 or len(set(map(str, source_players))) != 15:
             raise CovarFieldPortfolioError("each manager-ID-stripped source portfolio must contain 15 unique players")
-        projected = [str(player_id) for player_id in source_players if str(player_id) in modeled]
         source_captain = source.get("captain_id")
-        captain_in_scope = source_captain is not None and str(source_captain) in modeled
+        if source_captain is None or str(source_captain) not in set(map(str, source_players)):
+            raise CovarFieldPortfolioError("source manager portfolio captain must be in its 15-player squad")
+        multiplier = source.get("captain_multiplier")
+        if multiplier not in (2, 3):
+            raise CovarFieldPortfolioError("source captain multiplier must be 2 or 3")
+        portfolio_id = str(source.get("portfolio_id", "")).strip()
+        if not portfolio_id:
+            raise CovarFieldPortfolioError("source portfolio_id is required")
+        weight = float(source.get("field_weight"))
+        if not math.isfinite(weight) or weight <= 0:
+            raise CovarFieldPortfolioError("source field_weight must be positive and finite")
+        projected = [str(player_id) for player_id in source_players if str(player_id) in modeled]
+        captain_in_scope = str(source_captain) in modeled
         chosen.append({
-            "portfolio_id": str(source.get("portfolio_id")),
+            "portfolio_id": portfolio_id,
             "portfolio_role": "FIELD",
             "player_ids": projected,
             "captain_id": str(source_captain) if captain_in_scope else None,
-            "captain_multiplier": int(source.get("captain_multiplier", 2)) if captain_in_scope else 1,
-            "field_weight": float(source.get("field_weight")),
+            "captain_multiplier": int(multiplier) if captain_in_scope else 1,
+            "field_weight": weight,
             "rank_stratum": stratum,
             "active_chip": source.get("active_chip"),
         })
@@ -224,6 +237,7 @@ def adapt_field_portfolios_for_scenario(
             "managers_with_modeled_captain": captain_in_scope_count,
             "captain_projection_coverage": captain_in_scope_count / len(chosen),
             "manager_entry_ids_retained": False,
+            "privacy_note": "Manager entry IDs are removed, but distinctive squad combinations may remain identifiable; restrict access and retention.",
             "evidence_role": metadata["evidence_role"],
             "field_scope": "MANAGER_ID_STRIPPED_RANK_STRATIFIED_SAMPLE_NOT_GLOBAL_CENSUS",
             "production_eligible": False,
@@ -247,12 +261,16 @@ def verify_field_portfolio_artifact(
         raise CovarFieldPortfolioError("capture report is not a successful pre-deadline capture")
     if capture_report.get("evidence_role") != "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE":
         raise CovarFieldPortfolioError("capture report evidence role is not pre-deadline provisional")
+    if capture_report.get("picks_lock_verified") is not False or capture_report.get("provisional_picks") is not True:
+        raise CovarFieldPortfolioError("capture report must identify provisional, unlocked picks")
     if manifest.get("manager_entry_ids_retained") is not False:
         raise CovarFieldPortfolioError("capture manifest must confirm manager identifiers were discarded")
     digest = canonical_artifact_sha256(artifact)
     if manifest.get("sha256") != digest:
         raise CovarFieldPortfolioError("manager-ID-stripped portfolio artifact SHA-256 does not match capture report")
     metadata = artifact.get("metadata", {})
+    if metadata.get("manager_entry_ids_retained") is not False or metadata.get("picks_lock_verified") is not False:
+        raise CovarFieldPortfolioError("portfolio artifact privacy or lock-status flags are inconsistent")
     if (
         int(metadata.get("gameweek", -1)) != int(capture_report.get("gameweek", -2))
         or metadata.get("deadline_utc") != capture_report.get("deadline_time_utc")
