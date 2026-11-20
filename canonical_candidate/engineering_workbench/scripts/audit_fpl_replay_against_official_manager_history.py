@@ -276,6 +276,8 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
     total_exact_gross = 0
     total_autosub_matches = 0
     total_autosub_comparable = 0
+    total_autosub_records_seen = 0
+    total_bench_boost_autosub_excluded = 0
     absolute_net_differences = []
     autosub_position_pair_matches = 0
     autosub_count_matches = 0
@@ -306,37 +308,43 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
             net_exact += int(result["net_point_difference"] == 0)
             gross_exact += int(result["gross_point_difference"] == 0)
             if payload.get("automatic_subs") is not None:
-                autosub_comparable += 1
-                autosub_match += int(result["autosub_pairs_match"])
-                autosub_position_pair_matches += int(result["autosub_position_pairs_match"])
-                autosub_count_matches += int(result["autosub_count_match"])
-                event_position_pair_matches += int(result["autosub_position_pairs_match"])
-                event_count_matches += int(result["autosub_count_match"])
-                total_autosub_matches_reverse += int(result["autosub_pairs_match_reverse"])
-                autosub_position_pair_matches_reverse += int(result["autosub_position_pairs_match_reverse"])
-                autosub_count_matches_reverse += int(result["autosub_count_match_reverse"])
-                reverse_exact_net += int(result["replay_reverse_net_point_difference"] == 0)
-                event_reverse_matches += int(result["autosub_pairs_match_reverse"])
-                event_reverse_position_matches += int(result["autosub_position_pairs_match_reverse"])
-                event_reverse_count_matches += int(result["autosub_count_match_reverse"])
-                official_bench_priority_usage.update(str(slot) for slot in result["official_bench_slots"])
-                replay_bench_priority_usage.update(str(slot) for slot in result["replay_bench_slots"])
-                if not result["autosub_pairs_match"]:
-                    signature = (
-                        f"official_slots={result['official_bench_slots']};"
-                        f"replay_slots={result['replay_bench_slots']};"
-                        f"official_out_slots={result['official_out_starting_slots']};"
-                        f"replay_out_slots={result['replay_out_starting_slots']};"
-                        f"official_positions={result['official_position_pairs']};"
-                        f"replay_positions={result['replay_position_pairs']};"
-                        f"played={result['official_pair_played']};"
-                        f"minutes={result['official_pair_minutes']};"
-                        f"cards={result['official_pair_cards']};"
-                        f"formations={result['initial_formation']}->{result['official_final_formation']};"
-                        f"counts={result['official_sub_count']}:{result['replay_sub_count']};"
-                        f"chip={result['chip']}"
-                    )
-                    autosub_mismatch_signatures[signature] += 1
+                total_autosub_records_seen += 1
+                if not autosub_pairs_are_scoring_relevant(
+                    result["chip"], payload.get("automatic_subs")
+                ):
+                    total_bench_boost_autosub_excluded += 1
+                else:
+                    autosub_comparable += 1
+                    autosub_match += int(result["autosub_pairs_match"])
+                    autosub_position_pair_matches += int(result["autosub_position_pairs_match"])
+                    autosub_count_matches += int(result["autosub_count_match"])
+                    event_position_pair_matches += int(result["autosub_position_pairs_match"])
+                    event_count_matches += int(result["autosub_count_match"])
+                    total_autosub_matches_reverse += int(result["autosub_pairs_match_reverse"])
+                    autosub_position_pair_matches_reverse += int(result["autosub_position_pairs_match_reverse"])
+                    autosub_count_matches_reverse += int(result["autosub_count_match_reverse"])
+                    reverse_exact_net += int(result["replay_reverse_net_point_difference"] == 0)
+                    event_reverse_matches += int(result["autosub_pairs_match_reverse"])
+                    event_reverse_position_matches += int(result["autosub_position_pairs_match_reverse"])
+                    event_reverse_count_matches += int(result["autosub_count_match_reverse"])
+                    official_bench_priority_usage.update(str(slot) for slot in result["official_bench_slots"])
+                    replay_bench_priority_usage.update(str(slot) for slot in result["replay_bench_slots"])
+                    if not result["autosub_pairs_match"]:
+                        signature = (
+                            f"official_slots={result['official_bench_slots']};"
+                            f"replay_slots={result['replay_bench_slots']};"
+                            f"official_out_slots={result['official_out_starting_slots']};"
+                            f"replay_out_slots={result['replay_out_starting_slots']};"
+                            f"official_positions={result['official_position_pairs']};"
+                            f"replay_positions={result['replay_position_pairs']};"
+                            f"played={result['official_pair_played']};"
+                            f"minutes={result['official_pair_minutes']};"
+                            f"cards={result['official_pair_cards']};"
+                            f"formations={result['initial_formation']}->{result['official_final_formation']};"
+                            f"counts={result['official_sub_count']}:{result['replay_sub_count']};"
+                            f"chip={result['chip']}"
+                        )
+                        autosub_mismatch_signatures[signature] += 1
             differences.append(abs(result["net_point_difference"]))
         total_records += n
         total_exact_net += net_exact
@@ -373,6 +381,8 @@ def audit_sample(bootstrap, rank_limit=1000, sample_size=100, seed=20261119,
         "exact_net_team_score_matches": total_exact_net,
         "net_team_score_match_rate": total_exact_net / total_records if total_records else None,
         "exact_gross_team_score_matches": total_exact_gross,
+        "autosub_records_with_official_substitutions": total_autosub_records_seen,
+        "bench_boost_autosub_records_excluded": total_bench_boost_autosub_excluded,
         "autosub_comparisons": total_autosub_comparable,
         "autosub_exact_match_rate": total_autosub_matches / total_autosub_comparable if total_autosub_comparable else None,
         "autosub_position_pair_match_rate": autosub_position_pair_matches / total_autosub_comparable if total_autosub_comparable else None,
