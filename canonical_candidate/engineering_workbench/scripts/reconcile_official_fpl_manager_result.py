@@ -45,8 +45,10 @@ def reconcile_official_manager_result(
     _require(isinstance(history, Mapping), "official picks response requires entry_history")
     _require(history.get("event") == target_gameweek, "official picks response gameweek mismatch")
     _require(isinstance(history.get("points"), int), "official entry_history.points must be an integer")
-    transfer_cost = history.get("event_transfers_cost", 0)
-    _require(isinstance(transfer_cost, int) and transfer_cost >= 0,
+    _require("event_transfers_cost" in history,
+             "official entry_history requires event_transfers_cost")
+    transfer_cost = history["event_transfers_cost"]
+    _require(isinstance(transfer_cost, int) and not isinstance(transfer_cost, bool) and transfer_cost >= 0,
              "official event_transfers_cost must be a non-negative integer")
     _require(official_picks.get("active_chip") in (None, ""),
              "chip gameweeks are outside the initial reconciliation contract")
@@ -109,8 +111,12 @@ def reconcile_official_manager_result(
     for sub in automatic_subs:
         _require(isinstance(sub, Mapping), "official automatic substitution rows must be objects")
         player_in, player_out = sub.get("element_in"), sub.get("element_out")
-        _require(isinstance(player_in, int) and isinstance(player_out, int),
+        _require(isinstance(player_in, int) and not isinstance(player_in, bool)
+                 and isinstance(player_out, int) and not isinstance(player_out, bool),
                  "official automatic substitution has invalid player IDs")
+        if "event" in sub:
+            _require(sub["event"] == target_gameweek,
+                     "official automatic substitution gameweek mismatch")
         official_pairs.append((player_out, player_in))
     _require(len(set(official_pairs)) == len(official_pairs),
              "official automatic_subs contains duplicate substitution pairs")
