@@ -109,7 +109,10 @@ def _record():
         })
     return {
         "evidence_class": "SYNTHETIC_TEST",
+        "manager_team_id": 421025,
         "season": "2026-27",
+        "provider_snapshot_id": "synthetic-fplcat-gw11",
+        "decision_contract_version": "m3-decision-v0.1",
         "target_gameweek": 11,
         "deadline_utc": "2026-10-01T11:00:00Z",
         "as_of_utc": "2026-10-01T10:30:00Z",
@@ -124,6 +127,8 @@ def _record():
         "manager_state": {
             "bank": 0.5,
             "free_transfers": 1,
+            "personal_risk_profile": "aggressive",
+            "formation": "4-3-3",
             "chip": "NONE",
             "squad_snapshot": roster,
             "hold_plan": hold_plan,
