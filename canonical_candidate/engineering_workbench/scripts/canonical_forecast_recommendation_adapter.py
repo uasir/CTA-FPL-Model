@@ -56,6 +56,9 @@ def build_recommendation_forecast_payload(
     as_of = _utc(as_of_utc, "as_of_utc")
     if captured > as_of:
         raise ForecastAdapterError("snapshot capture cannot be later than as_of_utc")
+    deadline = _utc(snapshot["timing"]["deadline_utc"], "snapshot.timing.deadline_utc")
+    if as_of >= deadline:
+        raise ForecastAdapterError("decision as_of_utc must be strictly before the FPL deadline")
     age_hours = (as_of - captured).total_seconds() / 3600
     freshness = "FRESH_WITHIN_24H" if age_hours <= 24 else "STALE_OVER_24H"
 
