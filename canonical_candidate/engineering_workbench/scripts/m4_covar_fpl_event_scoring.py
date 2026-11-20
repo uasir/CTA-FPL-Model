@@ -121,6 +121,10 @@ def score_scenario_events(document: Mapping[str, Any]) -> dict[str, Any]:
     The original fpl_points field is replaced, never trusted as the result.
     """
     validate_scenario_document(document)
+    if document["metadata"].get("season") != "2026-27":
+        raise CovarEventScoringError(
+            "FPL_2026_27 scoring can only be applied to season 2026-27"
+        )
     players = {str(row["player_id"]): row for row in document["players"]}
     scored = copy.deepcopy(dict(document))
     for scenario in scored["scenarios"]:
