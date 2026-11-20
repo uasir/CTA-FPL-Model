@@ -31,6 +31,20 @@ def _number(value: Any, label: str, *, minimum: float | None = None) -> float:
     return result
 
 
+def _integer(value: Any, label: str, *, minimum: int = 0) -> int:
+    if isinstance(value, bool):
+        raise CovarScenarioContractError(f"{label} must be an integer")
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise CovarScenarioContractError(f"{label} must be an integer") from exc
+    if str(value).strip() not in (str(parsed), f"{parsed}.0"):
+        raise CovarScenarioContractError(f"{label} must be an integer")
+    if parsed < minimum:
+        raise CovarScenarioContractError(f"{label} must be >= {minimum}")
+    return parsed
+
+
 def _utc(value: Any, label: str) -> datetime:
     if not isinstance(value, str) or not value:
         raise CovarScenarioContractError(f"{label} is required")
@@ -71,7 +85,7 @@ def validate_scenario_document(document: Mapping[str, Any]) -> dict[str, Any]:
     required_meta = ("fixture_id", "season", "target_gameweek", "deadline_utc", "as_of_utc")
     if any(not metadata.get(key) for key in required_meta):
         raise CovarScenarioContractError("metadata fixture identity and time fields are required")
-    if int(metadata["target_gameweek"]) < 1:
+    if _integer(metadata["target_gameweek"], "metadata.target_gameweek", minimum=1) < 1:
         raise CovarScenarioContractError("target_gameweek must be positive")
     deadline = _utc(metadata["deadline_utc"], "metadata.deadline_utc")
     as_of = _utc(metadata["as_of_utc"], "metadata.as_of_utc")
@@ -124,10 +138,8 @@ def validate_scenario_document(document: Mapping[str, Any]) -> dict[str, Any]:
             team_id = str(state.get("team_id", ""))
             if team_id not in team_ids or team_id in state_by_team:
                 raise CovarScenarioContractError(f"scenario {scenario_id} has invalid or duplicate team state")
-            goals_for = int(state.get("goals_for", -1))
-            goals_against = int(state.get("goals_against", -1))
-            if goals_for < 0 or goals_against < 0:
-                raise CovarScenarioContractError("team goals must be non-negative integers")
+            goals_for = _integer(state.get("goals_for"), "team_state.goals_for")
+            goals_against = _integer(state.get("goals_against"), "team_state.goals_against")
             state_by_team[team_id] = {"goals_for": goals_for, "goals_against": goals_against}
         if not isinstance(outcomes, list):
             raise CovarScenarioContractError(f"scenario {scenario_id}.player_outcomes must be a list")
@@ -143,11 +155,10 @@ def validate_scenario_document(document: Mapping[str, Any]) -> dict[str, Any]:
             minutes = _number(outcome.get("minutes"), f"{scenario_id}.{player_id}.minutes", minimum=0)
             if minutes > 120:
                 raise CovarScenarioContractError("player minutes cannot exceed 120")
-            goals = int(outcome.get("goals", -1))
-            assists = int(outcome.get("assists", -1))
-            points = _number(outcome.get("fpl_points"), f"{scenario_id}.{player_id}.fpl_points", minimum=0)
-            if goals < 0 or assists < 0:
-                raise CovarScenarioContractError("player goals and assists must be non-negative integers")
+            goals = _integer(outcome.get("goals"), f"{scenario_id}.{player_id}.goals")
+            assists = _integer(outcome.get("assists"), f"{scenario_id}.{player_id}.assists")
+            # FPL player totals can be negative after cards/own goals; do not clamp them.
+            points = _number(outcome.get("fpl_points"), f"{scenario_id}.{player_id}.fpl_points")
             goals_by_team[player_by_id[player_id]["team_id"]] += goals
             if outcome.get("clean_sheet") not in (True, False):
                 raise CovarScenarioContractError("clean_sheet must be an explicit boolean")
