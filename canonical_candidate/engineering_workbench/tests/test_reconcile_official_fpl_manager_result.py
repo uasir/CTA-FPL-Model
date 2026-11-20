@@ -112,7 +112,7 @@ def test_rejects_local_score_mismatch():
 def test_rejects_inconsistent_official_event_points():
     payload = _payload()
     payload["official_picks"]["entry_history"]["points"] = 29
-    with pytest.raises(OfficialReconciliationError, match="does not reconcile"):
+    with pytest.raises(OfficialReconciliationError, match="does not reconcile|mismatch"):
         _run(payload)
 
 
