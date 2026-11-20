@@ -117,6 +117,10 @@ jobs:
               "position_pooled_transformer": position.get("pooled_transformer"),
               "position_pooled_transformer_affine_calibrated": position.get("pooled_transformer_expected_points_affine_calibrated"),
               "paired_position_ablation": comparison,
+              "base_deadline_local_ranking": base.get("deadline_local_ranking"),
+              "base_paired_deadline_local_ranking_bootstrap": base.get("paired_deadline_local_ranking_bootstrap"),
+              "position_deadline_local_ranking": position.get("deadline_local_ranking"),
+              "position_paired_deadline_local_ranking_bootstrap": position.get("paired_deadline_local_ranking_bootstrap"),
               "point_in_time_status": "NOT_VERIFIED_RETROSPECTIVE_SOURCE_VINTAGES",
               "player_level_predictions_uploaded": False
           }
