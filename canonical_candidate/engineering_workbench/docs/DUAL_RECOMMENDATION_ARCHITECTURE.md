@@ -84,7 +84,7 @@ If essential squad state is missing or stale, return a clear incomplete-input st
 - Squad-specific coverage, concentration and differential analysis.
 - Whole-squad expected points, uncertainty, upside/downside and decision explanation.
 
-The exploratory v0.1 evaluates one transfer at a time, with purchase-to-selling-price rules, budget, position and three-per-team limits, and a configurable hit cost. It builds a legal XI under the selected formation, captain/vice-captain and reserve/bench order. Multi-transfer sequences, chip simulation and future flexibility remain unimplemented. A player ranking alone is not a personal transfer recommendation.
+The exploratory v0.1 evaluates one transfer at a time, with purchase-to-selling-price rules, budget, position and three-per-team limits, and a configurable hit cost. It builds a legal XI under the selected formation, captain/vice-captain and reserve/bench order. Multi-transfer sequences, chip simulation and future flexibility remain unimplemented. A player ranking alone is not a personal transfer recommendation. Transfer candidates must be scored by the marginal expected points of the resulting starting XI plus captaincy relative to the current plan. The incoming-minus-outgoing player-point delta is retained as a diagnostic, not treated as the squad's gain. Bench-depth change is reported separately; a bench-only upgrade cannot be presented as a current-gameweek starting-XI gain when the XI and captaincy do not change. Multiweek bench value remains outside this one-gameweek optimiser.
 
 ## 5. CoVar and portfolio risk
 
@@ -136,6 +136,7 @@ Do not rebuild the existing engine, replace recovered source lineage, fabricate 
 - Both engines have deterministic Python/JavaScript output-parity tests.
 - The personal optimiser enforces one-transfer budget, position and three-player team constraints, legal formations, starting XI, captain, vice-captain and bench order.
 - The personal optimiser reports the top two outfield bench options and their expected-points/minutes strength separately from the fixed starting XI; this is descriptive and does not introduce routine rotation.
+- Transfer alternatives are ranked by marginal starting-XI plus captaincy EV after re-optimising the resulting legal squad in the same formation; incoming/outgoing player EV and bench-depth changes are reported separately.
 - The personal optimiser reports EO coverage for the owned squad and starting XI, with missing EO retained as missing. EO is field-reference context, not a prerequisite for CTA or an automatic ranking weight.
 - Personal recommendations emit a pre-deadline decision-audit payload for transfer alternatives, starting XI and captaincy, including the squad snapshot, bank, free transfers and forecast provenance. It is audit-ready, not considered frozen until captured and archived before the deadline; realised utility remains null until official outcomes are available.
 - The general-market reference engine uses EV and value; it uses EO only when locked cohort metadata and the matching target deadline are present.
