@@ -315,6 +315,25 @@ def build_player_match_features(events, matches, players, teams):
             counts["shot_goal_tags"] + counts["free_kick_goal_tags"] + counts["own_goal_tags"]
         )
         if attributed_total != metadata_total:
+            diagnostic_events = []
+            for event in events:
+                if str(event.get("matchId")) != match_id:
+                    continue
+                event_name = str(event.get("eventName") or "UNKNOWN")
+                tags = _tags(event)
+                if event_name not in {"Shot", "Free Kick", "Save attempt"} and not ({GOAL_TAG, OWN_GOAL_TAG} & tags):
+                    continue
+                diagnostic_events.append({
+                    "event_id": event.get("id"),
+                    "player_id": event.get("playerId"),
+                    "team_id": event.get("teamId"),
+                    "event_name": event_name,
+                    "sub_event_name": event.get("subEventName"),
+                    "match_period": event.get("matchPeriod"),
+                    "event_sec": event.get("eventSec"),
+                    "tags": sorted(tags),
+                    "positions": event.get("positions") or [],
+                })
             mismatched_matches.append({
                 "match_id": match_id,
                 "teams": match_context_by_id.get(match_id, []),
@@ -324,6 +343,7 @@ def build_player_match_features(events, matches, players, teams):
                 "own_goal_tags": counts["own_goal_tags"],
                 "player_attributed_goal_total": attributed_total,
                 "delta": attributed_total - metadata_total,
+                "diagnostic_events": diagnostic_events,
             })
     goal_tag_types = Counter(
         str(event.get("eventName") or "UNKNOWN")
