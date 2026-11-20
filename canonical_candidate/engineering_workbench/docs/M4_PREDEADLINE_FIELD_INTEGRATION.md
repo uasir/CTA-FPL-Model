@@ -21,8 +21,7 @@ PYTHONPATH=scripts python scripts/m4_predeadline_field_comparison.py \
   --output run_artifacts/m4_predeadline_comparison.json
 ```
 
-Candidate JSON must use the M4 contract schema. This task does not mutate M3
-outputs or the frozen candidate. Evidence remains provisional: sampled picks
+Candidate input accepts the real M3 output envelope (using its `evaluation_candidate` object) or a direct M4 contract fixture. The adapter maps the original M3 squad snapshot and hold plan into the M4 contract, then verifies that the M3 proposed plan changes only the outgoing player's existing squad slot. Any unrelated XI, bench-order, goalkeeper, captain, vice-captain or formation change is rejected. This task does not mutate M3 outputs or the frozen candidate. Evidence remains provisional: sampled picks
 can change before lock. The comparison is descriptive exposure context, not a
 points/rank forecast or recommendation utility. EV and EO remain separate;
 CoVar remains disabled; output is not release eligible.
