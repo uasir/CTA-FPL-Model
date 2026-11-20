@@ -8,6 +8,7 @@ on:
       - .github/workflows/cta-fpl-ci.yml
       - .github/workflows/cta-fpl-ingestion.yml
       - .github/workflows/cta-fpl-eo-capture.yml
+      - .github/workflows/cta-fpl-predeadline-field-eo.yml
       - .github/workflows/cta-opta-pulselive-integration.yml
       - .github/workflows/capture-predeadline-decision-evidence.yml
       - .github/workflows/reconcile-official-fpl-manager.yml
