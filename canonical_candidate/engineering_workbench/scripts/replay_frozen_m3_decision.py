@@ -284,6 +284,8 @@ def _reconstruct_manager_state(manifest: Mapping[str, Any],
             raise DecisionReplayError("official manager picks archive is invalid") from exc
         if not isinstance(picks_payload, dict) or picks_payload.get("entry_history", {}).get("event") != gameweek:
             raise DecisionReplayError("official manager picks payload has the wrong Gameweek")
+        if picks_payload.get("active_chip") is not None:
+            raise DecisionReplayError("official manager picks show an active chip")
         picks = picks_payload.get("picks")
         if not isinstance(picks, list) or len(picks) != 15:
             raise DecisionReplayError("official manager picks must contain exactly 15 players")
@@ -344,6 +346,12 @@ def _reconstruct_manager_state(manifest: Mapping[str, Any],
         if previous.get("entry_history", {}).get("event") != gameweek - 1:
             raise DecisionReplayError("previous manager picks archive has the wrong Gameweek")
         if method == "USER_CONFIRMED_WITH_PREVIOUS_GW_PICKS":
+            expected_urls = {
+                f"https://fantasy.premierleague.com/api/entry/{manager_id}/event/{gameweek - 1}/picks/",
+                f"https://fantasy.premierleague.com/api/entry/{manager_id}/history/",
+            }
+            if not expected_urls.issubset(set(manager_urls)):
+                raise DecisionReplayError("previous-Gameweek manager source URLs do not match manager/Gameweek")
             if {row.get("element") for row in previous.get("picks", [])} != set(squad):
                 raise DecisionReplayError("previous manager picks do not reproduce the attested squad")
             reconstructed = {
@@ -352,10 +360,19 @@ def _reconstruct_manager_state(manifest: Mapping[str, Any],
                 if isinstance(row.get("purchase_price"), int) and not isinstance(row.get("purchase_price"), bool)
             }
         else:
+            expected_urls = {
+                f"https://fantasy.premierleague.com/api/entry/{manager_id}/event/{gameweek - 1}/picks/",
+                f"https://fantasy.premierleague.com/api/entry/{manager_id}/event/1/picks/",
+                f"https://fantasy.premierleague.com/api/entry/{manager_id}/transfers/",
+                f"https://fantasy.premierleague.com/api/entry/{manager_id}/history/",
+                "https://fantasy.premierleague.com/api/bootstrap-static/",
+            }
+            if not expected_urls.issubset(set(manager_urls)):
+                raise DecisionReplayError("official manager-history source URLs are incomplete or detached")
             gw1 = nested("gw1_picks")
             transfers = nested("transfers")
-            bootstrap = nested("bootstrap")
-            reconstructed_rows = reconstruct_purchase_prices(gw1, transfers, history, gameweek, set(squad), bootstrap)
+            history_bootstrap = nested("bootstrap")
+            reconstructed_rows = reconstruct_purchase_prices(gw1, transfers, history, gameweek, set(squad), history_bootstrap)
             reconstructed = {str(row["fpl_element_id"]): row["purchase_price"] for row in reconstructed_rows}
         if reconstructed != dict(purchase):
             raise DecisionReplayError("official manager history cannot reproduce attested purchase prices")
