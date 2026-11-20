@@ -47,7 +47,7 @@ The evidence subtasks are additional implementation work that closes the origina
 2. **M4-T5 — Portfolio exposure baseline:** completed; report separate squad/XI/bench field-exposure sums, top-player exposure, top-3/top-5 concentration shares, HHI, effective contributor count and captain-share differential. Missing values withhold dependent sums/concentration. No covariance or correlation is inferred.
 3. **M4-T6 — CoVar eligibility research gate:** gate implementation completed and CI-tested. It checks point-in-time provenance, explicit window/coverage policy, rolling stability, shrinkage sensitivity, independent uncertainty and positive out-of-sample utility evidence. Existing exploratory artifacts remain blocked; decision weight is hard-coded to zero and production eligibility remains false.
 4. **M4-T7 — M3/M4 integration and regression:** completed and CI-tested. The optionality adapter verifies M3 frozen-decision hash, embedded candidate identity and exact lineup/bench order; M4 must predate the M3 decision. Absent, stale, mismatched or invalid M4 is withheld without changing M3 EV, legality or decision. Existing deterministic replay tests remain in force.
-5. **M4-T8 — Acceptance report and M5 handoff:** document implemented interfaces, research-only components, remaining blockers and release-safe boundaries.
+5. **M4-T8 — Acceptance report and M5 handoff:** completed as an engineering handoff. The report documents interfaces, research-only components, remaining live-data/covariance blockers and release-safe boundaries. M4 remains unmerged and not production eligible.
 
 ## 5. Non-negotiable invariants
 
