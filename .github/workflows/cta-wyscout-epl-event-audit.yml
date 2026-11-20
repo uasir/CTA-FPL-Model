@@ -25,6 +25,7 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_aggregate_abc_player_gameweeks.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_wyscout.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py
+      - canonical_candidate/engineering_workbench/scripts/compare_matched_abc_2pm_predictions.py
       - canonical_candidate/engineering_workbench/scripts/build_matched_abc_2pm_fold_manifest.py
       - canonical_candidate/engineering_workbench/scripts/matched_fold_keys.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_two_pm_transformer_walk_forward.py
@@ -53,6 +54,7 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_cta_abc_wyscout_panel.py
       - canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_wyscout.py
       - canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_walk_forward.py
+      - canonical_candidate/engineering_workbench/tests/test_compare_matched_abc_2pm_predictions.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py
       - canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_walk_forward.py
   push:
@@ -425,12 +427,20 @@ jobs:
               --source-report "$ABC_SOURCE_REPORT" \
               --matched-partition-keys "$PARTITION_KEYS" \
               --matched-manifest "$MANIFEST" \
+              --predictions-out "$RUNNER_TEMP/cta_2pm_same_cohort/abc_matched_predictions.csv" \
               --out "$REPORT_DIR/cta_abc_matched_walk_forward_report.json"
             python canonical_candidate/engineering_workbench/scripts/evaluate_two_pm_transformer_walk_forward.py \
               --input "$FPL_PANEL" \
               --matched-partition-keys "$PARTITION_KEYS" \
               --matched-manifest "$MANIFEST" \
+              --predictions-out "$RUNNER_TEMP/cta_2pm_same_cohort/two_pm_matched_predictions.csv" \
               --out "$REPORT_DIR/two_pm_matched_walk_forward_report.json"
+            python canonical_candidate/engineering_workbench/scripts/compare_matched_abc_2pm_predictions.py \
+              --abc-predictions "$RUNNER_TEMP/cta_2pm_same_cohort/abc_matched_predictions.csv" \
+              --two-pm-predictions "$RUNNER_TEMP/cta_2pm_same_cohort/two_pm_matched_predictions.csv" \
+              --partition-keys "$PARTITION_KEYS" \
+              --manifest "$MANIFEST" \
+              --out "$REPORT_DIR/cta_abc_vs_2pm_paired_comparison_report.json"
           else
             echo "ERROR: matched ABC/2PM inputs, manifest, or private partition keys are unavailable"
             exit 2
@@ -451,6 +461,7 @@ jobs:
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/matched_abc_2pm_fold_manifest.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_matched_walk_forward_report.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/two_pm_matched_walk_forward_report.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_vs_2pm_paired_comparison_report.json
           if-no-files-found: ignore
           retention-days: 90
 
