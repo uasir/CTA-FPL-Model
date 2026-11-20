@@ -15,16 +15,33 @@ ROGUE_CSV = (
 LUCHO_CSV = b"id,name,team,position,price,xp_gw11,fixtures_gw11\n1,Player One,TST,MID,5.0,4.2,TST\n"
 
 
-def test_sideline_quant_preserves_fixture_grain_and_checks_gameweek():
+def sideline_payload(**overrides):
     payload = {
         "gameweek": 11, "generated_at": "2026-11-18T03:33:09Z",
-        "n_players": 672, "n_rows": 672, "rows": [{"player_id": 1}],
+        "n_players": 1, "n_rows": 1,
+        "rows": [{"player_id": 1, "fixture_id": 99}],
     }
+    payload.update(overrides)
+    return payload
+
+
+def cat_payload(**overrides):
+    payload = {
+        "gameweek": 11, "deadline": "2026-11-21T11:00:00Z",
+        "computed_at": "2026-11-19T04:45:06Z",
+        "players": [{"id": 411, "xp": 6.42, "expected_minutes": 82}],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_sideline_quant_preserves_fixture_grain_and_checks_gameweek():
+    payload = sideline_payload()
     result = validate_payload(
         "sideline_quant_fixture_xp", json.dumps(payload).encode(),
         11, "application/json",
     )
-    assert result["row_count"] == 672
+    assert result["row_count"] == 1
     assert result["grain"] == "player_fixture"
     with pytest.raises(ValueError, match="gameweek mismatch"):
         validate_payload(
@@ -33,34 +50,62 @@ def test_sideline_quant_preserves_fixture_grain_and_checks_gameweek():
         )
 
 
-def test_provider_csv_schemas_and_variants_are_explicit():
+def test_sideline_quant_rejects_row_count_or_player_count_mismatch():
+    with pytest.raises(ValueError, match="does not match n_rows"):
+        validate_payload(
+            "sideline_quant_fixture_xp",
+            json.dumps(sideline_payload(n_rows=2)).encode(), 11, "application/json",
+        )
+    with pytest.raises(ValueError, match="n_players"):
+        validate_payload(
+            "sideline_quant_fixture_xp",
+            json.dumps(sideline_payload(n_players=2)).encode(), 11, "application/json",
+        )
+
+
+def test_provider_csv_schemas_variants_and_numeric_values_are_explicit():
     lucho = validate_payload("fpl_lucho_served_xp_csv", LUCHO_CSV, 11, "text/csv")
     assert lucho["row_count"] == 1
     assert lucho["player_id_column"] == "id"
     assert lucho["forecast_column"] == "xp_gw11"
     assert lucho["variant"] == "served_xP_not_assumed_Odds_xP"
+    assert "UNVERIFIED" in lucho["timestamp_eligibility"]
     rogue = validate_payload("fpl_rogue_accepted_xpts_csv", ROGUE_CSV, 11, "text/csv")
     assert rogue["row_count"] == 1
     assert rogue["player_id_column"] == "player_id"
     assert rogue["forecast_column"] == "next_gw_xpts"
     assert rogue["variant"] == "accepted_xpts_v1"
+    assert rogue["provider_captured_at"] == "2026-11-19T09:45:00Z"
     with pytest.raises(ValueError, match="different target gameweek"):
         validate_payload("fpl_rogue_accepted_xpts_csv", ROGUE_CSV.replace(b",11,", b",12,"), 11, "text/csv")
+    with pytest.raises(ValueError, match="must be finite"):
+        validate_payload("fpl_lucho_served_xp_csv", LUCHO_CSV.replace(b",4.2,", b",NaN,"), 11, "text/csv")
 
 
-def test_capture_writes_exact_raw_bytes_and_hashes(tmp_path):
-    payload = json.dumps({
-        "gameweek": 11, "generated_at": "2026-11-18T03:33:09Z",
-        "n_players": 1, "n_rows": 1, "rows": [{"player_id": 1}],
-    }).encode()
-    fpl_cat_payload = json.dumps({
-        "gameweek": 11, "deadline": "2026-11-21T11:00:00Z",
-        "computed_at": "2026-11-19T04:45:06Z",
-        "players": [{"id": 411, "xp": 6.42, "expected_minutes": 82}],
-    }).encode()
+def test_csv_collectors_reject_duplicate_player_ids():
+    duplicate_lucho = LUCHO_CSV + b"1,Player Two,TST,MID,5.0,3.1,TST\n"
+    with pytest.raises(ValueError, match="duplicate player IDs"):
+        validate_payload("fpl_lucho_served_xp_csv", duplicate_lucho, 11, "text/csv")
+    duplicate_rogue = ROGUE_CSV + ROGUE_CSV.splitlines()[1] + b"\n"
+    with pytest.raises(ValueError, match="duplicate player IDs"):
+        validate_payload("fpl_rogue_accepted_xpts_csv", duplicate_rogue, 11, "text/csv")
+
+
+def test_provider_timestamps_must_be_timezone_aware():
+    with pytest.raises(ValueError, match="timezone"):
+        validate_payload(
+            "fpl_cat_player_xp",
+            json.dumps(cat_payload(computed_at="2026-11-19T04:45:06")).encode(),
+            11, "application/json",
+        )
+
+
+def test_capture_writes_exact_raw_bytes_hashes_and_timestamp_eligibility(tmp_path):
+    payload = json.dumps(sideline_payload()).encode()
+    fpl_cat = json.dumps(cat_payload()).encode()
     responses = {
         "https://fplcat.com/api/v1/projections":
-            (fpl_cat_payload, "application/json", "https://fplcat.com/api/v1/projections"),
+            (fpl_cat, "application/json", "https://fplcat.com/api/v1/projections"),
         "https://sidelinequant.com/data/gw/11/projections.json":
             (payload, "application/json", "https://sidelinequant.com/data/gw/11/projections.json"),
         "https://www.fplrogue.com/research/projections.csv":
@@ -70,9 +115,30 @@ def test_capture_writes_exact_raw_bytes_and_hashes(tmp_path):
     }
     manifest = capture(11, tmp_path, lambda url: responses[url])
     assert manifest["capture_status"] == "PASS_RAW_OUTPUTS_CAPTURED"
+    by_source = {item["source"]: item for item in manifest["sources"]}
+    assert by_source["fpl_cat_player_xp"]["timestamp_eligibility"] == "PROVIDER_TIMESTAMP_BEFORE_DEADLINE"
+    assert by_source["sideline_quant_fixture_xp"]["timestamp_eligibility"] == "PROVIDER_TIMESTAMP_BEFORE_DEADLINE"
+    assert by_source["fpl_rogue_accepted_xpts_csv"]["timestamp_eligibility"] == "PROVIDER_TIMESTAMP_BEFORE_DEADLINE"
+    assert "UNVERIFIED" in by_source["fpl_lucho_served_xp_csv"]["timestamp_eligibility"]
     for item in manifest["sources"]:
         raw = (tmp_path / item["raw_file"]).read_bytes()
         assert item["sha256"] == sha256(raw)
+
+
+def test_capture_rejects_provider_timestamp_after_deadline(tmp_path):
+    responses = {
+        "https://fplcat.com/api/v1/projections":
+            (json.dumps(cat_payload()).encode(), "application/json", "https://fplcat.com/api/v1/projections"),
+        "https://sidelinequant.com/data/gw/11/projections.json":
+            (json.dumps(sideline_payload(generated_at="2026-11-22T03:33:09Z")).encode(),
+             "application/json", "https://sidelinequant.com/data/gw/11/projections.json"),
+        "https://www.fplrogue.com/research/projections.csv":
+            (ROGUE_CSV, "text/csv", "https://www.fplrogue.com/research/projections.csv"),
+        "https://fpllucho.pythonanywhere.com/export/predictions.csv":
+            (LUCHO_CSV, "text/csv", "https://fpllucho.pythonanywhere.com/export/predictions.csv"),
+    }
+    with pytest.raises(ValueError, match="at or after the target deadline"):
+        capture(11, tmp_path, lambda url: responses[url])
 
 
 def test_html_response_is_not_misclassified_as_forecast_data():
@@ -81,11 +147,7 @@ def test_html_response_is_not_misclassified_as_forecast_data():
 
 
 def test_fpl_cat_json_checks_player_ids_xp_and_gameweek():
-    payload = {
-        "gameweek": 11, "deadline": "2026-11-21T11:00:00Z",
-        "computed_at": "2026-11-19T04:45:06Z",
-        "players": [{"id": 411, "xp": 6.42, "expected_minutes": 82}],
-    }
+    payload = cat_payload()
     result = validate_payload(
         "fpl_cat_player_xp", json.dumps(payload).encode(),
         11, "application/json",
@@ -98,4 +160,9 @@ def test_fpl_cat_json_checks_player_ids_xp_and_gameweek():
             "fpl_cat_player_xp", json.dumps(payload).encode(),
             12, "application/json",
         )
-
+    with pytest.raises(ValueError, match="at or after the deadline"):
+        validate_payload(
+            "fpl_cat_player_xp",
+            json.dumps(cat_payload(computed_at="2026-11-22T11:00:00Z")).encode(),
+            11, "application/json",
+        )

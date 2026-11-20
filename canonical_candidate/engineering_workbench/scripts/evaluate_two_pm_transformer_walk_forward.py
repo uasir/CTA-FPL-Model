@@ -28,6 +28,7 @@ from evaluate_fpl_walk_forward import (
 from evaluate_fpl_decision_quality import evaluate_forecast
 from compare_2pm_position_ablation import rank_by_deadline
 from train_fpl_exploratory_ridge import fit_ridge, predict
+from matched_fold_keys import sha_keys, canonical_key, load_partition_keys, verify_manifest_partition_hashes
 
 # Include the recent xG/xA aggregates available in the multi-season FPL panel.
 # The existing published baseline feature set remains unchanged; matched Ridge
@@ -345,16 +346,46 @@ def paired_deadline_ranking_bootstrap(candidate_deadlines, reference_deadlines,
     }
 
 
-def evaluate_fold(all_rows, season, torch, seed_offset=0, feature_candidates=None):
-    train = [r for r in all_rows if r["season"] < season]
-    valid = [r for r in all_rows if r["season"] == season]
-    train_keys = sorted({(r["season"], r["gameweek"]) for r in train})
-    if len(train_keys) < 10:
-        raise ValueError("Insufficient prior gameweeks for transformer calibration")
-    calibration_count = max(1, math.ceil(len(train_keys) * 0.20))
-    calibration_keys = set(train_keys[-calibration_count:])
-    fit_rows = [r for r in train if (r["season"], r["gameweek"]) not in calibration_keys]
-    calibration_rows = [r for r in train if (r["season"], r["gameweek"]) in calibration_keys]
+def evaluate_fold(all_rows, season, torch, seed_offset=0, feature_candidates=None,
+                  partition_keys=None):
+    if partition_keys is not None:
+        by_key = {
+            canonical_key(r["season"], r["fpl_element_id"], r["gameweek"]): r
+            for r in all_rows
+        }
+        def exact_rows(keys, label):
+            missing = [key for key in keys if key not in by_key]
+            if missing:
+                raise ValueError(f"Matched 2PM {label} keys missing from conventional FPL panel: {len(missing)}")
+            selected = [by_key[key] for key in keys]
+            if len(selected) != len(keys):
+                raise ValueError(f"Matched 2PM {label} keys are not unique")
+            return selected
+        fit_rows = exact_rows(partition_keys["fit"], "fit")
+        calibration_rows = exact_rows(partition_keys["calibration"], "calibration")
+        validation_rows = exact_rows(partition_keys["test"], "test")
+        for label, selected in (("fit", fit_rows), ("calibration", calibration_rows), ("test", validation_rows)):
+            if any(canonical_key(row["season"], row["fpl_element_id"], row["gameweek"])[0] != str(season) for row in selected):
+                raise ValueError(f"Matched 2PM {label} partition spans unexpected seasons")
+        if any(r["last5_baseline_points"] is None for r in validation_rows):
+            raise ValueError("Matched 2PM test partition contains a missing last-five baseline")
+        partition_hashes = {
+            "fit": sha_keys(partition_keys["fit"]),
+            "calibration": sha_keys(partition_keys["calibration"]),
+            "test": sha_keys(partition_keys["test"]),
+        }
+    else:
+        train = [r for r in all_rows if r["season"] < season]
+        valid = [r for r in all_rows if r["season"] == season]
+        train_keys = sorted({(r["season"], r["gameweek"]) for r in train})
+        if len(train_keys) < 10:
+            raise ValueError("Insufficient prior gameweeks for transformer calibration")
+        calibration_count = max(1, math.ceil(len(train_keys) * 0.20))
+        calibration_keys = set(train_keys[-calibration_count:])
+        fit_rows = [r for r in train if (r["season"], r["gameweek"]) not in calibration_keys]
+        calibration_rows = [r for r in train if (r["season"], r["gameweek"]) in calibration_keys]
+        validation_rows = [r for r in valid if r["last5_baseline_points"] is not None]
+        partition_hashes = None
     fold_features = available_features(fit_rows, feature_candidates)
     if len(fit_rows) < len(fold_features) + 10:
         raise ValueError("Insufficient transformer fitting rows or usable features")
@@ -363,7 +394,6 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0, feature_candidates=Non
     history_index = build_history_index(all_rows)
     fit_windows = make_windows(fit_rows, history_index)
     calibration_windows = make_windows(calibration_rows, history_index)
-    validation_rows = [r for r in valid if r["last5_baseline_points"] is not None]
     validation_windows = make_windows(validation_rows, history_index)
 
     preprocessor = fit_preprocessor(fit_rows, fold_features)
@@ -477,6 +507,7 @@ def evaluate_fold(all_rows, season, torch, seed_offset=0, feature_candidates=Non
         "fit_player_gameweeks": len(fit_rows),
         "calibration_player_gameweeks": len(calibration_rows),
         "validation_player_gameweeks": len(validation_rows),
+        "matched_partition_key_sha256": partition_hashes,
         "minutes_temperature": minutes_temp,
         "conditional_points_temperature": points_temp,
         "transformer": transformer_report,
@@ -515,7 +546,7 @@ def appearance_model_prediction(model, row):
     return predict(model, row)
 
 
-def evaluate(rows, feature_set="base"):
+def evaluate(rows, feature_set="base", matched_fold_keys=None, matched_manifest=None):
     try:
         import torch
     except ImportError as exc:
@@ -543,10 +574,25 @@ def evaluate(rows, feature_set="base"):
     pooled_haul = {6: [], 8: [], 10: []}
     pooled_prediction_rows = []
     pooled_deadline_ranking_rows = defaultdict(dict)
-    for index, season in enumerate(seasons):
-        if index == 0:
-            continue
-        fold = evaluate_fold(grouped, season, torch, index, feature_candidates)
+    if matched_fold_keys is not None:
+        if matched_manifest is None:
+            raise ValueError("Matched 2PM evaluation requires the public fold manifest")
+        verify_manifest_partition_hashes(matched_fold_keys, matched_manifest)
+        fold_specs = [
+            (fold_id, parts["test"][0][0], parts)
+            for fold_id, parts in sorted(matched_fold_keys.items())
+        ]
+    else:
+        fold_specs = [
+            (index + 1, season, None)
+            for index, season in enumerate(seasons) if index > 0
+        ]
+    for fold_id, season, partition_keys in fold_specs:
+        fold = evaluate_fold(
+            grouped, season, torch, fold_id, feature_candidates,
+            partition_keys=partition_keys,
+        )
+        fold["fold"] = fold_id
         aggregate = fold.pop("_aggregate")
         fold_deadline_rows = fold.pop("_deadline_ranking_rows")
         for prediction_key, deadline_rows in fold_deadline_rows.items():
@@ -566,7 +612,7 @@ def evaluate(rows, feature_set="base"):
             aggregate["transformer_affine_calibrated"],
         ):
             pooled_prediction_rows.append({
-                **key, "actual_points": actual_value,
+                **key, "fold": fold_id, "actual_points": actual_value,
                 "predicted_points": raw_value,
                 "affine_calibrated_points": calibrated_value,
             })
@@ -574,9 +620,8 @@ def evaluate(rows, feature_set="base"):
             pooled_haul[threshold].extend(aggregate["transformer_haul_probabilities"][threshold])
         # Validation fold is one season; player-season clusters are unique within it.
         pooled_clusters.extend([
-            f"{season}:{r['fpl_element_id']}"
-            for r in grouped
-            if r["season"] == season and r["last5_baseline_points"] is not None
+            f"{key['season']}:{key['fpl_element_id']}"
+            for key in aggregate["keys"]
         ])
     if not folds:
         raise ValueError("No expanding-season Transformer folds available")
@@ -650,7 +695,7 @@ def evaluate(rows, feature_set="base"):
             "attention_heads": HEADS, "encoder_layers": LAYERS,
             "optimizer": "AdamW", "seed": SEED,
         },
-        "validation_design": "Expanding-season walk-forward; each validation season is trained only on earlier seasons. The latest 20% of prior training gameweeks is held out for calibration. Earlier validation-season outcomes enter only through lagged feature snapshots for later deadlines.",
+        "validation_design": ("Manifest-matched expanding whole-Gameweek fit/calibration/test partitions." if matched_fold_keys is not None else "Expanding-season walk-forward; each validation season is trained only on earlier seasons. The latest 20% of prior training gameweeks is held out for calibration. Earlier validation-season outcomes enter only through lagged feature snapshots for later deadlines."),
         "point_in_time_status": "NOT_VERIFIED_RETROSPECTIVE_SOURCE_VINTAGES",
         "fold_count": len(folds),
         "folds": folds,
@@ -681,15 +726,21 @@ def main():
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--feature-set", choices=sorted(TRANSFORMER_FEATURE_SETS), default="base")
     parser.add_argument("--predictions-out", type=Path)
+    parser.add_argument("--matched-partition-keys", type=Path)
+    parser.add_argument("--matched-manifest", type=Path)
     args = parser.parse_args()
     with args.input.open(newline="", encoding="utf-8-sig") as handle:
         rows = list(csv.DictReader(handle))
-    report = evaluate(rows, feature_set=args.feature_set)
+    matched_keys = load_partition_keys(args.matched_partition_keys) if args.matched_partition_keys else None
+    matched_manifest = json.loads(args.matched_manifest.read_text(encoding="utf-8")) if args.matched_manifest else None
+    if bool(matched_keys) != bool(matched_manifest):
+        parser.error("--matched-partition-keys and --matched-manifest must be supplied together")
+    report = evaluate(rows, feature_set=args.feature_set, matched_fold_keys=matched_keys, matched_manifest=matched_manifest)
     prediction_rows = report.pop("_prediction_rows")
     if args.predictions_out:
         args.predictions_out.parent.mkdir(parents=True, exist_ok=True)
         with args.predictions_out.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=["season", "fpl_element_id", "gameweek", "actual_points", "predicted_points", "affine_calibrated_points"])
+            writer = csv.DictWriter(handle, fieldnames=["fold", "season", "fpl_element_id", "gameweek", "actual_points", "predicted_points", "affine_calibrated_points"])
             writer.writeheader()
             writer.writerows(prediction_rows)
     report["prediction_rows_exported"] = len(prediction_rows) if args.predictions_out else 0
