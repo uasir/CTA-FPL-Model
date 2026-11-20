@@ -220,7 +220,8 @@ def _reconstruct_provider_and_metadata(manifest: Mapping[str, Any],
 
 
 def _reconstruct_manager_state(manifest: Mapping[str, Any],
-                               source: Mapping[str, Any]) -> None:
+                               source: Mapping[str, Any],
+                               metadata_source: Mapping[str, Any]) -> None:
     raw, envelope = _decode_json_archive(source, "manager deadline state")
     if envelope.get("capture_kind") != "USER_ATTESTED_PREDEADLINE_MANAGER_STATE":
         raise DecisionReplayError("manager source archive has an unsupported capture kind")
@@ -246,6 +247,27 @@ def _reconstruct_manager_state(manifest: Mapping[str, Any],
         raise DecisionReplayError("manager purchase prices do not cover the attested squad")
     if not isinstance(selling, Mapping) or set(selling) != expected_keys:
         raise DecisionReplayError("manager selling prices do not cover the attested squad")
+
+    try:
+        bootstrap_raw = base64.b64decode(metadata_source["raw_payload_base64"], validate=True)
+        bootstrap = json.loads(bootstrap_raw)
+    except Exception as exc:
+        raise DecisionReplayError("official bootstrap archive is unavailable for manager price replay") from exc
+    elements = bootstrap.get("elements") if isinstance(bootstrap, dict) else None
+    if not isinstance(elements, list):
+        raise DecisionReplayError("official bootstrap has no player elements for manager price replay")
+    current_costs = {row.get("id"): row.get("now_cost") for row in elements if isinstance(row, dict)}
+    expected_selling = {}
+    for player_id in squad:
+        now_cost = current_costs.get(player_id)
+        purchase_price = purchase.get(str(player_id))
+        if isinstance(now_cost, bool) or not isinstance(now_cost, int) or isinstance(purchase_price, bool) or not isinstance(purchase_price, (int, float)):
+            raise DecisionReplayError(f"official current/purchase price is missing for manager player {player_id}")
+        purchase_tenths = round(float(purchase_price) * 10)
+        selling_tenths = purchase_tenths + (now_cost - purchase_tenths) // 2 if now_cost > purchase_tenths else now_cost
+        expected_selling[str(player_id)] = selling_tenths / 10
+    if expected_selling != dict(selling):
+        raise DecisionReplayError("manager selling prices cannot be reconstructed from official bootstrap and purchase prices")
 
     method = envelope.get("capture_method")
     manager_urls = envelope.get("source_urls")
@@ -375,7 +397,9 @@ def replay_frozen_decision(
     _verify_archives(manifest)
     by_type = {row["source_type"]: row for row in manifest["sources"]}
     _reconstruct_provider_and_metadata(manifest, by_type)
-    _reconstruct_manager_state(manifest, by_type["manager_deadline_state"])
+    _reconstruct_manager_state(
+        manifest, by_type["manager_deadline_state"], by_type["player_metadata"]
+    )
 
     replayed = run_predeadline_m3_decision(
         evidence_bundle, software_commit=software_commit
