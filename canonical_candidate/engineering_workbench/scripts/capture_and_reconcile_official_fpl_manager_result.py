@@ -150,16 +150,36 @@ def capture_and_reconcile(manager_team_id: int, gameweek: int) -> dict[str, Any]
         "vice_captain_id": vice_rows[0],
     }
     local_score = _score_plan(plan, roster, realised)
-    reconciliation = reconcile_official_manager_result(
-        local_score, picks, payloads["event_live"],
-        manager_team_id=manager_team_id,
-        target_gameweek=gameweek,
-        expected_starting_xi=starting_xi,
-        expected_bench_order=bench_order,
-        expected_reserve_goalkeeper_id=reserve_gk,
-        expected_captain_id=captain_rows[0],
-        expected_vice_captain_id=vice_rows[0],
-    )
+    try:
+        reconciliation = reconcile_official_manager_result(
+            local_score, picks, payloads["event_live"],
+            manager_team_id=manager_team_id,
+            target_gameweek=gameweek,
+            expected_starting_xi=starting_xi,
+            expected_bench_order=bench_order,
+            expected_reserve_goalkeeper_id=reserve_gk,
+            expected_captain_id=captain_rows[0],
+            expected_vice_captain_id=vice_rows[0],
+        )
+    except Exception as exc:
+        # Preserve all captured official evidence and local simulation when a comparison fails.
+        diagnostic = {
+            "capture_contract_version": "0.1.0",
+            "manager_team_id": manager_team_id,
+            "target_gameweek": gameweek,
+            "event_finalized": True,
+            "source_archives": sources,
+            "local_score": local_score,
+            "official_entry_history": history,
+            "official_picks": picks,
+            "official_live": payloads["event_live"],
+            "expected_plan": plan,
+            "reconciliation_error_type": type(exc).__name__,
+            "reconciliation_error": str(exc),
+            "historical_evidence_admitted": False,
+        }
+        setattr(exc, "diagnostic_record", diagnostic)
+        raise
     return {
         "capture_contract_version": "0.1.0",
         "manager_team_id": manager_team_id,
