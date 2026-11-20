@@ -54,7 +54,8 @@ class TestPredeadlineFieldCapture(unittest.TestCase):
         field_artifact = report["manager_id_stripped_portfolios"]
         self.assertEqual(field_artifact["metadata"]["manager_count"], 100)
         self.assertFalse(field_artifact["metadata"]["manager_entry_ids_retained"])
-        self.assertNotIn("entry_id", str(field_artifact))
+        self.assertTrue(all("entry_id" not in row for row in field_artifact["portfolios"]))
+        self.assertNotIn("100001", str(field_artifact))
         self.assertAlmostEqual(
             sum(row["field_weight"] for row in field_artifact["portfolios"]), 1.0
         )
