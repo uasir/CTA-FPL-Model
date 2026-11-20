@@ -17,6 +17,10 @@ on:
       - canonical_candidate/engineering_workbench/scripts/verify_cross_provider_fpl_identity.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_abc_expected_fixture_universe.py
+      - canonical_candidate/engineering_workbench/scripts/aggregate_abc_player_gameweeks.py
+      - canonical_candidate/engineering_workbench/tests/test_build_abc_expected_fixture_universe.py
+      - canonical_candidate/engineering_workbench/tests/test_aggregate_abc_player_gameweeks.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_wyscout.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py
       - canonical_candidate/engineering_workbench/scripts/compare_abc_with_2pm_same_cohort.py
@@ -60,6 +64,10 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_abc_expected_fixture_universe.py
+      - canonical_candidate/engineering_workbench/scripts/aggregate_abc_player_gameweeks.py
+      - canonical_candidate/engineering_workbench/tests/test_build_abc_expected_fixture_universe.py
+      - canonical_candidate/engineering_workbench/tests/test_aggregate_abc_player_gameweeks.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py
       - canonical_candidate/engineering_workbench/scripts/compare_abc_with_2pm_same_cohort.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
@@ -340,6 +348,35 @@ jobs:
             --out-dir "$RUNNER_TEMP/cta_2pm_same_cohort" \
             --seasons 2016-17 2017-18
 
+      - name: Validate exact player-GW fixture universe and aggregate ABC features
+        if: always()
+        continue-on-error: true
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          ABC_PANEL="../../run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          ABC_SOURCE_REPORT="../../run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
+          FPL_PANEL="$RUNNER_TEMP/cta_2pm_same_cohort/vaastav_fpl_multiseason_panel.csv"
+          FPL_REPORT="$RUNNER_TEMP/cta_2pm_same_cohort/vaastav_fpl_multiseason_report.json"
+          OUT_DIR="$RUNNER_TEMP/cta_2pm_same_cohort/abc_player_gameweek"
+          REPORT_DIR="../../run_artifacts/wyscout/output/verified_fpl_panel/cta_abc"
+          mkdir -p "$OUT_DIR" "$REPORT_DIR"
+          if [ -f "$ABC_PANEL" ] && [ -f "$ABC_SOURCE_REPORT" ] && [ -f "$FPL_PANEL" ] && [ -f "$FPL_REPORT" ]; then
+            python scripts/build_abc_expected_fixture_universe.py \
+              --abc-panel "$ABC_PANEL" \
+              --fpl-panel "$FPL_PANEL" \
+              --abc-source-report "$ABC_SOURCE_REPORT" \
+              --fpl-panel-report "$FPL_REPORT" \
+              --expected-fixtures-out "$OUT_DIR/expected_fixture_ids.csv" \
+              --report-out "$REPORT_DIR/abc_expected_fixture_reference_report.json"
+            python scripts/aggregate_abc_player_gameweeks.py \
+              --input "$ABC_PANEL" \
+              --expected-fixtures "$OUT_DIR/expected_fixture_ids.csv" \
+              --out "$OUT_DIR/abc_player_gameweek_panel.csv" \
+              --report-out "$REPORT_DIR/abc_player_gameweek_aggregation_report.json"
+          else
+            echo "WARNING: ABC player-fixture panel or pinned FPL reference panel/report unavailable"
+          fi
+
       - name: Compare independent ABC and 2PM on the exact same player-GW cohort
         if: always()
         continue-on-error: true
@@ -367,6 +404,8 @@ jobs:
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_evaluation_report.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_walk_forward_report.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_vs_2pm_same_cohort_report.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_expected_fixture_reference_report.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_player_gameweek_aggregation_report.json
           if-no-files-found: ignore
           retention-days: 90
 
