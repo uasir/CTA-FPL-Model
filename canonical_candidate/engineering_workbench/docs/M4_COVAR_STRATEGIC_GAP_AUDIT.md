@@ -1,6 +1,6 @@
 # M4 CoVar Strategic Gap Audit
 
-**Status:** Strategic audit complete; synthetic scenario input contract implemented; scoring/simulation prototype pending  
+**Status:** Strategic audit complete; synthetic scenario input contract and deterministic portfolio aggregation implemented; event-to-FPL scoring and field-relative simulation pending  
 **Branch:** `feat/m4-field-portfolio-intelligence`  
 **Scope:** Map the article-derived Field CoVar methodology to existing M4 components.  
 **Production status:** Research only; CoVar decision weight remains 0 and production eligibility remains false.
@@ -116,7 +116,7 @@ Created:
 
 The versioned v1.0.0 contract validates fixture identity and deadline timing, team/player identities, explicit player outcomes, team-score consistency, scenario probabilities, portfolio membership and captaincy. It accepts only `SYNTHETIC_FIXTURE_ONLY` inputs. It preserves negative player point totals where scoring deductions apply, and returns hard-coded `decision_weight = 0.0` and `production_eligible = false`.
 
-This is an input contract, not yet an FPL event-scoring engine or portfolio simulator. The next task is to implement deterministic scenario scoring and portfolio comparison using these validated inputs, with regular-GW mode as the default. The contract and first engine must not require Free Hit classification. Do not build a live-data adapter until synthetic mechanics and tests are stable.
+This input contract is now paired with `scripts/m4_covar_scenario_scoring.py` and `tests/test_m4_covar_scenario_scoring.py`. The scorer applies supplied captain multipliers to explicit scenario-level FPL points, then reports scenario totals, expected points, variance, standard deviation, weighted quantiles, and a covariance-contribution reconciliation. It defaults to `REGULAR_GW`; `FREE_HIT` is accepted only when explicitly selected. A baseline comparison is calculated only when a portfolio ID is explicitly supplied. It does not infer a field portfolio from marginal EO, and field comparison remains unavailable without explicit manager/benchmark portfolio inputs. Importantly, this is portfolio aggregation, not event-to-FPL-point conversion: `fpl_points` are currently supplied in the synthetic fixture rather than calculated from goals, assists, clean sheets, saves, cards and other FPL scoring events. The next task is to validate and implement that separate scoring layer, then build scenario-matched field-relative comparison. Do not build a live-data adapter until synthetic mechanics and tests are stable.
 
 The prototype should demonstrate mechanics and EV opportunity-cost reporting, not claim predictive validity. Predictive validation remains a later, independent task.
 
