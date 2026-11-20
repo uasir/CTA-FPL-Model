@@ -31,6 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out M3 implementation
+        id: checkout
         uses: actions/checkout@v4
         with:
           ref: feat/m3-external-benchmark-decision-engine
@@ -61,6 +62,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: predeadline-decision-evidence-manager-${{ inputs.manager_team_id }}-gw${{ inputs.gameweek }}
-          path: canonical_candidate/engineering_workbench/predeadline-decision-evidence.json
+          path: |
+            canonical_candidate/engineering_workbench/predeadline-decision-evidence.json
+            canonical_candidate/engineering_workbench/predeadline-m3-recommendation.json
           if-no-files-found: error
           retention-days: 90
