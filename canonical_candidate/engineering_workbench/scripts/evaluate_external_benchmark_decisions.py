@@ -432,12 +432,29 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
     recommendation_score = _score_plan(plan, scoring_roster, realised)
     net_recommended = recommendation_score["gross_points"] - hit_points
     net_hold = hold_score["gross_points"]
+    input_sha256 = hashlib.sha256(
+        json.dumps(record, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    ).hexdigest()
+    archive_provenance = [
+        {
+            "source_type": source["source_type"],
+            "raw_snapshot_id": source["raw_snapshot_id"],
+            "raw_sha256": source["raw_sha256"],
+            "captured_at_utc": source["captured_at_utc"],
+            **({"finalized_at_utc": source["finalized_at_utc"]} if source["source_type"] == "realised_points" else {}),
+        }
+        for source in record["source_archives"]
+    ]
     return {
         "evaluation_contract_version": CONTRACT_VERSION,
         "evidence_class": "SYNTHETIC_TEST",
         "evaluation_status": "SYNTHETIC_ONLY_NOT_HISTORICAL_EVIDENCE",
         "target_gameweek": record["target_gameweek"],
         "provider_identity": dict(record["provider_identity"]),
+        "software_commit": record["software_commit"],
+        "evaluation_input_sha256": input_sha256,
+        "frozen_decision_sha256": decision["decision_sha256"],
+        "source_provenance": archive_provenance,
         "recommended_action": decision["action"],
         "transfer_financials": (
             {
