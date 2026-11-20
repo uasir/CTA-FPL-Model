@@ -120,6 +120,8 @@ def capture_predeadline(
         ),
         **eo_report,
     }
+    metadata["estimator_status"] = metadata.get("status")
+    metadata["status"] = "CAPTURED_PRE_DEADLINE_CURRENT_PICKS"
     return eo_rows, metadata
 
 
