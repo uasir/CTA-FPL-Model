@@ -229,4 +229,11 @@ The rerun with the historical FPL panel fix produced the first actual fixture-re
 
 The builder and aggregator are being revised to mark only affected player-GW keys as reference-invalid, preserve exact fixture-ID checks, and retain the unaffected cohort. A mismatched double-gameweek will not be partially scored as if it were complete. The next run must report valid/excluded player-GW counts and pass all new selective-exclusion tests before the aggregated panel can be accepted.
 
+
+### Selective-exclusion implementation and test status
+
+The fixture-reference builder now emits a per-player-GW reference status. The aggregator reads that status and excludes only the affected group, while retaining unaffected player-GWs. It also blocks groups with missing reference IDs or fixture-set mismatches. The report records aggregate counts only; player IDs and the aggregated player-GW panel remain runner-local.
+
+Engineering CI run [44734734302](https://github.com/uasir/CTA-FPL-Model/actions/runs/44734734302) passed after the regression tests were updated to cover both valid and excluded keys. The full Wyscout workflow rerun is queued to verify the revised cohort counts on the historical data.
+
 **Current disposition:** 2PM base remains the control; position features are not adopted; ABC remains an exploratory independent candidate; no model is connected to recommendation weights.
