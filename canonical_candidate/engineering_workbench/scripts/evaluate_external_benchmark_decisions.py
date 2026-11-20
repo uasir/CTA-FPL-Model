@@ -370,8 +370,9 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
         _fail("starting goalkeeper must remain fixed")
 
     realised_rows = record.get("realised_player_points")
-    if not isinstance(realised_rows, list) or len(realised_rows) != 15:
-        _fail("realised_player_points must contain exactly 15 player rows")
+    expected_row_count = 15 if decision["action"] == "HOLD" else 16
+    if not isinstance(realised_rows, list) or len(realised_rows) != expected_row_count:
+        _fail(f"realised_player_points must contain exactly {expected_row_count} player rows")
     realised: dict[int, dict[str, float]] = {}
     for index, row in enumerate(realised_rows):
         if not isinstance(row, Mapping):
