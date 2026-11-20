@@ -57,7 +57,7 @@ def fixture(action="TRANSFER"):
     candidate = {
         "manager_team_id": 421025, "target_gameweek": 12,
         "deadline_utc": "2026-11-21T11:00:00Z", "as_of_utc": "2026-11-20T10:00:00Z",
-        "frozen_decision": decision, "manager_state": manager_state,
+        "frozen_decision": copy.deepcopy(decision), "manager_state": manager_state,
     }
     return {
         "run_type": "M3_CONVENTIONAL_PERSONAL_SQUAD_RECOMMENDATION",
