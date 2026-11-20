@@ -81,6 +81,7 @@ def build_expected_fixture_rows(abc_rows, fpl_rows, tolerance=1e-9,
     expected = []
     mismatch_reasons = Counter()
     missing_key_count = 0
+    invalid_keys = set()
     for key in sorted(abc_keys):
         fpl_fixtures = sorted(
             fixture for (candidate, fixture) in fpl_by_key_fixture if candidate == key
@@ -90,12 +91,14 @@ def build_expected_fixture_rows(abc_rows, fpl_rows, tolerance=1e-9,
         )
         if not fpl_fixtures:
             missing_key_count += 1
+            invalid_keys.add(key)
             continue
         for fixture in fpl_fixtures:
             abc = abc_by_key_fixture.get((key, fixture))
             fpl = fpl_by_key_fixture[(key, fixture)]
             if abc is None:
                 mismatch_reasons["ABC_FIXTURE_MISSING"] += 1
+                invalid_keys.add(key)
                 continue
             for abc_field, fpl_field in (
                 ("target_fpl_total_points", "target_total_points"),
@@ -104,9 +107,11 @@ def build_expected_fixture_rows(abc_rows, fpl_rows, tolerance=1e-9,
                 left, right = number(abc.get(abc_field)), number(fpl.get(fpl_field))
                 if left is None or right is None or abs(left - right) > tolerance:
                     mismatch_reasons["TARGET_MISMATCH"] += 1
+                    invalid_keys.add(key)
         for fixture in abc_fixtures:
             if fixture not in fpl_fixtures:
                 mismatch_reasons["FPL_REFERENCE_FIXTURE_MISSING"] += 1
+                invalid_keys.add(key)
 
         for fixture in fpl_fixtures:
             expected.append({
@@ -114,13 +119,21 @@ def build_expected_fixture_rows(abc_rows, fpl_rows, tolerance=1e-9,
                 "fpl_element_id": key[1],
                 "gameweek": key[2],
                 "fixture_id": fixture,
+                "reference_status": "FAIL" if key in invalid_keys else "PASS",
             })
 
     fpl_files = fpl_source_report.get("source_files", [])
+    excluded_player_gameweeks = len(invalid_keys)
+    valid_player_gameweeks = len(abc_keys) - excluded_player_gameweeks
     report = {
-        "status": "PASS" if missing_key_count == 0 and not mismatch_reasons else "FAIL_CLOSED",
+        "status": (
+            "FAIL_CLOSED" if valid_player_gameweeks == 0
+            else "PASS_WITH_EXCLUSIONS" if excluded_player_gameweeks else "PASS"
+        ),
         "abc_player_gameweeks": len(abc_keys),
         "reference_player_gameweeks_found": len(abc_keys) - missing_key_count,
+        "valid_player_gameweeks": valid_player_gameweeks,
+        "excluded_player_gameweeks": excluded_player_gameweeks,
         "missing_player_gameweek_key_count": missing_key_count,
         "expected_player_fixture_rows": len(expected),
         "fixture_or_target_mismatch_count": sum(mismatch_reasons.values()),
@@ -156,12 +169,12 @@ def main():
     args.report_out.parent.mkdir(parents=True, exist_ok=True)
     args.report_out.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
-    if report["status"] != "PASS":
+    if report["status"] == "FAIL_CLOSED":
         return 2
     args.expected_fixtures_out.parent.mkdir(parents=True, exist_ok=True)
     with args.expected_fixtures_out.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=[
-            "season", "fpl_element_id", "gameweek", "fixture_id"
+            "season", "fpl_element_id", "gameweek", "fixture_id", "reference_status"
         ])
         writer.writeheader()
         writer.writerows(expected)
