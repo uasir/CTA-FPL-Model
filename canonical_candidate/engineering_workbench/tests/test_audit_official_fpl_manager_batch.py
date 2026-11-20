@@ -215,6 +215,7 @@ def _decision_manifest_with_attested_manager_state(batch):
     raw_official = json.dumps(official_picks).encode()
     manager_archive["raw_payload_base64"] = base64.b64encode(raw_official).decode()
     manager_archive["raw_sha256"] = hashlib.sha256(raw_official).hexdigest()
+    envelope_raw = json.dumps(envelope, sort_keys=True).encode()
     sources = [
         _decision_archive("provider_forecast"),
         _decision_archive("player_metadata"),
@@ -223,10 +224,8 @@ def _decision_manifest_with_attested_manager_state(batch):
             "source_url": "https://fantasy.premierleague.com/entry/421025",
             "captured_at_utc": captured,
             "raw_snapshot_id": "manager-attestation-gw5",
-            "raw_payload_base64": _encoded_archive(envelope),
-            "raw_sha256": hashlib.sha256(
-                json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode()
-            ).hexdigest(),
+            "raw_payload_base64": base64.b64encode(envelope_raw).decode(),
+            "raw_sha256": hashlib.sha256(envelope_raw).hexdigest(),
         },
     ]
     # Keep the player-metadata archive byte-identical to the bootstrap used in the attested price chain.
