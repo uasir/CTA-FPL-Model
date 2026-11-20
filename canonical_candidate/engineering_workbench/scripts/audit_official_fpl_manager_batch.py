@@ -168,6 +168,18 @@ def _validate_attested_manager_state(envelope: dict[str, Any], archive: dict[str
                  and {row.get("element") for row in picks} == set(squad),
                  f"GW{gameweek}: official target picks do not match attested squad")
         official_purchase_prices = {
+            str(row["element"]): row["purchase_price"] / 10
+            for row in picks if isinstance(row, dict)
+            and isinstance(row.get("purchase_price"), int)
+            and not isinstance(row.get("purchase_price"), bool)
+        }
+        _require(official_purchase_prices == state["purchase_prices"],
+                 f"GW{gameweek}: purchase prices differ from official target picks")
+        bank_raw = picks_payload.get("entry_history", {}).get("bank")
+        _require(isinstance(bank_raw, int) and not isinstance(bank_raw, bool)
+                 and abs(bank_raw / 10 - state["bank"]) < 0.0001,
+                 f"GW{gameweek}: official target picks bank differs from attested bank")
+        official_purchase_prices = {
             str(row["element"]): row.get("purchase_price") / 10
             for row in picks if isinstance(row, dict)
             and isinstance(row.get("purchase_price"), int)
