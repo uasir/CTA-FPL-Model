@@ -188,4 +188,23 @@ This source is a pinned historical FPL export, **not** a verified point-in-time 
 
 The combined CI run [44732745533](https://github.com/uasir/CTA-FPL-Model/actions/runs/44732745533) passed, including the full engineering test suite and all identity crosswalk validators. The follow-up terminology change distinguishes the pinned reference export from official/live FPL data.
 
+
+## 11. Existing common-validation-cohort ABC-versus-2PM run
+
+The Wyscout workflow produced an exploratory comparison artifact on the same 2017/18 validation intersection:
+- 1,280 player-gameweeks, 91 players, GW20-38.
+- 1 candidate row was excluded for an actual-points mismatch in GW37.
+- The 2PM model had 17,270 fit and 5,312 calibration player-gameweeks from the broad FPL population; ABC used expanding folds within 2017/18 on the smaller verified provider cohort.
+- On the common validation intersection: raw 2PM MAE 2.3648; affine-calibrated 2PM MAE 2.4204; ABC-only A/B/C MAE 2.4992; FPL-history-only Ridge MAE 2.5337.
+- Player-season cluster bootstrap for ABC-only A/B/C minus raw 2PM MAE was [0.0534, 0.2120]; versus affine-calibrated 2PM it was [0.0061, 0.1480]. Positive deltas mean ABC had higher MAE on this cohort.
+- Some FPL-plus-CTA variants had higher pooled top-20 selected mean points than 2PM, but that metric pooled the 19 GWs and was not calculated deadline-by-deadline. It is not decision-level evidence.
+
+**Interpretation:** this does not overturn the comparability gate. It is a useful same-validation-cohort diagnostic, but training population and temporal fold design still differ. It cannot rank ABC and 2PM as competing architectures or establish a production winner.
+
+## 12. Historical FPL panel build defect and correction
+
+The first integrated run revealed that the pinned 2016/17-2017/18 FPL panel CSV was written, but its accompanying research report failed because the legacy Ridge diagnostic required a prior-xG feature that was entirely absent in those seasons. The missingness is legitimate; it must not be imputed as zero or make the historical panel unusable.
+
+Updated the panel builder to select predictor features observed in the training partition only and record features excluded for having no observed training values. Added a regression test with entirely missing historical xG/xA. This allows the FPL panel and its report to be produced without weakening the point-in-time caveat. CI passed for the implementation; a new full Wyscout workflow run is in progress to verify that the fixture-reference and player-GW aggregation stages now execute.
+
 **Current disposition:** 2PM base remains the control; position features are not adopted; ABC remains an exploratory independent candidate; no model is connected to recommendation weights.
