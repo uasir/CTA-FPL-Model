@@ -370,6 +370,77 @@ def _verify_real_admission(record: Mapping[str, Any], admission_report: Any,
             for field in ("generated_at_utc",):
                 if source.get(field) != audited_source.get(field):
                     _fail(f"provider archive {field} does not match the independent decision-source audit")
+    # The evaluation record's hold baseline must be the exact manager state
+    # sealed into the independently audited pre-deadline manager archive. Matching
+    # archive hashes alone does not prevent a detached scoring roster or lineup.
+    manager_source = record_by_type.get("manager_state")
+    try:
+        manager_raw = base64.b64decode(manager_source["raw_payload_base64"], validate=True)
+        manager_envelope = json.loads(manager_raw)
+    except (TypeError, KeyError, ValueError, json.JSONDecodeError) as exc:
+        raise DecisionEvaluationError("manager-state archive is not valid captured JSON") from exc
+    if not isinstance(manager_envelope, Mapping):
+        _fail("manager-state archive envelope must be an object")
+    if (manager_envelope.get("capture_kind") != "USER_ATTESTED_PREDEADLINE_MANAGER_STATE"
+            or manager_envelope.get("manager_team_id") != manager_id
+            or manager_envelope.get("target_gameweek") != gameweek
+            or manager_envelope.get("captured_at_utc") != manager_source.get("captured_at_utc")):
+        _fail("manager-state archive envelope identity or capture timestamp mismatch")
+    archived_state = manager_envelope.get("manager_state")
+    evaluated_state = record.get("manager_state")
+    if not isinstance(archived_state, Mapping) or not isinstance(evaluated_state, Mapping):
+        _fail("manager-state archive or evaluation manager_state is missing")
+    roster_rows = evaluated_state.get("squad_snapshot")
+    if not isinstance(roster_rows, list):
+        _fail("evaluation manager roster is missing")
+    roster_by_id = {
+        row.get("fpl_element_id"): row for row in roster_rows if isinstance(row, Mapping)
+    }
+    archived_squad = archived_state.get("squad_15")
+    if (not isinstance(archived_squad, list) or len(archived_squad) != 15
+            or len(set(archived_squad)) != 15
+            or set(archived_squad) != set(roster_by_id)):
+        _fail("evaluation manager roster does not match the archived 15-player deadline squad")
+    for field in ("bank", "free_transfers", "formation"):
+        if evaluated_state.get(field) != archived_state.get(field):
+            _fail(f"evaluation manager_state {field} does not match the archived deadline state")
+    if archived_state.get("chip_state") != "NONE" or evaluated_state.get("chip") not in (None, "NONE"):
+        _fail("manager-state archive or evaluation record is outside the no-chip contract")
+    hold_plan = evaluated_state.get("hold_plan")
+    if not isinstance(hold_plan, Mapping):
+        _fail("evaluation hold plan is missing")
+    plan_bindings = {
+        "starting_xi": "starting_xi",
+        "bench_order": "bench_order",
+        "reserve_goalkeeper_id": "reserve_goalkeeper_id",
+        "captain_id": "captain_id",
+        "vice_captain_id": "vice_captain_id",
+        "formation": "formation",
+    }
+    for evaluation_field, archive_field in plan_bindings.items():
+        if hold_plan.get(evaluation_field) != archived_state.get(archive_field):
+            _fail(f"evaluation hold-plan {evaluation_field} does not match the archived deadline state")
+    if set(hold_plan.get("squad_ids", [])) != set(archived_squad):
+        _fail("evaluation hold-plan squad does not match the archived deadline squad")
+    for price_field in ("purchase_prices", "selling_prices"):
+        prices = archived_state.get(price_field)
+        if not isinstance(prices, Mapping) or {str(key) for key in prices} != {str(pid) for pid in archived_squad}:
+            _fail(f"archived manager {price_field} must cover exactly the 15 deadline players")
+    for player_id, player in roster_by_id.items():
+        purchase = _finite_number(
+            archived_state["purchase_prices"].get(str(player_id), archived_state["purchase_prices"].get(player_id)),
+            f"archived purchase price for player {player_id}", 0.1
+        )
+        selling = _finite_number(
+            archived_state["selling_prices"].get(str(player_id), archived_state["selling_prices"].get(player_id)),
+            f"archived selling price for player {player_id}", 0.1
+        )
+        if not math.isclose(player.get("purchase_price", float("nan")), purchase, abs_tol=1e-9):
+            _fail(f"evaluation purchase price for player {player_id} does not match archived manager state")
+        expected_selling = _selling_price(player.get("current_price"), purchase)
+        if not math.isclose(selling, expected_selling, abs_tol=1e-9):
+            _fail(f"archived selling price for player {player_id} does not match official FPL price rules")
+
     # Bind the realised-points rows to the exact finalized official event-live
     # archive independently hashed by the auditor, then derive the comparison
     # values from that raw payload rather than trusting a detached points table.
