@@ -140,7 +140,9 @@ function transferCandidates(request, forecasts) {
   for (const outgoing of squad) {
     const outId = outgoing.fpl_element_id;
     const outForecast = forecastById.get(outId);
-    const sellPrice = sellingPrice(outForecast.price, outgoing.purchase_price);
+    const sellPrice = Object.hasOwn(outgoing, "purchase_price")
+      ? sellingPrice(outForecast.price, outgoing.purchase_price)
+      : Math.min(outForecast.price, outgoing.selling_price_floor);
     const teamAfter = new Map(teamCounts);
     teamAfter.set(outForecast.team_id, (teamAfter.get(outForecast.team_id) ?? 0) - 1);
     const available = request.bank + sellPrice;
@@ -179,6 +181,8 @@ function transferCandidates(request, forecasts) {
     minimum_gain_threshold: minGain,
     free_transfers_available: request.free_transfers,
     candidate_count: candidates.length,
+    selling_price_basis: squad.every((row) => Object.hasOwn(row, "purchase_price"))
+      ? "EXACT_PURCHASE_PRICE" : "CONSERVATIVE_CURRENT_PRICE_FLOOR",
     scope: "one-transfer lookahead only",
   };
 }
@@ -265,6 +269,7 @@ export function recommendPersonalSquad(payload) {
       "The supplied risk profile is recorded but not applied until calibrated player-level variance is available.",
       "Only one transfer is evaluated; multi-transfer sequences, future price changes and transfer flexibility are not modelled.",
       "Chip effects are not simulated in this version.",
+      "When exact purchase prices are unavailable, transfer affordability uses current price as a conservative lower bound; this may omit affordable options but will not overstate sale proceeds.",
       "The starting XI is selected by expected points under the requested legal formation; bench order is a minutes/points proxy.",
     ],
   };
