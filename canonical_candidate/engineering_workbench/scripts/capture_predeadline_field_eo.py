@@ -166,6 +166,10 @@ def main() -> int:
         manager_portfolio_artifact = metadata.pop("manager_id_stripped_portfolios")
         if args.manager_portfolio_output is not None:
             manager_portfolio_path = args.manager_portfolio_output
+            if not manager_portfolio_path.is_absolute():
+                raise ValueError("--manager-portfolio-output must be an absolute private local path")
+            if manager_portfolio_path.resolve().is_relative_to(args.out_dir.resolve()):
+                raise ValueError("manager portfolio output must be outside the aggregate EO artifact directory")
             manager_portfolio_path.parent.mkdir(parents=True, exist_ok=True)
             manager_portfolio_path.write_text(
                 json.dumps(manager_portfolio_artifact, indent=2, sort_keys=True) + "\n",
