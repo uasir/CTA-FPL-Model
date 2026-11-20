@@ -41,8 +41,16 @@ The report includes:
 - `aggregation_input_sha256`: the same digest in both stages;
 - `promotion_eligible=false`, `historical_performance_validated=false` and `release_eligible=false`.
 
-## Workflow integration status
+## GitHub Actions workflow
 
-The existing `capture-predeadline-decision-evidence.yml` workflow captures and freezes a pre-deadline recommendation and replay. It does not produce post-deadline scored event records. No dedicated M3 multi-Gameweek scoring/aggregation workflow currently exists, and no admitted real multi-Gameweek cohort is available. Therefore this change provides the deterministic orchestration command and its tests, but deliberately does not wire an automatic GitHub Actions evaluation job to nonexistent real event artifacts.
+`.github/workflows/build-m3-unified-evaluation-report.yml` provides the multi-Gameweek orchestration after it is available on the default branch. It accepts a manager ID and comma-separated successful run IDs from the existing **Reconcile official FPL manager Gameweeks** workflow. For every run it verifies the workflow name and successful conclusion, downloads the manager-specific reconciliation artifact, requires exactly one scored M3 event-result file, and validates the expected manager and real-event admission status before report generation.
 
-The next workflow step requires a separately approved, auditable post-deadline event-scoring/admission artifact contract. Until then, only synthetic fixtures may exercise the software tests; they are not historical evidence.
+Each source reconciliation run must have been supplied with its matching pre-deadline decision-evidence run ID; reconciliation-only or unadmitted events do not produce an eligible scored result. Use one completed Gameweek per source run. The report workflow rejects duplicate run IDs, missing/multiple result files, manager mismatches, non-successful source runs, and any unadmitted result.
+
+The workflow file is added here but cannot be manually dispatched until the PR stack containing it reaches the repository's default branch. No PR is merged by this change.
+
+## Workflow integration limitations
+
+The existing capture workflow creates frozen pre-deadline decisions and replay evidence. The reconciliation workflow produces a scored result only when the corresponding pre-deadline decision artifact is supplied and independently admitted. No admitted real multi-Gameweek cohort is currently available. Therefore this orchestration is executable once the workflow is on the default branch and eligible event artifacts exist; synthetic fixtures remain software tests, not historical evidence.
+
+The statistical bootstrap is an engineering screen assuming exchangeability of observed Gameweeks. It is not a block bootstrap, causal estimate, forecast validation, provider promotion, or release authorization. The next workflow step requires real multi-Gameweek evidence and review of temporal dependence and pre-registered thresholds.
