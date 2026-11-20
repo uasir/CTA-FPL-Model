@@ -80,6 +80,8 @@ def run_external_benchmark_personal_squad(payload: Mapping[str, Any]) -> dict[st
         raise BenchmarkDecisionRunError("metadata capture and as_of timestamps must include timezone")
     if metadata_captured > as_of.astimezone(timezone.utc):
         raise BenchmarkDecisionRunError("player metadata capture cannot be later than decision as_of_utc")
+    if metadata_captured.astimezone(timezone.utc) >= deadline.astimezone(timezone.utc):
+        raise BenchmarkDecisionRunError("player metadata capture must be strictly before the FPL deadline")
     if as_of.astimezone(timezone.utc) >= deadline.astimezone(timezone.utc):
         raise BenchmarkDecisionRunError("decision as_of_utc must be strictly before the FPL deadline")
 
