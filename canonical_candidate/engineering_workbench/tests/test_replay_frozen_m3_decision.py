@@ -29,7 +29,7 @@ def _prepare(monkeypatch):
                 {"fpl_element_id": row["fpl_element_id"], "position": row["position"],
                  "team_id": row["team_id"], "price": row["price"], "expected_points": 5,
                  "expected_minutes": 80}
-                for row in manifest["player_metadata"]
+                for row in args[1]
             ]
         },
     )
