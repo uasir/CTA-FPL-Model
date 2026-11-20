@@ -338,6 +338,14 @@ def _verify_real_admission(record: Mapping[str, Any], admission_report: Any,
             or recommendation.get("action") != decision.get("action")
             or recommendation.get("decision_sha256") != decision.get("decision_sha256")):
         _fail("frozen decision hash/action/execution does not match the independent post-Gameweek audit")
+    replay = audited.get("predeadline_replay")
+    if (not isinstance(replay, Mapping)
+            or replay.get("status") != "VERIFIED"
+            or replay.get("replay_type") != "DETERMINISTIC_RAW_AND_CANONICAL_INPUT_REEXECUTION"
+            or replay.get("decision_sha256") != decision.get("decision_sha256")
+            or replay.get("raw_archive_hashes_verified") is not True
+            or replay.get("software_commit") != record.get("software_commit")):
+        _fail("independent audit did not verify the deterministic replay of this exact frozen decision")
 
     # Bind the three point-in-time inputs used by the decision to the exact raw
     # archives independently hashed by the post-Gameweek auditor. A valid hash
