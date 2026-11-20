@@ -259,6 +259,14 @@ def transition_manager_state(
             "scope": "TERMINAL_ACTION_ONLY; NO NEXT STATE",
         }
 
+    if chip == "free_hit":
+        prior_lineup = state.get("lineup")
+        if not isinstance(prior_lineup, Mapping):
+            raise ValueError("Free Hit restoration requires the prior permanent lineup in state")
+        next_lineup = _validate_lineup(prior_lineup, original_by_id)
+    else:
+        next_lineup = lineup
+
     updated_squad = []
     for player_id, player in next_squad_by_id.items():
         market = next_player_data.get(player_id)
@@ -295,7 +303,7 @@ def transition_manager_state(
         "chip_inventory": inventory,
         "previous_gameweek_chip": chip,
         "squad": updated_squad,
-        "lineup": lineup,
+        "lineup": next_lineup,
         "transfer_history": history,
     }
     _validate_squad(updated_squad, "next_state.squad")
