@@ -19,6 +19,10 @@ on:
         description: Expected manager bank in £m for cross-check
         required: true
         default: "0.9"
+      free_transfers:
+        description: Confirmed free transfers available for GW11
+        required: true
+        default: "1"
 
 permissions:
   contents: read
@@ -58,6 +62,9 @@ jobs:
             --team-id "${{ inputs.manager_team_id }}" \
             --gameweek "${{ inputs.gameweek }}" \
             --expected-bank "${{ inputs.expected_bank }}" \
+            --free-transfers "${{ inputs.free_transfers }}" \
+            --personal-risk-profile "aggressive" \
+            --formation "4-3-3" \
             --expected-element-ids "110,497,31,8,115,229,282,154,124,426,183,524,166,79,411" \
             --output "artifacts/fplcat/manager-context-${{ inputs.gameweek }}-${{ github.run_id }}.json"
 
