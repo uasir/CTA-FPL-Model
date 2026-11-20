@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
+import hashlib
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -52,6 +55,23 @@ def assemble_decision_input(
         raise DecisionInputError(f"provider GW{provider_gw} does not match manager GW{manager_gw}")
     if manager_provenance.get("identity_verified") is not True:
         raise DecisionInputError("manager squad identity was not verified")
+    if manager_provenance.get("row_count") != 15:
+        raise DecisionInputError("manager capture provenance must report exactly 15 rows")
+    manager_hash = manager_provenance.get("raw_sha256")
+    if (
+        not isinstance(manager_hash, str) or len(manager_hash) != 64
+        or any(char not in "0123456789abcdef" for char in manager_hash.lower())
+    ):
+        raise DecisionInputError("manager capture raw_sha256 must be a 64-character SHA-256")
+    raw_b64 = manager_provenance.get("raw_response_base64")
+    if not isinstance(raw_b64, str) or not raw_b64:
+        raise DecisionInputError("manager capture raw_response_base64 is missing")
+    try:
+        raw_manager = base64.b64decode(raw_b64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise DecisionInputError("manager capture raw_response_base64 is invalid") from exc
+    if hashlib.sha256(raw_manager).hexdigest() != manager_hash.lower():
+        raise DecisionInputError("manager capture raw response SHA-256 mismatch")
     squad = manager.get("squad_snapshot")
     if not isinstance(squad, list) or len(squad) != 15:
         raise DecisionInputError("manager squad snapshot must contain exactly 15 players")
