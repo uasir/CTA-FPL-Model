@@ -74,13 +74,8 @@ def _decision_eligibility(manifest: Any, gameweek: int, manager_id: int,
         if not isinstance(audit_event, Mapping) or audit_event.get("status") != "RECONCILED":
             reasons.append("Independent archive audit has no reconciled event for this Gameweek")
 
-    audit_type_for_source = {
-        "provider_forecast": "provider_forecast",
-        "player_metadata": "bootstrap_static",
-        "manager_deadline_state": "manager_picks",
-    }
     audited_archives = (
-        audit_event.get("archives", []) if isinstance(audit_event, Mapping) else []
+        audit_event.get("decision_sources", []) if isinstance(audit_event, Mapping) else []
     )
     for source_type in sorted(REQUIRED_DECISION_SOURCES):
         row = source_map.get(source_type)
@@ -99,10 +94,9 @@ def _decision_eligibility(manifest: Any, gameweek: int, manager_id: int,
                 reasons.append(f"{source_type} archive was captured at/after deadline")
         except EvidenceAdmissionError as exc:
             reasons.append(str(exc))
-        expected_audit_type = audit_type_for_source[source_type]
         audited = next((archive for archive in audited_archives
                         if isinstance(archive, Mapping)
-                        and archive.get("source_type") == expected_audit_type), None)
+                        and archive.get("source_type") == source_type), None)
         if audited is None:
             reasons.append(f"{source_type} has no matching independently audited raw archive")
         else:
@@ -148,7 +142,8 @@ def _decision_eligibility(manifest: Any, gameweek: int, manager_id: int,
         reasons.append("Decision evidence manifest Gameweek mismatch")
     if manifest.get("evidence_is_point_in_time") is not True:
         reasons.append("Manifest does not explicitly attest point-in-time evidence")
-    # Exact archive references must match the independent audit report; a boolean\n    # attestation alone is deliberately insufficient.
+    # Exact archive references must match the independent audit report; a boolean
+    # attestation alone is deliberately insufficient.
     return not reasons, reasons
 
 
