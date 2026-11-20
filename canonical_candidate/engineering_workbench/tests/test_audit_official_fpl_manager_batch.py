@@ -92,6 +92,8 @@ def _decision_archive(source_type, manager=421025, gw=5):
     }
     if source_type == "provider_forecast":
         archive["generated_at_utc"] = "2026-10-01T09:00:00Z"
+        archive["provider_id"] = "fpl-cat"
+        archive["provider_variant"] = "public-xp"
     return archive
 
 
