@@ -108,6 +108,20 @@ LiveFPL's save-history page is useful for an independent week-by-week history cr
 
 **Verification:** CI run [44762298925](https://github.com/uasir/CTA-FPL-Model/actions/runs/44762298925) passed after the JSON-list transfer-history parser fix: 300 engineering pytest tests passed, 3 subtests passed, 39 JavaScript tests passed, and all four identity crosswalk checks passed. This verifies the code and fixtures, not yet the live manager-history response for team 421025.
 
+
+### M3.3d — User-confirmed GW11 squad snapshot
+
+On 2026-11-20, the manager explicitly supplied and confirmed the GW11 squad for team 421025, including the distinction between starters and bench. The authoritative 15-player identity set is:
+- Goalkeepers: Rushworth (110), Dubravka (497).
+- Defenders: Konsa (31), Calafiori (8), De Cuyper (115), Tarkowski (229), Giles (282).
+- Midfielders: Palmer (154), Groß (124), B. Fernandes (426), Rudoni (183), Olusesi (524).
+- Forwards: N. Jackson (166), Evanilson (79), Haaland (411).
+
+The user's baseline selection is 4-3-3: starters Rushworth; Konsa, Calafiori, De Cuyper, Tarkowski; Palmer, Groß, B. Fernandes; N. Jackson, Evanilson, Haaland. Bench order: Dubravka, Giles, Rudoni, Olusesi. Haaland is captain and Palmer vice-captain. Bank is £0.9m and free transfers are 1.
+
+This is a user-confirmed current squad/lineup snapshot, not a claim that the pre-deadline official GW11 picks endpoint is accessible. The workflow's expected 15 FPL element IDs already match this confirmation. Prior-GW picks and transfer history may supply purchase-price evidence only; they do not override the user-confirmed current squad. The engine's recommended XI, bench and captaincy remain decision outputs and must not be confused with this baseline selection. No recommendation is released by recording this input.
+
+
 ## 4. M3 work packages
 
 ### M3.1 — Provider-neutral forecast contract
