@@ -128,7 +128,10 @@ def assemble_decision_input(
             "free_transfers": manager["free_transfers"],
             "personal_risk_profile": manager["personal_risk_profile"],
             "formation": manager["formation"],
+            **({"purchase_price_source": manager["purchase_price_source"]}
+               if "purchase_price_source" in manager else {}),
         },
+        "manager_context_provenance": manager_provenance,
         "as_of_utc": as_of.isoformat().replace("+00:00", "Z"),
     }
 
