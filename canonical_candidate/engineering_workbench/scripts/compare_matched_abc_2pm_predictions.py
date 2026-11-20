@@ -82,8 +82,13 @@ def player_cluster_bootstrap(rows, candidate, comparator, n_boot, seed):
         d_mse.append(statistics.mean(cs)-statistics.mean(os)); win.append(statistics.mean(wins))
     def ci(x):
         x=sorted(x); return [x[int(.025*(len(x)-1))],x[int(.975*(len(x)-1))]]
+    observed_mae_delta=statistics.mean(abs(r["actual"]-r[candidate]) for r in rows)-statistics.mean(abs(r["actual"]-r[comparator]) for r in rows)
+    observed_mse_delta=statistics.mean((r["actual"]-r[candidate])**2 for r in rows)-statistics.mean((r["actual"]-r[comparator])**2 for r in rows)
+    observed_win_rate=statistics.mean(1. if abs(r["actual"]-r[candidate])<abs(r["actual"]-r[comparator]) else 0. if abs(r["actual"]-r[candidate])>abs(r["actual"]-r[comparator]) else .5 for r in rows)
     return {"method":"PAIRED_PLAYER_SEASON_CLUSTER_BOOTSTRAP","clusters":len(names),
             "replicates":n_boot,"delta_definition":"candidate minus comparator; negative favours candidate",
+            "observed_mae_delta":observed_mae_delta,"observed_mse_delta":observed_mse_delta,
+            "observed_candidate_absolute_error_win_rate":observed_win_rate,
             "mae_delta_ci95":ci(d_mae),"mse_delta_ci95":ci(d_mse),
             "candidate_absolute_error_win_rate_ci95":ci(win)}
 
@@ -148,9 +153,11 @@ def deadline_bootstrap(a,b,n_boot,seed):
         for m in samples: samples[m].append(statistics.mean(a[k][m]-b[k][m] for k in chosen))
     def ci(x):
         x=sorted(x); return [x[int(.025*(len(x)-1))],x[int(.975*(len(x)-1))]]
+    observed={m:statistics.mean(a[k][m]-b[k][m] for k in keys) for m in samples}
     return {"method":"PAIRED_TEST_DEADLINE_CLUSTER_BOOTSTRAP","deadline_clusters":len(keys),
             "replicates":n_boot,
             "caveat":"One historical season only; deadline resampling is descriptive, not cross-season generalisation.",
+            **{m+"_candidate_minus_comparator_observed":observed[m] for m in samples},
             **{m+"_candidate_minus_comparator_ci95":ci(v) for m,v in samples.items()}}
 
 
