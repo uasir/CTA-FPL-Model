@@ -234,3 +234,30 @@ The official Premier League match report confirms Kevin De Bruyne scored the 67t
 A versioned correction is now recorded in canonical_candidate/data/wyscout_manual_event_corrections.csv: +1 goal, +1 shot attempt and +1 accurate shot for Wyscout player 38021 in match 2499781. This is not a silent rewrite: the builder preserves raw and corrected fields, records the source URL/reason and distinguishes PASS_EXACT_WITH_MANUAL_CORRECTIONS from a raw PASS_EXACT. It rejects corrections that do not target a raw mismatch or do not reconcile the match.
 
 Engineering CI [run 44660852510](https://github.com/uasir/CTA-FPL-Model/actions/runs/44660852510) passed: **460 tests, 1 skipped, 3 subtests**. Next private ingestion attempt will apply this correction and verify that corrected goal totals reconcile while the raw discrepancy remains visible.
+
+
+## 2026-11-20 delivery and decision-layer update
+
+### Personal transfer evaluation
+
+- The personal-squad transfer evaluator now reconstructs the legal post-transfer 15-player squad and re-optimises the starting XI under the same formation for every candidate.
+- Transfer value is the marginal expected points of the resulting starting XI plus captaincy relative to the current plan. Incoming-minus-outgoing player xP remains a diagnostic only.
+- Outfield bench-depth change is reported separately. A bench-only upgrade cannot be presented as a current-gameweek starting-XI gain when the XI and captaincy do not change.
+- Python and JavaScript implementations are kept in parity. CI run [44697895284](https://github.com/uasir/CTA-FPL-Model/actions/runs/44697895284) passed 461 tests, 1 skipped, and 3 subtests.
+- Regression coverage includes a bench-only upgrade with positive individual player xP but zero marginal starting-XI and captaincy value.
+
+### GW11 operational recommendation pipeline
+
+- A private GW11 capture now retains actual published player-level outputs for FPL Cat, FPL Rogue, FPL Lucho and Sideline Quant, with source hashes and timestamps.
+- The interim conventional market baseline is the median of FPL Cat, FPL Rogue and FPL Lucho. Sideline Quant's 18 November output is retained as an older reference and excluded from the current consensus.
+- Official FPL bootstrap now supplies player price, position and team metadata for transfer legality. The interim build found zero provider price, team or position mismatches across 672 players.
+- A private personal-manager starting-state capture validates the 15-player squad, purchase prices, bank, free transfers and chip inventory. Personal manager data and recommendations remain private.
+- Interim recommendation outputs are explicitly exploratory: capture is more than 24 hours before deadline, Lucho does not disclose a generation timestamp, EO coverage is zero, and no player-level CoVar is used.
+- Current-season CTA-to-FPL identity verification remains at zero rows. CTA-informed player recommendations are therefore withheld rather than inferred from provisional names. No CTA adjustment is applied to conventional forecasts.
+- A final pre-deadline refresh is scheduled for 21 November 2026 at 05:30 UTC, with recommendation generation at 06:00 UTC.
+
+### Research track remains active
+
+- Wyscout corrected-data rebuild attempt 005 passed after pinning the current team-aware match/player key implementation. Raw and corrected goal totals remain separately recorded; the manual De Bruyne correction is source-linked.
+- Identity candidates remain pending review; no automatic crosswalk promotion.
+- ABC and 2PM remain independent model tracks. Current-week recommendation delivery does not replace their historical evaluation or the planned matched-sample comparison.
