@@ -392,6 +392,13 @@ def _real_admission_inputs(record):
                 "execution_match": "RECOMMENDATION_MATCHED",
                 "decision_sha256": decision["decision_sha256"],
             },
+            "predeadline_replay": {
+                "status": "VERIFIED",
+                "replay_type": "DETERMINISTIC_RAW_AND_CANONICAL_INPUT_REEXECUTION",
+                "software_commit": record["software_commit"],
+                "decision_sha256": decision["decision_sha256"],
+                "raw_archive_hashes_verified": True,
+            },
         }],
     }
     admission = {
@@ -679,3 +686,10 @@ def test_rejects_invalid_manager_risk_profile_and_formation():
     record["manager_state"]["formation"] = "2-5-3"
     with pytest.raises(DecisionEvaluationError, match="legal FPL formation"):
         evaluate_decision_record(record)
+
+def test_real_evaluation_rejects_missing_verified_replay():
+    record = _real_record()
+    admission, audit, batch = _real_admission_inputs(record)
+    del audit["events"][0]["predeadline_replay"]
+    with pytest.raises(DecisionEvaluationError, match="independent audit did not verify"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
