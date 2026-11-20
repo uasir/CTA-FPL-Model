@@ -137,6 +137,7 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_walk_forward.py \
             canonical_candidate/engineering_workbench/tests/test_build_matched_abc_2pm_fold_manifest.py \
             canonical_candidate/engineering_workbench/tests/test_matched_fold_keys.py \
+            canonical_candidate/engineering_workbench/tests/test_compare_matched_abc_2pm_predictions.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_temporal_xt.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_xsuccess.py
 
@@ -411,9 +412,8 @@ jobs:
             exit 2
           fi
 
-      - name: Run both evaluators on the exact shared ABC-2PM partitions
-        if: always()
-        continue-on-error: true
+      - name: Run both evaluators and paired comparison on exact shared ABC-2PM partitions
+        if: success()
         run: |
           ABC_MATCHED_PANEL="$RUNNER_TEMP/cta_2pm_same_cohort/abc_player_gameweek/abc_player_gameweek_panel.csv"
           ABC_SOURCE_REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
