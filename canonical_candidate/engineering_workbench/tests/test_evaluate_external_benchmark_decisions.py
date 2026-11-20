@@ -335,6 +335,33 @@ def test_real_candidate_requires_and_accepts_matching_independent_admission_chai
     assert result["historical_performance_validated"] is False
 
 
+def test_real_candidate_rejects_missing_audited_decision_sources():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    audit["events"][0]["decision_sources"] = []
+    with pytest.raises(DecisionEvaluationError, match="not bound to an independently audited"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
+
+
+def test_real_candidate_rejects_valid_but_unrelated_provider_archive():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    audit["events"][0]["decision_sources"][0]["raw_sha256"] = "f" * 64
+    with pytest.raises(DecisionEvaluationError, match="does not match the independent decision-source audit"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
+
+
+def test_real_candidate_rejects_provider_identity_substitution():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    record["provider_identity"]["name"] = "Different Provider"
+    with pytest.raises(DecisionEvaluationError, match="provider identity does not match"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
+
+
 def test_real_candidate_rejects_missing_admission_chain():
     record = _record()
     record["evidence_class"] = "REAL_CANDIDATE"
