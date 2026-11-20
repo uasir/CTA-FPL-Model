@@ -111,6 +111,15 @@ def _decision_eligibility(manifest: Any, gameweek: int, manager_id: int,
                         f"{source_type} {manifest_key} does not match the independent archive audit"
                     )
         if source_type == "provider_forecast":
+            if not row.get("provider_id") or not row.get("provider_variant"):
+                reasons.append("Provider forecast identity and variant are required")
+            elif audited is not None and (
+                row.get("provider_id") != audited.get("provider_id")
+                or row.get("provider_variant") != audited.get("provider_variant")
+            ):
+                reasons.append("Provider identity or variant does not match the independent archive audit")
+            if audited is not None and row.get("generated_at_utc") != audited.get("generated_at_utc"):
+                reasons.append("Provider generation timestamp does not match the independent archive audit")
             try:
                 generated = _parse_time(row.get("generated_at_utc"),
                                         "provider_forecast.generated_at_utc")
