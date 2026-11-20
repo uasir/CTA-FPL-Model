@@ -136,6 +136,13 @@ class TestM4CovarScenarioContract(unittest.TestCase):
         with self.assertRaisesRegex(CovarScenarioContractError, "player goals exceed"):
             validate_scenario_document(doc)
 
+    def test_rejects_team_assist_allocation_above_team_goals(self):
+        doc = fixture()
+        doc["scenarios"][0]["player_outcomes"][0]["assists"] = 1
+        doc["scenarios"][0]["player_outcomes"][1]["assists"] = 2
+        with self.assertRaisesRegex(CovarScenarioContractError, "assists exceed"):
+            validate_scenario_document(doc)
+
     def test_rejects_unknown_portfolio_player(self):
         doc = fixture()
         doc["portfolios"][0]["player_ids"].append("missing")
