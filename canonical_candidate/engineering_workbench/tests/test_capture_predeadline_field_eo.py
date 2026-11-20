@@ -51,6 +51,13 @@ class TestPredeadlineFieldCapture(unittest.TestCase):
         self.assertLess(datetime.fromisoformat(report["picks_captured_at_utc"]),
                         datetime.fromisoformat(report["deadline_time_utc"]))
         self.assertEqual(report["sample_managers"], 100)
+        field_artifact = report["anonymized_manager_portfolios"]
+        self.assertEqual(field_artifact["metadata"]["manager_count"], 100)
+        self.assertFalse(field_artifact["metadata"]["manager_identifiers_retained"])
+        self.assertNotIn("entry_id", str(field_artifact))
+        self.assertAlmostEqual(
+            sum(row["field_weight"] for row in field_artifact["portfolios"]), 1.0
+        )
 
     def test_rejects_capture_that_crosses_deadline(self):
         clock = Clock([
