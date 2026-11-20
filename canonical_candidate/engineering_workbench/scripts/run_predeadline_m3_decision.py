@@ -115,6 +115,8 @@ def run_predeadline_m3_decision(
     forecast_by_id = {row["fpl_element_id"]: row for row in joined}
 
     candidate = transfer.get("best_candidate") if action == "TRANSFER" else None
+    if action == "TRANSFER" and not isinstance(candidate, Mapping):
+        raise PredeadlineDecisionError("TRANSFER action has no best candidate")
     transfer_out_id = candidate["transfer_out_id"] if candidate else None
     transfer_in_id = candidate["transfer_in_id"] if candidate else None
     incoming_player = None
@@ -239,7 +241,7 @@ def run_predeadline_m3_decision(
         "deadline_utc": manifest["deadline_utc"],
         "provider_identity": dict(provider["provider"]),
         "provider_snapshot_id": provider["snapshot_id"],
-        "recommendation_status": engine_run["recommendation_status"],
+        "recommendation_status": engine_recommendation["recommendation_status"],
         "recommendation": presentation_recommendation,
         "frozen_decision": frozen_decision,
         "evaluation_candidate": evaluation_candidate,
