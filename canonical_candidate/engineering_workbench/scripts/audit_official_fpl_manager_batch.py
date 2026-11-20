@@ -79,6 +79,57 @@ def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int)
             "source_url": url,
             "bytes": len(raw),
         })
+
+    # Optional provider archives are decision evidence, not official scoring
+    # sources. Audit their bytes independently and expose exact references.
+    decision_archives = record.get("decision_source_archives", [])
+    _require(isinstance(decision_archives, list),
+             f"GW{gameweek}: decision_source_archives must be a list")
+    for archive in decision_archives:
+        _require(isinstance(archive, dict)
+                 and archive.get("source_type") == "provider_forecast",
+                 f"GW{gameweek}: unsupported decision evidence archive type")
+        raw_b64 = archive.get("raw_payload_base64")
+        _require(isinstance(raw_b64, str) and raw_b64,
+                 f"GW{gameweek}/provider_forecast: raw payload missing")
+        try:
+            raw = base64.b64decode(raw_b64, validate=True)
+            payload = json.loads(raw)
+        except Exception as exc:
+            raise BatchAuditError(
+                f"GW{gameweek}/provider_forecast: invalid base64 or JSON payload"
+            ) from exc
+        _require(isinstance(payload, (dict, list)),
+                 f"GW{gameweek}/provider_forecast: payload must be JSON")
+        digest = hashlib.sha256(raw).hexdigest()
+        _require(digest == archive.get("raw_sha256"),
+                 f"GW{gameweek}/provider_forecast: SHA-256 mismatch")
+        captured = archive.get("captured_at_utc")
+        try:
+            parsed = datetime.fromisoformat(captured.replace("Z", "+00:00"))
+        except (TypeError, ValueError) as exc:
+            raise BatchAuditError(
+                f"GW{gameweek}/provider_forecast: invalid capture timestamp"
+            ) from exc
+        _require(parsed.tzinfo is not None and parsed.utcoffset() is not None,
+                 f"GW{gameweek}/provider_forecast: capture timestamp must be timezone-aware")
+        url = archive.get("source_url")
+        _require(isinstance(url, str) and url.startswith("https://"),
+                 f"GW{gameweek}/provider_forecast: HTTPS source URL missing")
+        _require(isinstance(archive.get("raw_snapshot_id"), str)
+                 and archive["raw_snapshot_id"],
+                 f"GW{gameweek}/provider_forecast: snapshot ID missing")
+        audited.append({
+            "source_type": "provider_forecast",
+            "raw_snapshot_id": archive["raw_snapshot_id"],
+            "raw_sha256": digest,
+            "captured_at_utc": captured,
+            "source_url": url,
+            "bytes": len(raw),
+        })
+    _require(len([item for item in audited
+                  if item["source_type"] == "provider_forecast"]) <= 1,
+             f"GW{gameweek}: duplicate provider forecast archives")
     return audited
 
 
