@@ -274,3 +274,18 @@ For a real candidate, the evaluator decodes the manager-state archive whose raw 
 ## 18. Official player-metadata binding
 
 For a real candidate, the evaluator decodes the exact official bootstrap archive independently audited as the pre-deadline player-metadata source. Every player in the 15-player hold roster—and the incoming player for a transfer—is checked against that archive for official FPL element ID, position, club and current price. Missing or duplicate official IDs, incomplete metadata, or any detached evaluation attribute fails closed. This ensures the scoring roster and incoming transfer candidate cannot carry substituted position, club or price metadata while referencing an otherwise valid bootstrap archive.
+
+## 18. Deterministic frozen-decision replay
+
+The pre-deadline capture workflow now re-executes the personal-squad decision runner from the archived canonical capture manifest immediately after freezing the recommendation. The replay step:
+
+- requires the replay software commit to equal the commit recorded in the frozen evaluation candidate;
+- verifies base64 decoding and SHA-256 integrity for provider, official metadata and manager-state raw archives;
+- verifies the canonical provider snapshot and canonical metadata provenance are bound to their corresponding raw archive hashes;
+- reruns the same M3 personal-squad recommendation runner using the captured canonical provider snapshot, metadata rows and manager state;
+- compares the complete frozen decision and the presented recommendation against the archived outputs;
+- writes a replay report into the same immutable workflow artifact.
+
+A failed replay fails the capture workflow and prevents a passing replay report from being archived. The replay report is explicitly labelled `DETERMINISTIC_CANONICAL_INPUT_REEXECUTION`; it does not establish forecast accuracy, recommendation value, or release eligibility.
+
+**Important limitation:** this first replay stage re-executes from the normalized canonical inputs retained in the capture manifest. It verifies raw archive hashes and the provider/metadata hash bindings, but it does not yet independently rebuild every normalized field from the raw provider, bootstrap and manager-history payloads. That raw-to-canonical reconstruction remains a separate provenance-validation task. The recorded commit is checked against the workflow's exact checkout commit; a later replay must check out that exact commit rather than silently using current branch code.
