@@ -82,3 +82,23 @@ def test_abc_feature_coverage_reports_observed_and_missing_rows():
     assert coverage["abc_a"]["coverage_rate"] == 2 / 3
     assert coverage["abc_b"]["observed_rows"] == 1
     assert coverage["abc_b"]["missing_rows"] == 2
+
+
+def test_layer_feature_availability_marks_unsupported_features():
+    summary = summarize_layer_feature_availability(
+        {"ABC_ONLY_A": ["abc_progressive_passes", "abc_player_key_pass_rate"]},
+        [{
+            "models": {
+                "ABC_ONLY_A": {
+                    "feature_coverage_on_training_rows": {
+                        "abc_progressive_passes": {"coverage_rate": 0.9},
+                        "abc_player_key_pass_rate": {"coverage_rate": 0.6},
+                    }
+                }
+            }
+        }],
+    )
+    layer = summary["A_temporal_football_value"]
+    assert layer["ever_observed_feature_count"] == 2
+    assert "abc_player_tracked_xg_rate" in layer["never_observed_features"]
+    assert layer["training_coverage_by_feature"]["abc_progressive_passes"]["minimum_coverage_rate"] == 0.9
