@@ -339,6 +339,43 @@ def _verify_real_admission(record: Mapping[str, Any], admission_report: Any,
             or recommendation.get("decision_sha256") != decision.get("decision_sha256")):
         _fail("frozen decision hash/action/execution does not match the independent post-Gameweek audit")
 
+    # Bind the three point-in-time inputs used by the decision to the exact raw
+    # archives independently hashed by the post-Gameweek auditor. A valid hash
+    # on an unrelated archive is not sufficient evidence for this decision.
+    audited_sources = audited.get("decision_sources")
+    if not isinstance(audited_sources, list):
+        _fail("independent audit is missing point-in-time decision source archives")
+    audit_by_type = {
+        row.get("source_type"): row for row in audited_sources
+        if isinstance(row, Mapping)
+    }
+    record_by_type = {
+        row.get("source_type"): row for row in record.get("source_archives", [])
+        if isinstance(row, Mapping)
+    }
+    source_type_map = {
+        "provider": "provider_forecast",
+        "player_metadata": "player_metadata",
+        "manager_state": "manager_deadline_state",
+    }
+    for record_type, audit_type in source_type_map.items():
+        source = record_by_type.get(record_type)
+        audited_source = audit_by_type.get(audit_type)
+        if not isinstance(source, Mapping) or not isinstance(audited_source, Mapping):
+            _fail(f"{record_type} archive is not bound to an independently audited decision source")
+        for field in ("raw_snapshot_id", "raw_sha256", "captured_at_utc", "source_url"):
+            if source.get(field) != audited_source.get(field):
+                _fail(f"{record_type} archive {field} does not match the independent decision-source audit")
+        if record_type == "provider":
+            for field in ("generated_at_utc",):
+                if source.get(field) != audited_source.get(field):
+                    _fail(f"provider archive {field} does not match the independent decision-source audit")
+            provider_identity = record.get("provider_identity")
+            if (not isinstance(provider_identity, Mapping)
+                    or provider_identity.get("name") != audited_source.get("provider_id")
+                    or provider_identity.get("variant") != audited_source.get("provider_variant")):
+                _fail("provider identity does not match the independently audited provider archive")
+
     batch_rows = batch.get("results")
     batch_event = next((row for row in batch_rows if isinstance(row, Mapping)
                         and row.get("gameweek") == gameweek), None) if isinstance(batch_rows, list) else None
