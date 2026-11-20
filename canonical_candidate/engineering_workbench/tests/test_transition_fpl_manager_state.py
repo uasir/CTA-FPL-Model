@@ -171,6 +171,9 @@ def test_wildcard_is_permanent_free_and_preserves_banked_transfers():
 
 def test_free_hit_uses_temporary_squad_then_restores_original_squad_bank_and_free_transfers():
     state = make_state(free_transfers=2, bank=10)
+    original_action = make_action(state)
+    original_lineup = {key: original_action[key] for key in ("starting_xi", "bench_order", "captain", "vice_captain")}
+    state["lineup"] = original_lineup
     transfer = {
         "out_player_id": "p7",
         "in_player": {"player_id": "temporary_def", "position": "DEF", "team_id": "temp",
@@ -186,6 +189,7 @@ def test_free_hit_uses_temporary_squad_then_restores_original_squad_bank_and_fre
     assert result["next_bank_tenths"] == 10
     assert result["next_free_transfers"] == 2
     assert result["next_state"]["chip_inventory"]["free_hit"]["first_half_remaining"] == 0
+    assert result["next_state"]["lineup"] == original_lineup
 
 
 def test_insufficient_budget_and_wrong_position_transfer_are_rejected():
