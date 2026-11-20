@@ -6,7 +6,7 @@ import unittest
 from m4_covar_scenario_scoring import CovarScoringError, score_scenario_portfolios
 from m4_covar_field_portfolio_adapter import (
     adapt_field_portfolios_for_scenario,
-    anonymize_manager_pick_rows,
+    strip_manager_identifiers_from_manager_picks,
 )
 from test_m4_covar_scenario_contract import fixture
 
@@ -124,7 +124,7 @@ class TestM4CovarScenarioScoring(unittest.TestCase):
             comparison["probability_outscoring_random_field_portfolio"], 0.125
         )
 
-    def test_anonymized_predeadline_sample_flows_into_scenario_field_comparison(self):
+    def test_manager-ID-stripped_predeadline_sample_flows_into_scenario_field_comparison(self):
         rows = []
         manager_specs = [
             (700001, 1, ["a1", "a2", "b1"] + [f"x{i}" for i in range(12)], "a1", "3xc"),
@@ -139,7 +139,7 @@ class TestM4CovarScenarioScoring(unittest.TestCase):
                     "position": position, "is_captain": player_id == captain,
                     "is_vice_captain": False, "active_chip": chip,
                 })
-        raw_artifact = anonymize_manager_pick_rows(
+        raw_artifact = strip_manager_identifiers_from_manager_picks(
             rows, gameweek=12, deadline_utc="2026-11-28T11:00:00Z",
             captured_at_utc="2026-11-27T17:00:00Z",
             evidence_role="PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE",
@@ -159,7 +159,7 @@ class TestM4CovarScenarioScoring(unittest.TestCase):
             3,
         )
         self.assertEqual(adapted["metadata"]["manager_projection_coverage"], 1.0)
-        self.assertFalse(adapted["metadata"]["manager_identifiers_retained"])
+        self.assertFalse(adapted["metadata"]["manager_entry_ids_retained"])
 
     def test_scores_field_portfolio_with_no_fixture_players_as_zero(self):
         doc = fixture()
