@@ -82,7 +82,7 @@ def test_missing_expected_fixture_count_blocks_model_eligibility():
     result = aggregate_player_gameweeks([row("101")])[0]
     assert result["fixture_completeness_status"] == "NOT_CHECKED"
     assert result["research_eligible_for_model"] is False
-    assert "OFFICIAL_FIXTURE_IDS_NOT_SUPPLIED" in result["exclusion_reasons"]
+    assert "REFERENCE_FIXTURE_IDS_NOT_SUPPLIED" in result["exclusion_reasons"]
 
 
 def test_incomplete_double_gameweek_blocks_model_eligibility():
