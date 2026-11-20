@@ -83,6 +83,23 @@ def _history(chips=None):
     return {"chips": chips or []}
 
 
+def _bootstrap(ids=range(1, 17)):
+    return {"elements": [
+        {"id": element, "now_cost": 60 + element, "cost_change_start": 10}
+        for element in ids
+    ]}
+
+
+def test_uses_bootstrap_season_start_price_when_gw1_pick_price_is_missing():
+    gw1 = picks_payload(event=1)
+    gw1["picks"][0].pop("purchase_price")
+    squad = manager_capture.reconstruct_purchase_prices(
+        gw1, [], _history(), 11, set(range(1, 16)), _bootstrap()
+    )
+    prices = {row["fpl_element_id"]: row["purchase_price"] for row in squad}
+    assert prices[1] == 5.1
+
+
 def test_reconstructs_unchanged_and_transferred_players_from_season_history():
     gw1 = picks_payload(event=1)
     # Sell player 1 for player 16 in GW4; incoming price is £6.2m.
@@ -156,6 +173,7 @@ def test_pre_deadline_fallback_uses_season_history_and_archives_all_sources(monk
         "element_in": 16, "element_in_cost": 62,
     }]).encode()
     history_raw = json.dumps(_history()).encode()
+    bootstrap_raw = json.dumps(_bootstrap()).encode()
     calls = []
 
     def fake_fetch(url):
@@ -168,6 +186,8 @@ def test_pre_deadline_fallback_uses_season_history_and_archives_all_sources(monk
             return transfers_raw
         if url.endswith("/history/"):
             return history_raw
+        if url.endswith("/bootstrap-static/"):
+            return bootstrap_raw
         raise AssertionError(url)
 
     monkeypatch.setattr(manager_capture, "fetch", fake_fetch)
@@ -186,6 +206,7 @@ def test_pre_deadline_fallback_uses_season_history_and_archives_all_sources(monk
         f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/event/1/picks/",
         f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/transfers/",
         f"https://fantasy.premierleague.com/api/entry/{TEAM_ID}/history/",
+        "https://fantasy.premierleague.com/api/bootstrap-static/",
     }
     archive_raw = base64.b64decode(provenance["raw_response_base64"], validate=True)
     assert hashlib.sha256(archive_raw).hexdigest() == provenance["raw_sha256"]
@@ -193,3 +214,4 @@ def test_pre_deadline_fallback_uses_season_history_and_archives_all_sources(monk
               for row in result["manager_context"]["squad_snapshot"]}
     assert prices[16] == 6.2
     assert prices[2] == 5.2
+    assert "bootstrap" in json.loads(archive_raw)
