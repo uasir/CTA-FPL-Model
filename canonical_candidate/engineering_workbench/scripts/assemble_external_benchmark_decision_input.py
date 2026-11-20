@@ -86,10 +86,6 @@ def assemble_decision_input(
     missing = sorted(set(ids) - provider_ids)
     if missing:
         raise DecisionInputError(f"manager squad IDs missing from FPL metadata: {missing}")
-    metadata_by_id = {
-        row["fpl_element_id"]: row for row in provider_capture["player_metadata"]
-        if isinstance(row, dict) and "fpl_element_id" in row
-    }
     enriched_squad = []
     for row in squad:
         enriched = dict(row)
