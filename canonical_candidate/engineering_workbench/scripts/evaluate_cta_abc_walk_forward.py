@@ -67,7 +67,6 @@ def aggregate_player_gameweek(rows, predictions):
     result = []
     for (player_id, gameweek), values in sorted(grouped.items(), key=lambda x: (x[0][1], x[0][0])):
         result.append({
-            "season": canonical_key(rows[0].get("season") or "2017/18", rows[0]["fpl_element_id"], rows[0]["gameweek"])[0] if rows else "2017-18",
             "player_id": player_id,
             "gameweek": gameweek,
             "actual": values["actual"],
@@ -198,6 +197,8 @@ def evaluate_matched(rows, source_report, partitions, manifest, ridge_lambda=1.0
             test_fixture_predictions = [predict(model, row) for row in test_rows]
             calibration_gw = aggregate_player_gameweek(calibration_rows, calibration_fixture_predictions)
             test_gw = aggregate_player_gameweek(test_rows, test_fixture_predictions)
+            for record in calibration_gw + test_gw:
+                record["season"] = parts["fit"][0][0]
             calibration_keys = [(r["season"], r["player_id"], r["gameweek"]) for r in calibration_gw]
             expected_calibration = [(k[0], k[1], k[2]) for k in parts["calibration"]]
             test_keys = [(r["season"], r["player_id"], r["gameweek"]) for r in test_gw]
