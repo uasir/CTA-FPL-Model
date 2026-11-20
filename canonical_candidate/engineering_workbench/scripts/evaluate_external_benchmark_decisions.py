@@ -301,13 +301,66 @@ def _score_plan(plan: Mapping[str, Any], roster_by_id: Mapping[int, Mapping[str,
     }
 
 
-def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
+def _verify_real_admission(record: Mapping[str, Any], admission_report: Any,
+                           audit_report: Any, batch: Any) -> None:
+    """Bind a real scoring record to the independent archive/admission chain."""
+    manager_id = record.get("manager_team_id")
+    gameweek = record.get("target_gameweek")
+    if not isinstance(admission_report, Mapping) or not isinstance(audit_report, Mapping) or not isinstance(batch, Mapping):
+        _fail("REAL_CANDIDATE requires admission report, independent audit report and official batch")
+    if admission_report.get("manager_team_id") != manager_id:
+        _fail("admission report manager identity mismatch")
+    if audit_report.get("status") != "PASSED" or audit_report.get("manager_team_id") != manager_id:
+        _fail("independent archive audit is missing, failed or belongs to another manager")
+    if batch.get("manager_team_id") != manager_id or batch.get("historical_evidence_admitted") is not False:
+        _fail("official reconciliation batch identity or non-admission invariant mismatch")
+
+    admission_events = admission_report.get("events")
+    admitted = next((row for row in admission_events if isinstance(row, Mapping)
+                     and row.get("gameweek") == gameweek), None) if isinstance(admission_events, list) else None
+    if (not isinstance(admitted, Mapping)
+            or admitted.get("classification") != "DECISION_BACKTEST_ELIGIBLE"
+            or admitted.get("historical_evidence_admitted") is not True
+            or admitted.get("official_score_reconciled") is not True):
+        _fail("target Gameweek is not independently classified DECISION_BACKTEST_ELIGIBLE")
+
+    audit_events = audit_report.get("events")
+    audited = next((row for row in audit_events if isinstance(row, Mapping)
+                    and row.get("gameweek") == gameweek), None) if isinstance(audit_events, list) else None
+    if not isinstance(audited, Mapping) or audited.get("status") != "RECONCILED":
+        _fail("target Gameweek has no independently audited official scoring reconciliation")
+    recommendation = audited.get("predeadline_recommendation")
+    decision = record.get("frozen_decision")
+    if not isinstance(recommendation, Mapping) or not isinstance(decision, Mapping):
+        _fail("frozen recommendation audit or decision is missing")
+    if (recommendation.get("status") != "VERIFIED"
+            or recommendation.get("execution_match") not in {"HOLD_BASELINE_MATCHED", "RECOMMENDATION_MATCHED"}
+            or recommendation.get("action") != decision.get("action")
+            or recommendation.get("decision_sha256") != decision.get("decision_sha256")):
+        _fail("frozen decision hash/action/execution does not match the independent post-Gameweek audit")
+
+    batch_rows = batch.get("results")
+    batch_event = next((row for row in batch_rows if isinstance(row, Mapping)
+                        and row.get("gameweek") == gameweek), None) if isinstance(batch_rows, list) else None
+    source_record = batch_event.get("result") if isinstance(batch_event, Mapping) else None
+    if (not isinstance(batch_event, Mapping) or batch_event.get("status") != "RECONCILED"
+            or not isinstance(source_record, Mapping)
+            or source_record.get("manager_team_id") != manager_id
+            or source_record.get("target_gameweek") != gameweek
+            or source_record.get("event_finalized") is not True
+            or source_record.get("historical_evidence_admitted") is not False
+            or source_record.get("active_chip") not in (None, "")):
+        _fail("official batch does not contain the matching finalized, no-chip, non-admitted source event")
+
+
+def evaluate_decision_record(record: Mapping[str, Any], *, admission_report: Any = None,
+                             audit_report: Any = None, batch: Any = None) -> dict[str, Any]:
     """Validate a frozen record and score recommended plan against hold baseline."""
     if not isinstance(record, Mapping):
         _fail("evaluation record must be an object")
     _validate_evidence(record)
-    if record["evidence_class"] != "SYNTHETIC_TEST":
-        _fail("REAL_CANDIDATE records are blocked until independent historical-evidence admission is implemented")
+    if record["evidence_class"] == "REAL_CANDIDATE":
+        _verify_real_admission(record, admission_report, audit_report, batch)
     manager = record.get("manager_state")
     if not isinstance(manager, Mapping):
         _fail("manager_state must be an object")
@@ -461,8 +514,10 @@ def evaluate_decision_record(record: Mapping[str, Any]) -> dict[str, Any]:
     ]
     return {
         "evaluation_contract_version": CONTRACT_VERSION,
-        "evidence_class": "SYNTHETIC_TEST",
-        "evaluation_status": "SYNTHETIC_ONLY_NOT_HISTORICAL_EVIDENCE",
+        "evidence_class": record["evidence_class"],
+        "evaluation_status": ("SYNTHETIC_ONLY_NOT_HISTORICAL_EVIDENCE"
+                              if record["evidence_class"] == "SYNTHETIC_TEST"
+                              else "REAL_DECISION_BACKTEST_EVENT_SCORED_NOT_PROMOTION_EVIDENCE"),
         "manager_team_id": record["manager_team_id"],
         "target_gameweek": record["target_gameweek"],
         "provider_snapshot_id": record["provider_snapshot_id"],
@@ -508,9 +563,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("evaluation_record", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--admission-report", type=Path)
+    parser.add_argument("--audit-report", type=Path)
+    parser.add_argument("--batch", type=Path)
     args = parser.parse_args()
     record = json.loads(args.evaluation_record.read_text(encoding="utf-8"))
-    result = evaluate_decision_record(record)
+    admission = json.loads(args.admission_report.read_text(encoding="utf-8")) if args.admission_report else None
+    audit = json.loads(args.audit_report.read_text(encoding="utf-8")) if args.audit_report else None
+    batch = json.loads(args.batch.read_text(encoding="utf-8")) if args.batch else None
+    result = evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
     rendered = json.dumps(result, indent=2, sort_keys=True, allow_nan=False)
     if args.output:
         args.output.write_text(rendered + "\n", encoding="utf-8")
