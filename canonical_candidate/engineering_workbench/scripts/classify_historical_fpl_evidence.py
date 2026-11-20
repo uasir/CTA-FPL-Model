@@ -64,8 +64,11 @@ def _decision_eligibility(manifest: Any, gameweek: int) -> tuple[bool, list[str]
         if row is None:
             reasons.append(f"Missing {source_type} source archive")
             continue
-        if not row.get("raw_snapshot_id") or not row.get("raw_sha256"):
-            reasons.append(f"{source_type} archive lacks snapshot ID or SHA-256")
+        digest = row.get("raw_sha256")
+        if not row.get("raw_snapshot_id") or not isinstance(digest, str) or len(digest) != 64:
+            reasons.append(f"{source_type} archive lacks snapshot ID or a 64-character SHA-256")
+        elif any(char not in "0123456789abcdef" for char in digest.lower()):
+            reasons.append(f"{source_type} archive SHA-256 is malformed")
         try:
             captured = _parse_time(row.get("captured_at_utc"),
                                    f"{source_type}.captured_at_utc")
@@ -89,6 +92,8 @@ def _decision_eligibility(manifest: Any, gameweek: int) -> tuple[bool, list[str]
         for field in sorted(REQUIRED_MANAGER_FIELDS):
             if field not in manager_state or manager_state[field] is None:
                 reasons.append(f"Manager deadline state missing {field}")
+        if manager_state.get("chip_state") not in ("NONE", None):
+            reasons.append("Chip state is outside the initial decision contract")
         squad = manager_state.get("squad_15")
         if not isinstance(squad, list) or len(squad) != 15 or len(set(squad)) != 15:
             reasons.append("Manager deadline squad must contain exactly 15 unique players")
