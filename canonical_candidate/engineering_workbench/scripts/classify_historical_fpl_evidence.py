@@ -39,7 +39,7 @@ def _parse_time(value: Any, label: str) -> datetime:
     return parsed
 
 
-def _decision_eligibility(manifest: Any, gameweek: int) -> tuple[bool, list[str]]:
+def _decision_eligibility(manifest: Any, gameweek: int, manager_id: int,\n                          audit_report: Any) -> tuple[bool, list[str]]:
     reasons: list[str] = []
     if not isinstance(manifest, Mapping):
         return False, ["No separate point-in-time decision evidence manifest supplied"]
@@ -59,6 +59,28 @@ def _decision_eligibility(manifest: Any, gameweek: int) -> tuple[bool, list[str]
     source_map = {
         row.get("source_type"): row for row in sources if isinstance(row, Mapping)
     }
+    audit_event = None
+    if not isinstance(audit_report, Mapping) or audit_report.get("status") != "PASSED":
+        reasons.append("Independent archive audit report is missing or did not pass")
+    elif audit_report.get("manager_team_id") != manager_id:
+        reasons.append("Independent archive audit manager identity mismatch")
+    else:
+        audit_events = audit_report.get("events")
+        if isinstance(audit_events, list):
+            audit_event = next((event for event in audit_events
+                                if isinstance(event, Mapping)
+                                and event.get("gameweek") == gameweek), None)
+        if not isinstance(audit_event, Mapping) or audit_event.get("status") != "RECONCILED":
+            reasons.append("Independent archive audit has no reconciled event for this Gameweek")
+
+    audit_type_for_source = {
+        "provider_forecast": "provider_forecast",
+        "player_metadata": "bootstrap_static",
+        "manager_deadline_state": "manager_picks",
+    }
+    audited_archives = (
+        audit_event.get("archives", []) if isinstance(audit_event, Mapping) else []
+    )
     for source_type in sorted(REQUIRED_DECISION_SOURCES):
         row = source_map.get(source_type)
         if row is None:
@@ -76,6 +98,23 @@ def _decision_eligibility(manifest: Any, gameweek: int) -> tuple[bool, list[str]
                 reasons.append(f"{source_type} archive was captured at/after deadline")
         except EvidenceAdmissionError as exc:
             reasons.append(str(exc))
+        expected_audit_type = audit_type_for_source[source_type]
+        audited = next((archive for archive in audited_archives
+                        if isinstance(archive, Mapping)
+                        and archive.get("source_type") == expected_audit_type), None)
+        if audited is None:
+            reasons.append(f"{source_type} has no matching independently audited raw archive")
+        else:
+            for manifest_key, audit_key in (
+                ("raw_snapshot_id", "raw_snapshot_id"),
+                ("raw_sha256", "raw_sha256"),
+                ("captured_at_utc", "captured_at_utc"),
+                ("source_url", "source_url"),
+            ):
+                if not row.get(manifest_key) or row.get(manifest_key) != audited.get(audit_key):
+                    reasons.append(
+                        f"{source_type} {manifest_key} does not match the independent archive audit"
+                    )
         if source_type == "provider_forecast":
             try:
                 generated = _parse_time(row.get("generated_at_utc"),
@@ -146,7 +185,7 @@ def classify_batch(batch: Mapping[str, Any],
                 reasons = ["Chip Gameweek is outside the initial scoring and decision contract"]
             else:
                 manifest = manifests.get(str(gw), manifests.get(gw))
-                eligible, reasons = _decision_eligibility(manifest, gw)
+                eligible, reasons = _decision_eligibility(manifest, gw, manager_id, audit_report)
                 classification = "DECISION_BACKTEST_ELIGIBLE" if eligible else "SCORING_RECONCILIATION_ONLY"
         elif status == "EXCLUDED":
             classification = "EXCLUDED"
@@ -180,14 +219,14 @@ def classify_batch(batch: Mapping[str, Any],
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("batch", type=Path)
-    parser.add_argument("--decision-manifests", type=Path)
+    parser.add_argument("--decision-manifests", type=Path)\n    parser.add_argument("--audit-report", type=Path, help="Independent archive audit JSON")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     batch = json.loads(args.batch.read_text(encoding="utf-8"))
     manifests = {}
     if args.decision_manifests:
         manifests = json.loads(args.decision_manifests.read_text(encoding="utf-8"))
-    result = classify_batch(batch, manifests)
+    audit_report = (json.loads(args.audit_report.read_text(encoding="utf-8"))\n                    if args.audit_report else None)\n    result = classify_batch(batch, manifests, audit_report)
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({key: value for key, value in result.items() if key != "events"}, indent=2))
     return 0
