@@ -6,6 +6,8 @@ from m4_covar_field_portfolio_adapter import (
     CovarFieldPortfolioError,
     adapt_field_portfolios_for_scenario,
     anonymize_manager_pick_rows,
+    canonical_artifact_sha256,
+    verify_field_portfolio_artifact,
 )
 
 
@@ -113,6 +115,27 @@ class TestCovarFieldPortfolioAdapter(unittest.TestCase):
                 artifact(), ["1"], expected_gameweek=12,
                 deadline_utc="2026-11-20T23:00:00Z", as_of_utc=AS_OF,
             )
+
+    def test_binds_artifact_to_capture_report_hash_and_temporal_identity(self):
+        field_artifact = artifact()
+        report = {
+            "status": "CAPTURED_PRE_DEADLINE_CURRENT_PICKS",
+            "evidence_role": "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE",
+            "gameweek": 12,
+            "deadline_time_utc": DEADLINE,
+            "picks_captured_at_utc": CAPTURED,
+            "manager_portfolio_artifact": {
+                "sha256": canonical_artifact_sha256(field_artifact),
+                "manager_count": 3,
+                "manager_identifiers_retained": False,
+            },
+        }
+        result = verify_field_portfolio_artifact(field_artifact, report)
+        self.assertEqual(result["status"], "PASS_ANONYMIZED_FIELD_PORTFOLIO_PROVENANCE")
+        self.assertFalse(result["manager_identifiers_retained"])
+        field_artifact["portfolios"][0]["player_ids"][0] = "999"
+        with self.assertRaisesRegex(CovarFieldPortfolioError, "SHA-256"):
+            verify_field_portfolio_artifact(field_artifact, report)
 
     def test_rejects_malformed_manager_squad(self):
         rows = pick_rows()
