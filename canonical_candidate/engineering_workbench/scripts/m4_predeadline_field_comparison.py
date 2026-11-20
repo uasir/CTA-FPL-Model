@@ -22,6 +22,9 @@ def adapt_m3_evaluation_candidate(document: dict) -> dict:
     decision = source.get("frozen_decision")
     if not isinstance(state, dict) or not isinstance(decision, dict):
         raise ValueError("M3 candidate must contain manager_state and frozen_decision")
+    # Keep direct M4-contract fixtures/inputs valid; production M3 outputs use hold_plan.
+    if isinstance(state.get("manager_state"), dict) and "squad_15" in state["manager_state"]:
+        return source
     roster = state.get("squad_snapshot")
     hold = state.get("hold_plan")
     if not isinstance(roster, list) or len(roster) != 15 or not isinstance(hold, dict):
