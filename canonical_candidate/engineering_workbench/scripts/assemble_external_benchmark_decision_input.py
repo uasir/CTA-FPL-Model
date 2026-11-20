@@ -86,6 +86,22 @@ def assemble_decision_input(
     missing = sorted(set(ids) - provider_ids)
     if missing:
         raise DecisionInputError(f"manager squad IDs missing from FPL metadata: {missing}")
+    metadata_by_id = {
+        row["fpl_element_id"]: row for row in provider_capture["player_metadata"]
+        if isinstance(row, dict) and "fpl_element_id" in row
+    }
+    enriched_squad = []
+    for row in squad:
+        enriched = dict(row)
+        if "purchase_price" not in enriched:
+            metadata = metadata_by_id[enriched["fpl_element_id"]]
+            current_price = metadata.get("price")
+            if isinstance(current_price, bool) or not isinstance(current_price, (int, float)) or current_price <= 0:
+                raise DecisionInputError(
+                    f"cannot establish conservative selling-price floor for FPL ID {enriched['fpl_element_id']}"
+                )
+            enriched["selling_price_floor"] = current_price
+        enriched_squad.append(enriched)
 
     captured_at = _parse_utc(manager_provenance.get("captured_at_utc"), "manager capture timestamp")
     deadline = _parse_utc(provider.get("timing", {}).get("deadline_utc"), "FPL deadline")
@@ -110,7 +126,7 @@ def assemble_decision_input(
         "player_metadata": provider_capture["player_metadata"],
         "player_metadata_provenance": metadata_provenance,
         "manager_context": {
-            "squad_snapshot": squad,
+            "squad_snapshot": enriched_squad,
             "bank": manager["bank"],
             "free_transfers": manager["free_transfers"],
             "personal_risk_profile": manager["personal_risk_profile"],
