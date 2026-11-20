@@ -1,0 +1,43 @@
+name: CTA pre-deadline provisional field EO capture
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Capture a stratified sample of current picks before likely :00/:30 deadlines.
+    - cron: "5,35 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-predeadline-field-eo
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Capture provisional field picks before deadline
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/capture_predeadline_field_eo.py \
+            --out-dir run_artifacts/predeadline_field_eo \
+            --rank-limit 10000 \
+            --sample-size 400 \
+            --workers 4 \
+            --delay 0.15 \
+            --deadline-window-minutes 35
+      - name: Upload provisional field EO evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-predeadline-field-eo-${{ github.run_id }}
+          path: run_artifacts/predeadline_field_eo/
+          if-no-files-found: ignore
+          retention-days: 90
