@@ -42,9 +42,14 @@ def parse_timestamp(value, label):
 
 
 def validate_frozen_action(policy: str, record: Mapping, deadline_utc: str, state: Mapping):
+    if not isinstance(record, Mapping):
+        raise ValueError(f"{policy} action record must be an object")
     deadline = parse_timestamp(deadline_utc, "deadline_utc")
     decision_time = parse_timestamp(record.get("decision_frozen_at_utc"), "decision_frozen_at_utc")
-    forecast_time = parse_timestamp(record.get("forecast_frozen_at_utc"), "forecast_frozen_at_utc")
+    if policy == "hold" and not record.get("forecast_frozen_at_utc"):
+        forecast_time = decision_time
+    else:
+        forecast_time = parse_timestamp(record.get("forecast_frozen_at_utc"), "forecast_frozen_at_utc")
     if forecast_time > decision_time:
         raise ValueError(f"{policy} forecast must be frozen no later than its decision")
     if decision_time >= deadline or forecast_time >= deadline:
@@ -58,6 +63,17 @@ def validate_frozen_action(policy: str, record: Mapping, deadline_utc: str, stat
     action = record.get("action")
     if not isinstance(action, Mapping):
         raise ValueError(f"{policy} action payload is missing")
+    if not isinstance(action.get("transfers"), list):
+        raise ValueError(f"{policy} action transfers must be a list")
+    if policy == "hold":
+        if action["transfers"] or action.get("chip") is not None:
+            raise ValueError("Hold must make no transfers and use no chip")
+        prior_lineup = state.get("lineup")
+        if not isinstance(prior_lineup, Mapping):
+            raise ValueError("Hold requires the prior lineup in the manager state")
+        for key in ("starting_xi", "bench_order", "captain", "vice_captain"):
+            if action.get(key) != prior_lineup.get(key):
+                raise ValueError(f"Hold must preserve the existing {key}")
 
 
 def _score_transition(state: Mapping, action: Mapping, transition: Mapping, outcomes: Mapping):
