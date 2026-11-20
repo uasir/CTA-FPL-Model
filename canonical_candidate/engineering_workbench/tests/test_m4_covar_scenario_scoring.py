@@ -47,6 +47,44 @@ class TestM4CovarScenarioScoring(unittest.TestCase):
         result = score_scenario_portfolios(doc)
         self.assertEqual(result["mode"], "FREE_HIT")
 
+    def test_same_team_defensive_stack_concentrates_fixture_outcome_variance(self):
+        result = score_scenario_portfolios(fixture())
+        stack = result["portfolio_results"]["covar-stack"]
+        # Both A players rise together in A's clean-sheet scenario and fall together in B's win.
+        pair = next(
+            row for row in stack["variance_decomposition"]
+            if row["player_a"] == "a1" and row["player_b"] == "a2"
+        )
+        self.assertGreater(pair["covariance_contribution"], 0)
+        self.assertGreater(stack["variance"], 0)
+
+    def test_opposing_player_pair_can_reduce_portfolio_variance(self):
+        result = score_scenario_portfolios(fixture())
+        conventional = result["portfolio_results"]["conventional"]
+        pair = next(
+            row for row in conventional["variance_decomposition"]
+            if row["player_a"] == "a1" and row["player_b"] == "b1"
+        )
+        self.assertLess(pair["covariance_contribution"], 0)
+
+    def test_lower_effective_ownership_captain_multiplier_is_explicit_not_free_upside(self):
+        doc = fixture()
+        doc["players"][1]["effective_ownership_pct"] = 8
+        doc["players"][1]["captain_pct"] = 0.5
+        doc["portfolios"].append({
+            "portfolio_id": "low-eo-captain",
+            "player_ids": ["a1", "a2"],
+            "captain_id": "a2",
+            "captain_multiplier": 2,
+        })
+        result = score_scenario_portfolios(doc, baseline_portfolio_id="covar-stack")
+        low_eo = result["portfolio_results"]["low-eo-captain"]
+        self.assertEqual(low_eo["expected_points"], 14.0)
+        self.assertEqual(
+            low_eo["baseline_comparison"]["expected_points_difference"], -5.0
+        )
+        self.assertEqual(doc["players"][1]["effective_ownership_pct"], 8)
+
     def test_rejects_unknown_mode(self):
         doc = fixture()
         doc["mode"] = "AUTO"
