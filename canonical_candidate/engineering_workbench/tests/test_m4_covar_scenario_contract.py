@@ -118,6 +118,7 @@ class TestM4CovarScenarioContract(unittest.TestCase):
         player = doc["scenarios"][0]["player_outcomes"][0]
         player["minutes"] = 70
         player["goals_conceded_while_on_pitch"] = 0
+        doc["scenarios"][0]["player_outcomes"][1]["clean_sheet"] = False
         result = validate_scenario_document(doc)
         self.assertEqual(result["validation_status"], "VALID_SYNTHETIC_RESEARCH_INPUT")
 
