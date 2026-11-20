@@ -204,3 +204,29 @@ The first manager 421025 batch reconciled GW1, GW2, GW3, GW6, GW7, GW8 and GW10.
 Manager 421025's requested GW1–8 and GW10 batch now reconciles eight events (GW1, GW2, GW3, GW5, GW6, GW7, GW8 and GW10); GW4 is excluded because it used a chip. GW5 independently reconciles both official automatic substitutions: reserve goalkeeper 497→110 and outfield player 165→127. Transfer-cost cases are GW6 (4), GW7 (4) and GW10 (8); GW1, GW2, GW3, GW5 and GW8 have zero transfer cost. All eight local gross scores match the official multiplier-weighted gross totals. This is manager scoring/substitution reconciliation, not forecast or recommendation validation.
 
 The next automated gate is `audit_official_fpl_manager_batch.py`. It decodes each archived official payload, recomputes SHA-256, checks timezone-aware capture timestamps and source URLs, verifies event finalisation and manager/Gameweek identity, and recomputes batch coverage summaries. It also preserves the rule that historical evidence admission is false. The workflow now runs this audit and uploads both the batch evidence and audit report. A successful archive audit verifies integrity/provenance only; it does not promote historical records into the decision-evaluation cohort.
+
+
+## 14. Historical evidence admission classification (M3)
+
+The admission classifier is `scripts/classify_historical_fpl_evidence.py`. It is deliberately separate from official score reconciliation and archive-integrity auditing. It does not infer historical manager state from current APIs, reconstructed prices, post-deadline captures or final picks positions.
+
+Every manager/Gameweek record receives exactly one classification:
+
+- `DECISION_BACKTEST_ELIGIBLE`: official scoring reconciliation passed and a separate evidence manifest proves that all decision inputs were captured/generated strictly before the deadline.
+- `SCORING_RECONCILIATION_ONLY`: official scoring reconciliation passed, but one or more decision-input requirements are absent or unproven. This is not eligible for transfer-decision backtesting.
+- `DIAGNOSTIC_ONLY`: reserved for explicitly retained diagnostic records that cannot support scoring or decision evaluation. It is never included in the primary cohort.
+- `EXCLUDED`: scoring reconciliation failed, the event is outside the supported contract (including chip events), or the record is otherwise invalid.
+
+A decision manifest must bind the manager ID and target Gameweek and include:
+1. official deadline and decision-as-of timestamps, both timezone-aware, with the decision strictly before deadline;
+2. raw provider forecast archive, provider generation time, capture time, snapshot ID and SHA-256, all strictly pre-deadline;
+3. raw player metadata archive with pre-deadline capture time, snapshot ID and SHA-256;
+4. raw manager deadline-state archive with pre-deadline capture time, snapshot ID and SHA-256;
+5. exact 15-player squad, bank, free transfers, purchase and selling prices for every squad player, chip state, intended starting XI, ordered bench, reserve goalkeeper, captain and vice-captain;
+6. an explicit point-in-time evidence attestation.
+
+Missing or reconstructed purchase/selling prices, missing bank/free-transfer state, post-deadline manager captures, provider snapshots without a pre-deadline generation timestamp, or incomplete player metadata prevent decision-backtest admission. The classifier preserves the reasons for each non-admission. A manifest is evidence metadata, not a substitute for the raw archives: downstream evidence audit must verify each referenced archive's bytes, hash, source identity and timestamp before any production backtest.
+
+Scoring-only records may support tests of the official points/substitution reconciliation harness, but must never be passed to the recommendation-vs-hold decision scorer as historical decision records. Synthetic fixtures remain synthetic and cannot be promoted by this classifier.
+
+The existing batch of requested GWs 1,2,3,4,5,6,7,8,10 therefore remains non-admitted until per-Gameweek point-in-time manifests are produced and audited. The eight reconciled events can be classified as scoring-only in the absence of such manifests; GW4 remains excluded for chip use. No forecast quality, decision value, rank improvement or release eligibility is established.
