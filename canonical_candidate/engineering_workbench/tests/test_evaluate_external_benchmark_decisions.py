@@ -254,11 +254,86 @@ def test_identical_frozen_record_produces_identical_scores():
     assert evaluate_decision_record(copy.deepcopy(record)) == evaluate_decision_record(copy.deepcopy(record))
 
 
-def test_real_candidate_records_remain_blocked_until_admission_gate_exists():
+def _real_admission_inputs(record):
+    gameweek = record["target_gameweek"]
+    manager_id = record["manager_team_id"]
+    decision = record["frozen_decision"]
+    audit = {
+        "status": "PASSED",
+        "manager_team_id": manager_id,
+        "events": [{
+            "gameweek": gameweek,
+            "status": "RECONCILED",
+            "predeadline_recommendation": {
+                "status": "VERIFIED",
+                "action": decision["action"],
+                "execution_match": "RECOMMENDATION_MATCHED",
+                "decision_sha256": decision["decision_sha256"],
+            },
+        }],
+    }
+    admission = {
+        "manager_team_id": manager_id,
+        "events": [{
+            "gameweek": gameweek,
+            "classification": "DECISION_BACKTEST_ELIGIBLE",
+            "historical_evidence_admitted": True,
+            "official_score_reconciled": True,
+        }],
+    }
+    batch = {
+        "manager_team_id": manager_id,
+        "historical_evidence_admitted": False,
+        "results": [{
+            "gameweek": gameweek,
+            "status": "RECONCILED",
+            "result": {
+                "manager_team_id": manager_id,
+                "target_gameweek": gameweek,
+                "event_finalized": True,
+                "historical_evidence_admitted": False,
+                "active_chip": None,
+            },
+        }],
+    }
+    return admission, audit, batch
+
+
+def test_real_candidate_requires_and_accepts_matching_independent_admission_chain():
     record = _record()
     record["evidence_class"] = "REAL_CANDIDATE"
-    with pytest.raises(DecisionEvaluationError, match="blocked until independent historical-evidence admission"):
+    admission, audit, batch = _real_admission_inputs(record)
+    result = evaluate_decision_record(
+        record, admission_report=admission, audit_report=audit, batch=batch
+    )
+    assert result["evidence_class"] == "REAL_CANDIDATE"
+    assert result["evaluation_status"] == "REAL_DECISION_BACKTEST_EVENT_SCORED_NOT_PROMOTION_EVIDENCE"
+    assert result["historical_performance_validated"] is False
+
+
+def test_real_candidate_rejects_missing_admission_chain():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    with pytest.raises(DecisionEvaluationError, match="requires admission report"):
         evaluate_decision_record(record)
+
+
+def test_real_candidate_rejects_decision_hash_mismatch_in_audit():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    audit["events"][0]["predeadline_recommendation"]["decision_sha256"] = "0" * 64
+    with pytest.raises(DecisionEvaluationError, match="frozen decision hash/action/execution"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
+
+
+def test_real_candidate_rejects_non_admitted_event_even_if_admission_report_is_tampered():
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
+    admission, audit, batch = _real_admission_inputs(record)
+    batch["results"][0]["result"]["event_finalized"] = False
+    with pytest.raises(DecisionEvaluationError, match="matching finalized"):
+        evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
 
 
 def test_hold_scores_the_manager_lineup_without_transfer_hit():
