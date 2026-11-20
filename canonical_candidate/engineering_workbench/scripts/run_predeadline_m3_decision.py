@@ -105,9 +105,7 @@ def run_predeadline_m3_decision(
     if action not in {"HOLD", "TRANSFER"}:
         raise PredeadlineDecisionError("engine returned an unsupported action")
 
-    forecast_by_id = {row["fpl_element_id"]: row for row in engine_run["coverage"] and engine_payload["player_metadata"]}
     # The recommendation adapter's joined forecasts are authoritative for transfer metadata.
-    # Recover the joined rows from the recommendation runner's normalized request inputs.
     from canonical_provider_forecast_contract import normalize_provider_snapshot
     from canonical_forecast_recommendation_adapter import build_recommendation_forecast_payload
     normalized = normalize_provider_snapshot(provider)
@@ -258,7 +256,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("evidence_bundle", type=Path)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--software-commit", default=os.environ.get("GITHUB_SHA"))
+    parser.add_argument("--software-commit", default=os.environ.get("M3_CODE_SHA"))
     args = parser.parse_args()
     bundle = json.loads(args.evidence_bundle.read_text(encoding="utf-8"))
     result = run_predeadline_m3_decision(bundle, software_commit=args.software_commit)
