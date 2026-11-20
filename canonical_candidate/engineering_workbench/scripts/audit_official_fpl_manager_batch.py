@@ -668,7 +668,8 @@ def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
 
 
 def audit_batch(batch: dict[str, Any],
-                decision_manifests: dict[str, Any] | None = None) -> dict[str, Any]:
+                decision_manifests: dict[str, Any] | None = None,
+                predeadline_recommendation: dict[str, Any] | None = None) -> dict[str, Any]:
     _require(batch.get("batch_contract_version") == "0.1.0", "unsupported batch contract version")
     manager_id = batch.get("manager_team_id")
     _require(isinstance(manager_id, int) and manager_id > 0, "invalid manager_team_id")
@@ -681,6 +682,9 @@ def audit_batch(batch: dict[str, Any],
              "batch results must cover requested Gameweeks in order")
 
     manifests = decision_manifests or {}
+    if predeadline_recommendation is not None:
+        _require(bool(manifests),
+                 "predeadline recommendation cannot be audited without its decision manifest")
     audited_events = []
     reconciled_gws, excluded_gws, autosub_gws, hit_gws = [], [], [], []
     for row in results:
@@ -714,6 +718,12 @@ def audit_batch(batch: dict[str, Any],
                      f"GW{gw}: diagnostic evidence admission must remain false")
         decision_sources = []
         manifest = manifests.get(str(gw), manifests.get(gw))
+        recommended_decision = None
+        recommendation_verification = None
+        if predeadline_recommendation is not None and manifest is not None:
+            recommended_decision = _validate_predeadline_recommendation(
+                predeadline_recommendation, manager_id, gw, manifest
+            )
         record_for_audit = record
         if manifest is not None:
             _require(isinstance(manifest, dict),
@@ -728,10 +738,22 @@ def audit_batch(batch: dict[str, Any],
                      f"GW{gw}: decision manifest must contain all three unique source archives")
             record_for_audit = dict(record)
             record_for_audit["decision_source_archives"] = source_rows
-        archives = _audit_archives(record_for_audit, manager_id, gw, decision_sources)
+        archives, execution_match = _audit_archives(
+            record_for_audit, manager_id, gw, decision_sources, recommended_decision
+        )
+        if recommended_decision is not None:
+            _require(execution_match in {"HOLD_BASELINE_MATCHED", "RECOMMENDATION_MATCHED"},
+                     f"GW{gw}: frozen recommendation execution state was not verified")
+            recommendation_verification = {
+                "status": "VERIFIED",
+                "decision_sha256": recommended_decision["decision_sha256"],
+                "action": recommended_decision["action"],
+                "execution_match": execution_match,
+            }
         audited_events.append({
             "gameweek": gw, "status": status, "archives": archives,
             "decision_sources": decision_sources,
+            "predeadline_recommendation": recommendation_verification,
         })
 
     _require(batch.get("reconciled_count") == len(reconciled_gws), "reconciled Gameweek count mismatch")
@@ -762,12 +784,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("batch", type=Path)
     parser.add_argument("--decision-manifests", type=Path)
+    parser.add_argument("--predeadline-recommendation", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     batch = json.loads(args.batch.read_text(encoding="utf-8"))
     manifests = (json.loads(args.decision_manifests.read_text(encoding="utf-8"))
                  if args.decision_manifests else None)
-    audit = audit_batch(batch, manifests)
+    recommendation = (json.loads(args.predeadline_recommendation.read_text(encoding="utf-8"))
+                      if args.predeadline_recommendation else None)
+    audit = audit_batch(batch, manifests, recommendation)
     args.output.write_text(json.dumps(audit, indent=2, sort_keys=True) + chr(10), encoding="utf-8")
     print(json.dumps({key: value for key, value in audit.items() if key != "events"}, indent=2))
     return 0
