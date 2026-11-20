@@ -10,7 +10,7 @@ from pathlib import Path
 from m4_predeadline_field_artifact_adapter import (
     PredeadlineArtifactError, load_predeadline_field_artifact,
 )
-from m4_predeadline_field_comparison import build_predeadline_comparison
+from m4_predeadline_field_comparison import (\n    adapt_m3_evaluation_candidate, build_predeadline_comparison,\n)
 
 
 def fixture(root: Path, *, status="CAPTURED_PRE_DEADLINE_CURRENT_PICKS",
@@ -61,6 +61,63 @@ def fixture(root: Path, *, status="CAPTURED_PRE_DEADLINE_CURRENT_PICKS",
 
 
 class TestM4PredeadlineFieldIntegration(unittest.TestCase):
+    def test_adapts_real_m3_evaluation_candidate_envelope(self):
+        roster = [{"fpl_element_id": player_id} for player_id in range(1, 16)]
+        hold_plan = {
+            "squad_ids": list(range(1, 16)), "starting_xi": list(range(1, 12)),
+            "bench_order": [12, 13, 14], "reserve_goalkeeper_id": 15,
+            "captain_id": 1, "vice_captain_id": 2, "formation": "4-3-3",
+        }
+        decision = {
+            "action": "TRANSFER", "transfer_out_id": 12, "transfer_in_id": 16,
+            "decision_sha256": "c" * 64,
+            "squad_plan": {
+                "squad_ids": list(range(1, 12)) + [13, 14, 15, 16],
+                "starting_xi": list(range(1, 12)), "bench_order": [16, 13, 14],
+                "reserve_goalkeeper_id": 15, "captain_id": 1,
+                "vice_captain_id": 2, "formation": "4-3-3",
+            },
+        }
+        m3 = {"evaluation_candidate": {
+            "manager_team_id": 421025, "season": "2026-27",
+            "target_gameweek": 12, "deadline_utc": "2026-11-20T21:00:00Z",
+            "as_of_utc": "2026-11-20T20:33:00Z",
+            "manager_state": {"squad_snapshot": roster, "hold_plan": hold_plan},
+            "frozen_decision": decision,
+        }}
+        adapted = adapt_m3_evaluation_candidate(m3)
+        state = adapted["manager_state"]["manager_state"]
+        self.assertEqual(adapted["frozen_decision"]["action"], "TRANSFER")
+        self.assertEqual(state["squad_15"], list(range(1, 16)))
+        self.assertEqual(state["bench_order"], [12, 13, 14])
+
+    def test_rejects_m3_transfer_plan_that_reshuffles_lineup(self):
+        roster = [{"fpl_element_id": player_id} for player_id in range(1, 16)]
+        hold_plan = {
+            "squad_ids": list(range(1, 16)), "starting_xi": list(range(1, 12)),
+            "bench_order": [12, 13, 14], "reserve_goalkeeper_id": 15,
+            "captain_id": 1, "vice_captain_id": 2, "formation": "4-3-3",
+        }
+        decision = {
+            "action": "TRANSFER", "transfer_out_id": 12, "transfer_in_id": 16,
+            "decision_sha256": "c" * 64,
+            "squad_plan": {
+                "squad_ids": list(range(1, 12)) + [13, 14, 15, 16],
+                "starting_xi": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16],
+                "bench_order": [12, 13, 14], "reserve_goalkeeper_id": 15,
+                "captain_id": 1, "vice_captain_id": 2, "formation": "4-3-3",
+            },
+        }
+        m3 = {"evaluation_candidate": {
+            "manager_team_id": 421025, "season": "2026-27",
+            "target_gameweek": 12, "deadline_utc": "2026-11-20T21:00:00Z",
+            "as_of_utc": "2026-11-20T20:33:00Z",
+            "manager_state": {"squad_snapshot": roster, "hold_plan": hold_plan},
+            "frozen_decision": decision,
+        }}
+        with self.assertRaisesRegex(ValueError, "starting_xi"):
+            adapt_m3_evaluation_candidate(m3)
+
     def test_adapter_and_contract_feed_candidate_comparison(self):
         with tempfile.TemporaryDirectory() as temp:
             paths = fixture(Path(temp))
