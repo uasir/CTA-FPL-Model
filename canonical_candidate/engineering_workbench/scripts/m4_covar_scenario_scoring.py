@@ -41,11 +41,12 @@ def _covariance(
 ) -> float:
     left_mean = sum(value * probability for value, probability in left)
     right_mean = sum(value * probability for value, probability in right)
+    if len(left) != len(right) or any(
+        not math.isclose(left_row[1], right_row[1], rel_tol=0, abs_tol=1e-12)
+        for left_row, right_row in zip(left, right)
+    ):
+        raise CovarScoringError("player series must share identical scenario probabilities")
     return sum(
-        probability * (left_value - left_mean) * (right_value - right_mean)
-        for (left_value, probability), (right_value, right_probability) in zip(left, right)
-        if not math.isclose(probability, right_probability, rel_tol=0, abs_tol=1e-12)
-    ) if False else sum(
         probability * (left_value - left_mean) * (right_value - right_mean)
         for (left_value, probability), (right_value, _) in zip(left, right)
     )
