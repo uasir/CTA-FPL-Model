@@ -164,3 +164,8 @@ The transfer validator also enforces the manager strategy’s no-goalkeeper-tran
 For a transfer comparison, the realised-points cohort must contain all 15 original squad players plus the incoming player. This is necessary to score both the recommendation and the no-transfer hold baseline against the same Gameweek. The outgoing player is retained in that comparison even though he is absent from the post-transfer squad.
 
 The initial implementation rejects malformed transfer IDs, invalid or incomplete source archives, unaffordable transfers, changed designated goalkeepers, incomplete realised rows, unsupported chips and all real-world candidate records pending admission.
+Each record also binds the manager team ID, provider snapshot ID, decision-contract version, software commit, requested formation and personal risk profile. The risk profile is retained for provenance but is explicitly marked not applied by this initial engine.
+
+The realised-points archive must carry a Gameweek finalisation timestamp and be captured after finalisation. A post-deadline but pre-finalisation points snapshot is not eligible for scoring. Player rows require official integer `total_points`, minutes, yellow cards and red cards; the appearance test follows the official FPL rule that a player counts as having played if they appeared or received a yellow/red card.
+
+For a one-transfer action, the contract verifies the transfer hit (zero when a free transfer is available, otherwise four points), outgoing selling price using FPL half-profit rounding, incoming price and non-negative post-transfer bank. It returns the calculated financials alongside the paired score.
