@@ -411,6 +411,10 @@ def _verify_finalized_manager_state(record: dict[str, Any], state: dict[str, Any
     bank_raw = entry_history.get("bank")
     _require(isinstance(bank_raw, int) and not isinstance(bank_raw, bool),
              f"GW{gameweek}: finalized official bank is missing")
+    official_transfer_count = entry_history.get("event_transfers")
+    _require(isinstance(official_transfer_count, int) and not isinstance(official_transfer_count, bool)
+             and official_transfer_count >= 0,
+             f"GW{gameweek}: finalized official transfer count is missing")
     positions = {row["element"]: row["position"] for row in picks}
     automatic_subs = payload.get("automatic_subs", [])
     _require(isinstance(automatic_subs, list),
@@ -448,7 +452,8 @@ def _verify_finalized_manager_state(record: dict[str, Any], state: dict[str, Any
     }
     official_transfer_cost = record.get("reconciliation", {}).get("official_transfer_cost", 0)
 
-    def matches(plan: dict[str, Any], expected_bank: float, expected_transfer_cost: float) -> bool:
+    def matches(plan: dict[str, Any], expected_bank: float, expected_transfer_cost: float,
+                expected_transfer_count: int) -> bool:
         return (
             actual["squad_ids"] == set(plan["squad_ids"])
             and actual["starting_xi"] == set(plan["starting_xi"])
@@ -459,6 +464,7 @@ def _verify_finalized_manager_state(record: dict[str, Any], state: dict[str, Any
             and actual["formation"] == plan["formation"]
             and abs(actual["bank"] - expected_bank) < 0.0001
             and official_transfer_cost == expected_transfer_cost
+            and official_transfer_count == expected_transfer_count
         )
 
     hold_plan = {
@@ -470,18 +476,20 @@ def _verify_finalized_manager_state(record: dict[str, Any], state: dict[str, Any
         "vice_captain_id": state["vice_captain_id"],
         "formation": state["formation"],
     }
-    if matches(hold_plan, float(state["bank"]), 0):
+    if matches(hold_plan, float(state["bank"]), 0, 0):
         return "HOLD_BASELINE_MATCHED"
 
     if recommended_decision is not None:
         recommended_plan = recommended_decision["squad_plan"]
         expected_bank = float(state["bank"])
         expected_cost = recommended_decision["transfer_hit_points"]
+        expected_transfer_count = 1 if recommended_decision["action"] == "TRANSFER" else 0
         if recommended_decision["action"] == "TRANSFER":
             out_id = recommended_decision["transfer_out_id"]
             incoming = recommended_decision["incoming_player"]
             expected_bank += float(state["selling_prices"][str(out_id)]) - float(incoming["purchase_price"])
-        if matches(recommended_plan, round(expected_bank, 1), expected_cost):
+        if matches(recommended_plan, round(expected_bank, 1), expected_cost,
+                   expected_transfer_count):
             return "RECOMMENDATION_MATCHED"
     raise BatchAuditError(
         f"GW{gameweek}: finalized manager state matches neither the frozen hold baseline "
