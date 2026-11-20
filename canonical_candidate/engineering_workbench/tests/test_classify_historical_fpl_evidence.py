@@ -52,6 +52,12 @@ def _audit_report(manifest=None):
                         "decision_sha256": "d" * 64,
                         "action": "TRANSFER",
                         "execution_match": "RECOMMENDATION_MATCHED",
+                    },
+                    "predeadline_replay": {
+                        "status": "VERIFIED",
+                        "replay_type": "DETERMINISTIC_RAW_AND_CANONICAL_INPUT_REEXECUTION",
+                        "decision_sha256": "d" * 64,
+                        "raw_archive_hashes_verified": True,
                     }}],
     }
 
@@ -185,4 +191,14 @@ def test_reconciled_archives_without_a_frozen_recommendation_are_scoring_only():
     event = result["events"][0]
     assert event["classification"] == "SCORING_RECONCILIATION_ONLY"
     assert any("Frozen predeadline recommendation" in reason
+               for reason in event["reasons"])
+
+
+def test_missing_independent_replay_keeps_event_scoring_only():
+    audit = _audit_report()
+    del audit["events"][0]["predeadline_replay"]
+    result = classify_batch(_batch(), {"5": _manifest()}, audit)
+    event = result["events"][0]
+    assert event["classification"] == "SCORING_RECONCILIATION_ONLY"
+    assert any("Independent frozen-decision replay" in reason
                for reason in event["reasons"])
