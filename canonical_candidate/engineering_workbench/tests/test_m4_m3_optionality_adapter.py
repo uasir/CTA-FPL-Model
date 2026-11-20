@@ -112,6 +112,15 @@ class TestM4M3Optionality(unittest.TestCase):
         self.assertIsNone(result["m4_context"])
         self.assertEqual(result["m3_output"], original)
 
+    def test_m4_bench_order_mismatch_is_withheld(self):
+        m3 = m3_fixture()
+        m4 = m4_fixture(m3)
+        m4["field_context"]["candidate"]["bench_order"] = ["13", "12", "14"]
+        result = attach_optional_m4_context(m3, m4)
+        self.assertEqual(result["m4_status"], "WITHHELD_DEGRADED_MODE")
+        self.assertIn("bench_order", result["m4_withheld_reason"])
+        self.assertEqual(result["m3_output"], m3)
+
     def test_m4_bound_to_different_decision_is_withheld(self):
         m3 = m3_fixture()
         m4 = m4_fixture(m3)
