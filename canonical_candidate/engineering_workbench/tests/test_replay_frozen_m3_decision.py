@@ -69,9 +69,9 @@ def test_replay_rejects_modified_frozen_recommendation(monkeypatch):
         replay.replay_frozen_decision(bundle, frozen, software_commit="b" * 40)
 
 
-def test_replay_rejects_modified_manager_context(monkeypatch):
+def test_replay_rejects_changed_player_metadata(monkeypatch):
     bundle, frozen = _prepare(monkeypatch)
     bundle = copy.deepcopy(bundle)
-    bundle["12"]["manager_state"]["bank"] = 2.0
+    next(row for row in bundle["12"]["player_metadata"] if row["fpl_element_id"] == 20)["price"] = 6.0
     with pytest.raises(replay.DecisionReplayError, match="replayed frozen decision differs"):
         replay.replay_frozen_decision(bundle, frozen, software_commit="b" * 40)
