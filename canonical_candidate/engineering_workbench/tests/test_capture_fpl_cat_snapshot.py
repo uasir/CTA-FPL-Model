@@ -118,3 +118,35 @@ def test_rejects_missing_player_minutes_and_unmapped_identity():
             fetch_bytes=lambda url: responses[url],
             clock=lambda: next(times),
         )
+
+
+
+def test_missing_provider_generation_time_is_preserved_as_diagnostic_only():
+    provider_raw, bootstrap_raw = fixture_bytes()
+    provider = json.loads(provider_raw)
+    provider.pop("computed_at")
+    responses = {
+        FPL_CAT_URL: json.dumps(provider).encode(),
+        FPL_BOOTSTRAP_URL: bootstrap_raw,
+    }
+    times = iter(["2026-11-20T09:00:00Z", "2026-11-20T09:01:00Z"])
+    result = capture_fpl_cat_snapshot(
+        season="2026-27",
+        fetch_bytes=lambda url: responses[url],
+        clock=lambda: next(times),
+    )
+    assert result["provider_snapshot"]["timing"]["generated_at_utc"] is None
+    assert result["capture_status"]["provider_generated_before_capture"] is False
+    assert result["capture_status"]["provider_generation_time_status"] == "NOT_DISCLOSED_DIAGNOSTIC_ONLY"
+
+
+def test_rejects_metadata_capture_at_or_after_deadline():
+    provider_raw, bootstrap_raw = fixture_bytes()
+    responses = {FPL_CAT_URL: provider_raw, FPL_BOOTSTRAP_URL: bootstrap_raw}
+    times = iter(["2026-11-20T09:00:00Z", "2026-11-21T11:00:00Z"])
+    with pytest.raises(CaptureError, match="metadata was retrieved at or after"):
+        capture_fpl_cat_snapshot(
+            season="2026-27",
+            fetch_bytes=lambda url: responses[url],
+            clock=lambda: next(times),
+        )
