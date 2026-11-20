@@ -71,7 +71,14 @@ def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int)
                      and matches[0].get("data_checked") is True,
                      f"GW{gameweek}: bootstrap does not confirm finalized event")
         _require(archive.get("raw_snapshot_id"), f"GW{gameweek}/{source_type}: snapshot ID missing")
-        audited.append({\n            "source_type": source_type,\n            "raw_snapshot_id": archive["raw_snapshot_id"],\n            "raw_sha256": digest,\n            "captured_at_utc": captured,\n            "source_url": url,\n            "bytes": len(raw),\n        })
+        audited.append({
+            "source_type": source_type,
+            "raw_snapshot_id": archive["raw_snapshot_id"],
+            "raw_sha256": digest,
+            "captured_at_utc": captured,
+            "source_url": url,
+            "bytes": len(raw),
+        })
     return audited
 
 
@@ -152,7 +159,8 @@ def main() -> int:
     args = parser.parse_args()
     batch = json.loads(args.batch.read_text(encoding="utf-8"))
     audit = audit_batch(batch)
-    args.output.write_text(json.dumps(audit, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    args.output.write_text(json.dumps(audit, indent=2, sort_keys=True) + "
+", encoding="utf-8")
     print(json.dumps({key: value for key, value in audit.items() if key != "events"}, indent=2))
     return 0
 
