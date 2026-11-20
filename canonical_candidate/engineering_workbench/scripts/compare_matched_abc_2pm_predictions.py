@@ -49,6 +49,23 @@ def validate_predictions(name, rows, partitions, manifest):
     return result
 
 
+def join_predictions(abc, pm):
+    if set(abc) != set(pm):
+        raise ValueError("ABC and 2PM prediction keys are not identical")
+    rows = []
+    for key in sorted(abc):
+        a, t = abc[key], pm[key]
+        if a["fold"] != t["fold"]:
+            raise ValueError(f"Fold mismatch for {key}")
+        if abs(a["actual"] - t["actual"]) > 1e-9:
+            raise ValueError(f"Actual points mismatch for {key}")
+        rows.append({"season": key[0], "player_id": key[1], "gameweek": key[2],
+            "actual": a["actual"], "abc_calibrated": a["abc_calibrated_points"],
+            "abc_raw": a["abc_raw_points"], "fpl_history": a["fpl_history_calibrated_points"],
+            "two_pm_affine": t["affine_calibrated_points"], "two_pm_raw": t["predicted_points"]})
+    return rows
+
+
 def metrics(rows, pred):
     errors = [r["actual"] - r[pred] for r in rows]
     ae = sorted(abs(x) for x in errors)
@@ -175,16 +192,7 @@ def main():
     verify_manifest_partition_hashes(parts,manifest)
     abc=read_predictions(args.abc_predictions,"abc"); pm=read_predictions(args.two_pm_predictions,"two_pm")
     ah=validate_predictions("ABC",abc,parts,manifest); ph=validate_predictions("2PM",pm,parts,manifest)
-    if set(abc)!=set(pm): raise ValueError("ABC and 2PM prediction keys are not identical")
-    rows=[]
-    for key in sorted(abc):
-        a,t=abc[key],pm[key]
-        if a["fold"]!=t["fold"]: raise ValueError(f"Fold mismatch for {key}")
-        if abs(a["actual"]-t["actual"])>1e-9: raise ValueError(f"Actual points mismatch for {key}")
-        rows.append({"season":key[0],"player_id":key[1],"gameweek":key[2],"actual":a["actual"],
-          "abc_calibrated":a["abc_calibrated_points"],"abc_raw":a["abc_raw_points"],
-          "fpl_history":a["fpl_history_calibrated_points"],
-          "two_pm_affine":t["affine_calibrated_points"],"two_pm_raw":t["predicted_points"]})
+    rows=join_predictions(abc,pm)
     model_keys={"ABC_calibrated":"abc_calibrated","ABC_raw":"abc_raw",
       "FPL_history_reference":"fpl_history","2PM_affine_calibrated":"two_pm_affine","2PM_raw":"two_pm_raw"}
     forecast={name:metrics(rows,key) for name,key in model_keys.items()}
