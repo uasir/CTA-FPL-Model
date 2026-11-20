@@ -53,7 +53,7 @@ function selectForFormation(owned, byId, formation) {
   return selected;
 }
 
-function bestStartingXi(owned, byId, formationValue, startingXiValue) {
+function bestStartingXi(owned, byId, formationValue, startingXiValue, startingGoalkeeperId = null) {
   const requested = formationValue !== null && formationValue !== undefined
     ? formationCounts(formationValue) : null;
   let formation;
@@ -74,9 +74,14 @@ function bestStartingXi(owned, byId, formationValue, startingXiValue) {
     if (requested !== null && formation.some((count, index) => count !== requested[index])) {
       throw new RecommendationContractError("starting_xi does not match requested formation");
     }
+    if (startingGoalkeeperId !== null
+      && !selected.some((player) => player.position === "GKP"
+        && player.fpl_element_id === startingGoalkeeperId)) {
+      throw new RecommendationContractError("starting XI must retain the designated starting goalkeeper");
+    }
   } else if (requested !== null) {
     formation = requested;
-    selected = selectForFormation(owned, byId, formation);
+    selected = selectForFormation(owned, byId, formation, startingGoalkeeperId);
   } else {
     let best = null;
     for (let defenders = 3; defenders <= 5; defenders += 1) {
@@ -84,7 +89,7 @@ function bestStartingXi(owned, byId, formationValue, startingXiValue) {
         const forwards = 10 - defenders - midfielders;
         if (forwards < 1 || forwards > 3) continue;
         const candidate = [defenders, midfielders, forwards];
-        const xi = selectForFormation(owned, byId, candidate);
+        const xi = selectForFormation(owned, byId, candidate, startingGoalkeeperId);
         const score = xi.reduce((sum, player) => sum + player.expected_points, 0);
         if (best === null || score > best.score + 1e-12) {
           best = { score, formation: candidate, xi };
@@ -208,8 +213,8 @@ function transferCandidates(request, forecasts) {
   };
 }
 
-function buildSquadPlan(owned, byId, formationValue = null, startingXiValue = null, benchValue = null) {
-  const { starting, formation } = bestStartingXi(owned, byId, formationValue, startingXiValue);
+function buildSquadPlan(owned, byId, formationValue = null, startingXiValue = null, benchValue = null, startingGoalkeeperId = null) {
+  const { starting, formation } = bestStartingXi(owned, byId, formationValue, startingXiValue, startingGoalkeeperId);
   const startingIds = new Set(starting.map((player) => player.fpl_element_id));
   const remaining = owned.filter((player) => !startingIds.has(player.fpl_element_id));
   const reserveGk = remaining.filter((player) => player.position === "GKP");
@@ -272,7 +277,12 @@ export function recommendPersonalSquad(payload) {
     const postTransferOwned = owned.filter((player) => player.fpl_element_id !== outgoingId);
     postTransferOwned.push(forecastById.get(incomingId));
     // Fixed XI/bench inputs may include the outgoing player; re-optimise after the move.
-    recommendedSquadPlan = buildSquadPlan(postTransferOwned, forecastById, formationValue);
+    const startingGoalkeeperId = currentSquadPlan.starting_xi.find(
+      (playerId) => forecastById.get(playerId).position === "GKP",
+    );
+    recommendedSquadPlan = buildSquadPlan(
+      postTransferOwned, forecastById, formationValue, null, null, startingGoalkeeperId,
+    );
     squadPlanState = "POST_TRANSFER";
   }
 
