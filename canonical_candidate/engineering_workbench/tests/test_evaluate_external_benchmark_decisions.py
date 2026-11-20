@@ -506,6 +506,7 @@ def test_real_candidate_rejects_incoming_player_club_detached_from_official_meta
     record["frozen_decision"]["incoming_player"]["team_id"] += 1
     _seal(record["frozen_decision"])
     audit["events"][0]["predeadline_recommendation"]["decision_sha256"] = record["frozen_decision"]["decision_sha256"]
+    audit["events"][0]["predeadline_replay"]["decision_sha256"] = record["frozen_decision"]["decision_sha256"]
     with pytest.raises(DecisionEvaluationError, match="does not match official bootstrap metadata"):
         evaluate_decision_record(record, admission_report=admission, audit_report=audit, batch=batch)
 
@@ -688,7 +689,8 @@ def test_rejects_invalid_manager_risk_profile_and_formation():
         evaluate_decision_record(record)
 
 def test_real_evaluation_rejects_missing_verified_replay():
-    record = _real_record()
+    record = _record()
+    record["evidence_class"] = "REAL_CANDIDATE"
     admission, audit, batch = _real_admission_inputs(record)
     del audit["events"][0]["predeadline_replay"]
     with pytest.raises(DecisionEvaluationError, match="independent audit did not verify"):
