@@ -26,6 +26,8 @@ def _archive(source_type, generated=False):
     }
     if generated:
         result["generated_at_utc"] = "2026-10-01T09:00:00Z"
+    if source_type == "realised_points":
+        result["finalized_at_utc"] = "2026-10-03T09:00:00Z"
     return result
 
 
@@ -101,6 +103,8 @@ def _record():
         realised.append({
             "fpl_element_id": player_id,
             "minutes": minutes,
+            "yellow_cards": 0,
+            "red_cards": 0,
             "total_points": points,
         })
     return {
