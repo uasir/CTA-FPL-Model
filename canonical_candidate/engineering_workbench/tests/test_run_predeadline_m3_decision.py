@@ -145,3 +145,72 @@ def test_rejects_bundle_with_multiple_gameweeks():
     bundle["13"] = bundle["12"]
     with pytest.raises(runner.PredeadlineDecisionError, match="exactly one"):
         runner.run_predeadline_m3_decision(bundle, software_commit="b" * 40)
+
+
+def test_runs_real_external_benchmark_engine_from_frozen_evidence_bundle():
+    from test_run_external_benchmark_personal_squad import run_input
+
+    engine_input = run_input()
+    manager = engine_input["manager_context"]
+    squad_ids = [row["fpl_element_id"] for row in manager["squad_snapshot"]]
+    state = {
+        "squad_15": squad_ids,
+        "bank": manager["bank"],
+        "free_transfers": manager["free_transfers"],
+        "formation": "4-3-3",
+        "starting_xi": [1, 3, 4, 5, 6, 8, 9, 10, 13, 14, 15],
+        "bench_order": [7, 11, 12],
+        "reserve_goalkeeper_id": 2,
+        "captain_id": 13,
+        "vice_captain_id": 14,
+        "chip_state": "NONE",
+        "purchase_prices": {
+            str(row["fpl_element_id"]): row["purchase_price"]
+            for row in manager["squad_snapshot"]
+        },
+        "selling_prices": {
+            str(row["fpl_element_id"]): row["price"]
+            for row in engine_input["player_metadata"]
+            if row["fpl_element_id"] in squad_ids
+        },
+    }
+    raw_provider = b"frozen-provider-source"
+    raw_metadata = b"frozen-metadata-source"
+    raw_manager = b"frozen-manager-source"
+    sources = []
+    for source_type, raw, url, captured in (
+        ("provider_forecast", raw_provider, "https://provider.example/forecast.json", "2026-11-20T09:00:00Z"),
+        ("player_metadata", raw_metadata, "https://fantasy.premierleague.com/api/bootstrap-static/", "2026-11-20T09:05:00Z"),
+        ("manager_deadline_state", raw_manager, "https://fantasy.premierleague.com/entry/421025", "2026-11-20T09:10:00Z"),
+    ):
+        source = {
+            "source_type": source_type,
+            "source_url": url,
+            "raw_snapshot_id": "sha256:" + hashlib.sha256(raw).hexdigest(),
+            "raw_sha256": hashlib.sha256(raw).hexdigest(),
+            "captured_at_utc": captured,
+            "raw_payload_base64": base64.b64encode(raw).decode(),
+        }
+        if source_type == "provider_forecast":
+            source["generated_at_utc"] = "2026-11-20T08:30:00Z"
+        sources.append(source)
+    bundle = {
+        "11": {
+            "target_gameweek": 11,
+            "manager_team_id": 421025,
+            "season": "2026-27",
+            "provider_snapshot": engine_input["provider_snapshot"],
+            "player_metadata": engine_input["player_metadata"],
+            "player_metadata_provenance": engine_input["player_metadata_provenance"],
+            "manager_state": state,
+            "decision_as_of_utc": engine_input["as_of_utc"],
+            "deadline_utc": engine_input["provider_snapshot"]["timing"]["deadline_utc"],
+            "sources": sources,
+        }
+    }
+    result = runner.run_predeadline_m3_decision(bundle, software_commit="c" * 40)
+    assert result["recommendation_status"] == "EXPLORATORY_ONLY"
+    assert result["release_eligible"] is False
+    assert result["frozen_decision"]["action"] in {"HOLD", "TRANSFER"}
+    assert len(result["evaluation_candidate"]["manager_state"]["squad_snapshot"]) == 15
+    assert len(result["evaluation_candidate"]["source_archives"]) == 3
