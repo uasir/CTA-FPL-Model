@@ -109,3 +109,15 @@ def test_inconsistent_predeadline_snapshot_cutoff_blocks_eligibility():
     )[0]
     assert result["research_eligible_for_model"] is False
     assert "CONFLICTING_FEATURE_CUTOFF_TIME_UTC" in result["exclusion_reasons"]
+
+
+def test_reference_target_mismatch_excludes_only_the_affected_player_gameweek():
+    key = ("2017/18", "10", 7)
+    result = aggregate_player_gameweeks(
+        [row("101")],
+        {key: {"101"}},
+        {key},
+    )[0]
+    assert result["fixture_completeness_status"] == "REFERENCE_INVALID"
+    assert result["research_eligible_for_model"] is False
+    assert "FPL_REFERENCE_TARGET_OR_FIXTURE_MISMATCH" in result["exclusion_reasons"]
