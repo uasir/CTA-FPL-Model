@@ -223,8 +223,171 @@ def _verify_selling_prices(state: dict[str, Any], metadata: dict[str, Any],
                  f"GW{gameweek}: selling price for player {player_id} fails official FPL price rule")
 
 
+def _validate_predeadline_recommendation(recommendation: dict[str, Any],
+                                        manager_team_id: int, gameweek: int,
+                                        manifest: dict[str, Any]) -> dict[str, Any]:
+    _require(recommendation.get("manager_team_id") == manager_team_id
+             and recommendation.get("target_gameweek") == gameweek,
+             f"GW{gameweek}: predeadline recommendation identity mismatch")
+    _require(recommendation.get("decision_as_of_utc") == manifest.get("decision_as_of_utc")
+             and recommendation.get("deadline_utc") == manifest.get("deadline_utc"),
+             f"GW{gameweek}: recommendation timing does not match decision manifest")
+    _require(recommendation.get("release_eligible") is False
+             and recommendation.get("recommendation_status") == "EXPLORATORY_ONLY",
+             f"GW{gameweek}: recommendation release status is invalid")
+    frozen = recommendation.get("frozen_decision")
+    _require(isinstance(frozen, dict), f"GW{gameweek}: frozen decision missing")
+    decision_body = {key: value for key, value in frozen.items() if key != "decision_sha256"}
+    digest = hashlib.sha256(json.dumps(
+        decision_body, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode("utf-8")).hexdigest()
+    _require(digest == frozen.get("decision_sha256"),
+             f"GW{gameweek}: frozen recommendation decision hash mismatch")
+
+    candidate = recommendation.get("evaluation_candidate")
+    _require(isinstance(candidate, dict)
+             and candidate.get("evidence_class") == "REAL_CANDIDATE"
+             and candidate.get("manager_team_id") == manager_team_id
+             and candidate.get("target_gameweek") == gameweek
+             and candidate.get("as_of_utc") == manifest.get("decision_as_of_utc")
+             and candidate.get("deadline_utc") == manifest.get("deadline_utc")
+             and candidate.get("frozen_decision") == frozen,
+             f"GW{gameweek}: evaluation candidate does not bind the frozen decision")
+    _require(isinstance(candidate.get("software_commit"), str)
+             and len(candidate["software_commit"]) in (40, 64),
+             f"GW{gameweek}: recommendation software commit missing")
+
+    manifest_sources = {row["source_type"]: row for row in manifest.get("sources", [])}
+    candidate_sources = candidate.get("source_archives")
+    _require(isinstance(candidate_sources, list) and len(candidate_sources) == 3,
+             f"GW{gameweek}: evaluation candidate must bind all three predeadline archives")
+    expected_types = {
+        "provider_forecast": "provider",
+        "player_metadata": "player_metadata",
+        "manager_deadline_state": "manager_state",
+    }
+    candidate_by_type = {row.get("source_type"): row for row in candidate_sources}
+    _require(set(candidate_by_type) == set(expected_types.values()),
+             f"GW{gameweek}: recommendation source archive set is invalid")
+    for manifest_type, candidate_type in expected_types.items():
+        source = manifest_sources.get(manifest_type)
+        candidate_source = candidate_by_type.get(candidate_type)
+        _require(isinstance(source, dict) and isinstance(candidate_source, dict),
+                 f"GW{gameweek}: recommendation source binding missing for {manifest_type}")
+        for field in ("source_url", "raw_snapshot_id", "raw_sha256", "captured_at_utc",
+                      "raw_payload_base64"):
+            _require(candidate_source.get(field) == source.get(field),
+                     f"GW{gameweek}: recommendation {candidate_type} source binding mismatch")
+        if manifest_type == "provider_forecast":
+            _require(candidate_source.get("generated_at_utc") == source.get("generated_at_utc"),
+                     f"GW{gameweek}: recommendation provider generation time mismatch")
+
+    state = manifest.get("manager_state")
+    candidate_state = candidate.get("manager_state")
+    _require(isinstance(state, dict) and isinstance(candidate_state, dict),
+             f"GW{gameweek}: manager state missing from recommendation candidate")
+    _require(candidate_state.get("bank") == state.get("bank")
+             and candidate_state.get("free_transfers") == state.get("free_transfers")
+             and candidate_state.get("formation") == state.get("formation")
+             and candidate_state.get("chip") == state.get("chip_state") == "NONE",
+             f"GW{gameweek}: candidate manager constraints differ from decision manifest")
+    hold = candidate_state.get("hold_plan")
+    _require(isinstance(hold, dict), f"GW{gameweek}: candidate hold plan missing")
+    expected_hold = {
+        "squad_ids": sorted(state["squad_15"]),
+        "starting_xi": list(state["starting_xi"]),
+        "bench_order": list(state["bench_order"]),
+        "reserve_goalkeeper_id": state["reserve_goalkeeper_id"],
+        "captain_id": state["captain_id"],
+        "vice_captain_id": state["vice_captain_id"],
+        "formation": state["formation"],
+    }
+    _require(hold == expected_hold, f"GW{gameweek}: frozen hold plan differs from manager attestation")
+    roster = candidate_state.get("squad_snapshot")
+    _require(isinstance(roster, list) and len(roster) == 15,
+             f"GW{gameweek}: candidate manager roster must contain 15 players")
+    roster_by_id = {row.get("fpl_element_id"): row for row in roster if isinstance(row, dict)}
+    _require(set(roster_by_id) == set(state["squad_15"]),
+             f"GW{gameweek}: candidate manager roster identity mismatch")
+    for player_id in state["squad_15"]:
+        _require(roster_by_id[player_id].get("purchase_price") == state["purchase_prices"][str(player_id)],
+                 f"GW{gameweek}: candidate purchase price mismatch for player {player_id}")
+
+    action = frozen.get("action")
+    plan = frozen.get("squad_plan")
+    _require(action in {"HOLD", "TRANSFER"} and isinstance(plan, dict),
+             f"GW{gameweek}: unsupported frozen recommendation action/plan")
+    plan_squad = plan.get("squad_ids")
+    plan_xi = plan.get("starting_xi")
+    plan_bench = plan.get("bench_order")
+    _require(isinstance(plan_squad, list) and len(plan_squad) == 15 and len(set(plan_squad)) == 15
+             and isinstance(plan_xi, list) and len(plan_xi) == 11 and len(set(plan_xi)) == 11
+             and isinstance(plan_bench, list) and len(plan_bench) == 3 and len(set(plan_bench)) == 3,
+             f"GW{gameweek}: frozen recommendation squad plan is malformed")
+    _require(plan.get("reserve_goalkeeper_id") == state["reserve_goalkeeper_id"]
+             and plan.get("formation") == state["formation"],
+             f"GW{gameweek}: recommendation changed the designated goalkeeper or formation")
+    _require(plan.get("captain_id") in plan_squad and plan.get("vice_captain_id") in plan_squad
+             and plan.get("captain_id") != plan.get("vice_captain_id"),
+             f"GW{gameweek}: recommended captain/vice-captain is invalid")
+
+    if action == "HOLD":
+        _require(frozen.get("transfer_out_id") is None and frozen.get("transfer_in_id") is None
+                 and frozen.get("incoming_player") is None
+                 and frozen.get("transfer_hit_points") == 0,
+                 f"GW{gameweek}: HOLD decision contains transfer details")
+        _require(set(plan_squad) == set(state["squad_15"])
+                 and set(plan_xi) == set(state["starting_xi"])
+                 and plan_bench == state["bench_order"],
+                 f"GW{gameweek}: HOLD decision changed squad, starting XI or emergency bench order")
+    else:
+        out_id, in_id = frozen.get("transfer_out_id"), frozen.get("transfer_in_id")
+        incoming = frozen.get("incoming_player")
+        _require(isinstance(out_id, int) and isinstance(in_id, int)
+                 and out_id in state["squad_15"] and in_id not in state["squad_15"]
+                 and isinstance(incoming, dict) and incoming.get("fpl_element_id") == in_id,
+                 f"GW{gameweek}: recommended transfer identity is invalid")
+        _require(frozen.get("transfer_hit_points") == (0 if state["free_transfers"] > 0 else 4),
+                 f"GW{gameweek}: recommended transfer hit does not match free transfers")
+        outgoing = roster_by_id[out_id]
+        _require(outgoing.get("position") == incoming.get("position")
+                 and outgoing.get("position") != "GKP"
+                 and incoming.get("purchase_price") == incoming.get("current_price"),
+                 f"GW{gameweek}: recommended transfer violates position/goalkeeper/price rules")
+        expected_squad = (set(state["squad_15"]) - {out_id}) | {in_id}
+        _require(set(plan_squad) == expected_squad,
+                 f"GW{gameweek}: recommended post-transfer squad identity mismatch")
+        counts: dict[int, int] = {}
+        for player_id, row in roster_by_id.items():
+            if player_id != out_id:
+                counts[row["team_id"]] = counts.get(row["team_id"], 0) + 1
+        counts[incoming["team_id"]] = counts.get(incoming["team_id"], 0) + 1
+        _require(all(count <= 3 for count in counts.values()),
+                 f"GW{gameweek}: recommended transfer violates the three-per-club limit")
+        if out_id in state["starting_xi"]:
+            expected_xi = (set(state["starting_xi"]) - {out_id}) | {in_id}
+            expected_bench = list(state["bench_order"])
+        else:
+            removed = set(state["starting_xi"]) - (set(plan_xi) - {in_id})
+            added = set(plan_xi) - set(state["starting_xi"])
+            _require(added == {in_id} and len(removed) == 1,
+                     f"GW{gameweek}: bench transfer must promote one incoming player and displace one starter")
+            displaced_id = next(iter(removed))
+            _require(roster_by_id[displaced_id].get("position") == incoming.get("position"),
+                     f"GW{gameweek}: bench transfer displaced a player in the wrong position")
+            expected_xi = (set(state["starting_xi"]) - {displaced_id}) | {in_id}
+            expected_bench = [
+                displaced_id if player_id == out_id else player_id
+                for player_id in state["bench_order"]
+            ]
+        _require(set(plan_xi) == expected_xi and plan_bench == expected_bench,
+                 f"GW{gameweek}: recommended XI/bench does not preserve the fixed-XI emergency-bench policy")
+    return frozen
+
+
 def _verify_finalized_manager_state(record: dict[str, Any], state: dict[str, Any],
-                                    manager_team_id: int, gameweek: int) -> None:
+                                    manager_team_id: int, gameweek: int,
+                                    recommended_decision: dict[str, Any] | None = None) -> str:
     archives = record.get("source_archives", [])
     manager_archive = next((row for row in archives if row.get("source_type") == "manager_picks"), None)
     _require(isinstance(manager_archive, dict),
@@ -234,16 +397,12 @@ def _verify_finalized_manager_state(record: dict[str, Any], state: dict[str, Any
     picks = payload.get("picks")
     _require(isinstance(picks, list) and len(picks) == 15,
              f"GW{gameweek}: finalized manager picks must contain 15 players")
-    _require({row.get("element") for row in picks} == set(state["squad_15"]),
-             f"GW{gameweek}: finalized official squad differs from predeadline attestation")
     _require(payload.get("active_chip") is None,
              f"GW{gameweek}: finalized official picks show an active chip")
     entry_history = payload.get("entry_history", {})
     bank_raw = entry_history.get("bank")
-    _require(isinstance(bank_raw, int) and not isinstance(bank_raw, bool)
-             and abs(bank_raw / 10 - state["bank"]) < 0.0001,
-             f"GW{gameweek}: finalized official bank differs from predeadline attestation")
-
+    _require(isinstance(bank_raw, int) and not isinstance(bank_raw, bool),
+             f"GW{gameweek}: finalized official bank is missing")
     positions = {row["element"]: row["position"] for row in picks}
     automatic_subs = payload.get("automatic_subs", [])
     _require(isinstance(automatic_subs, list),
@@ -253,36 +412,73 @@ def _verify_finalized_manager_state(record: dict[str, Any], state: dict[str, Any
         _require(incoming in positions and outgoing in positions,
                  f"GW{gameweek}: malformed official autosub pair")
         positions[incoming], positions[outgoing] = positions[outgoing], positions[incoming]
-    reconstructed_xi = {player_id for player_id, position in positions.items() if position <= 11}
-    _require(reconstructed_xi == set(state["starting_xi"]),
-             f"GW{gameweek}: predeadline starting XI differs from finalized official lineup")
+    actual_xi = {player_id for player_id, position in positions.items() if position <= 11}
     element_types = {row["element"]: row.get("element_type") for row in picks}
-    bench = sorted(
+    actual_bench = sorted(
         (player_id for player_id, position in positions.items()
          if position > 11 and element_types[player_id] != 1),
         key=lambda player_id: positions[player_id],
     )
-    reserve_gks = [player_id for player_id, position in positions.items()
-                   if position > 11 and element_types[player_id] == 1]
-    _require(bench == state["bench_order"],
-             f"GW{gameweek}: predeadline outfield bench order differs from finalized official lineup")
-    _require(reserve_gks == [state["reserve_goalkeeper_id"]],
-             f"GW{gameweek}: predeadline reserve goalkeeper differs from finalized official lineup")
-    captains = [row["element"] for row in picks if row.get("is_captain") is True]
-    vice_captains = [row["element"] for row in picks if row.get("is_vice_captain") is True]
-    _require(captains == [state["captain_id"]] and vice_captains == [state["vice_captain_id"]],
-             f"GW{gameweek}: captain/vice-captain differs from predeadline attestation")
+    actual_reserve_gks = [player_id for player_id, position in positions.items()
+                          if position > 11 and element_types[player_id] == 1]
+    actual_captains = [row["element"] for row in picks if row.get("is_captain") is True]
+    actual_vice = [row["element"] for row in picks if row.get("is_vice_captain") is True]
     actual_counts = {
-        position: sum(element_types.get(player_id) == element_type
-                      for player_id in state["starting_xi"])
+        position: sum(element_types.get(player_id) == element_type for player_id in actual_xi)
         for element_type, position in ((1, "GKP"), (2, "DEF"), (3, "MID"), (4, "FWD"))
     }
-    expected_counts = dict(zip(("DEF", "MID", "FWD"),
-                               (int(value) for value in state["formation"].split("-"))))
-    _require(actual_counts["GKP"] == 1 and all(
-        actual_counts[position] == expected_counts[position]
-        for position in ("DEF", "MID", "FWD")
-    ), f"GW{gameweek}: attested formation does not match finalized official lineup")
+    actual_formation = "-".join(str(actual_counts[position]) for position in ("DEF", "MID", "FWD"))
+    actual = {
+        "squad_ids": set(positions),
+        "starting_xi": actual_xi,
+        "bench_order": actual_bench,
+        "reserve_goalkeeper_id": actual_reserve_gks[0] if len(actual_reserve_gks) == 1 else None,
+        "captain_id": actual_captains[0] if len(actual_captains) == 1 else None,
+        "vice_captain_id": actual_vice[0] if len(actual_vice) == 1 else None,
+        "formation": actual_formation,
+        "bank": bank_raw / 10,
+    }
+    official_transfer_cost = record.get("reconciliation", {}).get("official_transfer_cost", 0)
+
+    def matches(plan: dict[str, Any], expected_bank: float, expected_transfer_cost: float) -> bool:
+        return (
+            actual["squad_ids"] == set(plan["squad_ids"])
+            and actual["starting_xi"] == set(plan["starting_xi"])
+            and actual["bench_order"] == plan["bench_order"]
+            and actual["reserve_goalkeeper_id"] == plan["reserve_goalkeeper_id"]
+            and actual["captain_id"] == plan["captain_id"]
+            and actual["vice_captain_id"] == plan["vice_captain_id"]
+            and actual["formation"] == plan["formation"]
+            and abs(actual["bank"] - expected_bank) < 0.0001
+            and official_transfer_cost == expected_transfer_cost
+        )
+
+    hold_plan = {
+        "squad_ids": sorted(state["squad_15"]),
+        "starting_xi": list(state["starting_xi"]),
+        "bench_order": list(state["bench_order"]),
+        "reserve_goalkeeper_id": state["reserve_goalkeeper_id"],
+        "captain_id": state["captain_id"],
+        "vice_captain_id": state["vice_captain_id"],
+        "formation": state["formation"],
+    }
+    if matches(hold_plan, float(state["bank"]), 0):
+        return "HOLD_BASELINE_MATCHED"
+
+    if recommended_decision is not None:
+        recommended_plan = recommended_decision["squad_plan"]
+        expected_bank = float(state["bank"])
+        expected_cost = recommended_decision["transfer_hit_points"]
+        if recommended_decision["action"] == "TRANSFER":
+            out_id = recommended_decision["transfer_out_id"]
+            incoming = recommended_decision["incoming_player"]
+            expected_bank += float(state["selling_prices"][str(out_id)]) - float(incoming["purchase_price"])
+        if matches(recommended_plan, round(expected_bank, 1), expected_cost):
+            return "RECOMMENDATION_MATCHED"
+    raise BatchAuditError(
+        f"GW{gameweek}: finalized manager state matches neither the frozen hold baseline "
+        "nor the frozen recommendation"
+    )
 
 
 def _audit_archives(record: dict[str, Any], manager_team_id: int, gameweek: int,
