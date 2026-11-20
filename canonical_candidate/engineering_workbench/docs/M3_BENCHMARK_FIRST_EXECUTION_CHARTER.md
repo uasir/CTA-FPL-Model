@@ -47,6 +47,23 @@ The contract:
 
 This means FPL Lucho served xP cannot silently become Odds xP, and Sideline Quant fixture rows cannot be treated as player-GW values without a separately specified aggregation step.
 
+
+### M3.2 — First end-to-end personal-squad execution slice
+
+Added:
+- `scripts/canonical_forecast_recommendation_adapter.py`
+- `scripts/run_external_benchmark_personal_squad.py`
+- `tests/test_canonical_forecast_recommendation_adapter.py`
+- `tests/test_run_external_benchmark_personal_squad.py`
+
+The runner accepts one raw provider snapshot, a separately captured FPL player-metadata table, and explicit manager context. It normalizes and checks the provider snapshot, joins metadata by FPL element ID, then calls the existing `recommend_personal_squad` engine. It emits one provenance-bearing personal-squad decision object with transfer recommendation, legal formation/XI, bench, captain and vice-captain, plus explicit release blockers.
+
+Additional time controls require provider generation no later than capture, capture before deadline, and the decision timestamp strictly before deadline. Diagnostic-only snapshots are rejected. Fixture-grain forecasts are not silently aggregated. Provider xP values are passed through unchanged.
+
+**CI evidence:** run [44754038796](https://github.com/uasir/CTA-FPL-Model/actions/runs/44754038796) passed on the current branch head: 272 Python tests passed, 3 subtests passed, JavaScript contract tests passed, and all four identity-crosswalk validation steps passed.
+
+This is a tested execution interface, not yet a live provider integration or a release-ready recommendation. The integration tests use deterministic synthetic provider fixtures. A real decision run still requires a captured, eligible provider snapshot, current FPL metadata and the manager's timestamped 15-player squad state. The output is deliberately marked not release-eligible until M3 acceptance and decision backtesting are complete.
+
 ## 4. M3 work packages
 
 ### M3.1 — Provider-neutral forecast contract
