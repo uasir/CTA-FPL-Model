@@ -119,7 +119,7 @@ Private repository work:
 - Added selector tests and wired them into private CI. Run [44656783106](https://github.com/uasir/CTA-FPL-Private-Archive/actions/runs/44656783106) passed 11 tests. The selector weight field was then aligned with the archive validator contract; follow-up private CI run [44656852143](https://github.com/uasir/CTA-FPL-Private-Archive/actions/runs/44656852143) passed.
 - Added manual workflow to create the private season manifest and candidate frame. It refuses to overwrite an existing panel.
 
-**Still outstanding:** run the manual selection workflow for the next prospective Gameweek; inspect and freeze the resulting panel; capture the first complete pre-deadline manager-state wave and forecasts/decisions for hold, conventional and CTA-informed; validate the archive; then score actual outcomes. No manager cohort has yet been selected.
+**Panel selection is complete.** Private workflow [44657538350](https://github.com/uasir/CTA-FPL-Private-Archive/actions/runs/44657538350) selected the 2026-27 GW11 cohort at 2026-11-20 01:59:26 UTC, ahead of the official 2026-11-21 11:00 UTC deadline ([Premier League GW11 deadline confirmation](https://www.premierleague.com/en/news/4764714)). It contains 100 managers, 20 in each of five overall-rank bands, selected from a 2,500-manager candidate frame. The normalized design weights sum to 1; 16 entries in the final incomplete standings page were excluded from the sampling frame. The private manifest and candidate frame are committed in the private archive; no manager IDs or candidate rows are public.\n\n**Still outstanding:** capture the first complete pre-deadline manager-state wave for all 100 managers; freeze hold, conventional and CTA-informed forecasts/actions for each state; validate the archive; then score actual GW11 outcomes. The cohort is fixed and must not be replaced after outcomes.
 
 
 ## Sequential manager-state transition groundwork — 2026-11-20
@@ -134,3 +134,16 @@ A separate deterministic transition module is now implemented in scripts/transit
 Engineering CI passed **443 tests, 1 skipped, 3 subtests** in [run 44657153882](https://github.com/uasir/CTA-FPL-Model/actions/runs/44657153882). The module is a single state-transition primitive, not yet a multi-Gameweek policy runner or integrated scorer. It still requires consecutive official-history parity checks for bank, selling prices, free transfers, transfers and chips before sequential decision-value results can be trusted.
 
 The sequential architecture deliberately diverges policy states after a common initial state: hold, conventional and CTA-informed each carry forward their own squad, bank, free transfers and chip inventory. Reusing the actual manager's later squad for every policy would be one-step evaluation, not sequential policy evaluation.
+
+
+## Fixed GW11 manager panel selected — 2026-11-20
+
+The private prospective panel has now been selected successfully before GW11:
+- 100 managers total; 20 from each of five overall-rank strata (1–100k, 100k–500k, 500k–1m, 1m–2m, 2m+).
+- 2,500 candidate managers captured from 50 randomly selected full standings pages (10 pages per stratum).
+- Candidate-frame SHA-256: a2d3fe5cdd6685bcbc5f6ac65443148c81b77072641168b8d8c81dd9bb60a1ab.
+- Selection timestamp: 2026-11-20T01:59:26Z; target GW11 deadline: 2026-11-21T11:00:00Z.
+- Normalized design weights sum to 1; the final 16-entry partial standings page is excluded and recorded.
+- Private workflow [44657538350](https://github.com/uasir/CTA-FPL-Private-Archive/actions/runs/44657538350) completed successfully; private archive contract CI [44657522022](https://github.com/uasir/CTA-FPL-Private-Archive/actions/runs/44657522022) passed 11 tests.
+
+The fixed cohort is selected, but the first pre-deadline state wave is not yet captured. Next gate is to capture all 100 manager states before GW11 lock, then freeze three decisions (hold, conventional, CTA-informed) against each state. Do not backfill or replace missing managers after the deadline.
