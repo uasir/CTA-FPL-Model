@@ -100,6 +100,6 @@ It consumes the strict ABC player–Gameweek aggregation output and the pinned c
 - creates expanding whole-Gameweek fit/calibration/test partitions with the latest 20% of pre-test training Gameweeks reserved for calibration;
 - blocks a fold if fit/calibration/test counts are too small or a test key lacks the 2PM last-five baseline required by its existing evaluator.
 
-The manifest contains counts, Gameweek lists, and hashes rather than raw player IDs. Its unit tests cover exact parity, target mismatch, missing fixture, DGW aggregation, inconsistent lagged features, and ABC eligibility.
+The published manifest contains counts, Gameweek lists, and hashes rather than raw player IDs. A separate partition-key CSV is written to the workflow runner's temporary directory for the later model runners; it is not uploaded as an artifact. Its unit tests cover exact parity, target mismatch, missing fixture, DGW aggregation, inconsistent lagged features, ABC eligibility, and the test-only last-five baseline gate.
 
 **Important implementation boundary:** this builder validates and freezes the cohort/fold contract; it does not train either model. The current 2PM evaluator still has a season-level `evaluate_fold` entry point and the ABC evaluator still builds its own fold partitions. The next M2 implementation task is to adapt both runners to consume this manifest and prove that each runner's actual fit, calibration, and test keys match the manifest hashes. Until that is done, no ABC-versus-2PM score should be interpreted as a matched-fold result.
