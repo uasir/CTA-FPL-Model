@@ -212,7 +212,7 @@ def test_bench_transfer_preserves_emergency_order_and_moves_displaced_starter_in
 
 def test_starter_transfer_keeps_existing_emergency_bench_order():
     payload = request()
-    payload["starting_xi"] = [1, 3, 4, 5, 6, 8, 9, 10, 11, 13, 14]
+    payload["starting_xi"] = [1, 3, 4, 5, 6, 8, 9, 10, 13, 14, 15]
     result = recommend_personal_squad(payload)
     if result["transfer_recommendation"]["action"] == "TRANSFER":
         outgoing = result["transfer_recommendation"]["best_candidate"]["transfer_out_id"]
