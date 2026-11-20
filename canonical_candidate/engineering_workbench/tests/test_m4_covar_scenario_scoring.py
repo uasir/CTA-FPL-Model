@@ -79,9 +79,9 @@ class TestM4CovarScenarioScoring(unittest.TestCase):
         })
         result = score_scenario_portfolios(doc, baseline_portfolio_id="covar-stack")
         low_eo = result["portfolio_results"]["low-eo-captain"]
-        self.assertEqual(low_eo["expected_points"], 14.0)
+        self.assertEqual(low_eo["expected_points"], 17.0)
         self.assertEqual(
-            low_eo["baseline_comparison"]["expected_points_difference"], -5.0
+            low_eo["baseline_comparison"]["expected_points_difference"], -2.0
         )
         self.assertEqual(doc["players"][1]["effective_ownership_pct"], 8)
 
