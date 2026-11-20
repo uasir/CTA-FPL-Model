@@ -267,10 +267,10 @@ A real evaluation record's `realised_points` source is not trusted merely becaus
 
 This closes the scoring-input provenance chain: the frozen pre-deadline decision inputs are bound to the independently audited decision archives, while the realised outcomes are bound to the independently audited official event-live scoring archive. The official reconciliation batch still independently verifies manager gross points, transfer cost, autosubs and captain multiplier. Passing these integrity gates permits an event to be scored as a real decision-backtest candidate; it does not establish forecast quality, positive decision value, rank improvement or release eligibility.
 
-## 18. Official player-metadata binding
-
-For a real candidate, the evaluator decodes the exact official bootstrap archive independently audited as the pre-deadline player-metadata source. Every player in the 15-player hold roster—and the incoming player for a transfer—is checked against that archive for official FPL element ID, position, club and current price. Missing or duplicate official IDs, incomplete metadata, or any detached evaluation attribute fails closed. This ensures the scoring roster and incoming transfer candidate cannot carry substituted position, club or price metadata while referencing an otherwise valid bootstrap archive.
-
 ## 17. Evaluation manager-state binding
 
 For a real candidate, the evaluator decodes the manager-state archive whose raw bytes were independently audited and binds its manager/Gameweek identity and capture timestamp to the evaluation record. The archived 15-player squad, bank, free-transfer count, formation, starting XI, ordered outfield bench, reserve goalkeeper, captain, vice-captain and no-chip state must match the evaluator's hold baseline exactly. Each player's purchase price must match the archived manager state, and the archived selling price is independently recomputed using the official FPL half-profit rule. This prevents a valid, audited manager archive from being paired with a detached roster, lineup, budget or purchase-price table when scoring the recommendation against hold.
+
+## 18. Official player-metadata binding
+
+For a real candidate, the evaluator decodes the exact official bootstrap archive independently audited as the pre-deadline player-metadata source. Every player in the 15-player hold roster—and the incoming player for a transfer—is checked against that archive for official FPL element ID, position, club and current price. Missing or duplicate official IDs, incomplete metadata, or any detached evaluation attribute fails closed. This ensures the scoring roster and incoming transfer candidate cannot carry substituted position, club or price metadata while referencing an otherwise valid bootstrap archive.
