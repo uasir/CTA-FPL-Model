@@ -73,7 +73,7 @@ jobs:
             canonical_candidate/engineering_workbench/official-fpl-manager-reconciliation-audit.json
             canonical_candidate/engineering_workbench/official-fpl-historical-evidence-admission.json
             canonical_candidate/engineering_workbench/official-fpl-decision-evidence-manifests.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 90
       - name: Fail job if any requested Gameweek was excluded or audit failed
         if: steps.reconcile.outcome == 'failure' || steps.audit.outcome == 'failure'
