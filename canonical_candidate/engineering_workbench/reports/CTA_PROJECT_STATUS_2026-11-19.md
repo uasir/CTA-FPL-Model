@@ -193,3 +193,26 @@ The ABC walk-forward evaluator now uses season-Gameweek as the deadline key thro
 Engineering CI [run 44659599769](https://github.com/uasir/CTA-FPL-Model/actions/runs/44659599769) passed: **457 tests, 1 skipped, 3 subtests**.
 
 This is evaluation and coverage hardening, not evidence that ABC improved. The repository currently contains empty provider identity crosswalk placeholders and no full Wyscout event archive or FPL player-fixture history. No numeric ABC-vs-2PM result has been generated from a complete source panel yet. A private workflow is now downloading pinned Wyscout 2017-18 and FPL source snapshots to produce a pending-only identity review queue; no player identity will be automatically promoted to verified.
+
+
+## Wyscout 2017-18 source ingestion and FPL identity review — 2026-11-20
+
+Private workflow [44659975489](https://github.com/uasir/CTA-FPL-Private-Archive/actions/runs/44659975489) successfully downloaded pinned Wyscout and Vaastav FPL source snapshots, audited the full Wyscout EPL 2017/18 collection, built player-match features, and generated a pending-only identity review queue. Raw archives and player-match rows remained runner-local; only aggregate reports and the review queue were committed to the private archive.
+
+Aggregate source findings:
+- Wyscout: 643,150 events, 380 matches, 515 event-linked players, 20 teams; all 380 event matches have metadata.
+- Derived Wyscout player-match table: 11,178 player-match rows across 515 players and 380 matches.
+- All 380 Wyscout matches mapped to FPL fixture context; 22,467 FPL player-fixture history rows were available.
+- Exact normalized full-name matching produced 356 unique FPL candidates; 159 Wyscout players remained unmatched.
+- Candidate review priorities: 116 P1 multi-match/team corroboration, 94 P2 team/stat cross-check, 146 P3 history review, 159 unmatched/ambiguous. No candidate was automatically verified.
+- 7,095 Wyscout player-match rows had FPL-history overlap for candidate identities; duplicate FPL player-fixture keys: zero.
+
+**Quality gate remains open:** the Wyscout player-match audit reports 1,018 goals in match metadata versus 1,017 player-attributed goals (delta −1), so goal reconciliation is REVIEW_REQUIRED. The candidate queue is not a verified identity crosswalk and cannot yet be used to train/evaluate the ABC model.
+
+Source limitations confirmed by the full data:
+- No xG or pass-recipient IDs in this public Wyscout event schema.
+- Event coordinates are on-ball event locations, not continuous player tracking or 360 freeze frames.
+- The FPL archive has no birth dates; season-end team can differ from a player's team earlier in the season.
+- The danger-zone entry geometry remains a provisional proxy, not xG or calibrated box-entry truth.
+
+The private review bundle is under research/wyscout-2017-18/identity-review-attempt-001 in CTA-FPL-Private-Archive. The manual-only workflow is retained for future reproducible runs. Next: inspect the single-goal reconciliation difference, review P1/P2 candidate evidence, create a separately approved verified crosswalk, then build the ABC player-fixture panel. No ABC-versus-2PM performance claim is available yet.
