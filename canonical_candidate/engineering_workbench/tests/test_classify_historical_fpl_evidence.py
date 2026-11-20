@@ -31,6 +31,7 @@ def _manifest():
     return {
         "target_gameweek": 5,
         "evidence_is_point_in_time": True,
+        "archives_verified": True,
         "deadline_utc": "2026-10-01T11:00:00Z",
         "decision_as_of_utc": "2026-10-01T10:30:00Z",
         "sources": [
