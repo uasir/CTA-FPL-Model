@@ -191,15 +191,59 @@ def score_scenario_portfolios(
                 "is_baseline": portfolio_id == baseline_portfolio_id,
             }
 
+    field_portfolios = [
+        row for row in document["portfolios"]
+        if row.get("portfolio_role", "CANDIDATE") == "FIELD"
+    ]
+    field_comparison_status = "NOT_AVAILABLE_NO_EXPLICIT_FIELD_PORTFOLIO"
+    if field_portfolios:
+        field_weights = {
+            str(row["portfolio_id"]): float(row["field_weight"])
+            for row in field_portfolios
+        }
+        field_expected_points = sum(
+            field_weights[str(row["portfolio_id"])]
+            * results[str(row["portfolio_id"])]["expected_points"]
+            for row in field_portfolios
+        )
+        for portfolio_id, portfolio in portfolio_rows.items():
+            if portfolio.get("portfolio_role", "CANDIDATE") == "FIELD":
+                continue
+            weighted_differences = []
+            probability_outscoring = 0.0
+            for scenario_index, scenario_probability in enumerate(probabilities):
+                candidate_score = raw_scores[portfolio_id][scenario_index]
+                for field_row in field_portfolios:
+                    field_id = str(field_row["portfolio_id"])
+                    weight = field_weights[field_id]
+                    difference = candidate_score - raw_scores[field_id][scenario_index]
+                    joint_weight = scenario_probability * weight
+                    weighted_differences.append((difference, joint_weight))
+                    if difference > 0:
+                        probability_outscoring += joint_weight
+            relative_mean, relative_variance = _moments(weighted_differences)
+            results[portfolio_id]["field_comparison"] = {
+                "field_portfolio_count": len(field_portfolios),
+                "field_expected_points": field_expected_points,
+                "expected_points_difference_vs_weighted_field": relative_mean,
+                "probability_outscoring_random_field_portfolio": probability_outscoring,
+                "relative_score_quantiles": {
+                    "p10": _weighted_quantile(weighted_differences, 0.10),
+                    "p50": _weighted_quantile(weighted_differences, 0.50),
+                    "p90": _weighted_quantile(weighted_differences, 0.90),
+                },
+                "relative_score_standard_deviation": math.sqrt(relative_variance),
+                "field_weighting": "EXPLICIT_SYNTHETIC_PORTFOLIO_WEIGHTS",
+            }
+        field_comparison_status = "AVAILABLE_EXPLICIT_FIELD_PORTFOLIOS"
+
     return {
         "schema_version": "1.0.0",
         "mode": mode,
         "input_validation_status": validated["validation_status"],
         "portfolio_results": results,
         "baseline_portfolio_id": baseline_portfolio_id,
-        "field_comparison_status": (
-            "NOT_AVAILABLE_NO_EXPLICIT_FIELD_PORTFOLIO"
-        ),
+        "field_comparison_status": field_comparison_status,
         "production_eligible": False,
         "decision_weight": 0.0,
     }
