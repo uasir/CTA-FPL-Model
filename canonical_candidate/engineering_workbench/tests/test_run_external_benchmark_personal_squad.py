@@ -63,6 +63,13 @@ def run_input():
             "personal_risk_profile": manager["personal_risk_profile"],
             "formation": manager["formation"],
         },
+        "player_metadata_provenance": {
+            "source_url": "https://fantasy.premierleague.com/api/bootstrap-static/",
+            "raw_snapshot_id": "sha256:" + hashlib.sha256(b"frozen bootstrap").hexdigest(),
+            "raw_sha256": hashlib.sha256(b"frozen bootstrap").hexdigest(),
+            "captured_at_utc": "2026-11-20T09:05:00Z",
+            "row_count": len(forecasts),
+        },
         "as_of_utc": "2026-11-20T10:00:00Z",
     }
 
