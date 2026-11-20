@@ -64,16 +64,33 @@ def reconcile_official_manager_result(
     _require(len(set(ids)) == 15, "official picks contain duplicate player IDs")
     _require(sorted(positions) == list(range(1, 16)),
              "official picks positions must be the unique range 1..15")
-    by_position = sorted(picks, key=lambda p: p["position"])
-    official_xi = [p["element"] for p in by_position[:11]]
-    official_bench = [p["element"] for p in by_position[12:15]]
-    official_reserve_gk = by_position[11]["element"]
-    _require(set(official_xi) == set(expected_starting_xi),
-             "official starting XI does not match the frozen local hold plan")
-    _require(official_bench == expected_bench_order,
-             "official outfield bench order does not match the frozen local hold plan")
-    _require(official_reserve_gk == expected_reserve_goalkeeper_id,
-             "official reserve goalkeeper does not match the frozen local hold plan")
+    # Historical picks positions reflect the post-autosub lineup. Reverse each
+    # official autosub pair to reconstruct the deadline-frozen XI and bench order.
+    automatic_subs = official_picks.get("automatic_subs", [])
+    _require(isinstance(automatic_subs, list), "official automatic_subs must be a list")
+    position_by_id = {p["element"]: p["position"] for p in picks}
+    for sub in automatic_subs:
+        _require(isinstance(sub, Mapping), "official automatic substitution rows must be objects")
+        player_in, player_out = sub.get("element_in"), sub.get("element_out")
+        _require(isinstance(player_in, int) and not isinstance(player_in, bool)
+                 and isinstance(player_out, int) and not isinstance(player_out, bool),
+                 "official automatic substitution has invalid player IDs")
+        _require(player_in in position_by_id and player_out in position_by_id,
+                 "official automatic substitution references a player outside the picks")
+        in_position, out_position = position_by_id[player_in], position_by_id[player_out]
+        _require(in_position <= 11 and out_position >= 12,
+                 "official autosub positions are not in post-substitution XI/bench order")
+        position_by_id[player_in], position_by_id[player_out] = out_position, in_position
+    by_deadline_position = sorted(picks, key=lambda p: position_by_id[p["element"]])
+    deadline_xi = [p["element"] for p in by_deadline_position[:11]]
+    deadline_bench = [p["element"] for p in by_deadline_position[12:15]]
+    deadline_reserve_gk = by_deadline_position[11]["element"]
+    _require(set(deadline_xi) == set(expected_starting_xi),
+             "official deadline starting XI does not match the frozen local hold plan")
+    _require(deadline_bench == expected_bench_order,
+             "official deadline outfield bench order does not match the frozen local hold plan")
+    _require(deadline_reserve_gk == expected_reserve_goalkeeper_id,
+             "official deadline reserve goalkeeper does not match the frozen local hold plan")
 
     captain_ids = [p["element"] for p in picks if p.get("is_captain") is True]
     vice_ids = [p["element"] for p in picks if p.get("is_vice_captain") is True]
@@ -108,8 +125,6 @@ def reconcile_official_manager_result(
              f"entry_history.points={history['points']}, "
              f"separate_transfer_cost={transfer_cost}, net_after_hit={official_net}")
 
-    automatic_subs = official_picks.get("automatic_subs", [])
-    _require(isinstance(automatic_subs, list), "official automatic_subs must be a list")
     official_pairs = []
     for sub in automatic_subs:
         _require(isinstance(sub, Mapping), "official automatic substitution rows must be objects")
