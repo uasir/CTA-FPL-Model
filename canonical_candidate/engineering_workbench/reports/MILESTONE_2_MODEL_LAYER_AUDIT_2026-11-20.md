@@ -95,4 +95,66 @@ Therefore the 214,956-row base-model MAE/RMSE are descriptive model errors, not 
 
 Keep player-level predictions runner-local. This reporting change does not require uploading raw data or per-player predictions.
 
+
+## 7. Completed aggregate comparator run — 2026-11-20
+
+Workflow run [44726375243](https://github.com/uasir/CTA-FPL-Model/actions/runs/44726375243) completed successfully on commit `1c79ce45506bfe5123db58978bbec9255611d345`. All contract tests, pinned panel build, nine base folds, nine position folds, exact-key ablation, aggregate summary and privacy guard passed. The output is still explicitly research-only; source vintages are retrospective and player-level predictions remained runner-local.
+
+### Pooled point-error evidence (214,956 player-gameweeks; nine validation seasons)
+
+| Model | MAE | RMSE |
+|---|---:|---:|
+| 2PM base Transformer | 1.155169 | 2.141261 |
+| 2PM affine-calibrated | 1.143429 | 2.140013 |
+| Conventional two-part calibrated | 1.158262 | 2.151422 |
+| Direct Ridge | 1.172428 | 2.147593 |
+| Last-five persistence | 1.190693 | 2.301198 |
+
+Player-season cluster bootstrap, 6,645 clusters and 1,000 replicates:
+- Raw 2PM minus calibrated conventional two-part MAE 95% CI: [-0.004791, -0.001437].
+- Affine-calibrated 2PM minus calibrated conventional two-part MAE 95% CI: [-0.016402, -0.013232].
+- Raw 2PM minus direct Ridge MAE 95% CI: [-0.018846, -0.015729].
+
+These are statistically clear retrospective point-error improvements on the tested cohort. They do not establish prospective validity, and they do not establish a decision-level advantage.
+
+### Position ablation decision
+
+On the same 214,956 player-GWs and 332 deadlines:
+- Raw MAE: base 1.155169; position 1.155608.
+- Raw RMSE: base 2.141261; position 2.142320.
+- Deadline-local macro Spearman: base 0.690174; position 0.689207.
+- Deadline-local macro selected mean points at top 100: base 3.559187; position 3.562139.
+- Paired season-cluster bootstrap selected-mean delta (position minus base) 95% CI: [-0.015273, +0.022492].
+- Paired player-season cluster-bootstrap MAE delta 95% CI: [-0.000243, +0.001082].
+
+**Decision unchanged:** position features are not adopted. The selected-mean difference is tiny and uncertain; rank correlation and point-error metrics lean toward the simpler base model.
+
+### Important ranking-metric qualification
+
+The pooled model summary's top-100 selected-mean figures (base 5.08, affine 5.79, calibrated conventional 5.32) are pooled across validation rows and are not a deadline-by-deadline FPL selection evaluation. The position ablation does separately calculate ranking metrics within each of 332 deadlines, but the baseline comparator output does not yet publish the same paired deadline-local ranking comparison for all model variants.
+
+Do not use pooled top-100 values as evidence of FPL decision utility. Add a paired per-deadline ranking evaluation before any ranking or selection claim.
+
+## 8. Fold-aligned ABC-versus-2PM comparison: data-grain constraint
+
+Code inspection found a second comparability issue beyond the differing train populations:
+- ABC currently fits Ridge on **player-fixture** rows and sums fixture predictions to player-GW.
+- 2PM trains and predicts on **player-gameweek** rows.
+- The current ABC candidate model also uses expanding 2017/18 folds, while the Transformer evaluation uses expanding prior-season folds.
+- ABC A/B/C inputs include both fixture-level event counts/rates and player-level rolling features; simply summing every ABC feature across double-gameweeks would be invalid.
+
+Therefore the next evaluator must first define a typed player-GW aggregation contract for ABC features:
+1. FPL player-GW target and conventional-history fields: one exact value per player-GW; fail on conflicting repeated values.
+2. Fixture-level additive event counts: sum only where the source definition establishes additivity.
+3. Rates and percentages: recompute from numerator/denominator when available; otherwise use a documented exposure-weighted aggregation or mark unavailable.
+4. Rolling/player-level snapshot features: retain the single pre-deadline snapshot; fail if fixture rows disagree.
+5. Team/opponent context: preserve fixture-specific values as separate context features or use a predeclared aggregation; never average/sum blindly.
+6. Keep explicit coverage, source vintage and aggregation provenance per player-GW feature.
+
+After that transformation, define identical whole-GW fit/calibration/validation blocks and exact shared player-GW keys for both tracks. Restrict both models' **target rows** to the shared CTA-eligible population for the primary matched-capability experiment; separately report the broader 2PM universe as a distinct population-generalisation analysis. For 2PM, historical sequence rows may provide lagged conventional inputs, but target labels used to fit/calibrate must follow the shared cohort plan. Fit/calibrate only on earlier blocks, never validation.
+
+The evaluator must report (a) full-cohort MAE/RMSE/bias and tail errors, (b) within-deadline Spearman and top-20/top-100 realised selection utility, (c) paired player-cluster uncertainty, (d) per-fold sample/feature coverage, and (e) explicit excluded-key reasons. Keep raw and calibrated outputs separate.
+
+**Next implementation task:** build and test the ABC player-GW feature aggregator and fold-plan contract first. Do not attempt the joint model comparison until this grain contract passes its tests.
+
 **Current disposition:** 2PM base remains the control; position features are not adopted; ABC remains an exploratory independent candidate; no model is connected to recommendation weights.
