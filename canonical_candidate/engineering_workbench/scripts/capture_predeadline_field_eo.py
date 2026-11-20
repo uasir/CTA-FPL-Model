@@ -149,6 +149,11 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--delay", type=float, default=0.15)
     parser.add_argument("--deadline-window-minutes", type=int, default=35)
+    parser.add_argument(
+        "--manager-portfolio-output",
+        type=Path,
+        help="Optional PRIVATE local path for manager-ID-stripped portfolios; never upload this file from a public workflow",
+    )
     args = parser.parse_args()
     bootstrap = fetch_json(f"{BASE}/bootstrap-static/", delay=args.delay)
     rows, metadata = capture_predeadline(
@@ -159,17 +164,22 @@ def main() -> int:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     if rows:
         manager_portfolio_artifact = metadata.pop("manager_id_stripped_portfolios")
-        manager_portfolio_path = args.out_dir / "fpl_predeadline_manager_portfolios.json"
-        manager_portfolio_path.write_text(
-            json.dumps(manager_portfolio_artifact, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        metadata["manager_portfolio_artifact"] = {
-            "filename": manager_portfolio_path.name,
-            "sha256": canonical_artifact_sha256(manager_portfolio_artifact),
-            "manager_count": manager_portfolio_artifact["metadata"]["manager_count"],
-            "manager_entry_ids_retained": False,
-        }
+        if args.manager_portfolio_output is not None:
+            manager_portfolio_path = args.manager_portfolio_output
+            manager_portfolio_path.parent.mkdir(parents=True, exist_ok=True)
+            manager_portfolio_path.write_text(
+                json.dumps(manager_portfolio_artifact, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            metadata["manager_portfolio_artifact"] = {
+                "filename": manager_portfolio_path.name,
+                "sha256": canonical_artifact_sha256(manager_portfolio_artifact),
+                "manager_count": manager_portfolio_artifact["metadata"]["manager_count"],
+                "manager_entry_ids_retained": False,
+                "storage_policy": "EXPLICIT_LOCAL_PRIVATE_EXPORT",
+            }
+        else:
+            metadata["manager_portfolio_export_status"] = "NOT_EXPORTED_LOCAL_ONLY"
         fields = list(rows[0].keys())
         with (args.out_dir / "fpl_predeadline_effective_ownership.csv").open(
             "w", newline="", encoding="utf-8"
