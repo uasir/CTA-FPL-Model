@@ -75,7 +75,7 @@ def test_double_gameweek_targets_are_summed_and_fixture_sets_compared():
     assert report["status"] == "PASS_MATCHED_FOLD_MANIFEST"
 
 def test_conflicting_lagged_fpl_features_across_dgw_fails():
-    key = ("2017/18", "7", 1)
+    key = ("2017/18", "7", 2)
     a, f = [abc(key, ["f1", "f2"], 8, 150)], fpl(key, ["f1", "f2"], 8, 150)
     a2, f2 = sample()
     a.extend(a2); f.extend(f2)
@@ -102,3 +102,13 @@ def test_test_fold_is_blocked_when_required_2pm_last5_baseline_is_missing():
     assert report["status"] == "BLOCKED_FOLD_COVERAGE"
     assert report["folds"][0]["status"] == "BLOCKED"
     assert "TEST_KEYS_MISSING_2PM_LAST5_BASELINE" in report["folds"][0]["blocking_reasons"]
+
+
+def test_rows_without_prior_gameweek_count_are_not_silently_dropped_from_fit_cohort():
+    a, f = sample()
+    target = next(row for row in f if row["gameweek"] == "2" and row["fpl_element_id"] == "1")
+    target["prior_gameweeks_count"] = ""
+    report = build_manifest(a, f, min_train_gameweeks=18, min_fit_rows=1,
+        min_calibration_rows=1, min_test_rows=1)
+    assert report["status"] == "PASS_MATCHED_FOLD_MANIFEST"
+    assert report["eligible_fpl_player_gameweeks"] == report["eligible_abc_player_gameweeks"]
