@@ -49,6 +49,7 @@ def _manifest():
         }
     return {
         "12": {
+            "target_gameweek": 12,
             "manager_team_id": 421025,
             "season": "2026-27",
             "provider_snapshot": {
