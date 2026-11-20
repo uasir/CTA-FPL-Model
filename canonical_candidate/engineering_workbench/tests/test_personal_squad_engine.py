@@ -178,3 +178,14 @@ def test_bench_to_starting_xi_upgrade_is_scored_on_starting_xi_gain():
     assert best["transfer_out_id"] == 6
     assert best["starting_xi_expected_points_delta"] > 0
     assert best["starting_xi_expected_points_delta"] == 8.0 - 3.6
+
+
+def test_post_transfer_plan_keeps_the_designated_starting_goalkeeper():
+    payload = request()
+    payload["starting_xi"] = [2, 3, 4, 5, 7, 8, 10, 12, 13, 14, 15]
+    payload["player_forecasts"][0]["expected_points"] = 12.0
+    result = recommend_personal_squad(payload)
+    assert result["transfer_recommendation"]["action"] == "TRANSFER"
+    assert 2 in result["current_squad_plan"]["starting_xi"]
+    assert 2 in result["squad_plan"]["starting_xi"]
+    assert 1 not in result["squad_plan"]["starting_xi"]
