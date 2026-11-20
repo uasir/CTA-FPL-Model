@@ -131,6 +131,21 @@ def _bind_raw_sources(manifest):
     }
 
 
+def _replace_raw_source(manifest, source_type, payload):
+    source = next(row for row in manifest["sources"] if row["source_type"] == source_type)
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    digest = hashlib.sha256(raw).hexdigest()
+    source["raw_payload_base64"] = base64.b64encode(raw).decode()
+    source["raw_sha256"] = digest
+    source["raw_snapshot_id"] = "sha256:" + digest
+    if source_type == "provider_forecast":
+        manifest["provider_snapshot"]["source"]["raw_sha256"] = digest
+        manifest["provider_snapshot"]["source"]["raw_snapshot_id"] = "sha256:" + digest
+    elif source_type == "player_metadata":
+        manifest["player_metadata_provenance"]["raw_sha256"] = digest
+        manifest["player_metadata_provenance"]["raw_snapshot_id"] = "sha256:" + digest
+
+
 def _prepare(monkeypatch):
     bundle = _manifest()
     manifest = bundle["12"]
@@ -192,3 +207,43 @@ def test_replay_rejects_changed_player_metadata(monkeypatch):
     next(row for row in bundle["12"]["player_metadata"] if row["fpl_element_id"] == 20)["price"] = 6.0
     with pytest.raises(replay.DecisionReplayError, match="canonical player metadata cannot be reconstructed"):
         replay.replay_frozen_decision(bundle, frozen, software_commit="b" * 40)
+
+def test_replay_rejects_provider_raw_change_even_when_archive_hash_is_rebased(monkeypatch):
+    bundle, frozen = _prepare(monkeypatch)
+    bundle = copy.deepcopy(bundle)
+    manifest = bundle["12"]
+    source = next(row for row in manifest["sources"] if row["source_type"] == "provider_forecast")
+    payload = json.loads(base64.b64decode(source["raw_payload_base64"]))
+    payload["players"][0]["xp"] = 99
+    _replace_raw_source(manifest, "provider_forecast", payload)
+    with pytest.raises(replay.DecisionReplayError, match="canonical provider snapshot cannot be reconstructed"):
+        replay.replay_frozen_decision(bundle, frozen, software_commit="b" * 40)
+
+
+def test_replay_rejects_bootstrap_change_even_when_archive_hash_is_rebased(monkeypatch):
+    bundle, frozen = _prepare(monkeypatch)
+    bundle = copy.deepcopy(bundle)
+    manifest = bundle["12"]
+    source = next(row for row in manifest["sources"] if row["source_type"] == "player_metadata")
+    payload = json.loads(base64.b64decode(source["raw_payload_base64"]))
+    next(row for row in payload["elements"] if row["id"] == 20)["team"] = 19
+    _replace_raw_source(manifest, "player_metadata", payload)
+    with pytest.raises(replay.DecisionReplayError, match="canonical player metadata cannot be reconstructed"):
+        replay.replay_frozen_decision(bundle, frozen, software_commit="b" * 40)
+
+
+def test_replay_rejects_manager_attestation_change_even_when_archive_hash_is_rebased(monkeypatch):
+    bundle, frozen = _prepare(monkeypatch)
+    bundle = copy.deepcopy(bundle)
+    manifest = bundle["12"]
+    source = next(row for row in manifest["sources"] if row["source_type"] == "manager_deadline_state")
+    envelope = json.loads(base64.b64decode(source["raw_payload_base64"]))
+    envelope["manager_state"]["bank"] = 1.0
+    raw = json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode()
+    digest = hashlib.sha256(raw).hexdigest()
+    source["raw_payload_base64"] = base64.b64encode(raw).decode()
+    source["raw_sha256"] = digest
+    source["raw_snapshot_id"] = "sha256:" + digest
+    with pytest.raises(replay.DecisionReplayError, match="canonical manager state differs"):
+        replay.replay_frozen_decision(bundle, frozen, software_commit="b" * 40)
+
