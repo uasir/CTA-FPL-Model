@@ -15,7 +15,7 @@ class TestM4CovarFplEventScoring(unittest.TestCase):
     def test_goalkeeper_scoring(self):
         result = calculate_fpl_points_2026_27("GK", {
             "minutes": 90, "goals": 1, "assists": 0, "clean_sheet": True,
-            "saves": 4, "penalty_saves": 1, "defensive_contribution_count": 0,
+            "goals_conceded_while_on_pitch": 0, "saves": 4, "penalty_saves": 1, "defensive_contribution_count": 0,
             "penalty_misses": 0, "bonus_points": 3,
             "yellow_cards": 0,
             "red_cards": 0, "own_goals": 0,
@@ -27,7 +27,7 @@ class TestM4CovarFplEventScoring(unittest.TestCase):
     def test_defender_scoring_and_goals_conceded_floor(self):
         result = calculate_fpl_points_2026_27("DEF", {
             "minutes": 90, "goals": 1, "assists": 1, "clean_sheet": False,
-            "saves": 0, "penalty_saves": 0, "defensive_contribution_count": 20,
+            "goals_conceded_while_on_pitch": 3, "saves": 0, "penalty_saves": 0, "defensive_contribution_count": 20,
             "penalty_misses": 0, "bonus_points": 2,
             "yellow_cards": 1,
             "red_cards": 0, "own_goals": 1,
@@ -69,7 +69,7 @@ class TestM4CovarFplEventScoring(unittest.TestCase):
         self.assertEqual(result["fpl_points"], 4)
 
     def test_rejects_non_goalkeeper_save_events(self):
-        with self.assertRaisesRegex(CovarEventScoringError, "only scored for GK"):
+        with self.assertRaisesRegex(CovarEventScoringError, "require goalkeeping duties"):
             calculate_fpl_points_2026_27("MID", {
                 "minutes": 90, "goals": 0, "assists": 0, "clean_sheet": False,
                 "goals_conceded_while_on_pitch": 0, "saves": 3,
