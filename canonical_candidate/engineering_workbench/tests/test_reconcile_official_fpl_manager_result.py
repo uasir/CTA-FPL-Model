@@ -35,6 +35,11 @@ def _payload():
             "is_captain": False, "is_vice_captain": False,
             "multiplier": multipliers[player_id],
         })
+    # Official historical picks expose post-autosub positions: bench players 13/14
+    # occupy the XI slots while the non-appearing starters 3/11 move to the bench.
+    by_id = {row["element"]: row for row in picks}
+    by_id[13]["position"], by_id[3]["position"] = by_id[3]["position"], by_id[13]["position"]
+    by_id[14]["position"], by_id[11]["position"] = by_id[11]["position"], by_id[14]["position"]
     return {
         "local_score": {
             "gross_points": 30,
