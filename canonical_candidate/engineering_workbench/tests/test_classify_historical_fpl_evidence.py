@@ -46,7 +46,13 @@ def _audit_report(manifest=None):
         "status": "PASSED",
         "manager_team_id": 421025,
         "events": [{"gameweek": 5, "status": "RECONCILED", "archives": [],
-                    "decision_sources": archives}],
+                    "decision_sources": archives,
+                    "predeadline_recommendation": {
+                        "status": "VERIFIED",
+                        "decision_sha256": "d" * 64,
+                        "action": "TRANSFER",
+                        "execution_match": "RECOMMENDATION_MATCHED",
+                    }}],
     }
 
 
@@ -170,3 +176,13 @@ def test_audit_report_manager_identity_mismatch_fails_closed():
     audit["manager_team_id"] = 999
     result = classify_batch(_batch(), {"5": manifest}, audit)
     assert result["events"][0]["classification"] == "SCORING_RECONCILIATION_ONLY"
+
+
+def test_reconciled_archives_without_a_frozen_recommendation_are_scoring_only():
+    audit = _audit_report()
+    del audit["events"][0]["predeadline_recommendation"]
+    result = classify_batch(_batch(), {"5": _manifest()}, audit)
+    event = result["events"][0]
+    assert event["classification"] == "SCORING_RECONCILIATION_ONLY"
+    assert any("Frozen predeadline recommendation" in reason
+               for reason in event["reasons"])
