@@ -114,3 +114,10 @@ def test_refuses_invalid_horizon():
             canonical_snapshot(), metadata(), as_of_utc="2026-11-20T10:00:00Z",
             forecast_horizon_gameweeks=True,
         )
+
+
+def test_refuses_decision_timestamp_at_or_after_deadline():
+    with pytest.raises(ForecastAdapterError, match="strictly before the FPL deadline"):
+        build_recommendation_forecast_payload(
+            canonical_snapshot(), metadata(), as_of_utc="2026-11-21T11:00:00Z"
+        )
