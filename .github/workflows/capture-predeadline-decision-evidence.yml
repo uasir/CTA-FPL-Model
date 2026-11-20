@@ -18,8 +18,9 @@ on:
         default: "2026-27"
         type: string
       expected_element_ids:
-        description: Exact 15 FPL element IDs, comma-separated, confirmed against your current squad
-        required: true
+        description: Optional exact 15 FPL element IDs for an extra check; leave blank to use the official manager picks response
+        required: false
+        default: ""
         type: string
       free_transfers:
         description: Free transfers available before the deadline
