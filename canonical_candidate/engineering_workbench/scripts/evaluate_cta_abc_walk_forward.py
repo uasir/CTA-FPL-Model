@@ -210,6 +210,7 @@ def evaluate_matched(rows, source_report, partitions, manifest, ridge_lambda=1.0
                 key = canonical_key(row.get("season") or "2017/18",
                                     row["fpl_element_id"], int(float(row["gameweek"])))
                 records.append({
+                    "fold": fold_id,
                     "season": key[0],
                     "player_id": key[1],
                     "gameweek": key[2],
@@ -271,6 +272,24 @@ def evaluate_matched(rows, source_report, partitions, manifest, ridge_lambda=1.0
         [r["predicted"] for r in baseline], clusters,
         n_boot=n_boot, seed=20261177,
     )
+    prediction_rows = []
+    abc_by_key = {(r["season"], r["player_id"], r["gameweek"]): r for r in abc}
+    baseline_by_key = {(r["season"], r["player_id"], r["gameweek"]): r for r in baseline}
+    for key in sorted(abc_by_key):
+        a = abc_by_key[key]
+        b = baseline_by_key[key]
+        if abs(a["actual"] - b["actual"]) > 1e-9:
+            raise ValueError(f"ABC/FPL reference actual points differ for {key}")
+        prediction_rows.append({
+            "fold": a["fold"],
+            "season": a["season"],
+            "fpl_element_id": a["player_id"],
+            "gameweek": a["gameweek"],
+            "actual_points": a["actual"],
+            "abc_raw_points": a["predicted_raw"],
+            "abc_calibrated_points": a["predicted"],
+            "fpl_history_calibrated_points": b["predicted"],
+        })
     return {
         "status": "PASS_MATCHED_FOLD_KEYS_RESEARCH_ONLY",
         "model_track": "INDEPENDENT_INTEGRATED_ABC",
@@ -281,6 +300,7 @@ def evaluate_matched(rows, source_report, partitions, manifest, ridge_lambda=1.0
         "folds": fold_reports,
         "pooled_models": pooled_reports,
         "pooled_paired_abc_vs_fpl_history_cluster_bootstrap": pooled_paired,
+        "_prediction_rows": prediction_rows,
         "point_in_time_status": "NOT_VERIFIED_RETROSPECTIVE_SOURCE_VINTAGES",
         "promotion_status": "RESEARCH_ONLY_DO_NOT_PROMOTE",
         "source_hashes": source_report.get("source_hashes", {}),
@@ -431,6 +451,7 @@ def main():
     parser.add_argument("--test-window", type=int, default=4)
     parser.add_argument("--matched-partition-keys", type=Path)
     parser.add_argument("--matched-manifest", type=Path)
+    parser.add_argument("--predictions-out", type=Path)
     args = parser.parse_args()
     if args.ridge_lambda <= 0:
         parser.error("--ridge-lambda must be positive")
@@ -447,6 +468,18 @@ def main():
         args.min_train_gameweeks, args.test_window,
         matched_fold_keys=matched_keys, matched_manifest=matched_manifest,
     )
+    prediction_rows = report.pop("_prediction_rows", None)
+    if args.predictions_out:
+        if prediction_rows is None:
+            parser.error("--predictions-out is supported only in matched mode")
+        args.predictions_out.parent.mkdir(parents=True, exist_ok=True)
+        fields = ["fold", "season", "fpl_element_id", "gameweek", "actual_points",
+                  "abc_raw_points", "abc_calibrated_points", "fpl_history_calibrated_points"]
+        with args.predictions_out.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fields)
+            writer.writeheader()
+            writer.writerows(prediction_rows)
+    report["prediction_rows_exported"] = len(prediction_rows) if args.predictions_out and prediction_rows is not None else 0
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2, allow_nan=False), encoding="utf-8")
     print(json.dumps(report, indent=2, allow_nan=False))
