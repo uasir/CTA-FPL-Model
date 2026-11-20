@@ -61,3 +61,10 @@ def test_abc_ranking_is_calculated_within_each_gameweek_not_pooled():
     assert result["macro_selected_mean_points"] == 5.5
     assert "deadline_local_ranking" in metrics(rows, top_k=1)
     assert "ranking" not in metrics(rows, top_k=1)["forecast"]
+
+
+def test_abc_2pm_comparator_key_includes_normalized_season():
+    from compare_abc_with_2pm_same_cohort import key
+
+    assert key("2017/18", "10", 1) == ("2017-18", "10", 1)
+    assert key("2018/19", "10", 1) != key("2017/18", "10", 1)
