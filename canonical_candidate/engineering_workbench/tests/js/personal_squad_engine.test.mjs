@@ -41,10 +41,10 @@ test("personal squad returns a legal XI and constrained transfer", () => {
 test("a four-point hit is applied when no free transfer remains", () => {
   const payload = request();
   payload.free_transfers = 0;
-  payload.personal_preferences = { hit_cost_points: 5 };
+  payload.personal_preferences = { hit_cost_points: 9 };
   const result = recommendPersonalSquad(payload);
   assert.equal(result.transfer_recommendation.action, "HOLD");
-  assert.equal(result.transfer_recommendation.hit_cost_points_applied, 5);
+  assert.equal(result.transfer_recommendation.hit_cost_points_applied, 9);
 });
 
 test("zero hit cost can be explicitly selected in personal preferences", () => {
@@ -55,6 +55,27 @@ test("zero hit cost can be explicitly selected in personal preferences", () => {
   assert.equal(result.transfer_recommendation.action, "TRANSFER");
   assert.equal(result.transfer_recommendation.hit_cost_points_applied, 0);
 });
+
+test("a bench-only upgrade does not count as starting-XI transfer value", () => {
+  const payload = structuredClone(fixture.personal_squad);
+  payload.player_forecasts.push({
+    fpl_element_id: 19, expected_points: 3.8, expected_minutes: 80,
+    price: 6.0, position: "MID", team_id: 6,
+  });
+  const result = recommendPersonalSquad(payload);
+  assert.equal(result.transfer_recommendation.action, "HOLD");
+  const candidate = result.transfer_recommendation.alternatives.find(
+    (row) => row.transfer_out_id === 12 && row.transfer_in_id === 19,
+  );
+  assert.ok(candidate);
+  assert.equal(candidate.player_expected_points_delta, 0.2);
+  assert.equal(candidate.starting_xi_expected_points_delta, 0);
+  assert.equal(candidate.captaincy_expected_points_delta, 0);
+  assert.equal(candidate.expected_points_delta, 0);
+  assert.equal(candidate.bench_depth_expected_points_delta, 0.2);
+  assert.equal(candidate.net_expected_points_gain, 0);
+});
+
 
 test("invalid formation is rejected", () => {
   const payload = request();
