@@ -40,6 +40,8 @@ def test_personal_m3_workflow_accepts_public_manager_inputs_and_preserves_eviden
     upload = workflow.index("Upload pre-deadline decision evidence and recommendation")
     assert checkout < capture < upload
     assert "manager_team_id:" in workflow
+    assert 'default: "421025"' in workflow
+    assert 'default: "2026-27"' in workflow
     assert "manager_state_json:" in workflow
     assert "season:" in workflow
     assert "MANAGER_TEAM_ID: ${{ inputs.manager_team_id }}" in workflow
@@ -76,6 +78,7 @@ def test_official_manager_reconciliation_accepts_public_manager_input_and_uses_n
     upload = workflow.index("Upload immutable batch evidence")
     assert validate < checkout < reconcile < upload
     assert "manager_team_id:" in workflow
+    assert 'default: "421025"' in workflow
     assert "MANAGER_TEAM_ID: ${{ inputs.manager_team_id }}" in workflow
     assert "secrets.M3_MANAGER_TEAM_ID" not in workflow
     assert "Refuse personal reconciliation in a public repository" not in workflow
