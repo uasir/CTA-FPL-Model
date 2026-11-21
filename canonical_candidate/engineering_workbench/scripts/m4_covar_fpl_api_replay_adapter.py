@@ -182,6 +182,7 @@ def normalize_official_fpl_replay(
 
     return {
         "replay_id": f"gw{event}-official-replay",
+        "event_id": event,
         "mode": selected_mode,
         "lineup": {
             "player_ids": player_ids,
