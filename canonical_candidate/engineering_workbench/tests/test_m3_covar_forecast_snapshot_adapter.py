@@ -13,8 +13,9 @@ def _raw(value):
 
 
 def _bundle():
-    provider_raw, provider_hash = _raw("provider bytes")
-    metadata_raw = b'{"elements":[{"id":10,"now_cost":50,"element_type":3,"team":1}]}'
+    provider_raw = b'{"gameweek":11,"deadline":"2026-11-21T11:00:00Z","computed_at":"2026-11-20T08:30:00Z","players":[{"id":10,"xp":5.2,"expected_minutes":80}]}'
+    provider_hash = hashlib.sha256(provider_raw).hexdigest()
+    metadata_raw = b'{"events":[{"id":11,"deadline_time":"2026-11-21T11:00:00Z"}],"element_types":[{"id":3,"singular_name_short":"MID"}],"elements":[{"id":10,"now_cost":50,"element_type":3,"team":1}]}'
     metadata_hash = hashlib.sha256(metadata_raw).hexdigest()
     provider = {
         "snapshot_id": "snapshot-gw11",
