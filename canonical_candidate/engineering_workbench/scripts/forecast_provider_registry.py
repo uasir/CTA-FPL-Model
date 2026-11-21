@@ -27,7 +27,7 @@ ACTIVE_PROVIDER_SPECS: tuple[dict[str, Any], ...] = (
         "product": "gameweek_projections",
         "native_grain": "player_fixture",
         "forecast_variant": "provider_native_xp",
-        "integration_state": "raw_capture_and_parser_implemented_live_capture_unverified",
+        "integration_state": "raw_capture_and_fixture_plus_gameweek_distribution_parser_implemented_live_capture_unverified",
         "strict_pit_status": "provider_generation_timestamp_required",
         "data_policy": "cc_by_4_0_with_attribution_for_provider_data",
     },
