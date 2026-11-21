@@ -238,7 +238,7 @@ def test_predeadline_field_context_does_not_guess_unavailable_chip_state(tmp_pat
 def test_predeadline_field_context_rejects_percentages_above_100(tmp_path):
     payload, csv_path, report_path = _write_predeadline_field_capture(tmp_path)
     csv_text = csv_path.read_text()
-    csv_text = csv_text.replace(",60,45,55,65", ",160,45,55,65", 1)
+    csv_text = csv_text.replace("50,40,10,0,60,45,55,65", "150,40,10,0,60,45,55,65", 1)
     csv_path.write_text(csv_text)
     report = json.loads(report_path.read_text())
     report["csv_sha256"] = hashlib.sha256(csv_path.read_bytes()).hexdigest()
