@@ -11,9 +11,6 @@ on:
         description: Target Gameweek; capture must complete strictly before its official deadline
         required: true
         default: "12"
-  push:
-    paths:
-      - "canonical_candidate/engineering_workbench/.triggers/fpl-lucho-gw12-one-shot"
 permissions:
   contents: read
 
