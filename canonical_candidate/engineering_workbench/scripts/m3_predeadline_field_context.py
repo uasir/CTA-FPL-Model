@@ -220,14 +220,12 @@ def build_m3_predeadline_field_context(recommendation: Mapping[str, Any],
         outgoing, incoming = str(best.get("transfer_out_id")), str(best.get("transfer_in_id"))
         if outgoing not in proposed_squad or incoming in proposed_squad:
             raise PredeadlineFieldContextError("selected transfer identities are inconsistent with squad")
-        if outgoing in proposed_xi:
-            proposed_xi[proposed_xi.index(outgoing)] = incoming
-        elif outgoing in proposed_bench:
-            # The engine's post-transfer XI may promote the incoming player and bench the displaced starter.
-            proposed_xi = list(map(str, proposed_plan.get("starting_xi", [])))
-            proposed_bench = list(map(str, proposed_plan.get("bench_order", [])))
-        else:
+        if outgoing not in proposed_xi and outgoing not in proposed_bench:
             raise PredeadlineFieldContextError("outgoing player has no squad slot")
+        # Use the engine's actual post-transfer XI/bench, including a possible
+        # bench-to-starter displacement, rather than reconstructing the lineup.
+        proposed_xi = list(map(str, proposed_plan.get("starting_xi", [])))
+        proposed_bench = list(map(str, proposed_plan.get("bench_order", [])))
         proposed_squad[proposed_squad.index(outgoing)] = incoming
     current_xi = list(map(str, current_plan.get("starting_xi", [])))
     current_bench = list(map(str, current_plan.get("bench_order", [])))
