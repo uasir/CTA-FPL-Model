@@ -72,6 +72,7 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
     native_rows = []
     gw_totals: dict[int, float] = defaultdict(float)
     fixture_counts: dict[int, int] = defaultdict(int)
+    gw_distribution: dict[int, dict[str, float]] = {}
 
     for index, row in enumerate(rows):
         if not isinstance(row, dict):
@@ -101,6 +102,26 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
         native_rows.append(dict(row))
         gw_totals[player_id] += xp
         fixture_counts[player_id] += 1
+
+        # Sideline Quant publishes gameweek-level distribution statistics on
+        # its fixture rows. They describe the player's total GW outcome, so
+        # retain one consistent copy rather than summing them across fixtures.
+        distribution_fields = {"gw_sigma": "gw_sigma", "gw_p10": "q10", "gw_p90": "q90"}
+        current = gw_distribution.setdefault(player_id, {})
+        for source_field, target_field in distribution_fields.items():
+            raw_value = row.get(source_field)
+            if raw_value is None:
+                continue
+            value = _number(
+                raw_value,
+                f"rows[{index}].{source_field}",
+                minimum=0 if source_field == "gw_sigma" else None,
+            )
+            if target_field in current and current[target_field] != value:
+                raise SidelineQuantParseError(
+                    f"inconsistent {source_field} across fixture rows for player {player_id}"
+                )
+            current[target_field] = value
 
     if len(gw_totals) != provider.get("n_players"):
         raise SidelineQuantParseError("distinct player count does not match provider-declared n_players")
@@ -147,6 +168,18 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
             "aggregation": "SUM_OF_PROVIDER_FIXTURE_XP",
             "source_grain": "player_fixture",
             "source_snapshot_id": capture["capture_id"],
+            **(
+                {"points_variance": gw_distribution[player_id]["gw_sigma"] ** 2}
+                if "gw_sigma" in gw_distribution.get(player_id, {}) else {}
+            ),
+            **(
+                {"q10": gw_distribution[player_id]["q10"]}
+                if "q10" in gw_distribution.get(player_id, {}) else {}
+            ),
+            **(
+                {"q90": gw_distribution[player_id]["q90"]}
+                if "q90" in gw_distribution.get(player_id, {}) else {}
+            ),
         }
         for player_id, total_xp in sorted(gw_totals.items())
     ]
@@ -161,6 +194,12 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
             "publisher_documented": True,
             "native_fixture_rows_preserved": True,
             "probability_fields_aggregated": False,
+            "gameweek_distribution_fields": {
+                "gw_sigma": "squared to points_variance",
+                "gw_p10": "mapped to q10",
+                "gw_p90": "mapped to q90",
+                "consistency_checked_across_fixture_rows": True,
+            },
         },
     }
 
