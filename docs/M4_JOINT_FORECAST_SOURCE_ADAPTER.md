@@ -16,7 +16,7 @@ checkout. Missing or additional byte artifacts are rejected.
 ## Security
 
 The adapter refuses overwrite, unsafe forecast/source path identifiers and
-destinations inside a Git repositories. It writes a staging directory with
+destinations inside a Git repository, including paths reached through symlinks. It writes a staging directory with
 0700 directory and 0600 file permissions, verifies the complete byte chain,
 then atomically renames the staging directory. Failure removes staging files.
 
