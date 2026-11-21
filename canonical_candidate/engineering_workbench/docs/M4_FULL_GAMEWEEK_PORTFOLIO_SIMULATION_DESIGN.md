@@ -662,6 +662,6 @@ prospective public-source captures only. They are not forecasts, do not prove
 provider publication timestamps, and cannot be used to backdate forecast
 as-of times. Because scheduled workflows run only from the repository's
 default branch, manual testing of this branch's workflow requires selecting
-the feature branch in the GitHub Actions workflow UI. The workflow is not
-active on the default branch until the PR is merged; no merge is performed
-here.
+the feature branch in the GitHub Actions workflow UI. The workflow cannot be dispatched or scheduled until its workflow file is
+present on the repository's default branch. It will become available after an
+explicitly approved merge; no merge is performed here.
