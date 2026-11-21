@@ -97,6 +97,17 @@ def package_forecast_archive(
         raise ForecastArchivePackagingError("forecast as_of_utc must be ISO-8601") from exc
     if as_of_dt.tzinfo is None or as_of_dt.utcoffset() is None:
         raise ForecastArchivePackagingError("forecast as_of_utc must include a timezone")
+    generated_raw = provenance.get("generated_at_utc")
+    if not isinstance(generated_raw, str):
+        raise ForecastArchivePackagingError("forecast provenance generated_at_utc is required")
+    try:
+        generated_dt = datetime.fromisoformat(generated_raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ForecastArchivePackagingError("generated_at_utc must be ISO-8601") from exc
+    if generated_dt.tzinfo is None or generated_dt.utcoffset() is None:
+        raise ForecastArchivePackagingError("generated_at_utc must include a timezone")
+    if generated_dt > as_of_dt:
+        raise ForecastArchivePackagingError("forecast generation cannot be after forecast as-of")
 
     target = Path(output_dir)
     if not target.is_absolute():
@@ -135,8 +146,10 @@ def package_forecast_archive(
                 raise ForecastArchivePackagingError("capture source timestamps must be ISO-8601") from exc
             if retrieved_dt.tzinfo is None or available_dt.tzinfo is None:
                 raise ForecastArchivePackagingError("capture source timestamps must include timezones")
-            if retrieved_dt > as_of_dt or available_dt > as_of_dt:
-                raise ForecastArchivePackagingError("captured source was not available by forecast as-of")
+            if source.get("availability_basis") != "OBSERVED_RETRIEVAL_UPPER_BOUND" or available_dt != retrieved_dt:
+                raise ForecastArchivePackagingError("captured source availability must equal its observed retrieval upper bound")
+            if retrieved_dt > generated_dt or available_dt > generated_dt:
+                raise ForecastArchivePackagingError("captured source was not available by forecast generation time")
             source_candidate = capture_root / relative
             if source_candidate.is_symlink():
                 raise ForecastArchivePackagingError("capture source path must not be a symlink")
