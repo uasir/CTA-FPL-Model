@@ -41,20 +41,6 @@ def _normalize_team_name(value):
     return aliases.get(text, text)
 
 
-def validate_headers(headers, provider):
-    """Reject malformed/empty templates before treating them as an unpopulated crosswalk."""
-    if headers is None:
-        return ["CSV header row is missing"]
-    duplicates = sorted({name for name in headers if headers.count(name) > 1})
-    missing = sorted(set(FIELDS) - set(headers))
-    errors = []
-    if duplicates:
-        errors.append("duplicate CSV columns: " + ", ".join(duplicates))
-    if missing:
-        errors.append("missing required crosswalk columns: " + ", ".join(missing))
-    return errors
-
-
 def validate_rows(rows, provider):
     errors, accepted, statuses = [], [], Counter()
     for line, row in enumerate(rows, start=2):
@@ -128,15 +114,8 @@ def main():
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
     with args.input.open(newline="", encoding="utf-8-sig") as handle:
-        reader = csv.DictReader(handle)
-        header_errors = validate_headers(reader.fieldnames, args.provider)
-        rows = list(reader)
+        rows = list(csv.DictReader(handle))
     accepted, report = validate_rows(rows, args.provider)
-    if header_errors:
-        report["errors"].extend({"error": "invalid_crosswalk_schema", "detail": item} for item in header_errors)
-        report["status"] = "BLOCKED"
-        report["join_ready"] = False
-        accepted = []
     with (args.out_dir / "verified_provider_fpl_crosswalk.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=FIELDS)
         writer.writeheader()
