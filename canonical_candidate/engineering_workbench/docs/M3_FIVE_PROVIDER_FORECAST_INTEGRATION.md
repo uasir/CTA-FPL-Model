@@ -47,7 +47,10 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - Join key: `player_id` (official FPL element ID); fixture key: `fixture_id`.
 - Forecast field: `xP`; minutes field: `e_mins`; start probability: `p_start`.
 - The source is CC BY 4.0 for the provider's own data, with attribution; FPL-owned fields remain subject to their own terms.
-- Required implementation: preserve the raw fixture-grain snapshot first. Add an explicit player-Gameweek aggregation step for decision-engine use; preserve native fixture rows and aggregation provenance.
+- Implemented first-stage raw capture plus a parser for the documented `rows` array. The parser validates `player_id`, `fixture_id`, `gameweek`, `xP`, `e_mins` and `p_start`; cross-checks player IDs against the archived official FPL bootstrap; rejects duplicate player-fixture keys and provider count mismatches; and preserves all native row fields.
+- The canonical snapshot remains at player-fixture grain. A separate derived player-Gameweek view explicitly sums fixture `xP` by `player_id`, with fixture count and aggregation provenance. It does not aggregate start probabilities, sigma or other distribution fields.
+- The manual capture workflow now runs the parser after raw capture. A target Gameweek must be supplied explicitly; there is no stale default to a Gameweek whose deadline has passed.
+- Engineering tests have been added for raw capture, fixture parser, double-Gameweek sum, native-field retention, identity mapping, duplicate keys and invalid Gameweek data. CI status is pending; no successful run has yet been observed.
 
 ### FPLRogue — source verified
 
