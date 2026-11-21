@@ -113,7 +113,11 @@ def match_forecast_to_realized_outcomes(
 
     fixture_rows = []
     for row in realized_fixture_rows:
-        if row.get("season") == season and row.get("gameweek") == gw:
+        try:
+            row_gw = int(row.get("gameweek", -1))
+        except (TypeError, ValueError):
+            raise ForecastOutcomeMatchError("realized fixture Gameweek must be an integer")
+        if row.get("season") == season and row_gw == gw:
             fixture_rows.append(row)
     if not fixture_rows:
         raise ForecastOutcomeMatchError("no realized fixture rows for target Gameweek")
