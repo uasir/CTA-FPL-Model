@@ -47,3 +47,10 @@ jobs:
             --input "artifacts/fpl_lucho/fpl-lucho-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json" \
             --output "artifacts/provider-summary/fpl-lucho.json"
           cat artifacts/provider-summary/fpl-lucho.json
+      - name: Upload sanitized schema and provenance summary only
+        uses: actions/upload-artifact@v4
+        with:
+          name: fpl-lucho-summary-${{ inputs.season }}-gw${{ inputs.gameweek }}-${{ github.run_id }}
+          path: canonical_candidate/engineering_workbench/artifacts/provider-summary/fpl-lucho.json
+          if-no-files-found: error
+          retention-days: 90
