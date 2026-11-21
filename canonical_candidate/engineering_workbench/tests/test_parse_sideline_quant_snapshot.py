@@ -69,9 +69,11 @@ def test_explicitly_sums_fixture_xp_for_double_gameweek_player():
     result = parse_sideline_quant_capture(make_capture())
     by_id = {row["fpl_element_id"]: row for row in result["player_gameweek_sum_xp"]}
     assert by_id[1]["expected_points"] == pytest.approx(5.5)
+    assert by_id[1]["expected_minutes"] == pytest.approx(155.0)
     assert by_id[1]["fixture_count"] == 2
-    assert by_id[1]["aggregation"] == "SUM_OF_PROVIDER_FIXTURE_XP"
+    assert by_id[1]["aggregation"] == "SUM_OF_PROVIDER_FIXTURE_XP_AND_EXPECTED_MINUTES"
     assert by_id[2]["expected_points"] == pytest.approx(4.0)
+    assert by_id[2]["expected_minutes"] == pytest.approx(90.0)
 
 
 def test_maps_publisher_gameweek_distribution_without_summing_it():
@@ -150,6 +152,7 @@ def test_builds_canonical_player_gameweek_snapshot_with_provenance():
     assert derived["provider"]["product"] == "gameweek_projections"
     assert derived["provider"]["variant"] == "provider_native_xp"
     assert derived["records"][0]["expected_points"] == pytest.approx(5.5)
+    assert derived["records"][0]["expected_minutes"] == pytest.approx(155.0)
     assert derived["records"][0]["points_variance"] == pytest.approx(3.4 ** 2)
     assert derived["coverage"]["source_fixture_row_count"] == 3
     assert derived["decision_eligible"] is True
