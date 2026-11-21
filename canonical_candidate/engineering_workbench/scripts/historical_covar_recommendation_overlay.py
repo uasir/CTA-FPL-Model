@@ -136,6 +136,25 @@ def _field_average_weights(rows: Sequence[Mapping[str, Any]]) -> dict[str, float
     return weights
 
 
+def _historical_diagnostics(report: Mapping[str, Any]) -> dict[str, Any]:
+    """Expose sample coverage and stability warnings without interpreting them as a score."""
+    return {
+        "point_in_time_status": report.get("point_in_time_status", "NOT_VERIFIED"),
+        "sample_coverage": {
+            key: report.get(key)
+            for key in (
+                "window_size", "rows_in_window", "players_in_window",
+                "complete_panel_players", "covariance_players",
+                "excluded_zero_variance_players", "excluded_incomplete_players",
+                "expected_player_gameweek_cells", "missing_player_gameweek_cells",
+            )
+        },
+        "rolling_correlation_stability": report.get("rolling_correlation_stability"),
+        "limitations": list(report.get("limitations", [])),
+        "guardrails": list(report.get("guardrails", [])),
+    }
+
+
 def build_historical_covar_recommendation_overlay(
     *,
     recommendation: Mapping[str, Any],
@@ -386,6 +405,7 @@ def build_historical_covar_recommendation_overlay(
             "method": "HISTORICAL_SHRUNK_PLAYER_COVARIANCE",
             "missing_player_ids": sorted(missing, key=lambda value: (not value.isdigit(), value)),
             "historical_window_gameweeks": window,
+            "historical_covariance_diagnostics": _historical_diagnostics(covariance_report),
             "historical_covariance_source": {
                 "source_url": covariance_report.get("source_url"),
                 "source_sha256": covariance_report.get("source_sha256"),
@@ -437,6 +457,7 @@ def build_historical_covar_recommendation_overlay(
         "historical_window_gameweeks": window,
         "historical_window_size": len(window),
         "historical_covariance_shrinkage": shrinkage.get("parameter"),
+        "historical_covariance_diagnostics": _historical_diagnostics(covariance_report),
         "historical_covariance_source": {
             "source_url": covariance_report.get("source_url"),
             "source_sha256": covariance_report.get("source_sha256"),
