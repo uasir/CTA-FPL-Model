@@ -95,7 +95,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 
 ## 4. Current engineering verification
 
-- M3 feature-branch CI at commit `7a3b6c3f968abbd9de004d9c62a9cbcf7d8ea943` completed successfully: **536 tests passed, 3 subtests passed**, plus JavaScript recommendation-contract tests and all four identity-crosswalk validators.
+- M3 feature-branch CI at commit `117a683b5e46609639fe2f696786d706697d3e95` completed successfully: **537 tests passed, 3 subtests passed**, plus JavaScript recommendation-contract tests and all four identity-crosswalk validators.
 - This is software-contract and parser-fixture verification. It is not evidence that Sideline Quant, FPLRogue, FPL Lucho or FPL Wildcard live captures have succeeded, nor that any provider is forecast-accurate. The repository is public, so FPL Cat, Sideline Quant and FPLRogue workflows now upload metadata-only summaries; their raw source files remain temporary runner files and are not retained as public artifacts. FPL Lucho and FPL Wildcard remain private-intake paths.
 - Provider crosswalk validation remains `EMPTY_NOT_READY` until actual source player IDs/names are mapped and checked.
 
