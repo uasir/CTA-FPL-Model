@@ -75,6 +75,23 @@ def summarize_capture(provider: str, capture: Mapping[str, Any],
             "provider_csv_sha256": source.get("csv_raw_sha256"),
             "generated_at_utc": timing.get("generated_at_utc"),
         }
+    elif name == "fpl lucho":
+        timing = capture.get("timing", {})
+        source = capture.get("source", {})
+        schema = capture.get("schema_inspection", {})
+        summary = {
+            "provider": "FPL Lucho",
+            "snapshot_id": capture.get("capture_id"),
+            "target_gameweek": capture.get("target_gameweek"),
+            "provider_row_count": schema.get("csv_row_count"),
+            "csv_headers": schema.get("csv_headers"),
+            "page_built_at_utc": timing.get("page_built_at_utc"),
+            "raw_model_last_calculated_at_utc": timing.get("raw_model_last_calculated_at_utc"),
+            "captured_at_utc": timing.get("csv_captured_at_utc"),
+            "deadline_utc": timing.get("deadline_utc"),
+            "provider_csv_sha256": source.get("sha256", {}).get("csv"),
+            "generation_time_status": timing.get("generation_time_status"),
+        }
     else:
         raise SummaryError(f"unsupported public summary provider: {provider}")
 
