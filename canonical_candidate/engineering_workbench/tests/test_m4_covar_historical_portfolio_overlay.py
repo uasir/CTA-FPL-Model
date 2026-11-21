@@ -41,11 +41,13 @@ def make_inputs():
                 "player2_id": str(right),
                 "shrunk_covariance": value,
             })
+    pairs = [{**row, "shrunk_covariance": str(row["shrunk_covariance"])} for row in pairs]
     report = {
         "status": "EXPLORATORY_ONLY",
         "model_trained": False,
         "point_in_time_status": "NOT_VERIFIED",
         "window_gameweeks": [1, 2, 3, 4, 5],
+        "window_size": 5,
         "shrinkage": {
             "type": "diagonal",
             "parameter": 0.5,
@@ -117,3 +119,20 @@ def test_overlay_rejects_non_exploratory_or_untrained_covariance():
         assert "not a trained CoVar model" in str(exc)
     else:
         raise AssertionError("trained covariance report was accepted by historical-only overlay")
+
+
+
+def test_overlay_rejects_position_mismatched_transfer():
+    recommendation, forecasts, report, pairs = make_inputs()
+    recommendation["transfer_recommendation"]["alternatives"][0]["transfer_in_id"] = 17
+    try:
+        build_historical_covar_recommendation_overlay(
+            recommendation=recommendation,
+            forecast_rows=forecasts,
+            covariance_report=report,
+            covariance_pairs=pairs,
+        )
+    except ValueError as exc:
+        assert "preserve the outgoing player's position" in str(exc)
+    else:
+        raise AssertionError("position-mismatched transfer was accepted")
