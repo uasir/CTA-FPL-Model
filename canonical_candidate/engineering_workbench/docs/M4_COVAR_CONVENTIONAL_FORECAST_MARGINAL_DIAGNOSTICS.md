@@ -60,3 +60,22 @@ prospective complete joint scenarios and independent joint-outcome validation.
 
 No recommendation, transfer, starting XI, captaincy or production decision
 is changed by this work.
+
+
+## Recommendation adapter integrity checks
+
+The full-Gameweek recommendation report adapter now binds the scoring output
+back to the exact input document before producing candidate metrics. It checks:
+
+- exact ordered scenario IDs and each scenario probability;
+- exact portfolio-ID set and each candidate/field role;
+- complete per-portfolio scenario scores in the same order and probabilities;
+- variance-decomposition reconciliation to each portfolio's reported variance;
+- positive field weights summing to one;
+- candidate-versus-field expected-points delta recomputed from the shared
+  scenario scores and explicit field weights;
+- baseline and transfer alternatives resolve to candidate portfolios.
+
+This closes a provenance gap where a structurally valid scoring report could
+otherwise be accidentally paired with a different scenario set or portfolio
+document. The adapter remains research-only and does not alter recommendations.
