@@ -147,3 +147,15 @@ def test_missing_official_stat_is_rejected_not_zero_filled():
     del history[0]["bonus"]
     with pytest.raises(RealizedFplDatasetError, match="bonus must be an integer"):
         build_realized_panel(players, fixtures, history, season="2026-27")
+
+
+
+def test_card_only_appearance_counts_as_played_and_negative_bps_is_preserved():
+    players, fixtures, history = _inputs()
+    history[0]["minutes"] = "0"
+    history[0]["yellow_cards"] = "1"
+    history[0]["bps"] = "-2"
+    fixture_rows, _, _ = build_realized_panel(players, fixtures, history, season="2026-27")
+    row = next(x for x in fixture_rows if x["fpl_element_id"] == 10 and x["fixture_id"] == 100)
+    assert row["played"] is True
+    assert row["bps"] == -2
