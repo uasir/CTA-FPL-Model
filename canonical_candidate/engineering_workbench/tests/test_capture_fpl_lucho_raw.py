@@ -6,12 +6,7 @@ import pytest
 from capture_fpl_lucho_raw import CaptureError, capture_fpl_lucho_raw
 
 
-PAGE = b"""
-<html><body>
-Built: 21-Nov-2026 09:13 UTC \u00b7 next GW: 11
-xP model last calculated: Sat 21 Nov 2026, 09:03 UTC
-</body></html>
-"""
+PAGE = """<html><body>Built: 21-Nov-2026 09:13 UTC · next GW: 11 xP model last calculated: Sat 21 Nov 2026, 09:03 UTC</body></html>""".encode("utf-8")
 CSV = b"player_id,player_name,xP_GW11,xP_GW12\n1,Player One,5.2,4.8\n2,Player Two,3.1,4.2\n"
 BOOTSTRAP = json.dumps({
     "events": [{"id": 11, "deadline_time": "2026-11-22T14:00:00Z"}]
