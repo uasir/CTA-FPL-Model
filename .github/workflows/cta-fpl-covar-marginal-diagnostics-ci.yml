@@ -1,24 +1,6 @@
 name: CTA CoVar marginal diagnostics engineering tests
 
 on:
-  push:
-    branches:
-      - feat/m4-field-portfolio-intelligence
-    paths:
-      - "canonical_candidate/engineering_workbench/scripts/m4_covar_matched_outcome_panel.py"
-      - "canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_outcome_matcher.py"
-      - "canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_marginal_diagnostics.py"
-      - "canonical_candidate/engineering_workbench/scripts/m4_covar_recommendation_report_adapter.py"
-      - "canonical_candidate/engineering_workbench/scripts/m4_covar_full_gameweek_scoring.py"
-      - "canonical_candidate/engineering_workbench/scripts/m4_covar_full_gameweek_contract.py"
-      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_matched_outcome_panel.py"
-      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_forecast_outcome_matcher.py"
-      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_forecast_marginal_diagnostics.py"
-      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_recommendation_report_adapter.py"
-      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_full_gameweek_scoring.py"
-      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_full_gameweek_contract.py"
-      - "canonical_candidate/engineering_workbench/scripts/m4_covar_lineup_resolver.py"
-      - ".github/workflows/cta-fpl-covar-marginal-diagnostics-ci.yml"
   pull_request:
     branches:
       - feat/m3-unified-evaluation-report
