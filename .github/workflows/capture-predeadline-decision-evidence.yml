@@ -107,7 +107,7 @@ jobs:
       - name: Upload private pre-deadline decision evidence and recommendation
         uses: actions/upload-artifact@v4
         with:
-          name: predeadline-decision-evidence-manager-${{ secrets.M3_MANAGER_TEAM_ID }}-gw${{ inputs.gameweek }}
+          name: predeadline-decision-evidence-gw${{ inputs.gameweek }}-run${{ github.run_id }}
           path: |
             canonical_candidate/engineering_workbench/predeadline-decision-evidence.json
             canonical_candidate/engineering_workbench/predeadline-m3-recommendation.json
