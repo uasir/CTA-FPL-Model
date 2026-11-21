@@ -644,3 +644,24 @@ tampering. Those require independent acquisition/authentication and custody
 controls. It also cannot make a current capture into historical point-in-time
 evidence. The complete package remains research-only and must still pass
 chronological dataset acceptance and empirical test-split evaluation.
+
+
+## Cloud capture workflow (no local execution required)
+
+`.github/workflows/cta-fpl-point-in-time-source-capture.yml` runs the public
+source capture in GitHub Actions every 15 minutes and supports manual
+`workflow_dispatch` with an optional explicit event ID. When no event is
+provided, it resolves the next upcoming FPL event from official
+`bootstrap-static` metadata. It invokes the same tested capture script and
+uploads only the public source JSON files and capture manifest as a
+90-day-retention Actions artifact.
+
+The workflow has read-only repository permissions and does not request
+credentials, fetch manager picks, or upload manager-level data. Artifacts are
+prospective public-source captures only. They are not forecasts, do not prove
+provider publication timestamps, and cannot be used to backdate forecast
+as-of times. Because scheduled workflows run only from the repository's
+default branch, manual testing of this branch's workflow requires selecting
+the feature branch in the GitHub Actions workflow UI. The workflow is not
+active on the default branch until the PR is merged; no merge is performed
+here.
