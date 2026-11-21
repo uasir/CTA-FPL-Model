@@ -8,6 +8,16 @@ The repository currently has a joint fixture-scenario composer and a fixture-to-
 
 The official FPL `ep_next` snapshot is an exploratory expected-points baseline. The lagged ridge work is an exploratory player-level points/minutes model with point-in-time and validation limitations. The descriptive Onside covariance panel is not a predictive joint-outcome model. None of these artifacts may be relabelled as a joint forecast producer.
 
+## Forecasting approach selected by project owner (2026-11-21)
+
+The project will **not use CTA/CTF-derived features, predictions, or covariance as the CoVar forecast source at this stage**. The forecast foundation is the conventional FPL method already integrated into the recommendation system.
+
+The CoVar work must consume that conventional forecast foundation and extend its evaluation from player-level expected points to portfolio-level outcomes. It must not introduce a parallel CTA forecasting stack.
+
+Important distinction: conventional player expected-points estimates alone do not define a calibrated joint probability distribution. The research implementation must derive scenario uncertainty and dependence from eligible realized FPL outcomes and validated residual/dependence methods, while preserving the conventional forecast as the expected-points anchor. Until this is implemented and empirically validated, joint scenario probabilities must be treated as supplied research inputs, not as model predictions.
+
+The existing downstream composer, Gameweek aggregator, scorer, calibration evaluator, bootstrap and archive tooling remain reusable. Any future data-readiness work should prioritize conventional FPL inputs and realized FPL outcomes. CTA/CTF provider panels are out of scope for this CoVar forecasting path unless the project owner explicitly reopens that decision.
+
 ## Required producer boundary
 
 A future producer must emit a versioned, immutable forecast bundle with:
