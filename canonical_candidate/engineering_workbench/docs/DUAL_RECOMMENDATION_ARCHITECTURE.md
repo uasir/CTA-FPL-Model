@@ -87,7 +87,29 @@ The exploratory v0.1 evaluates one transfer at a time, with purchase-to-selling-
 
 CoVar/covariance belongs to the portfolio-risk layer; it is not a property that a squad must contain. It can inform the personal optimizer only after stability, calibration and out-of-sample utility gates pass. Current short-window historical-points covariance remains exploratory and must not influence production recommendations.
 
-General mode may optionally display validated player-pair or factor-risk context as supplementary information, but it must remain useful without CoVar and must not turn an individual player ranking into a hidden squad optimization.
+The research integration seam is implemented in
+`scripts/m4_covar_recommendation_integration.py`, with tests in
+`tests/test_m4_covar_recommendation_integration.py`. It attaches candidate-level
+portfolio diagnostics to a `personal_squad` recommendation only when the report
+matches the same forecast snapshot and model, declares explicit joint scenarios,
+and derives field portfolios from sampled manager pick rows. Marginal EO cannot
+be used to reconstruct manager-level portfolios. Regular Gameweek mode is the
+default; Free Hit requires an explicit activation flag.
+
+The adapter requires complete metrics for every transfer alternative and
+rejects duplicate/unknown candidates, invalid variance values and mismatched
+forecast provenance. Its output is explicitly `ATTACHED_RESEARCH_ONLY`:
+`decision_weight=0`, `production_eligible=false`, and it cannot change
+transfer ranking/action, starting XI or captaincy. This is a safe integration
+contract and diagnostics path, not yet active CoVar recommendation weighting.
+A future weighting implementation requires real point-in-time archives,
+calibrated joint forecasts, independent Gameweek-level out-of-sample utility,
+and an explicit approval to change the production decision policy.
+
+General mode does not consume this overlay. It may optionally display validated
+player-pair or factor-risk context as supplementary information, but it must
+remain useful without CoVar and must not turn an individual player ranking into
+a hidden squad optimization.
 
 ## 6. Separation and reproducibility
 
