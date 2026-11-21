@@ -78,6 +78,7 @@ jobs:
           mkdir -m 700 -p "$RUNNER_TEMP/covar-marginal-diagnostics"
           python canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_marginal_diagnostics.py \
             --panel "$PANEL" \
+            --manifest "$MANIFEST" \\
             --output "$RUNNER_TEMP/covar-marginal-diagnostics/marginal_diagnostics.json"
       - name: Upload research-only diagnostics
         uses: actions/upload-artifact@v4
