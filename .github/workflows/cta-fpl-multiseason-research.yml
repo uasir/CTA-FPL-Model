@@ -1,0 +1,53 @@
+name: CTA FPL multi-season historical research
+# Re-run after walk-forward calibration chronology and minutes baselines were extended.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feat/verified-11footy-fpl-identity-bridge"]
+    paths:
+      - .github/workflows/cta-fpl-multiseason-research.yml
+      - canonical_candidate/engineering_workbench/scripts/build_vaastav_fpl_multiseason_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_vaastav_fpl_multiseason_panel.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_two_part_model.py
+      - canonical_candidate/engineering_workbench/tests/test_evaluate_fpl_two_part_model.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_walk_forward.py
+      - canonical_candidate/engineering_workbench/tests/test_evaluate_fpl_walk_forward.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-fpl-multiseason-research
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install research dependencies
+        run: python -m pip install numpy
+      - name: Build private runner-local panel and chronological evaluation
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/build_vaastav_fpl_multiseason_panel.py \
+            --out-dir "$RUNNER_TEMP/cta_fpl_multiseason_research"
+          python scripts/evaluate_fpl_two_part_model.py \
+            --input "$RUNNER_TEMP/cta_fpl_multiseason_research/vaastav_fpl_multiseason_panel.csv" \
+            --out "$RUNNER_TEMP/cta_fpl_multiseason_research/two_part_model_report.json"
+          python scripts/evaluate_fpl_walk_forward.py \
+            --input "$RUNNER_TEMP/cta_fpl_multiseason_research/vaastav_fpl_multiseason_panel.csv" \
+            --out "$RUNNER_TEMP/cta_fpl_multiseason_research/walk_forward_report.json"
+      - name: Confirm no source data or player-level outputs are uploaded
+        run: |
+          echo "Research data and player-level panel remain runner-local."
+          echo "No workflow artifact is created or uploaded."

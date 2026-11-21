@@ -7,24 +7,59 @@ on:
       - .github/workflows/cta-wyscout-epl-event-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_player_match_features.py
+      - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_event_adapter.py
+      - canonical_candidate/engineering_workbench/scripts/run_wyscout_cta_core.py
+      - canonical_candidate/src/cta_engine.py
+      - canonical_candidate/engineering_workbench/src/js/cta_core.mjs
+      - canonical_candidate/engineering_workbench/config/cta_core_parity_contract.json
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/scripts/verify_cross_provider_fpl_identity.py
+      - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_xsuccess.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_xsuccess.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_temporal_xt.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_event_adapter.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_engine_missingness.py
+      - canonical_candidate/engineering_workbench/tests/test_run_wyscout_cta_core.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py
   push:
     branches: [main, "feat/**"]
     paths:
       - .github/workflows/cta-wyscout-epl-event-audit.yml
       - canonical_candidate/engineering_workbench/scripts/audit_wyscout_epl_2017_event_data.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_player_match_features.py
+      - canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_event_adapter.py
+      - canonical_candidate/engineering_workbench/scripts/run_wyscout_cta_core.py
+      - canonical_candidate/src/cta_engine.py
+      - canonical_candidate/engineering_workbench/src/js/cta_core.mjs
+      - canonical_candidate/engineering_workbench/config/cta_core_parity_contract.json
+      - canonical_candidate/engineering_workbench/tests/test_core_parity.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_xsuccess.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_xsuccess.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_temporal_xt.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_epl_2017_event_data_audit.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_event_adapter.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_engine_missingness.py
+      - canonical_candidate/engineering_workbench/tests/test_run_wyscout_cta_core.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py
   workflow_dispatch:
 
 permissions:
@@ -49,11 +84,20 @@ jobs:
 
       - name: Run Wyscout and 11footy identity resolver unit tests
         run: |
-          python -m pip install pytest
-          PYTHONPATH=canonical_candidate/engineering_workbench/scripts python -m pytest -q \
+          python -m pip install pytest numpy
+          PYTHONPATH=canonical_candidate/engineering_workbench/scripts:canonical_candidate/src python -m pytest -q \
+            canonical_candidate/engineering_workbench/tests/test_cta_engine_missingness.py \
+            canonical_candidate/engineering_workbench/tests/test_core_parity.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_cta_player_match_features.py \
+            canonical_candidate/engineering_workbench/tests/test_wyscout_cta_event_adapter.py \
+            canonical_candidate/engineering_workbench/tests/test_run_wyscout_cta_core.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py \
-            canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
+            canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py \
+            canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py \
+            canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py \
+            canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py \
+            canonical_candidate/engineering_workbench/tests/test_wyscout_temporal_xt.py \
+            canonical_candidate/engineering_workbench/tests/test_wyscout_xsuccess.py
 
       - name: Download the public Wyscout 2017/18 data files
         run: |
@@ -76,6 +120,35 @@ jobs:
             --players-json run_artifacts/wyscout/source/players.json \
             --teams-json run_artifacts/wyscout/source/teams.json \
             --out-dir run_artifacts/wyscout/output
+
+      - name: Normalize Wyscout events into CTA canonical event schema
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/build_wyscout_cta_event_adapter.py \
+            --events-zip run_artifacts/wyscout/source/events.zip \
+            --players run_artifacts/wyscout/source/players.json \
+            --teams run_artifacts/wyscout/source/teams.json \
+            --out run_artifacts/wyscout/output/cta_canonical_events.json \
+            --report run_artifacts/wyscout/output/wyscout_cta_event_adapter_report.json
+
+      - name: Execute normalized Wyscout events through canonical CTA core
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/run_wyscout_cta_core.py \
+            --events run_artifacts/wyscout/output/cta_canonical_events.json \
+            --out-dir run_artifacts/wyscout/output/cta_core
+
+      - name: Evaluate experimental time-horizon xT on chronological match holdout
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py \
+            --events run_artifacts/wyscout/output/cta_canonical_events.json \
+            --matches-zip run_artifacts/wyscout/source/matches.zip \
+            --out run_artifacts/wyscout/output/wyscout_temporal_xt_report.json
+
+      - name: Evaluate contextual pass-completion probability (xSuccess)
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_xsuccess.py \
+            --events-zip run_artifacts/wyscout/source/events.zip \
+            --matches-zip run_artifacts/wyscout/source/matches.zip \
+            --out run_artifacts/wyscout/output/wyscout_xsuccess_report.json
 
       - name: Download pinned historical FPL 2017/18 identity and match-history files
         run: |
@@ -160,6 +233,76 @@ jobs:
             --out-dir run_artifacts/wyscout/output \
             "${CURRENT_CANDIDATE_ARGS[@]}"
 
+      - name: Verify historical FPL IDs through independent Wyscout and 11footy evidence
+        if: steps.download_11footy.outcome == 'success'
+        continue-on-error: true
+        run: |
+          if [ -f run_artifacts/wyscout/output/wyscout_fpl_identity_candidates.csv ] && [ -f run_artifacts/wyscout/output/11footy_fpl_identity_candidates.csv ]; then
+            python canonical_candidate/engineering_workbench/scripts/verify_cross_provider_fpl_identity.py \
+              --wyscout-candidates run_artifacts/wyscout/output/wyscout_fpl_identity_candidates.csv \
+              --11footy-candidates run_artifacts/wyscout/output/11footy_fpl_identity_candidates.csv \
+              --out-dir run_artifacts/wyscout/output/cross_provider_identity
+          else
+            echo "WARNING: one or both historical provider candidate queues are unavailable"
+          fi
+
+      - name: Build verified Wyscout-to-FPL player-match and strictly lagged research panel
+        if: steps.download_11footy.outcome == 'success'
+        continue-on-error: true
+        run: |
+          CROSSWALK="run_artifacts/wyscout/output/cross_provider_identity/verified_wyscout_fpl_identity_crosswalk.csv"
+          if [ -f "$CROSSWALK" ]; then
+            python canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py \
+              --wyscout-player-match run_artifacts/wyscout/output/wyscout_cta_player_match.csv \
+              --cross-provider-crosswalk "$CROSSWALK" \
+              --fpl-gameweek-history run_artifacts/wyscout/source/fpl_merged_gw.csv \
+              --fpl-team-list run_artifacts/wyscout/source/fpl_master_team_list.csv \
+              --out-dir run_artifacts/wyscout/output/verified_fpl_panel
+          else
+            echo "WARNING: no cross-provider verified identity file; Wyscout player-level panel not built"
+          fi
+
+      - name: Evaluate incremental Wyscout CTA signal against prior FPL form
+        if: always()
+        continue-on-error: true
+        run: |
+          FEATURES="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_lagged_fpl_research_features.csv"
+          if [ -f "$FEATURES" ]; then
+            python -m pip install numpy
+            python canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py \
+              --lagged-features "$FEATURES" \
+              --out-dir run_artifacts/wyscout/output/verified_fpl_panel
+          else
+            echo "WARNING: verified lagged Wyscout-FPL feature panel is unavailable"
+          fi
+
+      - name: Upload aggregate-only Wyscout CTA incremental-value report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-wyscout-incremental-value-audit
+          path: run_artifacts/wyscout/output/verified_fpl_panel/wyscout_cta_incremental_value_report.json
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Upload aggregate-only verified Wyscout-FPL panel report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-wyscout-verified-fpl-panel
+          path: run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Upload aggregate-only cross-provider identity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-cross-provider-historical-fpl-identity
+          path: run_artifacts/wyscout/output/cross_provider_identity/cross_provider_identity_report.json
+          if-no-files-found: ignore
+          retention-days: 90
+
       - name: Upload aggregate-only Wyscout audit, CTA and identity reports
         uses: actions/upload-artifact@v4
         with:
@@ -168,6 +311,10 @@ jobs:
             run_artifacts/wyscout/output/wyscout_epl_2017_event_data_audit.json
             run_artifacts/wyscout/output/wyscout_cta_player_match_report.json
             run_artifacts/wyscout/output/wyscout_fpl_identity_candidate_report.json
+            run_artifacts/wyscout/output/wyscout_cta_event_adapter_report.json
+            run_artifacts/wyscout/output/cta_core/wyscout_cta_core_execution_report.json
+            run_artifacts/wyscout/output/wyscout_temporal_xt_report.json
+            run_artifacts/wyscout/output/wyscout_xsuccess_report.json
           if-no-files-found: error
           retention-days: 90
  

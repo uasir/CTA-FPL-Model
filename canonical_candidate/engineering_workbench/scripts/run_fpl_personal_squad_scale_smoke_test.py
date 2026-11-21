@@ -65,6 +65,12 @@ def run(snapshot):
     for row in request["squad_snapshot"]:
         player=next(p for p in snapshot["player_forecasts"] if p["fpl_element_id"]==row["fpl_element_id"])
         team_counts[player["team_id"]]=team_counts.get(player["team_id"],0)+1
+    starting_cta_context=result["squad_plan"].get("starting_xi_cta_context",[])
+    transfer_alternatives=result["transfer_recommendation"]["alternatives"]
+    evidence_summaries=[
+        row.get("cta_evidence_summary",{})
+        for row in starting_cta_context
+    ]
     report={
         "status":"PASS_SYNTHETIC_PERSONAL_SQUAD_SCALE_SMOKE_TEST",
         "scope":"synthetic squad only; not a real manager recommendation",
@@ -83,6 +89,25 @@ def run(snapshot):
         "risk_profile_applied":result["portfolio_risk"]["risk_profile_applied"],
         "covar_used":result["portfolio_risk"]["covar_used"],
         "recommendation_status":result["recommendation_status"],
+        "cta_context_attached_to_starting_xi":len(result["squad_plan"].get("starting_xi_cta_context",[]))==len(result["squad_plan"]["starting_xi"]),
+        "cta_context_attached_to_transfer_alternatives":all("cta_context" in candidate for candidate in result["transfer_recommendation"]["alternatives"]),
+        "cta_context_status":result["squad_plan"].get("cta_context_status","UNAVAILABLE"),
+        "cta_evidence_summary_attached_to_starting_xi":len(starting_cta_context)==len(result["squad_plan"]["starting_xi"]) and all("cta_evidence_summary" in row for row in starting_cta_context),
+        "cta_evidence_summary_attached_to_transfer_alternatives":all(
+            "cta_context" in candidate
+            and "cta_evidence_summary" in candidate["cta_context"].get("incoming",{})
+            and "cta_evidence_summary" in candidate["cta_context"].get("outgoing",{})
+            for candidate in transfer_alternatives
+        ),
+        "starting_xi_players_with_cta_evidence":sum(
+            row.get("status")=="RESEARCH_ONLY_EVIDENCE_AVAILABLE"
+            for row in evidence_summaries
+        ),
+        "cta_decision_weight_applied":any(
+            float(row.get("decision_weight",0) or 0)!=0
+            for row in evidence_summaries
+        ),
+        "cta_ranking_effect":"NONE",
     }
     return result,report
 

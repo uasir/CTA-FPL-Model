@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Aggregate fixture-level lagged rows into FPL player-gameweek targets."""
 from __future__ import annotations
-import argparse,csv,json
+import argparse,csv,json,math
 from collections import defaultdict
 from pathlib import Path
 
@@ -19,8 +19,21 @@ OUTPUT_FIELDS=FEATURE_FIELDS+[
 ]+TARGET_FIELDS
 
 def number(value):
-    try:return float(value) if value not in (None,"") else 0.0
-    except (TypeError,ValueError):return 0.0
+    if value in (None, ""):
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
+
+def complete_sum(items, field):
+    values = [number(item.get(field)) for item in items]
+    return sum(values) if values and all(value is not None for value in values) else ""
+
+def complete_mean(items, field):
+    values = [number(item.get(field)) for item in items]
+    return sum(values) / len(values) if values and all(value is not None for value in values) else ""
 
 def aggregate(rows):
     groups=defaultdict(list)
@@ -40,10 +53,10 @@ def aggregate(rows):
         out.update({
             "target_fixtures_count":len(items),"home_fixtures_count":home,
             "team_ids":";".join(teams),"opponent_team_ids":";".join(opponents),
-            "team_difficulty_snapshot_avg":sum(number(x.get("team_difficulty_snapshot")) for x in items)/len(items),
-            "opponent_difficulty_snapshot_avg":sum(number(x.get("opponent_difficulty_snapshot")) for x in items)/len(items)
+            "team_difficulty_snapshot_avg": complete_mean(items, "team_difficulty_snapshot"),
+            "opponent_difficulty_snapshot_avg": complete_mean(items, "opponent_difficulty_snapshot")
         })
-        for field in TARGET_FIELDS:out[field]=sum(number(x.get(field)) for x in items)
+        for field in TARGET_FIELDS:out[field]=complete_sum(items, field)
         output.append(out)
     keys=[(x["fpl_element_id"],x["gameweek"]) for x in output]
     if len(keys)!=len(set(keys)):raise ValueError("Duplicate player-gameweek keys after aggregation")

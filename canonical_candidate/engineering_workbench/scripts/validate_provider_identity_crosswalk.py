@@ -3,7 +3,9 @@
 from __future__ import annotations
 import argparse, csv, json, re, unicodedata
 from collections import Counter, defaultdict
+from datetime import date
 from pathlib import Path
+from audit_11footy_fpl_identity_candidates import normalize_team as _normalize_team_name, normalize_text as _normalize_player_name
 
 FIELDS = [
     "season", "competition_id", "competition_name", "provider_player_id",
@@ -13,6 +15,10 @@ FIELDS = [
     "evidence_source", "evidence_url", "verified_by", "verified_at",
     "provider_birth_date", "fpl_birth_date", "source_release",
     "provider_source_sha256", "fpl_source_sha256", "confidence_level", "review_notes",
+    "corroborating_provider", "corroborating_provider_player_id", "corroborating_provider_name",
+    "corroborating_provider_team_id", "corroborating_provider_team_name",
+    "corroborating_provider_fpl_team_code", "corroborating_provider_source_commit",
+    "corroborating_provider_source_sha256",
 ]
 REQUIRED = [
     "season", "competition_id", "provider_player_id", "provider_player_name",
@@ -21,25 +27,7 @@ REQUIRED = [
     "match_method", "evidence_source", "evidence_url", "verified_by", "verified_at",
 ]
 STATUSES = {"verified", "pending", "ambiguous", "rejected"}
-METHODS = {"provider_id_crosswalk", "official_alias", "club_roster_crosscheck", "manual_source_verified"}
-
-def _normalize_team_name(value):
-    text = unicodedata.normalize("NFKD", str(value or ""))
-    text = "".join(ch for ch in text if not unicodedata.combining(ch)).casefold()
-    text = re.sub(r"[^a-z0-9]+", " ", text)
-    text = " ".join(text.split())
-    aliases = {
-        "afc bournemouth": "bournemouth", "brighton": "brighton and hove albion",
-        "brighton hove albion": "brighton and hove albion",
-        "leeds": "leeds united", "man city": "manchester city",
-        "man utd": "manchester united", "newcastle": "newcastle united",
-        "nottm forest": "nottingham forest", "nott forest": "nottingham forest",
-        "sheffield utd": "sheffield united", "spurs": "tottenham hotspur",
-        "tottenham": "tottenham hotspur", "west ham": "west ham united",
-        "wolves": "wolverhampton wanderers", "wolverhampton": "wolverhampton wanderers",
-    }
-    return aliases.get(text, text)
-
+METHODS = {"provider_id_crosswalk", "official_alias", "club_roster_crosscheck", "manual_source_verified", "exact_name_team_birth_date", "exact_name_team_opta_numeric_fpl_code_and_team"}
 
 def validate_rows(rows, provider):
     errors, accepted, statuses = [], [], Counter()
@@ -71,6 +59,102 @@ def validate_rows(rows, provider):
                 continue
             if _normalize_team_name(row.get("provider_team_name")) != _normalize_team_name(row.get("fpl_team_name")):
                 errors.append({"line": line, "error": "11footy_provider_and_fpl_team_names_do_not_match"})
+                continue
+        if method == "exact_name_team_opta_numeric_fpl_code_and_team":
+            if provider != "11footy":
+                errors.append({"line": line, "error": "opta_numeric_bridge_method_is_11footy_only"})
+                continue
+            required_bridge = (
+                "corroborating_provider", "corroborating_provider_player_id",
+                "corroborating_provider_name", "corroborating_provider_team_id",
+                "corroborating_provider_team_name", "corroborating_provider_fpl_team_code",
+                "corroborating_provider_source_commit", "corroborating_provider_source_sha256",
+            )
+            missing_bridge = [field for field in required_bridge if not (row.get(field) or "").strip()]
+            if missing_bridge:
+                errors.append({"line": line, "error": "missing_opta_corroboration_fields", "fields": missing_bridge})
+                continue
+            if row.get("corroborating_provider") != "opta_pulselive":
+                errors.append({"line": line, "error": "wrong_corroborating_provider"})
+                continue
+            if (row.get("corroborating_provider_player_id") or "").strip() != (row.get("fpl_player_code") or "").strip():
+                errors.append({"line": line, "error": "opta_numeric_player_id_does_not_equal_fpl_code"})
+                continue
+            if (row.get("corroborating_provider_team_id") or "").strip() != (row.get("corroborating_provider_fpl_team_code") or "").strip():
+                errors.append({"line": line, "error": "opta_team_id_does_not_equal_fpl_team_code"})
+                continue
+            if _normalize_player_name(row.get("corroborating_provider_name")) != _normalize_player_name(row.get("provider_player_name")):
+                errors.append({"line": line, "error": "opta_and_11footy_full_names_do_not_match"})
+                continue
+            if _normalize_player_name(row.get("provider_player_name")) != _normalize_player_name(row.get("fpl_player_name")):
+                errors.append({"line": line, "error": "11footy_and_fpl_full_names_do_not_match"})
+                continue
+            if (row.get("fpl_team_code") or "").strip() != (row.get("corroborating_provider_fpl_team_code") or "").strip():
+                errors.append({"line": line, "error": "fpl_team_code_and_opta_team_code_disagree"})
+                continue
+            if _normalize_team_name(row.get("corroborating_provider_team_name")) != _normalize_team_name(row.get("provider_team_name")):
+                errors.append({"line": line, "error": "opta_and_11footy_team_names_do_not_match"})
+                continue
+            provider_dob = (row.get("provider_birth_date") or "").strip()
+            fpl_dob = (row.get("fpl_birth_date") or "").strip()
+            try:
+                date.fromisoformat(fpl_dob[:10])
+                if provider_dob:
+                    date.fromisoformat(provider_dob[:10])
+            except ValueError:
+                errors.append({"line": line, "error": "invalid_or_missing_dob_in_opta_bridge_row"})
+                continue
+            if provider_dob and provider_dob[:10] != fpl_dob[:10]:
+                errors.append({"line": line, "error": "dob_conflict_in_opta_bridge_row"})
+                continue
+            if not (row.get("source_release") or "").strip():
+                errors.append({"line": line, "error": "opta_bridge_requires_11footy_source_release"})
+                continue
+            for hash_field in ("provider_source_sha256", "fpl_source_sha256"):
+                digest = (row.get(hash_field) or "").strip().lower()
+                if not re.fullmatch(r"[0-9a-f]{64}", digest):
+                    errors.append({"line": line, "error": "opta_bridge_requires_11footy_and_fpl_sha256", "field": hash_field})
+                    break
+            else:
+                digest = (row.get("corroborating_provider_source_sha256") or "").strip().lower()
+                if not re.fullmatch(r"[0-9a-f]{64}", digest):
+                    errors.append({"line": line, "error": "invalid_opta_source_sha256"})
+                    continue
+            if any(error.get("line") == line for error in errors):
+                continue
+            opta_hash = (row.get("corroborating_provider_source_sha256") or "").strip().lower()
+            if not re.fullmatch(r"[0-9a-f]{64}", opta_hash):
+                errors.append({"line": line, "error": "invalid_opta_source_sha256"})
+                continue
+        if method == "exact_name_team_birth_date":
+            if provider != "11footy":
+                errors.append({"line": line, "error": "exact_name_team_birth_date_method_is_11footy_only"})
+                continue
+            provider_dob = (row.get("provider_birth_date") or "").strip()
+            fpl_dob = (row.get("fpl_birth_date") or "").strip()
+            try:
+                date.fromisoformat(provider_dob[:10])
+                date.fromisoformat(fpl_dob[:10])
+            except ValueError:
+                errors.append({"line": line, "error": "exact_name_team_birth_date_requires_valid_iso_dates"})
+                continue
+            if provider_dob[:10] != fpl_dob[:10]:
+                errors.append({"line": line, "error": "exact_name_team_birth_date_mismatch"})
+                continue
+            if not (row.get("source_release") or "").strip():
+                errors.append({"line": line, "error": "exact_name_team_birth_date_requires_source_release"})
+                continue
+            invalid_hash = False
+            for hash_field in ("provider_source_sha256", "fpl_source_sha256"):
+                digest = (row.get(hash_field) or "").strip().lower()
+                if not re.fullmatch(r"[0-9a-f]{64}", digest):
+                    errors.append({"line": line, "error": "exact_name_team_birth_date_requires_sha256_provenance", "field": hash_field})
+                    invalid_hash = True
+                    break
+            if invalid_hash:
+                continue
+            if _normalize_player_name(row.get("provider_player_name")) != _normalize_player_name(row.get("fpl_player_name")):
+                errors.append({"line": line, "error": "exact_name_team_birth_date_full_names_do_not_match"})
                 continue
         if not (row.get("evidence_url") or "").strip().startswith(("https://", "http://")):
             errors.append({"line": line, "error": "evidence_url_must_be_http"})

@@ -18,6 +18,7 @@ export const SEQUENCE_FEATURES = [
   "final_third_entries",
   "progressive_actions",
   "shot_count",
+  "shot_xg_observed_count",
   "shot_xg_reference_only",
   "mean_action_xt_gain",
   "positive_action_xt_gain_sum",
@@ -43,6 +44,7 @@ export const PLAYER_FEATURES = [
   "shot_linked_sequences",
   "non_shot_candidate_sequences",
   "shots",
+  "shot_xg_observed_count",
   "shot_xg_reference_only",
   "mean_action_xt_gain",
   "pressured_receipts",
@@ -306,7 +308,7 @@ function numberOrZero(value) {
   return Number(value || 0);
 }
 
-export function buildFeatures(events, directions, xtValues) {
+export function buildFeatures(events, directions, xtValues, progressiveThreshold = 10) {
   const possessions = new Map();
   for (const event of events) {
     if (event.possession === null || event.possession === undefined) continue;
@@ -348,6 +350,7 @@ export function buildFeatures(events, directions, xtValues) {
     for (const event of sequence) {
       const type = eventType(event);
       if (!ACTION_TYPES.has(type)) continue;
+      if (type === "Pass" && !completedPass(event)) continue;
       const [start, end] = actionLocations(event);
       if (hasDirection) {
         const startOriented = orient(start, attacksRight);
@@ -356,7 +359,7 @@ export function buildFeatures(events, directions, xtValues) {
           if (endOriented[0] >= 102 && endOriented[1] >= 18 && endOriented[1] <= 62) boxEntries += 1;
           if (endOriented[0] >= 80) finalThirdEntries += 1;
         }
-        if (startOriented && endOriented && endOriented[0] - startOriented[0] >= 10) progressiveActions += 1;
+        if (startOriented && endOriented && endOriented[0] - startOriented[0] >= progressiveThreshold) progressiveActions += 1;
         if (xtValues) {
           const source = gridCell(startOriented);
           const destination = gridCell(endOriented);
@@ -370,7 +373,14 @@ export function buildFeatures(events, directions, xtValues) {
       (sum, event) => sum + Number(Boolean(event.under_pressure)),
       0,
     );
-    const shotXg = shots.reduce((sum, event) => sum + numberOrZero(event.shot?.statsbomb_xg), 0);
+    const observedShotXg = shots
+      .map((event) => event.shot?.statsbomb_xg)
+      .filter((value) => value !== null && value !== undefined && value !== "")
+      .map(Number)
+      .filter(Number.isFinite);
+    const shotXg = observedShotXg.length
+      ? observedShotXg.reduce((sum, value) => sum + value, 0)
+      : null;
     const nonShotCandidate = shots.length === 0
       && hasDirection
       && (boxEntries >= 1 || (finalThirdEntries >= 2 && pressuredReceipts >= 1));
@@ -405,7 +415,8 @@ export function buildFeatures(events, directions, xtValues) {
       final_third_entries: hasDirection ? finalThirdEntries : null,
       progressive_actions: hasDirection ? progressiveActions : null,
       shot_count: shots.length,
-      shot_xg_reference_only: roundHalfEven(shotXg, 6),
+      shot_xg_observed_count: observedShotXg.length,
+      shot_xg_reference_only: shotXg === null ? "" : roundHalfEven(shotXg, 6),
       mean_action_xt_gain: xtGains.length
         ? roundHalfEven(xtGains.reduce((sum, value) => sum + value, 0) / xtGains.length, 6)
         : null,
@@ -429,13 +440,20 @@ export function buildFeatures(events, directions, xtValues) {
           increment(counter, "carries");
         } else if (type === "Shot") {
           increment(counter, "shots");
-          increment(counter, "shot_xg_reference_only", numberOrZero(event.shot?.statsbomb_xg));
+          const rawXg = event.shot?.statsbomb_xg;
+          if (rawXg !== null && rawXg !== undefined && rawXg !== "") {
+            const observedXg = Number(rawXg);
+            if (Number.isFinite(observedXg)) {
+              increment(counter, "shot_xg_reference_only", observedXg);
+              increment(counter, "shot_xg_observed_count");
+            }
+          }
         } else if (RECEIPT_TYPES.has(type)) {
           increment(counter, "receipts");
         }
         increment(counter, "pressured_events", Number(Boolean(event.under_pressure)));
 
-        if (hasDirection && ACTION_TYPES.has(type)) {
+        if (hasDirection && ACTION_TYPES.has(type) && (type === "Carry" || completedPass(event))) {
           const [start, end] = actionLocations(event);
           const startOriented = orient(start, attacksRight);
           const endOriented = orient(end, attacksRight);
@@ -444,7 +462,7 @@ export function buildFeatures(events, directions, xtValues) {
             increment(counter, "final_third_entries", Number(endOriented[0] >= 80));
           }
           increment(counter, "progressive_actions", Number(Boolean(
-            startOriented && endOriented && endOriented[0] - startOriented[0] >= 10,
+            startOriented && endOriented && endOriented[0] - startOriented[0] >= progressiveThreshold,
           )));
           if (xtValues) {
             const source = gridCell(startOriented);

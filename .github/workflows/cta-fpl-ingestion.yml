@@ -7,6 +7,7 @@ on:
     paths:
       - "canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py"
       - "canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py"
+      - "canonical_candidate/engineering_workbench/tests/test_fpl_baseline_forecast_snapshot.py"
       - "canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py"
       - "canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py"
       - "canonical_candidate/engineering_workbench/scripts/general_market_engine.py"
@@ -14,6 +15,10 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/personal_squad_engine.py"
       - "canonical_candidate/engineering_workbench/scripts/train_fpl_exploratory_ridge.py"
       - "canonical_candidate/engineering_workbench/scripts/run_fpl_personal_squad_scale_smoke_test.py"
+      - "canonical_candidate/engineering_workbench/scripts/personal_squad_engine.py"
+      - "canonical_candidate/engineering_workbench/src/js/personal_squad_engine.mjs"
+      - "canonical_candidate/engineering_workbench/tests/test_personal_squad_engine.py"
+      - "canonical_candidate/engineering_workbench/tests/js/emit_personal_squad_cta_outputs.mjs"
       - "canonical_candidate/engineering_workbench/scripts/compare_fpl_general_market_outputs.py"
       - "canonical_candidate/engineering_workbench/src/js/general_market_engine.mjs"
       - "canonical_candidate/engineering_workbench/src/js/personal_squad_engine.mjs"
@@ -21,15 +26,20 @@ on:
       - "canonical_candidate/engineering_workbench/tests/js/run_fpl_personal_squad_snapshot.mjs"
       - "canonical_candidate/engineering_workbench/scripts/compare_fpl_personal_squad_outputs.py"
       - "canonical_candidate/engineering_workbench/scripts/build_opta_lagged_team_features.py"
+      - "canonical_candidate/engineering_workbench/scripts/build_opta_identity_crosswalk.py"
       - "canonical_candidate/engineering_workbench/scripts/evaluate_opta_team_context.py"
       - "canonical_candidate/engineering_workbench/scripts/train_fpl_nested_tuned_ridge.py"
       - "canonical_candidate/engineering_workbench/scripts/audit_11footy_fpl_identity_candidates.py"
+      - "canonical_candidate/engineering_workbench/scripts/verify_11footy_fpl_identity_crosswalk.py"
       - "canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py"
       - "canonical_candidate/engineering_workbench/scripts/build_11footy_lagged_research_features.py"
+      - "canonical_candidate/engineering_workbench/scripts/build_11footy_lagged_verified_features.py"
       - "canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py"
       - "canonical_candidate/engineering_workbench/tests/test_11footy_fpl_identity_candidates.py"
+      - "canonical_candidate/engineering_workbench/tests/test_11footy_verified_crosswalk.py"
       - "canonical_candidate/engineering_workbench/tests/test_11footy_player_match_features.py"
       - "canonical_candidate/engineering_workbench/tests/test_11footy_lagged_research_features.py"
+      - "canonical_candidate/engineering_workbench/tests/test_11footy_lagged_verified_features.py"
       - "canonical_candidate/engineering_workbench/tests/test_provider_identity_crosswalk.py"
       - "canonical_candidate/data/11footy_fpl_identity_crosswalk.csv"
       - "canonical_candidate/engineering_workbench/scripts/audit_onside_against_fpl_actuals.py"
@@ -74,6 +84,7 @@ jobs:
             tests/test_fpl_covariance.py \
             tests/test_fpl_effective_ownership.py \
             tests/test_fpl_baseline_forecast_snapshot.py \
+            tests/test_personal_squad_engine.py \
             tests/test_fpl_general_market_baseline.py \
             tests/test_fpl_personal_squad_scale_smoke_test.py \
             tests/test_fpl_personal_squad_parity.py \
@@ -84,8 +95,11 @@ jobs:
             tests/test_fpl_nested_tuned_ridge.py \
             tests/test_onside_fpl_actuals_cross_audit.py \
             tests/test_11footy_fpl_identity_candidates.py \
+            tests/test_11footy_verified_crosswalk.py \
             tests/test_11footy_player_match_features.py \
-            tests/test_11footy_lagged_research_features.py
+            tests/test_11footy_lagged_research_features.py \
+            tests/test_11footy_lagged_verified_features.py \
+            tests/test_fpl_baseline_forecast_snapshot.py
       - name: Validate verified player identity crosswalk
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -126,14 +140,44 @@ jobs:
             --release 11footy-2026-11-10 \
             --out-dir run_artifacts/11footy_fpl
 
-      - name: Validate season-scoped 11footy to FPL crosswalk
+      - name: Download pinned Opta/PulseLive player identity source
         continue-on-error: true
-        working-directory: canonical_candidate/engineering_workbench
         run: |
-          python scripts/validate_provider_identity_crosswalk.py \
+          mkdir -p run_artifacts/11footy_fpl/input
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 120 https://raw.githubusercontent.com/uasir/Opta-PulseLive/f0f3d40f803c69bc7fac48d0748b49175e2d08ce/2026-2027/players.csv -o run_artifacts/11footy_fpl/input/opta_players.csv
+
+      - name: Build and validate Opta numeric-ID to FPL crosswalk
+        continue-on-error: true
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/build_opta_identity_crosswalk.py --opta-players run_artifacts/11footy_fpl/input/opta_players.csv --fpl-bootstrap run_artifacts/fpl_official/bootstrap-static.json --out-dir run_artifacts/11footy_fpl/output/opta_identity
+          python canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py --provider opta_pulselive --input run_artifacts/11footy_fpl/output/opta_identity/opta_pulselive_fpl_identity_crosswalk.csv --out-dir run_artifacts/11footy_fpl/output/opta_identity/validation
+
+      - name: Build exact one-to-one 11footy to FPL identity crosswalk
+        continue-on-error: true
+        run: |
+          OPTA_CROSSWALK="run_artifacts/11footy_fpl/output/opta_identity/validation/verified_provider_fpl_crosswalk.csv"
+          OPTA_REPORT="run_artifacts/11footy_fpl/output/opta_identity/opta_identity_report.json"
+          OPTA_VALIDATION="run_artifacts/11footy_fpl/output/opta_identity/validation/crosswalk_validation.json"
+          if [ -f "$OPTA_CROSSWALK" ] && [ -f "$OPTA_REPORT" ] && [ -f "$OPTA_VALIDATION" ] && python -c 'import json; assert json.load(open("run_artifacts/11footy_fpl/output/opta_identity/opta_identity_report.json"))["status"] == "PASS" and json.load(open("run_artifacts/11footy_fpl/output/opta_identity/validation/crosswalk_validation.json"))["status"] == "PASS"'; then
+            python canonical_candidate/engineering_workbench/scripts/verify_11footy_fpl_identity_crosswalk.py \
+              --candidates run_artifacts/11footy_fpl/identity_candidates.csv \
+              --opta-crosswalk "$OPTA_CROSSWALK" \
+              --opta-report "$OPTA_REPORT" \
+              --out-dir run_artifacts/11footy_fpl/verified_identity
+          else
+            echo "WARNING: Opta crosswalk unavailable; retaining strict DOB-only 11footy verification"
+            python canonical_candidate/engineering_workbench/scripts/verify_11footy_fpl_identity_crosswalk.py \
+              --candidates run_artifacts/11footy_fpl/identity_candidates.csv \
+              --out-dir run_artifacts/11footy_fpl/verified_identity
+          fi
+
+      - name: Validate exact one-to-one 11footy to FPL identity crosswalk
+        continue-on-error: true
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py \
             --provider 11footy \
-            --input ../data/11footy_fpl_identity_crosswalk.csv \
-            --out-dir ../../run_artifacts/11footy_fpl/crosswalk_validation
+            --input run_artifacts/11footy_fpl/verified_identity/verified_11footy_fpl_identity_crosswalk.csv \
+            --out-dir run_artifacts/11footy_fpl/verified_identity/validation
 
       - name: Build 11footy player-match panel and corroborate pending identities
         continue-on-error: true
@@ -146,8 +190,8 @@ jobs:
             --fpl-players run_artifacts/fpl_official/fpl_players.csv \
             --fpl-player-fixture run_artifacts/fpl_official/fpl_player_fixture.csv \
             --candidates run_artifacts/11footy_fpl/identity_candidates.csv \
-            --crosswalk run_artifacts/11footy_fpl/crosswalk_validation/verified_provider_fpl_crosswalk.csv \
-            --crosswalk-validation run_artifacts/11footy_fpl/crosswalk_validation/crosswalk_validation.json \
+            --crosswalk run_artifacts/11footy_fpl/verified_identity/validation/verified_provider_fpl_crosswalk.csv \
+            --crosswalk-validation run_artifacts/11footy_fpl/verified_identity/validation/crosswalk_validation.json \
             --season "$FPL_SEASON" \
             --release 11footy-2026-11-10 \
             --competition-id 1 \
@@ -228,6 +272,173 @@ jobs:
             --history run_artifacts/fpl_official/fpl_player_fixture.csv \
             --bootstrap run_artifacts/fpl_official/bootstrap-static.json \
             --out-dir run_artifacts/fpl_official
+
+      - name: Build deadline-safe verified 11footy CTA features for the upcoming FPL gameweek
+        continue-on-error: true
+        run: |
+          PANEL="run_artifacts/11footy_fpl/output/verified_player_match_panel.csv"
+          SOURCE_REPORT="run_artifacts/11footy_fpl/output/11footy_fpl_player_match_integration.json"
+          if [ -f "$PANEL" ] && [ -f "$SOURCE_REPORT" ]; then
+            python canonical_candidate/engineering_workbench/scripts/build_11footy_lagged_verified_features.py \
+              --cta-panel "$PANEL" \
+              --source-report "$SOURCE_REPORT" \
+              --fpl-players run_artifacts/fpl_official/fpl_players.csv \
+              --fpl-fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
+              --bootstrap run_artifacts/fpl_official/bootstrap-static.json \
+              --source-metadata run_artifacts/fpl_official/source_metadata.json \
+              --identity-crosswalk run_artifacts/11footy_fpl/verified_identity/validation/verified_provider_fpl_crosswalk.csv \
+              --out-dir run_artifacts/11footy_fpl/output
+          else
+            echo "WARNING: verified CTA player-match panel is unavailable"
+          fi
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = Path("run_artifacts/11footy_fpl/output/11footy_lagged_verified_upcoming_report.json")
+          target = Path("run_artifacts/fpl_official/11footy_lagged_verified_upcoming_summary.json")
+          target.parent.mkdir(parents=True, exist_ok=True)
+          if source.exists():
+              report = json.loads(source.read_text())
+              keys = (
+                  "status", "rows", "unique_players", "unique_fixtures", "gameweeks",
+                  "verified_crosswalk_rows", "verified_player_match_panel_rows",
+                  "source_snapshot_as_of", "rows_with_source_snapshot_available_as_of_deadline",
+                  "rows_without_source_snapshot_available_as_of_deadline",
+                  "rows_with_prior_cta_history", "rows_without_prior_cta_history",
+                  "players_with_prior_cta_history", "coverage_by_gameweek",
+                  "prior_feature_coverage_rows", "target_gameweeks", "upcoming_target_summary",
+                  "temporal_policy", "identity_status", "prediction_training_eligible",
+                  "production_eligible", "decision_use_status", "eligibility_reason",
+                  "source_hashes", "attribution"
+              )
+              safe = {key: report.get(key) for key in keys}
+          else:
+              safe = {
+                  "status": "VERIFIED_UPCOMING_CTA_FEATURE_BUILD_UNAVAILABLE",
+                  "rows": 0,
+                  "prediction_training_eligible": False,
+                  "production_eligible": False,
+                  "decision_use_status": "RESEARCH_ONLY_NOT_IN_BASELINE"
+              }
+          safe["publication_policy"] = "Aggregate metrics only; player-level CTA feature rows remain inside the workflow runner."
+          target.write_text(json.dumps(safe, indent=2))
+          print(json.dumps(safe, indent=2))
+          PY
+
+      - name: Aggregate leakage-safe FPL player-gameweek rows
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py \
+            --input run_artifacts/fpl_official/fpl_lagged_training.csv \
+            --out-dir run_artifacts/fpl_official
+
+      - name: Build official FPL baseline snapshot with CTA research sidecar
+        continue-on-error: true
+        run: |
+          CTA_CSV="run_artifacts/11footy_fpl/output/11footy_lagged_verified_upcoming_features.csv"
+          CTA_REPORT="run_artifacts/11footy_fpl/output/11footy_lagged_verified_upcoming_report.json"
+          OUT="run_artifacts/11footy_fpl/output/cta_decision"
+          if [ -f "$CTA_CSV" ] && [ -f "$CTA_REPORT" ]; then
+            if ! python canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py \
+              --players run_artifacts/fpl_official/fpl_players.csv \
+              --gameweek-rows run_artifacts/fpl_official/fpl_lagged_gameweek.csv \
+              --fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
+              --source-metadata run_artifacts/fpl_official/source_metadata.json \
+              --cta-csv "$CTA_CSV" \
+              --cta-report "$CTA_REPORT" \
+              --out-dir "$OUT"; then
+              echo "WARNING: CTA sidecar rejected; preserving official FPL baseline without CTA fields"
+              python canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py \
+                --players run_artifacts/fpl_official/fpl_players.csv \
+                --gameweek-rows run_artifacts/fpl_official/fpl_lagged_gameweek.csv \
+                --fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
+                --source-metadata run_artifacts/fpl_official/source_metadata.json \
+                --out-dir "$OUT"
+            fi
+          else
+            python canonical_candidate/engineering_workbench/scripts/build_fpl_baseline_forecast_snapshot.py \
+              --players run_artifacts/fpl_official/fpl_players.csv \
+              --gameweek-rows run_artifacts/fpl_official/fpl_lagged_gameweek.csv \
+              --fixtures run_artifacts/fpl_official/fpl_fixtures.csv \
+              --source-metadata run_artifacts/fpl_official/source_metadata.json \
+              --out-dir "$OUT"
+          fi
+
+      - name: Run general-market engine on FPL forecast snapshot
+        continue-on-error: true
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/run_fpl_general_market_baseline.py \
+            --snapshot run_artifacts/11footy_fpl/output/cta_decision/fpl_baseline_forecast_snapshot.json \
+            --out-dir run_artifacts/11footy_fpl/output/cta_decision
+
+      - name: Run personal-squad scale smoke test on FPL forecast snapshot
+        continue-on-error: true
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/run_fpl_personal_squad_scale_smoke_test.py \
+            --snapshot run_artifacts/11footy_fpl/output/cta_decision/fpl_baseline_forecast_snapshot.json \
+            --out-dir run_artifacts/11footy_fpl/output/cta_decision
+
+      - name: Publish aggregate-only CTA decision-layer summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("run_artifacts/11footy_fpl/output/cta_decision")
+          target = Path("run_artifacts/fpl_official/cta_decision_summary.json")
+          target.parent.mkdir(parents=True, exist_ok=True)
+          summary = {"status": "CTA_DECISION_LAYER_BUILD_UNAVAILABLE"}
+          baseline = root / "fpl_baseline_forecast_report.json"
+          general = root / "fpl_general_market_baseline_report.json"
+          personal = root / "fpl_personal_squad_scale_smoke_report.json"
+          snapshot = root / "fpl_baseline_forecast_snapshot.json"
+          identity_path = Path("run_artifacts/11footy_fpl/verified_identity/verified_identity_summary.json")
+          opta_path = Path("run_artifacts/11footy_fpl/output/opta_identity/opta_identity_report.json")
+          identity_report = json.loads(identity_path.read_text()) if identity_path.exists() else {}
+          opta_report = json.loads(opta_path.read_text()) if opta_path.exists() else {}
+          if baseline.exists():
+              report = json.loads(baseline.read_text())
+              snap = json.loads(snapshot.read_text()) if snapshot.exists() else {}
+              coverage = snap.get("forecast_quality", {}).get("data_coverage", {})
+              summary = {
+                  "status": report.get("status"),
+                  "target_gameweek": report.get("target_gameweek"),
+                  "forecast_snapshot_id": report.get("forecast_snapshot_id"),
+                  "forecast_players": report.get("forecast_players"),
+                  "cta_sidecar_integrated": report.get("cta_sidecar_integrated", False),
+                  "cta_players_with_verified_identity": report.get("cta_players_with_verified_identity", 0),
+                  "cta_players_with_prior_history": report.get("cta_players_with_prior_history", 0),
+                  "cta_target_player_fixture_rows": report.get("cta_target_player_fixture_rows", 0),
+                  "cta_features_used_in_expected_points": coverage.get("cta_features_used_in_expected_points", False),
+                  "cta_composite": coverage.get("cta_composite"),
+                  "verified_11footy_identity_rows": identity_report.get("verified_crosswalk_rows", 0),
+                  "verified_11footy_dob_rows": identity_report.get("verified_dob_rows", 0),
+                  "verified_11footy_opta_bridge_rows": identity_report.get("verified_opta_bridge_rows", 0),
+                  "opta_verified_fpl_player_ids": opta_report.get("verified_id_and_team_matches", 0),
+              }
+          if general.exists():
+              g = json.loads(general.read_text())
+              summary["general_market_status"] = g.get("status")
+              summary["general_market_players_ranked"] = g.get("players_ranked")
+              summary["general_market_covar_used"] = g.get("covar_used")
+          if personal.exists():
+              p = json.loads(personal.read_text())
+              summary["personal_squad_status"] = p.get("status")
+              summary["personal_squad_scope"] = p.get("scope")
+              summary["synthetic_squad_players"] = p.get("synthetic_squad_players")
+              summary["starting_xi_count"] = p.get("starting_xi_count")
+              summary["transfer_candidate_count"] = p.get("transfer_candidate_count")
+              summary["cta_context_attached_to_starting_xi"] = p.get("cta_context_attached_to_starting_xi", False)
+              summary["cta_context_attached_to_transfer_alternatives"] = p.get("cta_context_attached_to_transfer_alternatives", False)
+              summary["cta_evidence_summary_attached_to_starting_xi"] = p.get("cta_evidence_summary_attached_to_starting_xi", False)
+              summary["cta_evidence_summary_attached_to_transfer_alternatives"] = p.get("cta_evidence_summary_attached_to_transfer_alternatives", False)
+              summary["starting_xi_players_with_cta_evidence"] = p.get("starting_xi_players_with_cta_evidence", 0)
+              summary["cta_decision_weight_applied"] = p.get("cta_decision_weight_applied", False)
+              summary["cta_ranking_effect"] = p.get("cta_ranking_effect", "UNKNOWN")
+          summary["decision_use_status"] = "RESEARCH_ONLY_NOT_IN_BASELINE"
+          summary["publication_policy"] = "Aggregate metrics only; player-level forecast and CTA features remain runner-local."
+          target.write_text(json.dumps(summary, indent=2))
+          print(json.dumps(summary, indent=2))
+          PY
 
       - name: Build leakage-safe lagged 11footy CTA research features
         continue-on-error: true

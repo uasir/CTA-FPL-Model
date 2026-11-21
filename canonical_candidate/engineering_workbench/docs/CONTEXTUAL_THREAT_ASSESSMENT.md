@@ -136,6 +136,29 @@ event stream. Its current output is not a validated CTA score and does not
 enter points training until verified mappings and chronological holdout tests
 are available.
 
+### Current-season 11footy/FPL identity verification (2026/27)
+
+The current-season candidate audit identifies exact normalized full-name/team
+matches and compares birth dates between the 11footy player catalogue and the
+official FPL bootstrap. A separate verifier now promotes only rows that meet
+all of these conditions:
+
+- Exact normalized full name and exact normalized current team in both sources.
+- Identical, valid ISO birth dates in both independent source snapshots.
+- Numeric provider player ID, FPL element ID and team IDs.
+- One-to-one mapping in both directions within the season.
+- Pinned source release, source SHA-256 hashes and retrievable source URLs.
+
+The accepted method is recorded as `exact_name_team_birth_date`. This is
+identity verification only: it does not validate the quality of CTA features
+or make the data eligible for prediction training. Missing birth dates,
+conflicts, ambiguous names/teams and ID collisions remain excluded or pending;
+no fuzzy matching is used. The player-level crosswalk stays inside the workflow
+runner, and only aggregate verification reports are published.
+
+The 11footy dataset is CC BY-NC 4.0 and is restricted to non-commercial use.
+Any 11footy-derived CTA features must retain that restriction and attribution.
+
 ### Wyscout 2017/18 EPL audit result (2026-11-18)
 
 The pinned public Figshare download completed successfully in GitHub Actions.

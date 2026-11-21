@@ -84,6 +84,72 @@ def _best_starting_xi(owned,by_id,formation_value=None,starting_xi_value=None):
     return ordered,formation
 
 
+def _cta_evidence_summary(cta):
+    fixtures=cta.get("fixtures") if isinstance(cta.get("fixtures"),list) else []
+    available=[row for row in fixtures if isinstance(row,dict) and row.get("snapshot_available_as_of_deadline") is True]
+    source_row=available[0] if available else (fixtures[0] if fixtures and isinstance(fixtures[0],dict) else {})
+    identity_verified=cta.get("identity_verified") is True
+    prior_count=int(source_row.get("prior_matches_count") or 0)
+    prior3_count=int(source_row.get("prior3_matches_count") or 0)
+    features=source_row.get("features") if isinstance(source_row.get("features"),dict) else {}
+    feature_map={
+        "shots_per_match":"cta_prior3_matches_shots_avg",
+        "shots_on_target_per_match":"cta_prior3_matches_shots_on_target_avg",
+        "key_passes_per_match":"cta_prior3_matches_key_passes_avg",
+        "box_attempts_per_match":"cta_prior3_matches_attempts_inside_box_avg",
+        "tracked_xg_per_match":"cta_prior3_matches_tracked_xg_sum_avg",
+        "big_chances_per_match":"cta_prior3_matches_big_chances_avg",
+    }
+    values={}
+    for label,key in feature_map.items():
+        value=features.get(key)
+        try:
+            numeric=float(value)
+        except (TypeError,ValueError):
+            continue
+        if numeric==numeric and abs(numeric)!=float("inf"):
+            values[label]=numeric
+    if not identity_verified:
+        status="UNVERIFIED_IDENTITY"
+    elif prior_count<=0:
+        status="VERIFIED_IDENTITY_NO_PRIOR_HISTORY"
+    elif not values:
+        status="VERIFIED_IDENTITY_NO_FEATURE_VALUES"
+    else:
+        status="RESEARCH_ONLY_EVIDENCE_AVAILABLE"
+    return {
+        "status":status,
+        "source_snapshot_as_of":cta.get("source_snapshot_as_of"),
+        "target_gameweek":cta.get("target_gameweek"),
+        "prior_matches_count":prior_count,
+        "prior3_matches_count":prior3_count,
+        "feature_window":"prior 3 matches",
+        "feature_averages":values,
+        "decision_use_status":"RESEARCH_ONLY_NOT_IN_BASELINE",
+        "decision_weight":0.0,
+        "ranking_effect":"NONE",
+    }
+
+
+def _player_cta_context(player):
+    cta=player.get("cta")
+    if not isinstance(cta,dict):
+        cta={
+            "identity_verified":False,
+            "identity_status":"NO_CTA_SIDECAR",
+            "coverage_status":"NO_CTA_SIDECAR",
+            "composite":None,
+            "decision_use_status":"UNAVAILABLE",
+            "fixtures":[],
+        }
+    return {
+        "fpl_element_id":player["fpl_element_id"],
+        "web_name":player.get("web_name",""),
+        "cta":cta,
+        "cta_evidence_summary":_cta_evidence_summary(cta),
+    }
+
+
 def _selling_price(current_price,purchase_price):
     current_tenths=int(round(float(current_price)*10))
     purchase_tenths=int(round(float(purchase_price)*10))
@@ -143,6 +209,13 @@ def _transfer_candidates(request,forecasts):
             })
     candidates.sort(key=lambda x:(-x["net_expected_points_gain"],-x["expected_points_delta"],x["transfer_out_id"],x["transfer_in_id"]))
     top=candidates[:max_alternatives]
+    has_cta_sidecar=any(isinstance(player.get("cta"),dict) for player in forecasts)
+    if has_cta_sidecar:
+        for candidate in top:
+            candidate["cta_context"]={
+                "outgoing":_player_cta_context(forecast_by_id[candidate["transfer_out_id"]]),
+                "incoming":_player_cta_context(forecast_by_id[candidate["transfer_in_id"]]),
+            }
     best=top[0] if top else None
     action="TRANSFER" if best and best["net_expected_points_gain"]>min_gain else "HOLD"
     return {
@@ -164,6 +237,7 @@ def recommend_personal_squad(payload):
     squad=request["squad_snapshot"]
     owned_ids={int(p["fpl_element_id"]) for p in squad}
     owned=[forecast_by_id[player_id] for player_id in owned_ids]
+    has_cta_sidecar=any(isinstance(player.get("cta"),dict) for player in forecasts)
     preferences=request.get("personal_preferences", {})
     if preferences is None:
         preferences={}
@@ -225,6 +299,13 @@ def recommend_personal_squad(payload):
             "reserve_goalkeeper":reserve_gk[0]["fpl_element_id"],
             "bench_order":bench_order,
             "expected_starting_points":expected_points,
+            **({
+                "owned_squad_cta_context":[_player_cta_context(forecast_by_id[int(row["fpl_element_id"])]) for row in squad],
+                "starting_xi_cta_context":[_player_cta_context(player) for player in starting],
+                "bench_cta_context":[_player_cta_context(forecast_by_id[int(player_id)]) for player_id in bench_order],
+                "reserve_goalkeeper_cta_context":_player_cta_context(reserve_gk[0]),
+                "cta_context_status":"RESEARCH_ONLY_NOT_IN_BASELINE",
+            } if has_cta_sidecar else {}),
         },
         "portfolio_risk":{
             "covar_used":False,"risk_profile_applied":False,

@@ -202,7 +202,7 @@ def _load_player_match_rows(connection, season_id):
         SELECT match_id, team_id, player_id,
                COUNT(*) AS tracked_shots,
                SUM(CASE WHEN xg IS NOT NULL THEN 1 ELSE 0 END) AS tracked_shots_with_xg,
-               SUM(CASE WHEN xg IS NOT NULL THEN xg ELSE 0 END) AS tracked_xg_sum
+               SUM(xg) AS tracked_xg_sum
         FROM shots
         WHERE layer = 'tracked'
         GROUP BY match_id, team_id, player_id
@@ -212,7 +212,7 @@ def _load_player_match_rows(connection, season_id):
             SELECT match_id, team_id, player_id,
                    COUNT(*) AS tracked_shots,
                    SUM(CASE WHEN xg IS NOT NULL THEN 1 ELSE 0 END) AS tracked_shots_with_xg,
-                   SUM(CASE WHEN xg IS NOT NULL THEN xg ELSE 0 END) AS tracked_xg_sum
+                   SUM(xg) AS tracked_xg_sum
             FROM shots
             WHERE layer = 'tracked'
             GROUP BY match_id, team_id, player_id
@@ -225,7 +225,7 @@ def _load_player_match_rows(connection, season_id):
             ec.attempts_outside_box, ec.big_chances,
             COALESCE(ts.tracked_shots, 0) AS tracked_shots,
             COALESCE(ts.tracked_shots_with_xg, 0) AS tracked_shots_with_xg,
-            COALESCE(ts.tracked_xg_sum, 0.0) AS tracked_xg_sum,
+            ts.tracked_xg_sum AS tracked_xg_sum,
             m.kickoff_utc, m.local_date, m.status, m.home_team_id, m.away_team_id,
             ht.name AS home_team_name, at.name AS away_team_name, pt.name AS player_team_name
         FROM player_match_statistics p
@@ -567,7 +567,7 @@ def build_panel(
             "fouls_committed": source.get("fouls_committed", ""),
             "tracked_shots": source.get("tracked_shots", 0),
             "tracked_shots_with_xg": source.get("tracked_shots_with_xg", 0),
-            "tracked_xg_sum": source.get("tracked_xg_sum", 0),
+            "tracked_xg_sum": source.get("tracked_xg_sum", ""),
             "fpl_minutes": history.get("minutes", ""),
             "fpl_total_points": history.get("total_points", ""),
             "fpl_goals": history.get("goals_scored", ""),
@@ -824,7 +824,7 @@ def build_provisional_research_panel(
             "fouls_committed": source.get("fouls_committed", ""),
             "tracked_shots": source.get("tracked_shots", 0),
             "tracked_shots_with_xg": source.get("tracked_shots_with_xg", 0),
-            "tracked_xg_sum": source.get("tracked_xg_sum", 0),
+            "tracked_xg_sum": source.get("tracked_xg_sum", ""),
             "fpl_minutes": history.get("minutes", ""),
             "fpl_total_points": history.get("total_points", ""),
             "fpl_goals": history.get("goals_scored", ""),

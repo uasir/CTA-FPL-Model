@@ -13,7 +13,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from train_fpl_exploratory_ridge import (
-    FEATURES, RIDGE_LAMBDA, fit_ridge, predict, number, bool_number, mae, rmse,
+    FEATURES, RIDGE_LAMBDA, fit_ridge, predict, number, optional_number, bool_number, mae, rmse,
 )
 
 OPTA_FEATURES = (
@@ -62,21 +62,17 @@ def prepare_rows(fpl_rows, opta_rows):
         for feature in FEATURES:
             if feature == "fixture_count":
                 continue
-            value = number(row.get(feature))
-            if feature in {
-                "prior_gw_points", "prior3_gw_points_avg", "prior5_gw_points_avg",
-                "prior3_gw_minutes_avg", "prior5_gw_minutes_avg",
-                "prior3_gw_xg_avg", "prior3_gw_xa_avg",
-            }:
-                value = value / count if count else 0.0
-            elif feature == "was_home":
+            value = optional_number(row.get(feature))
+            if feature == "was_home":
                 value = bool_number(row.get(feature))
             elif feature in {"team_difficulty_snapshot", "opponent_difficulty_snapshot"}:
-                value = value / 5.0
+                value = value / 5.0 if value is not None else None
             item[feature] = value
         for feature in OPTA_FEATURES:
-            item[feature] = number(opta.get(feature))
-        item["target_total_points"] = number(row.get("target_total_points"))
+            item[feature] = optional_number(opta.get(feature))
+        item["target_total_points"] = optional_number(row.get("target_total_points"))
+        if item["target_total_points"] is None:
+            raise ValueError("Missing/non-finite FPL target; refusing to encode target as zero")
         joined.append(item)
     if missing:
         raise ValueError(f"Missing Opta context for {len(missing)} FPL player-fixture rows")
@@ -100,17 +96,22 @@ def _aggregate(rows, model, feature_names):
             "gameweek": gameweek,
             "actual_points": sum(number(row.get("target_total_points")) for row in items),
             "predicted_points": sum(predict(model, row) for row in items),
-            "baseline_last5_points": number(items[0].get("prior5_gw_points_avg")),
+            "baseline_last5_points": optional_number(items[0].get("prior5_gw_points_avg")),
         })
     return output
 
 
 def _score(records):
-    actual = [r["actual_points"] for r in records]
-    predicted = [r["predicted_points"] for r in records]
-    naive = [r["baseline_last5_points"] for r in records]
+    scored = [r for r in records if r["baseline_last5_points"] is not None]
+    if not scored:
+        raise ValueError("No complete rows available for Opta baseline comparison")
+    actual = [r["actual_points"] for r in scored]
+    predicted = [r["predicted_points"] for r in scored]
+    naive = [r["baseline_last5_points"] for r in scored]
     return {
-        "player_gameweek_rows": len(records),
+        "player_gameweek_rows": len(scored),
+        "candidate_player_gameweek_rows": len(records),
+        "rows_excluded_for_missing_baseline": len(records) - len(scored),
         "model_mae": round(mae(actual, predicted), 6),
         "model_rmse": round(rmse(actual, predicted), 6),
         "naive_last5_mae": round(mae(actual, naive), 6),
@@ -158,6 +159,12 @@ def evaluate(fpl_rows, opta_rows):
             "improved_rmse": delta_rmse < 0,
         },
         "features": {"baseline": list(FEATURES), "added_opta": list(OPTA_FEATURES)},
+        "missing_feature_policy": "Training-only median imputation with explicit missingness indicators; observed zero remains distinct from missing.",
+        "historical_form_normalization": "Prior gameweek totals and averages are retained; they are not divided by the target gameweek fixture count. Per-fixture forecasts are summed only after prediction.",
+        "training_missing_feature_counts": {
+            name: sum(1 for row in train if row.get(name) is None)
+            for name in FEATURES + OPTA_FEATURES
+        },
         "limitations": [
             "Only one 2026/27 season and one four-gameweek temporal holdout are evaluated.",
             "Provider source-vintage is not point-in-time verified; this is not a strict historical backtest.",

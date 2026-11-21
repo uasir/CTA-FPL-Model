@@ -19,6 +19,7 @@ def synthetic_rows(gameweeks=10, players=20):
                 "prior_gw_points": str(prior),
                 "prior3_gw_points_avg": str(prior + 0.3),
                 "prior5_gw_points_avg": str(prior + 0.1),
+                "prior_gw_minutes": str(minutes),
                 "prior3_gw_minutes_avg": str(minutes),
                 "prior5_gw_minutes_avg": str(minutes - 2),
                 "prior3_gw_xg_avg": "0.4",
@@ -54,3 +55,15 @@ def test_nested_ridge_requires_eight_gameweeks():
         assert "At least eight gameweeks" in str(exc)
     else:
         raise AssertionError("Expected a minimum gameweek count error")
+
+
+def test_nested_ridge_keeps_missing_xg_distinct_from_observed_zero():
+    rows = synthetic_rows()
+    for row in rows:
+        if row["fpl_element_id"] == "1":
+            row["prior3_gw_xg_avg"] = ""
+    model, report = evaluate(rows)
+    xg_index = report["features"].index("prior3_gw_xg_avg")
+    assert report["missing_feature_policy"].startswith("Training-only median")
+    assert report["outer_training_missing_feature_counts"]["prior3_gw_xg_avg"] == 5
+    assert model["fixed_alpha_10"]["points_model"]["imputation_values"][xg_index] > 0

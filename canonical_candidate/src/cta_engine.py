@@ -239,7 +239,7 @@ def fit_xt(events, directions, iterations=1000, tolerance=1e-11):
              "xt_prior_pseudo_shots": 5}
     return values, audit
 
-def build_features(events, directions, xt_values):
+def build_features(events, directions, xt_values, progressive_threshold=10.0):
     possessions = defaultdict(list)
     for e in events:
         poss = e.get("possession")
@@ -266,6 +266,8 @@ def build_features(events, directions, xt_values):
             typ = event_type(e)
             if typ not in {"Pass", "Carry"}:
                 continue
+            if typ == "Pass" and not completed_pass(e):
+                continue
             start, end = action_locations(e)
             if has_direction:
                 sn, en = orient(start, right), orient(end, right)
@@ -274,7 +276,7 @@ def build_features(events, directions, xt_values):
                         box_entries += 1
                     if en[0] >= 80:
                         final_third_entries += 1
-                if sn and en and en[0] - sn[0] >= 10:
+                if sn and en and en[0] - sn[0] >= progressive_threshold:
                     progressive_actions += 1
                 if xt_values is not None:
                     a, b = grid_cell(sn), grid_cell(en)
@@ -282,8 +284,12 @@ def build_features(events, directions, xt_values):
                         xt_gains.append(xt_values[b] - xt_values[a])
         pressured = [e for e in seq if e.get("under_pressure")]
         pressured_receipts = sum(bool(e.get("under_pressure")) for e in receipts)
-        shot_xg = sum(float(((e.get("shot") or {}).get("statsbomb_xg")) or 0)
-                      for e in shots)
+        observed_shot_xg = []
+        for shot in shots:
+            raw_xg = (shot.get("shot") or {}).get("statsbomb_xg")
+            if raw_xg is not None:
+                observed_shot_xg.append(float(raw_xg))
+        shot_xg = sum(observed_shot_xg) if observed_shot_xg else None
         # Rule-based candidate flag only; not a validated danger label.
         nonshot_candidate = (not shots and has_direction and
                              (box_entries >= 1 or
@@ -307,7 +313,8 @@ def build_features(events, directions, xt_values):
             "box_entries": box_entries if has_direction else "",
             "final_third_entries": final_third_entries if has_direction else "",
             "progressive_actions": progressive_actions if has_direction else "",
-            "shot_count": len(shots), "shot_xg_reference_only": round(shot_xg, 6),
+            "shot_count": len(shots), "shot_xg_observed_count": len(observed_shot_xg),
+            "shot_xg_reference_only": round(shot_xg, 6) if shot_xg is not None else "",
             "mean_action_xt_gain": round(sum(xt_gains) / len(xt_gains), 6) if xt_gains else "",
             "positive_action_xt_gain_sum": round(sum(max(0, x) for x in xt_gains), 6) if xt_gains else "",
             "direction_available": has_direction, "sequence_class": classification
@@ -329,17 +336,20 @@ def build_features(events, directions, xt_values):
                     c["carries"] += 1
                 elif typ == "Shot":
                     c["shots"] += 1
-                    c["shot_xg_reference_only"] += float(((e.get("shot") or {}).get("statsbomb_xg")) or 0)
+                    raw_xg = (e.get("shot") or {}).get("statsbomb_xg")
+                    if raw_xg is not None:
+                        c["shot_xg_reference_only"] += float(raw_xg)
+                        c["shot_xg_observed_count"] += 1
                 elif typ in {"Ball Receipt*", "Ball Receipt"}:
                     c["receipts"] += 1
                 c["pressured_events"] += int(bool(e.get("under_pressure")))
-                if has_direction and typ in {"Pass", "Carry"}:
+                if has_direction and typ in {"Pass", "Carry"} and (typ == "Carry" or completed_pass(e)):
                     st, en = action_locations(e)
                     stn, enn = orient(st, right), orient(en, right)
                     if enn:
                         c["box_entries"] += int(enn[0] >= 102 and 18 <= enn[1] <= 62)
                         c["final_third_entries"] += int(enn[0] >= 80)
-                    c["progressive_actions"] += int(bool(stn and enn and enn[0] - stn[0] >= 10))
+                    c["progressive_actions"] += int(bool(stn and enn and enn[0] - stn[0] >= progressive_threshold))
                     if xt_values is not None:
                         a, b = grid_cell(stn), grid_cell(enn)
                         if a is not None and b is not None:

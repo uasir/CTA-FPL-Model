@@ -104,6 +104,68 @@ function bestStartingXi(owned, byId, formationValue, startingXiValue) {
   return { starting: ordered, formation };
 }
 
+function ctaEvidenceSummary(cta) {
+  const fixtures = Array.isArray(cta.fixtures) ? cta.fixtures : [];
+  const available = fixtures.filter((row) =>
+    row && typeof row === "object" && row.snapshot_available_as_of_deadline === true);
+  const sourceRow = available[0] ?? fixtures.find((row) => row && typeof row === "object") ?? {};
+  const identityVerified = cta.identity_verified === true;
+  const priorCount = Number(sourceRow.prior_matches_count ?? 0) || 0;
+  const prior3Count = Number(sourceRow.prior3_matches_count ?? 0) || 0;
+  const features = sourceRow.features && typeof sourceRow.features === "object"
+    ? sourceRow.features : {};
+  const featureMap = {
+    shots_per_match: "cta_prior3_matches_shots_avg",
+    shots_on_target_per_match: "cta_prior3_matches_shots_on_target_avg",
+    key_passes_per_match: "cta_prior3_matches_key_passes_avg",
+    box_attempts_per_match: "cta_prior3_matches_attempts_inside_box_avg",
+    tracked_xg_per_match: "cta_prior3_matches_tracked_xg_sum_avg",
+    big_chances_per_match: "cta_prior3_matches_big_chances_avg",
+  };
+  const values = {};
+  for (const [label, key] of Object.entries(featureMap)) {
+    const value = features[key];
+    if (value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value))) {
+      values[label] = Number(value);
+    }
+  }
+  let status = "RESEARCH_ONLY_EVIDENCE_AVAILABLE";
+  if (!identityVerified) status = "UNVERIFIED_IDENTITY";
+  else if (priorCount <= 0) status = "VERIFIED_IDENTITY_NO_PRIOR_HISTORY";
+  else if (Object.keys(values).length === 0) status = "VERIFIED_IDENTITY_NO_FEATURE_VALUES";
+  return {
+    status,
+    source_snapshot_as_of: cta.source_snapshot_as_of ?? null,
+    target_gameweek: cta.target_gameweek ?? null,
+    prior_matches_count: priorCount,
+    prior3_matches_count: prior3Count,
+    feature_window: "prior 3 matches",
+    feature_averages: values,
+    decision_use_status: "RESEARCH_ONLY_NOT_IN_BASELINE",
+    decision_weight: 0,
+    ranking_effect: "NONE",
+  };
+}
+
+function playerCtaContext(player) {
+  const cta = player.cta && typeof player.cta === "object" && !Array.isArray(player.cta)
+    ? player.cta
+    : {
+      identity_verified: false,
+      identity_status: "NO_CTA_SIDECAR",
+      coverage_status: "NO_CTA_SIDECAR",
+      composite: null,
+      decision_use_status: "UNAVAILABLE",
+      fixtures: [],
+    };
+  return {
+    fpl_element_id: player.fpl_element_id,
+    web_name: player.web_name ?? "",
+    cta,
+    cta_evidence_summary: ctaEvidenceSummary(cta),
+  };
+}
+
 function sellingPrice(currentPrice, purchasePrice) {
   const currentTenths = Math.round(currentPrice * 10);
   const purchaseTenths = Math.round(purchasePrice * 10);
@@ -169,6 +231,16 @@ function transferCandidates(request, forecasts) {
     || a.transfer_out_id - b.transfer_out_id
     || a.transfer_in_id - b.transfer_in_id);
   const alternatives = candidates.slice(0, maxAlternatives);
+  const hasCtaSidecar = forecasts.some((player) =>
+    player.cta && typeof player.cta === "object" && !Array.isArray(player.cta));
+  if (hasCtaSidecar) {
+    for (const candidate of alternatives) {
+      candidate.cta_context = {
+        outgoing: playerCtaContext(forecastById.get(candidate.transfer_out_id)),
+        incoming: playerCtaContext(forecastById.get(candidate.transfer_in_id)),
+      };
+    }
+  }
   const bestCandidate = alternatives[0] ?? null;
   return {
     action: bestCandidate && bestCandidate.net_expected_points_gain > minGain
@@ -190,6 +262,8 @@ export function recommendPersonalSquad(payload) {
   const squad = request.squad_snapshot;
   const ownedIds = new Set(squad.map((player) => player.fpl_element_id));
   const owned = [...ownedIds].map((id) => forecastById.get(id));
+  const hasCtaSidecar = forecasts.some((player) =>
+    player.cta && typeof player.cta === "object" && !Array.isArray(player.cta));
   const preferences = request.personal_preferences ?? {};
   if (preferences === null || typeof preferences !== "object" || Array.isArray(preferences)) {
     throw new RecommendationContractError("personal_preferences must be an object");
@@ -252,6 +326,13 @@ export function recommendPersonalSquad(payload) {
       reserve_goalkeeper: reserveGk[0].fpl_element_id,
       bench_order: benchOrder,
       expected_starting_points: expectedPoints,
+      ...(hasCtaSidecar ? {
+        owned_squad_cta_context: squad.map((row) => playerCtaContext(forecastById.get(row.fpl_element_id))),
+        starting_xi_cta_context: starting.map(playerCtaContext),
+        bench_cta_context: benchOrder.map((playerId) => playerCtaContext(forecastById.get(playerId))),
+        reserve_goalkeeper_cta_context: playerCtaContext(reserveGk[0]),
+        cta_context_status: "RESEARCH_ONLY_NOT_IN_BASELINE",
+      } : {}),
     },
     portfolio_risk: {
       covar_used: false,
