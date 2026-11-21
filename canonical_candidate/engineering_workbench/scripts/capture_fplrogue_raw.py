@@ -172,7 +172,7 @@ def capture_fplrogue_frozen_archive_raw(
     """Capture one frozen archive release; distinguish publisher and retrieval times."""
     if isinstance(gameweek, bool) or not isinstance(gameweek, int) or gameweek < 1:
         raise CaptureError("gameweek must be a positive integer")
-    if not isinstance(snapshot_slug, str) or not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}-gw\\d+", snapshot_slug):
+    if not isinstance(snapshot_slug, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}-gw\d+", snapshot_slug):
         raise CaptureError("snapshot_slug must identify a dated FPLRogue archive release")
     page_raw, page_type = fetch_bytes(snapshot_page_url)
     page_retrieved = clock()
@@ -194,14 +194,14 @@ def capture_fplrogue_frozen_archive_raw(
         if not match:
             raise CaptureError(f"FPLRogue archive page is missing {field}")
         return match.group(1).strip()
-    page_gw = int(required(r"Gameweek\\s+GW(\\d+)", "Gameweek"))
-    players = int(required(r"Players\\s+(\\d+)", "player count"))
-    engine = required(r"Projection engine\\s+([A-Za-z0-9_.-]+)", "projection engine")
+    page_gw = int(required(r"Gameweek\s+GW(\d+)", "Gameweek"))
+    players = int(required(r"Players\s+(\d+)", "player count"))
+    engine = required(r"Projection engine\s+([A-Za-z0-9_.-]+)", "projection engine")
     captured = provider_time(required(
-        r"Captured\\s+(\\d{1,2}\\s+[A-Za-z]{3}\\s+\\d{4},\\s+\\d{2}:\\d{2}\\s+GMT)",
+        r"Captured\s+(\d{1,2}\s+[A-Za-z]{3}\s+\d{4},\s+\d{2}:\d{2}\s+GMT)",
         "publisher capture time"), "Captured")
     trained = provider_time(required(
-        r"Model trained\\s+(\\d{1,2}\\s+[A-Za-z]{3}\\s+\\d{4},\\s+\\d{2}:\\d{2}\\s+GMT)",
+        r"Model trained\s+(\d{1,2}\s+[A-Za-z]{3}\s+\d{4},\s+\d{2}:\d{2}\s+GMT)",
         "model training time"), "Model trained")
     if page_gw != gameweek:
         raise CaptureError(f"FPLRogue archive page GW{page_gw} does not match requested GW{gameweek}")

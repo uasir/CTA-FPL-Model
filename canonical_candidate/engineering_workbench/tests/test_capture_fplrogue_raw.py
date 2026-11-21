@@ -87,7 +87,7 @@ def test_frozen_archive_capture_separates_publisher_capture_from_local_retrieval
     csv_url = page_url + "/download.csv"
     page = ("<body>Gameweek GW9 Players 2 Projection engine xpts_v1 "
             "Captured 31 Oct 2026, 05:24 GMT Model trained 31 Oct 2026, 05:00 GMT</body>").encode()
-    csv_data = b"player_id,xPts,xMins\\n1,7.7,86\\n2,5.7,86\\n"
+    csv_data = b"player_id,xPts,xMins\n1,7.7,86\n2,5.7,86\n"
     bootstrap = json.dumps({"events":[{"id":9,"deadline_time":"2026-10-31T11:00:00Z"}]}).encode()
     responses = {page_url:(page,"text/html"),csv_url:(csv_data,"text/csv"),
                  BOOTSTRAP_URL:(bootstrap,"application/json")}
