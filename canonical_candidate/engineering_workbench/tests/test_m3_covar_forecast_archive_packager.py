@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -11,11 +12,15 @@ import m3_covar_forecast_archive_packager as packager
 
 
 def _sanitized_bundle():
+    provider_raw = b'{"players":[{"id":10,"xp":4.5}]}'
+    metadata_raw = b'{"elements":[{"id":10}]}'
     return {
         "schema_version": "1.0.0",
         "bundle_type": "M3_CONVENTIONAL_FORECAST_ONLY_COVAR_INPUT",
         "season": "2026-27",
         "target_gameweek": 12,
+        "mode": "REGULAR_GW",
+        "player_forecasts": [{"fpl_element_id": 10, "expected_points": 4.5, "expected_minutes": 75}],
         "as_of_utc": "2026-11-21T10:00:00+00:00",
         "deadline_utc": "2026-11-21T11:00:00+00:00",
         "forecast_snapshot_id": "provider-snapshot-12",
@@ -24,16 +29,18 @@ def _sanitized_bundle():
             {
                 "source_type": "provider_forecast",
                 "raw_snapshot_id": "provider-raw-12",
-                "raw_sha256": "a" * 64,
+                "raw_sha256": hashlib.sha256(provider_raw).hexdigest(),
                 "captured_at_utc": "2026-11-21T09:50:00+00:00",
                 "source_url": "https://provider.example/forecast",
+                "raw_payload_base64": base64.b64encode(provider_raw).decode(),
             },
             {
                 "source_type": "player_metadata",
                 "raw_snapshot_id": "bootstrap-12",
-                "raw_sha256": "b" * 64,
+                "raw_sha256": hashlib.sha256(metadata_raw).hexdigest(),
                 "captured_at_utc": "2026-11-21T09:51:00+00:00",
                 "source_url": "https://fantasy.premierleague.com/api/bootstrap-static/",
+                "raw_payload_base64": base64.b64encode(metadata_raw).decode(),
             },
         ],
         "privacy": {
@@ -77,6 +84,9 @@ def test_packager_writes_private_manager_free_bundle_and_hash_manifest(tmp_path,
     assert report["status"] == "PASS_MANAGER_FREE_ARCHIVE_CREATED"
     assert report["private_destination_configured"] is False
     assert manifest["bundle_sha256"] == hashlib.sha256(bundle_bytes).hexdigest()
+    assert manifest["anchor_acceptance"]["acceptance_status"] == "ACCEPTED_PLAYER_LEVEL_FORECAST_ANCHOR_ONLY"
+    assert report["anchor_acceptance_status"] == "ACCEPTED_PLAYER_LEVEL_FORECAST_ANCHOR_ONLY"
+    assert report["joint_distribution_available"] is False
     assert bundle["forecast_snapshot_id"] == "provider-snapshot-12"
     assert "manager_team_id" not in bundle
     assert "frozen_decision" not in bundle
