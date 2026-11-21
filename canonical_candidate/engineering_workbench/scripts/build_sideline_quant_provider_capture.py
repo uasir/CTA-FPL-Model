@@ -51,12 +51,14 @@ def build_sideline_quant_provider_capture(raw_capture: Mapping[str, Any], parsed
     elements, types = bootstrap.get("elements"), bootstrap.get("element_types")
     if not isinstance(elements, list) or not isinstance(types, list):
         raise ProviderCaptureBuildError("official bootstrap lacks elements or element_types")
-    pos = {1:"GKP",2:"DEF",3:"MID",4:"FWD"}
+    allowed_positions = {"GKP", "DEF", "MID", "FWD"}
     type_names = {x.get("id"):x.get("singular_name_short") for x in types if isinstance(x,dict)}
     metadata = {}
     for x in elements:
         if isinstance(x,dict):
-            pid=x.get("id"); p=pos.get(type_names.get(x.get("element_type")))
+            pid=x.get("id"); p=type_names.get(x.get("element_type"))
+            if p not in allowed_positions:
+                p = None
             if isinstance(pid,int) and p and isinstance(x.get("team"),int) and isinstance(x.get("now_cost"),int):
                 metadata[pid]={"fpl_element_id":pid,"price":x["now_cost"]/10,"position":p,"team_id":x["team"]}
     records=snapshot.get("records")
