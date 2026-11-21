@@ -17,6 +17,11 @@ on:
         required: true
         default: "2026-27"
         type: string
+      field_eo_capture_run_id:
+        description: Optional successful provisional pre-deadline field EO capture run ID for this Gameweek
+        required: false
+        default: ""
+        type: string
       manager_state_json:
         description: Confirmed squad, bank, free transfers, formation, starting XI, ordered outfield bench, reserve goalkeeper, captain, vice-captain and chip state (update if your team changes)
         required: true
@@ -24,6 +29,7 @@ on:
         type: string
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -60,6 +66,14 @@ jobs:
             --season "${{ inputs.season }}" \
             --manager-state-json "$MANAGER_STATE_JSON" \
             --output predeadline-decision-evidence.json
+      - name: Retrieve aggregate provisional field EO artifact
+        if: inputs.field_eo_capture_run_id != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: provisional-field-eo-${{ inputs.field_eo_capture_run_id }}
+          run-id: ${{ inputs.field_eo_capture_run_id }}
+          github-token: ${{ github.token }}
+          path: canonical_candidate/engineering_workbench/field-capture
       - name: Generate and freeze the single conventional recommendation
         working-directory: canonical_candidate/engineering_workbench
         env:
@@ -68,6 +82,7 @@ jobs:
           PYTHONPATH=scripts python scripts/run_predeadline_m3_decision.py \
             predeadline-decision-evidence.json \
             --software-commit "$M3_CODE_SHA" \
+            ${{ inputs.field_eo_capture_run_id != '' && '--field-eo-csv field-capture/predeadline_field_eo.csv --field-eo-report field-capture/predeadline_field_report.json' || '' }} \
             --output predeadline-m3-recommendation.json
       - name: Independently re-execute the frozen decision from the captured bundle
         working-directory: canonical_candidate/engineering_workbench
