@@ -121,3 +121,26 @@ def test_fixture_minutes_bounds_rejected():
     history[0]["minutes"] = "121"
     with pytest.raises(RealizedFplDatasetError, match="minutes outside"):
         build_realized_panel(players, fixtures, history, season="2026-27")
+
+
+
+def test_unknown_fixture_reference_rejected():
+    players, fixtures, history = _inputs()
+    history[0]["fixture_id"] = "999"
+    with pytest.raises(RealizedFplDatasetError, match="unknown season fixture"):
+        build_realized_panel(players, fixtures, history, season="2026-27")
+
+
+def test_provisional_finished_fixture_is_excluded():
+    players, fixtures, history = _inputs()
+    fixtures[0]["finished_provisional"] = "True"
+    fixture_rows, _, report = build_realized_panel(players, fixtures, history, season="2026-27")
+    assert all(row["fixture_id"] != 100 for row in fixture_rows)
+    assert report["ignored_unfinished_or_unassigned_player_fixture_rows"] == 2
+
+
+def test_missing_official_stat_is_rejected_not_zero_filled():
+    players, fixtures, history = _inputs()
+    del history[0]["bonus"]
+    with pytest.raises(RealizedFplDatasetError, match="bonus must be an integer"):
+        build_realized_panel(players, fixtures, history, season="2026-27")
