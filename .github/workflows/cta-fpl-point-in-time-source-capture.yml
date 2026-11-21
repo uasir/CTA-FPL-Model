@@ -8,8 +8,8 @@ on:
         required: false
         type: string
   schedule:
-    # Align with pre-deadline field capture; only capture inside the final 35 minutes.
-    - cron: "5,35 * * * *"
+    # Fifteen-minute cadence ensures coverage of any deadline minute; capture step gates to final 35 minutes.
+    - cron: "*/15 * * * *"
 
 permissions:
   contents: read
