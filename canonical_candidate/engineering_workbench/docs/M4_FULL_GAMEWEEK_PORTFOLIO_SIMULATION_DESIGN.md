@@ -291,3 +291,101 @@ threshold, confidence interval, calibration acceptance threshold, or
 production gate is asserted yet. Synthetic unit tests verify arithmetic and
 leakage guards, not forecast quality. Outputs remain
 `decision_weight=0` and `production_eligible=false`.
+
+
+## Historical dataset and benchmark protocol
+
+The chronological split validator is implemented in
+`scripts/m4_covar_joint_forecast_dataset.py`, with synthetic contract tests in
+`tests/test_m4_covar_joint_forecast_dataset.py`. It validates a manifest with
+three non-empty, disjoint Gameweek cohorts (`train`, `validation`, `test`),
+requires every declared Gameweek to have forecast records, enforces strictly
+increasing kickoff windows across cohorts, and checks that each forecast's
+training cutoff is no later than its as-of timestamp and that the as-of is
+strictly before the first kickoff. Multiple snapshots for one Gameweek are
+permitted but are explicitly clustered under the Gameweek independence unit.
+
+### Data construction rules
+
+1. A forecast record is an immutable point-in-time snapshot, keyed by a unique
+   forecast ID and Gameweek ID. Preserve the source, source version/hash,
+   retrieval timestamp, forecast as-of timestamp, first kickoff, training
+   cutoff, model/config version, state-catalogue version and observed-outcome
+   source/version.
+2. Only inputs demonstrably available by the forecast as-of timestamp may be
+   features. A current FPL bootstrap or retrospective API response is not
+   historical point-in-time evidence merely because it contains old Gameweek
+   fields. Older source vintages must be durably archived with timestamps and
+   hashes before they can support a historical backtest.
+3. The target is the realized full-Gameweek joint state from a declared,
+   versioned state catalogue. Fixture aggregation must use complete observed
+   fixture outcomes and an explicit joint Gameweek mapping; do not infer
+   cross-fixture independence or multiply marginal fixture probabilities.
+4. Store forecast and observed-result records separately. Join them only by
+   immutable IDs after the deadline/results are final. Corrections to source
+   data create a new version and an auditable rebuild, not silent mutation.
+5. Keep private manager-level picks and portfolio combinations out of public
+   datasets, commits and Actions artifacts. Public artifacts may contain only
+   permitted aggregate EO. Private replay evidence stays local and access
+   controlled.
+
+### Temporal evaluation design
+
+- Assign entire Gameweeks to one cohort; never split player rows, fixtures or
+  repeated snapshots from the same Gameweek across cohorts.
+- Use contiguous chronological blocks, not random row-level splits. The
+  train block is for fitting and feature/model selection; validation is for
+  predeclared model/config selection; test is a final untouched chronological
+  holdout used once for reporting.
+- The validator checks disjointness and ordering. The research runner must
+  additionally freeze the selected configuration before test evaluation and
+  record the manifest hash. Any test-informed change invalidates that test
+  cohort for confirmatory reporting.
+- Use an expanding-window or rolling-origin simulation for genuine historical
+  forecasts: at each forecast as-of, refit/refresh only from data whose
+  availability timestamp is at or before the recorded training cutoff. Do
+  not train on later Gameweeks, later corrections, final prices, or final
+  injury/news information.
+- If validation observations become available before a later test forecast,
+  they may enter that later forecast's training history only under a declared
+  walk-forward policy and only after their actual availability time. They may
+  not be used to tune a model after viewing the test outcomes.
+- Report both forecast-row and distinct-Gameweek counts. Repeated snapshots
+  within a Gameweek are clustered and are not independent observations.
+
+### Reference benchmark
+
+The reference must be declared before the holdout is opened. A defensible
+initial reference is a simple historical joint-state frequency distribution
+estimated only from the training history available at each forecast as-of,
+with a documented smoothing rule fixed on validation. It must use the same
+joint-state catalogue as the evaluated model. A reference generated from
+held-out outcomes, retrospectively tuned probabilities, or marginal fixture
+frequencies multiplied under an independence assumption is invalid. If the
+catalogue changes, define an explicit versioned mapping; do not silently
+relabel historical states.
+
+The existing official `ep_next` baseline is a player expected-points
+benchmark, not a joint Gameweek-state probability reference. It must not be
+misrepresented as one.
+
+### Sample size and uncertainty
+
+No arbitrary minimum Gameweek count is set by this specification. Before
+confirmatory evaluation, define the minimum number of distinct held-out
+Gameweeks and seasons from the available historical coverage, expected effect
+size, desired precision/power and dependence structure. Player rows, state
+rows, and repeated forecasts do not increase the independent Gameweek count.
+Confidence intervals must resample at the Gameweek (or larger season/block)
+cluster level, preserving all forecasts and joint states within each sampled
+cluster. Report the number of independent clusters, interval method, random
+seed, interval coverage and any small-sample limitations. If there are too few
+independent Gameweeks/seasons for a stable interval, label the result
+exploratory rather than relaxing the independence assumption.
+
+The current validator is a structural/time-order guard only. It does not prove
+source-vintage availability, benchmark provenance, a frozen test protocol,
+statistical power, confidence-interval validity, or predictive skill. No real
+historical point-in-time dataset has yet been certified. CoVar therefore
+remains research-only with `decision_weight=0` and
+`production_eligible=false`.
