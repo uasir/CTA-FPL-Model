@@ -20,6 +20,25 @@ class CovarFplReplayError(ValueError):
     """Raised when a replay case is incomplete or malformed."""
 
 
+_FORBIDDEN_MANAGER_KEYS = {
+    "entry_id", "manager_id", "manager_name", "manager_entry_id",
+    "exact_rank", "overall_rank", "rank",
+}
+
+
+def _assert_private_input_is_anonymized(value: Any, path: str = "replay") -> None:
+    if isinstance(value, Mapping):
+        for key, nested in value.items():
+            if str(key).lower() in _FORBIDDEN_MANAGER_KEYS:
+                raise CovarFplReplayError(
+                    f"replay input contains restricted manager identifier field: {path}.{key}"
+                )
+            _assert_private_input_is_anonymized(nested, f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, nested in enumerate(value):
+            _assert_private_input_is_anonymized(nested, f"{path}[{index}]")
+
+
 def _finite(value: Any, label: str) -> float:
     if isinstance(value, bool):
         raise CovarFplReplayError(f"{label} must be numeric")
@@ -55,6 +74,7 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
     """Compare resolver output with official final FPL pick multipliers."""
     if not isinstance(case, Mapping):
         raise CovarFplReplayError("replay case must be an object")
+    _assert_private_input_is_anonymized(case)
     lineup = case.get("lineup")
     outcomes = case.get("player_outcomes")
     official = case.get("official_final")
