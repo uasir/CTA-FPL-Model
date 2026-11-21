@@ -9,7 +9,7 @@ from inspect_fpl_lucho_csv_schema import (
 )
 
 
-def make_capture(csv_raw=b"player_id,player_name,xP_GW11,xP_GW12\n1,Player One,5.2,4.8\n2,Player Two,3.1,4.2\n"):
+def make_capture(csv_raw=b"player_id,player_name,xP_GW11,xP_GW12,xP_GW13,xP_GW14\n1,Player One,5.2,4.8,4.1,3.9\n2,Player Two,3.1,4.2,3.8,3.5\n"):
     return {
         "capture_id": "test-capture",
         "target_gameweek": 11,
