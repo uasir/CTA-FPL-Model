@@ -1,6 +1,6 @@
 from __future__ import annotations
 import hashlib, json, os, pytest
-from m4_covar_joint_forecast_source_adapter import JointForecastSourceAdapterError, archive_explicit_joint_forecast
+from m4_covar_joint_forecast_source_adapter import JointForecastSourceAdapterError, archive_explicit_joint_forecast, main
 
 def sample():
     blobs = {"source:feed": b"raw provider snapshot", "model_artifact": b"model bytes",
@@ -80,3 +80,45 @@ def test_refuses_git_checkout_destination_reached_through_symlink(tmp_path):
     with pytest.raises(JointForecastSourceAdapterError, match="outside a Git repository"):
         archive_explicit_joint_forecast(document=doc, artifact_bytes=blobs,
                                         archive_root=link / "archive")
+
+def test_cli_archives_complete_forecast_from_provider_artifact_layout(tmp_path, capsys):
+    doc, blobs = sample()
+    artifact_root = tmp_path / "input"
+    (artifact_root / "sources").mkdir(parents=True)
+    (artifact_root / "model").mkdir()
+    (artifact_root / "forecast").mkdir()
+    (artifact_root / "sources" / "feed.bin").write_bytes(blobs["source:feed"])
+    (artifact_root / "model" / "model.bin").write_bytes(blobs["model_artifact"])
+    (artifact_root / "model" / "config.bin").write_bytes(blobs["config"])
+    (artifact_root / "forecast" / "payload.bin").write_bytes(blobs["forecast_payload"])
+    document_path = tmp_path / "forecast.json"
+    document_path.write_text(json.dumps(doc), encoding="utf-8")
+    destination = tmp_path / "private-archive"
+    assert main(["--document", str(document_path), "--artifact-dir", str(artifact_root),
+                 "--archive-root", str(destination)]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["verification_status"] == "COMPLETE_PROVENANCE_CHAIN_BYTES_VERIFIED"
+    archived = json.loads((destination / "forecast" / "validated_document.json").read_text())
+    assert archived == doc
+
+
+def test_cli_rejects_symlinked_artifact_files(tmp_path):
+    doc, blobs = sample()
+    artifact_root = tmp_path / "input"
+    (artifact_root / "sources").mkdir(parents=True)
+    (artifact_root / "model").mkdir()
+    (artifact_root / "forecast").mkdir()
+    (artifact_root / "sources" / "feed.bin").write_bytes(blobs["source:feed"])
+    (artifact_root / "model" / "config.bin").write_bytes(blobs["config"])
+    (artifact_root / "forecast" / "payload.bin").write_bytes(blobs["forecast_payload"])
+    external = tmp_path / "external-model.bin"
+    external.write_bytes(blobs["model_artifact"])
+    try:
+        (artifact_root / "model" / "model.bin").symlink_to(external)
+    except (OSError, NotImplementedError):
+        pytest.skip("file symlinks are unavailable")
+    document_path = tmp_path / "forecast.json"
+    document_path.write_text(json.dumps(doc), encoding="utf-8")
+    with pytest.raises(JointForecastSourceAdapterError, match="regular non-symlink"):
+        main(["--document", str(document_path), "--artifact-dir", str(artifact_root),
+              "--archive-root", str(tmp_path / "private-archive")])
