@@ -193,7 +193,7 @@
     "scope": "CoVar may inform personal portfolio decisions after validation; it is not a required component of general player rankings.",
     "recommendation_integration": {
       "adapter": "scripts/m4_covar_recommendation_integration.py",
-      "status": "ATTACHED_RESEARCH_ONLY",
+      "status": "END_TO_END_RESEARCH_ONLY_INTEGRATION_TESTED",
       "scope": "personal_squad_only",
       "required_field_portfolio_source": "SAMPLED_MANAGER_PICK_ROWS",
       "requires_explicit_joint_scenarios": true,
@@ -202,8 +202,15 @@
       "may_change_recommendation": false,
       "decision_weight": 0,
       "production_eligible": false,
-      "entry_point": "scripts/personal_squad_covar_recommendation.py",
-      "behavior": "Runs canonical personal_squad recommendation first; optional CoVar report is attached as research-only diagnostics."
+      "entry_point": "scripts/personal_squad_covar_recommendation.py::recommend_personal_squad_with_full_gameweek_covar",
+      "behavior": "Runs canonical personal_squad recommendation first; optional CoVar report is attached as research-only diagnostics.",
+      "report_adapter": "scripts/m4_covar_recommendation_report_adapter.py",
+      "metric_definitions": {
+        "candidate_variance": "Full-Gameweek candidate portfolio point variance across shared joint scenarios.",
+        "field_variance": "Field-weighted mean of individual sampled manager portfolio variances.",
+        "field_relative_upside_delta": "Candidate expected points minus weighted field expected points.",
+        "portfolio_covariance_delta": "Change in off-diagonal covariance contribution sum versus baseline portfolio."
+      }
     }
   },
   "acceptance_tests": [
