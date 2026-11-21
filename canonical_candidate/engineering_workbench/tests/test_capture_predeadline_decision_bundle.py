@@ -141,6 +141,7 @@ def _fixtures(monkeypatch, *, fallback=False, manager_capture_time="2026-11-20T1
         }
     monkeypatch.setattr(capture, "capture_fpl_cat_snapshot", lambda **kwargs: provider_capture)
     monkeypatch.setattr(capture, "capture_manager_context", lambda *args, **kwargs: manager_capture)
+    return provider_capture
 
 
 def test_captures_three_raw_predeadline_sources_from_official_picks(monkeypatch):
@@ -219,3 +220,46 @@ def test_rejects_missing_current_player_price(monkeypatch):
         capture.capture_predeadline_decision_bundle(
             team_id=421025, gameweek=12, season="2026-27", manager_state=_state(),
         )
+
+def test_uses_explicit_sideline_quant_capture_envelope_without_falling_back_to_fpl_cat(monkeypatch):
+    # Reuse deterministic test archives but register a distinct provider run.
+    import copy
+    provider_capture = copy.deepcopy(_fixtures(monkeypatch))
+    provider = provider_capture["provider_snapshot"]
+    provider["snapshot_id"] = "sidelinequant-gw12-test:player_gameweek_sum_xp"
+    provider["provider"] = {
+        "name": "Sideline Quant",
+        "product": "gameweek_projections",
+        "variant": "provider_native_xp",
+        "version": "test",
+    }
+    provider["source"]["url"] = "https://sidelinequant.com/data/gw/12/projections.json"
+    raw_rows = [
+        {"player_id": row["fpl_element_id"], "fixture_id": 1200 + row["fpl_element_id"],
+         "gameweek": 12, "xP": row["expected_points"],
+         "e_mins": row["expected_minutes"], "p_start": 0.9}
+        for row in provider["records"]
+    ]
+    raw_provider = {
+        "gameweek": 12, "generated_at": "2026-11-20T09:00:00Z",
+        "deadline": "2026-11-21T11:00:00Z",
+        "n_players": len(raw_rows), "n_rows": len(raw_rows), "rows": raw_rows,
+    }
+    raw_bytes = json.dumps(raw_provider, sort_keys=True).encode()
+    raw_hash = hashlib.sha256(raw_bytes).hexdigest()
+    provider_capture["raw_archives"]["provider_response_base64"] = base64.b64encode(raw_bytes).decode()
+    provider["source"]["raw_sha256"] = raw_hash
+    provider["source"]["raw_snapshot_id"] = "sha256:" + raw_hash
+    monkeypatch.setattr(
+        capture, "capture_fpl_cat_snapshot",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("FPL Cat fallback was called")),
+    )
+    result = capture.capture_predeadline_decision_bundle(
+        team_id=421025, gameweek=12, season="2026-27",
+        manager_state=_state(), provider_capture=provider_capture,
+    )
+    manifest = result["12"]
+    assert manifest["provider_snapshot"]["provider"]["name"] == "Sideline Quant"
+    source = next(row for row in manifest["sources"] if row["source_type"] == "provider_forecast")
+    assert source["provider_id"] == "sideline-quant"
+    assert source["source_url"] == "https://sidelinequant.com/data/gw/12/projections.json"
