@@ -47,7 +47,7 @@ def test_personal_m3_workflow_accepts_public_manager_inputs_and_preserves_eviden
     assert "SEASON: ${{ inputs.season }}" in workflow
     assert "secrets.M3_" not in workflow
     assert "Refuse personal decision capture in a public repository" not in workflow
-    assert "name: predeadline-decision-evidence-gw${{ inputs.gameweek }}-run${{ github.run_id }}" in workflow
+    assert "name: predeadline-decision-evidence-manager-${{ inputs.manager_team_id }}-gw${{ inputs.gameweek }}-run${{ github.run_id }}" in workflow
     assert "provisional-field-eo-${{ inputs.field_eo_capture_run_id }}" in workflow
     assert "run-id: ${{ inputs.field_eo_capture_run_id }}" in workflow
     assert "canonical_candidate/engineering_workbench/field-capture" in workflow
@@ -79,7 +79,7 @@ def test_official_manager_reconciliation_accepts_public_manager_input_and_uses_n
     assert "MANAGER_TEAM_ID: ${{ inputs.manager_team_id }}" in workflow
     assert "secrets.M3_MANAGER_TEAM_ID" not in workflow
     assert "Refuse personal reconciliation in a public repository" not in workflow
-    assert "name: predeadline-decision-evidence-gw${{ inputs.gameweeks }}-run${{ inputs.decision_evidence_run_id }}" in workflow
+    assert "name: predeadline-decision-evidence-manager-${{ inputs.manager_team_id }}-gw${{ inputs.gameweeks }}-run${{ inputs.decision_evidence_run_id }}" in workflow
     assert "name: official-fpl-reconciliation-batch-${{ github.run_id }}" in workflow
     assert 'TARGET_GAMEWEEKS: ${{ inputs.gameweeks }}' in workflow
     assert '--gameweeks "$TARGET_GAMEWEEKS"' in workflow
