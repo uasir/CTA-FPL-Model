@@ -149,9 +149,10 @@ class TestJointForecastOutcomePairing(unittest.TestCase):
 
     def test_rejects_mapping_for_gameweek_without_forecast(self):
         mapping = _mapping()
-        mapping["gameweek_id"] = "9"
+        extra = _mapping()
+        extra["gameweek_id"] = "9"
         with self.assertRaisesRegex(JointForecastOutcomePairingError, "without forecasts"):
-            self._build(mappings=[mapping])
+            self._build(mappings=[mapping, extra])
 
     def test_rejects_non_retroactive_label_claim(self):
         mapping = _mapping()
