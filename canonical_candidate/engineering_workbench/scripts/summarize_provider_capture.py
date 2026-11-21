@@ -60,7 +60,7 @@ def summarize_capture(provider: str, capture: Mapping[str, Any],
             "normalized_gameweek_player_count": gameweek.get("coverage", {}).get("row_count"),
             "decision_eligible": gameweek.get("decision_eligible"),
             "aggregation_method": aggregation.get("method"),
-            "source_license_and_attribution": "Sideline Quant; provider data licensed CC BY 4.0; https://sidelinequant.com/data",
+            "source_license_and_attribution": capture.get("provider", {}).get("licence") or "Not declared in captured provider metadata",
         }
     else:
         raise SummaryError(
