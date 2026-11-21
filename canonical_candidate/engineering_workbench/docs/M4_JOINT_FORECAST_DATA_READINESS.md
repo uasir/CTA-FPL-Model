@@ -88,7 +88,7 @@ Expected private layout:
 - capture root containing `event_1/`, `event_2/`, etc., each created by `m4_covar_point_in_time_source_capture.py --event <GW>`
 - each event archive must include `capture_manifest.json`, `event_live.json`, and `fixtures.json`
 
-The batch runner verifies the captured manifest, event IDs, official endpoint URLs, raw SHA-256 values, and that every fixture in each target Gameweek is finished and non-provisional before auditing the realized player-GW rows. It writes a private report and refuses to overwrite an existing output directory. It does not treat provisional events as final or fill missing history rows.
+The batch runner verifies the captured manifest, event IDs, official endpoint URLs, raw SHA-256 values, and that every fixture in each target Gameweek is marked finished before auditing the realized player-GW rows. It records the `finished_provisional` count rather than rejecting provisional fixtures: the later official event-live comparison is the required reconciliation step. It writes a private report and refuses to overwrite an existing output directory. It never fills missing history rows.
 
 Example (paths are placeholders and must be absolute, outside the repository):
 ```bash
@@ -98,7 +98,13 @@ python scripts/m4_covar_realized_fpl_finality_batch.py \
   --output-dir /private/finality-audit-run-001
 ```
 
-The batch runner is implemented and has synthetic contract tests; it has not yet been run against actual GW1–GW10 capture archives. The user's workflow remains cloud/GitHub-based; no local execution is required or assumed.
+#### Actual GW1–GW10 retrospective reconciliation — 2026-11-21
+
+The cloud workflow [run 44876601508](https://github.com/uasir/CTA-FPL-Model/actions/runs/44876601508) completed successfully using the official ingestion artifact from run 44357649202 and the M4 feature branch. Its artifact (`cta-fpl-retrospective-finality-1-10-44876601508`) contains the realized panels, ten official event-live/fixture capture archives, and the batch report. The result is `PASS_ALL_EVENTS`: all 10 Gameweeks reconciled, all 6,562 player-Gameweek rows matched, 91,868 stat values were compared, and there were zero mismatches. No missing history rows were zero-filled. Per-Gameweek compared rows were GW1 610, GW2 626, GW3 654, GW4 659, GW5 667, GW6 667, GW7 668, GW8 669, GW9 670 and GW10 672.
+
+All 100 fixtures in the original ingestion snapshot were marked `finished_provisional`; the workflow retained them and reconciled the player-Gameweek outcomes against official event-live responses captured on 2026-11-21. This establishes exact agreement with those captured official responses for the supplied rows. It does **not** prove historical point-in-time availability, completeness of absent player-fixture rows, irreversibility of later score revisions, fixture-level joint dependence, or predictive validity. The archive remains retrospective, and the dataset is not yet sufficient to train or validate a joint forecaster. The workflow artifact is public-source evidence with finite retention, not a durable private archive.
+
+The user's workflow remains cloud/GitHub-based; no local execution is required or assumed.
 
 ### Exact M3 forecast snapshot bridge
 
@@ -110,7 +116,7 @@ It takes the sealed one-Gameweek M3 evidence bundle and M3 decision result, veri
 
 This separation is necessary because the existing manual M3 evidence workflow uploads an artifact containing manager-specific decision evidence. CoVar must not consume or republish that full artifact in a public workflow. The extraction adapter is a code-level bridge only: no real prospective M3 forecast bundle has yet been captured and archived for CoVar. A private durable archive destination and a live pre-deadline M3 capture are still required.
 
-This is a realized-outcome target archive, not a forecast archive. Keep the two roles separate. The next step is to pass CI, run the builder against the inspected successful official ingestion artifact, and capture later official event-live payloads for GW1–GW10 final-scoring reconciliation before using outcomes for dependence estimation.
+This is a realized-outcome target archive, not a forecast archive. Keep the two roles separate. The realized panel has now been built and reconciled retrospectively for GW1–GW10. The next data blocker is a safe, durable archive of the exact conventional M3 forecast snapshot and FPL metadata captured before each deadline. Until those forecast vintages are paired with outcomes across enough independent Gameweeks, do not estimate or claim calibrated conditional dependence from this panel.
 
 ### Priority 3 — Resolve CTA data rights and identity
 
