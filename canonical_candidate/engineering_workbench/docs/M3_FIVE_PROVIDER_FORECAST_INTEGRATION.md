@@ -194,3 +194,14 @@ The raw capture identifies FPLRogue as `accepted_projections_release` / `provide
 
 - The one-shot manual capture workflow now retains a 90-day metadata-only artifact containing verified schema headers, row count, source hash and separate page/model/capture/deadline timestamps. Raw CSV, page HTML and official bootstrap remain ephemeral runner files and are excluded from artifact upload.
 - This supersedes the earlier statement that Lucho had no workflow/artifact. This is workflow plumbing only; no live run has been dispatched, and no provider forecast values are made public.
+
+
+## Recommendation-boundary identity provenance (2026-11-21)
+
+The shared recommendation adapter now fails closed unless coverage declares both identity_mapped_count equal to row_count and identity_resolution_status equal to VERIFIED. A row count or populated FPL ID alone is not evidence that a provider identity has been verified.
+
+- Sideline Quant: its player_id is checked as an exact integer member of the archived official FPL bootstrap elements[].id set. The canonical fixture snapshot and its documented player-Gameweek derivative carry VERIFIED with explicit direct-ID provenance.
+- FPL Wildcard: the parser currently resolves normalized player name + club against official bootstrap names and club short names. This is a useful deterministic candidate join, but it is not an independently verified provider-ID crosswalk. It is explicitly marked UNVERIFIED_NAME_CLUB_MATCH; it remains diagnostic-only, and its absent provider-generation timestamp independently blocks decision use.
+- Other providers must state their own source-backed identity-resolution method before recommendation routing. Do not mark provider-native IDs or heuristic name matches as verified merely because every row found a match.
+
+This gate is independent of forecast timing, coverage completeness, and M2 forecast-performance validation. Passing it does not promote a provider or make a recommendation release-eligible.
