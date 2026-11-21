@@ -50,7 +50,7 @@ def run_input():
                 {"fpl_element_id": row["fpl_element_id"], "expected_points": row["expected_points"]}
                 for row in forecasts
             ],
-            "coverage": {"row_count": len(forecasts), "identity_mapped_count": len(forecasts)},
+            "coverage": {"row_count": len(forecasts), "identity_mapped_count": len(forecasts), "identity_resolution_status": "VERIFIED"},
         },
         "player_metadata": [
             {key: row[key] for key in ("fpl_element_id", "price", "position", "team_id", "expected_minutes")}
