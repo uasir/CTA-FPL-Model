@@ -10,7 +10,7 @@ on:
       artifact_name:
         description: "Official ingestion artifact name"
         required: true
-        default: "cta-fpl-official"
+        default: "cta-fpl-official-44357649202"
         type: string
       start_event:
         description: "First Gameweek/event to reconcile"
