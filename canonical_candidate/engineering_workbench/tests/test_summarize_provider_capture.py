@@ -108,3 +108,24 @@ def test_fpl_lucho_summary_exposes_schema_and_provenance_but_not_csv_values():
     assert "private player" not in str(result)
     assert "9.9" not in str(result)
     assert "private raw bytes" not in str(result)
+
+
+
+def test_fplcat_and_sideline_summaries_carry_public_attribution():
+    fplcat = summarize_capture("FPL Cat", {
+        "provider_snapshot": {
+            "snapshot_id": "fplcat-gw12-test", "target_gameweek": 12,
+            "records": [{"fpl_element_id": 1}],
+            "timing": {"generated_at_utc": "2026-11-21T17:00:00Z"},
+            "source": {"raw_sha256": "a" * 64},
+        },
+        "capture_status": {"provider_generation_time_status": "VERIFIED"},
+    })
+    sideline = summarize_capture("Sideline Quant", {
+        "capture_id": "sidelinequant-gw12-test", "target_gameweek": 12,
+        "timing": {"generated_at_utc": "2026-11-21T17:00:00Z"},
+        "source": {"raw_sha256": "b" * 64},
+        "coverage": {"declared_row_count": 10, "declared_player_count": 5},
+    }, {"canonical_snapshot": {"coverage": {"row_count": 10}, "decision_eligible": True}})
+    assert "FPL Cat" in fplcat["source_license_and_attribution"]
+    assert "CC BY 4.0" in sideline["source_license_and_attribution"]
