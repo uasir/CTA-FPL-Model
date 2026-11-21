@@ -164,3 +164,97 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+def capture_fplrogue_frozen_archive_raw(
+    *, season, gameweek, snapshot_slug, snapshot_page_url, frozen_csv_url,
+    fetch_bytes=fetch, clock=utc_now,
+):
+    """Capture one frozen archive release; distinguish publisher and retrieval times."""
+    if isinstance(gameweek, bool) or not isinstance(gameweek, int) or gameweek < 1:
+        raise CaptureError("gameweek must be a positive integer")
+    if not isinstance(snapshot_slug, str) or not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}-gw\\d+", snapshot_slug):
+        raise CaptureError("snapshot_slug must identify a dated FPLRogue archive release")
+    page_raw, page_type = fetch_bytes(snapshot_page_url)
+    page_retrieved = clock()
+    csv_raw, csv_type = fetch_bytes(frozen_csv_url)
+    csv_retrieved = clock()
+    bootstrap_raw, bootstrap_type = fetch_bytes(BOOTSTRAP_URL)
+    bootstrap_retrieved = clock()
+    try:
+        extractor = TextExtractor()
+        extractor.feed(page_raw.decode("utf-8"))
+        text = " ".join(extractor.parts)
+        bootstrap = json.loads(bootstrap_raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise CaptureError("FPLRogue archive page or official FPL bootstrap is invalid") from exc
+    if not isinstance(bootstrap, dict) or not isinstance(bootstrap.get("events"), list):
+        raise CaptureError("official FPL bootstrap must contain events")
+    def required(pattern, field):
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if not match:
+            raise CaptureError(f"FPLRogue archive page is missing {field}")
+        return match.group(1).strip()
+    page_gw = int(required(r"Gameweek\\s+GW(\\d+)", "Gameweek"))
+    players = int(required(r"Players\\s+(\\d+)", "player count"))
+    engine = required(r"Projection engine\\s+([A-Za-z0-9_.-]+)", "projection engine")
+    captured = provider_time(required(
+        r"Captured\\s+(\\d{1,2}\\s+[A-Za-z]{3}\\s+\\d{4},\\s+\\d{2}:\\d{2}\\s+GMT)",
+        "publisher capture time"), "Captured")
+    trained = provider_time(required(
+        r"Model trained\\s+(\\d{1,2}\\s+[A-Za-z]{3}\\s+\\d{4},\\s+\\d{2}:\\d{2}\\s+GMT)",
+        "model training time"), "Model trained")
+    if page_gw != gameweek:
+        raise CaptureError(f"FPLRogue archive page GW{page_gw} does not match requested GW{gameweek}")
+    events = [event for event in bootstrap["events"] if event.get("id") == gameweek]
+    if len(events) != 1 or not isinstance(events[0].get("deadline_time"), str):
+        raise CaptureError("official FPL bootstrap has no unique target deadline")
+    deadline = datetime.fromisoformat(events[0]["deadline_time"].replace("Z", "+00:00"))
+    if captured >= deadline:
+        raise CaptureError("publisher archive capture is not pre-deadline")
+    if trained > captured:
+        raise CaptureError("FPLRogue model training time is later than archive capture")
+    try:
+        for stamp in (page_retrieved, csv_retrieved, bootstrap_retrieved):
+            datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+        reader = csv.reader(io.StringIO(csv_raw.decode("utf-8-sig")))
+        headers = next(reader)
+        rows = list(reader)
+    except (AttributeError, ValueError, UnicodeDecodeError, StopIteration, csv.Error) as exc:
+        raise CaptureError("FPLRogue frozen CSV or retrieval timestamp is invalid") from exc
+    if not headers or any(not header.strip() for header in headers) or len(set(headers)) != len(headers):
+        raise CaptureError("FPLRogue frozen CSV has empty or duplicate headers")
+    if len(rows) != players:
+        raise CaptureError(f"FPLRogue frozen CSV row count {len(rows)} does not match page player count {players}")
+    if any(len(row) != len(headers) for row in rows):
+        raise CaptureError("FPLRogue frozen CSV has inconsistent row widths")
+    hashes = {name: hashlib.sha256(raw).hexdigest() for name, raw in
+              (("page", page_raw), ("csv", csv_raw), ("bootstrap", bootstrap_raw))}
+    return {
+        "capture_id": f"fplrogue-{snapshot_slug}-archive-intake",
+        "provider": {"name": "FPLRogue", "product": "accepted_projections_release",
+                     "variant": "provider_native_xpts", "version": engine, "attribution": "FPLRogue"},
+        "season": season, "target_gameweek": gameweek,
+        "timing": {
+            "publisher_snapshot_captured_at_utc": captured.isoformat().replace("+00:00", "Z"),
+            "model_trained_at_utc": trained.isoformat().replace("+00:00", "Z"),
+            "page_retrieved_at_utc": page_retrieved,
+            "csv_retrieved_at_utc": csv_retrieved,
+            "official_bootstrap_retrieved_at_utc": bootstrap_retrieved,
+            "deadline_utc": deadline.isoformat().replace("+00:00", "Z"),
+            "generated_at_utc": None,
+            "generation_time_status": "NOT_DISCLOSED_AS_DISTINCT_FORECAST_GENERATION_TIME",
+            "point_in_time_status": "PUBLISHER_ASSERTED_FROZEN_PRE_DEADLINE_ARCHIVE",
+        },
+        "source": {"page_url": snapshot_page_url, "csv_url": frozen_csv_url,
+                   "archive_slug": snapshot_slug, "csv_raw_sha256": hashes["csv"],
+                   "csv_raw_snapshot_id": f"sha256:{hashes['csv']}",
+                   "page_raw_sha256": hashes["page"], "bootstrap_raw_sha256": hashes["bootstrap"],
+                   "content_types": {"page": page_type, "csv": csv_type, "bootstrap": bootstrap_type}},
+        "schema_inspection": {"csv_headers": headers, "csv_row_count": len(rows),
+                              "normalization_status": "PENDING_EXPLICIT_COLUMN_MAPPING"},
+        "raw_archives": {"page_html_base64": base64.b64encode(page_raw).decode("ascii"),
+                         "csv_base64": base64.b64encode(csv_raw).decode("ascii"),
+                         "official_fpl_bootstrap_base64": base64.b64encode(bootstrap_raw).decode("ascii")},
+        "coverage": {"page_declared_players": players, "csv_rows": len(rows)},
+    }
+

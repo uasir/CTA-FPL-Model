@@ -80,3 +80,42 @@ def test_schema_inspector_rejects_ragged_and_duplicate_headers():
         inspect_fplrogue_csv_schema(raw_capture(b"player_id,xPts\n1,8.2,extra\n2,9.0\n"))
     with pytest.raises(FPLRogueSchemaInspectionError, match="duplicate"):
         inspect_fplrogue_csv_schema(raw_capture(b"player_id,player_id\n1,8.2\n2,6.7\n"))
+
+def test_frozen_archive_capture_separates_publisher_capture_from_local_retrieval():
+    from capture_fplrogue_raw import capture_fplrogue_frozen_archive_raw
+    page_url = "https://www.fplrogue.com/research/projections/archive/2026-10-31-gw9"
+    csv_url = page_url + "/download.csv"
+    page = ("<body>Gameweek GW9 Players 2 Projection engine xpts_v1 "
+            "Captured 31 Oct 2026, 05:24 GMT Model trained 31 Oct 2026, 05:00 GMT</body>").encode()
+    csv_data = b"player_id,xPts,xMins\\n1,7.7,86\\n2,5.7,86\\n"
+    bootstrap = json.dumps({"events":[{"id":9,"deadline_time":"2026-10-31T11:00:00Z"}]}).encode()
+    responses = {page_url:(page,"text/html"),csv_url:(csv_data,"text/csv"),
+                 BOOTSTRAP_URL:(bootstrap,"application/json")}
+    ticks = iter(["2026-11-21T10:10:00Z","2026-11-21T10:11:00Z","2026-11-21T10:12:00Z"])
+    result = capture_fplrogue_frozen_archive_raw(
+        season="2026-27",gameweek=9,snapshot_slug="2026-10-31-gw9",
+        snapshot_page_url=page_url,frozen_csv_url=csv_url,
+        fetch_bytes=lambda url:responses[url],clock=lambda:next(ticks))
+    assert result["timing"]["publisher_snapshot_captured_at_utc"] == "2026-10-31T05:24:00Z"
+    assert result["timing"]["csv_retrieved_at_utc"] == "2026-11-21T10:11:00Z"
+    assert result["timing"]["generated_at_utc"] is None
+    assert result["timing"]["point_in_time_status"] == "PUBLISHER_ASSERTED_FROZEN_PRE_DEADLINE_ARCHIVE"
+    assert result["schema_inspection"]["csv_headers"] == ["player_id","xPts","xMins"]
+    assert result["source"]["csv_raw_sha256"] == hashlib.sha256(csv_data).hexdigest()
+
+
+def test_frozen_archive_capture_rejects_post_deadline_publisher_capture():
+    from capture_fplrogue_raw import capture_fplrogue_frozen_archive_raw
+    page_url = "https://example.test/archive/2026-10-31-gw9"
+    csv_url = page_url + "/download.csv"
+    page = ("<body>Gameweek GW9 Players 2 Projection engine xpts_v1 "
+            "Captured 31 Oct 2026, 11:24 GMT Model trained 31 Oct 2026, 05:00 GMT</body>").encode()
+    bootstrap = json.dumps({"events":[{"id":9,"deadline_time":"2026-10-31T11:00:00Z"}]}).encode()
+    responses = {page_url:(page,"text/html"),csv_url:(CSV,"text/csv"),
+                 BOOTSTRAP_URL:(bootstrap,"application/json")}
+    with pytest.raises(CaptureError, match="not pre-deadline"):
+        capture_fplrogue_frozen_archive_raw(
+            season="2026-27",gameweek=9,snapshot_slug="2026-10-31-gw9",
+            snapshot_page_url=page_url,frozen_csv_url=csv_url,
+            fetch_bytes=lambda url:responses[url],clock=lambda:"2026-11-21T10:10:00Z")
+
