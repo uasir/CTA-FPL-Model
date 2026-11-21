@@ -39,6 +39,12 @@ def test_archives_and_rehashes_private_bytes(tmp_path):
     assert os.stat(dest).st_mode & 0o777 == 0o700
     assert os.stat(dest / "archive_manifest.json").st_mode & 0o777 == 0o600
     assert json.loads((dest / "archive_manifest.json").read_text())["production_eligible"] is False
+    manifest = json.loads((dest / "archive_manifest.json").read_text())
+    saved = dest / manifest["validated_forecast_document"]["archive_path"]
+    archived_document = json.loads(saved.read_text())
+    assert archived_document == doc
+    assert hashlib.sha256(saved.read_bytes()).hexdigest() == manifest["validated_forecast_document"]["sha256"]
+    assert os.stat(saved).st_mode & 0o777 == 0o600
 
 def test_rejects_tampered_bytes(tmp_path):
     doc, blobs = sample(); blobs["source:feed"] = b"tampered"
