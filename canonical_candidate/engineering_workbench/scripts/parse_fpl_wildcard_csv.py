@@ -142,8 +142,8 @@ def parse_fpl_wildcard_csv(csv_text: str, metadata: Mapping[str, Any],
         "target_gameweek": gameweek,
         "provider": {
             "name": PROVIDER,
-            "product": "public projection dataset",
-            "variant": "Model v11 player-Gameweek xPts",
+            "product": "projection_csv",
+            "variant": "provider_native_xpts",
             "version": metadata.get("model_version"),
         },
         "timing": {
