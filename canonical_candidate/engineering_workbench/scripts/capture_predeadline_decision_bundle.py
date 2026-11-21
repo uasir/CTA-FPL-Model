@@ -18,6 +18,7 @@ from typing import Any, Callable, Mapping
 
 from capture_fpl_cat_snapshot import FPL_BOOTSTRAP_URL, FPL_CAT_URL, capture_fpl_cat_snapshot
 from capture_fpl_manager_context import capture_manager_context
+from forecast_provider_registry import get_active_provider
 
 
 class DecisionCaptureError(ValueError):
@@ -118,6 +119,7 @@ def capture_predeadline_decision_bundle(
     gameweek: int,
     season: str,
     manager_state: Mapping[str, Any],
+    provider_capture_override: Mapping[str, Any] | None = None,
     clock: Callable[[], str] | None = None,
 ) -> dict[str, Any]:
     if team_id <= 0 or gameweek <= 0:
@@ -128,8 +130,26 @@ def capture_predeadline_decision_bundle(
     expected_ids = set(state["squad_15"])
     starting_xi_ids = set(state["starting_xi"])
 
-    provider_capture = capture_fpl_cat_snapshot(season=season)
+    provider_capture = (
+        dict(provider_capture_override)
+        if provider_capture_override is not None
+        else capture_fpl_cat_snapshot(season=season)
+    )
+    for required_capture_field in (
+        "provider_snapshot", "player_metadata", "raw_archives", "player_metadata_provenance"
+    ):
+        if required_capture_field not in provider_capture:
+            raise DecisionCaptureError(
+                f"provider capture override is missing {required_capture_field}"
+            )
     provider = provider_capture["provider_snapshot"]
+    if not isinstance(provider, Mapping) or not isinstance(provider.get("provider"), Mapping):
+        raise DecisionCaptureError("provider capture snapshot is invalid")
+    provider_spec = get_active_provider(provider["provider"].get("name", ""))
+    if provider.get("provider", {}).get("product") != provider_spec["product"]:
+        raise DecisionCaptureError("provider capture product does not match the active registry")
+    if provider.get("provider", {}).get("variant") != provider_spec["forecast_variant"]:
+        raise DecisionCaptureError("provider capture variant does not match the active registry")
     provider_raw_b64 = provider_capture["raw_archives"]["provider_response_base64"]
     provider_raw, provider_payload = _decode_json(provider_raw_b64, "provider forecast")
     if provider.get("target_gameweek") != gameweek or provider_payload.get("gameweek") != gameweek:
@@ -371,13 +391,13 @@ def capture_predeadline_decision_bundle(
         "sources": [
             {
                 "source_type": "provider_forecast",
-                "provider_id": "fpl-cat",
-                "provider_variant": "public-xp",
+                "provider_id": provider_spec["provider_id"],
+                "provider_variant": provider["provider"]["variant"],
                 "raw_snapshot_id": f"sha256:{provider_hash}",
                 "raw_sha256": provider_hash,
                 "generated_at_utc": generated_text,
                 "captured_at_utc": provider.get("timing", {}).get("captured_at_utc"),
-                "source_url": FPL_CAT_URL,
+                "source_url": provider["source"]["url"],
                 "raw_payload_base64": provider_raw_b64,
             },
             {
@@ -419,6 +439,8 @@ def main() -> int:
     parser.add_argument("--season", required=True)
     parser.add_argument("--manager-state-json", required=True,
                         help="JSON manager state: squad_15, bank, free_transfers, formation, starting_xi, bench_order, reserve_goalkeeper_id, captain_id, vice_captain_id, chip_state")
+    parser.add_argument("--provider-capture-override", type=Path,
+                        help="Canonical provider capture bundle (e.g. a parsed Sideline Quant player-GW snapshot)")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
@@ -427,11 +449,19 @@ def main() -> int:
         raise DecisionCaptureError("manager-state-json is not valid JSON") from exc
     if not isinstance(manager_state, dict):
         raise DecisionCaptureError("manager-state-json must be a JSON object")
+    provider_override = None
+    if args.provider_capture_override is not None:
+        provider_override = json.loads(
+            args.provider_capture_override.read_text(encoding="utf-8")
+        )
+        if not isinstance(provider_override, dict):
+            raise DecisionCaptureError("provider-capture-override must contain a JSON object")
     result = capture_predeadline_decision_bundle(
         team_id=args.team_id,
         gameweek=args.gameweek,
         season=args.season,
         manager_state=manager_state,
+        provider_capture_override=provider_override,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
