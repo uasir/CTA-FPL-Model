@@ -152,3 +152,16 @@ def test_runner_rejects_inconsistent_covariance_shrinkage_metadata():
         assert "inconsistent with its parameter" in str(exc)
     else:
         raise AssertionError("inconsistent covariance shrinkage metadata was accepted")
+
+
+def test_runner_rejects_malformed_historical_stability_diagnostic():
+    payload = run_input()
+    context = _historical_context(payload)
+    context["covariance_report"]["rolling_correlation_stability"] = "not-an-object"
+    payload["historical_covariance_context"] = context
+    try:
+        run_external_benchmark_personal_squad(payload)
+    except ValueError as exc:
+        assert "rolling correlation stability diagnostic must be an object" in str(exc)
+    else:
+        raise AssertionError("malformed stability diagnostic was accepted")
