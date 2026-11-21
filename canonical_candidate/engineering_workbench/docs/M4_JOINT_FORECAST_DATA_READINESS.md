@@ -66,7 +66,17 @@ A separate reconciliation adapter is now implemented:
 - `scripts/m4_covar_realized_fpl_finality_audit.py`
 - `tests/test_m4_covar_realized_fpl_finality_audit.py`
 
-It compares each supplied player-Gameweek aggregate against the corresponding official `event/{event_id}/live` response across minutes, points, goals, assists, clean sheets, goals conceded, own goals, penalties, cards, saves and bonus/BPS. It requires the exact event, official endpoint provenance, capture timestamp and raw SHA-256. It fails on missing/duplicate players, missing stats or any mismatch; it never zero-fills absent history rows. A passing result establishes agreement with that captured final-scoring response only, not historical point-in-time integrity or fixture-level dependence.\n\nThis is a realized-outcome target archive, not a forecast archive. Keep the two roles separate. The next step is to test it in CI, then use an actual successful official ingestion artifact to assess row coverage, season/GW counts, and reconciliation against the official ingestion report before using it for dependence estimation.
+It compares each supplied player-Gameweek aggregate against the corresponding official `event/{event_id}/live` response across minutes, points, goals, assists, clean sheets, goals conceded, own goals, penalties, cards, saves and bonus/BPS. It requires the exact event, official endpoint provenance, capture timestamp and raw SHA-256. It fails on missing/duplicate players, missing stats or any mismatch; it never zero-fills absent history rows. A passing result establishes agreement with that captured final-scoring response only, not historical point-in-time integrity or fixture-level dependence.
+
+### Exact M3 forecast snapshot bridge
+
+A manager-free extraction adapter is also implemented:
+- `scripts/m3_covar_forecast_snapshot_adapter.py`
+- `tests/test_m3_covar_forecast_snapshot_adapter.py`
+
+It takes the sealed one-Gameweek M3 evidence bundle and M3 decision result, verifies provider and official bootstrap source bytes against SHA-256/source IDs/timestamps, confirms the M3 forecast snapshot ID and model version, and rebuilds the same conventional player-forecast payload using the M3 provider contract and recommendation adapter. The output contains only the forecast snapshot, player metadata, player forecasts and provider/metadata source archives. It excludes manager identity, squad, bank, transfer state, frozen decision and evaluation candidate.
+
+This separation is necessary because the existing manual M3 evidence workflow uploads an artifact containing manager-specific decision evidence. CoVar must not consume or republish that full artifact in a public workflow. The extraction adapter is a code-level bridge only: no real prospective M3 forecast bundle has yet been captured and archived for CoVar. A private durable archive destination and a live pre-deadline M3 capture are still required.\n\nThis is a realized-outcome target archive, not a forecast archive. Keep the two roles separate. The next step is to test it in CI, then use an actual successful official ingestion artifact to assess row coverage, season/GW counts, and reconciliation against the official ingestion report before using it for dependence estimation.
 
 ### Priority 3 — Resolve CTA data rights and identity
 
