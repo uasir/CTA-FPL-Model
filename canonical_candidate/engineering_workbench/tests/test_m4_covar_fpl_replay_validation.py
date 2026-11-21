@@ -162,6 +162,30 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
         with self.assertRaisesRegex(CovarFplReplayError, "restricted manager identifier"):
             validate_official_replay_case(case)
 
+    def test_rejects_official_pick_order_mismatch(self):
+        case = replay()
+        case["official_final"]["picks"][0]["position"] = 2
+        with self.assertRaisesRegex(CovarFplReplayError, "pick order"):
+            validate_official_replay_case(case)
+
+    def test_rejects_official_captain_or_vice_mismatch(self):
+        case = replay()
+        case["official_final"]["picks"][9]["is_captain"] = False
+        case["official_final"]["picks"][8]["is_captain"] = True
+        with self.assertRaisesRegex(CovarFplReplayError, "captain does not match"):
+            validate_official_replay_case(case)
+
+    def test_rejects_inconsistent_minutes_and_played_status(self):
+        case = replay()
+        case["player_outcomes"]["p1"]["minutes"] = 90
+        case["player_outcomes"]["p1"]["played"] = False
+        with self.assertRaisesRegex(CovarFplReplayError, "conflicts with positive minutes"):
+            validate_official_replay_case(case)
+        case = replay()
+        case["player_outcomes"]["p1"]["minutes"] = -1
+        with self.assertRaisesRegex(CovarFplReplayError, "negative minutes"):
+            validate_official_replay_case(case)
+
     def test_batch_report_is_aggregated_and_research_only(self):
         result = validate_replay_batch({"replays": [replay(), replay("3xc")]})
         self.assertEqual(result["status"], "PASS")
