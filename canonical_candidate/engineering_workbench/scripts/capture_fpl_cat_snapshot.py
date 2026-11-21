@@ -147,8 +147,8 @@ def capture_fpl_cat_snapshot(
             "target_gameweek": gw,
             "provider": {
                 "name": "FPL Cat",
-                "product": "published xP",
-                "variant": "public next-gameweek JSON API",
+                "product": "projections",
+                "variant": "provider_native_xp",
                 "version": "api/v1",
             },
             "timing": {
