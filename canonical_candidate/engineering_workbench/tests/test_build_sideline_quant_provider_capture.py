@@ -84,6 +84,7 @@ def test_builds_registered_sideline_quant_capture_envelope_with_aggregation_prov
     assert result["player_metadata"] == [{
         "fpl_element_id": 1, "price": 4.5, "position": "DEF", "team_id": 3,
     }]
+    assert result["player_metadata_provenance"]["row_count"] == len(result["player_metadata"])
     assert result["player_metadata_provenance"]["raw_sha256"] == bootstrap_hash
     assert result["raw_archives"]["provider_response_base64"] == raw["raw_archives"]["provider_response_base64"]
 
@@ -125,3 +126,24 @@ def test_rejects_missing_or_unsupported_aggregation_provenance():
     parsed["aggregation_provenance"]["publisher_documented"] = False
     with pytest.raises(ProviderCaptureBuildError, match="incomplete or unsupported"):
         build_sideline_quant_provider_capture(raw, parsed)
+
+
+def test_preserves_full_official_metadata_universe_for_runner_provenance_count():
+    raw, parsed, _, _, _ = _fixtures()
+    bootstrap_raw = json.dumps({
+        "elements": [
+            {"id": 1, "element_type": 2, "team": 3, "now_cost": 45},
+            {"id": 2, "element_type": 3, "team": 4, "now_cost": 60},
+        ],
+        "element_types": [
+            {"id": 2, "singular_name_short": "DEF"},
+            {"id": 3, "singular_name_short": "MID"},
+        ],
+    }).encode()
+    raw["raw_archives"]["official_fpl_bootstrap_base64"] = base64.b64encode(bootstrap_raw).decode()
+    bootstrap_hash = hashlib.sha256(bootstrap_raw).hexdigest()
+    raw["official_metadata_provenance"]["raw_sha256"] = bootstrap_hash
+    raw["official_metadata_provenance"]["raw_snapshot_id"] = f"sha256:{bootstrap_hash}"
+    result = build_sideline_quant_provider_capture(raw, parsed)
+    assert len(result["player_metadata"]) == 2
+    assert result["player_metadata_provenance"]["row_count"] == len(result["player_metadata"])
