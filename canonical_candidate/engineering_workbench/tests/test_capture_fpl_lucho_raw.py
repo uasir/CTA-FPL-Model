@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from scripts.capture_fpl_lucho_raw import CaptureError, capture_fpl_lucho_raw
+from capture_fpl_lucho_raw import CaptureError, capture_fpl_lucho_raw
 
 
 PAGE = b"""
