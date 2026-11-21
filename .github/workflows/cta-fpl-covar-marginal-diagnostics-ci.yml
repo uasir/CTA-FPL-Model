@@ -1,0 +1,77 @@
+name: CTA CoVar marginal diagnostics engineering tests
+
+on:
+  push:
+    branches:
+      - feat/m4-field-portfolio-intelligence
+    paths:
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_matched_outcome_panel.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_outcome_matcher.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_marginal_diagnostics.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_recommendation_report_adapter.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_full_gameweek_scoring.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_full_gameweek_contract.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_lineup_resolver.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_historical_portfolio_overlay.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_build_historical_covariance.py"
+      - ".github/workflows/cta-fpl-covar-historical-capture.yml"
+      - "canonical_candidate/engineering_workbench/scripts/personal_squad_covar_recommendation.py"
+      - "canonical_candidate/engineering_workbench/docs/M4_COVAR_IMMEDIATE_CONVENTIONAL_FORECAST_USE.md"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_matched_outcome_panel.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_forecast_outcome_matcher.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_forecast_marginal_diagnostics.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_recommendation_report_adapter.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_full_gameweek_scoring.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_full_gameweek_contract.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_historical_portfolio_overlay.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_build_historical_covariance.py"
+      - "canonical_candidate/engineering_workbench/tests/test_personal_squad_covar_recommendation.py"
+      - ".github/workflows/cta-fpl-covar-marginal-diagnostics-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-covar-marginal-diagnostics-ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  focused-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Compile CoVar validation modules
+        run: |
+          python -m py_compile \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_matched_outcome_panel.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_outcome_matcher.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_marginal_diagnostics.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_recommendation_report_adapter.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_full_gameweek_scoring.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_full_gameweek_contract.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_historical_portfolio_overlay.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_build_historical_covariance.py \
+            canonical_candidate/engineering_workbench/scripts/personal_squad_covar_recommendation.py
+      - name: Run focused CoVar validation tests
+        env:
+          PYTHONPATH: canonical_candidate/engineering_workbench/scripts
+        run: |
+          python -m pytest -q \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_matched_outcome_panel.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_forecast_outcome_matcher.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_forecast_marginal_diagnostics.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_recommendation_report_adapter.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_full_gameweek_scoring.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_full_gameweek_contract.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_historical_portfolio_overlay.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_build_historical_covariance.py \
+            canonical_candidate/engineering_workbench/tests/test_personal_squad_covar_recommendation.py

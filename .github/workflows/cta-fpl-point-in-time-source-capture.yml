@@ -1,0 +1,109 @@
+name: CTA FPL point-in-time public source capture
+
+on:
+  workflow_dispatch:
+    inputs:
+      event_id:
+        description: "Optional explicit FPL Gameweek/event ID (blank = next upcoming event)"
+        required: false
+        type: string
+  schedule:
+    # Fifteen-minute cadence ensures coverage of any deadline minute; capture step gates to final 35 minutes.
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-fpl-point-in-time-source-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Resolve target Gameweek
+        id: event
+        env:
+          REQUESTED_EVENT_ID: ${{ inputs.event_id }}
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import os
+          from datetime import datetime, timezone
+          from urllib.request import Request, urlopen
+
+          requested = os.environ.get("REQUESTED_EVENT_ID", "").strip()
+          if requested:
+              if not requested.isdigit() or int(requested) < 1:
+                  raise SystemExit("event_id must be a positive integer")
+              event_id = int(requested)
+              print(f"event_id={event_id}")
+              print("should_capture=true")
+              raise SystemExit(0)
+          else:
+              request = Request(
+                  "https://fantasy.premierleague.com/api/bootstrap-static/",
+                  headers={"Accept": "application/json", "User-Agent": "CTA-FPL-Model-source-capture/1.0"},
+              )
+              with urlopen(request, timeout=20) as response:
+                  payload = json.loads(response.read().decode("utf-8"))
+              events = payload.get("events")
+              if not isinstance(events, list):
+                  raise SystemExit("official bootstrap response has no events list")
+              upcoming = [e for e in events if isinstance(e, dict) and e.get("is_next") is True]
+              if len(upcoming) == 1:
+                  event_id = int(upcoming[0]["id"])
+                  deadline = datetime.fromisoformat(upcoming[0]["deadline_time"].replace("Z", "+00:00"))
+              else:
+                  now = datetime.now(timezone.utc)
+                  future = []
+                  for event in events:
+                      if not isinstance(event, dict) or event.get("finished") is True:
+                          continue
+                      deadline = event.get("deadline_time")
+                      if not isinstance(deadline, str):
+                          continue
+                      parsed = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
+                      if parsed.tzinfo is not None and parsed > now:
+                          future.append((parsed, int(event["id"])))
+                  if not future:
+                      raise SystemExit("could not resolve a future unfinished FPL Gameweek")
+                  deadline, event_id = min(future)
+              minutes_to_deadline = (deadline - datetime.now(timezone.utc)).total_seconds() / 60
+              should_capture = 0 <= minutes_to_deadline <= 35
+              print(f"event_id={event_id}")
+              print(f"should_capture={str(should_capture).lower()}")
+              print(f"minutes_to_deadline={minutes_to_deadline:.1f}")
+          PY
+      - name: Capture official public FPL source bytes
+        if: steps.event.outputs.should_capture == 'true'
+        env:
+          EVENT_ID: ${{ steps.event.outputs.event_id }}
+          RUNNER_TEMP: ${{ runner.temp }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/m4_covar_point_in_time_source_capture.py \
+            --event "$EVENT_ID" \
+            --output-dir "$RUNNER_TEMP/cta-fpl-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+      - name: Upload public source archive
+        if: steps.event.outputs.should_capture == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-fpl-point-in-time-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cta-fpl-source-${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: error
+          retention-days: 90
