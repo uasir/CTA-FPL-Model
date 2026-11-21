@@ -1,9 +1,6 @@
 name: Capture Sideline Quant raw benchmark snapshot
 
 on:
-  push:
-    paths:
-      - ".github/workflows/trigger-sidelinequant-gw12.txt"
   workflow_dispatch:
     inputs:
       season:
@@ -38,27 +35,27 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/capture_sideline_quant_raw.py \
-            --season "${{ inputs.season || '2026-27' }}" \
-            --gameweek "${{ inputs.gameweek || '12' }}" \
-            --output "artifacts/sidelinequant/sidelinequant-${{ inputs.season || '2026-27' }}-gw${{ inputs.gameweek || '12' }}-raw.json"
+            --season "${{ inputs.season }}" \
+            --gameweek "${{ inputs.gameweek }}" \
+            --output "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json"
       - name: Normalize fixture-grain snapshot and explicit Gameweek xP sum
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/parse_sideline_quant_snapshot.py \
-            --input "artifacts/sidelinequant/sidelinequant-${{ inputs.season || '2026-27' }}-gw${{ inputs.gameweek || '12' }}-raw.json" \
-            --output "artifacts/sidelinequant/sidelinequant-${{ inputs.season || '2026-27' }}-gw${{ inputs.gameweek || '12' }}-normalized.json"
+            --input "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json" \
+            --output "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-normalized.json"
       - name: Create metadata-only public summary
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/summarize_provider_capture.py \
             --provider "Sideline Quant" \
-            --input "artifacts/sidelinequant/sidelinequant-${{ inputs.season || '2026-27' }}-gw${{ inputs.gameweek || '12' }}-raw.json" \
-            --normalized "artifacts/sidelinequant/sidelinequant-${{ inputs.season || '2026-27' }}-gw${{ inputs.gameweek || '12' }}-normalized.json" \
+            --input "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json" \
+            --normalized "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-normalized.json" \
             --output "artifacts/provider-summary/sidelinequant.json"
       - name: Upload metadata-only capture summary
         uses: actions/upload-artifact@v4
         with:
-          name: sidelinequant-summary-${{ inputs.season || '2026-27' }}-gw${{ inputs.gameweek || '12' }}-${{ github.run_id }}
+          name: sidelinequant-summary-${{ inputs.season }}-gw${{ inputs.gameweek }}-${{ github.run_id }}
           path: canonical_candidate/engineering_workbench/artifacts/provider-summary/sidelinequant.json
           if-no-files-found: error
           retention-days: 90
