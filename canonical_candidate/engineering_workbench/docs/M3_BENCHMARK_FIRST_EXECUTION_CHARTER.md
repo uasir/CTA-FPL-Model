@@ -181,7 +181,7 @@ M3 is not accepted until:
 
 Passing software tests alone does not establish forecast accuracy or guarantee rank improvement.
 
-## 6. Interfaces to M4 and M5
+## 6. Interface to M4 — release the three recommendation products
 
 M3 output must expose a versioned decision object with:
 - chosen provider and exact variant;
@@ -192,7 +192,7 @@ M3 output must expose a versioned decision object with:
 - expected-points basis and limitations;
 - validation/eligibility state and warnings.
 
-M4 will later enrich this decision with the existing LiveFPL EO field reference and validated portfolio context. M5 will publish the three separate recommendation products. Neither M4 nor M5 is implemented in this M3 branch.
+M3 itself owns the integrated field-relative, EO and CoVar context inside the squad-specific decision path. M4 consumes the completed, release-gated M3 interfaces to publish the three distinct recommendation products. No fifth milestone exists in the current roadmap.
 
 ## 7. Model transition
 
