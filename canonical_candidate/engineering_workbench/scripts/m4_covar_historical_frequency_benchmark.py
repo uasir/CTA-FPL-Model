@@ -32,9 +32,11 @@ def build_expanding_window_frequency_reference(
     """Attach an expanding-window historical-frequency reference per forecast.
 
     historical_outcomes contains one realized joint state per completed
-    Gameweek, with gameweek_id and first_kickoff_utc. Only outcomes whose
-    Gameweek kickoff strictly precedes that forecast's training cutoff are
-    eligible. Repeated forecast snapshots never become additional outcome
+    Gameweek, with gameweek_id, first_kickoff_utc and
+    outcome_available_at_utc (when the complete Gameweek result became
+    available to the forecasting process). Only outcomes whose complete
+    result was available strictly before that forecast's training cutoff are
+    eligible; kickoff alone is not sufficient. Repeated forecast snapshots never become additional outcome
     observations. The explicit state catalogue is fixed for all rows.
     """
     if not isinstance(forecasts, Sequence) or isinstance(forecasts, (str, bytes)) or not forecasts:
@@ -60,7 +62,10 @@ def build_expanding_window_frequency_reference(
         if state not in states:
             raise HistoricalFrequencyBenchmarkError("historical outcome state is outside the declared catalogue")
         kickoff = _time(row.get("first_kickoff_utc"), "historical first_kickoff_utc")
-        outcomes[gw] = {"state": state, "kickoff": kickoff}
+        available = _time(row.get("outcome_available_at_utc"), "historical outcome_available_at_utc")
+        if available < kickoff:
+            raise HistoricalFrequencyBenchmarkError("historical outcome cannot be available before first kickoff")
+        outcomes[gw] = {"state": state, "kickoff": kickoff, "available": available}
 
     forecast_ids = set()
     result_rows = []
@@ -79,7 +84,7 @@ def build_expanding_window_frequency_reference(
             raise HistoricalFrequencyBenchmarkError("forecast timestamps violate cutoff <= as-of < kickoff")
         if gameweek_id in outcomes:
             raise HistoricalFrequencyBenchmarkError("target Gameweek cannot appear in historical outcomes")
-        eligible = [item for item in outcomes.values() if item["kickoff"] < cutoff]
+        eligible = [item for item in outcomes.values() if item["available"] < cutoff]
         counts = {state: 0 for state in states}
         for item in eligible:
             counts[item["state"]] += 1
@@ -98,7 +103,7 @@ def build_expanding_window_frequency_reference(
                 "smoothing_alpha": float(smoothing_alpha),
                 "training_cutoff_utc": cutoff.isoformat(),
                 "eligible_gameweek_ids": sorted(
-                    gw for gw, item in outcomes.items() if item["kickoff"] < cutoff
+                    gw for gw, item in outcomes.items() if item["available"] < cutoff
                 ),
             },
         })
@@ -111,7 +116,7 @@ def build_expanding_window_frequency_reference(
         "reference_method": "EXPANDING_WINDOW_GAMEWEEK_HISTORICAL_FREQUENCY",
         "smoothing_alpha": float(smoothing_alpha),
         "forecasts": result_rows,
-        "leakage_policy": "ONLY_GAMEWEEK_OUTCOMES_WITH_FIRST_KICKOFF_STRICTLY_BEFORE_EACH_FORECAST_TRAINING_CUTOFF",
+        "leakage_policy": "ONLY_COMPLETED_GAMEWEEK_OUTCOMES_AVAILABLE_STRICTLY_BEFORE_EACH_FORECAST_TRAINING_CUTOFF",
         "decision_weight": 0.0,
         "production_eligible": False,
     }
