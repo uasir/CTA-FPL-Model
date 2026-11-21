@@ -34,10 +34,10 @@ def archive_explicit_joint_forecast(*, document: Mapping[str, Any],
         if not isinstance(artifact_bytes[key], bytes) or _sha(artifact_bytes[key]) != expected[key]:
             raise JointForecastSourceAdapterError(f"{key} SHA-256 mismatch or non-bytes input")
 
-    root = Path(archive_root).expanduser().absolute()
+    root = Path(archive_root).expanduser().resolve(strict=False)
     if root.exists():
         raise JointForecastSourceAdapterError("archive destination already exists")
-    if any((parent / ".git").exists() for parent in (root, *root.parents)):
+    if any(((parent / ".git").exists() or (parent / ".git").is_file()) for parent in (root, *root.parents)):
         raise JointForecastSourceAdapterError("archive destination must be outside a Git repository")
     root.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=".covar-joint-", dir=str(root.parent)))
@@ -64,6 +64,14 @@ def archive_explicit_joint_forecast(*, document: Mapping[str, Any],
         write("forecast_payload", "forecast/payload.bin", "forecast_payload")
         verification = verify_joint_forecast_archive(
             [{"forecast_id": fid, "provenance": prov}], staging, entries)
+        # Preserve the complete validated joint-scenario document separately from
+        # the source payload whose hash is declared in provenance.
+        document_bytes = (json.dumps(document, sort_keys=True, separators=(",", ":"),
+                                     ensure_ascii=False) + "\n").encode("utf-8")
+        document_path = staging / "forecast" / "validated_document.json"
+        with document_path.open("xb") as stream:
+            stream.write(document_bytes)
+        os.chmod(document_path, 0o600)
         manifest = {
             "schema_version": "1.0.0",
             "archive_type": "PRIVATE_EXPLICIT_JOINT_COVAR_FORECAST",
@@ -75,6 +83,14 @@ def archive_explicit_joint_forecast(*, document: Mapping[str, Any],
             "intake_report": intake,
             "byte_verification": verification,
             "artifacts": entries,
+            "validated_forecast_document": {
+                "archive_path": "forecast/validated_document.json",
+                "sha256": _sha(document_bytes),
+                "byte_count": len(document_bytes),
+                "scenario_count": intake["scenario_count"],
+                "player_count": intake["player_count"],
+                "fixture_count": intake["fixture_count"],
+            },
             "privacy": {"manager_identity_included": False,
                         "manager_squad_included": False,
                         "bank_or_transfer_state_included": False,
