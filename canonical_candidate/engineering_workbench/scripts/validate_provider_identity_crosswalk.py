@@ -46,7 +46,8 @@ def validate_headers(headers, provider):
     if headers is None:
         return ["CSV header row is missing"]
     duplicates = sorted({name for name in headers if headers.count(name) > 1})
-    missing = sorted(set(FIELDS) - set(headers))
+    required_headers = set(REQUIRED) | ({"fpl_team_code"} if provider == "opta_pulselive" else set())
+    missing = sorted(required_headers - set(headers))
     errors = []
     if duplicates:
         errors.append("duplicate CSV columns: " + ", ".join(duplicates))
