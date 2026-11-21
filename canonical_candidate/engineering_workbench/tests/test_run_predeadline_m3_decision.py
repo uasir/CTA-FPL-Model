@@ -218,3 +218,53 @@ def test_runs_real_external_benchmark_engine_from_frozen_evidence_bundle():
     assert result["frozen_decision"]["action"] in {"HOLD", "TRANSFER"}
     assert len(result["evaluation_candidate"]["manager_state"]["squad_snapshot"]) == 15
     assert len(result["evaluation_candidate"]["source_archives"]) == 3
+
+
+def test_passes_optional_provisional_field_artifact_to_personal_squad_engine(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(
+        runner, "run_external_benchmark_personal_squad",
+        lambda payload: (captured.update(payload) or _engine_result()),
+    )
+    monkeypatch.setattr(
+        canonical_provider_forecast_contract, "normalize_provider_snapshot",
+        lambda snapshot: snapshot,
+    )
+    monkeypatch.setattr(
+        canonical_forecast_recommendation_adapter, "build_recommendation_forecast_payload",
+        lambda *args, **kwargs: {
+            "player_forecasts": [
+                {"fpl_element_id": row["fpl_element_id"], "position": row["position"],
+                 "team_id": row["team_id"], "price": row["price"], "expected_points": 5,
+                 "expected_minutes": 80}
+                for row in _manifest()["12"]["player_metadata"]
+            ]
+        },
+    )
+    field_capture = {
+        "csv_path": "field-capture/predeadline_field_eo.csv",
+        "report_path": "field-capture/predeadline_field_report.json",
+        "source_url": "https://fantasy.premierleague.com/api/",
+    }
+    runner.run_predeadline_m3_decision(
+        _manifest(), software_commit="b" * 40,
+        predeadline_field_capture=field_capture,
+    )
+    assert captured["predeadline_field_capture"] == {
+        **field_capture, "season": "2026-27"
+    }
+
+
+def test_rejects_incomplete_provisional_field_artifact_handoff(monkeypatch):
+    monkeypatch.setattr(
+        runner, "run_external_benchmark_personal_squad",
+        lambda payload: _engine_result(),
+    )
+    with pytest.raises(runner.PredeadlineDecisionError, match="source_url"):
+        runner.run_predeadline_m3_decision(
+            _manifest(), software_commit="b" * 40,
+            predeadline_field_capture={
+                "csv_path": "field-capture/predeadline_field_eo.csv",
+                "report_path": "field-capture/predeadline_field_report.json",
+            },
+        )
