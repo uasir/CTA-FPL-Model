@@ -11,7 +11,6 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import stat
 import time
 from datetime import datetime, timezone
@@ -88,8 +87,8 @@ def capture_public_sources(
             if index:
                 sleep(0.25)
             url = url_factory(event_id)
-            retrieved_at = clock()
             raw = fetch(url)
+            retrieved_at = clock()
             # Parse again at the boundary to ensure the exact archived bytes are JSON.
             try:
                 json.loads(raw.decode("utf-8"))
