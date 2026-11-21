@@ -9,22 +9,27 @@ WORKFLOWS = {
 }
 
 
-def test_public_provider_workflows_upload_metadata_summaries_only():
-    for provider, path in WORKFLOWS.items():
-        workflow = path.read_text(encoding="utf-8")
-        assert "Create metadata-only public summary" in workflow, provider
-        assert "Upload metadata-only capture summary" in workflow, provider
-        assert "artifacts/provider-summary/" in workflow, provider
-        assert "retention-days: 90" in workflow, provider
-        # Raw capture paths may be used inside the ephemeral runner, but never
-        # as the upload-artifact path in this public repository.
-        upload_block = workflow.split("uses: actions/upload-artifact@v4", 1)[1]
-        artifact_path_line = next(
-            line.strip() for line in upload_block.splitlines()
-            if line.strip().startswith("path:")
-        )
-        assert "artifacts/provider-summary/" in artifact_path_line, provider
-        assert f"artifacts/{provider}/" not in artifact_path_line, provider
+def test_public_provider_workflows_preserve_raw_artifacts_only_for_redistributable_feeds():
+    fplcat = WORKFLOWS["fplcat"].read_text(encoding="utf-8")
+    sideline = WORKFLOWS["sidelinequant"].read_text(encoding="utf-8")
+    fplrogue = WORKFLOWS["fplrogue"].read_text(encoding="utf-8")
+
+    # FPL Cat public use requires attribution; Sideline Quant provider data is CC BY 4.0.
+    # Preserve immutable raw snapshots for those two eligible feeds, with run-scoped retention.
+    assert "Upload immutable raw snapshot and metadata summary" in fplcat
+    assert "artifacts/fplcat/" in fplcat
+    assert "artifacts/provider-summary/" in fplcat
+    assert "retention-days: 90" in fplcat
+    assert "Upload immutable raw snapshot, normalized feed and metadata summary" in sideline
+    assert "artifacts/sidelinequant/" in sideline
+    assert "artifacts/provider-summary/" in sideline
+    assert "retention-days: 90" in sideline
+
+    # FPLRogue remains metadata-only until source terms and redistribution permissions are cleared.
+    assert "Upload metadata-only capture summary" in fplrogue
+    upload_block = fplrogue.split("uses: actions/upload-artifact@v4", 1)[1]
+    assert "artifacts/provider-summary/" in upload_block
+    assert "artifacts/fplrogue/" not in upload_block
 
 
 def test_wildcard_has_no_public_capture_workflow():
@@ -50,6 +55,10 @@ def test_personal_m3_workflow_accepts_public_manager_inputs_and_preserves_eviden
     assert "secrets.M3_" not in workflow
     assert "Refuse personal decision capture in a public repository" not in workflow
     assert "name: predeadline-decision-evidence-manager-${{ inputs.manager_team_id }}-gw${{ inputs.gameweek }}-run${{ github.run_id }}" in workflow
+    assert "sidelinequant_capture_run_id:" in workflow
+    assert "sidelinequant-gw${{ inputs.gameweek }}-${{ inputs.sidelinequant_capture_run_id }}" in workflow
+    assert "build_sideline_quant_provider_capture.py" in workflow
+    assert "--provider-capture-override sidelinequant-provider-capture-override.json" in workflow
     assert "provisional-field-eo-${{ inputs.field_eo_capture_run_id }}" in workflow
     assert "run-id: ${{ inputs.field_eo_capture_run_id }}" in workflow
     assert "canonical_candidate/engineering_workbench/field-capture" in workflow
