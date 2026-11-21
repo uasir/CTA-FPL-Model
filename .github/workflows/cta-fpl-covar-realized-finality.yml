@@ -1,0 +1,140 @@
+name: CTA CoVar retrospective realized-outcome finality audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      ingestion_run_id:
+        description: "Successful official FPL ingestion workflow run containing the historical player-fixture panel"
+        required: true
+        default: "44357649202"
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: cta-covar-realized-finality-${{ inputs.ingestion_run_id }}
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download pinned official FPL ingestion artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cta-fpl-official-${{ inputs.ingestion_run_id }}
+          run-id: ${{ inputs.ingestion_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/fpl-ingestion
+      - name: Build private realized player-Gameweek panel
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          INPUT_DIR="$RUNNER_TEMP/fpl-ingestion/fpl_official"
+          if [ ! -d "$INPUT_DIR" ]; then
+            INPUT_DIR="$RUNNER_TEMP/fpl-ingestion"
+          fi
+          python canonical_candidate/engineering_workbench/scripts/m4_covar_realized_fpl_dataset.py \
+            --input-dir "$INPUT_DIR" \
+            --output-dir "$RUNNER_TEMP/covar-realized-panel"
+          chmod 700 "$RUNNER_TEMP/covar-realized-panel"
+      - name: Capture current official event-live and fixture sources for every realized Gameweek
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          set -euo pipefail
+          CAPTURE_ROOT="$RUNNER_TEMP/covar-finality-captures"
+          mkdir -m 700 -p "$CAPTURE_ROOT"
+          EVENTS=$(python - "$RUNNER_TEMP/covar-realized-panel/dataset_manifest.json" <<'PY'
+          import json, sys
+          print(" ".join(map(str, json.load(open(sys.argv[1]))["finished_gameweeks"])))
+          PY
+          )
+          for event in $EVENTS; do
+            python canonical_candidate/engineering_workbench/scripts/m4_covar_point_in_time_source_capture.py \
+              --event "$event" \
+              --output-dir "$CAPTURE_ROOT/event_$event"
+          done
+          chmod -R go-rwx "$CAPTURE_ROOT"
+      - name: Reconcile realized outcomes against official event-live final scoring
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+          PYTHONPATH: canonical_candidate/engineering_workbench/scripts
+        run: |
+          set -euo pipefail
+          python canonical_candidate/engineering_workbench/scripts/m4_covar_realized_fpl_finality_batch.py \
+            --dataset-csv "$RUNNER_TEMP/covar-realized-panel/fpl_realized_player_gameweek.csv" \
+            --capture-root "$RUNNER_TEMP/covar-finality-captures" \
+            --output-dir "$RUNNER_TEMP/covar-finality-result"
+      - name: Publish aggregate-only audit summary
+        if: always()
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: |
+          python - "$RUNNER_TEMP" <<'PY'
+          import json, sys
+          from pathlib import Path
+          root = Path(sys.argv[1])
+          report_path = root / "covar-finality-result" / "finality_batch_report.json"
+          manifest_path = root / "covar-realized-panel" / "dataset_manifest.json"
+          safe = {
+              "schema_version": "1.0.0",
+              "status": "AUDIT_NOT_COMPLETED",
+              "publication_policy": "Aggregate-only; no player IDs, player rows, raw event-live payloads, or manager data.",
+              "decision_weight": 0.0,
+              "production_eligible": False,
+          }
+          if manifest_path.exists():
+              manifest = json.loads(manifest_path.read_text())
+              safe["season"] = manifest.get("season")
+              safe["realized_gameweeks"] = manifest.get("finished_gameweeks", [])
+              safe["realized_player_gameweek_rows"] = manifest.get("player_gameweek_rows")
+          if report_path.exists():
+              report = json.loads(report_path.read_text())
+              safe.update({
+                  "status": report.get("status"),
+                  "events_checked": report.get("events_checked", []),
+                  "event_count": report.get("event_count", 0),
+                  "all_event_finality_reconciled": report.get("all_event_finality_reconciled", False),
+                  "event_results": [{
+                      "event_id": item.get("event_id"),
+                      "status": item.get("status"),
+                      "player_gameweek_rows_compared": item.get("player_gameweek_rows_compared"),
+                      "stat_values_compared": item.get("stat_values_compared"),
+                      "mismatch_count": item.get("mismatch_count"),
+                      "fixture_count": item.get("fixture_count"),
+                      "fixtures_marked_finished_provisional_at_capture": item.get("fixtures_marked_finished_provisional_at_capture"),
+                  } for item in report.get("reports", [])],
+                  "point_in_time_status": report.get("point_in_time_status"),
+              })
+          out = root / "covar-finality-summary"
+          out.mkdir(exist_ok=True)
+          (out / "aggregate_finality_summary.json").write_text(json.dumps(safe, indent=2) + "\\n")
+          print(json.dumps(safe, indent=2))
+          PY
+      - name: Upload aggregate-only audit summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-covar-finality-summary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/covar-finality-summary/aggregate_finality_summary.json
+          if-no-files-found: warn
+          retention-days: 90
