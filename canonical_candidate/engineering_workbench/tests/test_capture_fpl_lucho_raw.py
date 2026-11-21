@@ -39,6 +39,10 @@ def test_capture_preserves_served_variant_and_raw_csv_without_guessing_columns()
     assert result["provider"]["name"] == "FPL Lucho"
     assert result["provider"]["product"] == "forecast_csv"
     assert result["provider"]["variant"] == "served_odds_anchored_xp"
+    from forecast_provider_registry import get_active_provider
+    registered = get_active_provider("FPL Lucho")
+    assert result["provider"]["product"] == registered["product"]
+    assert result["provider"]["variant"] == registered["forecast_variant"]
     assert result["timing"]["generated_at_utc"] is None
     assert result["timing"]["page_built_at_utc"] == "2026-11-21T09:13:00Z"
     assert result["timing"]["raw_model_last_calculated_at_utc"] == "2026-11-21T09:03:00Z"
