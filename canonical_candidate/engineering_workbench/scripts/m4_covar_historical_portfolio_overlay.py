@@ -157,6 +157,7 @@ def build_historical_covar_recommendation_overlay(
     baseline = _portfolio_metrics(xi, baseline_captain, forecasts, matrix)
 
     metrics = []
+    excluded_bench_only_alternatives = []
     for alternative in alternatives:
         if not isinstance(alternative, Mapping):
             raise HistoricalCoVarOverlayError("transfer alternatives must be objects")
@@ -202,8 +203,14 @@ def build_historical_covar_recommendation_overlay(
                 index = weakest_index
             else:
                 index = None
-        if index is not None:
-            candidate_xi[index] = incoming
+        if index is None:
+            excluded_bench_only_alternatives.append({
+                "transfer_out_id": outgoing,
+                "transfer_in_id": incoming,
+                "reason": "NO_STARTING_XI_IMPROVEMENT",
+            })
+            continue
+        candidate_xi[index] = incoming
         captain_id = _captain(candidate_xi, forecasts)
         result = _portfolio_metrics(candidate_xi, captain_id, forecasts, matrix)
         metrics.append({
@@ -226,6 +233,7 @@ def build_historical_covar_recommendation_overlay(
             "missing_player_ids": sorted(missing, key=lambda value: (not value.isdigit(), value)),
             "historical_window_gameweeks": window,
             "candidate_metrics": [],
+            "excluded_bench_only_alternatives": excluded_bench_only_alternatives,
             "decision_weight": 0.0,
             "production_eligible": False,
             "field_comparison_status": "NOT_AVAILABLE_NO_JOINT_FIELD_PORTFOLIOS",
@@ -264,6 +272,14 @@ def build_historical_covar_recommendation_overlay(
         "point_in_time_status": covariance_report.get("point_in_time_status", "NOT_VERIFIED"),
         "baseline": baseline,
         "candidate_metrics": metrics,
+        "excluded_bench_only_alternatives": excluded_bench_only_alternatives,
+        "recommendation_policy": {
+            "priority": "STARTING_XI_FIRST",
+            "bench_role": "BUDGET_EMERGENCY_COVER_ONLY",
+            "routine_rotation": False,
+            "bench_only_transfers_eligible": False,
+            "candidate_must_change_starting_xi": True,
+        },
         "pareto_frontier_transfer_pairs": [
             {"transfer_out_id": pair[0], "transfer_in_id": pair[1]} for pair in pareto
         ],
@@ -286,6 +302,7 @@ def build_historical_covar_recommendation_overlay(
         "limitations": [
             "Expected points come from the conventional M3 forecast; covariance comes from historical realized points.",
             "Historical dependence is a proxy, not a calibrated forward joint distribution.",
+            "Only transfers that change the starting XI are scored; bench-only upgrades are explicitly excluded.",
             "The overlay scores the starting XI with the current captain multiplier; bench autosubs and chip effects are not simulated.",
             "The field's joint portfolio covariance is unavailable; marginal EO is not used to reconstruct it.",
             "No transfer, starting XI, captaincy or canonical EV ranking is changed automatically.",
