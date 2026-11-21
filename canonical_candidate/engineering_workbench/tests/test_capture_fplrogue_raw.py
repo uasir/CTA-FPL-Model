@@ -119,3 +119,36 @@ def test_frozen_archive_capture_rejects_post_deadline_publisher_capture():
             snapshot_page_url=page_url,frozen_csv_url=csv_url,
             fetch_bytes=lambda url:responses[url],clock=lambda:"2026-11-21T10:10:00Z")
 
+
+
+
+def test_frozen_archive_capture_rejects_slug_gameweek_and_url_mismatches():
+    from capture_fplrogue_raw import capture_fplrogue_frozen_archive_raw
+    page_url = "https://www.fplrogue.com/research/projections/archive/2026-10-31-gw9"
+    csv_url = page_url + "/download.csv"
+    fetch_bytes = lambda url: (_ for _ in ()).throw(AssertionError("fetch must not run"))
+    with pytest.raises(CaptureError, match="Gameweek does not match"):
+        capture_fplrogue_frozen_archive_raw(
+            season="2026-27", gameweek=10, snapshot_slug="2026-10-31-gw9",
+            snapshot_page_url=page_url, frozen_csv_url=csv_url, fetch_bytes=fetch_bytes)
+    with pytest.raises(CaptureError, match="URLs must exactly match"):
+        capture_fplrogue_frozen_archive_raw(
+            season="2026-27", gameweek=9, snapshot_slug="2026-10-31-gw9",
+            snapshot_page_url=page_url, frozen_csv_url="https://example.test/download.csv",
+            fetch_bytes=fetch_bytes)
+
+
+def test_frozen_archive_capture_rejects_capture_date_not_matching_slug():
+    from capture_fplrogue_raw import capture_fplrogue_frozen_archive_raw
+    page_url = "https://www.fplrogue.com/research/projections/archive/2026-10-31-gw9"
+    csv_url = page_url + "/download.csv"
+    page = (b"<body>Gameweek GW9 Players 2 Projection engine xpts_v1 "
+            b"Captured 01 Nov 2026, 05:24 GMT Model trained 31 Oct 2026, 05:00 GMT</body>")
+    bootstrap = json.dumps({"events":[{"id":9,"deadline_time":"2026-10-31T11:00:00Z"}]}).encode()
+    responses = {page_url:(page,"text/html"),csv_url:(CSV,"text/csv"),
+                 BOOTSTRAP_URL:(bootstrap,"application/json")}
+    with pytest.raises(CaptureError, match="capture date does not match"):
+        capture_fplrogue_frozen_archive_raw(
+            season="2026-27",gameweek=9,snapshot_slug="2026-10-31-gw9",
+            snapshot_page_url=page_url,frozen_csv_url=csv_url,
+            fetch_bytes=lambda url:responses[url],clock=lambda:"2026-11-21T10:10:00Z")
