@@ -19,6 +19,20 @@ def row(**changes):
     return value
 
 class ProviderCrosswalkTests(unittest.TestCase):
+    def test_complete_header_schema_is_accepted(self):
+        self.assertEqual(MODULE.validate_headers(MODULE.FIELDS, "wyscout"), [])
+
+    def test_missing_header_is_a_schema_error_not_an_empty_template(self):
+        errors = MODULE.validate_headers(MODULE.FIELDS[:-1], "wyscout")
+        self.assertTrue(any("missing required crosswalk columns" in item for item in errors))
+
+    def test_duplicate_header_is_rejected(self):
+        errors = MODULE.validate_headers(MODULE.FIELDS + ["season"], "opta_pulselive")
+        self.assertTrue(any("duplicate CSV columns" in item for item in errors))
+
+    def test_absent_header_row_is_rejected(self):
+        self.assertEqual(MODULE.validate_headers(None, "11footy"), ["CSV header row is missing"])
+
     def test_empty_template_is_not_ready(self):
         accepted, report = MODULE.validate_rows([], "wyscout")
         self.assertEqual(report["status"], "EMPTY_NOT_READY")
