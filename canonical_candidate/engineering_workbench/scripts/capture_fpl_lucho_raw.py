@@ -92,7 +92,7 @@ def capture_fpl_lucho_raw(
     page_text = " ".join(extractor.parts)
 
     built_match = re.search(
-        r"Built:\\s*(\\d{1,2}-[A-Za-z]{3}-\\d{4}\\s+\\d{2}:\\d{2})\\s+UTC\\s*[·•]\\s*next GW:\\s*(\\d+)",
+        r"Built:\s*(\d{1,2}-[A-Za-z]{3}-\d{4}\s+\d{2}:\d{2})\s+UTC\s*[·•]\s*next GW:\s*(\d+)",
         page_text,
         flags=re.IGNORECASE,
     )
@@ -104,7 +104,7 @@ def capture_fpl_lucho_raw(
         raise CaptureError(f"FPL Lucho page GW{page_gw} does not match requested GW{gameweek}")
 
     model_match = re.search(
-        r"xP model last calculated:\\s*([A-Za-z]{3}\\s+\\d{1,2}\\s+[A-Za-z]{3}\\s+\\d{4},\\s+\\d{2}:\\d{2})\\s+UTC",
+        r"xP model last calculated:\s*([A-Za-z]{3}\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4},\s+\d{2}:\d{2})\s+UTC",
         page_text,
         flags=re.IGNORECASE,
     )
@@ -206,7 +206,7 @@ def main() -> int:
     args = parser.parse_args()
     result = capture_fpl_lucho_raw(season=args.season, gameweek=args.gameweek)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+    args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({
         "capture_id": result["capture_id"],
         "gameweek": result["target_gameweek"],
