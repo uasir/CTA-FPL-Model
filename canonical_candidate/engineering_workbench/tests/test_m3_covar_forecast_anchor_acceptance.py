@@ -72,6 +72,8 @@ def _fixture():
             {key: value for key, value in source.items() if key != "raw_payload_base64"}
             for source in sources
         ],
+        "privacy": dict(bundle["privacy"]),
+        "point_in_time_status": bundle["point_in_time_status"],
         "decision_weight": 0.0,
         "production_eligible": False,
     }
