@@ -1,0 +1,79 @@
+name: Capture Sideline Quant raw benchmark snapshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: FPL season label
+        required: true
+        default: "2026-27"
+      gameweek:
+        description: Target Gameweek
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sidelinequant-benchmark-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run Sideline Quant adapter regression tests
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: |
+          python -m pip install pytest
+          python -m pytest -q tests/test_capture_sideline_quant_raw.py tests/test_parse_sideline_quant_snapshot.py tests/test_build_sideline_quant_provider_capture.py tests/test_summarize_provider_capture.py
+      - name: Capture immutable raw Sideline Quant feed
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/capture_sideline_quant_raw.py \
+            --season "${{ inputs.season }}" \
+            --gameweek "${{ inputs.gameweek }}" \
+            --output "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json"
+      - name: Normalize fixture-grain snapshot and explicit Gameweek xP sum
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/parse_sideline_quant_snapshot.py \
+            --input "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json" \
+            --output "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-normalized.json"
+      - name: Build the common M3 provider capture envelope
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/build_sideline_quant_provider_capture.py \
+            --raw-capture "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json" \
+            --normalized-capture "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-normalized.json" \
+            --output "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-provider-capture.json"
+      - name: Create metadata-only public summary
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/summarize_provider_capture.py \
+            --provider "Sideline Quant" \
+            --input "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json" \
+            --normalized "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-normalized.json" \
+            --output "artifacts/provider-summary/sidelinequant.json"
+      - name: Upload immutable raw snapshot, normalized feed and metadata summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: sidelinequant-gw${{ inputs.gameweek }}-${{ github.run_id }}
+          path: |
+            canonical_candidate/engineering_workbench/artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json
+            canonical_candidate/engineering_workbench/artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-normalized.json
+            canonical_candidate/engineering_workbench/artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-provider-capture.json
+            canonical_candidate/engineering_workbench/artifacts/provider-summary/sidelinequant.json
+          if-no-files-found: error
+          retention-days: 90
