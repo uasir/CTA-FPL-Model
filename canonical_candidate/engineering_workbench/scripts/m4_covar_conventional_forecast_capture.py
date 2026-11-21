@@ -127,7 +127,7 @@ def main() -> int:
     args = parser.parse_args()
     result = capture_conventional_forecast(season=args.season)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\\n", encoding="utf-8")
+    args.output.write_text(json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
     print(json.dumps({
         "status": "CAPTURED_RESEARCH_ONLY",
         "season": result["season"],
