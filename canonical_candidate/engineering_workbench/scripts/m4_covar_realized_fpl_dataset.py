@@ -176,7 +176,7 @@ def build_realized_panel(
             "team_id_at_fixture": team_id, "opponent_team_id": opponent_id,
             "was_home": was_home,
             "fixture_finished_provisional": fixture["finished_provisional"],
-            **outcome, "played": minutes > 0,
+            **outcome, "played": minutes > 0 or outcome["yellow_cards"] > 0 or outcome["red_cards"] > 0,
         }
         fixture_rows.append(record)
         gw_groups[(pid, fixture["gameweek"])].append(record)
