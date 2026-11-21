@@ -103,6 +103,7 @@ jobs:
             predeadline-decision-evidence.json \
             predeadline-m3-recommendation.json \
             --software-commit "$M3_CODE_SHA" \
+            ${{ inputs.field_eo_capture_run_id != '' && '--field-eo-csv field-capture/predeadline_field_eo.csv --field-eo-report field-capture/predeadline_field_report.json' || '' }} \
             --output predeadline-m3-replay-report.json
       - name: Upload private pre-deadline decision evidence and recommendation
         uses: actions/upload-artifact@v4
