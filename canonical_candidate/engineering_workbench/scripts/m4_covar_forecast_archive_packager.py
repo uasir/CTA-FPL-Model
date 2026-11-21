@@ -137,7 +137,10 @@ def package_forecast_archive(
                 raise ForecastArchivePackagingError("capture source timestamps must include timezones")
             if retrieved_dt > as_of_dt or available_dt > as_of_dt:
                 raise ForecastArchivePackagingError("captured source was not available by forecast as-of")
-            source_file = (capture_root / relative).resolve()
+            source_candidate = capture_root / relative
+            if source_candidate.is_symlink():
+                raise ForecastArchivePackagingError("capture source path must not be a symlink")
+            source_file = source_candidate.resolve()
             if not source_file.is_relative_to(capture_root):
                 raise ForecastArchivePackagingError("capture source path escapes archive directory")
             archive_name = f"source_{index:02d}_{hashlib.sha256(source_id.encode()).hexdigest()[:10]}.json"
@@ -157,9 +160,9 @@ def package_forecast_archive(
             })
 
         artifact_inputs = (
-            ("model_artifact", Path(model_artifact_path).resolve(), provenance["model_artifact_sha256"], "model_artifact.bin"),
-            ("config", Path(config_path).resolve(), provenance["config_sha256"], "config.bin"),
-            ("forecast_payload", Path(forecast_payload_path).resolve(), provenance["forecast_payload_sha256"], "forecast_payload.bin"),
+            ("model_artifact", Path(model_artifact_path).absolute(), provenance["model_artifact_sha256"], "model_artifact.bin"),
+            ("config", Path(config_path).absolute(), provenance["config_sha256"], "config.bin"),
+            ("forecast_payload", Path(forecast_payload_path).absolute(), provenance["forecast_payload_sha256"], "forecast_payload.bin"),
         )
         for artifact_type, source_path, digest, archive_name in artifact_inputs:
             _private_copy(source_path, target / archive_name, digest)
