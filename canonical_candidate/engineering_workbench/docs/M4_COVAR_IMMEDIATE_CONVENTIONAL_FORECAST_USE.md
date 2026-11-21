@@ -6,7 +6,7 @@ The current recommendation path may use CoVar immediately as a **historical cova
 
 - Expected points come from the existing conventional M3 forecast.
 - Player dependence comes from the latest available historical, diagonal-shrunk FPL points covariance matrix.
-- The overlay scores the current starting XI and each legal one-transfer starting-XI alternative, including the current captain multiplier.
+- The overlay scores the current starting XI and only legal one-transfer alternatives that change the starting XI, including the current captain multiplier. Bench-only upgrades that do not improve the XI are excluded.
 - It reports expected-points change, portfolio variance, off-diagonal covariance contribution, and the EV/variance Pareto frontier.
 - It identifies the lowest-variance and highest-expected-points alternatives separately.
 
@@ -17,6 +17,16 @@ This is a practical historical proxy, not a trained or calibrated forward joint 
 The historical covariance panel is retrospective. A successful finality reconciliation confirms realized scoring values, not what was knowable at the original deadline or whether historical dependence will persist in the next Gameweek.
 
 The overlay is currently limited to the starting XI. It does not simulate autosubs, bench order, Bench Boost, Free Hit, or fixture-level event scenarios.
+
+## Starting-XI-first manager policy
+
+The personal recommendation and historical CoVar overlay follow the manager policy:
+
+- Optimize the starting XI first; do not optimize the aggregate value of all 15 players as the primary objective.
+- Keep the bench budget-oriented and use it as emergency cover for injuries, suspensions and unexpected absences.
+- Do not recommend routine rotation or bench-to-bench upgrades.
+- A transfer alternative is eligible for CoVar comparison only if it changes the starting XI. A bench replacement that cannot displace a current starter is listed under `excluded_bench_only_alternatives` with reason `NO_STARTING_XI_IMPROVEMENT`.
+- A bench player may be upgraded only when the incoming player genuinely displaces a weaker starter in the same position; in that case the transfer is evaluated for its starting-XI effect.
 
 ## Recommendation behavior
 
