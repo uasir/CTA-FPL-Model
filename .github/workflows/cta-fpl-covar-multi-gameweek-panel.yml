@@ -1,0 +1,106 @@
+name: CTA CoVar multi-Gameweek matched outcome panel
+
+on:
+  workflow_dispatch:
+    inputs:
+      match_run_ids:
+        description: "Comma-separated successful forecast-to-outcome match workflow run IDs"
+        required: true
+        type: string
+      match_artifact_names:
+        description: "Comma-separated exact matched artifact names, in the same order"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: cta-covar-multi-gameweek-panel
+  cancel-in-progress: false
+
+jobs:
+  accumulate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout CoVar panel builder
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download and verify per-Gameweek match artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          MATCH_RUN_IDS: ${{ inputs.match_run_ids }}
+          MATCH_ARTIFACT_NAMES: ${{ inputs.match_artifact_names }}
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, re, subprocess
+          from pathlib import Path
+          runs = [x.strip() for x in os.environ["MATCH_RUN_IDS"].split(",") if x.strip()]
+          names = [x.strip() for x in os.environ["MATCH_ARTIFACT_NAMES"].split(",") if x.strip()]
+          if not runs or len(runs) != len(names):
+              raise SystemExit("Provide the same non-zero number of run IDs and artifact names.")
+          if len(runs) != len(set(runs)):
+              raise SystemExit("Duplicate run IDs are not allowed.")
+          if any(not re.fullmatch(r"[0-9]+", run) for run in runs):
+              raise SystemExit("Run IDs must be numeric.")
+          root = Path(os.environ["RUNNER_TEMP"]) / "covar-match-inputs"
+          root.mkdir(mode=0o700)
+          for index, (run, name) in enumerate(zip(runs, names), 1):
+              if not name or "/" in name or "\\" in name:
+                  raise SystemExit("Artifact names must be exact plain names.")
+              target = root / f"archive_{index}"
+              target.mkdir(mode=0o700)
+              subprocess.run([
+                  "gh", "run", "download", run,
+                  "--repo", os.environ["GH_REPO"],
+                  "--name", name,
+                  "--dir", str(target),
+              ], check=True)
+              # The match workflow uploads the two archive files at artifact root.
+              required = {"match_manifest.json", "matched_forecast_outcomes.json"}
+              found = {p.name for p in target.rglob("*") if p.is_file()}
+              if not required.issubset(found):
+                  raise SystemExit(f"Artifact {name} does not contain a complete match archive.")
+              # Normalize each downloaded artifact to one directory containing the files.
+              matches = [p.parent for p in target.rglob("match_manifest.json")]
+              if len(matches) != 1 or not (matches[0] / "matched_forecast_outcomes.json").is_file():
+                  raise SystemExit(f"Artifact {name} has ambiguous archive contents.")
+              normalized = root / f"normalized_{index}"
+              normalized.mkdir(mode=0o700)
+              for filename in required:
+                  (normalized / filename).write_bytes((matches[0] / filename).read_bytes())
+              os_chmod = 0o600
+              for filename in required:
+                  (normalized / filename).chmod(os_chmod)
+          PY
+      - name: Build Gameweek-clustered multi-Gameweek panel
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          INPUT_ROOT="$RUNNER_TEMP/covar-match-inputs"
+          ARCHIVES=()
+          for dir in "$INPUT_ROOT"/normalized_*; do
+            test -d "$dir"
+            ARCHIVES+=(--archive "$dir")
+          done
+          test "${#ARCHIVES[@]}" -gt 0
+          mkdir -m 700 -p "$RUNNER_TEMP/covar-multi-gameweek-output"
+          python canonical_candidate/engineering_workbench/scripts/m4_covar_matched_outcome_panel.py \
+            "${ARCHIVES[@]}" \
+            --output-dir "$RUNNER_TEMP/covar-multi-gameweek-output/panel"
+      - name: Upload accumulated research panel
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-covar-multi-gameweek-matched-panel-${{ github.run_id }}
+          path: ${{ runner.temp }}/covar-multi-gameweek-output/panel/
+          if-no-files-found: error
+          retention-days: 90
