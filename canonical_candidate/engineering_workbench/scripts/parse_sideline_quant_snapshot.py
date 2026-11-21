@@ -71,6 +71,7 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
     normalized_rows = []
     native_rows = []
     gw_totals: dict[int, float] = defaultdict(float)
+    gw_expected_minutes: dict[int, float] = defaultdict(float)
     fixture_counts: dict[int, int] = defaultdict(int)
     gw_distribution: dict[int, dict[str, float]] = {}
 
@@ -101,6 +102,7 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
         })
         native_rows.append(dict(row))
         gw_totals[player_id] += xp
+        gw_expected_minutes[player_id] += e_mins
         fixture_counts[player_id] += 1
 
         # Sideline Quant publishes gameweek-level distribution statistics on
@@ -166,8 +168,9 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
         {
             "fpl_element_id": player_id,
             "expected_points": total_xp,
+            "expected_minutes": gw_expected_minutes[player_id],
             "fixture_count": fixture_counts[player_id],
-            "aggregation": "SUM_OF_PROVIDER_FIXTURE_XP",
+            "aggregation": "SUM_OF_PROVIDER_FIXTURE_XP_AND_EXPECTED_MINUTES",
             "source_grain": "player_fixture",
             "source_snapshot_id": capture["capture_id"],
             **(
@@ -194,7 +197,7 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
         "provider_native_rows": native_rows,
         "player_gameweek_sum_xp": gameweek_rows,
         "aggregation_provenance": {
-            "method": "SUM(xP) grouped by player_id within target Gameweek",
+            "method": "SUM(xP) and SUM(e_mins) grouped by player_id within target Gameweek",
             "source_grain": "player_fixture",
             "target_grain": "player_gameweek",
             "publisher_documented": True,
@@ -230,9 +233,13 @@ def build_sideline_quant_player_gameweek_snapshot(
 
     records = []
     for index, row in enumerate(player_gameweek_rows):
-        if row.get("aggregation") != "SUM_OF_PROVIDER_FIXTURE_XP":
+        if row.get("aggregation") != "SUM_OF_PROVIDER_FIXTURE_XP_AND_EXPECTED_MINUTES":
             raise SidelineQuantParseError(
-                f"player_gameweek_rows[{index}] lacks documented sum-xP provenance"
+                f"player_gameweek_rows[{index}] lacks documented sum-xP/expected-minutes provenance"
+            )
+        if "expected_minutes" not in row:
+            raise SidelineQuantParseError(
+                f"player_gameweek_rows[{index}] is missing summed provider expected_minutes"
             )
         if row.get("source_snapshot_id") != fixture_snapshot["snapshot_id"]:
             raise SidelineQuantParseError(
@@ -241,7 +248,8 @@ def build_sideline_quant_player_gameweek_snapshot(
         records.append({
             key: row[key]
             for key in (
-                "fpl_element_id", "expected_points", "points_variance", "q10", "q90"
+                "fpl_element_id", "expected_points", "expected_minutes",
+                "points_variance", "q10", "q90"
             )
             if key in row
         })
@@ -265,7 +273,7 @@ def build_sideline_quant_player_gameweek_snapshot(
             "source_fixture_row_count": fixture_snapshot["coverage"]["row_count"],
         },
         "aggregation": {
-            "method": "SUM(xP) grouped by player_id within target Gameweek",
+            "method": "SUM(xP) and SUM(e_mins) grouped by player_id within target Gameweek",
             "publisher_documented": True,
             "source_grain": "player_fixture",
             "source_snapshot_id": fixture_snapshot["snapshot_id"],
