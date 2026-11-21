@@ -236,6 +236,11 @@ def test_predeadline_bundle_accepts_registered_sideline_quant_provider_override(
     }
     provider["snapshot_id"] = "sidelinequant-gw12-test:player_gameweek_sum_xp"
     provider["source"]["url"] = "https://sidelinequant.com/data/gw/12/projections.json"
+    provider_raw = json.dumps({"gameweek": 12}).encode()
+    provider_hash = hashlib.sha256(provider_raw).hexdigest()
+    provider_capture["raw_archives"]["provider_response_base64"] = base64.b64encode(provider_raw).decode()
+    provider["source"]["raw_sha256"] = provider_hash
+    provider["source"]["raw_snapshot_id"] = f"sha256:{provider_hash}"
     monkeypatch.setattr(
         capture, "capture_fpl_cat_snapshot",
         lambda **kwargs: (_ for _ in ()).throw(AssertionError("FPL Cat capture must not run when an override is supplied")),
