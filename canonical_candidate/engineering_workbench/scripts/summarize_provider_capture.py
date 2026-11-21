@@ -101,7 +101,7 @@ def main() -> int:
     summary = summarize_capture(args.provider, capture, normalized)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
-        json.dumps(summary, indent=2, sort_keys=True, allow_nan=False) + "\\n",
+        json.dumps(summary, indent=2, sort_keys=True, allow_nan=False) + "\n",
         encoding="utf-8",
     )
     print(json.dumps(summary, sort_keys=True))
