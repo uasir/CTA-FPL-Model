@@ -193,8 +193,14 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         )
 
     passed = not point_mismatches and not multiplier_mismatches and not active_captain_mismatch and not team_points_mismatch
+    event_id = case.get("event_id")
+    if event_id is not None and (
+        isinstance(event_id, bool) or not isinstance(event_id, int) or event_id < 1
+    ):
+        raise CovarFplReplayError("event_id must be a positive integer when supplied")
     return {
         "replay_id": str(case.get("replay_id", "local-replay")),
+        "event_id": event_id,
         "status": "PASS" if passed else "FAIL",
         "scenario_mode": resolution["mode"],
         "official_multiplier_match": not multiplier_mismatches,
@@ -219,12 +225,32 @@ def validate_replay_batch(document: Mapping[str, Any]) -> dict[str, Any]:
         raise CovarFplReplayError("input must contain a non-empty replays list")
     results = [validate_official_replay_case(case) for case in document["replays"]]
     passed = sum(row["status"] == "PASS" for row in results)
+    by_event: dict[str, dict[str, int]] = {}
+    by_mode: dict[str, int] = {}
+    for row in results:
+        event_key = str(row["event_id"]) if row["event_id"] is not None else "unknown"
+        event_summary = by_event.setdefault(
+            event_key, {"replay_count": 0, "passed_count": 0, "failed_count": 0}
+        )
+        event_summary["replay_count"] += 1
+        event_summary["passed_count"] += int(row["status"] == "PASS")
+        event_summary["failed_count"] += int(row["status"] == "FAIL")
+        mode = str(row["scenario_mode"])
+        by_mode[mode] = by_mode.get(mode, 0) + 1
     return {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "status": "PASS" if passed == len(results) else "FAIL",
         "replay_count": len(results),
         "passed_count": passed,
         "failed_count": len(results) - passed,
+        "gameweek_count": len([key for key in by_event if key != "unknown"]),
+        "gameweeks": sorted(int(key) for key in by_event if key != "unknown"),
+        "by_gameweek": by_event,
+        "by_mode": by_mode,
+        "multiplier_mismatch_replays": sum(not row["official_multiplier_match"] for row in results),
+        "player_points_mismatch_replays": sum(not row["player_points_match"] for row in results),
+        "captain_mismatch_replays": sum(not row["active_captain_match"] for row in results),
+        "team_points_reconciliation_failures": sum(not row["official_team_points_reconcile"] for row in results),
         "results": results,
         "production_eligible": False,
         "decision_weight": 0.0,
