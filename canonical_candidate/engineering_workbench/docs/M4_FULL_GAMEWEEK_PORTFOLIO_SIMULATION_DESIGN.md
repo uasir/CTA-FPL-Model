@@ -576,3 +576,36 @@ does not create historical forecast snapshots, source records or outcomes, and
 does not convert current retrospective FPL API data into point-in-time
 evidence. No real historical backtest has been run; synthetic tests verify
 orchestration only. Outputs remain research-only.
+
+
+## Private point-in-time source capture
+
+A source-capture CLI is implemented in
+`scripts/m4_covar_point_in_time_source_capture.py`, with tests in
+`tests/test_m4_covar_point_in_time_source_capture.py`.
+
+It captures the official public FPL API's `bootstrap-static`, `fixtures`,
+and selected `event/{id}/live` JSON responses as exact raw response bytes.
+Each file is stored in a newly created private directory outside the
+repository (directory mode 0700; files mode 0600). The capture manifest records
+the endpoint, retrieval timestamp, SHA-256 digest, byte count and relative
+archive path. Partial captures receive a `CAPTURE_INCOMPLETE` marker and no
+complete manifest; existing output directories are never overwritten.
+
+The timestamp is recorded after each successful response is received.
+Because the provider's exact publication timestamp is not independently
+established, `available_at_utc` is conservatively set equal to
+`retrieved_at_utc`. A forecast may therefore use a captured source only when
+its as-of timestamp is at or after that retrieval time. This avoids claiming
+that an endpoint was available earlier than the capture can prove.
+
+**This is prospective capture, not historical reconstruction.** The manifest
+explicitly marks `historical_reconstruction=false`; the endpoint may contain
+mutable or retrospective data. A capture made today cannot support a forecast
+claimed to have been made before today. No forecast, model artifact or config
+is fabricated or included by this tool. To pass the existing complete archive
+acceptance gate, a future forecast run must additionally preserve its exact
+model artifact, configuration and forecast payload bytes, bind each source
+snapshot to its forecast ID, and pass the full provenance/archive verifier.
+The capture itself is not a certified historical dataset and remains
+research-only.
