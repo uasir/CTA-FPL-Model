@@ -1,9 +1,9 @@
 name: CTA CoVar marginal diagnostics engineering tests
 
 on:
-  pull_request:
+  push:
     branches:
-      - feat/m3-unified-evaluation-report
+      - feat/m4-field-portfolio-intelligence
     paths:
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_matched_outcome_panel.py"
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_outcome_matcher.py"
