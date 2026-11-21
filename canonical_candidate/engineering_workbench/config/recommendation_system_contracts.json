@@ -201,7 +201,9 @@
       "free_hit_requires_explicit_activation": true,
       "may_change_recommendation": false,
       "decision_weight": 0,
-      "production_eligible": false
+      "production_eligible": false,
+      "entry_point": "scripts/personal_squad_covar_recommendation.py",
+      "behavior": "Runs canonical personal_squad recommendation first; optional CoVar report is attached as research-only diagnostics."
     }
   },
   "acceptance_tests": [
@@ -213,6 +215,8 @@
     "Personal mode records the squad snapshot and constraints used.",
     "Both modes record forecast snapshot, model version and horizon.",
     "Missing or unvalidated forecast fields are surfaced, not invented.",
-    "Exploratory covariance is not used as a production decision signal."
+    "Exploratory covariance is not used as a production decision signal.",
+    "Optional CoVar overlay attaches only to matching personal-squad transfer alternatives and leaves EV ranking, transfer action, XI and captaincy unchanged.",
+    "General-market recommendation path never consumes the personal-squad CoVar overlay."
   ]
 }
