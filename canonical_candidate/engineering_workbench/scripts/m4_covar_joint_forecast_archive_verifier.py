@@ -24,8 +24,8 @@ def verify_joint_forecast_archive(
     """
     if not isinstance(forecasts, Sequence) or isinstance(forecasts, (str, bytes)) or not forecasts:
         raise JointForecastArchiveVerificationError("forecasts must be a non-empty sequence")
-    if not isinstance(archive_manifest, Sequence) or isinstance(archive_manifest, (str, bytes)) or not archive_manifest:
-        raise JointForecastArchiveVerificationError("archive_manifest must be a non-empty sequence")
+    if not isinstance(archive_manifest, Sequence) or isinstance(archive_manifest, (str, bytes)):
+        raise JointForecastArchiveVerificationError("archive_manifest must be a sequence")
 
     root = Path(archive_root).resolve()
     if not root.exists() or not root.is_dir():
