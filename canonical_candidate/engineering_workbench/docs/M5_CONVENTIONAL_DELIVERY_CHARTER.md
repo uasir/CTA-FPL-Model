@@ -1,6 +1,6 @@
 # M5 Execution Charter — Conventional FPL Recommendation Delivery
 
-**Status:** M5-T1 complete; M5-T2/T4/T5/T6 engineering implementation CI-tested; GW11 live evidence archived; exact archive-to-report acceptance remains pending.
+**Status:** M5-T1 complete; M5-T2/T4/T5/T6 engineering implementation CI-tested; GW11 live evidence archived; exact archive-to-report acceptance passed in historical replay run `44937997402`.
 **Base:** M4 handoff commit `4da03390b293ea114376a03096c7ecdab9abd98e`.
 **Branch:** `feat/m5-conventional-delivery`.
 **Release posture:** engineering-only until the live-data and M3 acceptance gates are met.
@@ -57,7 +57,7 @@ Where a genuine pre-decision EO artifact exists, attach M4 descriptively and ver
 Produce a readable decision report with HOLD/TRANSFER rationale, alternatives, full squad/lineup/bench/captaincy, budget and transfer consequences, forecast provenance, field-context limitations and explicit non-CTA status.
 
 ### M5-T6 — Reproducibility, regression and acceptance
-Replay the exact archived inputs; verify deterministic output, Python/JavaScript contract parity, legal squad constraints, optional M4 isolation and fail-closed degraded modes. Publish acceptance evidence and release decision.
+Replay the exact archived inputs; verify deterministic output, Python/JavaScript contract parity, legal squad constraints, optional M4 isolation and fail-closed degraded modes. **Exact GW11 replay completed:** Actions run `44937997402` downloaded the original artifact from run `44809552413`, passed the conventional delivery contract and report builder, and uploaded artifact `conventional-m4-replay-source-run-44809552413` (artifact ID `14719429674`) containing acceptance, delivery report and source/output SHA-256 manifest. The report action is `TRANSFER`; optional field context is `NOT_SUPPLIED`; release eligibility remains false.
 
 ## 5. Hard release gates
 
@@ -77,7 +77,7 @@ A CI pass over deterministic fixtures does not prove a live data capture. A live
 ## 6. Current known blockers
 
 - M4's pre-deadline field acquisition has not yet produced a verified live artifact. Conventional M5 can proceed without EO; it must not invent or relabel EO.
-- A verified GW11 FPL Cat capture is archived in Actions run `44809552413` (artifact `predeadline-decision-evidence-manager-421025-gw11`). It was captured at `2026-11-20T20:14:42.975478Z`, before the official `2026-11-21T11:00:00Z` deadline; provider generation/capture and official metadata/manager-state archives are timestamped and hashed. Its deterministic replay passed, and the frozen recommendation explicitly records `squad_plan_state=POST_TRANSFER`, preserving the original plan separately from the recommended post-transfer plan. The capture code commit descends from the post-transfer engine fixes, so the earlier statement that this run predates that correction is superseded. The new conventional delivery contract/report still needs to be run against this exact archive; the historical run remains exploratory and does not authorize release.
+- A verified GW11 FPL Cat capture is archived in Actions run `44809552413` (artifact `predeadline-decision-evidence-manager-421025-gw11`). It was captured at `2026-11-20T20:14:42.975478Z`, before the official `2026-11-21T11:00:00Z` deadline; provider generation/capture and official metadata/manager-state archives are timestamped and hashed. Its deterministic replay passed, and the frozen recommendation explicitly records `squad_plan_state=POST_TRANSFER`, preserving the original plan separately from the recommended post-transfer plan. The capture code commit descends from the post-transfer engine fixes, so the earlier statement that this run predates that correction is superseded. The exact archive has now passed the conventional delivery contract and report builder in replay run `44937997402`. Acceptance summary: `PASS_CONVENTIONAL_M5_DELIVERY_CONTRACT`; manager `421025`; GW11; action `TRANSFER`; formation `4-3-3`; 15-player squad; XI 11; bench 3; captain 411; vice-captain 115; frozen decision SHA-256 `25286ed37076d247a0839190394ec5d8258119bb669362b2aa5c5cba1195d49f`. Report status `PASS_CONVENTIONAL_DELIVERY_WITH_OPTIONAL_FIELD_CONTEXT`; field context `NOT_SUPPLIED`; report SHA-256 `55fb9564b4b647a2a50048b87d03c4222fb7e68d413a28309e46cc80e6fbf561`. The source manifest verifies the exact recommendation, evidence bundle and replay-report hashes. The historical run remains exploratory and does not authorize release.
 - CTA/ABC/2PM model validation and CoVar utility validation are not complete.
 - PR #58 remains draft and unmerged. This M5 branch is stacked on the exact M4 handoff commit; it does not merge or release M4.
 
