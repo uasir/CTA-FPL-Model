@@ -268,3 +268,49 @@ def test_rejects_incomplete_provisional_field_artifact_handoff(monkeypatch):
                 "report_path": "field-capture/predeadline_field_report.json",
             },
         )
+
+
+def test_passes_historical_covar_context_to_engine_without_changing_frozen_decision(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(
+        runner, "run_external_benchmark_personal_squad",
+        lambda payload: (captured.update(payload) or _engine_result()),
+    )
+    monkeypatch.setattr(
+        canonical_provider_forecast_contract, "normalize_provider_snapshot",
+        lambda snapshot: snapshot,
+    )
+    monkeypatch.setattr(
+        canonical_forecast_recommendation_adapter, "build_recommendation_forecast_payload",
+        lambda *args, **kwargs: {
+            "player_forecasts": [
+                {"fpl_element_id": row["fpl_element_id"], "position": row["position"],
+                 "team_id": row["team_id"], "price": row["price"], "expected_points": 5,
+                 "expected_minutes": 80}
+                for row in _manifest()["12"]["player_metadata"]
+            ]
+        },
+    )
+    covar = {
+        "covariance_report": {
+            "status": "EXPLORATORY_ONSIDE_ACTUALS_ONLY",
+            "production_use": False,
+            "model_trained": False,
+            "window_gameweeks": [1, 2, 3, 4, 5],
+            "window_size": 5,
+            "shrinkage": {
+                "type": "diagonal",
+                "parameter": 0.5,
+                "positive_semidefinite_by_construction": True,
+            },
+        },
+        "covariance_pairs": [{"player1_id": "1", "player2_id": "1", "shrunk_covariance": 4.0}],
+    }
+    result = runner.run_predeadline_m3_decision(
+        _manifest(), software_commit="b" * 40,
+        historical_covariance_context=covar,
+    )
+    assert captured["historical_covariance_context"] == covar
+    assert result["frozen_decision"]["action"] == "TRANSFER"
+    assert result["frozen_decision"]["transfer_out_id"] == 15
+    assert result["frozen_decision"]["transfer_in_id"] == 20
