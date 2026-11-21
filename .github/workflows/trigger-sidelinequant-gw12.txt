@@ -1,1 +1,0 @@
-One-shot bounded live capture: 2026-27 GW12. Remove after workflow completion.
