@@ -86,7 +86,7 @@ def build_sideline_quant_provider_capture(raw_capture: Mapping[str, Any], parsed
     return {
         "provider_snapshot":dict(snapshot),
         "forecast_aggregation_provenance":dict(aggregation),
-        "player_metadata":[metadata[i] for i in ids],
+        "player_metadata":[metadata[i] for i in sorted(metadata)],
         "raw_archives":{
             "provider_response_base64":archives["provider_response_base64"],
             "fpl_bootstrap_response_base64":archives["official_fpl_bootstrap_base64"],
