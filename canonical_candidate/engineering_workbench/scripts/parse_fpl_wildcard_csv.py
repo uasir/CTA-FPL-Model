@@ -162,6 +162,7 @@ def parse_fpl_wildcard_csv(csv_text: str, metadata: Mapping[str, Any],
             "row_count": len(normalized),
             "expected_player_universe": len(bootstrap.get("elements", [])),
             "identity_mapped_count": len(normalized),
+            "identity_resolution_status": "UNVERIFIED_NAME_CLUB_MATCH",
         },
     }
     canonical = normalize_provider_snapshot(snapshot)
