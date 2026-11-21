@@ -1,22 +1,6 @@
 name: Replay conventional delivery from archived evidence
 
 on:
-  push:
-    branches:
-      - feat/m5-conventional-delivery
-    paths:
-      - '.github/workflows/replay-conventional-delivery.yml'
-      - 'canonical_candidate/engineering_workbench/scripts/m4_conventional_delivery_report.py'
-      - 'canonical_candidate/engineering_workbench/scripts/m4_m3_optionality_adapter.py'
-      - 'canonical_candidate/engineering_workbench/scripts/m5_conventional_delivery_contract.py'
-  pull_request:
-    branches:
-      - feat/m4-field-portfolio-intelligence
-    paths:
-      - '.github/workflows/replay-conventional-delivery.yml'
-      - 'canonical_candidate/engineering_workbench/scripts/m4_conventional_delivery_report.py'
-      - 'canonical_candidate/engineering_workbench/scripts/m4_m3_optionality_adapter.py'
-      - 'canonical_candidate/engineering_workbench/scripts/m5_conventional_delivery_contract.py'
   workflow_dispatch:
     inputs:
       source_run_id:
