@@ -80,7 +80,7 @@ jobs:
               --gameweek "${{ inputs.gameweek }}" \
               --season "${{ inputs.season }}" \
               --manager-state-json "$MANAGER_STATE_JSON" \
-              --provider-capture sidelinequant-provider-capture.json \
+              --provider-capture-json sidelinequant-provider-capture.json \
               --output predeadline-decision-evidence.json
           elif [ "$PROVIDER" = "FPL Cat" ]; then
             PYTHONPATH=scripts python scripts/capture_predeadline_decision_bundle.py \
