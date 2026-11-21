@@ -90,6 +90,15 @@ def route_provider_forecast(
         )
         return result
 
+    coverage = canonical["coverage"]
+    if (
+        coverage.get("identity_resolution_status") != "VERIFIED"
+        or coverage.get("identity_mapped_count") != coverage.get("row_count")
+    ):
+        result["routing_status"] = "DIAGNOSTIC_ONLY"
+        result["routing_reason"] = "IDENTITY_PROVENANCE_NOT_VERIFIED"
+        return result
+
     result["routing_status"] = "READY_FOR_RECOMMENDATION_ADAPTER"
     result["decision_eligible"] = True
     if player_metadata is not None or as_of_utc is not None:
