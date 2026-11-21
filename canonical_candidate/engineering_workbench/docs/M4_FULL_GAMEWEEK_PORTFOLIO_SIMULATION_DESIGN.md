@@ -122,3 +122,34 @@ The resolver returns the resolved XI, substitutions, active captain, player
 contributions and total points. It remains synthetic research code with
 `decision_weight=0` and `production_eligible=false`; it is not yet connected
 to full-Gameweek scenario scoring.
+
+## Full-Gameweek scenario contract implementation
+
+A separate validator is implemented in
+`scripts/m4_covar_full_gameweek_contract.py`, with tests in
+`tests/test_m4_covar_full_gameweek_contract.py`. It is intentionally separate
+from the existing fixture-slice contract and does not change that contract or
+its scorer.
+
+The full-Gameweek document must declare:
+
+- `scenario_scope=FULL_GAMEWEEK` and `data_status=SYNTHETIC_FULL_GAMEWEEK_ONLY`.
+- A player universe equal to the union of all complete candidate and field
+  15-player squads. Every player has one authoritative position.
+- Complete 15-player lineup semantics for every portfolio, with a legal
+  starting XI, reserve goalkeeper, ordered outfield bench, distinct starting
+  captain and vice-captain, and position metadata consistent with the player
+  universe.
+- For every scenario, exactly one outcome for every player in that full
+  universe. Each outcome requires finite FPL points, minutes, and an explicit
+  boolean `played` value. Positive minutes require `played=true`; zero-minute
+  card-only appearances may also be marked played.
+- Unique scenario and portfolio IDs, probabilities summing to one, pre-deadline
+  as-of metadata, and normalized positive weights when FIELD portfolios exist.
+
+This establishes a shared scenario distribution and prevents fixture-slice
+outcome coverage from being mistaken for full-Gameweek coverage. The contract
+accepts supplied synthetic FPL point totals; it does not derive points from
+events or score portfolios. The resolver and scorer integration remain the
+next engineering step. The contract remains synthetic-only with
+`decision_weight=0` and `production_eligible=false`.
