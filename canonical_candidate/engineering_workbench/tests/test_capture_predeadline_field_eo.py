@@ -5,9 +5,9 @@ import capture_predeadline_field_eo as capture
 
 def test_capture_emits_explicit_provisional_predeadline_contract(monkeypatch):
     times = iter([
-        datetime(2026, 11, 21, 10, 20, tzinfo=timezone.utc),
-        datetime(2026, 11, 21, 10, 21, tzinfo=timezone.utc),
-        datetime(2026, 11, 21, 10, 22, tzinfo=timezone.utc),
+        datetime(2026, 11, 21, 10, 30, tzinfo=timezone.utc),
+        datetime(2026, 11, 21, 10, 31, tzinfo=timezone.utc),
+        datetime(2026, 11, 21, 10, 32, tzinfo=timezone.utc),
     ])
     monkeypatch.setattr(capture, "choose_pages", lambda *args: [1])
     monkeypatch.setattr(capture, "select_managers", lambda *args: [
