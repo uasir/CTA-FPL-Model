@@ -1,6 +1,6 @@
 # M5 Execution Charter — Conventional FPL Recommendation Delivery
 
-**Status:** M5-T1 scope and release boundary defined; implementation not yet accepted.
+**Status:** M5-T1 complete; M5-T2/T4/T5/T6 engineering implementation CI-tested; GW11 live evidence archived; exact archive-to-report acceptance remains pending.
 **Base:** M4 handoff commit `4da03390b293ea114376a03096c7ecdab9abd98e`.
 **Branch:** `feat/m5-conventional-delivery`.
 **Release posture:** engineering-only until the live-data and M3 acceptance gates are met.
@@ -77,7 +77,7 @@ A CI pass over deterministic fixtures does not prove a live data capture. A live
 ## 6. Current known blockers
 
 - M4's pre-deadline field acquisition has not yet produced a verified live artifact. Conventional M5 can proceed without EO; it must not invent or relabel EO.
-- The previous live FPL Cat GW11 run predates the post-transfer squad-plan correction. A fresh live run is required before an actionable recommendation can be accepted.
+- A verified GW11 FPL Cat capture is archived in Actions run `44809552413` (artifact `predeadline-decision-evidence-manager-421025-gw11`). It was captured at `2026-11-20T20:14:42.975478Z`, before the official `2026-11-21T11:00:00Z` deadline; provider generation/capture and official metadata/manager-state archives are timestamped and hashed. Its deterministic replay passed, and the frozen recommendation explicitly records `squad_plan_state=POST_TRANSFER`, preserving the original plan separately from the recommended post-transfer plan. The capture code commit descends from the post-transfer engine fixes, so the earlier statement that this run predates that correction is superseded. The new conventional delivery contract/report still needs to be run against this exact archive; the historical run remains exploratory and does not authorize release.
 - CTA/ABC/2PM model validation and CoVar utility validation are not complete.
 - PR #58 remains draft and unmerged. This M5 branch is stacked on the exact M4 handoff commit; it does not merge or release M4.
 
