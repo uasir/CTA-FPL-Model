@@ -1,5 +1,6 @@
 from __future__ import annotations
 import copy
+import hashlib
 import pytest
 
 from m4_covar_joint_forecast_acceptance import (
@@ -72,3 +73,41 @@ def test_preserves_repeated_forecasts_as_gameweek_cluster():
     report = validate_joint_forecast_acceptance(repeated + [extra], manifest())
     assert report["temporal_validation"]["split_forecast_row_counts"]["train"] == 2
     assert report["temporal_validation"]["repeated_forecasts_are_independent"] is False
+
+
+def test_archive_verification_is_integrated_as_an_optional_third_stage(tmp_path):
+    forecasts = data()
+    entries = []
+    for index, forecast in enumerate(forecasts):
+        payload = f"source-snapshot-{index}".encode()
+        forecast["provenance"]["source_snapshots"][0]["content_sha256"] = hashlib.sha256(payload).hexdigest()
+        relative = f"snapshot-{index}.bin"
+        (tmp_path / relative).write_bytes(payload)
+        entries.append({
+            "forecast_id": forecast["forecast_id"],
+            "source_id": "source-a",
+            "archive_path": relative,
+        })
+    report = validate_joint_forecast_acceptance(
+        forecasts, manifest(), archive_root=tmp_path, archive_manifest=entries,
+    )
+    assert report["acceptance_status"] == "STRUCTURAL_AND_ARCHIVE_BYTES_VERIFIED"
+    assert report["archive_validation"]["verified_source_count"] == 3
+    assert report["source_bytes_rehashed"] is True
+    assert report["authenticity_verified"] is False
+    assert report["historical_dataset_certified"] is False
+    assert report["production_eligible"] is False
+
+def test_archive_verification_fails_closed_on_digest_mismatch(tmp_path):
+    forecasts = data()
+    (tmp_path / "snapshot.bin").write_bytes(b"tampered")
+    entries = [
+        {"forecast_id": forecast["forecast_id"], "source_id": "source-a", "archive_path": "snapshot.bin"}
+        for forecast in forecasts
+    ]
+    with pytest.raises(JointForecastAcceptanceError, match="archive verification failed"):
+        validate_joint_forecast_acceptance(forecasts, manifest(), tmp_path, entries)
+
+def test_archive_verification_requires_both_arguments():
+    with pytest.raises(JointForecastAcceptanceError, match="requires both"):
+        validate_joint_forecast_acceptance(data(), manifest(), archive_root="/tmp/archive")
