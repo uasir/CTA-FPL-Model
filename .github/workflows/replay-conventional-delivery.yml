@@ -1,0 +1,115 @@
+name: Replay conventional delivery from archived evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: GitHub Actions run containing the frozen pre-deadline evidence artifact
+        required: true
+        default: "44809552413"
+        type: string
+      artifact_name:
+        description: Exact archived artifact name
+        required: true
+        default: "predeadline-decision-evidence-manager-421025-gw11"
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out selected M4 implementation branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download the exact historical evidence artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: archived-evidence
+      - name: Verify expected frozen inputs exist
+        run: |
+          test -s archived-evidence/predeadline-m3-recommendation.json
+          test -s archived-evidence/predeadline-decision-evidence.json
+          test -s archived-evidence/predeadline-m3-replay-report.json
+      - name: Validate conventional M4 delivery contract
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          PYTHONPATH=scripts python scripts/m5_conventional_delivery_contract.py \
+            --input "$GITHUB_WORKSPACE/archived-evidence/predeadline-m3-recommendation.json" \
+            --output m4-conventional-delivery-acceptance.json
+      - name: Build the conventional M4 delivery report
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          PYTHONPATH=scripts python scripts/m4_conventional_delivery_report.py \
+            --conventional "$GITHUB_WORKSPACE/archived-evidence/predeadline-m3-recommendation.json" \
+            --output m4-conventional-delivery-report.json
+      - name: Write replay provenance manifest
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_ARTIFACT_NAME: ${{ inputs.artifact_name }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          source = Path(os.environ["GITHUB_WORKSPACE"]) / "archived-evidence"
+          report = Path("m4-conventional-delivery-report.json")
+          acceptance = Path("m4-conventional-delivery-acceptance.json")
+          manifest = {
+              "replay_type": "HISTORICAL_CONVENTIONAL_M4_DELIVERY",
+              "source_run_id": int(os.environ["SOURCE_RUN_ID"]),
+              "source_artifact_name": os.environ["SOURCE_ARTIFACT_NAME"],
+              "replay_software_commit": os.environ["SOURCE_COMMIT"],
+              "source_files": {},
+              "outputs": {},
+              "release_eligible": False,
+          }
+          for name in (
+              "predeadline-m3-recommendation.json",
+              "predeadline-decision-evidence.json",
+              "predeadline-m3-replay-report.json",
+          ):
+              data = (source / name).read_bytes()
+              manifest["source_files"][name] = {
+                  "sha256": hashlib.sha256(data).hexdigest(),
+                  "size_bytes": len(data),
+              }
+          for name, path in (
+              ("acceptance", acceptance),
+              ("delivery_report", report),
+          ):
+              data = path.read_bytes()
+              manifest["outputs"][name] = {
+                  "file": path.name,
+                  "sha256": hashlib.sha256(data).hexdigest(),
+                  "size_bytes": len(data),
+              }
+          Path("m4-conventional-delivery-replay-manifest.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(manifest, indent=2, sort_keys=True))
+          PY
+      - name: Upload historical M4 replay outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: conventional-m4-replay-source-run-${{ inputs.source_run_id }}
+          path: |
+            canonical_candidate/engineering_workbench/m4-conventional-delivery-acceptance.json
+            canonical_candidate/engineering_workbench/m4-conventional-delivery-report.json
+            canonical_candidate/engineering_workbench/m4-conventional-delivery-replay-manifest.json
+          if-no-files-found: error
+          retention-days: 90
