@@ -28,6 +28,7 @@ def lineup():
         "captain_id": "p10",
         "vice_captain_id": "p11",
         "player_minutes": {pid: 90 for pid in players},
+        "player_played": {pid: True for pid in players},
         "player_points": {pid: 2 for pid in players},
     }
 
@@ -35,6 +36,8 @@ def lineup():
 def resolve(**overrides):
     data = lineup()
     data.update(overrides)
+    if "player_played" not in overrides:
+        data["player_played"] = {pid: minutes > 0 for pid, minutes in data["player_minutes"].items()}
     return resolve_fpl_lineup(**data)
 
 
@@ -83,6 +86,7 @@ class TestM4CovarLineupResolver(unittest.TestCase):
             "p5": "DEF", "p14": "MID", "p13": "DEF", "p15": "FWD",
         }
         data["player_minutes"] = {pid: 90 for pid in data["player_ids"]}
+        data["player_played"] = {pid: True for pid in data["player_ids"]}
         data["player_points"] = {pid: 2 for pid in data["player_ids"]}
         data["captain_id"] = "p10"
         data["vice_captain_id"] = "p11"
@@ -127,6 +131,18 @@ class TestM4CovarLineupResolver(unittest.TestCase):
         self.assertEqual(result["active_captain_id"], "p10")
         self.assertNotEqual(result["captain_multiplier"], 1)
 
+    def test_card_only_appearance_counts_as_played_for_autosubs_and_captaincy(self):
+        minutes = lineup()["player_minutes"]
+        played = lineup()["player_played"]
+        minutes["p10"] = 0
+        played["p10"] = True  # Explicit card-only appearance.
+        minutes["p2"] = 0
+        played["p2"] = False
+        result = resolve(player_minutes=minutes, player_played=played)
+        self.assertEqual(result["active_captain_id"], "p10")
+        self.assertFalse(any(row["out"] == "p10" for row in result["substitutions"]))
+        self.assertTrue(any(row["out"] == "p2" for row in result["substitutions"]))
+
     def test_triple_captain_applies_three_times_to_captain_or_vice_fallback(self):
         result = resolve(active_chip="3xc")
         self.assertEqual(result["player_contributions"]["p10"], 6)
@@ -163,6 +179,10 @@ class TestM4CovarLineupResolver(unittest.TestCase):
         points.pop("p14")
         with self.assertRaisesRegex(CovarLineupResolutionError, "cover all 15"):
             resolve(player_points=points)
+        played = lineup()["player_played"]
+        played.pop("p13")
+        with self.assertRaisesRegex(CovarLineupResolutionError, "cover all 15"):
+            resolve(player_played=played)
 
     def test_rejects_invalid_lineup_and_captaincy(self):
         data = lineup()
