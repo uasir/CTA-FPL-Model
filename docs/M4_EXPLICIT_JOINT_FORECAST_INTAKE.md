@@ -16,8 +16,9 @@ The JSON document must declare:
 - unique forecast ID, season, target Gameweek, deadline and pre-deadline as-of;
 - the complete player universe and every fixture in the Gameweek;
 - multiple complete joint scenarios, each with a unique ID, explicit
-  source-supplied probability, every fixture state, and one aggregate
-  Gameweek outcome for every declared player;
+  probability, every fixture state, and one aggregate Gameweek outcome for
+  every declared player. Probabilities may be `EXPLICIT_SOURCE_SUPPLIED` or
+  `MODEL_GENERATED_EXPLICIT`;
 - model, config, state-catalogue and forecast-payload versions/hashes, model
   training cutoff, generation timestamp, and versioned source snapshots with
   availability/retrieval timestamps and content hashes.
@@ -25,7 +26,12 @@ The JSON document must declare:
 Probabilities must be strictly positive and sum to 1.0. Every scenario must
 cover the same player and fixture universes. The intake does not derive player
 points from marginal xP, EO, fixture marginals or independent fixture models.
-FPL points are supplied by the forecast source and may be negative.
+FPL points may be negative. For `MODEL_GENERATED_EXPLICIT`, the document must
+also declare the generation method/version, algorithm, random generator and
+seed, draw count, scenario-reduction method, and empirical-draw-frequency
+semantics. The model/config hashes and training cutoff in provenance bind that
+method to its archived implementation and inputs. This validates declared
+reproducibility metadata, not model correctness or calibration.
 
 ## Temporal and provenance rules
 
@@ -38,14 +44,16 @@ provider's historical availability claim or proves model execution.
 
 ## Explicit non-goals
 
-- No source/provider or probability model is selected by this contract.
-- No scenario probabilities are generated or repaired.
+- This contract does not select or implement the probability model.
+- No scenario probabilities are repaired or inferred from marginal forecasts.
 - No Cartesian product or fixture-independence assumption is permitted.
 - No inferred manager portfolios from marginal EO.
 - No recommendation, transfer, XI or captaincy influence.
 - `decision_weight=0`; `production_eligible=false`.
 
 A successful structural intake is not calibration, historical validation,
-forecast skill, or production approval. The first genuine source must be
-identified and its pre-deadline forecasts archived before any prospective
-validation can begin.
+forecast skill, or production approval. The CoVar model may use the existing
+M3 conventional FPL Cat expected-points/minutes anchor together with strictly
+point-in-time historical FPL outcomes to generate explicit joint scenarios.
+Those model-generated forecasts must be archived prospectively and evaluated
+against reconciled outcomes and leakage-safe reference forecasts.
