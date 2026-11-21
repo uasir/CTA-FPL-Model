@@ -94,11 +94,15 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         row = outcomes[pid]
         if not isinstance(row, Mapping):
             raise CovarFplReplayError(f"player outcome for {pid} must be an object")
-        minutes[pid] = row.get("minutes")
+        minutes[pid] = _finite(row.get("minutes"), f"player_outcomes[{pid}].minutes")
         played[pid] = row.get("played")
         points[pid] = row.get("fpl_points")
+        if minutes[pid] < 0:
+            raise CovarFplReplayError(f"player outcome for {pid} has negative minutes")
         if not isinstance(played[pid], bool):
             raise CovarFplReplayError(f"player outcome for {pid} requires explicit played boolean")
+        if minutes[pid] > 0 and not played[pid]:
+            raise CovarFplReplayError(f"player outcome for {pid} played status conflicts with positive minutes")
 
     picks = official.get("picks")
     official_points = official.get("player_total_points")
@@ -110,12 +114,15 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
     official_multipliers: dict[str, int] = {}
     captain_ids: list[str] = []
     vice_ids: list[str] = []
-    for pick in picks:
+    for index, pick in enumerate(picks, start=1):
         if not isinstance(pick, Mapping):
             raise CovarFplReplayError("each official pick must be an object")
         pid = str(pick.get("element", ""))
         if pid not in set(player_ids) or pid in official_multipliers:
             raise CovarFplReplayError("official picks contain an unknown or duplicate player")
+        position = pick.get("position")
+        if isinstance(position, bool) or position != index or pid != player_ids[index - 1]:
+            raise CovarFplReplayError("official pick order must match lineup positions 1 through 15")
         multiplier = pick.get("multiplier")
         if isinstance(multiplier, bool) or multiplier not in (0, 1, 2, 3):
             raise CovarFplReplayError("official pick multiplier must be 0, 1, 2 or 3")
@@ -128,6 +135,10 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         official_multipliers[pid] = int(multiplier)
     if len(captain_ids) != 1 or len(vice_ids) != 1 or captain_ids[0] == vice_ids[0]:
         raise CovarFplReplayError("official picks must identify distinct captain and vice-captain")
+    if captain_ids[0] != str(lineup.get("captain_id")):
+        raise CovarFplReplayError("official captain does not match submitted lineup captain")
+    if vice_ids[0] != str(lineup.get("vice_captain_id")):
+        raise CovarFplReplayError("official vice-captain does not match submitted lineup vice-captain")
 
     official_player_points = {
         str(pid): _finite(value, f"official player_total_points[{pid}]")
