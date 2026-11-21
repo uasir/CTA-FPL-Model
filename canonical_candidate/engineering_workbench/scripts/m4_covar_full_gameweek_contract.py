@@ -223,8 +223,6 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
             if player_id not in player_by_id or player_id in outcome_by_id:
                 raise CovarFullGameweekContractError(f"scenario {scenario_id} has an unknown or duplicate player outcome")
             minutes = _number(outcome.get("minutes"), f"{scenario_id}.{player_id}.minutes", minimum=0)
-            if minutes > 120:
-                raise CovarFullGameweekContractError(f"{scenario_id}.{player_id}.minutes cannot exceed 120")
             played = outcome.get("played")
             if not isinstance(played, bool):
                 raise CovarFullGameweekContractError(f"{scenario_id}.{player_id}.played must be an explicit boolean")
