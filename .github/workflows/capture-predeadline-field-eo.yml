@@ -1,0 +1,48 @@
+name: Capture provisional pre-deadline FPL field EO
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Sample rank cohort and current picks inside the 35-minute pre-deadline window.
+    - cron: "5,35 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-fpl-predeadline-field-eo
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out M3 implementation
+        uses: actions/checkout@v4
+        with:
+          ref: feat/m3-external-benchmark-decision-engine
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Capture provisional pre-deadline field exposure
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          PYTHONPATH=scripts python scripts/capture_predeadline_field_eo.py \
+            --out-dir ../../run_artifacts/predeadline_field_eo \
+            --rank-limit 10000 \
+            --sample-size 400 \
+            --workers 2 \
+            --delay 0.15 \
+            --deadline-window-minutes 35
+      - name: Upload aggregate field evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provisional-field-eo-${{ github.run_id }}
+          path: |
+            run_artifacts/predeadline_field_eo/predeadline_field_eo.csv
+            run_artifacts/predeadline_field_eo/predeadline_field_report.json
+          if-no-files-found: ignore
+          retention-days: 30
