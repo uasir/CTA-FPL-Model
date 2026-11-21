@@ -10,11 +10,13 @@ This is a data-readiness decision, not a claim that no future data source can sa
 
 ## Project-owner scope decision — 2026-11-21
 
-The CoVar forecast path will use the **conventional FPL forecasting method already integrated into the recommendation system**. CTA/CTF-derived player features, predictions, covariance and provider panels are excluded from this path for now.
+The CoVar forecast path will continue using **the conventional forecasting model already integrated into M3** as its player-level expected-points/minutes anchor. We are not switching CoVar to CTA or introducing a new forecasting model for this workstream.
 
-The conventional player-level expected-points forecast is the anchor. CoVar adds portfolio-level uncertainty/dependence analysis using eligible realized FPL outcomes and independently validated statistical methods. Do not imply that marginal expected points or marginal player probabilities alone determine a joint distribution. Until a joint scenario probability method is implemented and validated, scenario inputs remain research-only and must not be represented as calibrated model forecasts.
+CTA-derived player features, predictions, covariance and provider panels are out of scope as CoVar forecast inputs for now. This does not remove or suspend the separate CTA research elsewhere in the repository.
 
-Accordingly, the 11footy, Wyscout and StatsBomb provider datasets are not priorities for this CoVar forecast work. The immediate data priority is a reliable conventional FPL realized-outcome panel and point-in-time conventional forecast snapshots. Revisit CTA/CTF only with explicit project-owner approval.
+CoVar adds portfolio-level uncertainty/dependence analysis using eligible realized FPL outcomes and independently validated statistical methods. Marginal expected points or marginal player probabilities alone do not determine a joint distribution. Until a joint scenario probability method is implemented and validated, scenario inputs remain research-only and must not be represented as calibrated model forecasts.
+
+Accordingly, the 11footy, Wyscout and StatsBomb provider datasets are not priorities for this CoVar forecast work. The immediate data priority is a reliable conventional FPL realized-outcome panel and point-in-time snapshots of the M3 conventional forecast.
 
 ## Source-by-source assessment
 
