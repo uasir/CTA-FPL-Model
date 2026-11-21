@@ -116,6 +116,8 @@ def load_predeadline_field_csv(csv_path: str | Path, report_path: str | Path,
         normalized = {"fpl_element_id": player_id, "gameweek": int(report["gameweek"])}
         for field in METRICS:
             normalized[field] = _number(row.get(field), f"{player_id}.{field}")
+            if normalized[field] is not None and normalized[field] > 100:
+                raise PredeadlineFieldContextError(f"{player_id}.{field} must not exceed 100 percent")
         low, high = normalized["effective_ownership_pct_ci95_low"], normalized["effective_ownership_pct_ci95_high"]
         if (low is None) != (high is None) or (low is not None and high < low):
             raise PredeadlineFieldContextError(f"{player_id} has an invalid effective-ownership interval")
@@ -247,12 +249,23 @@ def build_m3_predeadline_field_context(recommendation: Mapping[str, Any],
     if missing:
         raise PredeadlineFieldContextError("field snapshot lacks candidate squad players: " + ", ".join(missing))
 
+    active_chip_status = manager_context.get("active_chip_status", "NOT_CAPTURED")
+    active_chip = manager_context.get("active_chip")
+    if active_chip_status == "VERIFIED_FROM_OFFICIAL_PICKS":
+        captain_multiplier = 3 if active_chip == "3xc" else 2
+        captain_multiplier_status = "VERIFIED"
+    else:
+        captain_multiplier = None
+        captain_multiplier_status = "UNKNOWN_ACTIVE_CHIP_STATE"
+
     def scenario(name: str, owned: list[str], xi: list[str], bench: list[str], cap: str) -> dict[str, Any]:
         players = []
         for pid in sorted(required_ids, key=lambda x: (not x.isdigit(), int(x) if x.isdigit() else x)):
             field = by_id[pid]
             is_owned, is_starting = pid in owned, pid in xi
-            personal_eo = (100.0 if is_owned else 0.0) + (100.0 if is_owned and pid == cap else 0.0)
+            personal_eo = 100.0 if is_owned else 0.0
+            if is_owned and pid == cap:
+                personal_eo = (100.0 * captain_multiplier) if captain_multiplier is not None else None
             field_eo, field_start = field.get("effective_ownership_pct"), field.get("starting_pct")
             players.append({
                 "fpl_element_id": pid, "in_squad": is_owned, "in_starting_xi": is_starting,
@@ -274,6 +287,8 @@ def build_m3_predeadline_field_context(recommendation: Mapping[str, Any],
         return {
             "scenario": name, "squad_player_count": len(owned), "starting_xi_count": len(xi),
             "captain_id": cap,
+            "captain_multiplier": captain_multiplier,
+            "captain_multiplier_status": captain_multiplier_status,
             "squad_effective_ownership_gap_pct_points": round(sum(gaps), 8) if all(x is not None for x in gaps) else None,
             "starting_xi_exposure_gap_pct_points": round(sum(starts), 8) if all(x is not None for x in starts) else None,
             "players": players,
@@ -290,6 +305,12 @@ def build_m3_predeadline_field_context(recommendation: Mapping[str, Any],
         "deadline_utc": deadline.isoformat(),
         "source": dict(source), "cohort": dict(snapshot.get("cohort") or {}),
         "sample": dict(sample),
+        "personal_chip_context": {
+            "active_chip": active_chip,
+            "active_chip_status": active_chip_status,
+            "captain_multiplier": captain_multiplier,
+            "captain_multiplier_status": captain_multiplier_status,
+        },
         "coverage": {
             "field_player_row_count": len(rows),
             "candidate_squad_covered": True,
