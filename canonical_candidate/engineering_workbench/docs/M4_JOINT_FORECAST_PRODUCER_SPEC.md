@@ -71,11 +71,12 @@ A future producer must emit a versioned, immutable forecast bundle with:
 ## Immediate implementation sequence
 
 1. Inventory eligible historical fixture/player event data and establish whether it can legally and reliably support the target state definitions.
-2. Build a point-in-time dataset constructor with complete fixture-level and player-level outcome coverage and provenance checks.
-3. Define and implement a simple, auditable fixture-state probability baseline.
-4. Define and fit an explicit dependence model from historical joint observations; retain the historical-frequency reference as a benchmark, not as a substitute for a calibrated dependence model.
-5. Emit the producer bundle described above and connect it to the existing composer, aggregator, scorer, archive packager and calibration/backtest harness.
-6. Keep all output research-only until prospective and held-out evidence passes the acceptance gates.
+2. Run the new structural realized FPL dataset builder on an actual successful official ingestion artifact; quantify coverage and reconcile its fixture/player/Gameweek totals without treating absent rows as zero.
+3. Establish a separate prospective archive of the exact M3 forecast snapshots and joined FPL metadata; do not use the exploratory `ep_next` baseline builder as a substitute.
+4. Define and implement a simple, auditable fixture-state probability baseline.
+5. Define and fit an explicit dependence model from historical joint observations; retain the historical-frequency reference as a benchmark, not as a substitute for a calibrated dependence model.
+6. Emit the producer bundle described above and connect it to the existing composer, aggregator, scorer, archive packager and calibration/backtest harness.
+7. Keep all output research-only until prospective and held-out evidence passes the acceptance gates.
 
 ## Current conclusion
 
