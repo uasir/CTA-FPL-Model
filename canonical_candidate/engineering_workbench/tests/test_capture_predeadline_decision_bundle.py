@@ -219,3 +219,32 @@ def test_rejects_missing_current_player_price(monkeypatch):
         capture.capture_predeadline_decision_bundle(
             team_id=421025, gameweek=12, season="2026-27", manager_state=_state(),
         )
+
+def test_uses_explicit_sideline_quant_capture_envelope_without_falling_back_to_fpl_cat(monkeypatch):
+    _fixtures(monkeypatch)
+    # Reuse the fixture's byte archive but register it as a separate provider run.
+    # Raw-to-canonical Sideline Quant reconstruction is tested independently.
+    import copy
+    provider_capture = copy.deepcopy(capture.capture_fpl_cat_snapshot(season="2026-27"))
+    provider = provider_capture["provider_snapshot"]
+    provider["snapshot_id"] = "sidelinequant-gw12-test:player_gameweek_sum_xp"
+    provider["provider"] = {
+        "name": "Sideline Quant",
+        "product": "gameweek_projections",
+        "variant": "provider_native_xp",
+        "version": "test",
+    }
+    provider["source"]["url"] = "https://sidelinequant.com/data/gw/12/projections.json"
+    monkeypatch.setattr(
+        capture, "capture_fpl_cat_snapshot",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("FPL Cat fallback was called")),
+    )
+    result = capture.capture_predeadline_decision_bundle(
+        team_id=421025, gameweek=12, season="2026-27",
+        manager_state=_state(), provider_capture=provider_capture,
+    )
+    manifest = result["12"]
+    assert manifest["provider_snapshot"]["provider"]["name"] == "Sideline Quant"
+    source = next(row for row in manifest["sources"] if row["source_type"] == "provider_forecast")
+    assert source["provider_id"] == "sideline-quant"
+    assert source["source_url"] == "https://sidelinequant.com/data/gw/12/projections.json"
