@@ -65,6 +65,11 @@ class TestM4CovarFplApiReplayAdapter(unittest.TestCase):
         case = normalize_official_fpl_replay(picks, live, bootstrap, event_id=7)
         self.assertTrue(case["player_outcomes"]["1"]["played"])
 
+    def test_rejects_picks_payload_from_a_different_gameweek(self):
+        picks, live, bootstrap = api_payloads()
+        with self.assertRaisesRegex(CovarFplApiReplayAdapterError, "does not match requested event"):
+            normalize_official_fpl_replay(picks, live, bootstrap, event_id=8)
+
     def test_rejects_incomplete_or_duplicate_picks(self):
         picks, live, bootstrap = api_payloads()
         with self.assertRaisesRegex(CovarFplApiReplayAdapterError, "exactly 15"):
