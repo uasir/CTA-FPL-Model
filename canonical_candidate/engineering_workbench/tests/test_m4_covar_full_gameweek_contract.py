@@ -122,6 +122,11 @@ class TestM4CovarFullGameweekContract(unittest.TestCase):
         with self.assertRaisesRegex(CovarFullGameweekContractError, "positive minutes"):
             validate_full_gameweek_document(doc)
 
+    def test_allows_aggregate_minutes_above_120_for_double_gameweeks(self):
+        doc = fixture()
+        doc["scenarios"][0]["player_outcomes"][0]["minutes"] = 165
+        self.assertEqual(validate_full_gameweek_document(doc)["validation_status"], "VALID_SYNTHETIC_FULL_GAMEWEEK_INPUT")
+
     def test_allows_zero_minute_card_only_appearance(self):
         doc = fixture()
         outcome = doc["scenarios"][0]["player_outcomes"][0]
