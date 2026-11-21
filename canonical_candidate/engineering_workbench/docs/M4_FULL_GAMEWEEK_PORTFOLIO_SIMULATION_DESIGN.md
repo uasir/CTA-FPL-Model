@@ -243,3 +243,12 @@ joint distribution from historical data, generate match forecasts, model
 cross-fixture team/player dependencies, or calculate FPL points from raw events.
 Until a defensible joint probability model and empirical calibration exist, all
 outputs remain supplied-input research artifacts, not predictive evidence.
+
+
+A thin integration function is also implemented in
+`scripts/m4_covar_joint_fixture_gameweek_pipeline.py`, tested in
+`tests/test_m4_covar_joint_fixture_gameweek_pipeline.py`. It composes the
+explicit joint fixture references and passes the resulting rows directly to
+the Gameweek aggregator. This verifies the interface between the two modules,
+including a synthetic Double Gameweek example. It does not add any probability
+or outcome-generation assumptions.
