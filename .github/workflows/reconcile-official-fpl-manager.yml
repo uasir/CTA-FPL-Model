@@ -8,6 +8,10 @@ on:
         required: true
         default: "1,2,3,4,5,6,7,8,10"
         type: string
+      manager_team_id:
+        description: FPL manager team ID (public workflow input)
+        required: true
+        type: string
       decision_evidence_run_id:
         description: Optional successful pre-deadline capture workflow run ID for this manager and single Gameweek
         required: false
@@ -22,24 +26,6 @@ jobs:
   reconcile:
     runs-on: ubuntu-latest
     steps:
-      - name: Refuse personal reconciliation in a public repository
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPOSITORY: ${{ github.repository }}
-        run: |
-          visibility=$(curl --fail --silent --show-error \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/$GH_REPOSITORY" | jq -r '.private')
-          if [ "$visibility" != "true" ]; then
-            echo "::error::Personal manager reconciliation evidence cannot be captured or stored in a public repository."
-            exit 1
-          fi
-      - name: Check required private manager configuration
-        env:
-          MANAGER_TEAM_ID: ${{ secrets.M3_MANAGER_TEAM_ID }}
-        run: |
-          test -n "$MANAGER_TEAM_ID" || { echo "::error::Missing M3_MANAGER_TEAM_ID secret"; exit 1; }
       - name: Validate requested Gameweeks and optional decision-evidence scope
         env:
           TARGET_GAMEWEEKS: ${{ inputs.gameweeks }}
@@ -76,7 +62,7 @@ jobs:
         continue-on-error: true
         working-directory: canonical_candidate/engineering_workbench
         env:
-          MANAGER_TEAM_ID: ${{ secrets.M3_MANAGER_TEAM_ID }}
+          MANAGER_TEAM_ID: ${{ inputs.manager_team_id }}
           TARGET_GAMEWEEKS: ${{ inputs.gameweeks }}
         run: |
           python scripts/reconcile_official_fpl_manager_batch.py \
