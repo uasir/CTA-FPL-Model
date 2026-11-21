@@ -128,3 +128,18 @@ def test_does_not_mutate_input_payload():
     original = copy.deepcopy(source)
     route_provider_forecast(source)
     assert source == original
+
+
+
+def test_sideline_quant_derived_player_gameweek_snapshot_routes_to_recommendation_boundary():
+    from parse_sideline_quant_snapshot import parse_sideline_quant_capture
+    from test_parse_sideline_quant_snapshot import make_capture
+
+    parsed = parse_sideline_quant_capture(make_capture())
+    derived = parsed["player_gameweek_snapshot"]
+    result = route_provider_forecast(derived)
+    assert result["provider_id"] == "sideline_quant"
+    assert result["routing_status"] == "READY_FOR_RECOMMENDATION_ADAPTER"
+    assert result["grain"] == "player_gameweek"
+    assert result["canonical_snapshot"]["records"][0]["expected_points"] == pytest.approx(5.5)
+    assert result["canonical_snapshot"]["records"][0]["points_variance"] == pytest.approx(3.4 ** 2)

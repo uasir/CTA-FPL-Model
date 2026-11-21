@@ -132,8 +132,8 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
         "target_gameweek": gameweek,
         "provider": {
             "name": "Sideline Quant",
-            "product": "public next-Gameweek projections",
-            "variant": "fixture-grain JSON feed",
+            "product": "gameweek_projections",
+            "variant": "provider_native_xp",
             "version": provider.get("schema_version"),
         },
         "timing": {
@@ -183,8 +183,12 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
         }
         for player_id, total_xp in sorted(gw_totals.items())
     ]
+    player_gameweek_snapshot = build_sideline_quant_player_gameweek_snapshot(
+        canonical, gameweek_rows
+    )
     return {
         "canonical_snapshot": canonical,
+        "player_gameweek_snapshot": player_gameweek_snapshot,
         "provider_native_rows": native_rows,
         "player_gameweek_sum_xp": gameweek_rows,
         "aggregation_provenance": {
@@ -203,6 +207,68 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
         },
     }
 
+
+
+def build_sideline_quant_player_gameweek_snapshot(
+    fixture_snapshot: Mapping[str, Any],
+    player_gameweek_rows: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Create the explicit publisher-documented player-GW sum-xP view.
+
+    The source fixture snapshot remains unchanged and authoritative. This
+    derived view carries the same source hash and timing, with an explicit
+    snapshot ID suffix and aggregation metadata.
+    """
+    if fixture_snapshot.get("provider", {}).get("name") != "Sideline Quant":
+        raise SidelineQuantParseError("player-Gameweek derivation requires Sideline Quant")
+    if fixture_snapshot.get("grain") != "player_fixture":
+        raise SidelineQuantParseError("source snapshot must retain player_fixture grain")
+    if not isinstance(player_gameweek_rows, list) or not player_gameweek_rows:
+        raise SidelineQuantParseError("player_gameweek_rows must be a non-empty list")
+
+    records = []
+    for index, row in enumerate(player_gameweek_rows):
+        if row.get("aggregation") != "SUM_OF_PROVIDER_FIXTURE_XP":
+            raise SidelineQuantParseError(
+                f"player_gameweek_rows[{index}] lacks documented sum-xP provenance"
+            )
+        if row.get("source_snapshot_id") != fixture_snapshot["snapshot_id"]:
+            raise SidelineQuantParseError(
+                f"player_gameweek_rows[{index}] references a different source snapshot"
+            )
+        records.append({
+            key: row[key]
+            for key in (
+                "fpl_element_id", "expected_points", "points_variance", "q10", "q90"
+            )
+            if key in row
+        })
+
+    derived = {
+        **{key: fixture_snapshot[key] for key in (
+            "season", "target_gameweek", "timing", "source"
+        )},
+        "snapshot_id": fixture_snapshot["snapshot_id"] + ":player_gameweek_sum_xp",
+        "provider": dict(fixture_snapshot["provider"]),
+        "grain": "player_gameweek",
+        "records": records,
+        "coverage": {
+            "row_count": len(records),
+            "expected_player_universe": fixture_snapshot["coverage"].get(
+                "expected_player_universe"
+            ),
+            "identity_mapped_count": len(records),
+            "source_fixture_row_count": fixture_snapshot["coverage"]["row_count"],
+        },
+        "aggregation": {
+            "method": "SUM(xP) grouped by player_id within target Gameweek",
+            "publisher_documented": True,
+            "source_grain": "player_fixture",
+            "source_snapshot_id": fixture_snapshot["snapshot_id"],
+            "native_fixture_snapshot_preserved": True,
+        },
+    }
+    return normalize_provider_snapshot(derived)
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)

@@ -136,3 +136,31 @@ def test_rejects_bad_gameweek_or_declared_counts():
     capture["source"]["raw_snapshot_id"] = "sha256:" + hashlib.sha256(raw).hexdigest()
     with pytest.raises(SidelineQuantParseError, match="gameweek"):
         parse_sideline_quant_capture(capture)
+
+
+
+def test_builds_canonical_player_gameweek_snapshot_with_provenance():
+    from parse_sideline_quant_snapshot import build_sideline_quant_player_gameweek_snapshot
+
+    result = parse_sideline_quant_capture(make_capture())
+    derived = result["player_gameweek_snapshot"]
+    assert derived["grain"] == "player_gameweek"
+    assert derived["provider"]["product"] == "gameweek_projections"
+    assert derived["provider"]["variant"] == "provider_native_xp"
+    assert derived["records"][0]["expected_points"] == pytest.approx(5.5)
+    assert derived["records"][0]["points_variance"] == pytest.approx(3.4 ** 2)
+    assert derived["coverage"]["source_fixture_row_count"] == 3
+    assert derived["decision_eligible"] is True
+
+
+def test_rejects_unprovenanced_or_wrong_source_aggregation():
+    from parse_sideline_quant_snapshot import (
+        SidelineQuantParseError,
+        build_sideline_quant_player_gameweek_snapshot,
+    )
+
+    result = parse_sideline_quant_capture(make_capture())
+    rows = result["player_gameweek_sum_xp"]
+    rows[0]["aggregation"] = "UNVERIFIED_SUM"
+    with pytest.raises(SidelineQuantParseError, match="lacks documented sum-xP provenance"):
+        build_sideline_quant_player_gameweek_snapshot(result["canonical_snapshot"], rows)
