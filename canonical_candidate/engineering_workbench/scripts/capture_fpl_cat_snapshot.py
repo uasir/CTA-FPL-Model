@@ -169,6 +169,8 @@ def capture_fpl_cat_snapshot(
                 "row_count": len(records),
                 "expected_player_universe": len(bootstrap["elements"]),
                 "identity_mapped_count": len(records),
+                "identity_resolution_status": "VERIFIED",
+                "identity_resolution_method": "PROVIDER_PLAYER_ID_EQUALS_OFFICIAL_FPL_ELEMENT_ID",
             },
         },
         "player_metadata": metadata,
