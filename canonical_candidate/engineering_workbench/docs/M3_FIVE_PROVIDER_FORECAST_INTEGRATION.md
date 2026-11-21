@@ -41,6 +41,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - Endpoint: `https://fplcat.com/api/v1/projections`
 - Existing capture: `scripts/capture_fpl_cat_snapshot.py`
 - Existing capture preserves raw provider and official FPL bootstrap payloads in the runner's temporary workspace, hashes, capture times, provider-declared `computed_at`, expected points and expected minutes. Its public workflow artifact is now metadata-only; raw forecast rows and FPL bootstrap data are not uploaded.
+- Bounded live GW12 capture succeeded on 21 Nov 2026 at 17:44:52.710605Z (run [#44931714336](https://github.com/uasir/CTA-FPL-Model/actions/runs/44931714336)): 672 provider rows and 672 official FPL metadata rows; provider `computed_at` 17:10:08.084Z; capture strictly before the official GW12 deadline 27 Nov 2026 18:30Z. Provider API SHA-256: `e6a1bcd630578b71bbc50fcfa718d151f24463eddc33882efb9e866c33e488bb`; official bootstrap SHA-256: `74d3f581149bf05f977d02d862db5ba6e5c83c2b5e0711935811636daaf94435`. Snapshot ID: `fplcat-gw12-20261121T174452710605Z`. Generation time is explicitly verified; only the sanitized summary artifact was uploaded.
 - Grain: player-Gameweek.
 - Keep this implementation as the existing baseline; do not duplicate it with a second FPL Cat adapter.
 
@@ -290,3 +291,11 @@ A final bounded evidence check was made against the live publisher pages after t
 - The field CSV validator bounds owned, starting, captain, Triple Captain and scoring-exposure rates to 0–100%. Effective ownership and its confidence interval are allowed above 100%, up to the 300% theoretical ceiling, because captaincy and Triple Captain multipliers can produce EO above 100%.
 - Regression coverage includes official Triple Captain capture, 300% personal captain exposure, unknown-chip fail-closed behavior, and field-rate bounds.
 - CI run [44931550873](https://github.com/uasir/CTA-FPL-Model/actions/runs/44931550873) passed on commit `40b24645a199924b911de6d9a1dd1f8482778bc0`: 544 tests passed, 3 subtests passed, and all four identity-crosswalk validators passed.
+
+
+### Current GW12 availability decision — 2026-11-21
+
+- FPL Cat now has a verified pre-deadline GW12 snapshot: 672 provider rows, 672 official FPL metadata rows, documented provider generation timestamp and direct official FPL element-ID semantics. It is the currently available decision-eligible provider snapshot.
+- Sideline Quant's GW12 endpoint returned HTTP 404 in the one bounded attempt (run [#44931321831](https://github.com/uasir/CTA-FPL-Model/actions/runs/44931321831)); the publisher's latest pointer remained on the GW11 release. The parser and provider-native fixture-to-Gameweek transformation are implemented and tested, but there is no current GW12 artifact. Do not reuse GW11 as a GW12 forecast or repeat the request until the publisher releases GW12.
+- Therefore, retain the two-provider integration architecture and continue M3 engineering, but do not claim that two current GW12 snapshots are available. FPL Cat is the only currently captured GW12 decision-eligible forecast; Sideline Quant becomes the second live input when its GW12 feed is published.
+- The one-shot FPL Cat push trigger and marker were removed after the successful capture. The ordinary manual workflow remains. No recurring capture automation was added.
