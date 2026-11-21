@@ -88,9 +88,10 @@ def test_rejects_production_eligible_panel():
 
 def test_rejects_nan_and_unmatched_declared_gameweek():
     data = panel()
+    manifest = manifest_for(data)
     data["matched_rows"][0]["expected_points"] = float("nan")
-    with pytest.raises(ForecastDiagnosticsError, match="finite"):
-        evaluate_matched_forecast_panel(data, manifest_for(data), resamples=100)
+    with pytest.raises(ForecastDiagnosticsError, match="non-finite"):
+        evaluate_matched_forecast_panel(data, manifest, resamples=100)
 
 
 def test_rejects_tampered_panel_manifest_hash():
