@@ -39,7 +39,7 @@ def test_inspection_reports_schema_without_emitting_player_values():
 
 
 def test_inspection_flags_csv_window_that_does_not_match_page_window():
-    raw = b"player_id,player_name,xp_gw12,xp_gw13,xp_gw14,xp_gw15\\n1,Private Name,5,4,3,2\\n"
+    raw = b"player_id,player_name,xp_gw12,xp_gw13,xp_gw14,xp_gw15\n1,Private Name,5,4,3,2\\n"
     report = inspect_fpl_lucho_csv_schema(make_capture(raw))
     assert report["expected_gameweeks_from_page"] == [11, 12, 13, 14]
     assert report["gameweek_tokens_in_headers"] == [12, 13, 14, 15]
