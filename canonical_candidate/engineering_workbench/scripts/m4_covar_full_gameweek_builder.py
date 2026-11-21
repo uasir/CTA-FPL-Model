@@ -2,6 +2,7 @@
 """Compose private field portfolios, candidate lineups and outcomes into a full-GW document."""
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Mapping, Sequence
 
 from m4_covar_full_gameweek_contract import validate_full_gameweek_document
@@ -80,7 +81,12 @@ def build_full_gameweek_document(
             raise CovarFullGameweekBuildError("field adaptation must be pre-deadline provisional evidence")
         if int(field_metadata.get("gameweek", -1)) != int(target_gameweek):
             raise CovarFullGameweekBuildError("field adaptation Gameweek mismatch")
-        if str(field_metadata.get("deadline_utc")) != str(deadline_utc) and not str(field_metadata.get("deadline_utc", "")).startswith(str(deadline_utc)):
+        try:
+            field_deadline = datetime.fromisoformat(str(field_metadata.get("deadline_utc", "")).replace("Z", "+00:00"))
+            requested_deadline = datetime.fromisoformat(str(deadline_utc).replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise CovarFullGameweekBuildError("deadline_utc values must be ISO-8601") from exc
+        if field_deadline != requested_deadline:
             raise CovarFullGameweekBuildError("field adaptation deadline mismatch")
         if not str(field_metadata.get("as_of_utc", "")):
             raise CovarFullGameweekBuildError("field adaptation as_of_utc is required")
