@@ -108,3 +108,30 @@ The adapter is a deterministic transformation, not an API fetcher. Actual
 payload acquisition, private local replay execution, and a real completed-
 Gameweek replay batch remain pending. No real manager data is stored in this
 repository or sent to CI.
+
+## Private official API acquisition CLI
+
+A separate local-only fetcher is implemented in
+`scripts/m4_covar_fpl_api_replay_fetch.py`, with mocked-network tests in
+`tests/test_m4_covar_fpl_api_replay_fetch.py`. It retrieves only the three
+official FPL API resources needed by the pure normalizer: one entry's completed
+event picks, the event live payload, and bootstrap-static metadata.
+
+The manager entry ID is requested through a hidden interactive prompt and is
+not printed, persisted, or included in the normalized output. The output must
+be an absolute path outside the repository, is created with owner-only
+permissions, and cannot overwrite an existing file. The script makes no
+GitHub calls and is not invoked by CI. API errors fail closed; no raw API
+payloads are written to disk.
+
+Example local workflow (run from the engineering workbench scripts directory
+or set the corresponding Python path):
+
+```bash
+python m4_covar_fpl_api_replay_fetch.py --event 10 --output /secure/private/gw10_replay.json
+python m4_covar_fpl_replay_validation.py --input /secure/private/gw10_replay.json
+```
+
+Use only completed Gameweeks. A successful download is not itself a replay
+pass: the replay validator's report must show `PASS`. Real replay execution
+and a multi-Gameweek validation batch remain pending.
