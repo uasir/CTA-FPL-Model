@@ -8,6 +8,14 @@ The repository has useful partial sources, but none currently satisfies all of: 
 
 This is a data-readiness decision, not a claim that no future data source can satisfy the requirement.
 
+## Project-owner scope decision — 2026-11-21
+
+The CoVar forecast path will use the **conventional FPL forecasting method already integrated into the recommendation system**. CTA/CTF-derived player features, predictions, covariance and provider panels are excluded from this path for now.
+
+The conventional player-level expected-points forecast is the anchor. CoVar adds portfolio-level uncertainty/dependence analysis using eligible realized FPL outcomes and independently validated statistical methods. Do not imply that marginal expected points or marginal player probabilities alone determine a joint distribution. Until a joint scenario probability method is implemented and validated, scenario inputs remain research-only and must not be represented as calibrated model forecasts.
+
+Accordingly, the 11footy, Wyscout and StatsBomb provider datasets are not priorities for this CoVar forecast work. The immediate data priority is a reliable conventional FPL realized-outcome panel and point-in-time conventional forecast snapshots. Revisit CTA/CTF only with explicit project-owner approval.
+
 ## Source-by-source assessment
 
 | Source | What it provides | Material limitation for M4 | Current permitted role |
