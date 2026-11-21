@@ -416,3 +416,21 @@ predictive validity. The function is standalone and must be applied to the
 calibration evaluator's `per_forecast` output; no real historical result has
 been evaluated. CoVar remains research-only with `decision_weight=0` and
 `production_eligible=false`.
+
+
+### Integrated calibration report
+
+The joint-probability calibration evaluator now invokes the Gameweek cluster
+bootstrap directly and includes the resulting intervals in its report. The
+report schema is `1.1.0`; callers may set `bootstrap_resamples` and
+`bootstrap_seed` (defaults: 2,000 and 42). The top-level Brier and log-loss
+summaries remain forecast-row-weighted for backward interpretability, while
+the bootstrap interval point estimates are Gameweek-equal-weighted after
+averaging repeated forecasts within each Gameweek. These are distinct
+estimands and are labeled explicitly in `aggregation_estimands`; users must
+not compare one point estimate to the other's interval as if they were the
+same statistic. The bootstrap intervals are included under
+`gameweek_cluster_confidence_intervals`. Integration tests verify the
+complete report shape, deterministic seed propagation and distinct
+aggregation labels. This remains synthetic-only validation; no historical
+forecast archive has been evaluated and CoVar remains research-only.
