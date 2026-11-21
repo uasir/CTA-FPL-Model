@@ -106,6 +106,18 @@ class TestM3CoVarForecastAnchorAcceptance(unittest.TestCase):
         with self.assertRaisesRegex(M3ForecastAnchorAcceptanceError, "privacy flags"):
             accept_m3_forecast_anchor(raw, manifest)
 
+    def test_rejects_manifest_privacy_mismatch(self):
+        raw, manifest, _ = _fixture()
+        manifest["privacy"]["manager_identity_included"] = True
+        with self.assertRaisesRegex(M3ForecastAnchorAcceptanceError, "manifest privacy flags"):
+            accept_m3_forecast_anchor(raw, manifest)
+
+    def test_rejects_manifest_point_in_time_status_mismatch(self):
+        raw, manifest, _ = _fixture()
+        manifest["point_in_time_status"] = "RETROSPECTIVE"
+        with self.assertRaisesRegex(M3ForecastAnchorAcceptanceError, "point-in-time status"):
+            accept_m3_forecast_anchor(raw, manifest)
+
     def test_rejects_late_source_capture(self):
         raw, manifest, bundle = _fixture()
         bundle["source_archives"][0]["captured_at_utc"] = "2026-11-20T09:01:00+00:00"
