@@ -47,7 +47,7 @@ def test_runner_invokes_historical_covar_without_changing_ev_decision():
     assert recommendation["historical_covar_overlay"]["status"] == "AVAILABLE_HISTORICAL_COVAR_PROXY"
     assert recommendation["historical_covar_overlay"]["decision_weight"] == 0
     assert recommendation["historical_covar_overlay"]["production_eligible"] is False
-    assert recommendation["historical_covar_overlay"]["field_comparison_status"] == "NOT_AVAILABLE_NO_JOINT_FIELD_PORTFOLIOS"
+    assert recommendation["historical_covar_overlay"]["field_comparison_status"] == "NOT_AVAILABLE_NO_FIELD_EXPOSURE_CAPTURE"
     assert recommendation["historical_covar_overlay"]["historical_covariance_source"]["source_sha256"] == "a" * 64
     assert recommendation["transfer_recommendation"] == base_recommendation["transfer_recommendation"]
     assert recommendation["squad_plan"] == base_recommendation["squad_plan"]
