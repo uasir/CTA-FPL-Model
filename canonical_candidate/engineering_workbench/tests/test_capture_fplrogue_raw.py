@@ -77,6 +77,6 @@ def test_schema_inspector_rejects_ragged_and_duplicate_headers():
                 "raw_archives": {"csv_base64": base64.b64encode(csv_data).decode("ascii")}}
 
     with pytest.raises(FPLRogueSchemaInspectionError, match="ragged"):
-        inspect_fplrogue_csv_schema(raw_capture(b"player_id,xPts\\n1,8.2,extra\\n2,9.0\\n"))
+        inspect_fplrogue_csv_schema(raw_capture(b"player_id,xPts\n1,8.2,extra\n2,9.0\n"))
     with pytest.raises(FPLRogueSchemaInspectionError, match="duplicate"):
-        inspect_fplrogue_csv_schema(raw_capture(b"player_id,player_id\\n1,8.2\\n2,6.7\\n"))
+        inspect_fplrogue_csv_schema(raw_capture(b"player_id,player_id\n1,8.2\n2,6.7\n"))
