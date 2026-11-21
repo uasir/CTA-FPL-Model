@@ -58,4 +58,25 @@ class TestJointProbabilityCalibration(unittest.TestCase):
         with self.assertRaisesRegex(JointProbabilityCalibrationError,"timezone"):
             evaluate_joint_probability_calibration([row])
 
+
+    def test_integrates_gameweek_cluster_confidence_intervals(self):
+        rows = [
+            forecast("gw1-a", "1"),
+            forecast("gw1-b", "1", "linked-downside"),
+            forecast("gw2-a", "2"),
+        ]
+        result = evaluate_joint_probability_calibration(rows, bootstrap_resamples=250, bootstrap_seed=7)
+        self.assertEqual(result["schema_version"], "1.1.0")
+        self.assertEqual(result["gameweek_cluster_confidence_intervals"]["independent_clusters"], 2)
+        self.assertEqual(result["gameweek_cluster_confidence_intervals"]["seed"], 7)
+        self.assertEqual(result["aggregation_estimands"]["top_level_brier_and_log_loss"], "FORECAST_ROW_WEIGHTED")
+        self.assertEqual(result["aggregation_estimands"]["gameweek_cluster_bootstrap"], "GAMEWEEK_EQUAL_WEIGHTED_AFTER_WITHIN_GAMEWEEK_FORECAST_AVERAGING")
+        self.assertIn("mean_model_brier_score", result["gameweek_cluster_confidence_intervals"]["intervals"])
+
+    def test_rejects_invalid_bootstrap_configuration(self):
+        with self.assertRaisesRegex(JointProbabilityCalibrationError, "bootstrap_resamples"):
+            evaluate_joint_probability_calibration([forecast()], bootstrap_resamples=50)
+        with self.assertRaisesRegex(JointProbabilityCalibrationError, "bootstrap_seed"):
+            evaluate_joint_probability_calibration([forecast()], bootstrap_seed=True)
+
 if __name__=="__main__": unittest.main()
