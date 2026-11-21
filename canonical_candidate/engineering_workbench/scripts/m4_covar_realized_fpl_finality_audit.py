@@ -61,7 +61,7 @@ def audit_player_gameweek_finality(
     if any(not isinstance(source_provenance.get(k), str) or not source_provenance[k].strip()
            for k in required_provenance):
         raise RealizedFplFinalityAuditError("source provenance requires URL, capture timestamp and SHA-256")
-    if not source_provenance["source_url"].startswith(
+    if source_provenance["source_url"].rstrip("/") != (
         f"https://fantasy.premierleague.com/api/event/{event}/live"
     ):
         raise RealizedFplFinalityAuditError("source URL must be the official requested event-live endpoint")
