@@ -147,3 +147,14 @@ def test_preserves_full_official_metadata_universe_for_runner_provenance_count()
     result = build_sideline_quant_provider_capture(raw, parsed)
     assert len(result["player_metadata"]) == 2
     assert result["player_metadata_provenance"]["row_count"] == len(result["player_metadata"])
+
+
+def test_accepts_equivalent_utc_timestamp_offsets_after_contract_normalization():
+    raw, parsed, _, _, _ = _fixtures()
+    for field in ("generated_at_utc", "captured_at_utc", "deadline_utc"):
+        parsed["player_gameweek_snapshot"]["timing"][field] = (
+            parsed["player_gameweek_snapshot"]["timing"][field]
+            .replace("Z", "+00:00")
+        )
+    result = build_sideline_quant_provider_capture(raw, parsed)
+    assert result["provider_snapshot"]["grain"] == "player_gameweek"
