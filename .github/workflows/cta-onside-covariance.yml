@@ -2,7 +2,7 @@ name: Exploratory FPL CoVar from Onside actual-points ledger
 
 on:
   push:
-    branches: [main, "work/**", "feat/m3-external-benchmark-decision-engine"]
+    branches: [main, "work/**"]
     paths:
       - canonical_candidate/engineering_workbench/.m3_one_shot_onside_covar
       - ".github/workflows/cta-onside-covariance.yml"
