@@ -10,7 +10,7 @@ This is a data-readiness decision, not a claim that no future data source can sa
 
 ## Project-owner scope decision — 2026-11-21
 
-The CoVar forecast path will continue using **the conventional forecasting model already integrated into M3** as its player-level expected-points/minutes anchor. We are not switching CoVar to CTA or introducing a new forecasting model for this workstream.
+The CoVar forecast path will continue using **the conventional forecasting model already integrated into M3** as its player-level expected-points/minutes anchor. The documented M3 baseline uses official FPL `ep_next` plus latest-completed-Gameweek minutes per fixture scaled by the target Gameweek fixture count. We are not switching CoVar to CTA or introducing a new forecasting model for this workstream.
 
 CTA-derived player features, predictions, covariance and provider panels are out of scope as CoVar forecast inputs for now. This does not remove or suspend the separate CTA research elsewhere in the repository.
 
