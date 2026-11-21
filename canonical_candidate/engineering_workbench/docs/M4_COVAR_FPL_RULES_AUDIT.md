@@ -137,3 +137,27 @@ python m4_covar_fpl_replay_validation.py --input /secure/private/gw10_replay.jso
 Use only completed Gameweeks. A successful download is not itself a replay
 pass: the replay validator's report must show `PASS`. Real replay execution
 and a multi-Gameweek validation batch remain pending.
+
+
+## Multi-Gameweek replay coverage report
+
+The private replay validator now emits a batch-level coverage summary
+(schema `1.1.0`) alongside case-level results. Normalized API replay cases
+carry an explicit `event_id`; the validator rejects non-positive or
+non-integer event identities.
+
+The batch report includes:
+- total, passed and failed replay counts;
+- number and list of distinct Gameweeks represented;
+- per-Gameweek replay, pass and fail counts;
+- counts by resolver mode and active chip;
+- number of replays with multiplier, player-points, captain-fallback or
+  official-team-total reconciliation mismatches.
+
+These summaries make multi-Gameweek validation auditable without treating a
+single successful Gameweek as broad evidence. They do not establish sample
+representativeness: multiple managers from one Gameweek are still one
+Gameweek of rule coverage, not independent temporal validation. The report
+remains private/local, and its production eligibility remains false with
+decision weight zero. Synthetic batch tests verify aggregation mechanics only;
+no real completed-Gameweek replay has yet been run.
