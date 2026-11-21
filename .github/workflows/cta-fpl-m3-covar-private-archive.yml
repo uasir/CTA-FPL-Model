@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: ["Capture pre-deadline FPL decision evidence"]
     types: [completed]
-    branches: ["feat/m3-unified-evaluation-report"]
+    branches: ["feat/m3-external-benchmark-decision-engine"]
   workflow_dispatch:
     inputs:
       source_run_id:
