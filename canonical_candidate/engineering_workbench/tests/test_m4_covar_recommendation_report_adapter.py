@@ -122,3 +122,64 @@ def test_rejects_non_research_scoring_report():
             scenario_set_id="joint-1", baseline_portfolio_id="baseline",
             transfer_portfolio_ids={(6, 17): "transfer-a"},
         )
+
+
+def test_rejects_scoring_report_from_different_scenario_set():
+    document, scoring = inputs()
+    scoring["shared_scenario_ids"] = ["other-1", "other-2"]
+    with pytest.raises(CoVarRecommendationReportAdapterError, match="scenario IDs"):
+        build_personal_recommendation_covar_report(
+            full_gameweek_document=document, scoring_report=scoring,
+            forecast_snapshot_id="snap-1", model_version="model-1",
+            scenario_set_id="joint-1", baseline_portfolio_id="baseline",
+            transfer_portfolio_ids={(6, 17): "transfer-a"},
+        )
+
+
+def test_rejects_misaligned_scenario_probabilities():
+    document, scoring = inputs()
+    scoring["portfolio_results"]["transfer-a"]["scenario_scores"][0]["probability"] = 0.4
+    with pytest.raises(CoVarRecommendationReportAdapterError, match="probabilities are misaligned"):
+        build_personal_recommendation_covar_report(
+            full_gameweek_document=document, scoring_report=scoring,
+            forecast_snapshot_id="snap-1", model_version="model-1",
+            scenario_set_id="joint-1", baseline_portfolio_id="baseline",
+            transfer_portfolio_ids={(6, 17): "transfer-a"},
+        )
+
+
+def test_rejects_field_delta_that_does_not_reconcile_to_shared_scenarios():
+    document, scoring = inputs()
+    scoring["portfolio_results"]["transfer-a"]["field_comparison"]["expected_points_difference_vs_weighted_field"] = 9.0
+    with pytest.raises(CoVarRecommendationReportAdapterError, match="do not reconcile"):
+        build_personal_recommendation_covar_report(
+            full_gameweek_document=document, scoring_report=scoring,
+            forecast_snapshot_id="snap-1", model_version="model-1",
+            scenario_set_id="joint-1", baseline_portfolio_id="baseline",
+            transfer_portfolio_ids={(6, 17): "transfer-a"},
+        )
+
+
+def test_rejects_variance_decomposition_mismatch():
+    document, scoring = inputs()
+    scoring["portfolio_results"]["transfer-a"]["variance_decomposition_total"] = 99.0
+    with pytest.raises(CoVarRecommendationReportAdapterError, match="does not reconcile"):
+        build_personal_recommendation_covar_report(
+            full_gameweek_document=document, scoring_report=scoring,
+            forecast_snapshot_id="snap-1", model_version="model-1",
+            scenario_set_id="joint-1", baseline_portfolio_id="baseline",
+            transfer_portfolio_ids={(6, 17): "transfer-a"},
+        )
+
+
+def test_rejects_non_positive_field_weight():
+    document, scoring = inputs()
+    document["portfolios"][2]["field_weight"] = -0.1
+    document["portfolios"][3]["field_weight"] = 1.1
+    with pytest.raises(CoVarRecommendationReportAdapterError, match="positive"):
+        build_personal_recommendation_covar_report(
+            full_gameweek_document=document, scoring_report=scoring,
+            forecast_snapshot_id="snap-1", model_version="model-1",
+            scenario_set_id="joint-1", baseline_portfolio_id="baseline",
+            transfer_portfolio_ids={(6, 17): "transfer-a"},
+        )
