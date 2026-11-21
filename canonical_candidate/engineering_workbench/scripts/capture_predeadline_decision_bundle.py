@@ -432,6 +432,8 @@ def main() -> int:
     parser.add_argument("--season", required=True)
     parser.add_argument("--manager-state-json", required=True,
                         help="JSON manager state: squad_15, bank, free_transfers, formation, starting_xi, bench_order, reserve_goalkeeper_id, captain_id, vice_captain_id, chip_state")
+    parser.add_argument("--provider-capture-json", type=Path,
+                        help="Optional canonical FPL Cat or Sideline Quant capture envelope; omit to capture FPL Cat live")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
@@ -440,11 +442,16 @@ def main() -> int:
         raise DecisionCaptureError("manager-state-json is not valid JSON") from exc
     if not isinstance(manager_state, dict):
         raise DecisionCaptureError("manager-state-json must be a JSON object")
+    provider_capture = (
+        json.loads(args.provider_capture_json.read_text(encoding="utf-8"))
+        if args.provider_capture_json else None
+    )
     result = capture_predeadline_decision_bundle(
         team_id=args.team_id,
         gameweek=args.gameweek,
         season=args.season,
         manager_state=manager_state,
+        provider_capture=provider_capture,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
