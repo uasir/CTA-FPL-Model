@@ -47,6 +47,23 @@ ACTIVE_PROVIDER_SPECS: tuple[dict[str, Any], ...] = (
         "product": "forecast_csv",
         "native_grain": "player_gameweek",
         "forecast_variant": "served_odds_anchored_xp",
+        "forecast_variants": [
+            {
+                "variant_id": "served_odds_anchored_xp",
+                "semantics": "site-served xP; odds-anchored team-goal ladder",
+                "availability": "public_forecast_csv",
+            },
+            {
+                "variant_id": "raw_model_xp",
+                "semantics": "original model xP; no odds substitution or manual overrides",
+                "availability": "performance_page_series_export_unverified",
+            },
+            {
+                "variant_id": "odds_xp",
+                "semantics": "raw model with goal, assist and clean-sheet points taken from bookmaker odds",
+                "availability": "performance_page_series_export_unverified",
+            },
+        ],
         "integration_state": "private_raw_intake_implemented_live_schema_unverified",
         "strict_pit_status": "served_forecast_generation_timestamp_unverified",
         "data_policy": "private_access_controlled_intake_no_public_payloads",
