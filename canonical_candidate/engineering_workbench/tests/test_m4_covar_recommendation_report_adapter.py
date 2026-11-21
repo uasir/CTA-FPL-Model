@@ -52,7 +52,7 @@ def inputs(mode="REGULAR_GW"):
         "decision_weight": 0,
         "portfolio_results": {
             "baseline": result("CANDIDATE", 10, 8, 2, [10, 10]),
-            "transfer-a": result("CANDIDATE", 12, 8, 4, [11.25, 11.25], 1.25),
+            "transfer-a": result("CANDIDATE", 12, 8, 4, [11.05, 11.05], 1.25),
             "field-1": result("FIELD", 6, 5, 1, [9, 9]),
             "field-2": result("FIELD", 8, 6, 2, [11, 11]),
         },
