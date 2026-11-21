@@ -89,6 +89,22 @@ def inspect_fpl_lucho_csv_schema(capture: Mapping[str, Any]) -> dict[str, Any]:
             "mapping_status": "UNMAPPED_PENDING_ACTUAL_SCHEMA_AND_SOURCE_DOCUMENTATION",
         })
 
+    target_gameweek = capture.get("target_gameweek")
+    expected_gameweeks = (
+        list(range(target_gameweek, target_gameweek + 4))
+        if isinstance(target_gameweek, int) and not isinstance(target_gameweek, bool)
+        else []
+    )
+    observed_gameweeks = sorted(gameweek_tokens)
+    if not observed_gameweeks:
+        coverage_status = "UNKNOWN_NO_GAMEWEEK_TOKENS_IN_HEADERS"
+    elif expected_gameweeks and observed_gameweeks == expected_gameweeks:
+        coverage_status = "MATCHES_PAGE_ADVERTISED_FOUR_GAMEWEEK_WINDOW"
+    elif expected_gameweeks:
+        coverage_status = "CSV_GAMEWEEK_HEADERS_DO_NOT_MATCH_PAGE_WINDOW"
+    else:
+        coverage_status = "UNKNOWN_TARGET_GAMEWEEK"
+
     return {
         "provider": "FPL Lucho",
         "product": "forecast_csv",
@@ -98,7 +114,9 @@ def inspect_fpl_lucho_csv_schema(capture: Mapping[str, Any]) -> dict[str, Any]:
         "csv_sha256": digest,
         "row_count": len(rows),
         "column_count": len(headers),
-        "gameweek_tokens_in_headers": sorted(gameweek_tokens),
+        "gameweek_tokens_in_headers": observed_gameweeks,
+        "expected_gameweeks_from_page": expected_gameweeks,
+        "gameweek_coverage_status": coverage_status,
         "columns": columns,
         "normalization_status": "SCHEMA_INSPECTED_MAPPING_NOT_APPROVED",
         "privacy": "NO_PLAYER_ROW_VALUES_EMITTED",
