@@ -6,6 +6,7 @@ from typing import Any, Mapping
 from personal_squad_engine import recommend_personal_squad
 from m4_covar_recommendation_integration import attach_covar_research_overlay
 from m4_covar_recommendation_report_adapter import build_personal_recommendation_covar_report
+from m4_covar_historical_portfolio_overlay import build_historical_covar_recommendation_overlay
 
 
 def recommend_personal_squad_with_covar(
@@ -48,3 +49,26 @@ def recommend_personal_squad_with_full_gameweek_covar(
         free_hit_explicitly_activated=free_hit_explicitly_activated,
     )
     return attach_covar_research_overlay(recommendation, report)
+
+
+def recommend_personal_squad_with_historical_covar(
+    payload: Mapping[str, Any],
+    *,
+    covariance_report: Mapping[str, Any],
+    covariance_pairs: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Run conventional M3-style recommendations and attach a historical CoVar proxy.
+
+    The overlay exposes the EV/variance trade-off and Pareto alternatives. It
+    never changes the canonical expected-points recommendation automatically.
+    """
+    recommendation = recommend_personal_squad(payload)
+    overlay = build_historical_covar_recommendation_overlay(
+        recommendation=recommendation,
+        forecast_rows=payload.get("player_forecasts", []),
+        covariance_report=covariance_report,
+        covariance_pairs=covariance_pairs,
+    )
+    result = dict(recommendation)
+    result["historical_covar_overlay"] = overlay
+    return result
