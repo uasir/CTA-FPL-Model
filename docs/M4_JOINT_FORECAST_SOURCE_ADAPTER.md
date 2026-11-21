@@ -1,10 +1,13 @@
 # M4 joint forecast source adapter and private archive
 
-This source-neutral adapter accepts a complete explicit joint Gameweek forecast
-document and the exact raw source, model, configuration and forecast-payload
-bytes referenced by its provenance. It validates the intake contract, checks
-the hashes before writing, writes a private local archive, then independently
-rehashes the written archive using the existing archive verifier.
+This adapter is the private archive boundary for CoVar's own explicit joint
+scenario model. The model is to be built around the already-integrated M3
+conventional FPL Cat xP/minutes anchor and reconciled historical official FPL
+outcomes. The adapter accepts the complete joint Gameweek forecast document
+and exact historical-source, model, configuration and forecast-payload bytes
+referenced by provenance. It validates the intake contract, checks hashes,
+privately archives the complete document and independently rehashes the
+provenance-linked artifacts.
 
 ## Inputs
 
@@ -18,7 +21,7 @@ The CLI accepts the same inputs as files:
 ```text
 python m4_covar_joint_forecast_source_adapter.py \
   --document /path/to/forecast.json \
-  --artifact-dir /path/to/provider-artifacts \
+  --artifact-dir /path/to/covar-model-artifacts \
   --archive-root /private/archive/gwNN-forecast-id
 ```
 
@@ -36,8 +39,8 @@ then atomically renames the staging directory. Failure removes staging files.
 
 ## Limitations
 
-No provider is selected or called. No probabilities or scenarios are generated.
-The adapter cannot authenticate provider claims or historical availability.
-It is an offline intake/archival component pending a provider-specific source
-connector and a separately approved private Actions handoff. Research-only
-flags remain enforced.
+No external joint-forecast provider is required or being sought. The adapter
+does not itself generate probabilities or scenarios; that is the responsibility
+of the M3-anchored CoVar model. Historical outcome availability and provider
+publication claims are not authenticated by this adapter. A private Actions
+handoff remains a separate task. Research-only flags remain enforced.
