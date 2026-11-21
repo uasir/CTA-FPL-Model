@@ -71,8 +71,10 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - The CSV export covers every player, xP and fixtures for the next four Gameweeks.
 - The served forecast is odds-anchored xP. Since GW9, the site says the served values use a bookmaker-odds / archived-odds / fallback ladder for team goals, while minutes and player allocation remain model-derived.
 - Preserve the product variant as **served odds-anchored xP**. Do not silently substitute the raw model xP or relabel it as the separately reported Odds xP performance series.
-- The page reports an xP model calculation timestamp separately from the page build timestamp. The capture adapter must identify and retain the authoritative forecast-generation timestamp and its scope; if it cannot verify it from the exported payload/source metadata, mark the snapshot diagnostic-only.
-- The CSV export URL is verified from the live page's download link, but the actual CSV response remains unavailable to the current web reader (it returns `text/csv`). Exact headers and values must be inspected from a permitted downloaded payload before mapping.
+- The page reports an xP model calculation timestamp separately from the page build timestamp. A first-stage raw intake script now captures the page, CSV and official FPL bootstrap, preserving exact CSV bytes, headers and SHA-256 while recording page-build and raw-model calculation timestamps separately.
+- The CSV export URL is verified from the live page's download link, but the actual CSV response remains unavailable to the current web reader (`text/csv`). Exact headers and values must be inspected from a permitted downloaded payload before mapping; no guessed column mapping is present.
+- The served product is explicitly **odds-anchored xP**. Keep it distinct from raw model xP and the separately reported Odds xP series. The raw-model calculation time is not treated as the generation time of the served odds-anchored CSV; `generated_at_utc` remains null and strict point-in-time eligibility is withheld until the served forecast's timestamp semantics are established.
+- Synthetic fixture tests cover timestamp provenance, raw-byte preservation, schema inspection, target Gameweek and deadline rejection. No live Lucho CSV capture or normalization has yet been verified. The capture script is a one-shot intake utility; it does not add a scheduled workflow or publish provider data as a GitHub artifact. Keep resulting payloads in private, access-controlled storage and do not commit them.
 
 ### FPL Wildcard — source verified
 
