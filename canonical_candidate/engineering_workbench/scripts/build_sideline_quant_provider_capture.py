@@ -33,10 +33,14 @@ def build_sideline_quant_provider_capture(raw_capture: Mapping[str, Any], parsed
         raise ProviderCaptureBuildError("normalized provider product/variant is not registered")
     if snapshot.get("grain") != "player_gameweek" or snapshot.get("decision_eligible") is not True:
         raise ProviderCaptureBuildError("player-Gameweek snapshot is not decision eligible")
+    raw_timing = raw_capture.get("timing", {})
+    normalized_timing = snapshot.get("timing", {})
     if (snapshot.get("season") != raw_capture.get("season")
-            or snapshot.get("target_gameweek") != raw_capture.get("target_gameweek")
-            or snapshot.get("timing") != raw_capture.get("timing")):
-        raise ProviderCaptureBuildError("raw and normalized season/GW/timing differ")
+            or snapshot.get("target_gameweek") != raw_capture.get("target_gameweek")):
+        raise ProviderCaptureBuildError("raw and normalized season/Gameweek differ")
+    for field in ("generated_at_utc", "captured_at_utc", "deadline_utc"):
+        if normalized_timing.get(field) != raw_timing.get(field):
+            raise ProviderCaptureBuildError(f"raw and normalized {field} differ")
     archives = raw_capture.get("raw_archives", {})
     provider_raw, provider_payload = _decode(archives.get("provider_response_base64"), "Sideline Quant provider")
     bootstrap_raw, bootstrap = _decode(archives.get("official_fpl_bootstrap_base64"), "official FPL bootstrap")
