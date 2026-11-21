@@ -87,9 +87,13 @@ The exploratory v0.1 evaluates one transfer at a time, with purchase-to-selling-
 
 CoVar/covariance belongs to the portfolio-risk layer; it is not a property that a squad must contain. It can inform the personal optimizer only after stability, calibration and out-of-sample utility gates pass. Current short-window historical-points covariance remains exploratory and must not influence production recommendations.
 
-The research integration seam is implemented in
-`scripts/m4_covar_recommendation_integration.py`, with tests in
-`tests/test_m4_covar_recommendation_integration.py`. It attaches candidate-level
+The fail-closed attachment seam is implemented in
+`scripts/m4_covar_recommendation_integration.py`. The integrated entry point is
+`scripts/personal_squad_covar_recommendation.py`, which first runs the canonical
+`recommend_personal_squad` engine and then optionally attaches the CoVar report.
+Its integration tests are in
+`tests/test_m4_covar_recommendation_integration.py` and
+`tests/test_personal_squad_covar_recommendation.py`. It attaches candidate-level
 portfolio diagnostics to a `personal_squad` recommendation only when the report
 matches the same forecast snapshot and model, declares explicit joint scenarios,
 and derives field portfolios from sampled manager pick rows. Marginal EO cannot
