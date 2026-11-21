@@ -136,3 +136,19 @@ def test_overlay_rejects_position_mismatched_transfer():
         assert "preserve the outgoing player's position" in str(exc)
     else:
         raise AssertionError("position-mismatched transfer was accepted")
+
+
+def test_bench_transfer_that_cannot_displace_a_stronger_starter_keeps_xi_unchanged():
+    recommendation, forecasts, report, pairs = make_inputs()
+    next(row for row in forecasts if row["fpl_element_id"] == 17)["expected_points"] = 3.0
+    result = build_historical_covar_recommendation_overlay(
+        recommendation=recommendation,
+        forecast_rows=forecasts,
+        covariance_report=report,
+        covariance_pairs=pairs,
+    )
+    baseline_xi = recommendation["current_squad_plan"]["starting_xi"]
+    bench_candidate = next(row for row in result["candidate_metrics"] if row["transfer_out_id"] == 15)
+    assert bench_candidate["starting_xi_ids"] == baseline_xi
+    assert bench_candidate["expected_points_delta_vs_current"] == 0.0
+    assert bench_candidate["variance_delta_vs_current"] == 0.0
