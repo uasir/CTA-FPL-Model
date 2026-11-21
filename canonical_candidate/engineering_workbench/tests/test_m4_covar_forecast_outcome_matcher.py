@@ -112,3 +112,34 @@ def test_rejects_duplicate_realized_ids():
     realized.append(copy.deepcopy(realized[0]))
     with pytest.raises(ForecastOutcomeMatchError, match="unique positive"):
         match_forecast_to_realized_outcomes(forecast, realized, fixtures, finality)
+
+
+def test_private_match_archive_cli_accepts_csv_gameweek_strings_and_hashes_inputs(tmp_path):
+    import csv
+    import json
+    from m4_covar_forecast_outcome_matcher import build_match_archive
+
+    forecast, realized, fixtures, finality = inputs()
+    forecast_path = tmp_path / "forecast.json"
+    gw_path = tmp_path / "realized_gw.csv"
+    fixture_path = tmp_path / "fixtures.csv"
+    finality_path = tmp_path / "finality.json"
+    output = tmp_path / "archive"
+    forecast_path.write_text(json.dumps(forecast))
+    finality_path.write_text(json.dumps(finality))
+    with gw_path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(realized[0]))
+        writer.writeheader()
+        writer.writerows(realized)
+    with fixture_path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(fixtures[0]))
+        writer.writeheader()
+        writer.writerows(fixtures)
+
+    manifest = build_match_archive(forecast_path, gw_path, fixture_path, finality_path, output)
+    assert manifest["status"] == "MATCHED_RESEARCH_PANEL_CREATED"
+    assert manifest["matched_player_count"] == 2
+    assert len(manifest["input_sha256"]) == 4
+    assert (output / "matched_forecast_outcomes.json").is_file()
+    assert (output / "match_manifest.json").is_file()
+    assert not (output / "MATCH_INCOMPLETE").exists()
