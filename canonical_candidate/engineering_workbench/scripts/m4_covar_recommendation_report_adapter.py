@@ -65,7 +65,7 @@ def build_personal_recommendation_covar_report(
     results = scoring_report.get("portfolio_results")
     if not isinstance(metadata, Mapping) or not isinstance(portfolios, Sequence) or not isinstance(scenarios, Sequence) or not scenarios or not isinstance(results, Mapping):
         raise CoVarRecommendationReportAdapterError("full Gameweek metadata, portfolios, scenarios and scoring results are required")
-    if scoring_report.get("input_validation_status") != "VALID_FULL_GAMEWEEK_DOCUMENT":
+    if scoring_report.get("input_validation_status") != "VALID_FULL_GAMEWEEK":
         raise CoVarRecommendationReportAdapterError("scoring report does not carry a validated full-Gameweek input status")
     scenario_ids = [str(row.get("scenario_id", "")) for row in scenarios if isinstance(row, Mapping)]
     if len(scenario_ids) != len(scenarios) or any(not value for value in scenario_ids) or len(set(scenario_ids)) != len(scenario_ids):
