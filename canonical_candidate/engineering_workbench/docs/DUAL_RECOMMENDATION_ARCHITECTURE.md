@@ -126,7 +126,9 @@ a hidden squad optimization.
 
 ### CoVar forecast-source decision — 2026-11-21
 
-For the current CoVar workstream, the project owner has selected the conventional FPL forecasting method already integrated into the recommendation system. CTA/CTF-derived features, predictions, provider panels and covariance are out of scope as CoVar forecast inputs for now. CoVar must use the conventional expected-points forecast as its anchor and add a separately validated portfolio uncertainty/dependence layer based on eligible realized FPL outcomes. Conventional marginal expected points alone are not a joint probability distribution; joint scenario probabilities remain research inputs until a defensible method is implemented and validated. This scope decision does not silently remove or rewrite the separate CTA research work elsewhere in the repository.
+For the current CoVar workstream, the project owner has confirmed that we will continue using **the conventional forecasting model already integrated into M3** as the player-level expected-points/minutes anchor. CoVar will not switch to CTA or introduce a new forecasting model at this stage. CTA-derived features, predictions, provider panels and covariance are out of scope as CoVar forecast inputs for now. This does not remove or rewrite the separate CTA research work elsewhere in the repository.
+
+CoVar adds a separately validated portfolio uncertainty/dependence layer based on eligible realized FPL outcomes. Conventional marginal expected points alone are not a joint probability distribution; joint scenario probabilities remain research inputs until a defensible method is implemented and validated.
 
 ## 6. Separation and reproducibility
 
