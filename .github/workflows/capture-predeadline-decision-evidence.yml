@@ -64,21 +64,6 @@ jobs:
             tests/test_audit_official_fpl_manager_batch.py \
             tests/test_run_predeadline_m3_decision.py \
             tests/test_replay_frozen_m3_decision.py
-      - name: Capture and seal pre-deadline decision evidence
-        working-directory: canonical_candidate/engineering_workbench
-        env:
-          MANAGER_TEAM_ID: ${{ inputs.manager_team_id }}
-          MANAGER_STATE_JSON: ${{ inputs.manager_state_json }}
-          SEASON: ${{ inputs.season }}
-          TARGET_GAMEWEEK: ${{ inputs.gameweek }}
-        run: |
-          PYTHONPATH=scripts python scripts/capture_predeadline_decision_bundle.py \
-            --team-id "$MANAGER_TEAM_ID" \
-            --gameweek "$TARGET_GAMEWEEK" \
-            --season "$SEASON" \
-            --manager-state-json "$MANAGER_STATE_JSON" \
-            ${{ inputs.sidelinequant_capture_run_id != '' && '--provider-capture-override sidelinequant-provider-capture-override.json' || '' }} \
-            --output predeadline-decision-evidence.json
       - name: Retrieve optional Sideline Quant raw and normalized snapshot
         if: inputs.sidelinequant_capture_run_id != ''
         uses: actions/download-artifact@v4
@@ -101,6 +86,21 @@ jobs:
             --raw-capture "$RAW_CAPTURE" \
             --normalized-capture "$NORMALIZED_CAPTURE" \
             --output sidelinequant-provider-capture-override.json
+      - name: Capture and seal pre-deadline decision evidence
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          MANAGER_TEAM_ID: ${{ inputs.manager_team_id }}
+          MANAGER_STATE_JSON: ${{ inputs.manager_state_json }}
+          SEASON: ${{ inputs.season }}
+          TARGET_GAMEWEEK: ${{ inputs.gameweek }}
+        run: |
+          PYTHONPATH=scripts python scripts/capture_predeadline_decision_bundle.py \
+            --team-id "$MANAGER_TEAM_ID" \
+            --gameweek "$TARGET_GAMEWEEK" \
+            --season "$SEASON" \
+            --manager-state-json "$MANAGER_STATE_JSON" \
+            ${{ inputs.sidelinequant_capture_run_id != '' && '--provider-capture-override sidelinequant-provider-capture-override.json' || '' }} \
+            --output predeadline-decision-evidence.json
       - name: Retrieve aggregate provisional field EO artifact
         if: inputs.field_eo_capture_run_id != ''
         uses: actions/download-artifact@v4
