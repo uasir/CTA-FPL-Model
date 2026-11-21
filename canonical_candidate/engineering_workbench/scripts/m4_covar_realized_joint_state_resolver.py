@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 from decimal import Decimal, InvalidOperation
 from typing import Any, Mapping, Sequence
 
@@ -145,7 +144,7 @@ def resolve_realized_joint_state(
         if vector == actual:
             matches.append(state_id)
 
-    state_catalogue_sha256 = canonical_json_sha256(catalogue_canonical)
+    state_catalogue_sha256 = canonical_json_sha256(sorted(catalogue_canonical, key=lambda item: item["scenario_id"]))
     realized_source_sha256 = hashlib.sha256(realized_source_bytes).hexdigest()
     base = {
         "season": season,
