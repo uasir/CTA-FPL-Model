@@ -11,6 +11,7 @@ on:
       manager_team_id:
         description: FPL manager team ID (public workflow input)
         required: true
+        default: "421025"
         type: string
       decision_evidence_run_id:
         description: Optional successful pre-deadline capture workflow run ID for this manager and single Gameweek
