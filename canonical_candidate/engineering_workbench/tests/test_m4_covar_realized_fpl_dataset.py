@@ -131,12 +131,15 @@ def test_unknown_fixture_reference_rejected():
         build_realized_panel(players, fixtures, history, season="2026-27")
 
 
-def test_provisional_finished_fixture_is_excluded():
+def test_provisional_flag_is_preserved_without_discarding_completed_fixture():
     players, fixtures, history = _inputs()
     fixtures[0]["finished_provisional"] = "True"
     fixture_rows, _, report = build_realized_panel(players, fixtures, history, season="2026-27")
-    assert all(row["fixture_id"] != 100 for row in fixture_rows)
-    assert report["ignored_unfinished_or_unassigned_player_fixture_rows"] == 2
+    rows = [row for row in fixture_rows if row["fixture_id"] == 100]
+    assert len(rows) == 2
+    assert all(row["fixture_finished_provisional"] is True for row in rows)
+    assert report["fixtures_marked_finished_provisional"] == 1
+    assert report["outcome_finality_status"] == "REQUIRES_FINALITY_RECONCILIATION"
 
 
 def test_missing_official_stat_is_rejected_not_zero_filled():
