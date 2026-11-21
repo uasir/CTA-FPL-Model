@@ -42,13 +42,13 @@ The scenario universe must cover all players in each candidate and field squad, 
 2. A player who counts as having played is unavailable for autosubstitution. Positive minutes always count as played; a card-only appearance may also count as played even with zero minutes. A player who has played remains in the XI, even if substituted during the match.
 3. If the starting goalkeeper has zero minutes, replace only with the reserve goalkeeper if that goalkeeper has positive minutes.
 4. For outfield absences, process the three outfield substitutes in their submitted bench order. A substitute may enter only if the resulting XI remains a legal FPL formation: at least 3 DEF, 2 MID, and 1 FWD, with one goalkeeper.
-5. The starting captain receives the normal additional captain multiplier only if they play at least one minute. Otherwise the vice-captain receives it only if they play at least one minute. If neither plays, there is no captain bonus.
+5. The starting captain receives the normal additional captain multiplier only if they count as having played. Otherwise the vice-captain receives it only if they count as having played. A card-only appearance counts as played even when minutes are zero. If neither plays, there is no captain bonus.
 6. Triple Captain applies the additional captain multiplier to the active captain (captain or vice-captain fallback), making the total player multiplier 3x rather than 2x.
 7. Bench Boost scores all 15 players, including the reserve goalkeeper and all outfield substitutes; normal captaincy rules still apply.
 8. Ordinary scoring includes only the final legal XI plus captain bonus. Bench players score nothing unless autosubstituted.
 9. Free Hit uses the same lineup and scoring rules but is a separately labelled mode. It must never be inferred from the existence of a Free Hit chip in a hypothetical or field portfolio. The default mode remains `REGULAR_GW`.
 
-The implementation must encode the official rules as explicit deterministic functions and unit tests. It must not rely on undocumented assumptions about ordering or formation legality.
+The implementation encodes the declared rules as explicit deterministic functions and unit tests. The independently sourced FPL rules audit remains a separate acceptance gate; no live-data or production use is authorized by synthetic test success.
 
 ## Required validation and tests
 
@@ -178,3 +178,24 @@ This is deterministic scoring of supplied synthetic outcomes, not a forecast
 generator or production recommendation. REGULAR_GW remains the default;
 FREE_HIT is accepted only when explicitly declared. Output remains
 `decision_weight=0` and `production_eligible=false`.
+
+## Full-Gameweek document builder
+
+`scripts/m4_covar_full_gameweek_builder.py` composes candidate portfolios,
+the existing private pre-deadline manager-portfolio adapter output, and explicit
+full-Gameweek scenario outcomes into the validated full-Gameweek contract.
+Tests are in `tests/test_m4_covar_full_gameweek_builder.py`.
+
+The builder requires matching Gameweek, deadline and as-of identity; explicit
+pre-deadline provisional field evidence; an attestation that manager entry IDs
+were discarded; full 15-player field lineups; and consistent player-position
+metadata. It rejects manager identifiers in adapted field rows and strips
+rank-stratum labels from the scorer-facing portfolio payload. It does not
+reconstruct joint portfolios from marginal EO. The full player universe is
+derived from the union of candidate and adapted field squads, after which the
+contract verifies complete outcome coverage in every scenario.
+
+The builder is a local composition function only. It does not read or export
+the private manager-level artifact, add private portfolio data to GitHub
+Actions, or upload any manager-level data. The resulting document and all
+manager-level source artifacts remain restricted to private local handling.
