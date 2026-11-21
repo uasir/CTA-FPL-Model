@@ -27,7 +27,9 @@ def test_inspection_reports_schema_without_emitting_player_values():
     report = inspect_fpl_lucho_csv_schema(make_capture())
     assert report["row_count"] == 2
     assert report["column_count"] == 6
-    assert report["gameweek_tokens_in_headers"] == [11, 12, 13, 14]\n    assert report["expected_gameweeks_from_page"] == [11, 12, 13, 14]\n    assert report["gameweek_coverage_status"] == "MATCHES_PAGE_ADVERTISED_FOUR_GAMEWEEK_WINDOW"
+    assert report["gameweek_tokens_in_headers"] == [11, 12, 13, 14]
+    assert report["expected_gameweeks_from_page"] == [11, 12, 13, 14]
+    assert report["gameweek_coverage_status"] == "MATCHES_PAGE_ADVERTISED_FOUR_GAMEWEEK_WINDOW"
     assert report["normalization_status"] == "SCHEMA_INSPECTED_MAPPING_NOT_APPROVED"
     assert report["privacy"] == "NO_PLAYER_ROW_VALUES_EMITTED"
     assert all(column["semantic_mapping"] is None for column in report["columns"])
