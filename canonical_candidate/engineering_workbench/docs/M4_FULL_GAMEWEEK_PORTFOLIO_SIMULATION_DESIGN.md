@@ -563,7 +563,10 @@ bootstrap evaluator.
 
 This avoids reporting train/validation forecasts as held-out test performance.
 Repeated snapshots inside a test Gameweek remain clustered by the calibration
-bootstrap. The runner reports the test Gameweeks and forecast count, temporal
+bootstrap. Each test forecast must have at least one completed historical
+Gameweek available before its training cutoff; the runner fails closed rather
+than silently substituting a uniform prior when no historical training data
+exists. The runner reports the test Gameweeks and forecast count, temporal
 partition validation, benchmark method and calibration metrics. It explicitly
 reports that source authenticity, archived bytes and historical dataset
 certification have not been established by this orchestration layer.
