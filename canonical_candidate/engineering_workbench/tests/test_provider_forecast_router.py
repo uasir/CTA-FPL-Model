@@ -41,6 +41,24 @@ def test_routes_registered_player_gameweek_snapshot_without_blending():
     assert result["recommendation_payload"] is None
 
 
+
+
+@pytest.mark.parametrize(
+    "coverage",
+    [
+        {"row_count": 1, "identity_mapped_count": 1},
+        {"row_count": 1, "identity_mapped_count": 0, "identity_resolution_status": "VERIFIED"},
+        {"row_count": 1, "identity_mapped_count": 1, "identity_resolution_status": "UNVERIFIED_NAME_CLUB_MATCH"},
+    ],
+)
+def test_player_gameweek_snapshot_without_verified_identity_is_diagnostic_only(coverage):
+    source = payload()
+    source["coverage"] = coverage
+    result = route_provider_forecast(source)
+    assert result["routing_status"] == "DIAGNOSTIC_ONLY"
+    assert result["decision_eligible"] is False
+    assert result["routing_reason"] == "IDENTITY_PROVENANCE_NOT_VERIFIED"
+
 def test_routes_unverified_generation_time_as_diagnostic_only():
     source = payload()
     source["timing"]["generated_at_utc"] = None
