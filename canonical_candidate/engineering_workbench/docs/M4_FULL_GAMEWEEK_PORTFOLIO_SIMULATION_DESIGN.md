@@ -434,3 +434,26 @@ same statistic. The bootstrap intervals are included under
 complete report shape, deterministic seed propagation and distinct
 aggregation labels. This remains synthetic-only validation; no historical
 forecast archive has been evaluated and CoVar remains research-only.
+
+## Historical forecast provenance validator
+
+A fail-closed structural provenance validator is implemented in
+`scripts/m4_covar_joint_forecast_provenance.py`, with tests in
+`tests/test_m4_covar_joint_forecast_provenance.py`. Each forecast must carry
+model-artifact, configuration and forecast-payload SHA-256 declarations;
+model/config/state-catalogue versions; generation time; model training cutoff;
+and one or more versioned source snapshots with content hashes, availability
+times and retrieval times.
+
+The validator requires model training cutoff no later than the declared
+training-data cutoff, generation no later than forecast as-of, and every
+source's availability and retrieval timestamps no later than forecast as-of.
+It rejects missing provenance, malformed hashes, duplicate source IDs within a
+forecast, naive timestamps and point-in-time violations. The report explicitly
+states that hashes are declarations only: this validator does not retrieve or
+rehash source bytes, authenticate model artifacts, prove that the declared
+versions generated the forecast, or establish that a provider's historical
+availability timestamp is truthful. Those claims require archived immutable
+source bytes, independent digest verification and auditable acquisition
+records. A structurally valid report is not a certified historical dataset;
+outputs remain `decision_weight=0` and `production_eligible=false`.
