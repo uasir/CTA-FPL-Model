@@ -92,6 +92,10 @@ def test_builds_candidate_metrics_from_full_gameweek_scorer_and_field_portfolios
 def test_rejects_missing_field_portfolios():
     document, scoring = inputs()
     document["portfolios"] = [row for row in document["portfolios"] if row["portfolio_role"] != "FIELD"]
+    scoring["portfolio_results"] = {
+        key: value for key, value in scoring["portfolio_results"].items()
+        if value["portfolio_role"] != "FIELD"
+    }
     with pytest.raises(CoVarRecommendationReportAdapterError, match="field portfolios"):
         build_personal_recommendation_covar_report(
             full_gameweek_document=document, scoring_report=scoring,
