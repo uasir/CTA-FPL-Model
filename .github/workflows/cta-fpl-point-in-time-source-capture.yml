@@ -90,6 +90,11 @@ jobs:
           RUNNER_TEMP: ${{ runner.temp }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_WORKFLOW_REF: ${{ github.workflow_ref }}
         run: |
           python canonical_candidate/engineering_workbench/scripts/m4_covar_point_in_time_source_capture.py \
             --event "$EVENT_ID" \
