@@ -8,12 +8,13 @@
 
 The downstream recommendation system will be built using the actual external FPL benchmark forecasts first. Once the project's own model passes M2's validation and promotion gates, it will enter through the same canonical forecast interface and can replace or supplement benchmark inputs.
 
-This execution decision supersedes the earlier architecture wording that deferred all M3 implementation until M2 was complete. The five milestones remain distinct and controlled:
-- M1 verification continues on its separate schedule.
+This execution decision supersedes the earlier architecture wording that deferred all M3 implementation until M2 was complete. The agreed four milestones remain distinct and controlled:
+- M1 recommendation-delivery backbone verification continues on its separate schedule.
 - M2 model-layer validation continues independently.
-- M3 implementation starts now and must pass its own acceptance gates.
-- M4 begins after M3 is accepted.
-- M5 begins after M4 is accepted.
+- M3 integrates benchmark forecasts, field-relative intelligence, portfolio analysis and the decision engine; implementation proceeds now and must pass its own acceptance gates.
+- M4 releases the three separate recommendation products after M3 acceptance and its own release gates.
+
+This charter is **new M3**. It includes the former M4 field-context and portfolio-intelligence scope. The former M5 recommendation-delivery scope is **new M4**. Historical branch and file names may retain former milestone labels for traceability.
 
 M3 does not consume unvalidated ABC/CTA or 2PM outputs. M2 research status is carried as metadata and cannot affect benchmark forecast eligibility.
 
@@ -180,7 +181,7 @@ M3 is not accepted until:
 
 Passing software tests alone does not establish forecast accuracy or guarantee rank improvement.
 
-## 6. Interfaces to M4 and M5
+## 6. Interface to new M4
 
 M3 output must expose a versioned decision object with:
 - chosen provider and exact variant;
@@ -191,7 +192,7 @@ M3 output must expose a versioned decision object with:
 - expected-points basis and limitations;
 - validation/eligibility state and warnings.
 
-M4 will later enrich this decision with the existing LiveFPL EO field reference and validated portfolio context. M5 will publish the three separate recommendation products. Neither M4 nor M5 is implemented in this M3 branch.
+Field-relative EO and validated portfolio context are part of this new M3 milestone (the former M4 scope), and remain descriptive/research-only until their own validation gates pass. New M4 (the former M5 scope) will publish the three separate recommendation products using accepted M3 outputs. The conventional-only delivery implementation is tracked separately in PR #59; CTA-informed and general CTA products remain withheld pending their validation gates.
 
 ## 7. Model transition
 
