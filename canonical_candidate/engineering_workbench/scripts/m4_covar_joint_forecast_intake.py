@@ -129,6 +129,7 @@ def validate_joint_forecast_intake(document: Mapping[str, Any]) -> dict[str, Any
 
     seen_scenarios: set[str] = set()
     probability_total = 0.0
+    probability_bases: set[str] = set()
     for scenario in scenarios:
         if not isinstance(scenario, Mapping):
             raise JointForecastIntakeError("each scenario must be an object")
@@ -140,10 +141,12 @@ def validate_joint_forecast_intake(document: Mapping[str, Any]) -> dict[str, Any
         if probability <= 0:
             raise JointForecastIntakeError(f"scenario {scenario_id}.probability must be > 0")
         probability_total += probability
-        if scenario.get("probability_basis") != "EXPLICIT_SOURCE_SUPPLIED":
+        probability_basis = scenario.get("probability_basis")
+        if probability_basis not in {"EXPLICIT_SOURCE_SUPPLIED", "MODEL_GENERATED_EXPLICIT"}:
             raise JointForecastIntakeError(
-                f"scenario {scenario_id} probability_basis must be EXPLICIT_SOURCE_SUPPLIED"
+                f"scenario {scenario_id} probability_basis must be EXPLICIT_SOURCE_SUPPLIED or MODEL_GENERATED_EXPLICIT"
             )
+        probability_bases.add(probability_basis)
 
         fixture_states = scenario.get("fixture_states")
         if not isinstance(fixture_states, list) or len(fixture_states) != len(fixture_ids):
@@ -191,6 +194,26 @@ def validate_joint_forecast_intake(document: Mapping[str, Any]) -> dict[str, Any
                 raise JointForecastIntakeError(
                     f"{scenario_id}.{player_id}.played must agree with supplied aggregate minutes"
                 )
+    if len(probability_bases) != 1:
+        raise JointForecastIntakeError("all scenarios must use the same probability_basis")
+    probability_basis = next(iter(probability_bases))
+    generation = document.get("probability_generation")
+    if probability_basis == "MODEL_GENERATED_EXPLICIT":
+        if not isinstance(generation, Mapping):
+            raise JointForecastIntakeError("model-generated probabilities require probability_generation metadata")
+        for field in ("method", "method_version", "algorithm", "random_generator", "scenario_reduction"):
+            _required_text(generation.get(field), f"probability_generation.{field}")
+        draws = generation.get("draw_count")
+        if isinstance(draws, bool) or not isinstance(draws, int) or draws < len(scenarios):
+            raise JointForecastIntakeError("probability_generation.draw_count must be an integer >= scenario count")
+        seed = generation.get("random_seed")
+        if isinstance(seed, bool) or not isinstance(seed, int):
+            raise JointForecastIntakeError("probability_generation.random_seed must be an integer")
+        if generation.get("probability_semantics") != "EMPIRICAL_DRAW_FREQUENCY":
+            raise JointForecastIntakeError("model-generated probability_semantics must be EMPIRICAL_DRAW_FREQUENCY")
+    elif generation is not None:
+        raise JointForecastIntakeError("probability_generation is only valid for MODEL_GENERATED_EXPLICIT scenarios")
+
     import math
     if not math.isclose(probability_total, 1.0, rel_tol=0, abs_tol=1e-9):
         raise JointForecastIntakeError("explicit joint scenario probabilities must sum to 1")
@@ -214,7 +237,8 @@ def validate_joint_forecast_intake(document: Mapping[str, Any]) -> dict[str, Any
         "as_of_utc": document["as_of_utc"],
         "deadline_utc": document["deadline_utc"],
         "validation_status": "EXPLICIT_JOINT_FORECAST_INTAKE_ACCEPTED",
-        "probability_basis": "EXPLICIT_SOURCE_SUPPLIED",
+        "probability_basis": probability_basis,
+        "probability_generation": dict(generation) if generation is not None else None,
         "player_count": len(player_ids),
         "fixture_count": len(fixture_ids),
         "scenario_count": len(seen_scenarios),
@@ -223,6 +247,7 @@ def validate_joint_forecast_intake(document: Mapping[str, Any]) -> dict[str, Any
         "joint_distribution_inferred": False,
         "fixture_independence_assumed": False,
         "probabilities_estimated_by_intake": False,
+        "probability_generation_validated": probability_basis == "MODEL_GENERATED_EXPLICIT",
         "decision_weight": 0.0,
         "production_eligible": False,
     }
