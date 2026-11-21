@@ -120,3 +120,91 @@ def test_metadata_snapshot_must_be_pre_deadline():
     payload["player_metadata_provenance"]["captured_at_utc"] = "2026-11-21T11:00:00Z"
     with pytest.raises(BenchmarkDecisionRunError, match="metadata capture must be strictly before"):
         run_external_benchmark_personal_squad(payload)
+
+
+
+def _write_predeadline_field_capture(tmp_path, *, picks_at="2026-11-20T09:30:00Z", omit_player=None):
+    import csv
+
+    payload = run_input()
+    csv_path = tmp_path / "field.csv"
+    report_path = tmp_path / "field-report.json"
+    fields = [
+        "gameweek", "fpl_element_id", "sample_managers", "sample_weight",
+        "owned_by_pct", "starting_pct", "captain_pct", "triple_captain_pct",
+        "effective_ownership_pct", "scoring_exposure_pct",
+        "effective_ownership_pct_ci95_low", "effective_ownership_pct_ci95_high",
+    ]
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        for player_id in range(1, 19):
+            if player_id == omit_player:
+                continue
+            writer.writerow({
+                "gameweek": 11, "fpl_element_id": player_id, "sample_managers": 100,
+                "sample_weight": 100, "owned_by_pct": 50, "starting_pct": 40,
+                "captain_pct": 10, "triple_captain_pct": 0,
+                "effective_ownership_pct": 60, "scoring_exposure_pct": 45,
+                "effective_ownership_pct_ci95_low": 55,
+                "effective_ownership_pct_ci95_high": 65,
+            })
+    digest = hashlib.sha256(csv_path.read_bytes()).hexdigest()
+    report = {
+        "status": "CAPTURED_PRE_DEADLINE_CURRENT_PICKS",
+        "evidence_role": "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE",
+        "picks_lock_verified": False, "provisional_picks": True,
+        "gameweek": 11, "deadline_time_utc": "2026-11-21T11:00:00Z",
+        "capture_started_at_utc": "2026-11-20T09:00:00Z",
+        "rank_cohort_captured_at_utc": "2026-11-20T09:10:00Z",
+        "picks_captured_at_utc": picks_at,
+        "sample_size_captured": 100, "sample_managers": 100,
+        "effective_sample_size": 98.5, "rank_limit": 10000,
+        "rank_min": 1, "rank_max": 9999, "rank_strata_count": 200,
+        "cohort": "overall global rank", "sample_weight": 100,
+        "csv_sha256": digest,
+    }
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+    payload["predeadline_field_capture"] = {
+        "csv_path": str(csv_path), "report_path": str(report_path),
+        "season": "2026-27", "source_url": "https://github.com/example/actions/runs/123",
+    }
+    return payload, csv_path, report_path
+
+
+def test_predeadline_field_capture_attaches_inside_same_m3_recommendation(tmp_path):
+    payload, _, _ = _write_predeadline_field_capture(tmp_path)
+    baseline = run_external_benchmark_personal_squad(run_input())
+    result = run_external_benchmark_personal_squad(payload)
+    recommendation = result["recommendation"]
+    context = recommendation["predeadline_field_analysis"]
+    assert context["status"] == "ATTACHED_PROVISIONAL_FIELD_CONTEXT"
+    assert context["evidence_role"] == "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE"
+    assert context["scenarios"][0]["scenario"] == "HOLD"
+    assert context["scenarios"][1]["scenario"] == "TRANSFER"
+    assert context["coverage"]["candidate_squad_covered"] is True
+    assert context["release_eligible"] is False
+    assert context["covar"] == "SEPARATE_RESEARCH_ONLY_CONTEXT"
+    for key in ("transfer_recommendation", "current_squad_plan", "squad_plan", "squad_plan_state"):
+        assert recommendation[key] == baseline["recommendation"][key]
+
+
+def test_predeadline_field_capture_after_deadline_is_rejected(tmp_path):
+    payload, _, _ = _write_predeadline_field_capture(
+        tmp_path, picks_at="2026-11-21T11:00:01Z"
+    )
+    with pytest.raises(ValueError, match="strictly pre-deadline"):
+        run_external_benchmark_personal_squad(payload)
+
+
+def test_predeadline_field_capture_missing_selected_incoming_player_is_rejected(tmp_path):
+    payload, _, _ = _write_predeadline_field_capture(tmp_path, omit_player=17)
+    with pytest.raises(ValueError, match="lacks candidate squad players"):
+        run_external_benchmark_personal_squad(payload)
+
+
+def test_predeadline_field_capture_csv_hash_mismatch_is_rejected(tmp_path):
+    payload, csv_path, _ = _write_predeadline_field_capture(tmp_path)
+    csv_path.write_text(csv_path.read_text() + "\\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="SHA-256"):
+        run_external_benchmark_personal_squad(payload)
