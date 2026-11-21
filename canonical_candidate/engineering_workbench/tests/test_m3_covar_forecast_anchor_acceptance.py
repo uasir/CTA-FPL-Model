@@ -125,6 +125,15 @@ class TestM3CoVarForecastAnchorAcceptance(unittest.TestCase):
         self.assertFalse(result["joint_distribution_available"])
         self.assertFalse(result["joint_probabilities_inferred"])
 
+    def test_rejects_source_bytes_hash_mismatch_even_when_bundle_hash_matches(self):
+        raw, manifest, bundle = _fixture()
+        bundle["source_archives"][0]["raw_payload_base64"] = base64.b64encode(b"tampered").decode()
+        raw = json.dumps(bundle, sort_keys=True, separators=(",", ":")).encode()
+        manifest["bundle_sha256"] = hashlib.sha256(raw).hexdigest()
+        manifest["bundle_bytes"] = len(raw)
+        with self.assertRaisesRegex(M3ForecastAnchorAcceptanceError, "raw source SHA-256 mismatch"):
+            accept_m3_forecast_anchor(raw, manifest)
+
     def test_rejects_duplicate_player_ids(self):
         raw, manifest, bundle = _fixture()
         bundle["player_forecasts"].append(dict(bundle["player_forecasts"][0]))
