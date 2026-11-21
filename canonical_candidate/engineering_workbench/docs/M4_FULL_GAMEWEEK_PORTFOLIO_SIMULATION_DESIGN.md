@@ -215,3 +215,31 @@ status from minutes and yellow/red-card counts.
 The harness is local-only, rejects manager identifiers, requires its input file
 outside the repository, and never exports replay inputs. Synthetic tests passed
 in CI; actual completed-Gameweek replay execution remains pending.
+
+
+## Explicit joint fixture-scenario composition
+
+A joint fixture-scenario composer is implemented in
+`scripts/m4_covar_joint_fixture_scenario_composer.py`, with tests in
+`tests/test_m4_covar_joint_fixture_scenario_composer.py`.
+
+The composer accepts:
+- A scenario catalog for each declared fixture. Every scenario in a fixture
+  catalog must contain the same player universe and complete fixture-level
+  minutes, card counts and supplied FPL point contributions.
+- An explicit list of joint Gameweek scenario rows. Each row references exactly
+  one catalog scenario for every fixture and supplies its own joint probability.
+
+It resolves those references into the input shape consumed by the
+fixture-to-Gameweek aggregator. It does not form a Cartesian product, multiply
+marginal fixture probabilities, sample outcomes, or infer correlations. The
+joint rows and their weights are supplied inputs; they are the explicit
+representation of dependence between fixtures. Unknown/missing references,
+inconsistent player coverage, invalid fixture outcomes, duplicate scenario IDs,
+and joint probabilities that do not sum to one fail closed.
+
+This closes the deterministic composition gap only. It does not estimate the
+joint distribution from historical data, generate match forecasts, model
+cross-fixture team/player dependencies, or calculate FPL points from raw events.
+Until a defensible joint probability model and empirical calibration exist, all
+outputs remain supplied-input research artifacts, not predictive evidence.
