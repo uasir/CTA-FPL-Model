@@ -58,7 +58,10 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - Current CSV link: `https://www.fplrogue.com/research/projections.csv`
 - Page identifies the current accepted release, target Gameweek, player count, projection engine (`xpts_v1`), update time and model-training time.
 - Page exposes xPts, xMins, floor/ceiling and start probability, and states that floor/ceiling are indicative display ranges rather than calibrated probability intervals.
-- CSV content and exact column names must be verified from the downloaded raw payload before mapping. Do not infer a column name from the display table.
+- Implemented first-stage accepted-release capture: archives the HTML page, CSV and official FPL bootstrap with independent SHA-256 hashes; records the exact CSV headers and row count; and cross-checks page Gameweek, player count and official deadline.
+- The page's `Updated` timestamp and `Model trained` timestamp are retained separately. Because the page does not explicitly define `Updated` as the forecast-generation timestamp, the capture leaves canonical `generated_at_utc` unset and is diagnostic-only for strict point-in-time decision use until the provider's timestamp semantics are verified.
+- Added a manual capture workflow and tests for page metadata, CSV shape, hashes, row-count checks and post-deadline rejection.
+- CSV column mapping and canonical normalization remain pending inspection of an actual captured CSV payload.
 - Attribution: FPLRogue. The source states it is independent and not affiliated with the Premier League.
 
 ### FPL Lucho — source verified
