@@ -118,6 +118,7 @@ def capture_predeadline_decision_bundle(
     gameweek: int,
     season: str,
     manager_state: Mapping[str, Any],
+    provider_capture: Mapping[str, Any] | None = None,
     clock: Callable[[], str] | None = None,
 ) -> dict[str, Any]:
     if team_id <= 0 or gameweek <= 0:
@@ -128,9 +129,19 @@ def capture_predeadline_decision_bundle(
     expected_ids = set(state["squad_15"])
     starting_xi_ids = set(state["starting_xi"])
 
-    provider_capture = capture_fpl_cat_snapshot(season=season)
-    provider = provider_capture["provider_snapshot"]
-    provider_raw_b64 = provider_capture["raw_archives"]["provider_response_base64"]
+    if provider_capture is None:
+        provider_capture = capture_fpl_cat_snapshot(season=season)
+    if not isinstance(provider_capture, Mapping):
+        raise DecisionCaptureError("provider_capture must be a canonical provider capture envelope")
+    provider = provider_capture.get("provider_snapshot")
+    archives = provider_capture.get("raw_archives")
+    if not isinstance(provider, Mapping) or not isinstance(archives, Mapping):
+        raise DecisionCaptureError("provider_capture lacks provider_snapshot or raw_archives")
+    provider_name = provider.get("provider", {}).get("name")
+    provider_ids = {"FPL Cat": "fpl-cat", "Sideline Quant": "sideline-quant"}
+    if provider_name not in provider_ids:
+        raise DecisionCaptureError("only FPL Cat and Sideline Quant are approved conventional providers")
+    provider_raw_b64 = archives.get("provider_response_base64")
     provider_raw, provider_payload = _decode_json(provider_raw_b64, "provider forecast")
     if provider.get("target_gameweek") != gameweek or provider_payload.get("gameweek") != gameweek:
         raise DecisionCaptureError(f"Provider did not return requested GW{gameweek}")
@@ -196,12 +207,12 @@ def capture_predeadline_decision_bundle(
         else:
             if not {"previous_gameweek_picks", "history"}.issubset(manager_archive):
                 raise DecisionCaptureError("Previous-Gameweek manager archive is incomplete")
-            metadata_raw_b64 = provider_capture["raw_archives"]["fpl_bootstrap_response_base64"]
+            metadata_raw_b64 = archives["fpl_bootstrap_response_base64"]
             metadata_raw, metadata_payload = _decode_json(metadata_raw_b64, "player metadata")
             capture_method = "USER_CONFIRMED_WITH_PREVIOUS_GW_PICKS"
             metadata_captured_text = provider_capture["player_metadata_provenance"]["captured_at_utc"]
     else:
-        metadata_raw_b64 = provider_capture["raw_archives"]["fpl_bootstrap_response_base64"]
+        metadata_raw_b64 = archives["fpl_bootstrap_response_base64"]
         metadata_raw, metadata_payload = _decode_json(metadata_raw_b64, "player metadata")
         history_payload = None
         capture_method = "OFFICIAL_TARGET_GAMEWEEK_PICKS"
@@ -218,6 +229,8 @@ def capture_predeadline_decision_bundle(
     element_types = {player_id: row.get("element_type") for player_id, row in by_id.items()}
     position_names = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
     provider_records = provider.get("records")
+    if provider.get("grain") != "player_gameweek":
+        raise DecisionCaptureError("Provider snapshot must be normalized to player_gameweek grain")
     if not isinstance(provider_records, list) or not provider_records:
         raise DecisionCaptureError("Provider snapshot has no player-gameweek forecast records")
     normalized_metadata = []
@@ -358,7 +371,7 @@ def capture_predeadline_decision_bundle(
         "provider_snapshot": provider,
         "player_metadata": normalized_metadata,
         "player_metadata_provenance": {
-            "source_url": FPL_BOOTSTRAP_URL,
+            "source_url": provider_capture["player_metadata_provenance"].get("source_url", FPL_BOOTSTRAP_URL),
             "raw_snapshot_id": f"sha256:{metadata_hash}",
             "raw_sha256": metadata_hash,
             "captured_at_utc": metadata_captured_text,
@@ -371,13 +384,13 @@ def capture_predeadline_decision_bundle(
         "sources": [
             {
                 "source_type": "provider_forecast",
-                "provider_id": "fpl-cat",
-                "provider_variant": "public-xp",
+                "provider_id": provider_ids[provider_name],
+                "provider_variant": provider.get("provider", {}).get("variant"),
                 "raw_snapshot_id": f"sha256:{provider_hash}",
                 "raw_sha256": provider_hash,
                 "generated_at_utc": generated_text,
                 "captured_at_utc": provider.get("timing", {}).get("captured_at_utc"),
-                "source_url": FPL_CAT_URL,
+                "source_url": provider.get("source", {}).get("url"),
                 "raw_payload_base64": provider_raw_b64,
             },
             {
