@@ -93,8 +93,6 @@ jobs:
       - name: Verify private destination and write immutable archive
         env:
           GH_TOKEN: ${{ secrets.COVAR_ARCHIVE_TOKEN }}
-          SOURCE_RUN_ID: ${{ env.SOURCE_RUN_ID }}
-          SOURCE_WORKFLOW: ${{ github.workflow }}
           SOURCE_REPOSITORY: ${{ github.repository }}
           SOURCE_WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url || format('https://github.com/{0}/actions/runs/{1}', github.repository, inputs.source_run_id) }}
         shell: bash
@@ -110,6 +108,7 @@ jobs:
           SEASON="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["season"])' "$MANIFEST")"
           GAMEWEEK="$(python -c 'import json,sys; print(int(json.load(open(sys.argv[1]))["target_gameweek"]))' "$MANIFEST")"
           RELATIVE_DIR="$SEASON/gw$(printf '%02d' "$GAMEWEEK")/source-run-$SOURCE_RUN_ID"
+          export RELATIVE_DIR
           DEST="$GITHUB_WORKSPACE/private-archive/$RELATIVE_DIR"
 
           if [ -e "$DEST" ]; then
@@ -156,12 +155,3 @@ jobs:
           git commit -m "Archive sanitized M3 CoVar forecast GW$GAMEWEEK run $SOURCE_RUN_ID"
           git push origin HEAD
 
-        env:
-          GH_TOKEN: ${{ secrets.COVAR_ARCHIVE_TOKEN }}
-          ARCHIVE_REPOSITORY: ${{ env.ARCHIVE_REPOSITORY }}
-          SOURCE_RUN_ID: ${{ env.SOURCE_RUN_ID }}
-          SOURCE_REPOSITORY: ${{ github.repository }}
-          SOURCE_WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url || format('https://github.com/{0}/actions/runs/{1}', github.repository, inputs.source_run_id) }}
-          RUNNER_TEMP: ${{ runner.temp }}
-          GITHUB_WORKSPACE: ${{ github.workspace }}
-          RELATIVE_DIR: ${{ env.RELATIVE_DIR }}
