@@ -162,3 +162,11 @@ The raw capture identifies FPLRogue as `accepted_projections_release` / `provide
 - It leaves `generated_at_utc` unset because the page does not explicitly define the archive capture time as the model's generation time. It marks the point-in-time status as publisher-asserted frozen pre-deadline archive, not as an independently verified generation timestamp.
 - Synthetic tests cover post-deadline retrieval of a publisher-frozen pre-deadline release and rejection of a publisher capture that is itself after deadline.
 - CI passed on commit `0d7419e305aaf0984d04a4d89b8ac398f058e23e`: 486 Python tests passed, 3 subtests passed, JavaScript contract tests passed, and all four crosswalk validation steps completed. This verifies code and fixtures only; no real archive CSV has yet been downloaded or inspected.
+
+
+## Provider registry alignment check (2026-11-21)
+
+- Corrected FPL Lucho raw-intake metadata to use the exact registry product `forecast_csv` and variant `served_odds_anchored_xp`. Human-readable variant semantics remain separately documented; raw model xP and Odds xP remain distinct registered variants and are not substituted for the served CSV.
+- This resolves a routing-contract mismatch in which the capture metadata used descriptive labels that the shared registry would not accept. It does not imply the CSV columns have been semantically mapped or that the capture has been executed against live bytes.
+- The live forecast page currently reports GW11, built 21 Nov 2026 09:13 UTC, with the model last calculated 09:03 UTC, and exports the next four Gameweeks. The page's export remains served odds-anchored xP. Preserve the build and raw-model calculation times separately; the served CSV's own generation timestamp remains undisclosed.
+- CI passed on commit `84760c4bfac0d583e8cc0954c1db60d4eb4bb2f9` (run [#44893153890](https://github.com/uasir/CTA-FPL-Model/actions/runs/44893153890)): 486 Python tests passed, 3 subtests passed, JavaScript contract tests passed, and four crosswalk checks completed.
