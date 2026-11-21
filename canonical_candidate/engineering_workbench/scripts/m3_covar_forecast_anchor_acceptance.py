@@ -91,11 +91,22 @@ def accept_m3_forecast_anchor(
     )
     if not isinstance(privacy, Mapping) or any(privacy.get(key) is not False for key in required_privacy):
         raise M3ForecastAnchorAcceptanceError("all manager-specific privacy flags must be false")
+    manifest_privacy = archive_manifest.get("privacy")
+    if not isinstance(manifest_privacy, Mapping) or any(
+        manifest_privacy.get(key) is not False for key in required_privacy
+    ):
+        raise M3ForecastAnchorAcceptanceError("archive manifest privacy flags must all be false")
+    if archive_manifest.get("point_in_time_status") != bundle.get("point_in_time_status"):
+        raise M3ForecastAnchorAcceptanceError("archive manifest point-in-time status does not match bundle")
 
     season = bundle.get("season")
     gw = bundle.get("target_gameweek")
     if not isinstance(season, str) or not season.strip():
         raise M3ForecastAnchorAcceptanceError("season is required")
+    if not isinstance(bundle.get("forecast_snapshot_id"), str) or not bundle["forecast_snapshot_id"].strip():
+        raise M3ForecastAnchorAcceptanceError("forecast_snapshot_id is required")
+    if not isinstance(bundle.get("model_version"), str) or not bundle["model_version"].strip():
+        raise M3ForecastAnchorAcceptanceError("model_version is required")
     if isinstance(gw, bool) or not isinstance(gw, int) or gw < 1:
         raise M3ForecastAnchorAcceptanceError("target_gameweek must be a positive integer")
     if archive_manifest.get("archive_type") != "PRIVATE_MANAGER_FREE_M3_COVAR_FORECAST_ARCHIVE":
