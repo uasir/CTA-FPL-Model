@@ -33,8 +33,8 @@ AGGREGATE_FIELDS = (
 )
 FIXTURE_OUTPUT_FIELDS = (
     "season", "gameweek", "fixture_id", "kickoff_time", "fpl_element_id",
-    "team_id_at_fixture", "opponent_team_id", "was_home", *OUTCOME_FIELDS,
-    "played",
+    "team_id_at_fixture", "opponent_team_id", "was_home",
+    "fixture_finished_provisional", *OUTCOME_FIELDS, "played",
 )
 GAMEWEEK_OUTPUT_FIELDS = (
     "season", "gameweek", "fpl_element_id", "fixtures_count",
@@ -120,7 +120,7 @@ def build_realized_panel(
             continue
         finished = _truth(row.get("finished"), f"fixture {fid}.finished")
         provisional = _truth(row.get("finished_provisional"), f"fixture {fid}.finished_provisional")
-        if not finished or provisional:
+        if not finished:
             continue
         home = _integer(row.get("team_h_id"), f"fixture {fid}.team_h_id")
         away = _integer(row.get("team_a_id"), f"fixture {fid}.team_a_id")
@@ -129,6 +129,7 @@ def build_realized_panel(
         fixture_by_id[fid] = {
             "gameweek": gw, "kickoff_time": row.get("kickoff_time", ""),
             "team_h_id": home, "team_a_id": away,
+            "finished_provisional": provisional,
         }
     if not fixture_by_id:
         raise RealizedFplDatasetError("no finished, gameweek-assigned fixtures available")
@@ -173,7 +174,9 @@ def build_realized_panel(
             "season": season, "gameweek": fixture["gameweek"], "fixture_id": fid,
             "kickoff_time": fixture["kickoff_time"], "fpl_element_id": pid,
             "team_id_at_fixture": team_id, "opponent_team_id": opponent_id,
-            "was_home": was_home, **outcome, "played": minutes > 0,
+            "was_home": was_home,
+            "fixture_finished_provisional": fixture["finished_provisional"],
+            **outcome, "played": minutes > 0,
         }
         fixture_rows.append(record)
         gw_groups[(pid, fixture["gameweek"])].append(record)
@@ -205,6 +208,8 @@ def build_realized_panel(
         "unique_players_with_observed_rows": len({row["fpl_element_id"] for row in fixture_rows}),
         "finished_gameweeks": sorted({row["gameweek"] for row in fixture_rows}),
         "finished_fixtures": len(fixture_by_id),
+        "fixtures_marked_finished_provisional": sum(bool(row["finished_provisional"]) for row in fixture_by_id.values()),
+        "outcome_finality_status": "REQUIRES_FINALITY_RECONCILIATION" if any(row["finished_provisional"] for row in fixture_by_id.values()) else "FINISHED_FLAG_NONPROVISIONAL",
         "ignored_unfinished_or_unassigned_player_fixture_rows": ignored_unfinished,
         "duplicate_player_fixture_keys": 0,
         "missing_player_fixture_rows_zero_filled": 0,
@@ -212,6 +217,7 @@ def build_realized_panel(
         "player_identity": "season-scoped FPL element ID; fixture identity is season-scoped fixture ID",
         "limitations": [
             "Rows absent from element-summary history are missing, not assumed zero.",
+            "The official fixture finished_provisional flag is preserved; provisional rows are retained for reconciliation but must not be treated as final ground truth until checked against later official live/final scoring.",
             "Current API history is retrospective and does not establish original deadline-time source vintage.",
             "Structural validation does not establish licensing, historical completeness or predictive validity.",
         ],
