@@ -109,15 +109,18 @@ def build_realized_panel(
     player_set = set(player_ids)
 
     fixture_by_id: dict[int, dict[str, Any]] = {}
+    all_fixture_ids: set[int] = set()
     for row in fixtures:
         fid = _integer(row.get("fixture_id"), "fixture_id")
-        if fid in fixture_by_id:
+        if fid in all_fixture_ids:
             raise RealizedFplDatasetError(f"duplicate season-scoped fixture ID {fid}")
+        all_fixture_ids.add(fid)
         gw = _integer(row.get("gameweek"), "fixture.gameweek", nullable=True)
         if gw is None:
             continue
         finished = _truth(row.get("finished"), f"fixture {fid}.finished")
-        if not finished:
+        provisional = _truth(row.get("finished_provisional"), f"fixture {fid}.finished_provisional")
+        if not finished or provisional:
             continue
         home = _integer(row.get("team_h_id"), f"fixture {fid}.team_h_id")
         away = _integer(row.get("team_a_id"), f"fixture {fid}.team_a_id")
@@ -139,8 +142,10 @@ def build_realized_panel(
         fid = _integer(source.get("fixture_id"), f"player_fixture[{index}].fixture_id")
         if pid not in player_set:
             raise RealizedFplDatasetError(f"player_fixture row references unknown season player {pid}")
+        if fid not in all_fixture_ids:
+            raise RealizedFplDatasetError(f"player_fixture row references unknown season fixture {fid}")
         if fid not in fixture_by_id:
-            # Unfinished or unassigned fixture rows are not realized targets.
+            # Unfinished, provisional or unassigned fixture rows are not realized targets.
             ignored_unfinished += 1
             continue
         key = (pid, fid)
@@ -157,13 +162,10 @@ def build_realized_panel(
         outcome: dict[str, Any] = {}
         for field in OUTCOME_FIELDS:
             value = source.get(field)
-            if value in (None, "") and field not in REQUIRED_NUMERIC:
-                outcome[field] = None
-            else:
-                parsed = _integer(value, f"player_fixture[{index}].{field}")
-                if field != "total_points" and parsed < 0:
-                    raise RealizedFplDatasetError(f"{field} cannot be negative")
-                outcome[field] = parsed
+            parsed = _integer(value, f"player_fixture[{index}].{field}")
+            if field != "total_points" and parsed < 0:
+                raise RealizedFplDatasetError(f"{field} cannot be negative")
+            outcome[field] = parsed
         was_home = _truth(source.get("was_home"), f"player_fixture[{index}].was_home")
         team_id = fixture["team_h_id"] if was_home else fixture["team_a_id"]
         opponent_id = fixture["team_a_id"] if was_home else fixture["team_h_id"]
@@ -230,7 +232,9 @@ def build_archive(input_dir: Path, output_dir: Path, *, repository_root: Path | 
     if not output_dir.is_absolute():
         raise RealizedFplDatasetError("output_dir must be absolute")
     target = output_dir.resolve()
-    if repository_root is not None and target.is_relative_to(repository_root.resolve()):
+    if repository_root is None:
+        repository_root = Path(__file__).resolve().parents[2]
+    if target.is_relative_to(repository_root.resolve()):
         raise RealizedFplDatasetError("realized-outcome archive must be outside repository")
     if target.exists():
         raise FileExistsError("refusing to overwrite existing realized-outcome archive")
