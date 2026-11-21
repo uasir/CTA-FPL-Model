@@ -49,13 +49,6 @@ def _historical_context(payload):
             "excluded_incomplete_players": 5,
             "expected_player_gameweek_cells": 100,
             "missing_player_gameweek_cells": 0,
-            "rolling_correlation_stability": {
-                "status": "EXPLORATORY_STABILITY_DIAGNOSTIC",
-                "correlation_of_correlations": 0.0078,
-                "median_absolute_correlation_change": 0.5004,
-            },
-            "limitations": ["Ten weeks do not establish stable dependence."],
-            "guardrails": ["Research only."],
             "shrinkage": {
                 "type": "diagonal",
                 "parameter": 0.5,
@@ -83,7 +76,7 @@ def test_runner_invokes_historical_covar_without_changing_ev_decision():
     assert recommendation["historical_covar_overlay"]["historical_covariance_source"]["source_sha256"] == "a" * 64
     assert recommendation["historical_covar_overlay"]["historical_covariance_stability_diagnostic"]["correlation_of_correlations"] == 0.0078
     diagnostics = recommendation["historical_covar_overlay"]["historical_covariance_diagnostics"]
-    assert diagnostics["rolling_correlation_stability"]["correlation_of_correlations"] == 0.0078
+    assert diagnostics["rolling_correlation_stability"]["correlation_of_correlations"] == 0.00779916
     assert diagnostics["sample_coverage"]["covariance_players"] == 14
     assert diagnostics["point_in_time_status"] == "NOT_VERIFIED_RETROSPECTIVE_FINAL_SCORING_AUDIT"
     assert recommendation["transfer_recommendation"] == base_recommendation["transfer_recommendation"]
