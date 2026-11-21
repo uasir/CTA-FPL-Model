@@ -34,6 +34,9 @@ from canonical_forecast_recommendation_adapter import build_recommendation_forec
 from personal_squad_engine import recommend_personal_squad
 from squad_decision_context import attach_squad_decision_context
 from historical_covar_recommendation_overlay import build_historical_covar_recommendation_overlay
+from m3_predeadline_field_context import (
+    load_predeadline_field_csv, build_m3_predeadline_field_context,
+)
 
 
 class BenchmarkDecisionRunError(ValueError):
@@ -108,6 +111,32 @@ def run_external_benchmark_personal_squad(payload: Mapping[str, Any]) -> dict[st
             as_of_utc=payload["as_of_utc"],
             deadline_utc=snapshot["timing"]["deadline_utc"],
         )
+    field_capture = payload.get("predeadline_field_capture")
+    if field_capture is not None:
+        if not isinstance(field_capture, Mapping):
+            raise BenchmarkDecisionRunError("predeadline_field_capture must be an object")
+        required_field = ("csv_path", "report_path", "season", "source_url")
+        missing_field = [key for key in required_field if key not in field_capture]
+        if missing_field:
+            raise BenchmarkDecisionRunError(
+                "missing predeadline field capture fields: " + ", ".join(missing_field)
+            )
+        if field_capture["season"] != snapshot["season"]:
+            raise BenchmarkDecisionRunError("predeadline field season does not match provider snapshot")
+        field_artifact = load_predeadline_field_csv(
+            field_capture["csv_path"], field_capture["report_path"],
+            season=field_capture["season"], source_url=field_capture["source_url"],
+        )
+        field_context = build_m3_predeadline_field_context(
+            recommendation, manager, field_artifact,
+            season=snapshot["season"],
+            target_gameweek=snapshot["target_gameweek"],
+            as_of_utc=payload["as_of_utc"],
+            deadline_utc=snapshot["timing"]["deadline_utc"],
+        )
+        recommendation = dict(recommendation)
+        recommendation["predeadline_field_analysis"] = field_context
+
     historical_covar = payload.get("historical_covariance_context")
     if historical_covar is not None:
         if not isinstance(historical_covar, Mapping):
