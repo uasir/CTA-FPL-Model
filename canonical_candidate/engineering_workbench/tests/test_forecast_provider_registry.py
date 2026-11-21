@@ -49,8 +49,15 @@ def test_restricted_provider_policy_is_explicit_and_defensive():
     assert "no_redistribution" in get_active_provider("FPL Wildcard")["data_policy"]
 
 
-def test_lucho_served_variant_is_not_mislabeled_as_raw_or_odds_xp():
-    assert get_active_provider("FPL Lucho")["forecast_variant"] == "served_odds_anchored_xp"
+def test_lucho_variants_remain_distinct_and_unblended():
+    lucho = get_active_provider("FPL Lucho")
+    assert lucho["forecast_variant"] == "served_odds_anchored_xp"
+    variants = {item["variant_id"]: item for item in lucho["forecast_variants"]}
+    assert set(variants) == {"served_odds_anchored_xp", "raw_model_xp", "odds_xp"}
+    assert variants["served_odds_anchored_xp"]["availability"] == "public_forecast_csv"
+    assert variants["raw_model_xp"]["availability"] == "performance_page_series_export_unverified"
+    assert variants["odds_xp"]["availability"] == "performance_page_series_export_unverified"
+    assert "bookmaker odds" in variants["odds_xp"]["semantics"]
 
 
 def test_research_only_sources_are_not_active_providers():
