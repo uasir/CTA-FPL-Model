@@ -66,3 +66,17 @@ def test_refuses_git_checkout_destination(tmp_path):
     doc, blobs = sample(); repo=tmp_path/"repo"; repo.mkdir(); (repo/".git").mkdir()
     with pytest.raises(JointForecastSourceAdapterError, match="outside a Git repository"):
         archive_explicit_joint_forecast(document=doc, artifact_bytes=blobs, archive_root=repo/"archive")
+
+def test_refuses_git_checkout_destination_reached_through_symlink(tmp_path):
+    doc, blobs = sample()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    link = tmp_path / "repo-link"
+    try:
+        link.symlink_to(repo, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable")
+    with pytest.raises(JointForecastSourceAdapterError, match="outside a Git repository"):
+        archive_explicit_joint_forecast(document=doc, artifact_bytes=blobs,
+                                        archive_root=link / "archive")
