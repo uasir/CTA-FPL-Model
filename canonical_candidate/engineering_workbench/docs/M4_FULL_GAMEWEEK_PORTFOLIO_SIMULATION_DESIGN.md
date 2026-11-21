@@ -93,7 +93,9 @@ and tested independently in `tests/test_m4_covar_lineup_resolver.py`.
 Its input is one explicit 15-player squad, lineup/bench order, position map,
 captain and vice-captain, plus complete per-player minutes, explicit Gameweek played-status booleans, and
 FPL-points maps for one scenario. Missing outcomes fail closed; minutes must
-be finite and between 0 and 120; points may be negative. A player with positive
+be finite and nonnegative; fixture-level minutes are capped at 120, while the
+aggregated Gameweek total may exceed 120 in a Double/Triple Gameweek. Points may
+be negative. A player with positive
 minutes must be marked as played, while a zero-minute player may still be
 marked as played for a card-only appearance, consistent with current FPL guidance.
 
