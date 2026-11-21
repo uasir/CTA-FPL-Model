@@ -39,6 +39,7 @@ def summarize_capture(provider: str, capture: Mapping[str, Any],
             "generation_time_status": capture.get("capture_status", {}).get(
                 "provider_generation_time_status"
             ),
+            "source_license_and_attribution": "FPL Cat; public use with attribution; https://fplcat.com/developers",
         }
     elif name == "sideline quant":
         timing = capture.get("timing", {})
@@ -57,6 +58,7 @@ def summarize_capture(provider: str, capture: Mapping[str, Any],
             "provider_raw_sha256": source.get("raw_sha256"),
             "normalized_fixture_row_count": canonical.get("coverage", {}).get("row_count"),
             "decision_eligible": canonical.get("decision_eligible"),
+            "source_license_and_attribution": "Sideline Quant; provider data licensed CC BY 4.0; https://sidelinequant.com/data",
         }
     elif name == "fplrogue":
         timing = capture.get("timing", {})
