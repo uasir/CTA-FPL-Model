@@ -8,14 +8,15 @@
 
 The downstream recommendation system will be built using the actual external FPL benchmark forecasts first. Once the project's own model passes M2's validation and promotion gates, it will enter through the same canonical forecast interface and can replace or supplement benchmark inputs.
 
-This execution decision supersedes the earlier architecture wording that deferred all M3 implementation until M2 was complete. The five milestones remain distinct and controlled:
-- M1 verification continues on its separate schedule.
-- M2 model-layer validation continues independently.
-- M3 implementation starts now and must pass its own acceptance gates.
-- M4 begins after M3 is accepted.
-- M5 begins after M4 is accepted.
+This execution decision supersedes the earlier architecture wording that deferred all M3 implementation until M2 was complete. The current roadmap has four milestones:
+- M1 — Recommendation Delivery Backbone.
+- M2 — Model Layer; formal model/forecast performance evaluation is deferred until the upcoming Gameweek's official scores are available.
+- M3 — Integrated Decision Engine; implementation proceeds now and must pass its own acceptance gates.
+- M4 — Release the Three Recommendation Products; product-performance evaluation is deferred until the upcoming Gameweek's official scores are available.
 
-M3 does not consume unvalidated ABC/CTA or 2PM outputs. M2 research status is carried as metadata and cannot affect benchmark forecast eligibility.
+The existing FPL Cat conventional forecast integration remains in M3. M3 now extends that same shared forecast interface to five providers: FPL Cat, Sideline Quant, FPLRogue, FPL Lucho and FPL Wildcard. FPL Forecaster and FPL Review are excluded from the project and must not be used.
+
+M3 does not consume unvalidated ABC/CTA or 2PM outputs. M2 research status is carried as metadata and cannot affect benchmark forecast eligibility. Provider integration engineering is not blocked by the deferred M2 performance evaluation.
 
 ## 2. Existing assets reused
 
@@ -196,3 +197,19 @@ M4 will later enrich this decision with the existing LiveFPL EO field reference 
 ## 7. Model transition
 
 When M2 approves ABC/CTA or 2PM, it is registered as another provider under the same canonical schema. Benchmark and project-model runs remain side-by-side during a shadow period. Replacement or supplementation requires recorded evidence and a rollback path; historical releases are never rewritten.
+
+
+### M3.2b — Five-provider conventional forecast architecture
+
+The existing FPL Cat adapter remains the first integrated provider. The five-provider extension is one unified M3 scope, not a separate integration track. A provider-neutral canonical snapshot contract is reused, with source-specific acquisition and parsing adapters.
+
+Integration rules:
+- Preserve each provider's original expected-points values, product/variant, source identity, raw bytes/hash, provider-declared generation time, local capture time, target Gameweek, deadline, grain and coverage.
+- Do not average or blend providers during ingestion; do not select a winner without later evidence.
+- Keep provider-native uncertainty, minutes and probability fields distinct unless semantic equivalence is explicitly established.
+- Preserve fixture-grain feeds and require an explicit tested transformation before player-Gameweek decision use.
+- Keep FPL Lucho's served odds-anchored xP distinct from its raw model and separately reported Odds xP.
+- FPL Wildcard's published terms state no redistribution licence; treat its feed as restricted and do not republish raw data.
+- Formal provider-by-provider performance evaluation is deferred until the upcoming Gameweek's official scores. This does not block capture/parser engineering.
+
+The source and provider-specific gates are recorded in `docs/M3_FIVE_PROVIDER_FORECAST_INTEGRATION.md`.
