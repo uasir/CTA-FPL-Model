@@ -86,3 +86,35 @@ def test_failed_capture_is_marked_incomplete_and_not_presented_as_complete(tmp_p
         capture_public_sources(5, target, fetch=fetch, clock=lambda: "2026-11-21T05:00:00Z", sleep=lambda _: None)
     assert (target / "CAPTURE_INCOMPLETE").exists()
     assert not (target / "capture_manifest.json").exists()
+
+
+
+def test_manifest_records_github_actions_run_identity_without_credentials(tmp_path, monkeypatch):
+    values = {
+        "GITHUB_REPOSITORY": "uasir/CTA-FPL-Model",
+        "GITHUB_WORKFLOW": "CTA FPL point-in-time public source capture",
+        "GITHUB_WORKFLOW_REF": "uasir/CTA-FPL-Model/.github/workflows/cta-fpl-point-in-time-source-capture.yml@refs/heads/main",
+        "GITHUB_SHA": "a" * 40,
+        "GITHUB_REF": "refs/heads/main",
+        "GITHUB_RUN_ID": "123456",
+        "GITHUB_RUN_ATTEMPT": "2",
+    }
+    for key, value in values.items():
+        monkeypatch.setenv(key, value)
+    responses = iter([b'{}', b'[]', b'{}'])
+    result = capture_public_sources(
+        14, (tmp_path / "run_context").resolve(),
+        fetch=lambda _: next(responses),
+        clock=lambda: "2026-11-21T05:00:00Z",
+        sleep=lambda _: None,
+    )
+    manifest = json.loads(Path(result["manifest_path"]).read_text())
+    assert manifest["capture_context"] == {
+        "repository": values["GITHUB_REPOSITORY"],
+        "workflow": values["GITHUB_WORKFLOW"],
+        "workflow_ref": values["GITHUB_WORKFLOW_REF"],
+        "git_commit_sha": values["GITHUB_SHA"],
+        "git_ref": values["GITHUB_REF"],
+        "actions_run_id": values["GITHUB_RUN_ID"],
+        "actions_run_attempt": values["GITHUB_RUN_ATTEMPT"],
+    }
