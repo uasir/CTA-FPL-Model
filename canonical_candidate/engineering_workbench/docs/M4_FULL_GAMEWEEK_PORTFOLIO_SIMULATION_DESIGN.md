@@ -389,3 +389,30 @@ statistical power, confidence-interval validity, or predictive skill. No real
 historical point-in-time dataset has yet been certified. CoVar therefore
 remains research-only with `decision_weight=0` and
 `production_eligible=false`.
+
+
+## Gameweek-clustered calibration uncertainty
+
+A separate paired percentile cluster-bootstrap evaluator is implemented in
+`scripts/m4_covar_gameweek_cluster_bootstrap.py`, with tests in
+`tests/test_m4_covar_gameweek_cluster_bootstrap.py`. It consumes the
+`per_forecast` score rows produced by the joint-probability calibration
+evaluator. It first averages repeated forecast snapshots within each
+Gameweek, then resamples whole Gameweek clusters with replacement. The same
+sampled clusters are used for model and reference scores, preserving their
+paired comparison. It reports 95% percentile intervals for model Brier,
+reference Brier, their paired difference, and Brier skill, alongside the
+number of independent Gameweeks, resample count and deterministic seed.
+
+The estimand is explicitly Gameweek-equal-weighted, so a Gameweek with more
+forecast snapshots does not dominate the interval. This differs from the
+existing forecast-row-weighted point summaries in the calibration evaluator;
+compare like with like by using the bootstrap's own `point_estimate` when
+interpreting its intervals. Fewer than 20 Gameweeks triggers an exploratory
+small-sample warning; this is a caution label, not a claim that 20 is a
+sufficient sample size. Percentile cluster-bootstrap intervals can remain
+unstable with few independent Gameweeks or seasons and do not establish
+predictive validity. The function is standalone and must be applied to the
+calibration evaluator's `per_forecast` output; no real historical result has
+been evaluated. CoVar remains research-only with `decision_weight=0` and
+`production_eligible=false`.
