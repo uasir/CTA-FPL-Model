@@ -1,0 +1,130 @@
+import copy
+
+import pytest
+
+from provider_forecast_router import ProviderForecastRoutingError, route_provider_forecast
+
+
+def payload():
+    return {
+        "snapshot_id": "sq-gw11-001",
+        "season": "2026-27",
+        "target_gameweek": 11,
+        "provider": {
+            "name": "FPL Cat",
+            "product": "projections",
+            "variant": "provider_native_xp",
+            "version": "v1",
+        },
+        "timing": {
+            "generated_at_utc": "2026-11-20T08:00:00Z",
+            "captured_at_utc": "2026-11-20T08:05:00Z",
+            "deadline_utc": "2026-11-21T11:00:00Z",
+        },
+        "source": {
+            "url": "https://example.test/projections",
+            "raw_snapshot_id": "raw-001",
+            "raw_sha256": "a" * 64,
+        },
+        "grain": "player_gameweek",
+        "records": [{"fpl_element_id": 1, "expected_points": 5.2, "expected_minutes": 80}],
+        "coverage": {"row_count": 1, "identity_mapped_count": 1},
+    }
+
+
+def test_routes_registered_player_gameweek_snapshot_without_blending():
+    result = route_provider_forecast(payload())
+    assert result["provider_id"] == "fpl_cat"
+    assert result["routing_status"] == "READY_FOR_RECOMMENDATION_ADAPTER"
+    assert result["decision_eligible"] is True
+    assert result["canonical_snapshot"]["records"][0]["expected_points"] == 5.2
+    assert result["recommendation_payload"] is None
+
+
+def test_routes_unverified_generation_time_as_diagnostic_only():
+    source = payload()
+    source["timing"]["generated_at_utc"] = None
+    result = route_provider_forecast(source)
+    assert result["routing_status"] == "DIAGNOSTIC_ONLY"
+    assert result["decision_eligible"] is False
+
+
+def test_preserves_fixture_grain_without_implicit_aggregation():
+    source = payload()
+    source["provider"] = {
+        "name": "Sideline Quant",
+        "product": "gameweek_projections",
+        "variant": "provider_native_xp",
+    }
+    source["grain"] = "player_fixture"
+    source["records"] = [
+        {"fpl_element_id": 1, "fixture_id": 101, "expected_points": 2.1},
+        {"fpl_element_id": 1, "fixture_id": 102, "expected_points": 3.1},
+    ]
+    source["coverage"] = {"row_count": 2}
+    result = route_provider_forecast(source)
+    assert result["routing_status"] == "EXPLICIT_PLAYER_GAMEWEEK_TRANSFORM_REQUIRED"
+    assert result["canonical_snapshot"]["grain"] == "player_fixture"
+    assert len(result["canonical_snapshot"]["records"]) == 2
+
+
+@pytest.mark.parametrize("name", ["FPL Forecaster", "FPL Review", "FPLWise", "RotoWire"])
+def test_rejects_sources_outside_active_five(name):
+    source = payload()
+    source["provider"]["name"] = name
+    with pytest.raises(ProviderForecastRoutingError, match="not in the active"):
+        route_provider_forecast(source)
+
+
+def test_rejects_unregistered_provider_product():
+    source = payload()
+    source["provider"]["product"] = "other-product"
+    with pytest.raises(ProviderForecastRoutingError, match="product mismatch"):
+        route_provider_forecast(source)
+
+
+def test_rejects_unregistered_lucho_variant():
+    source = payload()
+    source["provider"] = {
+        "name": "FPL Lucho",
+        "product": "forecast_csv",
+        "variant": "blended_xp",
+    }
+    with pytest.raises(ProviderForecastRoutingError, match="unregistered forecast variant"):
+        route_provider_forecast(source)
+
+
+def test_lucho_variants_are_kept_as_distinct_registered_routes():
+    for variant in ("served_odds_anchored_xp", "raw_model_xp", "odds_xp"):
+        source = payload()
+        source["provider"] = {
+            "name": "FPL Lucho",
+            "product": "forecast_csv",
+            "variant": variant,
+        }
+        result = route_provider_forecast(source)
+        assert result["provider"]["variant"] == variant
+        assert result["routing_status"] == "READY_FOR_RECOMMENDATION_ADAPTER"
+
+
+def test_builds_recommendation_payload_only_with_explicit_metadata_and_as_of():
+    metadata = [{"fpl_element_id": 1, "price": 7.0, "position": 3, "team_id": 1}]
+    result = route_provider_forecast(
+        payload(), player_metadata=metadata, as_of_utc="2026-11-20T09:00:00Z"
+    )
+    assert result["routing_status"] == "RECOMMENDATION_PAYLOAD_READY"
+    player = result["recommendation_payload"]["player_forecasts"][0]
+    assert player["expected_points"] == 5.2
+    assert player["fpl_element_id"] == 1
+
+
+def test_requires_metadata_and_as_of_together():
+    with pytest.raises(ProviderForecastRoutingError, match="must be supplied together"):
+        route_provider_forecast(payload(), player_metadata=[{"fpl_element_id": 1}])
+
+
+def test_does_not_mutate_input_payload():
+    source = payload()
+    original = copy.deepcopy(source)
+    route_provider_forecast(source)
+    assert source == original

@@ -120,3 +120,17 @@ Do not create synthetic forecasts to fill gaps. A provider with unresolved acces
 The five providers are integrated as independent forecast sources. Formal provider-by-provider performance evaluation is deferred until the upcoming Gameweek's official scores are available. When evaluation begins, compare providers on matched player/Gameweek populations and common outcome/finality evidence, while retaining provider-specific native fields and separate scorecards. Do not infer that one provider is superior from unmatched coverage or a single Gameweek.
 
 M4 recommendation-product performance evaluation is also deferred until the upcoming Gameweek's official scores. These evaluation deferrals do not stop independent M3 adapter and decision-engine engineering.
+
+
+## 7. Shared provider routing boundary
+
+The \`scripts/provider_forecast_router.py\` module is the common entry point for all five provider adapters. It validates the canonical snapshot, resolves the provider against the active registry, and checks the exact product and registered forecast variant. It returns a provider-labelled routing envelope and never blends provider values.
+
+Routing outcomes are explicit:
+
+- \`DIAGNOSTIC_ONLY\`: provider-generation time is missing or the snapshot is not strict pre-deadline eligible.
+- \`EXPLICIT_PLAYER_GAMEWEEK_TRANSFORM_REQUIRED\`: the canonical source remains fixture-grain; no implicit aggregation is performed.
+- \`READY_FOR_RECOMMENDATION_ADAPTER\`: a strict pre-deadline player-Gameweek snapshot is ready for the recommendation adapter, but has not yet been joined to player metadata.
+- \`RECOMMENDATION_PAYLOAD_READY\`: the caller explicitly supplied player metadata and an as-of timestamp, and the existing recommendation adapter accepted the snapshot.
+
+The router rejects excluded/research-only providers, unregistered products and unregistered variants. It does not claim that a provider is live-captured, calibrated, validated through M2, or production-approved. Sideline Quant fixture rows must first pass its documented explicit player-Gameweek derivation; provider-native rows remain preserved.
