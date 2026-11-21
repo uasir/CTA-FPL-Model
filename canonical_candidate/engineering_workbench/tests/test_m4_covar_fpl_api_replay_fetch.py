@@ -10,6 +10,7 @@ from m4_covar_fpl_api_replay_fetch import (
     OfficialFplFetchError,
     acquire_replay,
     fetch_official_json,
+    require_completed_event,
     write_private_replay,
 )
 from test_m4_covar_fpl_api_replay_adapter import api_payloads
@@ -18,6 +19,7 @@ from test_m4_covar_fpl_api_replay_adapter import api_payloads
 class TestM4CovarFplApiReplayFetch(unittest.TestCase):
     def test_acquires_three_payloads_and_returns_anonymized_case(self):
         payloads = list(api_payloads())
+        payloads[2]["events"] = [{"id": 7, "finished": True}]
         calls = []
         def fake_fetch(url):
             calls.append(url)
@@ -31,6 +33,13 @@ class TestM4CovarFplApiReplayFetch(unittest.TestCase):
         self.assertNotIn("987654", serialized)
         self.assertNotIn("entry_id", serialized)
         self.assertEqual(result["replays"][0]["mode"], "REGULAR_GW")
+
+    def test_requires_officially_finished_gameweek(self):
+        require_completed_event({"events": [{"id": 7, "finished": True}]}, 7)
+        with self.assertRaisesRegex(OfficialFplFetchError, "only officially finished"):
+            require_completed_event({"events": [{"id": 7, "finished": False}]}, 7)
+        with self.assertRaisesRegex(OfficialFplFetchError, "missing or duplicated"):
+            require_completed_event({"events": [{"id": 8, "finished": True}]}, 7)
 
     def test_rejects_invalid_identifiers_before_fetch(self):
         with self.assertRaises(ValueError):
