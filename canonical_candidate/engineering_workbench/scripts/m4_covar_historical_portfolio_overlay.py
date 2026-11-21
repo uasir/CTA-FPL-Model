@@ -179,15 +179,31 @@ def build_historical_covar_recommendation_overlay(
             ]
             if not eligible:
                 raise HistoricalCoVarOverlayError("incoming player has no legal same-position XI slot")
-            index = min(
+            weakest_index, weakest_player = min(
                 eligible,
                 key=lambda item: (
                     _finite(item[1].get("expected_points"), "starter expected_points"),
                     -_finite(item[1].get("expected_minutes"), "starter expected_minutes"),
                     -item[1]["fpl_element_id"],
                 ),
-            )[0]
-        candidate_xi[index] = incoming
+            )
+            incoming_order = (
+                -_finite(forecasts[incoming].get("expected_points"), "incoming expected_points"),
+                -_finite(forecasts[incoming].get("expected_minutes"), "incoming expected_minutes"),
+                incoming,
+            )
+            weakest_order = (
+                -_finite(weakest_player.get("expected_points"), "starter expected_points"),
+                -_finite(weakest_player.get("expected_minutes"), "starter expected_minutes"),
+                weakest_player["fpl_element_id"],
+            )
+            # A bench-to-bench transfer does not displace a stronger starter.
+            if incoming_order < weakest_order:
+                index = weakest_index
+            else:
+                index = None
+        if index is not None:
+            candidate_xi[index] = incoming
         captain_id = _captain(candidate_xi, forecasts)
         result = _portfolio_metrics(candidate_xi, captain_id, forecasts, matrix)
         metrics.append({
