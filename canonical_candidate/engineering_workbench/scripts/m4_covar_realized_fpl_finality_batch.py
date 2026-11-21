@@ -32,8 +32,10 @@ class FinalityBatchError(ValueError):
     """The batch inputs cannot support a safe finality audit."""
 
 
-def _load_json(path: Path) -> tuple[Any, bytes]:
+def _load_json(path: Path, *, expected_sha256: str | None = None) -> tuple[Any, bytes]:
     raw = path.read_bytes()
+    if expected_sha256 is not None and hashlib.sha256(raw).hexdigest() != expected_sha256:
+        raise FinalityBatchError(f"{path.name} source hash mismatch")
     try:
         return json.loads(raw.decode("utf-8")), raw
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -93,9 +95,9 @@ def run_finality_batch(dataset_csv: Path, capture_root: Path, output_dir: Path) 
             fixture_path = (archive / fixture_source.get("archive_path", "")).resolve()
             if not fixture_path.is_relative_to(archive) or not fixture_path.is_file():
                 raise FinalityBatchError(f"event_{event} fixture source path is unsafe or missing")
-            fixtures, fixture_raw = _load_json(fixture_path)
-            if hashlib.sha256(fixture_raw).hexdigest() != fixture_source.get("content_sha256"):
-                raise FinalityBatchError(f"event_{event} fixture source hash mismatch")
+            fixtures, fixture_raw = _load_json(
+                fixture_path, expected_sha256=fixture_source.get("content_sha256")
+            )
             event_fixtures = [f for f in fixtures if isinstance(f, dict) and f.get("event") == event]
             if not event_fixtures or any(
                 f.get("finished") is not True or f.get("finished_provisional") is not False
@@ -109,10 +111,10 @@ def run_finality_batch(dataset_csv: Path, capture_root: Path, output_dir: Path) 
             live_path = (archive / live_source.get("archive_path", "")).resolve()
             if not live_path.is_relative_to(archive) or not live_path.is_file():
                 raise FinalityBatchError(f"event_{event} event-live source path is unsafe or missing")
-            live_payload, live_raw = _load_json(live_path)
+            live_payload, live_raw = _load_json(
+                live_path, expected_sha256=live_source.get("content_sha256")
+            )
             digest = hashlib.sha256(live_raw).hexdigest()
-            if digest != live_source.get("content_sha256"):
-                raise FinalityBatchError(f"event_{event} event-live source hash mismatch")
             report = audit_player_gameweek_finality(
                 event_rows, live_payload, season=season, event_id=event,
                 source_provenance={
