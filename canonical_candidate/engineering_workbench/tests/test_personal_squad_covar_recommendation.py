@@ -90,3 +90,74 @@ def test_integrated_entry_point_rejects_mismatched_forecast_snapshot():
         assert "does not match" in str(exc)
     else:
         raise AssertionError("mismatched CoVar report was accepted")
+
+
+
+def test_end_to_end_full_gameweek_scores_attach_to_canonical_transfer_alternatives():
+    from personal_squad_covar_recommendation import recommend_personal_squad_with_full_gameweek_covar
+
+    payload = request()
+    base = recommend_personal_squad(payload)
+    transfer_map = {
+        (row["transfer_out_id"], row["transfer_in_id"]): f"candidate-{index}"
+        for index, row in enumerate(base["transfer_recommendation"]["alternatives"])
+    }
+    portfolios = [
+        {"portfolio_id": "baseline", "portfolio_role": "CANDIDATE"},
+        *[
+            {"portfolio_id": portfolio_id, "portfolio_role": "CANDIDATE"}
+            for portfolio_id in transfer_map.values()
+        ],
+        {"portfolio_id": "field-1", "portfolio_role": "FIELD", "field_weight": 1.0},
+    ]
+    full_gameweek = {
+        "mode": "REGULAR_GW",
+        "metadata": {
+            "manager_entry_ids_retained": False,
+            "field_evidence_role": "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE",
+        },
+        "scenarios": [{"scenario_id": "s1", "probability": 1.0}],
+        "portfolios": portfolios,
+    }
+
+    def score(variance, covariance, field_delta=None):
+        result = {
+            "variance": variance,
+            "variance_decomposition": [
+                {"player_a": "1", "player_b": "1", "covariance_contribution": variance-covariance},
+                {"player_a": "1", "player_b": "2", "covariance_contribution": covariance},
+            ],
+        }
+        if field_delta is not None:
+            result["field_comparison"] = {
+                "expected_points_difference_vs_weighted_field": field_delta,
+            }
+        return result
+
+    portfolio_results = {
+        "baseline": score(10, 2),
+        "field-1": score(8, 1),
+    }
+    for index, portfolio_id in enumerate(transfer_map.values()):
+        portfolio_results[portfolio_id] = score(11 + index, 3 + index, 0.5 + index)
+    scoring = {
+        "mode": "REGULAR_GW",
+        "input_validation_status": "VALID_FULL_GAMEWEEK",
+        "production_eligible": False,
+        "decision_weight": 0,
+        "portfolio_results": portfolio_results,
+    }
+    result = recommend_personal_squad_with_full_gameweek_covar(
+        payload,
+        full_gameweek_document=full_gameweek,
+        scoring_report=scoring,
+        scenario_set_id="joint-synthetic-test",
+        baseline_portfolio_id="baseline",
+        transfer_portfolio_ids=transfer_map,
+    )
+    assert result["covar_research_overlay"]["status"] == "ATTACHED_RESEARCH_ONLY"
+    assert len(result["covar_research_overlay"]["candidate_metrics"]) == len(
+        base["transfer_recommendation"]["alternatives"]
+    )
+    assert result["transfer_recommendation"] == base["transfer_recommendation"]
+    assert result["squad_plan"] == base["squad_plan"]
