@@ -239,7 +239,7 @@ def build_archive(input_dir: Path, output_dir: Path, *, repository_root: Path | 
         raise RealizedFplDatasetError("output_dir must be absolute")
     target = output_dir.resolve()
     if repository_root is None:
-        repository_root = Path(__file__).resolve().parents[2]
+        repository_root = Path(__file__).resolve().parents[3]
     if target.is_relative_to(repository_root.resolve()):
         raise RealizedFplDatasetError("realized-outcome archive must be outside repository")
     if target.exists():
