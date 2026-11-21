@@ -49,6 +49,21 @@ def fetch_official_json(url: str, *, timeout: float = 20.0) -> dict[str, Any]:
     return payload
 
 
+def require_completed_event(bootstrap_payload: dict[str, Any], event_id: int) -> None:
+    """Reject replay acquisition unless bootstrap marks the requested GW finished."""
+    events = bootstrap_payload.get("events")
+    if not isinstance(events, list):
+        raise OfficialFplFetchError("bootstrap payload does not contain official event status")
+    matching = [
+        row for row in events
+        if isinstance(row, dict) and row.get("id") == event_id
+    ]
+    if len(matching) != 1:
+        raise OfficialFplFetchError("requested Gameweek is missing or duplicated in bootstrap event status")
+    if matching[0].get("finished") is not True:
+        raise OfficialFplFetchError("only officially finished Gameweeks can be acquired for replay")
+
+
 def acquire_replay(
     entry_id: int,
     event_id: int,
@@ -68,6 +83,7 @@ def acquire_replay(
     live = fetch(f"{BASE_URL}/event/{event}/live/")
     sleep(0.25)
     bootstrap = fetch(f"{BASE_URL}/bootstrap-static/")
+    require_completed_event(bootstrap, event)
     case = normalize_official_fpl_replay(
         picks, live, bootstrap, event_id=event
     )
