@@ -36,7 +36,7 @@ def test_rejects_late_capture_or_release():
     with pytest.raises(CaptureError, match="at or after"):
         run(times=["2026-11-21T11:00:00Z","2026-11-21T11:01:00Z","2026-11-21T11:02:00Z"])
     with pytest.raises(CaptureError, match="at or after official deadline"):
-        run(page=PAGE.replace(b"07:31",b"11:01"))
+        run(page=PAGE.replace(b"07:31",b"11:01"), times=["2026-11-21T11:02:00Z","2026-11-21T11:03:00Z","2026-11-21T11:04:00Z"])
 
 
 def test_rejects_duplicate_headers_and_ragged_rows():
