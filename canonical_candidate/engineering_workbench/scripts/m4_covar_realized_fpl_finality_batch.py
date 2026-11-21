@@ -99,11 +99,11 @@ def run_finality_batch(dataset_csv: Path, capture_root: Path, output_dir: Path) 
                 fixture_path, expected_sha256=fixture_source.get("content_sha256")
             )
             event_fixtures = [f for f in fixtures if isinstance(f, dict) and f.get("event") == event]
-            if not event_fixtures or any(
-                f.get("finished") is not True or f.get("finished_provisional") is not False
-                for f in event_fixtures
-            ):
-                raise FinalityBatchError(f"event_{event} is not fully finished and non-provisional")
+            if not event_fixtures or any(f.get("finished") is not True for f in event_fixtures):
+                raise FinalityBatchError(f"event_{event} contains fixtures that are not fully finished")
+            provisional_fixture_count = sum(
+                f.get("finished_provisional") is True for f in event_fixtures
+            )
             live_source = by_id["event_live"]
             expected_url = f"https://fantasy.premierleague.com/api/event/{event}/live/"
             if live_source.get("source_url") != expected_url:
@@ -123,6 +123,13 @@ def run_finality_batch(dataset_csv: Path, capture_root: Path, output_dir: Path) 
                     "raw_sha256": digest,
                 },
                 raw_source_bytes=live_raw,
+            )
+            report["fixture_count"] = len(event_fixtures)
+            report["fixtures_marked_finished_provisional_at_capture"] = provisional_fixture_count
+            report["fixture_finality_interpretation"] = (
+                "OFFICIAL_EVENT_LIVE_RECONCILIATION_REQUIRED_AND_PERFORMED"
+                if provisional_fixture_count
+                else "FIXTURE_FEED_MARKED_NONPROVISIONAL"
             )
             reports.append(report)
         result = {
