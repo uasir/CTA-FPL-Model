@@ -120,12 +120,19 @@ def test_end_to_end_full_gameweek_scores_attach_to_canonical_transfer_alternativ
         "portfolios": portfolios,
     }
 
-    def score(variance, covariance, field_delta=None):
+    def score(variance, covariance, field_delta=None, *, role="CANDIDATE"):
         result = {
+            "portfolio_role": role,
             "variance": variance,
             "variance_decomposition": [
                 {"player_a": "1", "player_b": "1", "covariance_contribution": variance-covariance},
                 {"player_a": "1", "player_b": "2", "covariance_contribution": covariance},
+            ],
+            "variance_decomposition_total": variance,
+            "variance_decomposition_matches_total": True,
+            "scenario_scores": [
+                {"scenario_id": "s1", "probability": 1.0,
+                 "points": field_delta if field_delta is not None else 0.0},
             ],
         }
         if field_delta is not None:
@@ -136,7 +143,7 @@ def test_end_to_end_full_gameweek_scores_attach_to_canonical_transfer_alternativ
 
     portfolio_results = {
         "baseline": score(10, 2),
-        "field-1": score(8, 1),
+        "field-1": score(8, 1, role="FIELD"),
     }
     for index, portfolio_id in enumerate(transfer_map.values()):
         portfolio_results[portfolio_id] = score(11 + index, 3 + index, 0.5 + index)
