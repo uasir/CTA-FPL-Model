@@ -93,6 +93,8 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
                 pick["multiplier"] = 0
             if pick["element"] == "p11":
                 pick["multiplier"] = 2
+            if pick["element"] == "p15":
+                pick["multiplier"] = 1
         case["official_final"]["player_total_points"]["p10"] = 0
         case["official_final"]["player_total_points"]["p11"] = 4
         case["official_final"]["team_points"] = sum(
@@ -128,7 +130,7 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
     def test_detects_player_point_and_total_reconciliation_mismatches(self):
         case = replay()
         case["official_final"]["player_total_points"]["p2"] = 1
-        case["official_final"]["team_points"] = 23
+        case["official_final"]["team_points"] = 22
         result = validate_official_replay_case(case)
         self.assertEqual(result["status"], "FAIL")
         self.assertIn("p2", result["mismatched_player_points"])
