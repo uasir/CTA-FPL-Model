@@ -10,10 +10,12 @@ on:
       manager_team_id:
         description: FPL manager team ID (public workflow input)
         required: true
+        default: "421025"
         type: string
       season:
         description: FPL season identifier used by the provider snapshot
         required: true
+        default: "2026-27"
         type: string
       manager_state_json:
         description: Confirmed manager state JSON (squad, bank, transfers, XI, bench, captaincy and chip state)
