@@ -164,7 +164,7 @@ def build_realized_panel(
         for field in OUTCOME_FIELDS:
             value = source.get(field)
             parsed = _integer(value, f"player_fixture[{index}].{field}")
-            if field != "total_points" and parsed < 0:
+            if field not in {"total_points", "bps"} and parsed < 0:
                 raise RealizedFplDatasetError(f"{field} cannot be negative")
             outcome[field] = parsed
         was_home = _truth(source.get("was_home"), f"player_fixture[{index}].was_home")
