@@ -51,6 +51,8 @@ def test_captures_provider_and_metadata_with_independent_hashes():
     snapshot = result["provider_snapshot"]
     assert snapshot["provider"]["name"] == "FPL Cat"
     assert snapshot["target_gameweek"] == 11
+    assert snapshot["coverage"]["identity_resolution_status"] == "VERIFIED"
+    assert snapshot["coverage"]["identity_resolution_method"] == "PROVIDER_PLAYER_ID_EQUALS_OFFICIAL_FPL_ELEMENT_ID"
     assert snapshot["records"][0] == {
         "fpl_element_id": 1, "expected_points": 5.25, "expected_minutes": 88
     }
