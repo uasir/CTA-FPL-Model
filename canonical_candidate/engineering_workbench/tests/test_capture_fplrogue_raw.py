@@ -106,7 +106,7 @@ def test_frozen_archive_capture_separates_publisher_capture_from_local_retrieval
 
 def test_frozen_archive_capture_rejects_post_deadline_publisher_capture():
     from capture_fplrogue_raw import capture_fplrogue_frozen_archive_raw
-    page_url = "https://example.test/archive/2026-10-31-gw9"
+    page_url = "https://www.fplrogue.com/research/projections/archive/2026-10-31-gw9"
     csv_url = page_url + "/download.csv"
     page = ("<body>Gameweek GW9 Players 2 Projection engine xpts_v1 "
             "Captured 31 Oct 2026, 11:24 GMT Model trained 31 Oct 2026, 05:00 GMT</body>").encode()
