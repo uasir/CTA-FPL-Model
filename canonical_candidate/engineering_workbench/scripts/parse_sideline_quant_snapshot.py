@@ -152,6 +152,8 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
             "row_count": len(normalized_rows),
             "expected_player_universe": len(allowed_ids),
             "identity_mapped_count": len(normalized_rows),
+            "identity_resolution_status": "VERIFIED",
+            "identity_resolution_method": "PROVIDER_PLAYER_ID_EQUALS_OFFICIAL_FPL_ELEMENT_ID",
             "distinct_provider_players": len(gw_totals),
             "provider_declared_players": provider["n_players"],
         },
@@ -258,6 +260,8 @@ def build_sideline_quant_player_gameweek_snapshot(
                 "expected_player_universe"
             ),
             "identity_mapped_count": len(records),
+            "identity_resolution_status": "VERIFIED",
+            "identity_resolution_method": "INHERITED_VERIFIED_OFFICIAL_FPL_ELEMENT_ID",
             "source_fixture_row_count": fixture_snapshot["coverage"]["row_count"],
         },
         "aggregation": {
