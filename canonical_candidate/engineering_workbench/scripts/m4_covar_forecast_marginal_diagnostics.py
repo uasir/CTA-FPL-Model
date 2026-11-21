@@ -116,7 +116,7 @@ def evaluate_matched_forecast_panel(
         })
     if set(int(r["gameweek"]) for r in rows) != set(declared_gws):
         raise ForecastDiagnosticsError("every declared Gameweek must contain matched rows")
-    if any(r["expected_minutes"] < 0 or r["expected_minutes"] > 120 or r["actual_minutes"] < 0 for r in rows):
+    if any(r["expected_minutes"] < 0 or r["actual_minutes"] < 0 for r in rows):
         raise ForecastDiagnosticsError("minutes values are outside valid bounds")
     grouped: dict[int, list[dict[str, float]]] = {}
     for row in rows:
@@ -156,7 +156,7 @@ def evaluate_matched_forecast_panel(
         "overall_pooled_player_gameweek_metrics": overall,
         "per_gameweek_metrics": per_gameweek,
         "expected_points_bands": _bands(rows, "expected_points", [0, 2, 4, 6, 8, 10, math.inf]),
-        "expected_minutes_bands": _bands(rows, "expected_minutes", [0, 15, 30, 45, 60, 75, 90, 105, 121]),
+        "expected_minutes_bands": _bands(rows, "expected_minutes", [0, 15, 30, 45, 60, 75, 90, 105, 120, 150, 180, math.inf]),
         "gameweek_cluster_bootstrap": {
             "method": "PAIRED_PERCENTILE_BOOTSTRAP_RESAMPLING_WHOLE_GAMEWEEKS",
             "confidence_level": 0.95,
