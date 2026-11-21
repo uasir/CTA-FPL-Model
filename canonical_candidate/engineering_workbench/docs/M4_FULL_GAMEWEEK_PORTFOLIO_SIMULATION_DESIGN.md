@@ -84,3 +84,38 @@ The implementation must encode the official rules as explicit deterministic func
 4. Add full-Gameweek scoring that reuses the same scenario distribution for candidate and field portfolios.
 5. Add integration fixtures, privacy checks, documentation, and CI validation.
 6. Keep the full-Gameweek engine synthetic-only until the implementation and rule audit are complete.
+
+## Standalone lineup resolver implementation
+
+The deterministic resolver is implemented in `scripts/m4_covar_lineup_resolver.py`
+and tested independently in `tests/test_m4_covar_lineup_resolver.py`.
+
+Its input is one explicit 15-player squad, lineup/bench order, position map,
+captain and vice-captain, plus complete per-player minutes and FPL-points maps
+for one scenario. Missing outcomes fail closed; minutes must be finite and
+between 0 and 120; points may be negative.
+
+Resolution behavior:
+
+- The starting goalkeeper is replaced only when they record zero minutes and
+  the reserve goalkeeper records positive minutes.
+- Outfield substitutes are considered in submitted bench order. For each
+  playing substitute, the resolver replaces the earliest still-unreplaced
+  absent starting outfielder for which the resulting formation meets the
+  minimum 3 DEF / 2 MID / 1 FWD constraints. An ineligible substitute is
+  skipped and later bench players are still considered.
+- Any starter with positive minutes remains in the XI, including a player
+  substituted off during the match.
+- Captaincy falls back to the vice-captain only when the captain records zero
+  minutes. No bonus is awarded if neither plays. The 3xc chip applies a 3x
+  total multiplier; otherwise the active captain receives 2x.
+- The bboost chip scores all 15 players exactly once, while retaining the
+  normal captain/vice-captain bonus. Other recognized chips do not alter this
+  resolver's scoring behavior.
+- `mode` defaults to `REGULAR_GW`; `FREE_HIT` must be explicitly supplied.
+  Mode is a label here, not an inferred chip effect.
+
+The resolver returns the resolved XI, substitutions, active captain, player
+contributions and total points. It remains synthetic research code with
+`decision_weight=0` and `production_eligible=false`; it is not yet connected
+to full-Gameweek scenario scoring.
