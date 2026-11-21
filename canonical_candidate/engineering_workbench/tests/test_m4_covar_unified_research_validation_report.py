@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import unittest
 
 from m4_covar_unified_research_validation_report import (
@@ -141,6 +140,7 @@ class TestCovarUnifiedResearchValidationReport(unittest.TestCase):
 
     def test_rejects_calibration_gameweek_outside_realized_coverage(self):
         values = list(_inputs())
+        del values[4]["by_gameweek"]["2"]
         values[4]["by_gameweek"]["3"] = {"forecast_count": 1}
         with self.assertRaisesRegex(CovarResearchValidationReportError, "outside the reconciled"):
             self._build(tuple(values))
