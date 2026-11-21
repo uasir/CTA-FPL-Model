@@ -14,6 +14,26 @@ The conventional and CTA-informed squad-specific products consume the same squad
 4. **Portfolio/CoVar context:** attach the available CoVar view to those same alternatives. The current historical covariance proxy may describe starting-XI variance, covariance contribution and EV/variance trade-offs. Prospective joint-scenario analysis may additionally compare explicit sampled manager-pick portfolios. Marginal EO must never be used to reconstruct joint manager portfolios.
 5. **Integrated recommendation:** return one squad-specific recommendation record with the conventional EV choice intact and field-relative/CoVar evidence attached to the corresponding hold and transfer candidates. Show the evidence, uncertainty, limitations and EV opportunity cost together; do not send the user to a separate analytics destination.
 
+## Current M3 runner wiring
+
+The external-benchmark personal-squad runner now accepts an optional
+`historical_covariance_context` containing the exploratory covariance report
+and its player-pair rows. It invokes the historical covariance overlay using
+the exact conventional player-Gameweek forecast rows and attaches the result
+as `historical_covar_overlay` inside the same personal-squad recommendation.
+The overlay reports the baseline and eligible starting-XI transfer alternatives,
+including expected-points, variance and covariance-contribution trade-offs.
+
+This historical proxy is explicitly retrospective and does not provide joint
+field portfolios or a probability of beating the field. It is kept separate
+from the prospective sampled-manager CoVar context and from the field-relative
+EO artifact. The runner does not build a covariance matrix from marginal EO,
+and the conventional EV recommendation remains unchanged.
+
+The field-relative comparison still requires a genuine pre-deadline field
+artifact and candidate binding. A code-level adapter or fixture test is not
+evidence that a live field capture has been obtained.
+
 ## Safety and decision authority
 
 - CoVar remains research-only: `decision_weight=0` and `production_eligible=false`. It may explain and compare candidates, but cannot silently change the EV ranking, transfer action, starting XI, formation, captaincy or vice-captaincy.
