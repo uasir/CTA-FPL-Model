@@ -57,3 +57,17 @@ def test_runner_rejects_incomplete_historical_covariance_payload_shape():
         assert "missing historical covariance fields" in str(exc)
     else:
         raise AssertionError("incomplete historical covariance context was accepted")
+
+
+
+def test_runner_rejects_covariance_artifact_marked_for_production_use():
+    payload = run_input()
+    context = _historical_context(payload)
+    context["covariance_report"]["production_use"] = True
+    payload["historical_covariance_context"] = context
+    try:
+        run_external_benchmark_personal_squad(payload)
+    except ValueError as exc:
+        assert "must remain research-only" in str(exc)
+    else:
+        raise AssertionError("production-use covariance artifact was accepted")
