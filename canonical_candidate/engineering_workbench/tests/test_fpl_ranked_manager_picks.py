@@ -56,7 +56,7 @@ class RankedManagerSampleTests(unittest.TestCase):
             normalize_picks(managers,{7:{"entry_history":{"event":10},"picks":[]}},11)
 
     def test_capture_skips_when_not_near_deadline(self):
-        bootstrap={"events":[{"id":11,"deadline_time":"2026-11-21T11:00:00Z"}]}
+        bootstrap={"events":[{"id":11,"deadline_time":"2027-11-21T11:00:00Z"}]}
         rows,report=capture(bootstrap,force=False)
         self.assertEqual(rows,[])
         self.assertEqual(report["status"],"SKIPPED_OUTSIDE_DEADLINE_WINDOW")
