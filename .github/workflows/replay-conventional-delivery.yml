@@ -98,7 +98,7 @@ jobs:
                   "size_bytes": len(data),
               }
           Path("m4-conventional-delivery-replay-manifest.json").write_text(
-              json.dumps(manifest, indent=2, sort_keys=True) + "\\n",
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
           )
           print(json.dumps(manifest, indent=2, sort_keys=True))
