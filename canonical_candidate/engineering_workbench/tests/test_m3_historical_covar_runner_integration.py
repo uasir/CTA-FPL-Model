@@ -20,6 +20,10 @@ def _historical_context(payload):
             "production_use": False,
             "model_trained": False,
             "point_in_time_status": "NOT_VERIFIED_RETROSPECTIVE_FINAL_SCORING_AUDIT",
+            "source_url": "https://onsidearena.com/data/graded-predictions.csv",
+            "source_sha256": "a" * 64,
+            "retrieved_at_utc": "2026-11-21T17:00:00Z",
+            "source_license_and_attribution": "Provider-stated CC BY 4.0",
             "window_gameweeks": [1, 2, 3, 4, 5],
             "window_size": 5,
             "shrinkage": {
@@ -44,6 +48,7 @@ def test_runner_invokes_historical_covar_without_changing_ev_decision():
     assert recommendation["historical_covar_overlay"]["decision_weight"] == 0
     assert recommendation["historical_covar_overlay"]["production_eligible"] is False
     assert recommendation["historical_covar_overlay"]["field_comparison_status"] == "NOT_AVAILABLE_NO_JOINT_FIELD_PORTFOLIOS"
+    assert recommendation["historical_covar_overlay"]["historical_covariance_source"]["source_sha256"] == "a" * 64
     assert recommendation["transfer_recommendation"] == base_recommendation["transfer_recommendation"]
     assert recommendation["squad_plan"] == base_recommendation["squad_plan"]
 
