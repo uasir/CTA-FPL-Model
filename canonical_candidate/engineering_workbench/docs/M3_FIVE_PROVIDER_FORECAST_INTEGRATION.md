@@ -281,3 +281,12 @@ A final bounded evidence check was made against the live publisher pages after t
 - Do not blend provider outputs, substitute one provider's minutes into another provider's forecast, or weaken identity/timing requirements to increase the provider count.
 - Do not repeat the bounded live captures solely to obtain the same fields. Revisit a blocked provider only when new provider documentation, a genuine identity crosswalk, a disclosed served-forecast timestamp, or a permitted private data-access route becomes available.
 - Forecast accuracy and recommendation-value evaluation remain deferred until the upcoming Gameweek's official scores are available.
+
+
+## Pre-deadline field exposure refinement — 2026-11-21
+
+- The official manager picks capture now retains `active_chip` and marks whether that value was present in the captured official picks response. A fallback based on prior-GW picks and user-confirmed squad identity explicitly records chip state as not captured; it does not infer a target-GW chip from historical chips.
+- Personal captain exposure is 200% with a verified ordinary active-chip state and 300% when the captured official `active_chip` is `3xc`. If active-chip state is unavailable, the captain's personal EO and EO delta are left unknown rather than guessed. The field exposure calculation remains descriptive and does not change EV, captaincy, transfer selection or release eligibility.
+- The field CSV validator bounds owned, starting, captain, Triple Captain and scoring-exposure rates to 0–100%. Effective ownership and its confidence interval are allowed above 100%, up to the 300% theoretical ceiling, because captaincy and Triple Captain multipliers can produce EO above 100%.
+- Regression coverage includes official Triple Captain capture, 300% personal captain exposure, unknown-chip fail-closed behavior, and field-rate bounds.
+- CI run [44931550873](https://github.com/uasir/CTA-FPL-Model/actions/runs/44931550873) passed on commit `40b24645a199924b911de6d9a1dd1f8482778bc0`: 544 tests passed, 3 subtests passed, and all four identity-crosswalk validators passed.
