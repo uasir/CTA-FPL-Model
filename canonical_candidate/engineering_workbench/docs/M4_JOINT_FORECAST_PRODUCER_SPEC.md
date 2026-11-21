@@ -10,7 +10,7 @@ The official FPL `ep_next` snapshot is an exploratory expected-points baseline. 
 
 ## Forecasting approach selected by project owner (2026-11-21)
 
-The current CoVar workstream will use **the conventional forecasting model already integrated into M3** as its player-level expected-points/minutes foundation. It will continue using that M3 model; it will not switch to CTA or introduce a new forecasting model for CoVar.
+The current CoVar workstream will use **the conventional forecasting model already integrated into M3** as its player-level expected-points/minutes foundation. The documented M3 baseline uses official FPL `ep_next` plus latest-completed-Gameweek minutes per fixture scaled by the target Gameweek fixture count. CoVar will continue using that M3 model; it will not switch to CTA or introduce a new forecasting model for CoVar.
 
 CTA-derived features, predictions, covariance and provider panels are not CoVar forecast inputs at this stage. This decision is specific to the current CoVar workstream and does not remove or suspend CTA research elsewhere in the repository.
 
