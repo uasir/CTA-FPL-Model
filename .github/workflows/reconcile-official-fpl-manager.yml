@@ -40,6 +40,24 @@ jobs:
           MANAGER_TEAM_ID: ${{ secrets.M3_MANAGER_TEAM_ID }}
         run: |
           test -n "$MANAGER_TEAM_ID" || { echo "::error::Missing M3_MANAGER_TEAM_ID secret"; exit 1; }
+      - name: Validate requested Gameweeks and optional decision-evidence scope
+        env:
+          TARGET_GAMEWEEKS: ${{ inputs.gameweeks }}
+          DECISION_EVIDENCE_RUN_ID: ${{ inputs.decision_evidence_run_id }}
+        run: |
+          python - <<'PY'
+          import os
+          raw = os.environ["TARGET_GAMEWEEKS"]
+          parts = [part.strip() for part in raw.split(",")]
+          if not parts or any(not part.isdigit() for part in parts):
+              raise SystemExit("Gameweeks must be comma-separated positive integers")
+          values = [int(part) for part in parts]
+          if any(value < 1 or value > 38 for value in values) or len(set(values)) != len(values):
+              raise SystemExit("Gameweeks must be unique integers from 1 through 38")
+          run_id = os.environ.get("DECISION_EVIDENCE_RUN_ID", "").strip()
+          if run_id and (len(values) != 1 or not run_id.isdigit() or int(run_id) < 1):
+              raise SystemExit("Decision evidence requires one Gameweek and a positive workflow run ID")
+          PY
       - name: Check out M3 branch
         uses: actions/checkout@v4
         with:
@@ -59,10 +77,11 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         env:
           MANAGER_TEAM_ID: ${{ secrets.M3_MANAGER_TEAM_ID }}
+          TARGET_GAMEWEEKS: ${{ inputs.gameweeks }}
         run: |
           python scripts/reconcile_official_fpl_manager_batch.py \
             --manager-team-id "$MANAGER_TEAM_ID" \
-            --gameweeks "${{ inputs.gameweeks }}" \
+            --gameweeks "$TARGET_GAMEWEEKS" \
             --output official-fpl-manager-reconciliation-batch.json
       - name: Retrieve pre-deadline decision evidence artifact
         if: inputs.decision_evidence_run_id != ''
@@ -75,8 +94,10 @@ jobs:
       - name: Install retrieved decision evidence manifest
         if: inputs.decision_evidence_run_id != ''
         working-directory: canonical_candidate/engineering_workbench
+        env:
+          TARGET_GAMEWEEKS: ${{ inputs.gameweeks }}
         run: |
-          if [[ "${{ inputs.gameweeks }}" == *","* ]]; then
+          if [[ "$TARGET_GAMEWEEKS" == *","* ]]; then
             echo "Decision evidence run IDs are currently one capture run per Gameweek; supply a single Gameweek."
             exit 1
           fi
