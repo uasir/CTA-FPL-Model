@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
@@ -145,18 +146,33 @@ def extract_m3_covar_forecast_bundle(
     raw_elements = bootstrap_raw.get("elements") if isinstance(bootstrap_raw, Mapping) else None
     if not isinstance(raw_elements, list):
         raise M3CoVarForecastAdapterError("archived bootstrap-static payload has no elements list")
-    raw_by_id = {row.get("id"): row for row in raw_elements if isinstance(row, Mapping)}
+    raw_by_id = {}
+    for raw_row in raw_elements:
+        if not isinstance(raw_row, Mapping):
+            raise M3CoVarForecastAdapterError("archived bootstrap contains a malformed player row")
+        raw_id = raw_row.get("id")
+        if isinstance(raw_id, bool) or not isinstance(raw_id, int) or raw_id in raw_by_id:
+            raise M3CoVarForecastAdapterError("archived bootstrap contains invalid or duplicate player IDs")
+        raw_by_id[raw_id] = raw_row
     position_names = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+    seen_metadata_ids = set()
     for row in metadata:
         if not isinstance(row, Mapping):
             raise M3CoVarForecastAdapterError("each FPL metadata row must be an object")
         pid = row.get("fpl_element_id")
+        if isinstance(pid, bool) or not isinstance(pid, int) or pid in seen_metadata_ids:
+            raise M3CoVarForecastAdapterError("FPL metadata contains invalid or duplicate player IDs")
+        seen_metadata_ids.add(pid)
         raw_row = raw_by_id.get(pid)
         if raw_row is None:
             raise M3CoVarForecastAdapterError(f"FPL metadata player {pid} missing from archived bootstrap")
         if row.get("team_id") != raw_row.get("team") or row.get("position") != position_names.get(raw_row.get("element_type")):
             raise M3CoVarForecastAdapterError(f"FPL metadata identity mismatch for player {pid}")
-        if abs(float(row.get("price")) - float(raw_row.get("now_cost")) / 10.0) > 1e-9:
+        price = row.get("price")
+        now_cost = raw_row.get("now_cost")
+        if isinstance(price, bool) or not isinstance(price, (int, float)) or not math.isfinite(float(price)):
+            raise M3CoVarForecastAdapterError(f"FPL metadata price is invalid for player {pid}")
+        if isinstance(now_cost, bool) or not isinstance(now_cost, int) or abs(float(price) - now_cost / 10.0) > 1e-9:
             raise M3CoVarForecastAdapterError(f"FPL metadata price mismatch for player {pid}")
 
     as_of = _utc(manifest.get("decision_as_of_utc"), "decision_as_of_utc")
