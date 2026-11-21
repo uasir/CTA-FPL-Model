@@ -145,6 +145,7 @@ def test_end_to_end_full_gameweek_scores_attach_to_canonical_transfer_alternativ
         "input_validation_status": "VALID_FULL_GAMEWEEK",
         "production_eligible": False,
         "decision_weight": 0,
+        "shared_scenario_ids": ["s1"],
         "portfolio_results": portfolio_results,
     }
     result = recommend_personal_squad_with_full_gameweek_covar(
