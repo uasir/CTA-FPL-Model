@@ -111,6 +111,7 @@ def run_external_benchmark_personal_squad(payload: Mapping[str, Any]) -> dict[st
             as_of_utc=payload["as_of_utc"],
             deadline_utc=snapshot["timing"]["deadline_utc"],
         )
+    field_artifact = None
     field_capture = payload.get("predeadline_field_capture")
     if field_capture is not None:
         if not isinstance(field_capture, Mapping):
@@ -152,6 +153,10 @@ def run_external_benchmark_personal_squad(payload: Mapping[str, Any]) -> dict[st
             forecast_rows=forecast_payload["player_forecasts"],
             covariance_report=historical_covar["covariance_report"],
             covariance_pairs=historical_covar["covariance_pairs"],
+            field_exposure_rows=(
+                field_artifact.get("field_eo_rows") if isinstance(field_artifact, Mapping) else None
+            ),
+            field_exposure_provenance=field_artifact,
         )
         recommendation = dict(recommendation)
         recommendation["historical_covar_overlay"] = historical_overlay
