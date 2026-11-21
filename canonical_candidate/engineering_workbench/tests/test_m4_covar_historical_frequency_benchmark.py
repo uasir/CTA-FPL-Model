@@ -69,7 +69,7 @@ def test_rejects_duplicate_gameweeks_and_unknown_states(outcomes):
 
 
 def test_rejects_target_gameweek_in_historical_outcomes():
-    with pytest.raises(HistoricalFrequencyBenchmarkError, match="Target Gameweek"):
+    with pytest.raises(HistoricalFrequencyBenchmarkError, match="target Gameweek"):
         build_expanding_window_frequency_reference(
             [forecast("f1","gw1","2025-08-10T00:00:00Z","2025-08-10T12:00:00Z","2025-08-11T18:00:00Z")],
             [{"gameweek_id":"gw1","first_kickoff_utc":"2025-08-01T18:00:00Z","outcome_available_at_utc":"2025-08-04T00:00:00Z","observed_state_id":"A"}],
