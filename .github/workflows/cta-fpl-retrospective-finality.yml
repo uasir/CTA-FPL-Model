@@ -1,0 +1,131 @@
+name: CTA FPL retrospective finality reconciliation
+
+on:
+  workflow_dispatch:
+    inputs:
+      ingestion_run_id:
+        description: "Successful official FPL ingestion workflow run ID containing the cta-fpl-official artifact"
+        required: true
+        type: string
+      artifact_name:
+        description: "Official ingestion artifact name"
+        required: true
+        default: "cta-fpl-official"
+        type: string
+      start_event:
+        description: "First Gameweek/event to reconcile"
+        required: true
+        default: "1"
+        type: string
+      end_event:
+        description: "Last Gameweek/event to reconcile"
+        required: true
+        default: "10"
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: cta-fpl-retrospective-finality-${{ inputs.ingestion_run_id }}-${{ inputs.start_event }}-${{ inputs.end_event }}
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate requested ingestion run and event range
+        env:
+          INGESTION_RUN_ID: ${{ inputs.ingestion_run_id }}
+          START_EVENT: ${{ inputs.start_event }}
+          END_EVENT: ${{ inputs.end_event }}
+        run: |
+          python - <<'PY'
+          import os
+          for key in ("INGESTION_RUN_ID", "START_EVENT", "END_EVENT"):
+              if not os.environ[key].isdigit() or int(os.environ[key]) < 1:
+                  raise SystemExit(f"{key} must be a positive integer")
+          start, end = int(os.environ["START_EVENT"]), int(os.environ["END_EVENT"])
+          if end < start or end - start > 19:
+              raise SystemExit("event range must be ordered and contain at most 20 Gameweeks")
+          PY
+
+      - name: Download official FPL ingestion artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          run-id: ${{ inputs.ingestion_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/ingestion
+
+      - name: Build realized player-Gameweek panel
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          root = Path(os.environ["RUNNER_TEMP"]) / "ingestion"
+          candidates = [p for p in root.rglob("fpl_players.csv") if (p.parent / "fpl_fixtures.csv").is_file()]
+          if len(candidates) != 1:
+              raise SystemExit(f"expected exactly one official fpl_players.csv input directory; found {len(candidates)}")
+          print(candidates[0].parent)
+          Path(os.environ["RUNNER_TEMP"], "fpl_input_dir.txt").write_text(str(candidates[0].parent))
+          PY
+          INPUT_DIR="$(cat "$RUNNER_TEMP/fpl_input_dir.txt")"
+          python canonical_candidate/engineering_workbench/scripts/m4_covar_realized_fpl_dataset.py \
+            --input-dir "$INPUT_DIR" \
+            --output-dir "$RUNNER_TEMP/realized-panel"
+
+      - name: Capture current official final-scoring responses for each requested Gameweek
+        env:
+          START_EVENT: ${{ inputs.start_event }}
+          END_EVENT: ${{ inputs.end_event }}
+          RUNNER_TEMP: ${{ runner.temp }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          set -euo pipefail
+          CAPTURE_ROOT="$RUNNER_TEMP/finality-captures"
+          mkdir -m 700 -p "$CAPTURE_ROOT"
+          for EVENT in $(seq "$START_EVENT" "$END_EVENT"); do
+            python canonical_candidate/engineering_workbench/scripts/m4_covar_point_in_time_source_capture.py \
+              --event "$EVENT" \
+              --output-dir "$CAPTURE_ROOT/event_$EVENT"
+          done
+
+      - name: Reconcile realized Gameweek outcomes against official event-live
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+          PYTHONPATH: canonical_candidate/engineering_workbench/scripts
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/m4_covar_realized_fpl_finality_batch.py \
+            --dataset-csv "$RUNNER_TEMP/realized-panel/fpl_realized_player_gameweek.csv" \
+            --capture-root "$RUNNER_TEMP/finality-captures" \
+            --output-dir "$RUNNER_TEMP/finality-audit"
+
+      - name: Upload public-source reconciliation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-fpl-retrospective-finality-${{ inputs.start_event }}-${{ inputs.end_event }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/realized-panel/
+            ${{ runner.temp }}/finality-captures/
+            ${{ runner.temp }}/finality-audit/
+          if-no-files-found: error
+          retention-days: 90
