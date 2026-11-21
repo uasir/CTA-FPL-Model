@@ -141,6 +141,7 @@ def _fixtures(monkeypatch, *, fallback=False, manager_capture_time="2026-11-20T1
         }
     monkeypatch.setattr(capture, "capture_fpl_cat_snapshot", lambda **kwargs: provider_capture)
     monkeypatch.setattr(capture, "capture_manager_context", lambda *args, **kwargs: manager_capture)
+    return provider_capture
 
 
 def test_captures_three_raw_predeadline_sources_from_official_picks(monkeypatch):
@@ -221,11 +222,9 @@ def test_rejects_missing_current_player_price(monkeypatch):
         )
 
 def test_uses_explicit_sideline_quant_capture_envelope_without_falling_back_to_fpl_cat(monkeypatch):
-    _fixtures(monkeypatch)
-    # Reuse the fixture's byte archive but register it as a separate provider run.
-    # Raw-to-canonical Sideline Quant reconstruction is tested independently.
+    # Reuse deterministic test archives but register a distinct provider run.
     import copy
-    provider_capture = copy.deepcopy(capture.capture_fpl_cat_snapshot(season="2026-27"))
+    provider_capture = copy.deepcopy(_fixtures(monkeypatch))
     provider = provider_capture["provider_snapshot"]
     provider["snapshot_id"] = "sidelinequant-gw12-test:player_gameweek_sum_xp"
     provider["provider"] = {
