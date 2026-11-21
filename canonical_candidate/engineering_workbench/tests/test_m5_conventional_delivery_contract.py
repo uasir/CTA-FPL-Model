@@ -88,6 +88,23 @@ class TestM5ConventionalDeliveryContract(unittest.TestCase):
         result = validate_conventional_m5_output(fixture("HOLD"))
         self.assertEqual(result["action"], "HOLD")
 
+
+    def test_accepts_sideline_quant_as_separate_conventional_provider(self):
+        output = fixture()
+        output["provider_identity"] = {
+            "name": "Sideline Quant",
+            "product": "gameweek_projections",
+            "variant": "provider_native_xp",
+        }
+        result = validate_conventional_m5_output(output)
+        self.assertEqual(result["provider"]["name"], "Sideline Quant")
+
+    def test_rejects_unapproved_conventional_forecast_provider(self):
+        output = fixture()
+        output["provider_identity"]["name"] = "FPLRogue"
+        with self.assertRaisesRegex(M5DeliveryContractError, "only the independently run FPL Cat and Sideline Quant"):
+            validate_conventional_m5_output(output)
+
     def test_rejects_transfer_plan_that_keeps_outgoing_player(self):
         output = fixture("TRANSFER")
         output["frozen_decision"]["squad_plan"]["squad_ids"] = list(range(1, 16))
