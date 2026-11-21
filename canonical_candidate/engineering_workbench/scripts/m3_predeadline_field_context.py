@@ -30,6 +30,11 @@ METRICS = (
     "captain_pct", "triple_captain_pct", "scoring_exposure_pct",
     "effective_ownership_pct_ci95_low", "effective_ownership_pct_ci95_high",
 )
+PERCENT_FIELDS_MAX_100 = {
+    "owned_by_pct", "starting_pct", "captain_pct",
+    "triple_captain_pct", "scoring_exposure_pct",
+}
+MAX_EFFECTIVE_OWNERSHIP_PCT = 300.0
 
 
 def _time(value: Any, label: str) -> datetime:
@@ -116,8 +121,12 @@ def load_predeadline_field_csv(csv_path: str | Path, report_path: str | Path,
         normalized = {"fpl_element_id": player_id, "gameweek": int(report["gameweek"])}
         for field in METRICS:
             normalized[field] = _number(row.get(field), f"{player_id}.{field}")
-            if normalized[field] is not None and normalized[field] > 100:
-                raise PredeadlineFieldContextError(f"{player_id}.{field} must not exceed 100 percent")
+            if normalized[field] is not None:
+                maximum = 100.0 if field in PERCENT_FIELDS_MAX_100 else MAX_EFFECTIVE_OWNERSHIP_PCT
+                if normalized[field] > maximum:
+                    raise PredeadlineFieldContextError(
+                        f"{player_id}.{field} must not exceed {maximum:g} percent"
+                    )
         low, high = normalized["effective_ownership_pct_ci95_low"], normalized["effective_ownership_pct_ci95_high"]
         if (low is None) != (high is None) or (low is not None and high < low):
             raise PredeadlineFieldContextError(f"{player_id} has an invalid effective-ownership interval")
