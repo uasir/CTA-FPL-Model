@@ -7,10 +7,17 @@
 
 ## 1. Delivery scope
 
-M4's first deliverable is the conventional FPL recommendation product only:
+M4 delivers three distinct recommendation products through a shared personal-squad recommendation pipeline where applicable:
 
-- One manager-specific recommendation using the actual, timestamped 15-player squad and manager constraints.
-- External benchmark forecasts through the provider-neutral M3 contract; initially FPL Cat where the provider-generation timestamp is disclosed and the snapshot passes the strict pre-deadline checks.
+1. **Conventional personal-squad recommendations:** use the approved external forecast providers FPL Cat and FPL Sideline Quant, each as a separately identified forecast source/variant through the provider-neutral M3 contract. Do not add FPLRogue, FPL Lucho or FPL Wildcard; they are out of scope. Do not average providers or create consensus without separate validation and an explicit weighting policy.
+2. **CTA-informed personal-squad recommendations:** use the project's own CTA-FPL model as the forecast source, replacing the conventional provider forecasts. Feed its eligible player forecasts into the same canonical forecast interface and the same personal-squad recommendation pipeline used by the conventional product. This product remains withheld until the model passes M2's independent validation and promotion gates.
+3. **General CTA player rankings:** a separate squad-independent product. Personal squad, bank, free transfers, rank and transfer state must not influence these rankings; release requires its own acceptance evidence.
+
+The shared personal-squad pipeline owns manager constraints, transfer/hold logic, legal post-transfer squad, starting XI, formation, bench order, goalkeeper, captain and vice-captain. The forecast source changes between the conventional and CTA-informed products; the recommendation logic and output contract do not fork. Each source retains its own provenance, coverage, timestamps and validation status.
+
+For both personal-squad products:
+- Use the actual, timestamped 15-player squad and manager constraints.
+- Conventional forecast inputs are FPL Cat and FPL Sideline Quant only; CTA-informed inputs come from the project's own CTA-FPL model after promotion.
 - Hold versus transfer/roll, transfer-in/out, legal post-transfer squad, starting XI, formation, bench order, captain and vice-captain.
 - Provider xP preserved unchanged and shown in points; source, product/variant, generation/capture timestamps, raw hashes, coverage and limitations remain attached.
 - M4 field-relative exposure may appear as an optional descriptive sidecar only when a valid pre-decision field snapshot exists. It cannot alter M3 expected points, legality, transfer choice or frozen decision.
@@ -18,15 +25,15 @@ M4's first deliverable is the conventional FPL recommendation product only:
 
 This is a benchmark-backed conventional FPL recommendation, not a CTA-trained forecast or a claim that the project's internal player model is validated.
 
-## 2. Products explicitly withheld
+## 2. Product readiness and withholding
 
-The architecture retains three logically distinct products, but this first M4 release does **not** deliver all three:
+The three products are distinct, but share infrastructure deliberately:
 
-1. **Conventional personal-squad recommendations:** in scope for M4 initial delivery.
-2. **CTA-informed personal-squad recommendations:** withheld until the internal CTA/ABC/2PM forecasting system passes its independent validation and promotion gates.
-3. **Squad-independent CTA player rankings:** withheld until the same model-readiness gates pass and the general-market service has its own acceptance evidence.
+- Conventional personal-squad recommendations use the two approved external providers and the shared personal-squad pipeline.
+- CTA-informed personal-squad recommendations use the same pipeline with the CTA-FPL model replacing the conventional forecast source. Keep this product withheld until independent M2 validation and promotion gates pass.
+- General CTA player rankings remain squad-independent and require their own acceptance evidence.
 
-Do not use a placeholder CTA score, unvalidated CTA features, or a synthetic combined score to make either withheld product appear available. CoVar remains disabled with zero decision weight.
+Do not use a placeholder CTA score, unvalidated CTA features, or a synthetic combined score to make a withheld product appear available. CoVar remains disabled with zero decision weight.
 
 ## 3. Output separation
 
@@ -42,7 +49,7 @@ If M4 is absent, stale, invalid or unavailable, the conventional M3 result must 
 ## 4. M4 work sequence
 
 ### M4-T1 — Product scope and release boundary
-Define the initial conventional-only product, withheld products, output separation and user constraints. **This charter completes T1.**
+Define the three products, the shared personal-squad pipeline, the forecast-source substitution boundary, output separation and user constraints. **The architecture is defined; product-specific release gates remain.**
 
 ### M4-T2 — Input and output acceptance contract
 **Completed and CI-tested.** `m5_conventional_delivery_contract.py` validates the frozen M3 conventional output, provider identity, strict decision/deadline timing, frozen-decision hash and embedded candidate, alternatives suppression, original and post-transfer 15-player squads, XI/bench/reserve goalkeeper, formation and captaincy, plus explicit release blockers. It preserves non-release status and does not recalculate EV or depend on M4.
@@ -78,7 +85,7 @@ A CI pass over deterministic fixtures does not prove a live data capture. A live
 
 - M4's pre-deadline field acquisition has not yet produced a verified live artifact. Conventional M4 can proceed without EO; it must not invent or relabel EO.
 - A verified GW11 FPL Cat capture is archived in Actions run `44809552413` (artifact `predeadline-decision-evidence-manager-421025-gw11`). It was captured at `2026-11-20T20:14:42.975478Z`, before the official `2026-11-21T11:00:00Z` deadline; provider generation/capture and official metadata/manager-state archives are timestamped and hashed. Its deterministic replay passed, and the frozen recommendation explicitly records `squad_plan_state=POST_TRANSFER`, preserving the original plan separately from the recommended post-transfer plan. The capture code commit descends from the post-transfer engine fixes, so the earlier statement that this run predates that correction is superseded. The exact archive has now passed the conventional delivery contract and report builder in replay run `44937997402`. Acceptance summary: `PASS_CONVENTIONAL_M5_DELIVERY_CONTRACT`; manager `421025`; GW11; action `TRANSFER`; formation `4-3-3`; 15-player squad; XI 11; bench 3; captain 411; vice-captain 115; frozen decision SHA-256 `25286ed37076d247a0839190394ec5d8258119bb669362b2aa5c5cba1195d49f`. Report status `PASS_CONVENTIONAL_DELIVERY_WITH_OPTIONAL_FIELD_CONTEXT`; field context `NOT_SUPPLIED`; report SHA-256 `55fb9564b4b647a2a50048b87d03c4222fb7e68d413a28309e46cc80e6fbf561`. The source manifest verifies the exact recommendation, evidence bundle and replay-report hashes. The historical run remains exploratory and does not authorize release.
-- CTA/ABC/2PM model validation and CoVar utility validation are not complete.
+- CTA-FPL model validation and promotion are not complete; therefore the CTA-informed personal-squad product and general CTA rankings remain withheld. CoVar utility validation is also incomplete.
 - PR #58 remains draft and unmerged. This M4 branch is stacked on the exact M4 handoff commit; it does not merge or release M4.
 
 ## 7. Non-negotiable architecture rules
@@ -86,7 +93,9 @@ A CI pass over deterministic fixtures does not prove a live data capture. A live
 - Keep general-market and personal-squad contexts separate.
 - Do not let personal squad, bank, rank or transfer state influence any future squad-independent ranking.
 - Do not rebuild the recovered engine or replace source lineage.
-- Do not average providers or create a consensus without separate chronological validation and an explicit weighting policy.
+- Conventional forecast providers in scope are FPL Cat and FPL Sideline Quant only. Keep their runs separate; do not average them or create a consensus without separate chronological validation and an explicit weighting policy.
+- The CTA-informed personal-squad product must use the same canonical forecast interface and recommendation pipeline, with the promoted CTA-FPL model replacing the conventional provider forecasts; do not build a duplicate recommendation engine.
+- Keep general CTA rankings independent of all personal-squad state.
 - Do not change provider xP values in the adapter.
 - Do not blend EV, EO, covariance, risk preference or speculative CTA metrics into an unvalidated score.
 - Do not claim production readiness from structural tests alone.
