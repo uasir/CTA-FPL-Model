@@ -41,7 +41,7 @@ def test_parses_documented_schema_and_maps_exact_player_club_identity():
     assert snap["grain"] == "player_gameweek"
     assert [r["fpl_element_id"] for r in snap["records"]] == [101, 102]
     assert snap["records"][0]["expected_points"] == 6.4
-    assert snap["records"][0]["start_probability"] == pytest.approx(.78)
+    assert result["provider_native_rows"][0]["start_pct"] == "78"
     assert snap["timing"]["generated_at_utc"] is None
     assert snap["decision_eligible"] is False
     assert result["source_metadata"]["storage_policy"] == "PRIVATE_RESTRICTED_NO_REDISTRIBUTION"
@@ -50,7 +50,7 @@ def test_parses_documented_schema_and_maps_exact_player_club_identity():
 def test_rejects_wrong_gameweek_and_duplicate_player_keys():
     with pytest.raises(FPLWildcardParseError, match="Gameweek"):
         parse_fpl_wildcard_csv(CSV.replace(",11,", ",10,", 1), metadata(), bootstrap())
-    duplicate = CSV.replace("2,11,Player Two", "2,11,Player One")
+    duplicate = CSV.replace("2,11,Player Two,/player/2/,CHE", "2,11,Player One,/player/1/,ARS")
     with pytest.raises(FPLWildcardParseError, match="duplicate player-Gameweek"):
         parse_fpl_wildcard_csv(duplicate, metadata(duplicate), bootstrap())
 
