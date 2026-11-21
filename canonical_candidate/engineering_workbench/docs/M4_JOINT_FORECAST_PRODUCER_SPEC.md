@@ -50,6 +50,10 @@ A future producer must emit a versioned, immutable forecast bundle with:
 6. Prospective pre-deadline forecasts archived with complete source/model/config/payload bytes and verifiable provenance.
 7. Independent review of forecast construction and a real FPL scoring replay before any production eligibility discussion.
 
+## Exact M3 forecast input boundary
+
+Use `m3_covar_forecast_snapshot_adapter.py` to extract the exact player-level forecast consumed by a frozen M3 decision. It validates provider/metadata source bytes and provenance and emits a sanitized forecast-only bundle. Do not pass the full M3 evidence bundle or decision output directly to public CoVar artifacts: those contain manager-specific state. No real prospective M3 CoVar forecast bundle is currently archived; the adapter's tests are synthetic contract tests only.
+
 ## Existing components to reuse
 
 - `m4_covar_joint_fixture_scenario_composer.py`: validates explicit cross-fixture assignments and probabilities; no independence assumption.
