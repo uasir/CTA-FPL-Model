@@ -26,14 +26,23 @@ def make_capture(csv_raw=b"player_id,player_name,xP_GW11,xP_GW12,xP_GW13,xP_GW14
 def test_inspection_reports_schema_without_emitting_player_values():
     report = inspect_fpl_lucho_csv_schema(make_capture())
     assert report["row_count"] == 2
-    assert report["column_count"] == 4
-    assert report["gameweek_tokens_in_headers"] == [11, 12]
+    assert report["column_count"] == 6
+    assert report["gameweek_tokens_in_headers"] == [11, 12, 13, 14]\n    assert report["expected_gameweeks_from_page"] == [11, 12, 13, 14]\n    assert report["gameweek_coverage_status"] == "MATCHES_PAGE_ADVERTISED_FOUR_GAMEWEEK_WINDOW"
     assert report["normalization_status"] == "SCHEMA_INSPECTED_MAPPING_NOT_APPROVED"
     assert report["privacy"] == "NO_PLAYER_ROW_VALUES_EMITTED"
     assert all(column["semantic_mapping"] is None for column in report["columns"])
     assert "Player One" not in str(report)
     assert "5.2" not in str(report)
 
+
+
+def test_inspection_flags_csv_window_that_does_not_match_page_window():
+    raw = b"player_id,player_name,xp_gw12,xp_gw13,xp_gw14,xp_gw15\\n1,Private Name,5,4,3,2\\n"
+    report = inspect_fpl_lucho_csv_schema(make_capture(raw))
+    assert report["expected_gameweeks_from_page"] == [11, 12, 13, 14]
+    assert report["gameweek_tokens_in_headers"] == [12, 13, 14, 15]
+    assert report["gameweek_coverage_status"] == "CSV_GAMEWEEK_HEADERS_DO_NOT_MATCH_PAGE_WINDOW"
+    assert "Private Name" not in str(report)
 
 def test_inspection_rejects_capture_hash_mismatch():
     capture = make_capture()
