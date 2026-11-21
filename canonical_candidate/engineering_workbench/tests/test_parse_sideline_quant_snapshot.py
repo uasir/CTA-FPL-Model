@@ -58,6 +58,7 @@ def test_preserves_fixture_grain_and_native_rows():
     result = parse_sideline_quant_capture(make_capture())
     snapshot = result["canonical_snapshot"]
     assert snapshot["grain"] == "player_fixture"
+    assert snapshot["coverage"]["identity_resolution_status"] == "VERIFIED"
     assert len(snapshot["records"]) == 3
     assert snapshot["records"][0]["fixture_id"] == 101
     assert result["provider_native_rows"][0]["gw_sigma"] == 3.4
@@ -145,6 +146,7 @@ def test_builds_canonical_player_gameweek_snapshot_with_provenance():
     result = parse_sideline_quant_capture(make_capture())
     derived = result["player_gameweek_snapshot"]
     assert derived["grain"] == "player_gameweek"
+    assert derived["coverage"]["identity_resolution_status"] == "VERIFIED"
     assert derived["provider"]["product"] == "gameweek_projections"
     assert derived["provider"]["variant"] == "provider_native_xp"
     assert derived["records"][0]["expected_points"] == pytest.approx(5.5)
