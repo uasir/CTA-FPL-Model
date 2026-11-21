@@ -27,7 +27,7 @@ def test_builds_expanding_window_frequency_using_only_prior_gameweeks():
         {"gameweek_id":"gw1","first_kickoff_utc":"2025-08-01T18:00:00Z","outcome_available_at_utc":"2025-08-04T00:00:00Z","observed_state_id":"A"},
         {"gameweek_id":"gw2","first_kickoff_utc":"2025-08-15T18:00:00Z","outcome_available_at_utc":"2025-08-18T00:00:00Z","observed_state_id":"B"},
         # This outcome is after f1's cutoff and must not leak into f1.
-        {"gameweek_id":"gw2b","first_kickoff_utc":"2025-08-25T18:00:00Z","outcome_available_at_utc":"2025-08-26T00:00:00Z","observed_state_id":"B"},
+        {"gameweek_id":"gw2b","first_kickoff_utc":"2025-08-19T18:00:00Z","outcome_available_at_utc":"2025-08-26T00:00:00Z","observed_state_id":"B"},
     ]
     result = build_expanding_window_frequency_reference(forecasts, outcomes, ["A", "B"], smoothing_alpha=1)
     first, second = result["forecasts"]
@@ -82,7 +82,7 @@ def test_rejects_timezone_naive_and_nonpositive_smoothing():
     with pytest.raises(HistoricalFrequencyBenchmarkError, match="timezone"):
         build_expanding_window_frequency_reference(
             [row],
-            [{"gameweek_id":"gw1","first_kickoff_utc":"2025-08-01T18:00:00Z","observed_state_id":"A"}],
+            [{"gameweek_id":"gw1","first_kickoff_utc":"2025-08-01T18:00:00Z","outcome_available_at_utc":"2025-08-04T00:00:00Z","observed_state_id":"A"}],
             ["A","B"],
         )
     row = forecast("f1","gw2","2025-08-10T00:00:00Z","2025-08-10T12:00:00Z","2025-08-11T18:00:00Z")
