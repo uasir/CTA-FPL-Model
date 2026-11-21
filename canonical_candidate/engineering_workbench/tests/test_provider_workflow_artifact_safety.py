@@ -41,9 +41,11 @@ def test_personal_m3_workflow_accepts_public_manager_inputs_and_preserves_eviden
     path = ROOT / ".github/workflows/capture-predeadline-decision-evidence.yml"
     workflow = path.read_text(encoding="utf-8")
     checkout = workflow.index("Check out M3 implementation")
+    sideline_download = workflow.index("Retrieve optional Sideline Quant raw and normalized snapshot")
+    sideline_build = workflow.index("Build common provider capture envelope from Sideline Quant")
     capture = workflow.index("Capture and seal pre-deadline decision evidence")
     upload = workflow.index("Upload pre-deadline decision evidence and recommendation")
-    assert checkout < capture < upload
+    assert checkout < sideline_download < sideline_build < capture < upload
     assert "manager_team_id:" in workflow
     assert 'default: "421025"' in workflow
     assert 'default: "2026-27"' in workflow
