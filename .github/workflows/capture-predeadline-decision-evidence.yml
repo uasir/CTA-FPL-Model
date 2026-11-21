@@ -21,6 +21,11 @@ on:
         description: Confirmed manager state JSON (squad, bank, transfers, XI, bench, captaincy and chip state)
         required: true
         type: string
+      sidelinequant_capture_run_id:
+        description: Optional successful Sideline Quant raw+normalized GW artifact run ID; overrides the default FPL Cat capture
+        required: false
+        default: ""
+        type: string
       field_eo_capture_run_id:
         description: Optional successful provisional pre-deadline field EO capture run ID for this Gameweek
         required: false
@@ -72,7 +77,30 @@ jobs:
             --gameweek "$TARGET_GAMEWEEK" \
             --season "$SEASON" \
             --manager-state-json "$MANAGER_STATE_JSON" \
+            ${{ inputs.sidelinequant_capture_run_id != '' && '--provider-capture-override sidelinequant-provider-capture-override.json' || '' }} \
             --output predeadline-decision-evidence.json
+      - name: Retrieve optional Sideline Quant raw and normalized snapshot
+        if: inputs.sidelinequant_capture_run_id != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: sidelinequant-gw${{ inputs.gameweek }}-${{ inputs.sidelinequant_capture_run_id }}
+          run-id: ${{ inputs.sidelinequant_capture_run_id }}
+          github-token: ${{ github.token }}
+          path: canonical_candidate/engineering_workbench/sidelinequant-capture
+      - name: Build common provider capture envelope from Sideline Quant
+        if: inputs.sidelinequant_capture_run_id != ''
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          TARGET_GAMEWEEK: ${{ inputs.gameweek }}
+          SEASON: ${{ inputs.season }}
+        run: |
+          RAW_CAPTURE=$(find sidelinequant-capture -type f -name "sidelinequant-${SEASON}-gw${TARGET_GAMEWEEK}-raw.json" -print -quit)
+          NORMALIZED_CAPTURE=$(find sidelinequant-capture -type f -name "sidelinequant-${SEASON}-gw${TARGET_GAMEWEEK}-normalized.json" -print -quit)
+          test -n "$RAW_CAPTURE" && test -n "$NORMALIZED_CAPTURE"
+          PYTHONPATH=scripts python scripts/build_sideline_quant_provider_capture.py \
+            --raw-capture "$RAW_CAPTURE" \
+            --normalized-capture "$NORMALIZED_CAPTURE" \
+            --output sidelinequant-provider-capture-override.json
       - name: Retrieve aggregate provisional field EO artifact
         if: inputs.field_eo_capture_run_id != ''
         uses: actions/download-artifact@v4
