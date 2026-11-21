@@ -139,3 +139,62 @@ def test_preserves_negative_fpl_points():
     doc = document()
     doc["scenarios"][0]["player_outcomes"][0]["fpl_points"] = -2
     assert validate_joint_forecast_intake(doc)["validation_status"] == "EXPLICIT_JOINT_FORECAST_INTAKE_ACCEPTED"
+
+def test_accepts_model_generated_explicit_probabilities_with_reproducibility_metadata():
+    doc = document()
+    for scenario in doc["scenarios"]:
+        scenario["probability_basis"] = "MODEL_GENERATED_EXPLICIT"
+    doc["probability_generation"] = {
+        "method": "M3_ANCHORED_HISTORICAL_BLOCK_BOOTSTRAP",
+        "method_version": "0.1.0",
+        "algorithm": "FIXTURE_BLOCK_RESIDUAL_RESAMPLING",
+        "random_generator": "PCG64",
+        "random_seed": 42,
+        "draw_count": 10000,
+        "scenario_reduction": "UNIQUE_JOINT_OUTCOME_FREQUENCIES",
+        "probability_semantics": "EMPIRICAL_DRAW_FREQUENCY",
+    }
+    report = validate_joint_forecast_intake(doc)
+    assert report["probability_basis"] == "MODEL_GENERATED_EXPLICIT"
+    assert report["probability_generation_validated"] is True
+    assert report["probability_generation"]["draw_count"] == 10000
+    assert report["production_eligible"] is False
+
+
+@pytest.mark.parametrize("field,value", [
+    ("random_seed", None),
+    ("draw_count", 1),
+    ("random_generator", ""),
+    ("probability_semantics", "NORMALIZED_GUESSES"),
+])
+def test_rejects_incomplete_model_probability_generation_metadata(field, value):
+    doc = document()
+    for scenario in doc["scenarios"]:
+        scenario["probability_basis"] = "MODEL_GENERATED_EXPLICIT"
+    doc["probability_generation"] = {
+        "method": "M3_ANCHORED_HISTORICAL_BLOCK_BOOTSTRAP",
+        "method_version": "0.1.0",
+        "algorithm": "FIXTURE_BLOCK_RESIDUAL_RESAMPLING",
+        "random_generator": "PCG64",
+        "random_seed": 42,
+        "draw_count": 10000,
+        "scenario_reduction": "UNIQUE_JOINT_OUTCOME_FREQUENCIES",
+        "probability_semantics": "EMPIRICAL_DRAW_FREQUENCY",
+    }
+    doc["probability_generation"][field] = value
+    with pytest.raises(JointForecastIntakeError):
+        validate_joint_forecast_intake(doc)
+
+
+def test_rejects_mixed_probability_bases():
+    doc = document()
+    doc["scenarios"][1]["probability_basis"] = "MODEL_GENERATED_EXPLICIT"
+    with pytest.raises(JointForecastIntakeError, match="same probability_basis"):
+        validate_joint_forecast_intake(doc)
+
+
+def test_rejects_model_generation_metadata_for_source_supplied_probabilities():
+    doc = document()
+    doc["probability_generation"] = {"method": "not-applicable"}
+    with pytest.raises(JointForecastIntakeError, match="only valid"):
+        validate_joint_forecast_intake(doc)
