@@ -85,8 +85,12 @@ def _inputs():
         "probability_basis": "EXPLICIT",
     }
     scenarios = [
-        {"scenario_id": "a", "probability": 0.25, "player_points": {"10": 8, "20": 2}},
-        {"scenario_id": "b", "probability": 0.75, "player_points": {"10": 4, "20": 10/3}},
+        {"scenario_id": "a", "probability": 0.25, "player_outcomes": [
+            {"player_id": "10", "fpl_points": 8}, {"player_id": "20", "fpl_points": 2}
+        ]},
+        {"scenario_id": "b", "probability": 0.75, "player_outcomes": [
+            {"player_id": "10", "fpl_points": 4}, {"player_id": "20", "fpl_points": 10/3}
+        ]},
     ]
     return raw, manifest, provenance, scenarios
 
@@ -132,7 +136,7 @@ class TestM3AnchorScenarioAlignment(unittest.TestCase):
 
     def test_rejects_incomplete_player_universe(self):
         raw, manifest, provenance, scenarios = _inputs()
-        del scenarios[0]["player_points"]["20"]
+        del scenarios[0]["player_outcomes"][1]
         with self.assertRaisesRegex(M3JointScenarioAlignmentError, "exactly the M3 anchor player universe"):
             align_m3_anchor_to_joint_scenarios(
                 forecast_bundle_bytes=raw,
