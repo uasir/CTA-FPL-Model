@@ -8,8 +8,8 @@ on:
         required: false
         type: string
   schedule:
-    # Prospective public-source snapshots every 15 minutes; no manager-level data.
-    - cron: "*/15 * * * *"
+    # Align with pre-deadline field capture; only capture inside the final 35 minutes.
+    - cron: "5,35 * * * *"
 
 permissions:
   contents: read
@@ -45,6 +45,9 @@ jobs:
               if not requested.isdigit() or int(requested) < 1:
                   raise SystemExit("event_id must be a positive integer")
               event_id = int(requested)
+              print(f"event_id={event_id}")
+              print("should_capture=true")
+              raise SystemExit(0)
           else:
               request = Request(
                   "https://fantasy.premierleague.com/api/bootstrap-static/",
@@ -72,10 +75,17 @@ jobs:
                           future.append((parsed, int(event["id"])))
                   if not future:
                       raise SystemExit("could not resolve a future unfinished FPL Gameweek")
-                  event_id = min(future)[1]
-          print(f"event_id={event_id}")
+                  deadline, event_id = min(future)
+              else:
+                  deadline = datetime.fromisoformat(upcoming[0]["deadline_time"].replace("Z", "+00:00"))
+              minutes_to_deadline = (deadline - datetime.now(timezone.utc)).total_seconds() / 60
+              should_capture = 0 <= minutes_to_deadline <= 35
+              print(f"event_id={event_id}")
+              print(f"should_capture={str(should_capture).lower()}")
+              print(f"minutes_to_deadline={minutes_to_deadline:.1f}")
           PY
       - name: Capture official public FPL source bytes
+        if: steps.event.outputs.should_capture == 'true'
         env:
           EVENT_ID: ${{ steps.event.outputs.event_id }}
           RUNNER_TEMP: ${{ runner.temp }}
@@ -86,6 +96,7 @@ jobs:
             --event "$EVENT_ID" \
             --output-dir "$RUNNER_TEMP/cta-fpl-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
       - name: Upload public source archive
+        if: steps.event.outputs.should_capture == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: cta-fpl-point-in-time-source-${{ github.run_id }}-${{ github.run_attempt }}
