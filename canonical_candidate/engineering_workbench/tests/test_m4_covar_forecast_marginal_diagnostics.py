@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import json
+
 import pytest
 
 from m4_covar_forecast_marginal_diagnostics import (
@@ -18,6 +21,7 @@ def panel():
         "missing_observations_zero_filled": 0,
         "decision_weight": 0.0,
         "production_eligible": False,
+        "matched_player_gameweek_rows": 3,
         "matched_rows": [
             {"gameweek": 11, "fpl_element_id": 1, "expected_points": 4.0, "actual_points": 6.0, "expected_minutes": 80.0, "actual_minutes": 90.0, "finality_status": "PASS_EXACT_MATCH"},
             {"gameweek": 11, "fpl_element_id": 2, "expected_points": 2.0, "actual_points": 0.0, "expected_minutes": 30.0, "actual_minutes": 0.0, "finality_status": "PASS_EXACT_MATCH"},
@@ -27,7 +31,7 @@ def panel():
 
 
 def test_reports_marginal_metrics_and_gameweek_cluster_intervals():
-    result = evaluate_matched_forecast_panel(panel(), resamples=100, seed=7)
+    result = evaluate_matched_forecast_panel(panel(), manifest_for(panel()), resamples=100, seed=7)
     assert result["status"] == "MARGINAL_FORECAST_DIAGNOSTICS_CREATED"
     assert result["matched_player_gameweek_rows"] == 3
     assert result["overall_pooled_player_gameweek_metrics"]["points_mae"] == pytest.approx(2.0)
@@ -42,7 +46,7 @@ def test_rejects_joint_dependence_claim():
     data = panel()
     data["joint_dependence_inferred_from_marginal_player_rows"] = True
     with pytest.raises(ForecastDiagnosticsError, match="joint dependence"):
-        evaluate_matched_forecast_panel(data, resamples=100)
+        evaluate_matched_forecast_panel(data, manifest_for(data), resamples=100)
 
 
 def test_rejects_duplicate_player_gameweek():
@@ -71,3 +75,12 @@ def test_rejects_nan_and_unmatched_declared_gameweek():
     data["matched_rows"][0]["expected_points"] = float("nan")
     with pytest.raises(ForecastDiagnosticsError, match="finite"):
         evaluate_matched_forecast_panel(data, resamples=100)
+
+
+
+def test_rejects_tampered_panel_manifest_hash():
+    data = panel()
+    manifest = manifest_for(data)
+    data["matched_rows"][0]["actual_points"] = 99.0
+    with pytest.raises(ForecastDiagnosticsError, match="manifest hash"):
+        evaluate_matched_forecast_panel(data, manifest, resamples=100)
