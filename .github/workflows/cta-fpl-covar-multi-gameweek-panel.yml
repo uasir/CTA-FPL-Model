@@ -54,7 +54,7 @@ jobs:
           root = Path(os.environ["RUNNER_TEMP"]) / "covar-match-inputs"
           root.mkdir(mode=0o700)
           for index, (run, name) in enumerate(zip(runs, names), 1):
-              if not name or "/" in name or "\\" in name:
+              if not name or "/" in name or chr(92) in name:
                   raise SystemExit("Artifact names must be exact plain names.")
               run_info = json.loads(subprocess.check_output([
                   "gh", "run", "view", run,
