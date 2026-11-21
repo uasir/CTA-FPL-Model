@@ -125,6 +125,15 @@ def capture_public_sources(
             "source_provider": "OFFICIAL_FANTASY_PREMIER_LEAGUE_API",
             "event_id": event_id,
             "captured_at_utc": _utc_now(),
+            "capture_context": {
+                "repository": os.environ.get("GITHUB_REPOSITORY"),
+                "workflow": os.environ.get("GITHUB_WORKFLOW"),
+                "workflow_ref": os.environ.get("GITHUB_WORKFLOW_REF"),
+                "git_commit_sha": os.environ.get("GITHUB_SHA"),
+                "git_ref": os.environ.get("GITHUB_REF"),
+                "actions_run_id": os.environ.get("GITHUB_RUN_ID"),
+                "actions_run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+            },
             "source_snapshots": source_rows,
             "archive_manifest": archive_rows,
             "point_in_time_policy": {
