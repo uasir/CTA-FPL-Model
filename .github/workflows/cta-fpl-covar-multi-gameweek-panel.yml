@@ -56,6 +56,16 @@ jobs:
           for index, (run, name) in enumerate(zip(runs, names), 1):
               if not name or "/" in name or "\\" in name:
                   raise SystemExit("Artifact names must be exact plain names.")
+              run_info = json.loads(subprocess.check_output([
+                  "gh", "run", "view", run,
+                  "--repo", os.environ["GH_REPO"],
+                  "--json", "conclusion,status,workflowName,event",
+              ], text=True))
+              if (run_info.get("status") != "completed"
+                      or run_info.get("conclusion") != "success"
+                      or run_info.get("workflowName") != "CTA CoVar prospective forecast-to-outcome match"
+                      or run_info.get("event") != "workflow_dispatch"):
+                  raise SystemExit(f"Run {run} is not a successful manual CoVar forecast-to-outcome match run.")
               target = root / f"archive_{index}"
               target.mkdir(mode=0o700)
               subprocess.run([
