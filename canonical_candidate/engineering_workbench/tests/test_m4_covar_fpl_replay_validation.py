@@ -11,7 +11,7 @@ from m4_covar_fpl_replay_validation import (
 )
 
 
-def replay(chip=None):
+def replay(chip=None, event_id=7):
     ids = [f"p{i}" for i in range(1, 16)]
     positions = {
         "p1": "GK",
@@ -56,7 +56,8 @@ def replay(chip=None):
         for row in official_picks
     )
     return {
-        "replay_id": "synthetic-replay-1",
+        "replay_id": f"synthetic-gw{event_id}-replay",
+        "event_id": event_id,
         "lineup": lineup,
         "player_outcomes": outcomes,
         "official_final": {
@@ -187,11 +188,35 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
             validate_official_replay_case(case)
 
     def test_batch_report_is_aggregated_and_research_only(self):
-        result = validate_replay_batch({"replays": [replay(), replay("3xc")]})
+        result = validate_replay_batch({"replays": [replay(), replay("3xc", event_id=8)]})
         self.assertEqual(result["status"], "PASS")
         self.assertEqual(result["passed_count"], 2)
+        self.assertEqual(result["gameweek_count"], 2)
+        self.assertEqual(result["gameweeks"], [7, 8])
+        self.assertEqual(result["by_gameweek"]["7"]["passed_count"], 1)
+        self.assertEqual(result["by_mode"], {"REGULAR_GW": 1, "3xc": 1})
+        self.assertEqual(result["multiplier_mismatch_replays"], 0)
         self.assertFalse(result["production_eligible"])
         self.assertEqual(result["decision_weight"], 0.0)
+
+    def test_batch_report_counts_failures_by_gameweek_and_mismatch_type(self):
+        first = replay(event_id=7)
+        first["official_final"]["picks"][12]["multiplier"] = 1
+        second = replay(event_id=8)
+        second["official_final"]["player_total_points"]["p2"] = 0
+        result = validate_replay_batch({"replays": [first, second]})
+        self.assertEqual(result["status"], "FAIL")
+        self.assertEqual(result["failed_count"], 2)
+        self.assertEqual(result["by_gameweek"]["7"]["failed_count"], 1)
+        self.assertEqual(result["by_gameweek"]["8"]["failed_count"], 1)
+        self.assertEqual(result["multiplier_mismatch_replays"], 1)
+        self.assertEqual(result["player_points_mismatch_replays"], 1)
+
+    def test_rejects_invalid_gameweek_identity(self):
+        case = replay()
+        case["event_id"] = True
+        with self.assertRaisesRegex(CovarFplReplayError, "event_id must be a positive integer"):
+            validate_official_replay_case(case)
 
 
 if __name__ == "__main__":
