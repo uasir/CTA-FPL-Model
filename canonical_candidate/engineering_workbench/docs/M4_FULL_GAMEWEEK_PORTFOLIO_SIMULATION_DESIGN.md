@@ -652,8 +652,8 @@ chronological dataset acceptance and empirical test-split evaluation.
 ## Cloud capture workflow (no local execution required)
 
 `.github/workflows/cta-fpl-point-in-time-source-capture.yml` runs the public
-source capture in GitHub Actions at :05 and :35 each hour, but only when
-the next event deadline is within 35 minutes; it supports manual
+source capture in GitHub Actions every 15 minutes, but only when the next
+event deadline is within 35 minutes; it supports manual
 `workflow_dispatch` with an optional explicit event ID. When no event is
 provided, it resolves the next upcoming FPL event from official
 `bootstrap-static` metadata and skips the run outside that final 35-minute
@@ -671,3 +671,12 @@ default branch, manual testing of this branch's workflow requires selecting
 the feature branch in the GitHub Actions workflow UI. The workflow cannot be dispatched or scheduled until its workflow file is
 present on the repository's default branch. It will become available after an
 explicitly approved merge; no merge is performed here.
+
+
+Each cloud capture manifest also records the GitHub Actions repository,
+workflow identity/ref, commit SHA, Git ref, run ID and run attempt when those
+environment values are available. This ties the byte archive to the exact
+workflow execution without embedding credentials. The 15-minute schedule is
+intentional: unlike fixed minute marks, it covers arbitrary FPL deadline
+minutes while the final-35-minute gate limits captures to the useful
+pre-deadline window.
