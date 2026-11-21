@@ -84,6 +84,9 @@ def test_packager_writes_private_manager_free_bundle_and_hash_manifest(tmp_path,
     assert report["status"] == "PASS_MANAGER_FREE_ARCHIVE_CREATED"
     assert report["private_destination_configured"] is False
     assert manifest["bundle_sha256"] == hashlib.sha256(bundle_bytes).hexdigest()
+    assert manifest["anchor_acceptance"]["acceptance_status"] == "ACCEPTED_PLAYER_LEVEL_FORECAST_ANCHOR_ONLY"
+    assert report["anchor_acceptance_status"] == "ACCEPTED_PLAYER_LEVEL_FORECAST_ANCHOR_ONLY"
+    assert report["joint_distribution_available"] is False
     assert bundle["forecast_snapshot_id"] == "provider-snapshot-12"
     assert "manager_team_id" not in bundle
     assert "frozen_decision" not in bundle
