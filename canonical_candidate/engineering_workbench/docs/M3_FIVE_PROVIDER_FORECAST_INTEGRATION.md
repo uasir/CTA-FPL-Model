@@ -40,7 +40,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 
 - Endpoint: `https://fplcat.com/api/v1/projections`
 - Existing capture: `scripts/capture_fpl_cat_snapshot.py`
-- Existing capture preserves raw provider and official FPL bootstrap payloads, hashes, capture times, provider-declared `computed_at`, expected points and expected minutes.
+- Existing capture preserves raw provider and official FPL bootstrap payloads in the runner's temporary workspace, hashes, capture times, provider-declared `computed_at`, expected points and expected minutes. Its public workflow artifact is now metadata-only; raw forecast rows and FPL bootstrap data are not uploaded.
 - Grain: player-Gameweek.
 - Keep this implementation as the existing baseline; do not duplicate it with a second FPL Cat adapter.
 
@@ -55,7 +55,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - The source is CC BY 4.0 for the provider's own data, with attribution; FPL-owned fields remain subject to their own terms.
 - Implemented first-stage raw capture plus a parser for the documented `rows` array. The parser validates `player_id`, `fixture_id`, `gameweek`, `xP`, `e_mins` and `p_start`; cross-checks player IDs against the archived official FPL bootstrap; rejects duplicate player-fixture keys and provider count mismatches; and preserves all native row fields.
 - The canonical snapshot remains at player-fixture grain. A separate derived player-Gameweek view explicitly sums fixture `xP` by `player_id`, with fixture count and aggregation provenance. It does not aggregate start probabilities, sigma or other distribution fields.
-- The manual capture workflow now runs the parser after raw capture. A target Gameweek must be supplied explicitly; there is no stale default to a Gameweek whose deadline has passed.
+- The manual capture workflow now runs the parser after raw capture. A target Gameweek must be supplied explicitly; there is no stale default to a Gameweek whose deadline has passed. The workflow publishes only a sanitized metadata summary; raw provider rows and the official FPL bootstrap are not uploaded to the public repository's workflow artifacts.
 - Engineering tests have been added for raw capture, fixture parser, double-Gameweek sum, native-field retention, identity mapping, duplicate keys and invalid Gameweek data. The M3 feature-branch CI run at commit `6427d3351d37d9715ca8d30219f7d678becc78fb` passed the full engineering test suite (433 tests and 3 subtests). This verifies software behavior, not forecast accuracy.
 
 ### FPLRogue — source verified
@@ -66,7 +66,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - Page exposes xPts, xMins, floor/ceiling and start probability, and states that floor/ceiling are indicative display ranges rather than calibrated probability intervals.
 - Implemented first-stage accepted-release capture: archives the HTML page, CSV and official FPL bootstrap with independent SHA-256 hashes; records the exact CSV headers and row count; and cross-checks page Gameweek, player count and official deadline.
 - The page's `Updated` timestamp and `Model trained` timestamp are retained separately. Because the page does not explicitly define `Updated` as the forecast-generation timestamp, the capture leaves canonical `generated_at_utc` unset and is diagnostic-only for strict point-in-time decision use until the provider's timestamp semantics are verified.
-- Added a manual capture workflow and tests for page metadata, CSV shape, hashes, row-count checks and post-deadline rejection. The same M3 feature-branch CI run passed the full engineering test suite (433 tests and 3 subtests). This does not mean a live provider capture has yet been executed.
+- Added a manual capture workflow and tests for page metadata, CSV shape, hashes, row-count checks and post-deadline rejection. The workflow publishes only a sanitized metadata/schema summary, never CSV forecast rows or raw page/bootstrap payloads. The same M3 feature-branch CI run passed the full engineering test suite (433 tests and 3 subtests). This does not mean a live provider capture has yet been executed.
 - CSV column mapping and canonical normalization remain pending inspection of an actual captured CSV payload.
 - Attribution: FPLRogue. The source states it is independent and not affiliated with the Premier League.
 
@@ -96,7 +96,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 ## 4. Current engineering verification
 
 - M3 feature-branch CI at commit `573b0bcca3c8543b72319f745b943b373f4de5ae` completed successfully: **437 tests passed, 3 subtests passed**.
-- This is software-contract and parser-fixture verification. It is not evidence that Sideline Quant, FPLRogue, FPL Lucho or FPL Wildcard live captures have succeeded, nor that any provider is forecast-accurate.
+- This is software-contract and parser-fixture verification. It is not evidence that Sideline Quant, FPLRogue, FPL Lucho or FPL Wildcard live captures have succeeded, nor that any provider is forecast-accurate. The repository is public, so FPL Cat, Sideline Quant and FPLRogue workflows now upload metadata-only summaries; their raw source files remain temporary runner files and are not retained as public artifacts. FPL Lucho and FPL Wildcard remain private-intake paths.
 - Provider crosswalk validation remains `EMPTY_NOT_READY` until actual source player IDs/names are mapped and checked.
 
 ## 5. Provider-specific implementation gates
@@ -104,7 +104,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 A provider is not marked integrated merely because its URL is known. Each adapter must pass:
 
 1. Successful retrieval with HTTP status, content type, source URL and retrieval timestamp recorded.
-2. Raw response retention in an access-controlled artifact and SHA-256 verification.
+2. Raw response retention in private, access-controlled storage and SHA-256 verification. Never place raw provider rows or FPL bootstrap payloads in public GitHub artifacts; public workflow artifacts are limited to sanitized metadata summaries.
 3. Exact schema/column verification against the actual downloaded payload.
 4. Provider identity, product/variant and target Gameweek verification.
 5. Provider-generation timestamp provenance and strict deadline eligibility handling.
