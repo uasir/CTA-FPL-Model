@@ -10,13 +10,13 @@ The official FPL `ep_next` snapshot is an exploratory expected-points baseline. 
 
 ## Forecasting approach selected by project owner (2026-11-21)
 
-The current CoVar workstream will use **the conventional forecasting model already integrated into M3** as its player-level expected-points/minutes foundation. The documented M3 baseline uses official FPL `ep_next` plus latest-completed-Gameweek minutes per fixture scaled by the target Gameweek fixture count. CoVar will continue using that M3 model; it will not switch to CTA or introduce a new forecasting model for CoVar.
+The current CoVar workstream will use **the exact conventional forecast snapshot consumed by the M3 decision run** as its player-level expected-points/minutes foundation. The M3 path is `run_predeadline_m3_decision.py` → `run_external_benchmark_personal_squad.py` → `canonical_provider_forecast_contract.py` → `canonical_forecast_recommendation_adapter.py` → `personal_squad_engine.py`. Provider expected-points values are preserved unchanged; expected minutes are taken from the provider record when supplied, otherwise from the explicit FPL metadata join. CoVar must bind to the same M3 `forecast_snapshot_id` and `model_version`, not substitute a different forecast source.
 
 CTA-derived features, predictions, covariance and provider panels are not CoVar forecast inputs at this stage. This decision is specific to the current CoVar workstream and does not remove or suspend CTA research elsewhere in the repository.
 
 CoVar extends the M3 forecast from player-level expected points to portfolio-level outcomes. Conventional player expected-points estimates alone do not define a calibrated joint probability distribution. The research implementation must therefore derive scenario uncertainty and dependence from eligible realized FPL outcomes and validated residual/dependence methods, while retaining the M3 conventional forecast as the expected-points anchor. Until this is implemented and empirically validated, joint scenario probabilities must be treated as supplied research inputs, not as model predictions.
 
-The existing downstream composer, Gameweek aggregator, scorer, calibration evaluator, bootstrap and archive tooling remain reusable. Data-readiness work for this path should prioritize the M3 conventional forecast inputs/snapshots and realized FPL outcomes.
+The existing downstream composer, Gameweek aggregator, scorer, calibration evaluator, bootstrap and archive tooling remain reusable. Data-readiness work for this path should prioritize immutable archives of the exact M3 provider forecast snapshots and their joined FPL metadata, plus realized FPL outcomes. The separate exploratory `build_fpl_baseline_forecast_snapshot.py` adapter (official `ep_next` plus a minutes proxy) must not be silently substituted for the M3 decision forecast.
 
 ## Required producer boundary
 
