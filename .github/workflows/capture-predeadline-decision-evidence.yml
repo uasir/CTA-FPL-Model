@@ -3,29 +3,14 @@ name: Capture pre-deadline FPL decision evidence
 on:
   workflow_dispatch:
     inputs:
-      manager_team_id:
-        description: FPL manager team ID
-        required: true
-        default: "421025"
-        type: string
       gameweek:
         description: Upcoming target Gameweek
         required: true
-        type: string
-      season:
-        description: FPL season label
-        required: true
-        default: "2026-27"
         type: string
       field_eo_capture_run_id:
         description: Optional successful provisional pre-deadline field EO capture run ID for this Gameweek
         required: false
         default: ""
-        type: string
-      manager_state_json:
-        description: Confirmed squad, bank, free transfers, formation, starting XI, ordered outfield bench, reserve goalkeeper, captain, vice-captain and chip state (update if your team changes)
-        required: true
-        default: '{"squad_15":[8,31,79,110,115,124,154,166,183,229,282,411,426,497,524],"bank":0.9,"free_transfers":1,"formation":"4-3-3","starting_xi":[110,31,8,115,229,154,124,426,166,79,411],"bench_order":[282,183,524],"reserve_goalkeeper_id":497,"captain_id":411,"vice_captain_id":154,"chip_state":"NONE"}'
         type: string
 
 permissions:
@@ -36,6 +21,28 @@ jobs:
   capture:
     runs-on: ubuntu-latest
     steps:
+      - name: Refuse personal decision capture in a public repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          visibility=$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GH_REPOSITORY" | jq -r '.private')
+          if [ "$visibility" != "true" ]; then
+            echo "::error::Personal manager evidence cannot be captured or stored in a public repository."
+            exit 1
+          fi
+      - name: Check required private manager configuration
+        env:
+          MANAGER_TEAM_ID: ${{ secrets.M3_MANAGER_TEAM_ID }}
+          MANAGER_STATE_JSON: ${{ secrets.M3_MANAGER_STATE_JSON }}
+          SEASON: ${{ secrets.M3_SEASON }}
+        run: |
+          test -n "$MANAGER_TEAM_ID" || { echo "::error::Missing M3_MANAGER_TEAM_ID secret"; exit 1; }
+          test -n "$MANAGER_STATE_JSON" || { echo "::error::Missing M3_MANAGER_STATE_JSON secret"; exit 1; }
+          test -n "$SEASON" || { echo "::error::Missing M3_SEASON secret"; exit 1; }
       - name: Check out M3 implementation
         id: checkout
         uses: actions/checkout@v4
@@ -58,12 +65,15 @@ jobs:
       - name: Capture and seal pre-deadline decision evidence
         working-directory: canonical_candidate/engineering_workbench
         env:
-          MANAGER_STATE_JSON: ${{ inputs.manager_state_json }}
+          MANAGER_TEAM_ID: ${{ secrets.M3_MANAGER_TEAM_ID }}
+          MANAGER_STATE_JSON: ${{ secrets.M3_MANAGER_STATE_JSON }}
+          SEASON: ${{ secrets.M3_SEASON }}
+          TARGET_GAMEWEEK: ${{ inputs.gameweek }}
         run: |
           PYTHONPATH=scripts python scripts/capture_predeadline_decision_bundle.py \
-            --team-id "${{ inputs.manager_team_id }}" \
-            --gameweek "${{ inputs.gameweek }}" \
-            --season "${{ inputs.season }}" \
+            --team-id "$MANAGER_TEAM_ID" \
+            --gameweek "$TARGET_GAMEWEEK" \
+            --season "$SEASON" \
             --manager-state-json "$MANAGER_STATE_JSON" \
             --output predeadline-decision-evidence.json
       - name: Retrieve aggregate provisional field EO artifact
@@ -94,10 +104,10 @@ jobs:
             predeadline-m3-recommendation.json \
             --software-commit "$M3_CODE_SHA" \
             --output predeadline-m3-replay-report.json
-      - name: Upload immutable pre-deadline decision evidence and recommendation
+      - name: Upload private pre-deadline decision evidence and recommendation
         uses: actions/upload-artifact@v4
         with:
-          name: predeadline-decision-evidence-manager-${{ inputs.manager_team_id }}-gw${{ inputs.gameweek }}
+          name: predeadline-decision-evidence-manager-${{ secrets.M3_MANAGER_TEAM_ID }}-gw${{ inputs.gameweek }}
           path: |
             canonical_candidate/engineering_workbench/predeadline-decision-evidence.json
             canonical_candidate/engineering_workbench/predeadline-m3-recommendation.json
