@@ -38,6 +38,18 @@ If Tarkowski → Vušković was the only manager transaction after the archived 
 
 The archived 4-3-3 XI would become [110, 31, 8, 115, 504, 154, 124, 426, 166, 79, 411], with [282, 183, 524] as the ordered outfield bench and 497 as reserve goalkeeper, **only if the manager left the archived lineup and bench order unchanged**. This is a reconstruction from the archived snapshot plus the single user-reported transfer, not an official post-transfer FPL snapshot. Player names/IDs are mapped from the 2026/27 GW10 player register linked above.
 
+## Official post-Gameweek reconciliation status
+
+At the latest continuation check on 2026-11-21, GW11 was still in progress: the fixture list included remaining matches on 22 and 23 November. The official manager post-event reconciliation requires the target event to be marked finished and data-checked by FPL. Therefore:
+
+- The post-deadline manager picks/transfer-history reconciliation remains pending.
+- The provisional squad reconstruction above must not be promoted to an independently verified post-transfer snapshot.
+- Do not infer the final event score, autosubs, effective captain, bank, free transfers, or transfer-hit cost yet.
+- Once FPL marks GW11 finished and data-checked, run the existing official manager reconciliation for manager 421025 and GW11, then compare its archived player IDs and positions with this user-attested transaction record.
+
+Reference fixture schedule: https://www.fpl247.com/fixtures/game-week?weekId=11
+Live/remaining GW11 fixture status: https://www.wassupfpl.com/live
+
 ## Evaluation treatment
 
 - Preserve the frozen GW11 recommendation, original squad snapshot and decision hash unchanged.
