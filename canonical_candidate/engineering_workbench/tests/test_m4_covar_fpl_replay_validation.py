@@ -154,6 +154,12 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
         with self.assertRaisesRegex(CovarFplReplayError, "multiplier must be"):
             validate_official_replay_case(case)
 
+    def test_rejects_manager_identifiers_in_replay_input(self):
+        case = replay()
+        case["manager_id"] = "private"
+        with self.assertRaisesRegex(CovarFplReplayError, "restricted manager identifier"):
+            validate_official_replay_case(case)
+
     def test_batch_report_is_aggregated_and_research_only(self):
         result = validate_replay_batch({"replays": [replay(), replay("3xc")]})
         self.assertEqual(result["status"], "PASS")
