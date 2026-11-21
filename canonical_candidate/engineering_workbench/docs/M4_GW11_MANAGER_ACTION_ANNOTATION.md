@@ -1,6 +1,6 @@
 # GW11 manager-action annotation
 
-**Status:** User-attested transaction; execution timestamp and Gameweek attribution not independently verified.
+**Status:** User-attested pre-deadline transaction; exact execution timestamp and player-ID mapping not independently verified.
 
 ## Frozen GW11 recommendation
 
@@ -15,19 +15,20 @@ The archived GW11 conventional decision remains immutable:
 
 ## Manager-reported action
 
-In a conversation message sent at 2026-11-21T18:47:46Z, the manager reported:
+The manager clarified in the conversation on 2026-11-21 that the following transaction was executed **before the GW11 deadline**:
 
-- Tarkowski out
-- Vuskovic in
+- James Tarkowski out
+- Luka Vušković in
 
-The message timestamp is after the GW11 deadline, but it is only the time the transaction was reported to the project. It does **not** establish when the FPL transfer was actually executed. Therefore, this annotation does not classify the move as a GW11 or GW12 transaction and does not map player IDs without an independently verified transaction record.
+This is now classified as a user-attested GW11 pre-deadline manager action. The exact transaction timestamp and official FPL player-ID mapping have not yet been independently verified. The archived recommendation's player IDs (229 out, 112 in) must not be assumed to represent this reported move.
 
 ## Evaluation treatment
 
 - Preserve the frozen GW11 recommendation and its decision hash unchanged.
-- Preserve the manager-reported action as a separate, user-attested observation.
-- Do not claim that the manager followed or rejected the frozen recommendation until the transaction timestamp and player IDs are verified.
-- Refresh the live manager squad and transfer history before using this move as the current squad state for a later Gameweek recommendation.
-- Do not infer bank, free transfers, hit cost, or the remaining 15-player squad from this single reported transaction.
+- Preserve Tarkowski → Vušković as a separate, user-attested pre-deadline manager action.
+- Do not classify the manager as having followed or rejected the frozen recommendation until player IDs are mapped against the original and post-transfer squad snapshots.
+- Reconcile the reported move against the archived GW11 manager state and transfer history before calculating adherence, bank, free transfers, or hit cost.
+- Refresh the live manager squad before using it as the current squad state for a later Gameweek recommendation.
+- Do not infer the remaining 15-player squad from this single reported transaction.
 
 This annotation is descriptive evidence only. It does not change expected points, recommendation legality, EV/EO separation, CoVar status, or release eligibility.
