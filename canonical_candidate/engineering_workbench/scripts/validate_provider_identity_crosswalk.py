@@ -64,7 +64,7 @@ def validate_headers(headers, provider):
 def validate_rows(rows, provider):
     errors, accepted, statuses = [], [], Counter()
     for line, row in enumerate(rows, start=2):
-        if not isinstance(row, Mapping) or any(value is None for value in row.values()):
+        if not isinstance(row, Mapping) or None in row or any(value is None for value in row.values()):
             errors.append({"line": line, "error": "malformed_csv_row_width"})
             continue
         status = (row.get("verification_status") or "").strip().lower()
