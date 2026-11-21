@@ -1,6 +1,9 @@
 name: Capture FPL Cat benchmark snapshot
 
 on:
+  push:
+    paths:
+      - canonical_candidate/engineering_workbench/.m3_one_shot_fplcat_capture
   workflow_dispatch:
     inputs:
       season:
