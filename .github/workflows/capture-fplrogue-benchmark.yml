@@ -37,10 +37,17 @@ jobs:
             --season "${{ inputs.season }}" \
             --gameweek "${{ inputs.gameweek }}" \
             --output "artifacts/fplrogue/fplrogue-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json"
-      - name: Upload restricted source capture
+      - name: Create metadata-only public summary
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/summarize_provider_capture.py \
+            --provider "FPLRogue" \
+            --input "artifacts/fplrogue/fplrogue-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json" \
+            --output "artifacts/provider-summary/fplrogue.json"
+      - name: Upload metadata-only capture summary
         uses: actions/upload-artifact@v4
         with:
-          name: fplrogue-${{ inputs.season }}-gw${{ inputs.gameweek }}-${{ github.run_id }}
-          path: canonical_candidate/engineering_workbench/artifacts/fplrogue/*.json
+          name: fplrogue-summary-${{ inputs.season }}-gw${{ inputs.gameweek }}-${{ github.run_id }}
+          path: canonical_candidate/engineering_workbench/artifacts/provider-summary/fplrogue.json
           if-no-files-found: error
           retention-days: 90
