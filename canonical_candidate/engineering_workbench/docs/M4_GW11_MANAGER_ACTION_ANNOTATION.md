@@ -27,6 +27,17 @@ Therefore, the reported manager action is **229 out / 504 in**, while the frozen
 
 The archived snapshot predates the reported action, which explains why it still contains player 229 and does not contain player 504. The exact transaction timestamp and official FPL transfer-history record have not been independently retrieved.
 
+## Provisional post-action squad reconstruction
+
+If Tarkowski → Vušković was the only manager transaction after the archived snapshot, the reconstructed 15-player squad is:
+
+- Goalkeepers: Carl Rushworth (110), Martin Dúbravka (497)
+- Defenders: Riccardo Calafiori (8), Ezri Konsa (31), Maxim De Cuyper (115), Ryan Giles (282), Luka Vušković (504)
+- Midfielders: Pascal Groß (124), Cole Palmer (154), Jack Rudoni (183), Bruno Fernandes (426), Callum Olusesi (524)
+- Forwards: Erling Haaland (411), Evanilson (79), Nicolas Jackson (166)
+
+The archived 4-3-3 XI would become [110, 31, 8, 115, 504, 154, 124, 426, 166, 79, 411], with [282, 183, 524] as the ordered outfield bench and 497 as reserve goalkeeper, **only if the manager left the archived lineup and bench order unchanged**. This is a reconstruction from the archived snapshot plus the single user-reported transfer, not an official post-transfer FPL snapshot. Player names/IDs are mapped from the 2026/27 GW10 player register linked above.
+
 ## Evaluation treatment
 
 - Preserve the frozen GW11 recommendation, original squad snapshot and decision hash unchanged.
