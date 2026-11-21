@@ -65,3 +65,20 @@ def test_predeadline_field_eo_workflow_upload_path_matches_capture_output():
     assert "run_artifacts/predeadline_field_eo/predeadline_field_eo.csv" in workflow
     assert "run_artifacts/predeadline_field_eo/predeadline_field_report.json" in workflow
     assert "name: provisional-field-eo-${{ github.run_id }}" in workflow
+
+
+def test_official_manager_reconciliation_workflow_is_private_and_uses_new_artifact_name():
+    path = ROOT / ".github/workflows/reconcile-official-fpl-manager.yml"
+    workflow = path.read_text(encoding="utf-8")
+    guard = workflow.index("Refuse personal reconciliation in a public repository")
+    secret_check = workflow.index("Check required private manager configuration")
+    checkout = workflow.index("Check out M3 branch")
+    reconcile = workflow.index("Capture and reconcile requested completed Gameweeks")
+    upload = workflow.index("Upload immutable batch evidence")
+    assert guard < secret_check < checkout < reconcile < upload
+    assert "M3_MANAGER_TEAM_ID" in workflow
+    assert "inputs.manager_team_id" not in workflow
+    assert "default: \"421025\"" not in workflow
+    assert "421025" not in workflow
+    assert "name: predeadline-decision-evidence-gw${{ inputs.gameweeks }}-run${{ inputs.decision_evidence_run_id }}" in workflow
+    assert "name: official-fpl-reconciliation-batch-${{ github.run_id }}" in workflow
