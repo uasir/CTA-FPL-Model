@@ -160,8 +160,8 @@ def capture_fpl_lucho_raw(
         "capture_id": f"fpl-lucho-gw{gameweek}-{token}",
         "provider": {
             "name": "FPL Lucho",
-            "product": "all-player four-Gameweek forecast CSV",
-            "variant": "served odds-anchored xP",
+            "product": "forecast_csv",
+            "variant": "served_odds_anchored_xp",
             "variant_semantics": "site-served forecast; not raw model xP and not separately reported Odds xP",
             "attribution": "FPL Lucho",
         },

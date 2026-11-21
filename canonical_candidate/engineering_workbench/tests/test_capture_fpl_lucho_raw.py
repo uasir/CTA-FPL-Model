@@ -37,7 +37,8 @@ def make_capture(*, gameweek=11, csv_raw=CSV, page_raw=PAGE, deadline="2026-11-2
 def test_capture_preserves_served_variant_and_raw_csv_without_guessing_columns():
     result = make_capture()
     assert result["provider"]["name"] == "FPL Lucho"
-    assert result["provider"]["variant"] == "served odds-anchored xP"
+    assert result["provider"]["product"] == "forecast_csv"
+    assert result["provider"]["variant"] == "served_odds_anchored_xp"
     assert result["timing"]["generated_at_utc"] is None
     assert result["timing"]["page_built_at_utc"] == "2026-11-21T09:13:00Z"
     assert result["timing"]["raw_model_last_calculated_at_utc"] == "2026-11-21T09:03:00Z"
