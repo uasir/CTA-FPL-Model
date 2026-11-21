@@ -76,13 +76,13 @@ def covar_artifact(base):
     }
 
 
-def attach(base, field=None, covar=None):
+def attach(base, field=None, covar=None, as_of="2026-11-20T10:00:00Z"):
     return attach_squad_decision_context(
         recommendation=base,
         field_relative_context=field,
         covar_context=covar,
         target_gameweek=11,
-        as_of_utc="2026-11-20T10:00:00Z",
+        as_of_utc=as_of,
         deadline_utc="2026-11-21T11:00:00Z",
     )
 
@@ -112,8 +112,15 @@ def test_field_artifact_after_deadline_is_rejected():
     base = recommendation()
     field = field_artifact(base)
     field["captured_at_utc"] = "2026-11-21T11:00:00Z"
-    with pytest.raises(SquadDecisionContextError, match="strictly pre-deadline"):
+    with pytest.raises(SquadDecisionContextError, match="later than decision"):
         attach(base, field=field)
+
+
+def test_decision_as_of_at_deadline_is_rejected():
+    base = recommendation()
+    field = field_artifact(base)
+    with pytest.raises(SquadDecisionContextError, match="strictly pre-deadline"):
+        attach(base, field=field, as_of="2026-11-21T11:00:00Z")
 
 
 def test_incomplete_candidate_coverage_is_rejected():
