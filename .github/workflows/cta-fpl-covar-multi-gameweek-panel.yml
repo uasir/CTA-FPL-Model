@@ -56,6 +56,8 @@ jobs:
           for index, (run, name) in enumerate(zip(runs, names), 1):
               if not name or "/" in name or chr(92) in name:
                   raise SystemExit("Artifact names must be exact plain names.")
+              if not name.startswith(f"cta-covar-matched-forecast-outcomes-{run}-"):
+                  raise SystemExit(f"Artifact {name} is not the matcher artifact associated with run {run}.")
               run_info = json.loads(subprocess.check_output([
                   "gh", "run", "view", run,
                   "--repo", os.environ["GH_REPO"],
