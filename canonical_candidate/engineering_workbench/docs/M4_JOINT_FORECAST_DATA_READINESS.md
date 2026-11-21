@@ -50,15 +50,17 @@ The existing public Actions artifact retention is finite and public. A durable a
 
 ### Priority 2 — Establish complete realized outcome panels
 
-Build a fixture-level realized FPL outcome dataset from official post-match data with:
-- complete fixture/player coverage,
-- explicit player appearance/played semantics,
-- minutes, cards, goals, assists, bonus and final FPL points,
-- stable season-scoped FPL player and fixture IDs,
-- double/triple Gameweek aggregation rules,
-- hashes and source retrieval times.
+A first structural builder is now implemented:
+- `scripts/m4_covar_realized_fpl_dataset.py`
+- `tests/test_m4_covar_realized_fpl_dataset.py`
 
-This is a realized-outcome target archive, not a forecast archive. Keep the two roles separate.
+It consumes the existing official ingestion outputs (`fpl_players.csv`, `fpl_fixtures.csv`, `fpl_player_fixture.csv`, `ingestion_report.json`, `source_metadata.json`) and emits separate player-fixture and player-Gameweek realized panels plus a manifest with hashes of all five inputs and both outputs.
+
+The builder enforces season-scoped FPL element/fixture IDs, known player and fixture references, unique player-fixture keys, fixture/Gameweek consistency, finished non-provisional fixtures, explicit numeric outcome fields, minutes bounds, and official fixture home/away team mapping. It preserves an observed zero-minute/zero-point row, never synthesizes a missing player-fixture as zero, and sums fixture outcomes for double/triple Gameweeks.
+
+Important limitations: the builder's structural output is **not** a completeness certification. It cannot prove that the current API history contains every historical player-fixture row, and it labels source vintage `NOT_VERIFIED_RETROSPECTIVE_OFFICIAL_API_HISTORY`. It rejects an ingestion report that is not PASS or has summary fetch errors. Its archive is designed for a new private directory outside the repository; it does not upload manager picks or personal squads.
+
+This is a realized-outcome target archive, not a forecast archive. Keep the two roles separate. The next step is to test it in CI, then use an actual successful official ingestion artifact to assess row coverage, season/GW counts, and reconciliation against the official ingestion report before using it for dependence estimation.
 
 ### Priority 3 — Resolve CTA data rights and identity
 
