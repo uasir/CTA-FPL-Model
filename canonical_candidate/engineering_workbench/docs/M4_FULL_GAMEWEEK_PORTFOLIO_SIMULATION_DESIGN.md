@@ -477,3 +477,23 @@ archived bytes, independently verify provider availability timestamps, or
 prove that a declared model artifact generated a forecast. Those require a
 separate archive-verification and acquisition-audit process. Outputs remain
 `decision_weight=0` and `production_eligible=false`.
+
+
+## Archived source-byte verification
+
+A separate archive verifier is implemented in
+`scripts/m4_covar_joint_forecast_archive_verifier.py`, with tests in
+`tests/test_m4_covar_joint_forecast_archive_verifier.py`. It matches each
+forecast/source pair to a relative archive path, reads the archived bytes in
+bounded chunks, recomputes SHA-256, and compares the result with the digest
+declared in that forecast's provenance. It fails closed for missing or unknown
+manifest entries, duplicate entries, digest mismatches, missing files, absolute
+or traversal paths, symlink paths and non-regular files.
+
+This verifies the bytes currently present in the supplied archive against the
+declared digest; it does not establish that the archive itself is immutable,
+that the bytes were captured at the claimed historical time, or that the
+provider made them available at the declared timestamp. It also does not
+verify model artifact bytes. The archive verifier is intentionally a distinct
+stage from structural dataset acceptance, and all outputs remain
+`decision_weight=0` and `production_eligible=false`.
