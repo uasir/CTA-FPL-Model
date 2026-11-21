@@ -71,3 +71,16 @@ def test_capture_rejects_duplicate_csv_headers():
 def test_capture_rejects_inconsistent_csv_row_width():
     with pytest.raises(CaptureError, match="inconsistent column counts"):
         make_capture(csv_raw=b"player_id,name,xP\n1,Player One\n")
+
+def test_capture_marks_csv_gameweek_coverage_unverified_until_columns_are_mapped():
+    result = make_capture()
+    assert result["coverage"]["provider_advertised_forecast_window_gameweeks"] == 4
+    assert result["coverage"]["csv_gameweek_coverage_status"] == (
+        "UNVERIFIED_PENDING_EXPLICIT_COLUMN_MAPPING"
+    )
+
+
+def test_capture_rejects_headers_that_duplicate_after_whitespace_normalization():
+    with pytest.raises(CaptureError, match="after whitespace normalization"):
+        make_capture(csv_raw=b"player_id, player_id \n1,2\n")
+

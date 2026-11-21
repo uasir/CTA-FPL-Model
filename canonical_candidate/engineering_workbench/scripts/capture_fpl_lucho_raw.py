@@ -120,8 +120,13 @@ def capture_fpl_lucho_raw(
         rows = list(reader)
     except (UnicodeDecodeError, StopIteration, csv.Error) as exc:
         raise CaptureError("FPL Lucho CSV is empty or invalid") from exc
-    if not headers or any(not header.strip() for header in headers) or len(set(headers)) != len(headers):
-        raise CaptureError("FPL Lucho CSV has empty or duplicate headers")
+    normalized_headers = [header.strip() for header in headers]
+    if (
+        not headers
+        or any(not header for header in normalized_headers)
+        or len(set(normalized_headers)) != len(normalized_headers)
+    ):
+        raise CaptureError("FPL Lucho CSV has empty or duplicate headers after whitespace normalization")
     if any(len(row) != len(headers) for row in rows):
         raise CaptureError("FPL Lucho CSV contains rows with inconsistent column counts")
     if not rows:
@@ -194,7 +199,11 @@ def capture_fpl_lucho_raw(
             "csv_base64": base64.b64encode(csv_raw).decode("ascii"),
             "official_fpl_bootstrap_base64": base64.b64encode(bootstrap_raw).decode("ascii"),
         },
-        "coverage": {"csv_rows": len(rows), "forecast_window_gameweeks": 4},
+        "coverage": {
+            "csv_rows": len(rows),
+            "provider_advertised_forecast_window_gameweeks": 4,
+            "csv_gameweek_coverage_status": "UNVERIFIED_PENDING_EXPLICIT_COLUMN_MAPPING",
+        },
     }
 
 
