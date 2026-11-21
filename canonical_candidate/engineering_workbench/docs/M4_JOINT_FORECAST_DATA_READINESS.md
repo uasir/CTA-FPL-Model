@@ -134,6 +134,8 @@ This packager creates a private-permissions archive on the machine where it runs
 
 Engineering CI for the packager and its tests passed in [run 44876990817](https://github.com/uasir/CTA-FPL-Model/actions/runs/44876990817). This is synthetic contract coverage for packaging behavior, not a real M3 archive capture.
 
+A private-repository handoff workflow is prepared separately in [PR #61](https://github.com/uasir/CTA-FPL-Model/pull/61), targeting the repository default branch. It is designed to run after a successful M3 capture, download the existing evidence artifact only into an ephemeral runner, apply this sanitizer, and commit only the manager-free bundle to `uasir/cta-fpl-covar-archive`. It also supports manual dispatch for recovery. The workflow is not active yet: the private destination repository and `COVAR_ARCHIVE_TOKEN` Actions secret must be configured, and PR #61 must be reviewed/merged. No private remote archive has been created or verified at this point.
+
 This is a realized-outcome target archive, not a forecast archive. Keep the two roles separate. The realized panel has now been built and reconciled retrospectively for GW1–GW10. The next data blocker is a safe, durable archive of the exact conventional M3 forecast snapshot and FPL metadata captured before each deadline. Until those forecast vintages are paired with outcomes across enough independent Gameweeks, do not estimate or claim calibrated conditional dependence from this panel.
 
 ### Priority 3 — Resolve CTA data rights and identity
