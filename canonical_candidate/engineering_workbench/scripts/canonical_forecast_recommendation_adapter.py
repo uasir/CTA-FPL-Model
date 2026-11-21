@@ -69,12 +69,14 @@ def build_recommendation_forecast_payload(
     if isinstance(declared_rows, bool) or not isinstance(declared_rows, int) or declared_rows != len(snapshot.get("records", [])):
         raise ForecastAdapterError("snapshot coverage row_count must equal forecast record count")
     mapped_rows = coverage.get("identity_mapped_count")
-    if mapped_rows is not None and (
-        isinstance(mapped_rows, bool) or not isinstance(mapped_rows, int)
-        or mapped_rows != declared_rows
-    ):
+    if isinstance(mapped_rows, bool) or not isinstance(mapped_rows, int) or mapped_rows != declared_rows:
         raise ForecastAdapterError(
             "snapshot identity_mapped_count must equal row_count before recommendation use"
+        )
+    identity_status = coverage.get("identity_resolution_status")
+    if identity_status != "VERIFIED":
+        raise ForecastAdapterError(
+            "snapshot identity_resolution_status must be VERIFIED before recommendation use"
         )
     if not isinstance(player_metadata, list) or not player_metadata:
         raise ForecastAdapterError("player_metadata must be a non-empty list")
