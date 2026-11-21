@@ -14,7 +14,6 @@ on:
       - .github/workflows/cta-fpl-covar-realized-finality.yml
 
 permissions:
-  actions: read
   contents: read
 
 concurrency:
@@ -32,23 +31,18 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Download pinned official FPL ingestion artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: cta-fpl-official-${{ inputs.ingestion_run_id || '44357649202' }}
-          run-id: ${{ inputs.ingestion_run_id }}
-          repository: ${{ github.repository }}
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/fpl-ingestion
+      - name: Fetch current official FPL history and fixture feed
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py \
+            --out-dir "${{ runner.temp }}/fpl-ingestion" \
+            --workers 2 \
+            --delay 0.15
       - name: Build private realized player-Gameweek panel
         env:
           RUNNER_TEMP: ${{ runner.temp }}
         run: |
           set -euo pipefail
-          INPUT_DIR="$RUNNER_TEMP/fpl-ingestion/fpl_official"
-          if [ ! -d "$INPUT_DIR" ]; then
-            INPUT_DIR="$RUNNER_TEMP/fpl-ingestion"
-          fi
+          INPUT_DIR="$RUNNER_TEMP/fpl-ingestion"
           python canonical_candidate/engineering_workbench/scripts/m4_covar_realized_fpl_dataset.py \
             --input-dir "$INPUT_DIR" \
             --output-dir "$RUNNER_TEMP/covar-realized-panel"
