@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from run_external_benchmark_personal_squad import run_external_benchmark_personal_squad
+from forecast_provider_registry import get_active_provider, ProviderRegistryError
 
 
 class PredeadlineDecisionError(ValueError):
@@ -69,6 +70,20 @@ def run_predeadline_m3_decision(
         raise PredeadlineDecisionError("manager_state and provider_snapshot must be objects")
     if not isinstance(metadata, list) or not isinstance(metadata_provenance, Mapping):
         raise PredeadlineDecisionError("player_metadata and provenance are invalid")
+    provider_identity = provider.get("provider")
+    if not isinstance(provider_identity, Mapping):
+        raise PredeadlineDecisionError("provider identity must be an object")
+    try:
+        provider_spec = get_active_provider(provider_identity.get("name", ""))
+    except ProviderRegistryError as exc:
+        raise PredeadlineDecisionError(str(exc)) from exc
+    if provider_spec.get("decision_capture_eligible") is not True:
+        raise PredeadlineDecisionError(
+            f"{provider_spec['name']} is diagnostic-only and cannot enter strict pre-deadline decisions"
+        )
+    if (provider_identity.get("product") != provider_spec["product"]
+            or provider_identity.get("variant") != provider_spec["forecast_variant"]):
+        raise PredeadlineDecisionError("provider product/variant does not match the active registry")
 
     metadata_by_id = {row["fpl_element_id"]: row for row in metadata}
     squad_ids = list(state["squad_15"])

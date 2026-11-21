@@ -146,6 +146,10 @@ def capture_predeadline_decision_bundle(
     if not isinstance(provider, Mapping) or not isinstance(provider.get("provider"), Mapping):
         raise DecisionCaptureError("provider capture snapshot is invalid")
     provider_spec = get_active_provider(provider["provider"].get("name", ""))
+    if provider_spec.get("decision_capture_eligible") is not True:
+        raise DecisionCaptureError(
+            f"{provider_spec['name']} is diagnostic-only and cannot enter strict pre-deadline decision capture"
+        )
     if provider.get("provider", {}).get("product") != provider_spec["product"]:
         raise DecisionCaptureError("provider capture product does not match the active registry")
     if provider.get("provider", {}).get("variant") != provider_spec["forecast_variant"]:

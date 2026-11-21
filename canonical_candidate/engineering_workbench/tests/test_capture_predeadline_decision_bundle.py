@@ -255,3 +255,19 @@ def test_predeadline_bundle_accepts_registered_sideline_quant_provider_override(
     assert provider_source["provider_id"] == "sideline_quant"
     assert provider_source["provider_variant"] == "provider_native_xp"
     assert provider_source["source_url"] == "https://sidelinequant.com/data/gw/12/projections.json"
+
+
+
+def test_rejects_diagnostic_only_provider_override(monkeypatch):
+    _fixtures(monkeypatch)
+    provider_capture = capture.capture_fpl_cat_snapshot(season="2026-27")
+    provider_capture["provider_snapshot"]["provider"] = {
+        "name": "FPLRogue",
+        "product": "accepted_projections_release",
+        "variant": "provider_native_xpts",
+    }
+    with pytest.raises(capture.DecisionCaptureError, match="diagnostic-only"):
+        capture.capture_predeadline_decision_bundle(
+            team_id=421025, gameweek=12, season="2026-27", manager_state=_state(),
+            provider_capture_override=provider_capture,
+        )

@@ -64,3 +64,12 @@ def test_research_only_sources_are_not_active_providers():
     active = {item["name"] for item in list_active_providers()}
     assert not active.intersection(EXCLUDED_PROVIDERS)
     assert not active.intersection(RESEARCH_ONLY_CANDIDATES)
+
+
+
+def test_only_fpl_cat_and_sideline_quant_are_strict_decision_capture_eligible():
+    eligible = {
+        item["name"] for item in list_active_providers()
+        if item.get("decision_capture_eligible") is True
+    }
+    assert eligible == {"FPL Cat", "Sideline Quant"}

@@ -19,6 +19,7 @@ ACTIVE_PROVIDER_SPECS: tuple[dict[str, Any], ...] = (
         "forecast_variant": "provider_native_xp",
         "integration_state": "live_gw12_capture_verified_672_rows_provider_generation_timestamp_and_official_identity_verified",
         "strict_pit_status": "provider_timestamp_supported",
+        "decision_capture_eligible": True,
         "data_policy": "existing_source_terms",
     },
     {
@@ -29,6 +30,7 @@ ACTIVE_PROVIDER_SPECS: tuple[dict[str, Any], ...] = (
         "forecast_variant": "provider_native_xp",
         "integration_state": "raw_capture_and_fixture_plus_gameweek_parser_verified_gw12_endpoint_404_latest_release_gw11_no_current_gw12_snapshot",
         "strict_pit_status": "provider_generation_timestamp_required",
+        "decision_capture_eligible": True,
         "data_policy": "cc_by_4_0_with_attribution_for_provider_data",
     },
     {
@@ -39,6 +41,7 @@ ACTIVE_PROVIDER_SPECS: tuple[dict[str, Any], ...] = (
         "forecast_variant": "provider_native_xpts",
         "integration_state": "live_gw12_capture_and_schema_inspected_identity_semantics_and_forecast_generation_time_unverified",
         "strict_pit_status": "generation_timestamp_semantics_unverified",
+        "decision_capture_eligible": False,
         "data_policy": "source_terms_review_required_before_redistribution",
     },
     {
@@ -66,6 +69,7 @@ ACTIVE_PROVIDER_SPECS: tuple[dict[str, Any], ...] = (
         ],
         "integration_state": "one_bounded_live_gw12_capture_schema_inspected_no_expected_minutes_served_generation_time_and_identity_semantics_unverified",
         "strict_pit_status": "served_forecast_generation_timestamp_unverified",
+        "decision_capture_eligible": False,
         "data_policy": "private_access_controlled_intake_no_public_payloads",
     },
     {
@@ -76,6 +80,7 @@ ACTIVE_PROVIDER_SPECS: tuple[dict[str, Any], ...] = (
         "forecast_variant": "provider_native_xpts",
         "integration_state": "private_parser_implemented_live_payload_unverified",
         "strict_pit_status": "provider_generation_timestamp_required",
+        "decision_capture_eligible": False,
         "data_policy": "private_internal_handling_no_redistribution_or_public_artifacts",
     },
 )

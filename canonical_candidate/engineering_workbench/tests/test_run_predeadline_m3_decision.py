@@ -54,7 +54,7 @@ def _manifest():
             "season": "2026-27",
             "provider_snapshot": {
                 "snapshot_id": "fplcat-gw12-test",
-                "provider": {"name": "FPL Cat", "product": "published xP", "variant": "public-xp"},
+                "provider": {"name": "FPL Cat", "product": "projections", "variant": "provider_native_xp"},
             },
             "player_metadata": metadata,
             "player_metadata_provenance": {
@@ -314,3 +314,19 @@ def test_passes_historical_covar_context_to_engine_without_changing_frozen_decis
     assert result["frozen_decision"]["action"] == "TRANSFER"
     assert result["frozen_decision"]["transfer_out_id"] == 15
     assert result["frozen_decision"]["transfer_in_id"] == 20
+
+
+
+def test_rejects_diagnostic_only_provider_before_engine_execution(monkeypatch):
+    bundle = _manifest()
+    bundle["12"]["provider_snapshot"]["provider"] = {
+        "name": "FPLRogue",
+        "product": "accepted_projections_release",
+        "variant": "provider_native_xpts",
+    }
+    monkeypatch.setattr(
+        runner, "run_external_benchmark_personal_squad",
+        lambda payload: (_ for _ in ()).throw(AssertionError("diagnostic provider reached engine")),
+    )
+    with pytest.raises(runner.PredeadlineDecisionError, match="diagnostic-only"):
+        runner.run_predeadline_m3_decision(bundle, software_commit="b" * 40)
