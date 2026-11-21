@@ -104,7 +104,11 @@ def test_fpl_lucho_one_shot_workflow_checks_deadline_and_emits_only_safe_summary
     assert "summarize_provider_capture.py" in workflow
     assert '--provider "FPL Lucho"' in workflow
     assert "artifacts/provider-summary/fpl-lucho.json" in workflow
-    assert "actions/upload-artifact" not in workflow
+    assert "Upload sanitized schema and provenance summary only" in workflow
+    assert "retention-days: 90" in workflow
+    upload_block = workflow.split("uses: actions/upload-artifact@v4", 1)[1]
+    assert "artifacts/provider-summary/fpl-lucho.json" in upload_block
+    assert "artifacts/fpl_lucho/" not in upload_block
     assert "csv_captured_at_utc" in capture_script
     assert "FPL Lucho release or capture is at or after the official deadline" in capture_script
     assert "raw_archives" in capture_script
