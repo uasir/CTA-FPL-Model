@@ -1,0 +1,97 @@
+import base64
+import hashlib
+import json
+
+import pytest
+
+from build_sideline_quant_provider_capture import (
+    ProviderCaptureBuildError,
+    build_sideline_quant_provider_capture,
+)
+from capture_fpl_cat_snapshot import FPL_BOOTSTRAP_URL
+
+
+def _fixtures():
+    provider_raw = json.dumps({"gameweek": 12}).encode()
+    bootstrap_raw = json.dumps({
+        "elements": [{"id": 1, "element_type": 2, "team": 3, "now_cost": 45}],
+        "element_types": [{"id": 2, "singular_name_short": "DEF"}],
+    }).encode()
+    provider_hash = hashlib.sha256(provider_raw).hexdigest()
+    bootstrap_hash = hashlib.sha256(bootstrap_raw).hexdigest()
+    timing = {
+        "generated_at_utc": "2026-11-21T17:00:00Z",
+        "captured_at_utc": "2026-11-21T17:10:00Z",
+        "deadline_utc": "2026-11-27T18:30:00Z",
+        "official_metadata_captured_at_utc": "2026-11-21T17:10:01Z",
+        "point_in_time_status": "PROVIDER_GENERATED_AND_CAPTURED_BEFORE_DEADLINE",
+    }
+    raw = {
+        "provider": {"name": "Sideline Quant"},
+        "season": "2026-27",
+        "target_gameweek": 12,
+        "timing": timing,
+        "source": {"raw_sha256": provider_hash, "url": "https://sidelinequant.com/data/gw/12/projections.json"},
+        "raw_archives": {
+            "provider_response_base64": base64.b64encode(provider_raw).decode(),
+            "official_fpl_bootstrap_base64": base64.b64encode(bootstrap_raw).decode(),
+        },
+        "official_metadata_provenance": {
+            "source_url": FPL_BOOTSTRAP_URL,
+            "raw_sha256": bootstrap_hash,
+            "raw_snapshot_id": f"sha256:{bootstrap_hash}",
+            "captured_at_utc": timing["official_metadata_captured_at_utc"],
+        },
+    }
+    parsed = {
+        "player_gameweek_snapshot": {
+            "snapshot_id": "sidelinequant-gw12-test:player_gameweek_sum_xp",
+            "season": "2026-27",
+            "target_gameweek": 12,
+            "provider": {
+                "name": "Sideline Quant",
+                "product": "gameweek_projections",
+                "variant": "provider_native_xp",
+            },
+            "grain": "player_gameweek",
+            "decision_eligible": True,
+            "timing": timing,
+            "source": {"raw_sha256": provider_hash},
+            "records": [{"fpl_element_id": 1, "expected_points": 4.2, "expected_minutes": 80}],
+        }
+    }
+    return raw, parsed, provider_hash, bootstrap_hash
+
+
+def test_builds_registered_sideline_quant_capture_envelope():
+    raw, parsed, provider_hash, bootstrap_hash = _fixtures()
+    result = build_sideline_quant_provider_capture(raw, parsed)
+    assert result["provider_snapshot"]["provider"]["name"] == "Sideline Quant"
+    assert result["provider_snapshot"]["grain"] == "player_gameweek"
+    assert result["provider_snapshot"]["source"]["raw_sha256"] == provider_hash
+    assert result["player_metadata"] == [{
+        "fpl_element_id": 1, "price": 4.5, "position": "DEF", "team_id": 3,
+    }]
+    assert result["player_metadata_provenance"]["raw_sha256"] == bootstrap_hash
+    assert result["raw_archives"]["provider_response_base64"] == raw["raw_archives"]["provider_response_base64"]
+
+
+def test_rejects_provider_hash_mismatch():
+    raw, parsed, _, _ = _fixtures()
+    raw["source"]["raw_sha256"] = "0" * 64
+    with pytest.raises(ProviderCaptureBuildError, match="provider raw hash"):
+        build_sideline_quant_provider_capture(raw, parsed)
+
+
+def test_rejects_fixture_grain_snapshot_for_decision_handoff():
+    raw, parsed, _, _ = _fixtures()
+    parsed["player_gameweek_snapshot"]["grain"] = "player_fixture"
+    with pytest.raises(ProviderCaptureBuildError, match="not decision eligible"):
+        build_sideline_quant_provider_capture(raw, parsed)
+
+
+def test_rejects_unmapped_player_metadata():
+    raw, parsed, _, _ = _fixtures()
+    parsed["player_gameweek_snapshot"]["records"][0]["fpl_element_id"] = 2
+    with pytest.raises(ProviderCaptureBuildError, match="missing player IDs"):
+        build_sideline_quant_provider_capture(raw, parsed)
