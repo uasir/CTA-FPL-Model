@@ -65,6 +65,46 @@ def build_personal_recommendation_covar_report(
     results = scoring_report.get("portfolio_results")
     if not isinstance(metadata, Mapping) or not isinstance(portfolios, Sequence) or not isinstance(scenarios, Sequence) or not scenarios or not isinstance(results, Mapping):
         raise CoVarRecommendationReportAdapterError("full Gameweek metadata, portfolios, scenarios and scoring results are required")
+    if scoring_report.get("input_validation_status") != "VALID_FULL_GAMEWEEK_DOCUMENT":
+        raise CoVarRecommendationReportAdapterError("scoring report does not carry a validated full-Gameweek input status")
+    scenario_ids = [str(row.get("scenario_id", "")) for row in scenarios if isinstance(row, Mapping)]
+    if len(scenario_ids) != len(scenarios) or any(not value for value in scenario_ids) or len(set(scenario_ids)) != len(scenario_ids):
+        raise CoVarRecommendationReportAdapterError("full Gameweek scenario IDs must be unique and non-empty")
+    if scoring_report.get("shared_scenario_ids") != scenario_ids:
+        raise CoVarRecommendationReportAdapterError("scoring report scenario IDs do not match the supplied full Gameweek document")
+    scenario_probabilities = [_number(row.get("probability"), "scenario probability") for row in scenarios]
+    if any(value < 0 or value > 1 for value in scenario_probabilities) or not math.isclose(sum(scenario_probabilities), 1.0, rel_tol=0, abs_tol=1e-9):
+        raise CoVarRecommendationReportAdapterError("full Gameweek scenario probabilities must be valid and sum to one")
+    portfolio_by_id = {}
+    for row in portfolios:
+        if not isinstance(row, Mapping):
+            raise CoVarRecommendationReportAdapterError("portfolio rows must be objects")
+        portfolio_id = str(row.get("portfolio_id", ""))
+        if not portfolio_id or portfolio_id in portfolio_by_id:
+            raise CoVarRecommendationReportAdapterError("portfolio IDs must be unique and non-empty")
+        portfolio_by_id[portfolio_id] = row
+    if set(results) != set(portfolio_by_id):
+        raise CoVarRecommendationReportAdapterError("scoring report portfolio IDs do not exactly match the supplied full Gameweek document")
+    for portfolio_id, source_portfolio in portfolio_by_id.items():
+        result = results.get(portfolio_id)
+        if not isinstance(result, Mapping):
+            raise CoVarRecommendationReportAdapterError(f"portfolio result is missing or invalid: {portfolio_id}")
+        expected_role = source_portfolio.get("portfolio_role", "CANDIDATE")
+        if result.get("portfolio_role") != expected_role:
+            raise CoVarRecommendationReportAdapterError(f"portfolio role mismatch for {portfolio_id}")
+        score_rows = result.get("scenario_scores")
+        if not isinstance(score_rows, Sequence) or isinstance(score_rows, (str, bytes)) or len(score_rows) != len(scenarios):
+            raise CoVarRecommendationReportAdapterError(f"scenario scores are incomplete for {portfolio_id}")
+        for index, score_row in enumerate(score_rows):
+            if not isinstance(score_row, Mapping) or str(score_row.get("scenario_id")) != scenario_ids[index]:
+                raise CoVarRecommendationReportAdapterError(f"scenario score IDs are misaligned for {portfolio_id}")
+            if not math.isclose(_number(score_row.get("probability"), "score probability"), scenario_probabilities[index], rel_tol=0, abs_tol=1e-12):
+                raise CoVarRecommendationReportAdapterError(f"scenario score probabilities are misaligned for {portfolio_id}")
+            _number(score_row.get("points"), "scenario points")
+        variance = _number(result.get("variance"), f"{portfolio_id}.variance")
+        decomposition_total = _number(result.get("variance_decomposition_total"), f"{portfolio_id}.variance_decomposition_total")
+        if variance < 0 or result.get("variance_decomposition_matches_total") is not True or not math.isclose(variance, decomposition_total, rel_tol=1e-8, abs_tol=1e-8):
+            raise CoVarRecommendationReportAdapterError(f"variance decomposition does not reconcile for {portfolio_id}")
     if metadata.get("manager_entry_ids_retained") is not False:
         raise CoVarRecommendationReportAdapterError("full Gameweek document must confirm manager IDs were discarded")
     if metadata.get("field_evidence_role") != "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE":
@@ -79,8 +119,8 @@ def build_personal_recommendation_covar_report(
     if any(portfolio_id not in results for portfolio_id in field_ids):
         raise CoVarRecommendationReportAdapterError("scoring report is missing a field portfolio result")
     baseline = results.get(baseline_portfolio_id)
-    if not isinstance(baseline, Mapping):
-        raise CoVarRecommendationReportAdapterError("baseline portfolio result is missing")
+    if not isinstance(baseline, Mapping) or portfolio_by_id[baseline_portfolio_id].get("portfolio_role", "CANDIDATE") != "CANDIDATE":
+        raise CoVarRecommendationReportAdapterError("baseline portfolio must be a scored candidate portfolio")
     baseline_covariance = _off_diagonal_covariance(baseline, "baseline")
 
     weighted_field_variance = sum(
@@ -101,10 +141,25 @@ def build_personal_recommendation_covar_report(
             raise CoVarRecommendationReportAdapterError(f"candidate portfolio result missing: {portfolio_id}")
         if candidate.get("field_comparison") is None:
             raise CoVarRecommendationReportAdapterError(f"candidate {portfolio_id} lacks field comparison")
+        if portfolio_id not in portfolio_by_id or portfolio_by_id[str(portfolio_id)].get("portfolio_role", "CANDIDATE") != "CANDIDATE":
+            raise CoVarRecommendationReportAdapterError(f"mapped transfer portfolio is not a candidate: {portfolio_id}")
+        expected_field_delta = sum(
+            scenario_probabilities[index] * (
+                _number(candidate["scenario_scores"][index].get("points"), "candidate scenario points")
+                - sum(
+                    _number(results[str(field_row["portfolio_id"])]["scenario_scores"][index].get("points"), "field scenario points")
+                    * _number(field_row.get("field_weight"), "field weight")
+                    for field_row in field_rows
+                )
+            )
+            for index in range(len(scenarios))
+        )
         field_delta = _number(
             candidate["field_comparison"].get("expected_points_difference_vs_weighted_field"),
             "field relative upside delta",
         )
+        if not math.isclose(field_delta, expected_field_delta, rel_tol=1e-8, abs_tol=1e-8):
+            raise CoVarRecommendationReportAdapterError("candidate field-relative expected points do not reconcile to shared scenario scores")
         variance = _number(candidate.get("variance"), "candidate variance")
         covariance_delta = _off_diagonal_covariance(candidate, str(portfolio_id)) - baseline_covariance
         if variance < 0:
