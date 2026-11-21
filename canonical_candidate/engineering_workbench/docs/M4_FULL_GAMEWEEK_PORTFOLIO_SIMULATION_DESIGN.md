@@ -83,7 +83,7 @@ The implementation encodes the declared rules as explicit deterministic function
 3. Extend the synthetic scenario contract to carry full-Gameweek outcomes and validate player coverage.
 4. Add full-Gameweek scoring that reuses the same scenario distribution for candidate and field portfolios.
 5. Add integration fixtures, privacy checks, documentation, and CI validation.
-6. Keep the full-Gameweek engine synthetic-only until the implementation and rule audit are complete.
+6. Keep the full-Gameweek engine synthetic-only until private real-result replay validation, complete Gameweek scenario generation, and empirical field-sample representativeness/uncertainty work are complete. The written 2026/27 lineup-rules audit is complete, but no real replay batch has been validated.
 
 ## Standalone lineup resolver implementation
 
@@ -199,3 +199,17 @@ The builder is a local composition function only. It does not read or export
 the private manager-level artifact, add private portfolio data to GitHub
 Actions, or upload any manager-level data. The resulting document and all
 manager-level source artifacts remain restricted to private local handling.
+
+## Official-result replay validation
+
+A private local comparison harness is implemented in
+`scripts/m4_covar_fpl_replay_validation.py` and tested in
+`tests/test_m4_covar_fpl_replay_validation.py`. It compares all 15 expected
+player multipliers, active captain fallback and per-player points against a
+normalized official final FPL picks snapshot. It also reconciles the team total
+from official player points and pick multipliers and derives Gameweek played
+status from minutes and yellow/red-card counts.
+
+The harness is local-only, rejects manager identifiers, requires its input file
+outside the repository, and never exports replay inputs. Synthetic tests passed
+in CI; actual completed-Gameweek replay execution remains pending.
