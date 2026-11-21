@@ -6,7 +6,7 @@
 
 ## 1. Agreed execution decision
 
-The downstream recommendation system will be built using the actual external FPL benchmark forecasts first. Once the project's own model passes M2's validation and promotion gates, it will enter through the same canonical forecast interface and can replace or supplement benchmark inputs.
+The downstream recommendation system will be built using the two approved external FPL benchmark providers first: **FPL Cat and FPL Sideline Quant**. They remain separate provider runs; no averaging or consensus is introduced. Once the project's own CTA-FPL model passes M2's validation and promotion gates, it will enter through the same canonical forecast interface and replace the conventional provider forecasts for the CTA-informed product.
 
 This execution decision supersedes the earlier architecture wording that deferred all M3 implementation until M2 was complete. The agreed four milestones remain distinct and controlled:
 - M1 recommendation-delivery backbone verification continues on its separate schedule.
@@ -46,7 +46,7 @@ The contract:
 - validates unique forecast keys, finite numeric values, probability bounds and row-count coverage;
 - preserves coverage and missingness instead of inventing values.
 
-This means FPL Lucho served xP cannot silently become Odds xP, and Sideline Quant fixture rows cannot be treated as player-GW values without a separately specified aggregation step.
+This means provider variants remain distinct and Sideline Quant fixture rows cannot be treated as player-GW values without a separately specified aggregation step. FPLRogue, FPL Lucho and FPL Wildcard are out of scope; no adapters or forecast integrations for them will be built.
 
 
 ### M3.2 — First end-to-end personal-squad execution slice
@@ -196,4 +196,4 @@ Field-relative EO and validated portfolio context are part of this new M3 milest
 
 ## 7. Model transition
 
-When M2 approves ABC/CTA or 2PM, it is registered as another provider under the same canonical schema. Benchmark and project-model runs remain side-by-side during a shadow period. Replacement or supplementation requires recorded evidence and a rollback path; historical releases are never rewritten.
+When M2 approves the CTA-FPL model, it enters the same canonical forecast interface used by FPL Cat and FPL Sideline Quant. For the CTA-informed personal-squad product, the model replaces the conventional provider forecasts while reusing the exact same personal-squad recommendation pipeline and output contract. Keep model and provider runs separately traceable during shadow evaluation; replacement requires recorded evidence and a rollback path. Historical releases are never rewritten. Do not build adapters for additional external providers outside the approved FPL Cat and FPL Sideline Quant scope.
