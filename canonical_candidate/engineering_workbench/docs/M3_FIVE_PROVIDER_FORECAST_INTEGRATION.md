@@ -214,3 +214,11 @@ This gate is independent of forecast timing, coverage completeness, and M2 forec
 - Headers include `player_id`, `player`, `team`, `position`, `price`, `three_gw_xpts`, `next_gw_xpts`, `floor`, `ceiling`, `expected_minutes`, `start_probability`, `ownership_percent`, `gameweek`, `captured_at`, and `model_version`.
 - This confirms the live CSV schema and pre-deadline release/capture provenance only. The provider's distinct forecast-generation timestamp remains undisclosed, and the meaning of `player_id` has not been verified against official FPL element IDs. Therefore no normalized forecast or verified identity status is created; FPLRogue remains diagnostic-only. The single bounded capture is complete; do not repeat retrieval merely to troubleshoot this blocker.
 - Public artifact: `fplrogue-summary-2026-27-gw12-44929866200` (metadata-only; 90-day retention). Workflow run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44929866200
+
+
+## FPL Lucho GW12 bounded capture (2026-11-21)
+
+- The one-shot workflow completed successfully in run 44929998742. It captured 672 CSV rows and 18 headers. The metadata-only artifact records SHA-256 `10a0ce426f60bbcb01b0ebda6bfcc21941aa82e02922d44bd32fceecfd32c623`, page build 2026-11-21 17:17 UTC, raw-model last-calculated time 14:41 UTC, CSV capture 17:25 UTC, and official GW12 deadline 2026-11-27 18:30 UTC.
+- Headers include `id`, `name`, `team`, `position`, `price`, `status`, `chance_next_round`, `news`, `ownership_pct`, `xp_gw12` through `xp_gw15`, matching fixture columns, and `xp_total_4_gws`.
+- The served CSV's own forecast-generation timestamp is not separately disclosed. Page-build and raw-model calculation timestamps are not silently substituted for it. The `id` column is observed, but its equality to official FPL element IDs has not been verified. Therefore the capture remains diagnostic-only and no canonical player forecasts or verified identity status are created.
+- This completes the single bounded live capture. Do not repeat retrieval to work around the undisclosed served-CSV timestamp or unresolved ID semantics. Public artifact: `fpl-lucho-summary-2026-27-gw12-44929998742` (metadata-only; 90-day retention). Workflow run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44929998742
