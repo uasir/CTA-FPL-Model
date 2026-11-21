@@ -159,8 +159,12 @@ def build_historical_covar_recommendation_overlay(
         if not isinstance(alternative, Mapping):
             raise HistoricalCoVarOverlayError("transfer alternatives must be objects")
         outgoing, incoming = alternative.get("transfer_out_id"), alternative.get("transfer_in_id")
-        if outgoing not in {row["fpl_element_id"] for row in forecasts.values()} or incoming not in forecasts:
+        if (isinstance(outgoing, bool) or not isinstance(outgoing, int)
+                or isinstance(incoming, bool) or not isinstance(incoming, int)
+                or outgoing not in forecasts or incoming not in forecasts):
             raise HistoricalCoVarOverlayError("transfer alternative player IDs are missing from forecasts")
+        if forecasts[outgoing].get("position") != forecasts[incoming].get("position"):
+            raise HistoricalCoVarOverlayError("transfer alternative must preserve the outgoing player's position")
         candidate_xi = list(xi)
         if outgoing in candidate_xi:
             index = candidate_xi.index(outgoing)
