@@ -37,11 +37,7 @@ jobs:
           PYTHONPATH: scripts
         run: |
           python -m pip install pytest
-          python -m pytest -q \\
-            tests/test_capture_sideline_quant_raw.py \\
-            tests/test_parse_sideline_quant_snapshot.py \\
-            tests/test_build_sideline_quant_provider_capture.py \\
-            tests/test_summarize_provider_capture.py
+          python -m pytest -q tests/test_capture_sideline_quant_raw.py tests/test_parse_sideline_quant_snapshot.py tests/test_build_sideline_quant_provider_capture.py tests/test_summarize_provider_capture.py
       - name: Capture immutable raw Sideline Quant feed
         working-directory: canonical_candidate/engineering_workbench
         run: |
