@@ -85,6 +85,12 @@ jobs:
           PYTHONPATH=scripts python scripts/m5_conventional_delivery_contract.py \
             --input predeadline-m3-recommendation.json \
             --output m5-conventional-delivery-acceptance.json
+      - name: Build conventional delivery report (field context remains optional)
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          PYTHONPATH=scripts python scripts/m4_conventional_delivery_report.py \
+            --conventional predeadline-m3-recommendation.json \
+            --output conventional-delivery-report.json
       - name: Upload immutable pre-deadline decision evidence and recommendation
         uses: actions/upload-artifact@v4
         with:
@@ -94,5 +100,6 @@ jobs:
             canonical_candidate/engineering_workbench/predeadline-m3-recommendation.json
             canonical_candidate/engineering_workbench/predeadline-m3-replay-report.json
             canonical_candidate/engineering_workbench/m5-conventional-delivery-acceptance.json
+            canonical_candidate/engineering_workbench/conventional-delivery-report.json
           if-no-files-found: error
           retention-days: 90
