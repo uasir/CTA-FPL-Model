@@ -126,7 +126,9 @@ a hidden squad optimization.
 
 ### CoVar forecast-source decision — 2026-11-21
 
-For the current CoVar workstream, the project owner has confirmed that we will continue using **the conventional forecasting model already integrated into M3** as the player-level expected-points/minutes anchor. CoVar will not switch to CTA or introduce a new forecasting model at this stage. CTA-derived features, predictions, provider panels and covariance are out of scope as CoVar forecast inputs for now. This does not remove or rewrite the separate CTA research work elsewhere in the repository.
+For the current CoVar workstream, the project owner has confirmed that we will continue using **the exact conventional forecast snapshot consumed by the M3 decision run** as the player-level expected-points/minutes anchor. M3 runs `run_predeadline_m3_decision.py`, which calls `run_external_benchmark_personal_squad.py`; that path normalizes the provider snapshot, preserves provider expected-points values unchanged, joins FPL metadata, and passes the resulting records to `personal_squad_engine.py`. CoVar must bind to the same M3 `forecast_snapshot_id` and `model_version`. It must not substitute the separate exploratory official-`ep_next` baseline snapshot builder.
+
+CTA-derived features, predictions, provider panels and covariance are out of scope as CoVar forecast inputs for now. This does not remove or rewrite the separate CTA research work elsewhere in the repository.
 
 CoVar adds a separately validated portfolio uncertainty/dependence layer based on eligible realized FPL outcomes. Conventional marginal expected points alone are not a joint probability distribution; joint scenario probabilities remain research inputs until a defensible method is implemented and validated.
 
