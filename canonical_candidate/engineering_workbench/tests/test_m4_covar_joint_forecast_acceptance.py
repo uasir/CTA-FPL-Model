@@ -79,32 +79,63 @@ def test_archive_verification_is_integrated_as_an_optional_third_stage(tmp_path)
     forecasts = data()
     entries = []
     for index, forecast in enumerate(forecasts):
-        payload = f"source-snapshot-{index}".encode()
-        forecast["provenance"]["source_snapshots"][0]["content_sha256"] = hashlib.sha256(payload).hexdigest()
-        relative = f"snapshot-{index}.bin"
-        (tmp_path / relative).write_bytes(payload)
-        entries.append({
-            "forecast_id": forecast["forecast_id"],
-            "source_id": "source-a",
-            "archive_path": relative,
-        })
+        provenance = forecast["provenance"]
+        artifacts = [
+            ("source_snapshot", "source-a", f"source-{index}.bin", b"source-" + str(index).encode()),
+            ("model_artifact", None, f"model-{index}.bin", b"model-" + str(index).encode()),
+            ("config", None, f"config-{index}.bin", b"config-" + str(index).encode()),
+            ("forecast_payload", None, f"payload-{index}.bin", b"payload-" + str(index).encode()),
+        ]
+        for kind, artifact_id, filename, payload in artifacts:
+            (tmp_path / filename).write_bytes(payload)
+            if kind == "source_snapshot":
+                provenance["source_snapshots"][0]["content_sha256"] = hashlib.sha256(payload).hexdigest()
+            elif kind == "model_artifact":
+                provenance["model_artifact_sha256"] = hashlib.sha256(payload).hexdigest()
+            elif kind == "config":
+                provenance["config_sha256"] = hashlib.sha256(payload).hexdigest()
+            else:
+                provenance["forecast_payload_sha256"] = hashlib.sha256(payload).hexdigest()
+            entry = {"forecast_id": forecast["forecast_id"], "artifact_type": kind, "archive_path": filename}
+            if artifact_id:
+                entry["source_id"] = artifact_id
+            entries.append(entry)
     report = validate_joint_forecast_acceptance(
         forecasts, manifest(), archive_root=tmp_path, archive_manifest=entries,
     )
-    assert report["acceptance_status"] == "STRUCTURAL_AND_ARCHIVE_BYTES_VERIFIED"
-    assert report["archive_validation"]["verified_source_count"] == 3
+    assert report["acceptance_status"] == "STRUCTURAL_AND_COMPLETE_PROVENANCE_BYTES_VERIFIED"
+    assert report["archive_validation"]["verified_artifact_count"] == 12
     assert report["source_bytes_rehashed"] is True
+    assert report["model_artifact_bytes_verified"] is True
+    assert report["config_bytes_verified"] is True
+    assert report["forecast_payload_bytes_verified"] is True
+    assert report["complete_provenance_chain_verified"] is True
     assert report["authenticity_verified"] is False
     assert report["historical_dataset_certified"] is False
     assert report["production_eligible"] is False
 
+
 def test_archive_verification_fails_closed_on_digest_mismatch(tmp_path):
     forecasts = data()
-    (tmp_path / "snapshot.bin").write_bytes(b"tampered")
-    entries = [
-        {"forecast_id": forecast["forecast_id"], "source_id": "source-a", "archive_path": "snapshot.bin"}
-        for forecast in forecasts
-    ]
+    entries = []
+    for index, forecast in enumerate(forecasts):
+        for kind, field, payload in [
+            ("source_snapshot", "content_sha256", b"source"),
+            ("model_artifact", "model_artifact_sha256", b"model"),
+            ("config", "config_sha256", b"config"),
+            ("forecast_payload", "forecast_payload_sha256", b"payload"),
+        ]:
+            filename = f"{forecast['forecast_id']}-{kind}.bin"
+            (tmp_path / filename).write_bytes(payload)
+            if kind == "source_snapshot":
+                forecast["provenance"]["source_snapshots"][0][field] = hashlib.sha256(payload).hexdigest()
+            else:
+                forecast["provenance"][field] = hashlib.sha256(payload).hexdigest()
+            entry = {"forecast_id": forecast["forecast_id"], "artifact_type": kind, "archive_path": filename}
+            if kind == "source_snapshot":
+                entry["source_id"] = "source-a"
+            entries.append(entry)
+    (tmp_path / "f-tr-model_artifact.bin").write_bytes(b"tampered")
     with pytest.raises(JointForecastAcceptanceError, match="archive verification failed"):
         validate_joint_forecast_acceptance(forecasts, manifest(), tmp_path, entries)
 
