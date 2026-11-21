@@ -16,7 +16,8 @@ def _historical_context(payload):
             })
     return {
         "covariance_report": {
-            "status": "EXPLORATORY_ONLY",
+            "status": "EXPLORATORY_ONSIDE_ACTUALS_ONLY",
+            "production_use": False,
             "model_trained": False,
             "point_in_time_status": "NOT_VERIFIED_RETROSPECTIVE_FINAL_SCORING_AUDIT",
             "window_gameweeks": [1, 2, 3, 4, 5],
