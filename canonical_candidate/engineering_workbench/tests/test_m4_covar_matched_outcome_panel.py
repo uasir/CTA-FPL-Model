@@ -98,4 +98,3 @@ def test_rejects_production_eligible_input(tmp_path):
     manifest_path.write_text(json.dumps(manifest))
     with pytest.raises(MatchedPanelError, match="research-only"):
         build_matched_panel_archive([a], tmp_path / "out", repository_root=tmp_path / "repo")
-}
