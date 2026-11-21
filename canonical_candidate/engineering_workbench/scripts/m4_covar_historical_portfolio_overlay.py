@@ -154,6 +154,7 @@ def build_historical_covar_recommendation_overlay(
     baseline_captain = plan.get("captain")
     if baseline_captain not in xi:
         baseline_captain = _captain(xi, forecasts)
+    baseline_vice_captain = plan.get("vice_captain")
     baseline = _portfolio_metrics(xi, baseline_captain, forecasts, matrix)
 
     metrics = []
@@ -211,7 +212,10 @@ def build_historical_covar_recommendation_overlay(
             })
             continue
         candidate_xi[index] = incoming
-        captain_id = _captain(candidate_xi, forecasts)
+        # Preserve the manager-selected captain; use vice only if the captain is transferred out.
+        captain_id = baseline_captain if baseline_captain in candidate_xi else (
+            baseline_vice_captain if baseline_vice_captain in candidate_xi else _captain(candidate_xi, forecasts)
+        )
         result = _portfolio_metrics(candidate_xi, captain_id, forecasts, matrix)
         metrics.append({
             "transfer_out_id": outgoing,
@@ -303,7 +307,7 @@ def build_historical_covar_recommendation_overlay(
             "Expected points come from the conventional M3 forecast; covariance comes from historical realized points.",
             "Historical dependence is a proxy, not a calibrated forward joint distribution.",
             "Only transfers that change the starting XI are scored; bench-only upgrades are explicitly excluded.",
-            "The overlay scores the starting XI with the current captain multiplier; bench autosubs and chip effects are not simulated.",
+            "The overlay preserves the current captain and uses the vice-captain only if the captain is transferred out; bench autosubs and chip effects are not simulated.",
             "The field's joint portfolio covariance is unavailable; marginal EO is not used to reconstruct it.",
             "No transfer, starting XI, captaincy or canonical EV ranking is changed automatically.",
         ],
