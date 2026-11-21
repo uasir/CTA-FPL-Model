@@ -330,8 +330,10 @@ def test_replay_passes_the_same_optional_field_eo_artifact_to_decision_runner(mo
     }
     received = {}
 
-    def replay_runner(evidence_bundle, *, software_commit, predeadline_field_capture=None):
+    def replay_runner(evidence_bundle, *, software_commit, predeadline_field_capture=None,
+                      historical_covariance_context=None):
         received["field_capture"] = predeadline_field_capture
+        received["historical_covariance_context"] = historical_covariance_context
         return {
             "frozen_decision": frozen["frozen_decision"],
             "recommendation": frozen["recommendation"],
