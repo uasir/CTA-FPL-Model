@@ -96,8 +96,10 @@ def build_historical_covar_recommendation_overlay(
         raise HistoricalCoVarOverlayError("forecast_rows must be a sequence")
     if not isinstance(covariance_report, Mapping) or not isinstance(covariance_pairs, Sequence):
         raise HistoricalCoVarOverlayError("covariance report and pair rows are required")
-    if covariance_report.get("status") != "EXPLORATORY_ONLY":
+    if covariance_report.get("status") not in {"EXPLORATORY_ONLY", "EXPLORATORY_ONSIDE_ACTUALS_ONLY"}:
         raise HistoricalCoVarOverlayError("historical covariance report must be explicitly exploratory")
+    if covariance_report.get("production_use") is True:
+        raise HistoricalCoVarOverlayError("historical covariance artifact must remain research-only")
     if covariance_report.get("model_trained") is not False:
         raise HistoricalCoVarOverlayError("this overlay accepts historical covariance, not a trained CoVar model")
     window = covariance_report.get("window_gameweeks")
