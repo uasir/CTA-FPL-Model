@@ -247,7 +247,8 @@ def build_historical_covar_recommendation_overlay(
 
     def attach_field_relative_metrics(portfolio: dict[str, Any], player_ids: Sequence[int],
                                       captain_id: int) -> dict[str, Any]:
-        if field_weights is None or field_average_variance is None:
+        if (field_weights is None or field_average_variance is None
+                or portfolio.get("status") != "COMPUTED_HISTORICAL_PROXY"):
             portfolio["field_average_covariance"] = None
             portfolio["field_average_variance"] = None
             portfolio["relative_variance_vs_field_average"] = None
