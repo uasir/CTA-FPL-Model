@@ -403,6 +403,7 @@ def replay_frozen_decision(
     frozen_output: Mapping[str, Any],
     *,
     software_commit: str,
+    predeadline_field_capture: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     if not isinstance(frozen_output, Mapping):
         raise DecisionReplayError("frozen recommendation must be an object")
@@ -430,7 +431,8 @@ def replay_frozen_decision(
     )
 
     replayed = run_predeadline_m3_decision(
-        evidence_bundle, software_commit=software_commit
+        evidence_bundle, software_commit=software_commit,
+        predeadline_field_capture=predeadline_field_capture,
     )
     expected_decision = frozen_output.get("frozen_decision")
     actual_decision = replayed.get("frozen_decision")
@@ -465,11 +467,26 @@ def main() -> int:
     parser.add_argument("evidence_bundle", type=Path)
     parser.add_argument("frozen_recommendation", type=Path)
     parser.add_argument("--software-commit", required=True)
+    parser.add_argument("--field-eo-csv", type=Path)
+    parser.add_argument("--field-eo-report", type=Path)
+    parser.add_argument("--field-eo-source-url", default="https://fantasy.premierleague.com/api/")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if (args.field_eo_csv is None) != (args.field_eo_report is None):
+        parser.error("both --field-eo-csv and --field-eo-report are required")
+    field_capture = None
+    if args.field_eo_csv is not None:
+        field_capture = {
+            "csv_path": str(args.field_eo_csv),
+            "report_path": str(args.field_eo_report),
+            "source_url": args.field_eo_source_url,
+        }
     bundle = json.loads(args.evidence_bundle.read_text(encoding="utf-8"))
     frozen = json.loads(args.frozen_recommendation.read_text(encoding="utf-8"))
-    result = replay_frozen_decision(bundle, frozen, software_commit=args.software_commit)
+    result = replay_frozen_decision(
+        bundle, frozen, software_commit=args.software_commit,
+        predeadline_field_capture=field_capture,
+    )
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))
     return 0
