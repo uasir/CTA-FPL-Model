@@ -21,7 +21,10 @@ def field_context_for(output):
             "captured_at_utc": "2026-11-20T09:59:00Z",
             "candidate": {
                 "manager_team_id": output["manager_team_id"],
-                "season": output.get("season"),
+                "season": (
+                    candidate.get("season")
+                    if candidate.get("season") is not None else output.get("season")
+                ),
                 "target_gameweek": output["target_gameweek"],
                 "deadline_utc": output["deadline_utc"],
                 "decision_sha256": decision["decision_sha256"],
@@ -59,6 +62,15 @@ class TestConventionalDeliveryReport(unittest.TestCase):
         self.assertIsNone(report["field_context"]["context"])
         self.assertEqual(output, original)
         self.assertFalse(report["guardrails"]["release_eligible"])
+
+    def test_report_accepts_season_stored_only_in_live_candidate(self):
+        output = fixture("TRANSFER")
+        output["evaluation_candidate"]["season"] = "2026-27"
+        original = copy.deepcopy(output)
+        report = build_conventional_delivery_report(output)
+        self.assertEqual(report["field_context"]["status"], "NOT_SUPPLIED")
+        self.assertEqual(report["conventional"]["action"], "TRANSFER")
+        self.assertEqual(output, original)
 
     def test_valid_field_context_is_descriptive_only(self):
         output = fixture("HOLD")
