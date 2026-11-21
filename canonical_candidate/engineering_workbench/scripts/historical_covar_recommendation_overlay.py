@@ -82,12 +82,67 @@ def _captain(player_ids: Sequence[int], forecasts: Mapping[int, Mapping[str, Any
     )[0]
 
 
+
+
+def _quadratic_variance(weights: Mapping[str, float],
+                        covariance: Mapping[str, Mapping[str, float]]) -> tuple[float | None, list[str]]:
+    missing = sorted({
+        pid for pid in weights
+        if pid not in covariance or any(other not in covariance[pid] for other in weights)
+    }, key=lambda value: (not value.isdigit(), value))
+    if missing:
+        return None, missing
+    value = sum(
+        weights[left] * weights[right] * covariance[left][right]
+        for left in weights for right in weights
+    )
+    if value < -1e-8:
+        raise HistoricalCoVarOverlayError("field-average portfolio variance is negative")
+    return max(0.0, value), []
+
+
+def _cross_covariance(left_weights: Mapping[str, float], right_weights: Mapping[str, float],
+                      covariance: Mapping[str, Mapping[str, float]]) -> tuple[float | None, list[str]]:
+    missing = sorted({
+        left for left in left_weights
+        if left not in covariance or any(right not in covariance[left] for right in right_weights)
+    }, key=lambda value: (not value.isdigit(), value))
+    if missing:
+        return None, missing
+    return sum(
+        left_weights[left] * right_weights[right] * covariance[left][right]
+        for left in left_weights for right in right_weights
+    ), []
+
+
+def _field_average_weights(rows: Sequence[Mapping[str, Any]]) -> dict[str, float]:
+    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)) or not rows:
+        raise HistoricalCoVarOverlayError("field exposure rows must be a non-empty sequence")
+    weights: dict[str, float] = {}
+    seen = set()
+    for index, row in enumerate(rows):
+        if not isinstance(row, Mapping):
+            raise HistoricalCoVarOverlayError("field exposure rows must be objects")
+        player_id = str(row.get("fpl_element_id", "")).strip()
+        if not player_id or player_id in seen:
+            raise HistoricalCoVarOverlayError("field exposure rows contain missing or duplicate player IDs")
+        seen.add(player_id)
+        exposure = _finite(row.get("scoring_exposure_pct"), f"scoring_exposure_pct.{player_id}")
+        if exposure < 0 or exposure > 300:
+            raise HistoricalCoVarOverlayError(f"scoring_exposure_pct.{player_id} must be between 0 and 300")
+        if exposure > 0:
+            weights[player_id] = exposure / 100.0
+    return weights
+
+
 def build_historical_covar_recommendation_overlay(
     *,
     recommendation: Mapping[str, Any],
     forecast_rows: Sequence[Mapping[str, Any]],
     covariance_report: Mapping[str, Any],
     covariance_pairs: Sequence[Mapping[str, Any]],
+    field_exposure_rows: Sequence[Mapping[str, Any]] | None = None,
+    field_exposure_provenance: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Attach historical-covariance metrics to every actual transfer alternative."""
     if not isinstance(recommendation, Mapping) or recommendation.get("system") != "personal_squad":
@@ -159,6 +214,63 @@ def build_historical_covar_recommendation_overlay(
     baseline_vice_captain = plan.get("vice_captain")
     baseline = _portfolio_metrics(xi, baseline_captain, forecasts, matrix)
 
+    field_weights = None
+    field_average_variance = None
+    field_missing_ids: list[str] = []
+    field_average_portfolio = {
+        "status": "NOT_AVAILABLE_NO_FIELD_EXPOSURE_CAPTURE",
+        "variance": None,
+        "standard_deviation": None,
+        "scoring_exposure_source": "PRE_DEADLINE_PROVISIONAL_FIELD_SAMPLE",
+        "joint_manager_portfolio_status": "NOT_AVAILABLE_MARGINAL_EXPOSURE_ONLY",
+    }
+    if field_exposure_rows is not None:
+        field_weights = _field_average_weights(field_exposure_rows)
+        field_average_variance, field_missing_ids = _quadratic_variance(field_weights, matrix)
+        if field_average_variance is None:
+            field_average_portfolio.update({
+                "status": "NOT_AVAILABLE_INCOMPLETE_FIELD_COVARIANCE_COVERAGE",
+                "missing_player_ids": field_missing_ids,
+            })
+        else:
+            sample = field_exposure_provenance.get("sample", {}) if isinstance(field_exposure_provenance, Mapping) else {}
+            field_average_portfolio.update({
+                "status": "COMPUTED_HISTORICAL_FIELD_AVERAGE_PROXY",
+                "variance": round(field_average_variance, 8),
+                "standard_deviation": round(math.sqrt(field_average_variance), 8),
+                "player_count": len(field_weights),
+                "manager_count": sample.get("manager_count"),
+                "effective_sample_size": sample.get("effective_sample_size"),
+                "captured_at_utc": field_exposure_provenance.get("captured_at_utc"),
+                "artifact_id": field_exposure_provenance.get("snapshot_id"),
+            })
+
+    def attach_field_relative_metrics(portfolio: dict[str, Any], player_ids: Sequence[int],
+                                      captain_id: int) -> dict[str, Any]:
+        if field_weights is None or field_average_variance is None:
+            portfolio["field_average_covariance"] = None
+            portfolio["field_average_variance"] = None
+            portfolio["relative_variance_vs_field_average"] = None
+            return portfolio
+        personal_weights = {str(pid): (2.0 if pid == captain_id else 1.0) for pid in player_ids}
+        covariance_value, missing_ids = _cross_covariance(personal_weights, field_weights, matrix)
+        if covariance_value is None:
+            portfolio["field_average_covariance"] = None
+            portfolio["field_average_variance"] = round(field_average_variance, 8)
+            portfolio["relative_variance_vs_field_average"] = None
+            portfolio["field_covariance_missing_player_ids"] = missing_ids
+            return portfolio
+        relative_variance = portfolio["portfolio_variance"] + field_average_variance - 2.0 * covariance_value
+        if relative_variance < -1e-8:
+            raise HistoricalCoVarOverlayError("relative portfolio variance is negative")
+        portfolio["field_average_covariance"] = round(covariance_value, 8)
+        portfolio["field_average_variance"] = round(field_average_variance, 8)
+        portfolio["relative_variance_vs_field_average"] = round(max(0.0, relative_variance), 8)
+        portfolio["relative_standard_deviation_vs_field_average"] = round(math.sqrt(max(0.0, relative_variance)), 8)
+        return portfolio
+
+    baseline = attach_field_relative_metrics(baseline, xi, baseline_captain)
+
     metrics = []
     excluded_bench_only_alternatives = []
     for alternative in alternatives:
@@ -219,6 +331,7 @@ def build_historical_covar_recommendation_overlay(
             baseline_vice_captain if baseline_vice_captain in candidate_xi else _captain(candidate_xi, forecasts)
         )
         result = _portfolio_metrics(candidate_xi, captain_id, forecasts, matrix)
+        result = attach_field_relative_metrics(result, candidate_xi, captain_id)
         metrics.append({
             "transfer_out_id": outgoing,
             "transfer_in_id": incoming,
@@ -255,6 +368,14 @@ def build_historical_covar_recommendation_overlay(
         row["expected_points_delta_vs_current"] = round(row["expected_points"] - baseline["expected_points"], 8)
         row["variance_delta_vs_current"] = round(row["portfolio_variance"] - baseline["portfolio_variance"], 8)
         row["covariance_delta_vs_current"] = round(row["covariance_contribution"] - baseline["covariance_contribution"], 8)
+        if row.get("relative_variance_vs_field_average") is not None and baseline.get("relative_variance_vs_field_average") is not None:
+            row["relative_variance_delta_vs_field_average"] = round(
+                row["relative_variance_vs_field_average"] - baseline["relative_variance_vs_field_average"], 8
+            )
+        if row.get("field_average_covariance") is not None and baseline.get("field_average_covariance") is not None:
+            row["field_average_covariance_delta_vs_current"] = round(
+                row["field_average_covariance"] - baseline["field_average_covariance"], 8
+            )
 
     pareto = []
     for row in metrics:
@@ -290,6 +411,7 @@ def build_historical_covar_recommendation_overlay(
 
         "point_in_time_status": covariance_report.get("point_in_time_status", "NOT_VERIFIED"),
         "baseline": baseline,
+        "field_average_portfolio": field_average_portfolio,
         "candidate_metrics": metrics,
         "excluded_bench_only_alternatives": excluded_bench_only_alternatives,
         "recommendation_policy": {
@@ -315,7 +437,12 @@ def build_historical_covar_recommendation_overlay(
              "variance_delta_vs_current": highest_ev["variance_delta_vs_current"]}
             if highest_ev else None
         ),
-        "field_comparison_status": "NOT_AVAILABLE_NO_JOINT_FIELD_PORTFOLIOS",
+        "field_comparison_status": (
+            "AVAILABLE_FIELD_AVERAGE_HISTORICAL_PROXY"
+            if field_average_variance is not None
+            else field_average_portfolio["status"]
+        ),
+        "field_joint_manager_portfolio_status": "NOT_AVAILABLE_MARGINAL_EXPOSURE_ONLY",
         "decision_weight": 0.0,
         "production_eligible": False,
         "limitations": [
