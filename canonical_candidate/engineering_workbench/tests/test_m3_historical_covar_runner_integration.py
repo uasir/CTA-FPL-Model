@@ -74,7 +74,7 @@ def test_runner_invokes_historical_covar_without_changing_ev_decision():
     assert recommendation["historical_covar_overlay"]["production_eligible"] is False
     assert recommendation["historical_covar_overlay"]["field_comparison_status"] == "NOT_AVAILABLE_NO_FIELD_EXPOSURE_CAPTURE"
     assert recommendation["historical_covar_overlay"]["historical_covariance_source"]["source_sha256"] == "a" * 64
-    assert recommendation["historical_covar_overlay"]["historical_covariance_stability_diagnostic"]["correlation_of_correlations"] == 0.0078
+    assert recommendation["historical_covar_overlay"]["historical_covariance_stability_diagnostic"]["correlation_of_correlations"] == 0.00779916
     diagnostics = recommendation["historical_covar_overlay"]["historical_covariance_diagnostics"]
     assert diagnostics["rolling_correlation_stability"]["correlation_of_correlations"] == 0.00779916
     assert diagnostics["sample_coverage"]["covariance_players"] == 14
