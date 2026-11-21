@@ -12,6 +12,10 @@ pytest.importorskip(
     "build_sideline_quant_provider_capture",
     reason="requires the Sideline Quant adapter from stacked M3 PR #58",
 )
+pytest.importorskip(
+    "parse_sideline_quant_snapshot",
+    reason="requires the Sideline Quant parser from stacked M3 PR #58",
+)
 from build_sideline_quant_provider_capture import build_sideline_quant_provider_capture
 from replay_frozen_m3_decision import (
     DecisionReplayError,
