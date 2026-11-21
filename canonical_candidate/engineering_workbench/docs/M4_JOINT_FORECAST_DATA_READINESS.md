@@ -76,6 +76,30 @@ A separate reconciliation adapter is now implemented:
 
 It compares each supplied player-Gameweek aggregate against the corresponding official `event/{event_id}/live` response across minutes, points, goals, assists, clean sheets, goals conceded, own goals, penalties, cards, saves and bonus/BPS. It requires the exact event, official endpoint provenance, capture timestamp and raw SHA-256. It fails on missing/duplicate players, missing stats or any mismatch; it never zero-fills absent history rows. A passing result establishes agreement with that captured final-scoring response only, not historical point-in-time integrity or fixture-level dependence.
 
+
+### Batch finality reconciliation runner
+
+The event-by-event reconciliation can now be executed reproducibly from the private capture archives:
+- `scripts/m4_covar_realized_fpl_finality_batch.py`
+- `tests/test_m4_covar_realized_fpl_finality_batch.py`
+
+Expected private layout:
+- realized dataset directory containing `fpl_realized_player_gameweek.csv`
+- capture root containing `event_1/`, `event_2/`, etc., each created by `m4_covar_point_in_time_source_capture.py --event <GW>`
+- each event archive must include `capture_manifest.json`, `event_live.json`, and `fixtures.json`
+
+The batch runner verifies the captured manifest, event IDs, official endpoint URLs, raw SHA-256 values, and that every fixture in each target Gameweek is finished and non-provisional before auditing the realized player-GW rows. It writes a private report and refuses to overwrite an existing output directory. It does not treat provisional events as final or fill missing history rows.
+
+Example (paths are placeholders and must be absolute, outside the repository):
+```bash
+python scripts/m4_covar_realized_fpl_finality_batch.py \
+  --dataset-csv /private/realized/fpl_realized_player_gameweek.csv \
+  --capture-root /private/event-captures \
+  --output-dir /private/finality-audit-run-001
+```
+
+The batch runner is implemented and has synthetic contract tests; it has not yet been run against actual GW1–GW10 capture archives. The user's workflow remains cloud/GitHub-based; no local execution is required or assumed.
+
 ### Exact M3 forecast snapshot bridge
 
 A manager-free extraction adapter is also implemented:
