@@ -76,3 +76,22 @@ def test_runner_rejects_covariance_artifact_marked_for_production_use():
         assert "must remain research-only" in str(exc)
     else:
         raise AssertionError("production-use covariance artifact was accepted")
+
+
+
+def test_runner_computes_field_average_covariance_from_provisional_scoring_exposure(tmp_path):
+    from test_run_external_benchmark_personal_squad import _write_predeadline_field_capture
+
+    payload, _, _ = _write_predeadline_field_capture(tmp_path)
+    payload["historical_covariance_context"] = _historical_context(payload)
+    result = run_external_benchmark_personal_squad(payload)
+    overlay = result["recommendation"]["historical_covar_overlay"]
+    assert overlay["field_average_portfolio"]["status"] == "COMPUTED_HISTORICAL_FIELD_AVERAGE_PROXY"
+    assert overlay["field_comparison_status"] == "AVAILABLE_FIELD_AVERAGE_HISTORICAL_PROXY"
+    assert overlay["field_joint_manager_portfolio_status"] == "NOT_AVAILABLE_MARGINAL_EXPOSURE_ONLY"
+    assert overlay["decision_weight"] == 0
+    assert overlay["production_eligible"] is False
+    assert overlay["baseline"]["field_average_covariance"] is not None
+    assert overlay["baseline"]["relative_variance_vs_field_average"] is not None
+    assert all(row["relative_variance_vs_field_average"] is not None
+               for row in overlay["candidate_metrics"])
