@@ -56,6 +56,18 @@ def normalize_official_fpl_replay(
     event = _required_int(event_id, "event_id")
     if event < 1:
         raise CovarFplApiReplayAdapterError("event_id must be positive")
+    # The official picks response includes entry_history.event. Fail closed
+    # if the endpoint payload does not identify the requested Gameweek.
+    entry_history = _required_mapping(
+        picks_payload.get("entry_history"), "picks_payload.entry_history"
+    )
+    payload_event = _required_int(
+        entry_history.get("event"), "picks_payload.entry_history.event"
+    )
+    if payload_event != event:
+        raise CovarFplApiReplayAdapterError(
+            f"picks payload Gameweek {payload_event} does not match requested event {event}"
+        )
 
     raw_picks = picks_payload.get("picks")
     raw_live = live_payload.get("elements")
