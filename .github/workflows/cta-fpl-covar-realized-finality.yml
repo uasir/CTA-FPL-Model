@@ -8,13 +8,17 @@ on:
         required: true
         default: "44357649202"
         type: string
+  push:
+    branches: ["feat/m4-field-portfolio-intelligence"]
+    paths:
+      - .github/workflows/cta-fpl-covar-realized-finality.yml
 
 permissions:
   actions: read
   contents: read
 
 concurrency:
-  group: cta-covar-realized-finality-${{ inputs.ingestion_run_id }}
+  group: cta-covar-realized-finality-${{ inputs.ingestion_run_id || '44357649202' }}
   cancel-in-progress: false
 
 jobs:
@@ -31,7 +35,7 @@ jobs:
       - name: Download pinned official FPL ingestion artifact
         uses: actions/download-artifact@v4
         with:
-          name: cta-fpl-official-${{ inputs.ingestion_run_id }}
+          name: cta-fpl-official-${{ inputs.ingestion_run_id || '44357649202' }}
           run-id: ${{ inputs.ingestion_run_id }}
           repository: ${{ github.repository }}
           github-token: ${{ github.token }}
