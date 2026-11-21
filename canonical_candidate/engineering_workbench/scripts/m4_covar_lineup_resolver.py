@@ -177,7 +177,7 @@ def resolve_fpl_lineup(
             continue
         absent_starters = [
             pid for pid in starters
-            if pid != starting_gk and minutes[pid] == 0 and pid in resolved
+            if pid != starting_gk and not played[pid] and pid in resolved
         ]
         for absent in absent_starters:
             trial = list(resolved)
