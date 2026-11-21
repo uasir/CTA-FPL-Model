@@ -116,6 +116,24 @@ It takes the sealed one-Gameweek M3 evidence bundle and M3 decision result, veri
 
 This separation is necessary because the existing manual M3 evidence workflow uploads an artifact containing manager-specific decision evidence. CoVar must not consume or republish that full artifact in a public workflow. The extraction adapter is a code-level bridge only: no real prospective M3 forecast bundle has yet been captured and archived for CoVar. A private durable archive destination and a live pre-deadline M3 capture are still required.
 
+A private archive packager is now implemented:
+- `scripts/m3_covar_forecast_archive_packager.py`
+- `tests/test_m3_covar_forecast_archive_packager.py`
+
+It accepts the sealed M3 evidence JSON and frozen M3 result JSON, calls the extraction adapter, rechecks the manager-free/research-only contract, and writes only the sanitized forecast bundle plus a SHA-256 archive manifest. It refuses an output directory inside the repository or an existing output directory; it creates a new directory with mode 0700 and files with mode 0600. The manifest records the exact forecast snapshot/model version and source hashes/timestamps, but does not copy manager identifiers or decision state.
+
+Example (paths must be absolute; the output directory must be new and outside the repository):
+```bash
+python scripts/m3_covar_forecast_archive_packager.py \
+  --evidence /private/input/predeadline-decision-evidence.json \
+  --m3-result /private/input/predeadline-m3-recommendation.json \
+  --output-dir /private/covar-archive/2026-27/gw12-run-001
+```
+
+This packager creates a private-permissions archive on the machine where it runs; it does not itself provide remote durability, encryption at rest, backup, or retention. No private storage destination is configured yet. The current M3 evidence workflow still contains manager-specific data in its input/output bundle, so that full artifact must never be copied to a public CoVar artifact or public repository. A future cloud handoff must extract the sanitized bundle in the runner and write it directly to an explicitly configured private destination; it must not upload the raw M3 bundle as an intermediate public artifact.
+
+Engineering CI for the packager and its tests passed in [run 44876990817](https://github.com/uasir/CTA-FPL-Model/actions/runs/44876990817). This is synthetic contract coverage for packaging behavior, not a real M3 archive capture.
+
 This is a realized-outcome target archive, not a forecast archive. Keep the two roles separate. The realized panel has now been built and reconciled retrospectively for GW1–GW10. The next data blocker is a safe, durable archive of the exact conventional M3 forecast snapshot and FPL metadata captured before each deadline. Until those forecast vintages are paired with outcomes across enough independent Gameweeks, do not estimate or claim calibrated conditional dependence from this panel.
 
 ### Priority 3 — Resolve CTA data rights and identity
