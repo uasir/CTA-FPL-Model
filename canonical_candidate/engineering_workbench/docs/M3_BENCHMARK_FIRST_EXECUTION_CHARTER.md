@@ -1,6 +1,6 @@
 # M3 Execution Charter — Benchmark-First Decision Engine
 
-**Status:** M3 ACTIVE — first provider-contract slice implemented; validation pending  
+**Status:** M3 ACTIVE — FPL Cat and Sideline Quant capture adapters implemented; live provider validation pending  
 **Started:** 2026-11-20  
 **Execution relationship:** M2 model validation continues independently in parallel. M3 does not wait for ABC/2PM promotion because its initial forecast inputs are the agreed external FPL benchmark providers.
 
@@ -79,6 +79,17 @@ The capture bundle now includes base64-preserved raw provider and FPL bootstrap 
 
 Regression tests cover missing generation timestamps and post-deadline metadata capture. The live capture has produced a real 672-row GW11 FPL Cat snapshot; a successful manager-backed recommendation run remains pending.
 
+### M3.2b — Sideline Quant live-capture and normalization adapter
+
+Added from the existing benchmark-provider implementation and retained as the second and final approved conventional provider:
+- `scripts/capture_sideline_quant_raw.py` captures the immutable raw provider JSON and official FPL bootstrap, preserving raw bytes, SHA-256 hashes, provider generation time, capture time, declared coverage and the official deadline cross-check.
+- `scripts/parse_sideline_quant_snapshot.py` preserves the native player-fixture rows and separately derives a player-Gameweek view using the provider-documented sum of fixture xP and expected minutes. It retains the native fixture snapshot, checks duplicate player-fixture keys and player identity, and carries the publisher's Gameweek distribution fields without summing them across fixtures.
+- `scripts/build_sideline_quant_provider_capture.py` builds the same M3 input envelope consumed by the existing canonical forecast adapter and personal-squad decision runner. It verifies raw-source hashes, official metadata provenance, provider identity, timestamps and the explicit aggregation contract.
+- `.github/workflows/capture-sidelinequant-benchmark.yml` captures and archives the raw feed, normalized fixture/Gameweek views, decision-ready provider envelope and metadata-only public summary.
+- Regression tests cover capture timing/deadline checks, raw archive integrity, fixture-grain preservation, explicit double-Gameweek xP aggregation, identity/duplicate checks, distribution-field consistency and canonical-envelope handoff.
+
+FPL Cat and Sideline Quant remain separate provider-specific runs. No average or consensus is created. This code integration is present; a successful live Sideline Quant artifact and provider-performance validation are separate evidence gates and are not claimed by these deterministic tests.
+
 ### M3.3b — GW1 purchase-price fallback hardening
 
 The first live manager-history attempt confirmed that the GW11 picks endpoint returns HTTP 404 before the deadline and exposed a real data-shape gap: the GW1 picks response did not contain a usable `purchase_price` for player ID 496. The implementation now falls back only for missing GW1 purchase prices to the official bootstrap's season-start cost, calculated as `now_cost - cost_change_start`. That bootstrap response is archived with the other raw manager-history inputs. If neither source yields a positive integer cost, capture still fails closed.
@@ -146,7 +157,7 @@ A fresh live workflow execution is still required to generate the corrected post
 ### M3.1 — Provider-neutral forecast contract
 - Complete Python contract and regression tests.
 - Add equivalent JavaScript schema/parity handling only after the Python contract is stable.
-- Add provider adapters that map captured raw snapshots into the canonical contract without changing the source values.
+- Maintain the two approved provider adapters (FPL Cat and Sideline Quant) that map captured raw snapshots into the canonical contract without changing source values.
 - Support each provider variant as a distinct input.
 
 ### M3.2 — Benchmark-backed decision runs
