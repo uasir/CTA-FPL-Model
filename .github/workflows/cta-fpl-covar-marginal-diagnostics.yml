@@ -64,8 +64,8 @@ jobs:
               "gh", "run", "download", run, "--repo", os.environ["GH_REPO"],
               "--name", name, "--dir", str(dest),
           ], check=True)
-          if not list(dest.rglob("multi_gameweek_matched_panel.json")):
-              raise SystemExit("Accumulated panel JSON was not found in artifact.")
+          if not list(dest.rglob("multi_gameweek_matched_panel.json")) or not list(dest.rglob("multi_gameweek_panel_manifest.json")):
+              raise SystemExit("Accumulated panel JSON or its manifest was not found in artifact.")
           PY
       - name: Calculate marginal diagnostics with Gameweek-clustered intervals
         env:
@@ -73,7 +73,8 @@ jobs:
         run: |
           set -euo pipefail
           PANEL=$(find "$RUNNER_TEMP/matched-panel" -type f -name multi_gameweek_matched_panel.json -print -quit)
-          test -n "$PANEL"
+          MANIFEST=$(find "$RUNNER_TEMP/matched-panel" -type f -name multi_gameweek_panel_manifest.json -print -quit)
+          test -n "$PANEL" && test -n "$MANIFEST"
           mkdir -m 700 -p "$RUNNER_TEMP/covar-marginal-diagnostics"
           python canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_marginal_diagnostics.py \
             --panel "$PANEL" \
