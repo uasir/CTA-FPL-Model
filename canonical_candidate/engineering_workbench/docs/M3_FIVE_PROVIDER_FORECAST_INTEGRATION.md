@@ -16,6 +16,12 @@ The shared conventional forecast interface contains exactly these five providers
 
 FPL Forecaster and FPL Review are excluded. Do not ingest their current forecasts or historical data, register them as active providers, or use them in provider comparisons.
 
+### Other discovered sources — not active providers
+
+- FPLWise is a permission-required research candidate only. Do not acquire, store, ingest or compare its forecasts until the provider's applicable terms and any required written authorization have been reviewed and confirmed.
+- RotoWire is a research-only reference candidate pending explicit authorization for the intended acquisition and processing method. Do not automate extraction or use its projections as CTA forecast inputs before that review.
+- These sources do not change the active five-provider set.
+
 ## 2. Integration principles
 
 - One provider-neutral canonical snapshot contract; provider-specific acquisition and parsing adapters.
