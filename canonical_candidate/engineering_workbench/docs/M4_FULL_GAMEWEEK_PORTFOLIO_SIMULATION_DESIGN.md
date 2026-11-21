@@ -457,3 +457,23 @@ availability timestamp is truthful. Those claims require archived immutable
 source bytes, independent digest verification and auditable acquisition
 records. A structurally valid report is not a certified historical dataset;
 outputs remain `decision_weight=0` and `production_eligible=false`.
+
+
+## Combined historical dataset acceptance gate
+
+A combined structural acceptance wrapper is implemented in
+`scripts/m4_covar_joint_forecast_acceptance.py`, with tests in
+`tests/test_m4_covar_joint_forecast_acceptance.py`. It runs the chronological
+train/validation/test Gameweek partition validator and the point-in-time
+provenance validator against the same immutable forecast rows. It returns an
+accepted report only when both validators pass; either failure is surfaced as
+a fail-closed acceptance error with the failing validation stage identified.
+
+The report nests both component reports and preserves the Gameweek-cluster
+independence declaration. Its status is deliberately
+`STRUCTURAL_DATASET_ACCEPTED`, not historically certified or production
+eligible. The gate does not authenticate source/model/config hashes, rehash
+archived bytes, independently verify provider availability timestamps, or
+prove that a declared model artifact generated a forecast. Those require a
+separate archive-verification and acquisition-audit process. Outputs remain
+`decision_weight=0` and `production_eligible=false`.
