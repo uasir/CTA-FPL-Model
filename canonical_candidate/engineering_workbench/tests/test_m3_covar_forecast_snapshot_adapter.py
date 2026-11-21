@@ -14,7 +14,8 @@ def _raw(value):
 
 def _bundle():
     provider_raw, provider_hash = _raw("provider bytes")
-    metadata_raw, metadata_hash = _raw("metadata bytes")
+    metadata_raw = b'{"elements":[{"id":10,"now_cost":50,"element_type":3,"team":1}]}'
+    metadata_hash = hashlib.sha256(metadata_raw).hexdigest()
     provider = {
         "snapshot_id": "snapshot-gw11",
         "season": "2026-27",
@@ -75,6 +76,8 @@ def _bundle():
     m3_result = {
         "run_type": "M3_CONVENTIONAL_PERSONAL_SQUAD_RECOMMENDATION",
         "target_gameweek": 11, "provider_snapshot_id": "snapshot-gw11",
+        "decision_as_of_utc": "2026-11-20T10:00:00Z",
+        "deadline_utc": "2026-11-21T11:00:00Z",
         "recommendation": {
             "forecast_snapshot_id": "snapshot-gw11",
             "model_version": "external:Provider:xP:published:version-unreported",
