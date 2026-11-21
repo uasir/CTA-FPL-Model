@@ -548,3 +548,28 @@ reconstruct point-in-time outcome availability, or authenticate source
 timestamps. Those fields require independently sourced historical records and
 the existing provenance/archive acceptance chain. The benchmark remains
 research-only with `decision_weight=0` and `production_eligible=false`.
+
+
+## Chronological test-split backtest runner
+
+The orchestration layer is implemented in
+`scripts/m4_covar_historical_frequency_backtest.py`, tested in
+`tests/test_m4_covar_historical_frequency_backtest.py`. It validates the
+complete train/validation/test Gameweek partition, selects only forecasts
+belonging to the declared test Gameweeks, builds a point-in-time expanding
+historical-frequency reference for those test forecasts, and sends the paired
+model/reference distributions to the existing calibration and Gameweek-cluster
+bootstrap evaluator.
+
+This avoids reporting train/validation forecasts as held-out test performance.
+Repeated snapshots inside a test Gameweek remain clustered by the calibration
+bootstrap. The runner reports the test Gameweeks and forecast count, temporal
+partition validation, benchmark method and calibration metrics. It explicitly
+reports that source authenticity, archived bytes and historical dataset
+certification have not been established by this orchestration layer.
+
+This runner is ready to consume a real certified dataset when one exists. It
+does not create historical forecast snapshots, source records or outcomes, and
+does not convert current retrospective FPL API data into point-in-time
+evidence. No real historical backtest has been run; synthetic tests verify
+orchestration only. Outputs remain research-only.
