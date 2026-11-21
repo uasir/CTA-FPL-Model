@@ -234,6 +234,22 @@ def test_uses_explicit_sideline_quant_capture_envelope_without_falling_back_to_f
         "version": "test",
     }
     provider["source"]["url"] = "https://sidelinequant.com/data/gw/12/projections.json"
+    raw_rows = [
+        {"player_id": row["fpl_element_id"], "fixture_id": 1200 + row["fpl_element_id"],
+         "gameweek": 12, "xP": row["expected_points"],
+         "e_mins": row["expected_minutes"], "p_start": 0.9}
+        for row in provider["records"]
+    ]
+    raw_provider = {
+        "gameweek": 12, "generated_at": "2026-11-20T09:00:00Z",
+        "deadline": "2026-11-21T11:00:00Z",
+        "n_players": len(raw_rows), "n_rows": len(raw_rows), "rows": raw_rows,
+    }
+    raw_bytes = json.dumps(raw_provider, sort_keys=True).encode()
+    raw_hash = hashlib.sha256(raw_bytes).hexdigest()
+    provider_capture["raw_archives"]["provider_response_base64"] = base64.b64encode(raw_bytes).decode()
+    provider["source"]["raw_sha256"] = raw_hash
+    provider["source"]["raw_snapshot_id"] = "sha256:" + raw_hash
     monkeypatch.setattr(
         capture, "capture_fpl_cat_snapshot",
         lambda **kwargs: (_ for _ in ()).throw(AssertionError("FPL Cat fallback was called")),
