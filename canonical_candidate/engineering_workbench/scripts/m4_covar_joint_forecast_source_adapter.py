@@ -1,6 +1,6 @@
 """Source-neutral private adapter for complete explicit joint FPL forecasts."""
 from __future__ import annotations
-import hashlib, json, os, re, shutil, tempfile
+import argparse, hashlib, json, os, re, shutil, stat, sys, tempfile
 from pathlib import Path
 from typing import Any, Mapping
 from m4_covar_joint_forecast_intake import validate_joint_forecast_intake
@@ -111,3 +111,60 @@ def archive_explicit_joint_forecast(*, document: Mapping[str, Any],
             "forecast_id": fid, "verification_status": verification["verification_status"],
             "verified_artifact_count": verification["verified_artifact_count"],
             "decision_weight": 0.0, "production_eligible": False}
+
+def _read_regular_artifact(root: Path, relative: str) -> bytes:
+    path = root / relative
+    try:
+        mode = path.lstat().st_mode
+    except OSError as exc:
+        raise JointForecastSourceAdapterError(f"missing artifact file: {relative}") from exc
+    if not stat.S_ISREG(mode):
+        raise JointForecastSourceAdapterError(f"artifact must be a regular non-symlink file: {relative}")
+    return path.read_bytes()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Validate and privately archive an explicit joint FPL forecast.")
+    parser.add_argument("--document", required=True, help="Complete joint forecast JSON document.")
+    parser.add_argument("--artifact-dir", required=True, help="Directory containing source/, model/ and forecast/ bytes.")
+    parser.add_argument("--archive-root", required=True, help="New private archive destination outside the Git checkout.")
+    args = parser.parse_args(argv)
+    document_path = Path(args.document).expanduser()
+    artifact_root = Path(args.artifact_dir).expanduser().resolve(strict=True)
+    if not artifact_root.is_dir():
+        raise JointForecastSourceAdapterError("artifact-dir must be a directory")
+    try:
+        document = json.loads(document_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise JointForecastSourceAdapterError(f"cannot read forecast document: {exc}") from exc
+    if not isinstance(document, Mapping) or not isinstance(document.get("provenance"), Mapping):
+        raise JointForecastSourceAdapterError("forecast document and provenance must be JSON objects")
+    provenance = document["provenance"]
+    artifact_bytes: dict[str, bytes] = {
+        "model_artifact": _read_regular_artifact(artifact_root, "model/model.bin"),
+        "config": _read_regular_artifact(artifact_root, "model/config.bin"),
+        "forecast_payload": _read_regular_artifact(artifact_root, "forecast/payload.bin"),
+    }
+    snapshots = provenance.get("source_snapshots")
+    if not isinstance(snapshots, list):
+        raise JointForecastSourceAdapterError("provenance source_snapshots must be a list")
+    for source in snapshots:
+        if not isinstance(source, Mapping):
+            raise JointForecastSourceAdapterError("source snapshot rows must be objects")
+        source_id = source.get("source_id")
+        if not isinstance(source_id, str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", source_id) or source_id in {".", ".."}:
+            raise JointForecastSourceAdapterError("unsafe source_id in provenance")
+        artifact_bytes["source:" + source_id] = _read_regular_artifact(
+            artifact_root, "sources/" + source_id + ".bin")
+    result = archive_explicit_joint_forecast(
+        document=document, artifact_bytes=artifact_bytes, archive_root=args.archive_root)
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except JointForecastSourceAdapterError as exc:
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(2)
