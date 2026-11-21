@@ -508,7 +508,7 @@ def build_historical_covar_recommendation_overlay(
         "limitations": [
             "Expected points come from the conventional M3 forecast; covariance comes from historical realized points.",
             "Historical dependence is a proxy, not a calibrated forward joint distribution.",
-            "The rolling correlation stability diagnostic is reported verbatim as a caution; it is not a formal stationarity test or a forecast validation."
+            "The rolling correlation stability diagnostic is reported verbatim as a caution; it is not a formal stationarity test or a forecast validation.",
             "Only transfers that change the starting XI are scored; bench-only upgrades are explicitly excluded.",
             "The overlay preserves the current captain and uses the vice-captain only if the captain is transferred out; bench autosubs and chip effects are not simulated.",
             "The field's joint portfolio covariance is unavailable; marginal EO is not used to reconstruct it.",
