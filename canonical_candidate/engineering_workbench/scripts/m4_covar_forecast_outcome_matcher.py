@@ -8,7 +8,14 @@ missing player-Gameweek observations.
 from __future__ import annotations
 
 from datetime import datetime
+import argparse
+import csv
+import hashlib
+import json
 import math
+import os
+import stat
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 
@@ -193,3 +200,81 @@ def match_forecast_to_realized_outcomes(
         "decision_weight": 0.0,
         "production_eligible": False,
     }
+
+
+def build_match_archive(
+    forecast_path: Path, realized_gameweek_path: Path, realized_fixture_path: Path,
+    finality_report_path: Path, output_dir: Path,
+) -> dict[str, Any]:
+    """Build a private, immutable-once-written matched forecast/outcome archive."""
+    paths = (forecast_path, realized_gameweek_path, realized_fixture_path, finality_report_path)
+    if any(not path.is_file() for path in paths):
+        raise ForecastOutcomeMatchError("all four input files must exist")
+    if not output_dir.is_absolute():
+        raise ForecastOutcomeMatchError("output_dir must be absolute")
+    target = output_dir.resolve()
+    repository_root = Path(__file__).resolve().parents[3]
+    if target.is_relative_to(repository_root):
+        raise ForecastOutcomeMatchError("matched outcome archive must be outside repository")
+    if target.exists():
+        raise FileExistsError("refusing to overwrite existing matched outcome archive")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.mkdir(mode=stat.S_IRWXU)
+    try:
+        raw = {str(path): path.read_bytes() for path in paths}
+        digests = {str(path): hashlib.sha256(data).hexdigest() for path, data in zip(paths, raw.values())}
+        forecast = json.loads(raw[str(forecast_path)].decode("utf-8"))
+        finality = json.loads(raw[str(finality_report_path)].decode("utf-8"))
+        with realized_gameweek_path.open(newline="", encoding="utf-8-sig") as handle:
+            realized_gw = list(csv.DictReader(handle))
+        with realized_fixture_path.open(newline="", encoding="utf-8-sig") as handle:
+            realized_fixtures = list(csv.DictReader(handle))
+        result = match_forecast_to_realized_outcomes(
+            forecast, realized_gw, realized_fixtures, finality
+        )
+        matched_path = target / "matched_forecast_outcomes.json"
+        matched_path.write_text(json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\\n", encoding="utf-8")
+        manifest = {
+            "schema_version": "1.0.0",
+            "status": "MATCHED_RESEARCH_PANEL_CREATED",
+            "season": result["season"],
+            "gameweek": result["gameweek"],
+            "forecast_snapshot_id": result["forecast_snapshot_id"],
+            "matched_player_count": result["matched_player_count"],
+            "input_sha256": digests,
+            "matched_output_sha256": hashlib.sha256(matched_path.read_bytes()).hexdigest(),
+            "finality_status": result["finality_status"],
+            "missing_observations_zero_filled": 0,
+            "decision_weight": 0.0,
+            "production_eligible": False,
+        }
+        manifest_path = target / "match_manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+        for item in (matched_path, manifest_path):
+            os.chmod(item, stat.S_IRUSR | stat.S_IWUSR)
+        return manifest
+    except Exception:
+        marker_path = target / "MATCH_INCOMPLETE"
+        marker_path.write_text("Matching failed or incomplete; do not use this archive.\\n", encoding="utf-8")
+        os.chmod(marker_path, stat.S_IRUSR | stat.S_IWUSR)
+        raise
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--forecast", type=Path, required=True)
+    parser.add_argument("--realized-gameweek", type=Path, required=True)
+    parser.add_argument("--realized-fixtures", type=Path, required=True)
+    parser.add_argument("--finality-report", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    args = parser.parse_args()
+    result = build_match_archive(
+        args.forecast, args.realized_gameweek, args.realized_fixtures,
+        args.finality_report, args.output_dir,
+    )
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
