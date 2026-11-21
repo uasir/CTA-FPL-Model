@@ -153,3 +153,28 @@ accepts supplied synthetic FPL point totals; it does not derive points from
 events or score portfolios. The resolver and scorer integration remain the
 next engineering step. The contract remains synthetic-only with
 `decision_weight=0` and `production_eligible=false`.
+
+## Full-Gameweek scorer integration
+
+`scripts/m4_covar_full_gameweek_scoring.py` now validates the full-Gameweek
+contract and runs every candidate and field portfolio through the standalone
+lineup resolver for every shared scenario. Tests are in
+`tests/test_m4_covar_full_gameweek_scoring.py`.
+
+The scorer:
+- Uses the same ordered scenario IDs and probabilities for every portfolio.
+- Resolves goalkeeper/outfield autosubs, played status, captain fallback,
+  Triple Captain and Bench Boost before calculating each scenario score.
+- Reports per-scenario resolved XI, substitutions, active captain and score,
+  plus expected points, variance, standard deviation and weighted quantiles.
+- Decomposes portfolio score variance into player-level variance/covariance
+  contributions and checks that the decomposition reconciles to total variance.
+- Compares candidates to explicitly supplied weighted FIELD portfolios using
+  the same scenario, with scenario probability multiplied by explicit field
+  portfolio weight. It does not infer manager-level joint portfolios from EO.
+- Supports an optional explicit baseline portfolio ID; no baseline is inferred.
+
+This is deterministic scoring of supplied synthetic outcomes, not a forecast
+generator or production recommendation. REGULAR_GW remains the default;
+FREE_HIT is accepted only when explicitly declared. Output remains
+`decision_weight=0` and `production_eligible=false`.
