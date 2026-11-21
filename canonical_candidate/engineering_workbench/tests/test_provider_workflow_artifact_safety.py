@@ -50,6 +50,9 @@ def test_personal_m3_workflow_is_private_guarded_and_uses_secret_configuration()
     assert "provisional-field-eo-${{ inputs.field_eo_capture_run_id }}" in workflow
     assert "run-id: ${{ inputs.field_eo_capture_run_id }}" in workflow
     assert "canonical_candidate/engineering_workbench/field-capture" in workflow
+    replay_step = workflow.split("Independently re-execute the frozen decision", 1)[1]
+    assert "--field-eo-csv field-capture/predeadline_field_eo.csv" in replay_step
+    assert "--field-eo-report field-capture/predeadline_field_report.json" in replay_step
 
 
 def test_predeadline_field_eo_workflow_upload_path_matches_capture_output():
