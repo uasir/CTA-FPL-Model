@@ -71,6 +71,8 @@ jobs:
       - name: Build realized player-Gameweek panel
         env:
           RUNNER_TEMP: ${{ runner.temp }}
+          START_EVENT: ${{ inputs.start_event }}
+          END_EVENT: ${{ inputs.end_event }}
         run: |
           python - <<'PY'
           import os
@@ -86,6 +88,26 @@ jobs:
           python canonical_candidate/engineering_workbench/scripts/m4_covar_realized_fpl_dataset.py \
             --input-dir "$INPUT_DIR" \
             --output-dir "$RUNNER_TEMP/realized-panel"
+          python - <<'PY'
+          import csv, os
+          from pathlib import Path
+          root = Path(os.environ["RUNNER_TEMP"])
+          start, end = int(os.environ["START_EVENT"]), int(os.environ["END_EVENT"])
+          source = root / "realized-panel" / "fpl_realized_player_gameweek.csv"
+          target = root / "realized-panel" / "fpl_realized_player_gameweek_selected.csv"
+          with source.open(newline="", encoding="utf-8") as handle:
+              reader = csv.DictReader(handle)
+              fields = reader.fieldnames
+              rows = [row for row in reader if start <= int(row["gameweek"]) <= end]
+          present = {int(row["gameweek"]) for row in rows}
+          expected = set(range(start, end + 1))
+          if present != expected:
+              raise SystemExit(f"requested Gameweeks missing from realized panel: {sorted(expected - present)}")
+          with target.open("w", newline="", encoding="utf-8") as handle:
+              writer = csv.DictWriter(handle, fieldnames=fields)
+              writer.writeheader()
+              writer.writerows(rows)
+          PY
 
       - name: Capture current official final-scoring responses for each requested Gameweek
         env:
@@ -115,7 +137,7 @@ jobs:
           PYTHONPATH: canonical_candidate/engineering_workbench/scripts
         run: |
           python canonical_candidate/engineering_workbench/scripts/m4_covar_realized_fpl_finality_batch.py \
-            --dataset-csv "$RUNNER_TEMP/realized-panel/fpl_realized_player_gameweek.csv" \
+            --dataset-csv "$RUNNER_TEMP/realized-panel/fpl_realized_player_gameweek_selected.csv" \
             --capture-root "$RUNNER_TEMP/finality-captures" \
             --output-dir "$RUNNER_TEMP/finality-audit"
 
