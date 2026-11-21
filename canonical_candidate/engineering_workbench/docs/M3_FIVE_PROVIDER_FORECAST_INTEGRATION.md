@@ -206,3 +206,11 @@ The shared recommendation adapter now fails closed unless coverage declares both
 - Other providers must state their own source-backed identity-resolution method before recommendation routing. Do not mark provider-native IDs or heuristic name matches as verified merely because every row found a match.
 
 This gate is independent of forecast timing, coverage completeness, and M2 forecast-performance validation. Passing it does not promote a provider or make a recommendation release-eligible.
+
+
+## FPLRogue GW12 bounded capture (2026-11-21)
+
+- The one-shot push-triggered capture completed successfully in workflow run 44929866200. It captured 672 CSV rows and 15 headers; the metadata-only artifact records SHA-256 `af1967699b67996d55462cedb4e61d9c3a5c1372e1af5d823afb93d1715f71dc`, target GW12, page release update 2026-11-21 16:59 UTC, model-trained timestamp 2026-11-21 05:00 UTC, capture 17:24 UTC, and official deadline 2026-11-27 18:30 UTC.
+- Headers include `player_id`, `player`, `team`, `position`, `price`, `three_gw_xpts`, `next_gw_xpts`, `floor`, `ceiling`, `expected_minutes`, `start_probability`, `ownership_percent`, `gameweek`, `captured_at`, and `model_version`.
+- This confirms the live CSV schema and pre-deadline release/capture provenance only. The provider's distinct forecast-generation timestamp remains undisclosed, and the meaning of `player_id` has not been verified against official FPL element IDs. Therefore no normalized forecast or verified identity status is created; FPLRogue remains diagnostic-only. The single bounded capture is complete; do not repeat retrieval merely to troubleshoot this blocker.
+- Public artifact: `fplrogue-summary-2026-27-gw12-44929866200` (metadata-only; 90-day retention). Workflow run: https://github.com/uasir/CTA-FPL-Model/actions/runs/44929866200
