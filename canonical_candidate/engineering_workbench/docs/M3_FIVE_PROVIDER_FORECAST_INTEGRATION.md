@@ -152,3 +152,13 @@ The raw capture identifies FPLRogue as `accepted_projections_release` / `provide
 - The web reader cannot retrieve the CSV payload because it is served as `text/csv`; no actual FPLRogue CSV bytes have yet been inspected by this project. The raw capture/schema-inspection tools are implemented, but no live capture or canonical column mapping is claimed.
 - Historical archive discovery is research-source evidence only. It does not start or complete the deferred M2 forecast-performance evaluation.
 - Attribution is required on public FPLRogue research material. Review the source's applicable terms before any redistribution or public artifact use; retain the current restricted/no-public-payload policy until reviewed.
+
+
+## FPLRogue frozen archive intake implementation (2026-11-21)
+
+- Added `capture_fplrogue_frozen_archive_raw(...)` for one explicitly selected dated archive release. It accepts the exact snapshot-page and frozen-CSV URLs; it is not a bulk archive crawler or scheduled downloader.
+- The capture preserves the publisher's archived `Captured` time separately from local page/CSV/bootstrap retrieval times. It permits retrieval after the Gameweek deadline only when the publisher's frozen snapshot page declares a capture time before the official deadline.
+- The function validates archive slug, target Gameweek, player count, CSV headers/row widths, publisher capture time against official FPL deadline, and model-training time against the archive capture time. It hashes and retains the exact page, CSV and official bootstrap bytes.
+- It leaves `generated_at_utc` unset because the page does not explicitly define the archive capture time as the model's generation time. It marks the point-in-time status as publisher-asserted frozen pre-deadline archive, not as an independently verified generation timestamp.
+- Synthetic tests cover post-deadline retrieval of a publisher-frozen pre-deadline release and rejection of a publisher capture that is itself after deadline.
+- CI passed on commit `0d7419e305aaf0984d04a4d89b8ac398f058e23e`: 486 Python tests passed, 3 subtests passed, JavaScript contract tests passed, and all four crosswalk validation steps completed. This verifies code and fixtures only; no real archive CSV has yet been downloaded or inspected.
