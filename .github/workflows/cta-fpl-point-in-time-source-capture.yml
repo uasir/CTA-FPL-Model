@@ -61,6 +61,7 @@ jobs:
               upcoming = [e for e in events if isinstance(e, dict) and e.get("is_next") is True]
               if len(upcoming) == 1:
                   event_id = int(upcoming[0]["id"])
+                  deadline = datetime.fromisoformat(upcoming[0]["deadline_time"].replace("Z", "+00:00"))
               else:
                   now = datetime.now(timezone.utc)
                   future = []
@@ -76,8 +77,6 @@ jobs:
                   if not future:
                       raise SystemExit("could not resolve a future unfinished FPL Gameweek")
                   deadline, event_id = min(future)
-              else:
-                  deadline = datetime.fromisoformat(upcoming[0]["deadline_time"].replace("Z", "+00:00"))
               minutes_to_deadline = (deadline - datetime.now(timezone.utc)).total_seconds() / 60
               should_capture = 0 <= minutes_to_deadline <= 35
               print(f"event_id={event_id}")
