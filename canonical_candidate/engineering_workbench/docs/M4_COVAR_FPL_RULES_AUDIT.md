@@ -80,3 +80,31 @@ it does not write replay files, call external services, or upload data. No real
 manager-level replay file is included in the repository. Synthetic unit tests
 validate the comparison mechanics only; they are not evidence of a successful
 real-world FPL replay.
+
+## Official FPL API replay normalizer
+
+A pure local adapter is implemented in
+`scripts/m4_covar_fpl_api_replay_adapter.py`, with tests in
+`tests/test_m4_covar_fpl_api_replay_adapter.py`. It accepts three caller-
+supplied official API payloads: the manager's event-picks response, the event
+live response, and bootstrap-static player metadata. It makes no network
+requests.
+
+The adapter reconstructs positions 1-15, starting XI, reserve goalkeeper,
+outfield bench order, player positions, captain and vice-captain. It maps
+bootstrap `element_type` values to FPL positions and derives Gameweek played
+status from live minutes and yellow/red-card statistics. It retains official
+final pick multipliers and per-player total points for comparison by the
+existing replay validator.
+
+The output deliberately excludes the picks response's manager entry identity,
+manager name, rank and other unrelated fields. It validates complete 15-player
+coverage, unique ordered positions, legal formation, goalkeeper slots,
+captaincy, chips, and the presence of each selected player's live and bootstrap
+records. Free Hit mode is inferred only from the explicit official
+`active_chip=freehit` value; otherwise regular Gameweek mode is the default.
+
+The adapter is a deterministic transformation, not an API fetcher. Actual
+payload acquisition, private local replay execution, and a real completed-
+Gameweek replay batch remain pending. No real manager data is stored in this
+repository or sent to CI.
