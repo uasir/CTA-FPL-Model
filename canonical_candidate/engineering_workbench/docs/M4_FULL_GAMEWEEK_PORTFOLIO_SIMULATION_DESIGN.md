@@ -623,7 +623,10 @@ configuration and serialized forecast payload files. The packager:
 
 1. Rejects incomplete capture manifests and historical-reconstruction claims.
 2. Requires every captured source's conservative availability and retrieval
-   timestamps to be no later than the forecast's as-of timestamp.
+   timestamps to be no later than the forecast generation timestamp (and
+   therefore no later than its as-of timestamp). It also requires the
+   availability timestamp to equal the observed retrieval upper bound; a
+   caller cannot backdate availability independently.
 3. Rehashes the original captured source bytes and each supplied model,
    configuration and forecast-payload file against the forecast's declared
    SHA-256 values.
