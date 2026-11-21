@@ -10,7 +10,7 @@ def make_inputs():
             (1, 5, "GKP"), (2, 4, "DEF"), (3, 5, "DEF"), (4, 6, "DEF"),
             (5, 7, "DEF"), (6, 4, "MID"), (7, 5, "MID"), (8, 6, "MID"),
             (9, 7, "MID"), (10, 8, "MID"), (11, 9, "FWD"), (12, 6, "FWD"),
-            (13, 5, "FWD"), (14, 4, "GKP"), (15, 3, "DEF"), (16, 8, "MID"),
+            (13, 5, "FWD"), (14, 4, "GKP"), (15, 3, "DEF"), (16, 10, "MID"), (17, 8, "DEF"),
         ]
     ]
     recommendation = {
@@ -24,11 +24,11 @@ def make_inputs():
         "transfer_recommendation": {
             "alternatives": [
                 {"transfer_out_id": 10, "transfer_in_id": 16},
-                {"transfer_out_id": 15, "transfer_in_id": 16},
+                {"transfer_out_id": 15, "transfer_in_id": 17},
             ]
         },
     }
-    ids = list(range(1, 17))
+    ids = list(range(1, 18))
     pairs = []
     for i, left in enumerate(ids):
         for right in ids[i:]:
