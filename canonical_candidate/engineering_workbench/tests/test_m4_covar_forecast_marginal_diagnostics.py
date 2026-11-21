@@ -30,8 +30,24 @@ def panel():
     }
 
 
+def manifest_for(data):
+    raw = json.dumps(data, indent=2, sort_keys=True, allow_nan=False).encode("utf-8") + bytes([10])
+    return {
+        "status": "MULTI_GAMEWEEK_PANEL_CREATED",
+        "season": data["season"],
+        "gameweeks": data["gameweeks"],
+        "gameweek_count": len(data["gameweeks"]),
+        "matched_player_gameweek_rows": len(data["matched_rows"]),
+        "panel_sha256": hashlib.sha256(raw).hexdigest(),
+        "cluster_unit": "GAMEWEEK",
+        "decision_weight": 0.0,
+        "production_eligible": False,
+    }
+
+
 def test_reports_marginal_metrics_and_gameweek_cluster_intervals():
-    result = evaluate_matched_forecast_panel(panel(), manifest_for(panel()), resamples=100, seed=7)
+    data = panel()
+    result = evaluate_matched_forecast_panel(data, manifest_for(data), resamples=100, seed=7)
     assert result["status"] == "MARGINAL_FORECAST_DIAGNOSTICS_CREATED"
     assert result["matched_player_gameweek_rows"] == 3
     assert result["overall_pooled_player_gameweek_metrics"]["points_mae"] == pytest.approx(2.0)
@@ -53,29 +69,28 @@ def test_rejects_duplicate_player_gameweek():
     data = panel()
     data["matched_rows"].append(dict(data["matched_rows"][0]))
     with pytest.raises(ForecastDiagnosticsError, match="unique"):
-        evaluate_matched_forecast_panel(data, resamples=100)
+        evaluate_matched_forecast_panel(data, manifest_for(data), resamples=100)
 
 
 def test_rejects_missing_finality():
     data = panel()
     data["matched_rows"][0]["finality_status"] = "NOT_VERIFIED"
     with pytest.raises(ForecastDiagnosticsError, match="finality"):
-        evaluate_matched_forecast_panel(data, resamples=100)
+        evaluate_matched_forecast_panel(data, manifest_for(data), resamples=100)
 
 
 def test_rejects_production_eligible_panel():
     data = panel()
     data["production_eligible"] = True
     with pytest.raises(ForecastDiagnosticsError, match="research-only"):
-        evaluate_matched_forecast_panel(data, resamples=100)
+        evaluate_matched_forecast_panel(data, manifest_for(data), resamples=100)
 
 
 def test_rejects_nan_and_unmatched_declared_gameweek():
     data = panel()
     data["matched_rows"][0]["expected_points"] = float("nan")
     with pytest.raises(ForecastDiagnosticsError, match="finite"):
-        evaluate_matched_forecast_panel(data, resamples=100)
-
+        evaluate_matched_forecast_panel(data, manifest_for(data), resamples=100)
 
 
 def test_rejects_tampered_panel_manifest_hash():
