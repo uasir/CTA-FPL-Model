@@ -33,6 +33,7 @@ def run_predeadline_m3_decision(
     *,
     software_commit: str,
     predeadline_field_capture: Mapping[str, str] | None = None,
+    historical_covariance_context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not isinstance(evidence_bundle, Mapping) or len(evidence_bundle) != 1:
         raise PredeadlineDecisionError("evidence bundle must contain exactly one Gameweek manifest")
@@ -112,6 +113,10 @@ def run_predeadline_m3_decision(
             **dict(predeadline_field_capture),
             "season": manifest["season"],
         }
+    if historical_covariance_context is not None:
+        if not isinstance(historical_covariance_context, Mapping):
+            raise PredeadlineDecisionError("historical_covariance_context must be an object")
+        engine_payload["historical_covariance_context"] = dict(historical_covariance_context)
     engine_run = run_external_benchmark_personal_squad(engine_payload)
     engine_recommendation = engine_run["recommendation"]
     transfer = engine_recommendation["transfer_recommendation"]
@@ -276,6 +281,8 @@ def main() -> int:
     parser.add_argument("--field-eo-csv", type=Path)
     parser.add_argument("--field-eo-report", type=Path)
     parser.add_argument("--field-eo-source-url", default="https://fantasy.premierleague.com/api/")
+    parser.add_argument("--covariance-report", type=Path)
+    parser.add_argument("--covariance-pairs", type=Path)
     args = parser.parse_args()
     bundle = json.loads(args.evidence_bundle.read_text(encoding="utf-8"))
     field_capture = None
@@ -287,9 +294,24 @@ def main() -> int:
             "report_path": str(args.field_eo_report),
             "source_url": args.field_eo_source_url,
         }
+    covariance_context = None
+    if args.covariance_report is not None or args.covariance_pairs is not None:
+        if args.covariance_report is None or args.covariance_pairs is None:
+            raise PredeadlineDecisionError("both --covariance-report and --covariance-pairs are required")
+        import csv
+        report = json.loads(args.covariance_report.read_text(encoding="utf-8"))
+        with args.covariance_pairs.open(newline="", encoding="utf-8-sig") as handle:
+            pairs = list(csv.DictReader(handle))
+        try:
+            for row in pairs:
+                row["shrunk_covariance"] = float(row["shrunk_covariance"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise PredeadlineDecisionError("covariance pair CSV has invalid shrunk_covariance values") from exc
+        covariance_context = {"covariance_report": report, "covariance_pairs": pairs}
     result = run_predeadline_m3_decision(
         bundle, software_commit=args.software_commit,
         predeadline_field_capture=field_capture,
+        historical_covariance_context=covariance_context,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n",
