@@ -91,6 +91,7 @@ class TestM4CovarLineupResolver(unittest.TestCase):
         data["captain_id"] = "p10"
         data["vice_captain_id"] = "p11"
         data["player_minutes"]["p2"] = 0
+        data["player_played"]["p2"] = False
         # Bench order starts with DEF, so it is eligible; use MID first instead.
         data["bench_order"] = ["p14", "p5", "p13"]
         result = resolve_fpl_lineup(**data)
