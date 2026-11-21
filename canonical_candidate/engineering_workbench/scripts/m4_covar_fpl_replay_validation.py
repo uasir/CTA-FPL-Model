@@ -203,6 +203,7 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         "event_id": event_id,
         "status": "PASS" if passed else "FAIL",
         "scenario_mode": resolution["mode"],
+        "active_chip": str(lineup.get("active_chip") or "NONE"),
         "official_multiplier_match": not multiplier_mismatches,
         "player_points_match": not point_mismatches,
         "active_captain_match": not active_captain_mismatch,
@@ -227,6 +228,7 @@ def validate_replay_batch(document: Mapping[str, Any]) -> dict[str, Any]:
     passed = sum(row["status"] == "PASS" for row in results)
     by_event: dict[str, dict[str, int]] = {}
     by_mode: dict[str, int] = {}
+    by_chip: dict[str, int] = {}
     for row in results:
         event_key = str(row["event_id"]) if row["event_id"] is not None else "unknown"
         event_summary = by_event.setdefault(
@@ -237,6 +239,8 @@ def validate_replay_batch(document: Mapping[str, Any]) -> dict[str, Any]:
         event_summary["failed_count"] += int(row["status"] == "FAIL")
         mode = str(row["scenario_mode"])
         by_mode[mode] = by_mode.get(mode, 0) + 1
+        chip = str(row["active_chip"])
+        by_chip[chip] = by_chip.get(chip, 0) + 1
     return {
         "schema_version": "1.1.0",
         "status": "PASS" if passed == len(results) else "FAIL",
@@ -247,6 +251,7 @@ def validate_replay_batch(document: Mapping[str, Any]) -> dict[str, Any]:
         "gameweeks": sorted(int(key) for key in by_event if key != "unknown"),
         "by_gameweek": by_event,
         "by_mode": by_mode,
+        "by_chip": by_chip,
         "multiplier_mismatch_replays": sum(not row["official_multiplier_match"] for row in results),
         "player_points_mismatch_replays": sum(not row["player_points_match"] for row in results),
         "captain_mismatch_replays": sum(not row["active_captain_match"] for row in results),
