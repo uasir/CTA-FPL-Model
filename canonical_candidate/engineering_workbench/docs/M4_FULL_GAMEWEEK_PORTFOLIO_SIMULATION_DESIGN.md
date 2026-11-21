@@ -252,3 +252,42 @@ explicit joint fixture references and passes the resulting rows directly to
 the Gameweek aggregator. This verifies the interface between the two modules,
 including a synthetic Double Gameweek example. It does not add any probability
 or outcome-generation assumptions.
+
+
+## Historical joint-probability calibration evaluator
+
+A deterministic evaluation harness is implemented in
+`scripts/m4_covar_joint_probability_calibration.py`, with tests in
+`tests/test_m4_covar_joint_probability_calibration.py`.
+
+Each historical forecast row must include:
+- A unique forecast ID and Gameweek ID.
+- A timezone-aware forecast as-of timestamp strictly before the earliest
+  kickoff in that Gameweek.
+- A training-data cutoff timestamp no later than the forecast as-of time.
+- A complete probability distribution over mutually exclusive joint
+  Gameweek states.
+- A reference probability distribution over exactly the same state catalogue.
+- The subsequently observed joint Gameweek state.
+
+The evaluator reports multiclass Brier scores for the model and reference,
+Brier skill relative to the reference, log loss, zero-probability misses,
+Gameweek-level summaries, and equal-width one-vs-rest reliability bins for
+joint-state probabilities. A zero probability assigned to the realized state
+is not silently clipped: log loss is reported as unavailable for the aggregate
+when any such miss occurs, with the count exposed separately.
+
+The evaluator does not estimate probabilities, construct the joint state
+catalogue, prove reference-model provenance, or establish statistical
+independence between historical observations. Reference forecasts must be
+generated using information available at the relevant forecast time and
+their provenance must be independently audited. Evaluation should use
+chronological, non-overlapping held-out Gameweeks; repeated forecasts for one
+Gameweek are not independent temporal evidence. Report results by Gameweek
+and across multiple seasons/cohorts before interpreting reliability.
+
+This is an offline historical backtest evaluator only. No minimum sample-size
+threshold, confidence interval, calibration acceptance threshold, or
+production gate is asserted yet. Synthetic unit tests verify arithmetic and
+leakage guards, not forecast quality. Outputs remain
+`decision_weight=0` and `production_eligible=false`.
