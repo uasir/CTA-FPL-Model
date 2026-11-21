@@ -78,3 +78,33 @@ def test_fpl_cat_summary_excludes_player_rows_and_bootstrap():
 def test_wildcard_is_rejected_from_public_summary():
     with pytest.raises(SummaryError, match="must never"):
         summarize_capture("FPL Wildcard", {})
+
+
+
+def test_fpl_lucho_summary_exposes_schema_and_provenance_but_not_csv_values():
+    capture = {
+        "capture_id": "lucho-12",
+        "target_gameweek": 12,
+        "timing": {
+            "page_built_at_utc": "2026-11-21T08:00:00Z",
+            "raw_model_last_calculated_at_utc": "2026-11-21T07:45:00Z",
+            "csv_captured_at_utc": "2026-11-21T08:05:00Z",
+            "deadline_utc": "2026-11-22T13:30:00Z",
+            "generation_time_status": "SERVED_CSV_GENERATION_TIME_NOT_SEPARATELY_DISCLOSED",
+        },
+        "source": {"sha256": {"csv": "d" * 64}},
+        "schema_inspection": {
+            "csv_headers": ["player", "xP_GW12", "xMins_GW12"],
+            "csv_row_count": 672,
+            "sample_rows": [{"player": "private player", "xP_GW12": "9.9"}],
+        },
+        "raw_archives": {"csv_base64": "private raw bytes"},
+    }
+    result = summarize_capture("FPL Lucho", capture)
+    assert result["provider_row_count"] == 672
+    assert result["csv_headers"] == ["player", "xP_GW12", "xMins_GW12"]
+    assert result["provider_csv_sha256"] == "d" * 64
+    assert result["generation_time_status"] == "SERVED_CSV_GENERATION_TIME_NOT_SEPARATELY_DISCLOSED"
+    assert "private player" not in str(result)
+    assert "9.9" not in str(result)
+    assert "private raw bytes" not in str(result)
