@@ -143,3 +143,24 @@ def test_sideline_quant_derived_player_gameweek_snapshot_routes_to_recommendatio
     assert result["grain"] == "player_gameweek"
     assert result["canonical_snapshot"]["records"][0]["expected_points"] == pytest.approx(5.5)
     assert result["canonical_snapshot"]["records"][0]["points_variance"] == pytest.approx(3.4 ** 2)
+
+
+def test_fpl_cat_capture_identity_provenance_reaches_recommendation_boundary():
+    from capture_fpl_cat_snapshot import capture_fpl_cat_snapshot, FPL_CAT_URL, FPL_BOOTSTRAP_URL
+    from test_capture_fpl_cat_snapshot import fixture_bytes
+
+    provider_raw, bootstrap_raw = fixture_bytes()
+    responses = {FPL_CAT_URL: provider_raw, FPL_BOOTSTRAP_URL: bootstrap_raw}
+    times = iter(["2026-11-20T09:00:00Z", "2026-11-20T09:01:00Z"])
+    captured = capture_fpl_cat_snapshot(
+        season="2026-27",
+        fetch_bytes=lambda url: responses[url],
+        clock=lambda: next(times),
+    )
+    result = route_provider_forecast(
+        captured["provider_snapshot"],
+        player_metadata=captured["player_metadata"],
+        as_of_utc="2026-11-20T10:00:00Z",
+    )
+    assert result["routing_status"] == "RECOMMENDATION_PAYLOAD_READY"
+    assert result["recommendation_payload"]["player_forecasts"][0]["fpl_element_id"] == 1
