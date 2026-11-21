@@ -282,7 +282,8 @@ def build_m3_predeadline_field_context(recommendation: Mapping[str, Any],
                 "personal_effective_ownership_pct": personal_eo,
                 "field_effective_ownership_pct": field_eo,
                 "effective_ownership_delta_pct_points": (
-                    round(personal_eo - field_eo, 8) if field_eo is not None else None
+                    round(personal_eo - field_eo, 8)
+                if personal_eo is not None and field_eo is not None else None
                 ),
                 "personal_starting_exposure_pct": 100.0 if is_starting else 0.0,
                 "field_starting_pct": field_start,
