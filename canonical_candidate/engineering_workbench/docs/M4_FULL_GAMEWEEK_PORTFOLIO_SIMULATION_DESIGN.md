@@ -609,3 +609,38 @@ model artifact, configuration and forecast payload bytes, bind each source
 snapshot to its forecast ID, and pass the full provenance/archive verifier.
 The capture itself is not a certified historical dataset and remains
 research-only.
+
+
+## Complete forecast archive packager
+
+`scripts/m4_covar_forecast_archive_packager.py` binds a completed source
+capture to one exact forecast run and its model, configuration and forecast
+payload bytes. Tests are in
+`tests/test_m4_covar_forecast_archive_packager.py`.
+
+The caller supplies the forecast metadata plus the exact model artifact,
+configuration and serialized forecast payload files. The packager:
+
+1. Rejects incomplete capture manifests and historical-reconstruction claims.
+2. Requires every captured source's conservative availability and retrieval
+   timestamps to be no later than the forecast's as-of timestamp.
+3. Rehashes the original captured source bytes and each supplied model,
+   configuration and forecast-payload file against the forecast's declared
+   SHA-256 values.
+4. Copies the exact bytes into a new private archive directory outside the
+   repository, with restrictive file permissions.
+5. Builds the per-forecast archive manifest, binds the source snapshots into
+   forecast provenance, and invokes both the provenance metadata validator and
+   complete archive byte verifier before writing a successful package manifest.
+6. Leaves a `PACKAGING_INCOMPLETE` marker and no successful package manifest
+   if any stage fails.
+
+A successful package proves that the archived bytes match the hashes declared
+by the forecast record and that the source capture was observed before the
+forecast as-of time. It does **not** authenticate the forecast creator, prove
+the source provider's original publication time, prove that the archived model
+actually generated the forecast, or certify the archive against later
+tampering. Those require independent acquisition/authentication and custody
+controls. It also cannot make a current capture into historical point-in-time
+evidence. The complete package remains research-only and must still pass
+chronological dataset acceptance and empirical test-split evaluation.
