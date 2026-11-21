@@ -31,7 +31,7 @@ def canonical_snapshot():
             {"fpl_element_id": 1, "expected_points": 5.25},
             {"fpl_element_id": 2, "expected_points": 3.75},
         ],
-        "coverage": {"row_count": 2, "identity_mapped_count": 2},
+        "coverage": {"row_count": 2, "identity_mapped_count": 2, "identity_resolution_status": "VERIFIED"},
     })
 
 
@@ -59,6 +59,31 @@ def test_refuses_record_count_coverage_mismatch():
             snapshot, metadata(), as_of_utc="2026-11-20T10:00:00Z"
         )
 
+
+
+def test_refuses_missing_or_unverified_identity_provenance():
+    snapshot = canonical_snapshot()
+    del snapshot["coverage"]["identity_resolution_status"]
+    with pytest.raises(ForecastAdapterError, match="identity_resolution_status"):
+        build_recommendation_forecast_payload(
+            snapshot, metadata(), as_of_utc="2026-11-20T10:00:00Z"
+        )
+
+    snapshot = canonical_snapshot()
+    snapshot["coverage"]["identity_resolution_status"] = "UNVERIFIED_NAME_CLUB_MATCH"
+    with pytest.raises(ForecastAdapterError, match="identity_resolution_status"):
+        build_recommendation_forecast_payload(
+            snapshot, metadata(), as_of_utc="2026-11-20T10:00:00Z"
+        )
+
+
+def test_refuses_missing_identity_mapping_count():
+    snapshot = canonical_snapshot()
+    del snapshot["coverage"]["identity_mapped_count"]
+    with pytest.raises(ForecastAdapterError, match="identity_mapped_count"):
+        build_recommendation_forecast_payload(
+            snapshot, metadata(), as_of_utc="2026-11-20T10:00:00Z"
+        )
 
 def test_adapts_provider_values_without_recalibration():
     result = build_recommendation_forecast_payload(
