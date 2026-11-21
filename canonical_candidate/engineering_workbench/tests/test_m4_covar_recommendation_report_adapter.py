@@ -24,12 +24,19 @@ def inputs(mode="REGULAR_GW"):
             {"portfolio_id": "field-2", "portfolio_role": "FIELD", "field_weight": 0.4},
         ],
     }
-    def result(variance, diagonal, offdiag, field_delta=None):
+    def result(portfolio_role, variance, diagonal, offdiag, points, field_delta=None):
         row = {
+            "portfolio_role": portfolio_role,
             "variance": variance,
+            "variance_decomposition_total": diagonal + offdiag,
+            "variance_decomposition_matches_total": True,
             "variance_decomposition": [
                 {"player_a": "1", "player_b": "1", "covariance_contribution": diagonal},
                 {"player_a": "1", "player_b": "2", "covariance_contribution": offdiag},
+            ],
+            "scenario_scores": [
+                {"scenario_id": "s1", "points": points[0], "probability": 0.5},
+                {"scenario_id": "s2", "points": points[1], "probability": 0.5},
             ],
         }
         if field_delta is not None:
@@ -40,13 +47,14 @@ def inputs(mode="REGULAR_GW"):
     scoring = {
         "mode": mode,
         "input_validation_status": "VALID_FULL_GAMEWEEK",
+        "shared_scenario_ids": ["s1", "s2"],
         "production_eligible": False,
         "decision_weight": 0,
         "portfolio_results": {
-            "baseline": result(10, 8, 2),
-            "transfer-a": result(12, 8, 4, 1.25),
-            "field-1": result(6, 5, 1),
-            "field-2": result(8, 6, 2),
+            "baseline": result("CANDIDATE", 10, 8, 2, [10, 10]),
+            "transfer-a": result("CANDIDATE", 12, 8, 4, [11.25, 11.25], 1.25),
+            "field-1": result("FIELD", 6, 5, 1, [9, 9]),
+            "field-2": result("FIELD", 8, 6, 2, [11, 11]),
         },
     }
     return document, scoring
