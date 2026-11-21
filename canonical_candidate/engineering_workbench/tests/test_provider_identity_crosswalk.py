@@ -41,6 +41,32 @@ class ProviderCrosswalkTests(unittest.TestCase):
     def test_absent_header_row_is_rejected(self):
         self.assertEqual(MODULE.validate_headers(None, "11footy"), ["CSV header row is missing"])
 
+    def test_duplicate_header_after_whitespace_normalization_is_rejected(self):
+        headers = MODULE.FIELDS + [" season "]
+        errors = MODULE.validate_headers(headers, "wyscout")
+        self.assertTrue(any("duplicate CSV columns after whitespace normalization" in item for item in errors))
+
+    def test_whitespace_padded_header_is_rejected(self):
+        headers = [(" " + field) if field == "season" else field for field in MODULE.FIELDS]
+        errors = MODULE.validate_headers(headers, "wyscout")
+        self.assertTrue(any("leading/trailing whitespace" in item for item in errors))
+
+    def test_extra_csv_cells_block_even_pending_rows(self):
+        malformed = row(verification_status="pending")
+        malformed[None] = ["unexpected-extra-cell"]
+        accepted, report = MODULE.validate_rows([malformed], "wyscout")
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertEqual(report["errors"][0]["error"], "malformed_csv_row_width")
+        self.assertEqual(accepted, [])
+
+    def test_missing_csv_cells_block_even_pending_rows(self):
+        malformed = row(verification_status="pending")
+        malformed["review_notes"] = None
+        accepted, report = MODULE.validate_rows([malformed], "wyscout")
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertEqual(report["errors"][0]["error"], "malformed_csv_row_width")
+        self.assertEqual(accepted, [])
+
     def test_empty_template_is_not_ready(self):
         accepted, report = MODULE.validate_rows([], "wyscout")
         self.assertEqual(report["status"], "EMPTY_NOT_READY")
