@@ -39,7 +39,7 @@ The scenario universe must cover all players in each candidate and field squad, 
 ## Deterministic lineup scoring rules
 
 1. Start with the submitted starting XI and its formation.
-2. A player with zero minutes is unavailable for autosubstitution. A player with positive minutes remains in the XI, even if substituted during the match.
+2. A player who counts as having played is unavailable for autosubstitution. Positive minutes always count as played; a card-only appearance may also count as played even with zero minutes. A player who has played remains in the XI, even if substituted during the match.
 3. If the starting goalkeeper has zero minutes, replace only with the reserve goalkeeper if that goalkeeper has positive minutes.
 4. For outfield absences, process the three outfield substitutes in their submitted bench order. A substitute may enter only if the resulting XI remains a legal FPL formation: at least 3 DEF, 2 MID, and 1 FWD, with one goalkeeper.
 5. The starting captain receives the normal additional captain multiplier only if they play at least one minute. Otherwise the vice-captain receives it only if they play at least one minute. If neither plays, there is no captain bonus.
@@ -99,8 +99,8 @@ marked as played for a card-only appearance, consistent with current FPL guidanc
 
 Resolution behavior:
 
-- The starting goalkeeper is replaced only when they record zero minutes and
-  the reserve goalkeeper records positive minutes.
+- The starting goalkeeper is replaced only when they did not count as having
+  played and the reserve goalkeeper did count as having played.
 - Outfield substitutes are considered in submitted bench order. For each
   playing substitute, the resolver replaces the earliest still-unreplaced
   absent starting outfielder for which the resulting formation meets the
@@ -109,8 +109,8 @@ Resolution behavior:
 - Any starter who counts as having played remains in the XI, including a player
   substituted off during the match or a card-only appearance. Explicit played
   status, not minutes alone, governs autosubs and captain fallback.
-- Captaincy falls back to the vice-captain only when the captain records zero
-  minutes. No bonus is awarded if neither plays. The 3xc chip applies a 3x
+- Captaincy falls back to the vice-captain only when the captain did not count
+  as having played. No bonus is awarded if neither plays. The 3xc chip applies a 3x
   total multiplier; otherwise the active captain receives 2x.
 - The bboost chip scores all 15 players exactly once, while retaining the
   normal captain/vice-captain bonus. Other recognized chips do not alter this
