@@ -119,7 +119,7 @@ def resolve_fpl_lineup(
 
     Outfield substitutes are considered in bench order. Each enters for the
     earliest absent starting outfielder whose replacement preserves the
-    minimum legal formation. A player with any minutes is never subbed off.
+    minimum legal formation. A player who counts as having played is never subbed off.
     """
     if mode not in ALLOWED_MODES:
         raise CovarLineupResolutionError("mode must be REGULAR_GW or explicitly FREE_HIT")
