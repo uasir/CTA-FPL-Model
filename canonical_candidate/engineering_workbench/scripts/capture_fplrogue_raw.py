@@ -172,8 +172,16 @@ def capture_fplrogue_frozen_archive_raw(
     """Capture one frozen archive release; distinguish publisher and retrieval times."""
     if isinstance(gameweek, bool) or not isinstance(gameweek, int) or gameweek < 1:
         raise CaptureError("gameweek must be a positive integer")
-    if not isinstance(snapshot_slug, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}-gw\d+", snapshot_slug):
+    slug_match = re.fullmatch(r"(\d{4}-\d{2}-\d{2})-gw(\d+)", snapshot_slug or "")
+    if not slug_match:
         raise CaptureError("snapshot_slug must identify a dated FPLRogue archive release")
+    slug_date, slug_gw = slug_match.groups()
+    if int(slug_gw) != gameweek:
+        raise CaptureError("snapshot_slug Gameweek does not match requested Gameweek")
+    expected_page_url = f"https://www.fplrogue.com/research/projections/archive/{snapshot_slug}"
+    expected_csv_url = expected_page_url + "/download.csv"
+    if snapshot_page_url != expected_page_url or frozen_csv_url != expected_csv_url:
+        raise CaptureError("archive URLs must exactly match the supplied FPLRogue snapshot slug")
     page_raw, page_type = fetch_bytes(snapshot_page_url)
     page_retrieved = clock()
     csv_raw, csv_type = fetch_bytes(frozen_csv_url)
@@ -205,6 +213,8 @@ def capture_fplrogue_frozen_archive_raw(
         "model training time"), "Model trained")
     if page_gw != gameweek:
         raise CaptureError(f"FPLRogue archive page GW{page_gw} does not match requested GW{gameweek}")
+    if captured.strftime("%Y-%m-%d") != slug_date:
+        raise CaptureError("publisher capture date does not match the dated archive slug")
     events = [event for event in bootstrap["events"] if event.get("id") == gameweek]
     if len(events) != 1 or not isinstance(events[0].get("deadline_time"), str):
         raise CaptureError("official FPL bootstrap has no unique target deadline")
