@@ -31,7 +31,7 @@ def row(fid, gw, day):
     }
 
 def data():
-    return [row("f-tr", "gw1", 1), row("f-va", "gw2", 8), row("f-te", "gw3", 15)]
+    return [row("f-tr", "gw1", 2), row("f-va", "gw2", 9), row("f-te", "gw3", 16)]
 
 def manifest():
     return {"train": ["gw1"], "validation": ["gw2"], "test": ["gw3"]}
@@ -66,9 +66,9 @@ def test_preserves_repeated_forecasts_as_gameweek_cluster():
     repeated = data()
     extra = copy.deepcopy(repeated[0])
     extra["forecast_id"] = "f-tr-2"
-    extra["as_of_utc"] = "2025-08-01T10:30:00Z"
-    extra["provenance"]["generated_at_utc"] = "2025-08-01T10:29:00Z"
-    extra["provenance"]["source_snapshots"][0]["retrieved_at_utc"] = "2025-08-01T09:30:00Z"
+    extra["as_of_utc"] = "2025-08-02T10:30:00Z"
+    extra["provenance"]["generated_at_utc"] = "2025-08-02T10:29:00Z"
+    extra["provenance"]["source_snapshots"][0]["retrieved_at_utc"] = "2025-08-02T09:30:00Z"
     report = validate_joint_forecast_acceptance(repeated + [extra], manifest())
     assert report["temporal_validation"]["split_forecast_row_counts"]["train"] == 2
     assert report["temporal_validation"]["repeated_forecasts_are_independent"] is False
