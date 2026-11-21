@@ -7,6 +7,7 @@ player-outcome dependence or establish CoVar calibration.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import random
@@ -71,11 +72,20 @@ def _percentile(values: list[float], p: float) -> float:
 
 
 def evaluate_matched_forecast_panel(
-    panel: Mapping[str, Any], *, resamples: int = 2000, seed: int = 42
+    panel: Mapping[str, Any], manifest: Mapping[str, Any], *, resamples: int = 2000, seed: int = 42
 ) -> dict[str, Any]:
     """Return pooled and Gameweek-cluster-bootstrap marginal diagnostics."""
     if not isinstance(panel, Mapping) or panel.get("dataset_type") != "MULTI_GAMEWEEK_PROSPECTIVE_CONVENTIONAL_FORECAST_OUTCOME_PANEL":
         raise ForecastDiagnosticsError("unsupported panel dataset type")
+    if not isinstance(manifest, Mapping) or manifest.get("status") != "MULTI_GAMEWEEK_PANEL_CREATED":
+        raise ForecastDiagnosticsError("a valid accumulated panel manifest is required")
+    panel_bytes = json.dumps(panel, indent=2, sort_keys=True, allow_nan=False).encode("utf-8") + b"\\n"
+    if manifest.get("panel_sha256") != hashlib.sha256(panel_bytes).hexdigest():
+        raise ForecastDiagnosticsError("panel bytes do not match the accumulated manifest hash")
+    if manifest.get("season") != panel.get("season") or manifest.get("gameweeks") != panel.get("gameweeks"):
+        raise ForecastDiagnosticsError("panel identity does not match its manifest")
+    if manifest.get("cluster_unit") != "GAMEWEEK" or manifest.get("decision_weight") != 0.0 or manifest.get("production_eligible") is not False:
+        raise ForecastDiagnosticsError("manifest is not research-only Gameweek-clustered evidence")
     if panel.get("decision_weight") != 0.0 or panel.get("production_eligible") is not False:
         raise ForecastDiagnosticsError("panel must remain research-only")
     if panel.get("cluster_unit") != "GAMEWEEK" or panel.get("joint_dependence_inferred_from_marginal_player_rows") is not False:
@@ -89,7 +99,7 @@ def evaluate_matched_forecast_panel(
     declared_gws = panel.get("gameweeks")
     if not isinstance(declared_gws, list) or not declared_gws:
         raise ForecastDiagnosticsError("panel must declare Gameweeks")
-    if len(set(declared_gws)) != len(declared_gws) or any(isinstance(g, bool) or not isinstance(g, int) or g < 1 for g in declared_gws):
+    if any(isinstance(g, bool) or not isinstance(g, int) or g < 1 for g in declared_gws) or len(set(declared_gws)) != len(declared_gws):
         raise ForecastDiagnosticsError("Gameweeks must be unique positive integers")
     raw_rows = panel.get("matched_rows")
     if not isinstance(raw_rows, list) or not raw_rows:
@@ -116,6 +126,10 @@ def evaluate_matched_forecast_panel(
         })
     if set(int(r["gameweek"]) for r in rows) != set(declared_gws):
         raise ForecastDiagnosticsError("every declared Gameweek must contain matched rows")
+    if (manifest.get("gameweek_count") != len(declared_gws)
+            or manifest.get("matched_player_gameweek_rows") != len(rows)
+            or panel.get("matched_player_gameweek_rows") != len(rows)):
+        raise ForecastDiagnosticsError("panel row counts do not match the manifest")
     if any(r["expected_minutes"] < 0 or r["actual_minutes"] < 0 for r in rows):
         raise ForecastDiagnosticsError("minutes values are outside valid bounds")
     grouped: dict[int, list[dict[str, float]]] = {}
@@ -181,12 +195,14 @@ def evaluate_matched_forecast_panel(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--panel", type=Path, required=True)
+    parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--resamples", type=int, default=2000)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
     panel = json.loads(args.panel.read_text(encoding="utf-8"))
-    result = evaluate_matched_forecast_panel(panel, resamples=args.resamples, seed=args.seed)
+    manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+    result = evaluate_matched_forecast_panel(panel, manifest, resamples=args.resamples, seed=args.seed)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
     print(json.dumps({"status": result["status"], "gameweek_count": result["gameweek_count"], "rows": result["matched_player_gameweek_rows"]}))
