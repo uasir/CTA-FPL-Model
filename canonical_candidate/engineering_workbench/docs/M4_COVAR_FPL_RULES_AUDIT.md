@@ -52,7 +52,7 @@ Specific resolver tests cover goalkeeper replacement, reserve goalkeeper absence
 
 ## Remaining acceptance work
 
-1. Add a real-result replay harness that compares resolver output with official FPL final autosub/captain outcomes for selected completed Gameweeks, including Double Gameweeks, card-only appearances and multiple simultaneous no-shows.
+1. Run the private replay harness against actual completed Gameweeks and compare resolver output with official FPL final pick multipliers, including Double Gameweeks, card-only appearances and multiple simultaneous no-shows. The harness is implemented; no real replay batch has yet been supplied or validated.
 2. Independently verify that the event/scenario layer aggregates all fixtures and points at Gameweek level before invoking the resolver.
 3. Keep all real manager-level pick artifacts private and local. Never commit or upload them.
 4. Keep all CoVar outputs research-only with `decision_weight=0` and `production_eligible=false`.
