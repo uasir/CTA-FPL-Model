@@ -65,6 +65,9 @@ def make_forecast(tmp_path):
 
 def test_packages_and_rehashes_sources_model_config_and_forecast_payload(tmp_path):
     capture_manifest, bodies = make_capture(tmp_path)
+    capture_doc = json.loads(capture_manifest.read_text())
+    capture_doc["capture_context"] = {"actions_run_id": "987654", "git_commit_sha": "b" * 40}
+    capture_manifest.write_text(json.dumps(capture_doc))
     forecast, model, config, payload = make_forecast(tmp_path)
     result = package_forecast_archive(
         forecast, capture_manifest, model, config, payload,
@@ -77,6 +80,8 @@ def test_packages_and_rehashes_sources_model_config_and_forecast_payload(tmp_pat
     assert package["provenance_validation"]["authenticity_verified"] is False
     assert package["archive_verification"]["source_bytes_rehashed"] is True
     assert package["forecast"]["provenance"]["source_snapshots"][0]["retrieved_at_utc"] == "2026-11-21T05:00:00Z"
+    assert package["source_capture_context"] == {"actions_run_id": "987654", "git_commit_sha": "b" * 40}
+    assert package["forecast"]["provenance"]["source_capture_context"]["actions_run_id"] == "987654"
     assert package["decision_weight"] == 0
     assert package["production_eligible"] is False
     for row in package["archive_manifest"]:
