@@ -55,7 +55,10 @@ def _fixtures():
             },
             "grain": "player_gameweek",
             "decision_eligible": True,
-            "timing": timing,
+            "timing": {
+                key: timing[key]
+                for key in ("generated_at_utc", "captured_at_utc", "deadline_utc")
+            },
             "source": {"raw_sha256": provider_hash},
             "records": [{"fpl_element_id": 1, "expected_points": 4.2, "expected_minutes": 80}],
         }
@@ -94,4 +97,12 @@ def test_rejects_unmapped_player_metadata():
     raw, parsed, _, _ = _fixtures()
     parsed["player_gameweek_snapshot"]["records"][0]["fpl_element_id"] = 2
     with pytest.raises(ProviderCaptureBuildError, match="missing player IDs"):
+        build_sideline_quant_provider_capture(raw, parsed)
+
+
+
+def test_rejects_raw_and_normalized_generation_time_mismatch():
+    raw, parsed, _, _ = _fixtures()
+    parsed["player_gameweek_snapshot"]["timing"]["generated_at_utc"] = "2026-11-21T16:59:00Z"
+    with pytest.raises(ProviderCaptureBuildError, match="generated_at_utc differ"):
         build_sideline_quant_provider_capture(raw, parsed)
