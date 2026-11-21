@@ -42,7 +42,7 @@ def _manifest():
     bootstrap = {
         "elements": elements,
         "element_types": element_types,
-        "events": [{"id": 12, "deadline_time": "2026-11-21T11:00:00Z"}],
+        "events": [{"id": 12, "deadline_time": "2026-11-27T18:30:00Z"}],
     }
     rows = [
         {"player_id": pid, "fixture_id": 1200 + pid, "gameweek": 12,
@@ -53,7 +53,7 @@ def _manifest():
     provider_raw = _raw({
         "gameweek": 12,
         "generated_at": "2026-11-20T09:00:00Z",
-        "deadline": "2026-11-21T11:00:00Z",
+        "deadline": "2026-11-27T18:30:00Z",
         "schema_version": "test-v1",
         "n_players": len(player_ids),
         "n_rows": len(rows),
@@ -72,7 +72,7 @@ def _manifest():
         "timing": {
             "generated_at_utc": "2026-11-20T09:00:00Z",
             "captured_at_utc": "2026-11-20T10:00:00Z",
-            "deadline_utc": "2026-11-21T11:00:00Z",
+            "deadline_utc": "2026-11-27T18:30:00Z",
             "official_metadata_captured_at_utc": "2026-11-20T10:00:01Z",
         },
         "source": {
