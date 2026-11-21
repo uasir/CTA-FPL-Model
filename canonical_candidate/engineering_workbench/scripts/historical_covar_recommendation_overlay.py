@@ -238,6 +238,12 @@ def build_historical_covar_recommendation_overlay(
             "method": "HISTORICAL_SHRUNK_PLAYER_COVARIANCE",
             "missing_player_ids": sorted(missing, key=lambda value: (not value.isdigit(), value)),
             "historical_window_gameweeks": window,
+        "historical_covariance_source": {
+            "source_url": covariance_report.get("source_url"),
+            "source_sha256": covariance_report.get("source_sha256"),
+            "retrieved_at_utc": covariance_report.get("retrieved_at_utc"),
+            "source_license_and_attribution": covariance_report.get("source_license_and_attribution"),
+        },
             "candidate_metrics": [],
             "excluded_bench_only_alternatives": excluded_bench_only_alternatives,
             "decision_weight": 0.0,
@@ -275,6 +281,13 @@ def build_historical_covar_recommendation_overlay(
         "historical_window_gameweeks": window,
         "historical_window_size": len(window),
         "historical_covariance_shrinkage": shrinkage.get("parameter"),
+        "historical_covariance_source": {
+            "source_url": covariance_report.get("source_url"),
+            "source_sha256": covariance_report.get("source_sha256"),
+            "retrieved_at_utc": covariance_report.get("retrieved_at_utc"),
+            "source_license_and_attribution": covariance_report.get("source_license_and_attribution"),
+        },
+
         "point_in_time_status": covariance_report.get("point_in_time_status", "NOT_VERIFIED"),
         "baseline": baseline,
         "candidate_metrics": metrics,
