@@ -24,11 +24,18 @@ def _historical_context(payload):
             "source_sha256": "a" * 64,
             "retrieved_at_utc": "2026-11-21T17:00:00Z",
             "source_license_and_attribution": "Provider-stated CC BY 4.0",
+            "method": "sample covariance across a complete-case player-gameweek panel",
+            "source_panel": {
+                "target_field": "actual_points only",
+                "provider_forecasts_used": False,
+            },
             "window_gameweeks": [1, 2, 3, 4, 5],
             "window_size": 5,
             "shrinkage": {
                 "type": "diagonal",
                 "parameter": 0.5,
+                "off_diagonal_multiplier": 0.5,
+                "diagonal_unchanged": True,
                 "positive_semidefinite_by_construction": True,
             },
         },
@@ -95,3 +102,30 @@ def test_runner_computes_field_average_covariance_from_provisional_scoring_expos
     assert overlay["baseline"]["relative_variance_vs_field_average"] is not None
     assert all(row["relative_variance_vs_field_average"] is not None
                for row in overlay["candidate_metrics"])
+
+
+
+def test_runner_rejects_historical_covariance_source_that_uses_forecasts():
+    payload = run_input()
+    context = _historical_context(payload)
+    context["covariance_report"]["source_panel"]["provider_forecasts_used"] = True
+    payload["historical_covariance_context"] = context
+    try:
+        run_external_benchmark_personal_squad(payload)
+    except ValueError as exc:
+        assert "realized actual points only" in str(exc)
+    else:
+        raise AssertionError("forecast-contaminated covariance artifact was accepted")
+
+
+def test_runner_rejects_inconsistent_covariance_shrinkage_metadata():
+    payload = run_input()
+    context = _historical_context(payload)
+    context["covariance_report"]["shrinkage"]["off_diagonal_multiplier"] = 1.0
+    payload["historical_covariance_context"] = context
+    try:
+        run_external_benchmark_personal_squad(payload)
+    except ValueError as exc:
+        assert "inconsistent with its parameter" in str(exc)
+    else:
+        raise AssertionError("inconsistent covariance shrinkage metadata was accepted")
