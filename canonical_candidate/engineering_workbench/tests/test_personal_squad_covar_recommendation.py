@@ -161,3 +161,38 @@ def test_end_to_end_full_gameweek_scores_attach_to_canonical_transfer_alternativ
     )
     assert result["transfer_recommendation"] == base["transfer_recommendation"]
     assert result["squad_plan"] == base["squad_plan"]
+
+
+
+def test_historical_covar_proxy_is_attached_without_changing_canonical_recommendation():
+    from personal_squad_covar_recommendation import recommend_personal_squad_with_historical_covar
+
+    payload = request()
+    base = recommend_personal_squad(payload)
+    player_ids = sorted(row["fpl_element_id"] for row in payload["player_forecasts"])
+    pairs = []
+    for index, left in enumerate(player_ids):
+        for right in player_ids[index:]:
+            pairs.append({
+                "player1_id": str(left),
+                "player2_id": str(right),
+                "shrunk_covariance": 4.0 if left == right else 0.1,
+            })
+    report = {
+        "status": "EXPLORATORY_ONLY",
+        "model_trained": False,
+        "point_in_time_status": "NOT_VERIFIED",
+        "window_gameweeks": [1, 2, 3, 4, 5],
+        "shrinkage": {
+            "type": "diagonal",
+            "parameter": 0.5,
+            "positive_semidefinite_by_construction": True,
+        },
+    }
+    integrated = recommend_personal_squad_with_historical_covar(
+        payload, covariance_report=report, covariance_pairs=pairs
+    )
+    assert integrated["historical_covar_overlay"]["status"] == "AVAILABLE_HISTORICAL_COVAR_PROXY"
+    assert integrated["historical_covar_overlay"]["decision_weight"] == 0
+    assert integrated["transfer_recommendation"] == base["transfer_recommendation"]
+    assert integrated["squad_plan"] == base["squad_plan"]
