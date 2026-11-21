@@ -155,12 +155,21 @@ def test_sideline_quant_derived_player_gameweek_snapshot_routes_to_recommendatio
 
     parsed = parse_sideline_quant_capture(make_capture())
     derived = parsed["player_gameweek_snapshot"]
-    result = route_provider_forecast(derived)
+    result = route_provider_forecast(
+        derived,
+        player_metadata=[
+            {"fpl_element_id": 1, "price": 7.0, "position": 3, "team_id": 1},
+            {"fpl_element_id": 2, "price": 5.0, "position": 2, "team_id": 2},
+        ],
+        as_of_utc="2026-11-20T10:00:00Z",
+    )
     assert result["provider_id"] == "sideline_quant"
-    assert result["routing_status"] == "READY_FOR_RECOMMENDATION_ADAPTER"
+    assert result["routing_status"] == "RECOMMENDATION_PAYLOAD_READY"
     assert result["grain"] == "player_gameweek"
     assert result["canonical_snapshot"]["records"][0]["expected_points"] == pytest.approx(5.5)
+    assert result["canonical_snapshot"]["records"][0]["expected_minutes"] == pytest.approx(155.0)
     assert result["canonical_snapshot"]["records"][0]["points_variance"] == pytest.approx(3.4 ** 2)
+    assert result["recommendation_payload"]["player_forecasts"][0]["expected_minutes"] == pytest.approx(155.0)
 
 
 def test_fpl_cat_capture_identity_provenance_reaches_recommendation_boundary():
