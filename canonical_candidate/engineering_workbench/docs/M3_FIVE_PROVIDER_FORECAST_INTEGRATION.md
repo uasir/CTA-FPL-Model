@@ -78,7 +78,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - The page reports an xP model calculation timestamp separately from the page build timestamp. A first-stage raw intake script now captures the page, CSV and official FPL bootstrap, preserving exact CSV bytes, headers and SHA-256 while recording page-build and raw-model calculation timestamps separately.
 - The CSV export URL is verified from the live page's download link, but the actual CSV response remains unavailable to the current web reader (`text/csv`). Exact headers and values must be inspected from a permitted downloaded payload before mapping; no guessed column mapping is present.
 - The served product is explicitly **odds-anchored xP**. Keep it distinct from raw model xP and the separately reported Odds xP series. The raw-model calculation time is not treated as the generation time of the served odds-anchored CSV; `generated_at_utc` remains null and strict point-in-time eligibility is withheld until the served forecast's timestamp semantics are established.
-- Synthetic fixture tests cover timestamp provenance, raw-byte preservation, schema inspection, target Gameweek and deadline rejection. No live Lucho CSV capture or normalization has yet been verified. The capture script is a one-shot intake utility; it does not add a scheduled workflow or publish provider data as a GitHub artifact. Keep resulting payloads in private, access-controlled storage and do not commit them.
+- Synthetic fixture tests cover timestamp provenance, raw-byte preservation, schema inspection, target Gameweek and deadline rejection. No live Lucho CSV capture or normalization has yet been verified. A manual, one-shot workflow now runs the capture in an ephemeral Actions runner and uploads only a sanitized schema/provenance summary; raw CSV and bootstrap bytes are not uploaded or committed. The served CSV remains diagnostic-only until its own generation timestamp semantics are established.
 
 ### FPL Wildcard — source verified
 
@@ -188,3 +188,9 @@ The raw capture identifies FPLRogue as `accepted_projections_release` / `provide
 - Extended `summarize_provider_capture.py` with an FPL Lucho allow-list containing schema headers, row count, SHA-256, page-build/raw-model timestamps, capture/deadline timestamps and the explicit undisclosed served-CSV generation-time status. No player names, row values or raw payload fields are included.
 - Added summary and workflow contract tests. A successful run would verify one live retrieval and exact CSV schema availability only. Because the served CSV generation timestamp is not separately disclosed, the resulting capture remains diagnostic-only for strict pre-deadline decision use; it does not authorize semantic column mapping or provider evaluation.
 - The workflow has not yet been dispatched. A manual run before the target deadline is the single bounded live attempt; if it fails, preserve the diagnostic and do not enter repeated troubleshooting.
+
+
+## FPL Lucho workflow correction (2026-11-21)
+
+- The one-shot manual capture workflow now retains a 90-day metadata-only artifact containing verified schema headers, row count, source hash and separate page/model/capture/deadline timestamps. Raw CSV, page HTML and official bootstrap remain ephemeral runner files and are excluded from artifact upload.
+- This supersedes the earlier statement that Lucho had no workflow/artifact. This is workflow plumbing only; no live run has been dispatched, and no provider forecast values are made public.
