@@ -86,14 +86,14 @@ def parse_fpl_wildcard_csv(csv_text: str, metadata: Mapping[str, Any],
         for item in bootstrap.get("teams", [])
         if isinstance(item, dict) and isinstance(item.get("id"), int)
     }
-    identity: dict[tuple[str, str], list[int]] = {}
+    identity: dict[tuple[str, str], set[int]] = {}
     for item in bootstrap.get("elements", []):
         if not isinstance(item, dict) or not isinstance(item.get("id"), int):
             continue
         team_key = teams.get(item.get("team"))
         if team_key:
-            identity.setdefault((_key(item.get("web_name")), team_key), []).append(item["id"])
-            identity.setdefault((_key(item.get("first_name") + " " + item.get("second_name")), team_key), []).append(item["id"])
+            identity.setdefault((_key(item.get("web_name")), team_key), set()).add(item["id"])
+            identity.setdefault((_key(item.get("first_name") + " " + item.get("second_name")), team_key), set()).add(item["id"])
 
     seen: set[int] = set()
     normalized, native = [], []
@@ -102,10 +102,10 @@ def parse_fpl_wildcard_csv(csv_text: str, metadata: Mapping[str, Any],
             raise FPLWildcardParseError(f"row {index} Gameweek differs from requested Gameweek")
         club_key = _key(row.get("club"))
         player_key = _key(row.get("player"))
-        matches = identity.get((player_key, club_key), [])
+        matches = identity.get((player_key, club_key), set())
         if len(matches) != 1:
             raise FPLWildcardParseError(f"row {index} player+club identity is not uniquely mapped")
-        element_id = matches[0]
+        element_id = next(iter(matches))
         if element_id in seen:
             raise FPLWildcardParseError(f"duplicate player-Gameweek key: {element_id}")
         seen.add(element_id)
