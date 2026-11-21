@@ -118,11 +118,13 @@ official FPL API resources needed by the pure normalizer: one entry's completed
 event picks, the event live payload, and bootstrap-static metadata.
 
 The manager entry ID is requested through a hidden interactive prompt and is
-not printed, persisted, or included in the normalized output. The output must
-be an absolute path outside the repository, is created with owner-only
-permissions, and cannot overwrite an existing file. The script makes no
-GitHub calls and is not invoked by CI. API errors fail closed; no raw API
-payloads are written to disk.
+not printed, persisted, or included in the normalized output. The fetcher checks
+that the official picks response identifies the requested Gameweek and that
+bootstrap-static marks that Gameweek as finished; it rejects missing, duplicated,
+mismatched or unfinished event metadata. The output must be an absolute path
+outside the repository, is created with owner-only permissions, and cannot
+overwrite an existing file. The script makes no GitHub calls and is not invoked
+by CI. API errors fail closed; no raw API payloads are written to disk.
 
 Example local workflow (run from the engineering workbench scripts directory
 or set the corresponding Python path):
