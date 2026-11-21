@@ -23,8 +23,16 @@ class ProviderCrosswalkTests(unittest.TestCase):
         self.assertEqual(MODULE.validate_headers(MODULE.FIELDS, "wyscout"), [])
 
     def test_missing_header_is_a_schema_error_not_an_empty_template(self):
-        errors = MODULE.validate_headers(MODULE.FIELDS[:-1], "wyscout")
+        errors = MODULE.validate_headers(MODULE.REQUIRED[:-1], "wyscout")
         self.assertTrue(any("missing required crosswalk columns" in item for item in errors))
+
+    def test_optional_metadata_columns_may_be_absent(self):
+        headers = MODULE.REQUIRED
+        self.assertEqual(MODULE.validate_headers(headers, "wyscout"), [])
+
+    def test_opta_requires_its_team_code_column(self):
+        headers = [field for field in MODULE.FIELDS if field != "fpl_team_code"]
+        self.assertTrue(any("fpl_team_code" in item for item in MODULE.validate_headers(headers, "opta_pulselive")))
 
     def test_duplicate_header_is_rejected(self):
         errors = MODULE.validate_headers(MODULE.FIELDS + ["season"], "opta_pulselive")
