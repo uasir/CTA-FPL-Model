@@ -42,6 +42,24 @@ def metadata():
     ]
 
 
+def test_refuses_partial_or_inconsistent_identity_mapping_coverage():
+    snapshot = canonical_snapshot()
+    snapshot["coverage"]["identity_mapped_count"] = 1
+    with pytest.raises(ForecastAdapterError, match="identity_mapped_count"):
+        build_recommendation_forecast_payload(
+            snapshot, metadata(), as_of_utc="2026-11-20T10:00:00Z"
+        )
+
+
+def test_refuses_record_count_coverage_mismatch():
+    snapshot = canonical_snapshot()
+    snapshot["coverage"]["row_count"] = 3
+    with pytest.raises(ForecastAdapterError, match="row_count"):
+        build_recommendation_forecast_payload(
+            snapshot, metadata(), as_of_utc="2026-11-20T10:00:00Z"
+        )
+
+
 def test_adapts_provider_values_without_recalibration():
     result = build_recommendation_forecast_payload(
         canonical_snapshot(), metadata(), as_of_utc="2026-11-20T10:00:00Z"
