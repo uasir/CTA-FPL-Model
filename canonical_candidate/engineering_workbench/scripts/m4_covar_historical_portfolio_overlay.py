@@ -101,8 +101,10 @@ def build_historical_covar_recommendation_overlay(
     if covariance_report.get("model_trained") is not False:
         raise HistoricalCoVarOverlayError("this overlay accepts historical covariance, not a trained CoVar model")
     window = covariance_report.get("window_gameweeks")
-    if not isinstance(window, list) or len(window) < 2 or len(set(window)) != len(window):
-        raise HistoricalCoVarOverlayError("covariance report must identify at least two unique historical Gameweeks")
+    if not isinstance(window, list) or len(window) < 5 or len(set(window)) != len(window):
+        raise HistoricalCoVarOverlayError("covariance report must identify at least five unique historical Gameweeks")
+    if covariance_report.get("window_size", len(window)) != len(window):
+        raise HistoricalCoVarOverlayError("covariance report window_size does not match window_gameweeks")
     shrinkage = covariance_report.get("shrinkage")
     if not isinstance(shrinkage, Mapping) or shrinkage.get("type") != "diagonal":
         raise HistoricalCoVarOverlayError("diagonal-shrunk covariance provenance is required")
