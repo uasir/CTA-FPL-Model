@@ -79,7 +79,10 @@ def evaluate_matched_forecast_panel(
         raise ForecastDiagnosticsError("unsupported panel dataset type")
     if not isinstance(manifest, Mapping) or manifest.get("status") != "MULTI_GAMEWEEK_PANEL_CREATED":
         raise ForecastDiagnosticsError("a valid accumulated panel manifest is required")
-    panel_bytes = json.dumps(panel, indent=2, sort_keys=True, allow_nan=False).encode("utf-8") + bytes([10])
+    try:
+        panel_bytes = json.dumps(panel, indent=2, sort_keys=True, allow_nan=False).encode("utf-8") + bytes([10])
+    except (TypeError, ValueError) as exc:
+        raise ForecastDiagnosticsError("panel contains invalid JSON values or non-finite numbers") from exc
     if manifest.get("panel_sha256") != hashlib.sha256(panel_bytes).hexdigest():
         raise ForecastDiagnosticsError("panel bytes do not match the accumulated manifest hash")
     if manifest.get("season") != panel.get("season") or manifest.get("gameweeks") != panel.get("gameweeks"):
