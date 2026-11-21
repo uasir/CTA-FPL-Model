@@ -277,3 +277,18 @@ def test_rejects_starting_xi_not_contained_in_confirmed_squad(monkeypatch):
             TEAM_ID, GAMEWEEK, expected_element_ids=set(range(1, 16)),
             free_transfers=1, starting_xi_ids=set(range(6, 17)),
         )
+
+
+
+def test_captures_official_triple_captain_chip_state(monkeypatch):
+    payload = picks_payload()
+    payload["active_chip"] = "3xc"
+    raw = json.dumps(payload).encode()
+    monkeypatch.setattr(manager_capture, "fetch", lambda url: raw)
+    monkeypatch.setattr(manager_capture, "utc_now", lambda: "2026-11-20T14:50:00Z")
+    result = manager_capture.capture_manager_context(
+        TEAM_ID, GAMEWEEK, expected_element_ids=set(range(1, 16)),
+        free_transfers=1,
+    )
+    assert result["manager_context"]["active_chip"] == "3xc"
+    assert result["manager_context"]["active_chip_status"] == "VERIFIED_FROM_OFFICIAL_PICKS"
