@@ -20,7 +20,7 @@ For both personal-squad products:
 - Conventional forecast inputs are FPL Cat and FPL Sideline Quant only; CTA-informed inputs come from the project's own CTA-FPL model after promotion.
 - Hold versus transfer/roll, transfer-in/out, legal post-transfer squad, starting XI, formation, bench order, captain and vice-captain.
 - Provider xP preserved unchanged and shown in points; source, product/variant, generation/capture timestamps, raw hashes, coverage and limitations remain attached.
-- M4 field-relative exposure may appear as an optional descriptive sidecar only when a valid pre-decision field snapshot exists. It cannot alter M3 expected points, legality, transfer choice or frozen decision.
+- M3 field-relative exposure may appear as an optional descriptive sidecar only when a valid pre-decision field snapshot exists. It cannot alter M3 expected points, legality, transfer choice or frozen decision.
 - Manager preferences remain binding: one strong starting XI, no routine rotation, one starting goalkeeper, reserve goalkeeper retained, and no bench-to-bench transfers that do not improve the starting XI.
 
 This is a benchmark-backed conventional FPL recommendation, not a CTA-trained forecast or a claim that the project's internal player model is validated.
@@ -44,7 +44,7 @@ The initial product may contain two clearly separated sections:
 
 Expected points are points. EO/exposure are percentages or percentage-point differences. They are not combined into one score. Missing EO remains missing; official selected-by ownership is not EO. A provisional pre-deadline sample is not final locked EO or a whole-field census.
 
-If M4 is absent, stale, invalid or unavailable, the conventional M3 result must still be reproducible and unchanged; the field-context section is withheld with a reason.
+If M3 is absent, stale, invalid or unavailable, the conventional M3 result must still be reproducible and unchanged; the field-context section is withheld with a reason.
 
 ## 4. M4 work sequence
 
@@ -66,7 +66,7 @@ Where a genuine pre-decision EO artifact exists, attach M4 descriptively and ver
 Produce a readable provider-specific decision report with HOLD/TRANSFER rationale, alternatives, full squad/lineup/bench/captaincy, budget and transfer consequences, provider identity/variant, source and aggregation provenance, forecast coverage, field-context limitations and explicit non-CTA status. Keep FPL Cat and Sideline Quant reports separate.
 
 ### M4-T6 — Reproducibility, regression and acceptance
-Replay the exact archived inputs; verify deterministic output, Python/JavaScript contract parity, legal squad constraints, optional M4 isolation and fail-closed degraded modes. Conventional delivery validation now explicitly admits only FPL Cat and Sideline Quant, and tests provider-specific identity and rejection of out-of-scope providers. Latest integrated CI at head `6cda20822ca3363186c616efb2e3ae43baafb546` passed: 855 Python tests, 3 subtests, 39 JavaScript tests, zero skipped tests and all four identity crosswalk checks. The Sideline Quant raw-to-replay tests executed in this integrated run. **Exact GW11 replay completed:** Actions run `44937997402` downloaded the original artifact from run `44809552413`, passed the conventional delivery contract and report builder, and uploaded artifact `conventional-m4-replay-source-run-44809552413` (artifact ID `14719429674`) containing acceptance, delivery report and source/output SHA-256 manifest. The report action is `TRANSFER`; optional field context is `NOT_SUPPLIED`; release eligibility remains false.
+Replay the exact archived inputs; verify deterministic output, Python/JavaScript contract parity, legal squad constraints, optional M3 isolation and fail-closed degraded modes. Conventional delivery validation now explicitly admits only FPL Cat and Sideline Quant, and tests provider-specific identity and rejection of out-of-scope providers. Latest integrated CI at head `6cda20822ca3363186c616efb2e3ae43baafb546` passed: 855 Python tests, 3 subtests, 39 JavaScript tests, zero skipped tests and all four identity crosswalk checks. The Sideline Quant raw-to-replay tests executed in this integrated run. **Exact GW11 replay completed:** Actions run `44937997402` downloaded the original artifact from run `44809552413`, passed the conventional delivery contract and report builder, and uploaded artifact `conventional-m4-replay-source-run-44809552413` (artifact ID `14719429674`) containing acceptance, delivery report and source/output SHA-256 manifest. The report action is `TRANSFER`; optional field context is `NOT_SUPPLIED`; release eligibility remains false.
 
 ## 5. Hard release gates
 
@@ -77,7 +77,7 @@ No initial M4 recommendation is release-approved until all of the following hold
 - All 15 player IDs, purchase prices, bank and free transfers are verified against the user-confirmed manager state; no missing values are silently substituted.
 - The returned post-transfer squad contains the incoming player and excludes the outgoing player; the original squad remains separately recorded.
 - The proposed action respects budget, position, team limits, legal formation, bench order, reserve goalkeeper and captaincy constraints.
-- Optional M4 context cannot alter the frozen M3 result.
+- Optional M3 context cannot alter the frozen M3 result.
 - Full CI and exact-input replay pass.
 - M3 post-Gameweek validation remains tracked independently; it is not silently declared complete by M3 or M4.
 
@@ -85,11 +85,11 @@ A CI pass over deterministic fixtures does not prove a live data capture. A live
 
 ## 6. Current known blockers
 
-- M4's pre-deadline field acquisition has not yet produced a verified live artifact. Conventional M4 can proceed without EO; it must not invent or relabel EO.
+- M3's pre-deadline field acquisition has not yet produced a verified live artifact. Conventional M4 can proceed without EO; it must not invent or relabel EO.
 - FPL Cat has a verified GW11 capture and exact delivery replay. Sideline Quant's M3 adapter and M4 provider-selection/capture/replay code paths are implemented. The integrated replay test now executes on the M3-based M4 branch and passes; a live Sideline Quant manager-backed capture and exact decision replay remain outstanding.
 - A verified GW11 FPL Cat capture is archived in Actions run `44809552413` (artifact `predeadline-decision-evidence-manager-421025-gw11`). It was captured at `2026-11-20T20:14:42.975478Z`, before the official `2026-11-21T11:00:00Z` deadline; provider generation/capture and official metadata/manager-state archives are timestamped and hashed. Its deterministic replay passed, and the frozen recommendation explicitly records `squad_plan_state=POST_TRANSFER`, preserving the original plan separately from the recommended post-transfer plan. The capture code commit descends from the post-transfer engine fixes, so the earlier statement that this run predates that correction is superseded. The exact archive has now passed the conventional delivery contract and report builder in replay run `44937997402`. Acceptance summary: `PASS_CONVENTIONAL_M5_DELIVERY_CONTRACT`; manager `421025`; GW11; action `TRANSFER`; formation `4-3-3`; 15-player squad; XI 11; bench 3; captain 411; vice-captain 115; frozen decision SHA-256 `25286ed37076d247a0839190394ec5d8258119bb669362b2aa5c5cba1195d49f`. Report status `PASS_CONVENTIONAL_DELIVERY_WITH_OPTIONAL_FIELD_CONTEXT`; field context `NOT_SUPPLIED`; report SHA-256 `55fb9564b4b647a2a50048b87d03c4222fb7e68d413a28309e46cc80e6fbf561`. The source manifest verifies the exact recommendation, evidence bundle and replay-report hashes. The historical run remains exploratory and does not authorize release.
 - CTA-FPL model validation and promotion are not complete; therefore the CTA-informed personal-squad product and general CTA rankings remain withheld. CoVar utility validation is also incomplete.
-- PR #58 remains draft and unmerged. This M4 branch is stacked on the exact M4 handoff commit; it does not merge or release M4.
+- PR #58 (M3) and PR #74 (M4) remain draft and unmerged. PR #74 is based directly on the current M3 head; neither milestone is merged or released.
 
 ## 7. Non-negotiable architecture rules
 
