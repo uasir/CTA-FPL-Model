@@ -2,6 +2,7 @@
 """Build the common M3 capture envelope from a Sideline Quant artifact."""
 from __future__ import annotations
 import argparse, base64, hashlib, json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 from capture_fpl_cat_snapshot import FPL_BOOTSTRAP_URL
@@ -47,8 +48,19 @@ def build_sideline_quant_provider_capture(raw_capture: Mapping[str, Any], parsed
     if (snapshot.get("season") != raw_capture.get("season")
             or snapshot.get("target_gameweek") != raw_capture.get("target_gameweek")):
         raise ProviderCaptureBuildError("raw and normalized season/Gameweek differ")
+    def canonical_utc(value: Any, field: str) -> str:
+        if not isinstance(value, str) or not value:
+            raise ProviderCaptureBuildError(f"{field} timestamp is missing")
+        try:
+            parsed_time = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ProviderCaptureBuildError(f"{field} timestamp is invalid") from exc
+        if parsed_time.tzinfo is None or parsed_time.utcoffset() is None:
+            raise ProviderCaptureBuildError(f"{field} timestamp must include a timezone")
+        return parsed_time.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
     for field in ("generated_at_utc", "captured_at_utc", "deadline_utc"):
-        if normalized_timing.get(field) != raw_timing.get(field):
+        if canonical_utc(normalized_timing.get(field), field) != canonical_utc(raw_timing.get(field), field):
             raise ProviderCaptureBuildError(f"raw and normalized {field} differ")
     archives = raw_capture.get("raw_archives", {})
     provider_raw, provider_payload = _decode(archives.get("provider_response_base64"), "Sideline Quant provider")
