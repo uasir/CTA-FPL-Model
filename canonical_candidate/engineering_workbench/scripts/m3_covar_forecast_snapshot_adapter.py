@@ -180,7 +180,7 @@ def extract_m3_covar_forecast_bundle(
         raise M3CoVarForecastAdapterError("archived bootstrap-static payload has no elements list")
     raw_events = bootstrap_raw.get("events", [])
     matching_events = [event for event in raw_events if isinstance(event, Mapping) and event.get("id") == gw]
-    if len(matching_events) != 1 or _utc(matching_events[0].get("deadline_time"), "bootstrap target deadline") != deadline:
+    if len(matching_events) != 1 or _utc(matching_events[0].get("deadline_time"), "bootstrap target deadline") != _utc(normalized["timing"]["deadline_utc"], "provider deadline"):
         raise M3CoVarForecastAdapterError("archived bootstrap deadline does not match M3 target Gameweek")
     raw_types = bootstrap_raw.get("element_types", [])
     type_names = {
@@ -195,7 +195,6 @@ def extract_m3_covar_forecast_bundle(
         if isinstance(raw_id, bool) or not isinstance(raw_id, int) or raw_id in raw_by_id:
             raise M3CoVarForecastAdapterError("archived bootstrap contains invalid or duplicate player IDs")
         raw_by_id[raw_id] = raw_row
-    position_names = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
     seen_metadata_ids = set()
     for row in metadata:
         if not isinstance(row, Mapping):
