@@ -64,7 +64,7 @@ ACTIVE_PROVIDER_SPECS: tuple[dict[str, Any], ...] = (
                 "availability": "performance_page_series_export_unverified",
             },
         ],
-        "integration_state": "one_bounded_live_gw12_capture_and_schema_inspected_served_generation_time_and_identity_semantics_unverified",
+        "integration_state": "one_bounded_live_gw12_capture_schema_inspected_no_expected_minutes_served_generation_time_and_identity_semantics_unverified",
         "strict_pit_status": "served_forecast_generation_timestamp_unverified",
         "data_policy": "private_access_controlled_intake_no_public_payloads",
     },
