@@ -234,3 +234,41 @@ A focused follow-up review was completed after the GW12 live captures. The three
 - **FPL Wildcard:** the public schema documents xPts, xMins, a permanent profile URL and model version, but no provider FPL-element ID. The existing name-plus-club join is only a candidate identity match and remains explicitly unverified. The site states that no redistribution licence is granted; any future intake must remain private and comply with the provider's terms. The published projection-update time is retained as update metadata, not silently treated as forecast-generation time. Status: private diagnostic intake only; identity and strict point-in-time provenance unresolved.
 
 **Working decision:** proceed with the two providers that currently satisfy the direct-ID and generation-time requirements (FPL Cat and Sideline Quant). Keep the other three registered as diagnostic/pending providers; do not fabricate mappings, weaken shared validation, or blend provider-specific fields. Reopen an individual blocker only when new provider documentation, a permitted private artifact, or an explicit provider response supplies the missing evidence. This is a bounded-effort stop, not a change to the five-provider architecture or a claim of forecast-performance validation.
+
+
+## Bounded disposition of the remaining three providers — 2026-11-21
+
+A final bounded evidence check was made against the live publisher pages after the GW12 captures. The five-provider architecture is retained, but only FPL Cat and Sideline Quant are currently eligible for the shared conventional recommendation path.
+
+### FPLRogue
+
+- The live research page now explicitly describes the dataset as exposing a capture time and labels the release timestamp as `Updated`. Preserve this as provider-declared release/capture provenance; do not relabel it as model-generation time.
+- The page separately labels `Model trained`; this is training provenance, not proof of when the forecast rows were generated.
+- The live schema has `next_gw_xpts`, `three_gw_xpts`, `expected_minutes`, `start_probability`, and `player_id`. If a future source-backed identity crosswalk is established, the one-GW forecast candidate is `next_gw_xpts`; the three-GW horizon must remain a distinct horizon, not be substituted for the target-GW forecast.
+- The publisher does not document `player_id` as the official FPL element ID. Do not infer its semantics from its name, numeric shape, row count, or apparent overlap with official IDs.
+- Disposition: keep the accepted-release capture and schema inspection; no canonical decision adapter or recommendation handoff until the ID crosswalk is independently verified. Provider release capture time is retained separately from forecast-generation time.
+
+### FPL Lucho
+
+- Rechecked the live glossary: the served forecast is odds-anchored xP, distinct from raw model xP and the separately displayed Odds xP series. Keep the current registry variant `served_odds_anchored_xp`; do not relabel it as raw model xP.
+- The live page's `xP model last calculated` timestamp is not documented as the generation timestamp of the served odds-anchored CSV. Page build, raw-model calculation, CSV retrieval and official metadata retrieval remain separate timestamps.
+- The captured CSV has no expected-minutes field. Do not inject minutes from FPL Cat, Sideline Quant or any other provider. The existing recommendation adapter requires provider-native expected minutes or a separately justified metadata source; no such source is established for this export.
+- The CSV `id` field is not documented as an official FPL element ID. Do not promote it based on its header or numeric overlap.
+- Disposition: keep the bounded raw capture and exact schema record as diagnostic evidence. No shared recommendation handoff until identity, served-forecast timing and the minutes contract are independently resolved. No second live capture is warranted for this blocker.
+
+### FPL Wildcard
+
+- The live data page confirms the documented player-Gameweek schema, including `xpts`, `xmins`, optional probability fields, model version and a separate `Projections updated` timestamp.
+- The CSV endpoint is not readable by the current web text reader because it is served as `text/csv`; the previously implemented parser remains a private local-file intake path. Do not use this reader limitation as a reason to scrape or redistribute the payload.
+- `profile_url` is documented as a permanent player page, but no provider documentation found in this bounded check establishes that it contains or resolves to the official FPL element ID.
+- The existing exact name+club join remains explicitly `UNVERIFIED_NAME_CLUB_MATCH`; it is not accepted by the strict recommendation identity gate. Do not weaken the gate or relabel this heuristic as verified.
+- The provider states that no redistribution licence is granted. Keep all raw rows and provider-specific derived values in private, access-controlled storage; do not place them in public repository files, public CI logs or public workflow artifacts.
+- Disposition: retain the private parser and manual/private intake option. Do not automate repeated retrieval or publish provider rows. No shared recommendation handoff until a source-backed identity crosswalk and a compliant private acquisition route are established.
+
+### M3 operating decision
+
+- Proceed with FPL Cat and Sideline Quant as the two eligible external forecast sources. This is a practical integration fallback, not a provider-quality ranking or permanent exclusion of the other three.
+- Keep FPLRogue, FPL Lucho and FPL Wildcard in the five-provider registry as diagnostic/research candidates with their blockers explicit.
+- Do not blend provider outputs, substitute one provider's minutes into another provider's forecast, or weaken identity/timing requirements to increase the provider count.
+- Do not repeat the bounded live captures solely to obtain the same fields. Revisit a blocked provider only when new provider documentation, a genuine identity crosswalk, a disclosed served-forecast timestamp, or a permitted private data-access route becomes available.
+- Forecast accuracy and recommendation-value evaluation remain deferred until the upcoming Gameweek's official scores are available.
