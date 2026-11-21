@@ -54,8 +54,8 @@ def _fixtures(monkeypatch, *, fallback=False, manager_capture_time="2026-11-20T1
             "snapshot_id": "fplcat-gw12-test",
             "season": "2026-27",
             "target_gameweek": 12,
-            "provider": {"name": "FPL Cat", "product": "published xP",
-                         "variant": "public next-gameweek JSON API", "version": "api/v1"},
+            "provider": {"name": "FPL Cat", "product": "projections",
+                         "variant": "provider_native_xp", "version": "api/v1"},
             "grain": "player_gameweek",
             "records": [
                 {"fpl_element_id": player_id, "expected_points": 2.0,
@@ -67,8 +67,12 @@ def _fixtures(monkeypatch, *, fallback=False, manager_capture_time="2026-11-20T1
                 "generated_at_utc": "2026-11-20T09:00:00Z",
                 "captured_at_utc": "2026-11-20T09:30:00Z",
             },
-            "source": {"raw_sha256": provider_hash},
+            "source": {"url": "https://fplcat.com/api/v1/projections", "raw_sha256": provider_hash},
         },
+        "player_metadata": [
+            {"fpl_element_id": player_id, "price": 5.0, "position": "DEF", "team_id": player_id}
+            for player_id in range(1, 16)
+        ],
         "raw_archives": {
             "provider_response_base64": base64.b64encode(provider_raw).decode(),
             "fpl_bootstrap_response_base64": base64.b64encode(metadata_raw).decode(),
