@@ -31,7 +31,7 @@ def validate_joint_forecast_acceptance(
     certify historical source availability. It never upgrades research output
     to production eligibility. Archive verification is optional; when either
     archive argument is supplied, both are required and every declared source
-    snapshot must be matched to an archived file whose bytes rehash correctly.
+    snapshot, model artifact, config and forecast payload must each be matched to archived bytes.
     """
     try:
         temporal = validate_joint_forecast_dataset(forecasts, split_gameweeks)
@@ -53,13 +53,17 @@ def validate_joint_forecast_acceptance(
 
     return {
         "schema_version": "1.1.0",
-        "acceptance_status": "STRUCTURAL_AND_ARCHIVE_BYTES_VERIFIED" if archive else "STRUCTURAL_DATASET_ACCEPTED",
+        "acceptance_status": "STRUCTURAL_AND_COMPLETE_PROVENANCE_BYTES_VERIFIED" if archive else "STRUCTURAL_DATASET_ACCEPTED",
         "temporal_validation": temporal,
         "provenance_validation": provenance,
         "archive_validation": archive,
-        "acceptance_scope": "STRUCTURAL_METADATA_AND_ARCHIVED_SOURCE_BYTES" if archive else "STRUCTURAL_METADATA_ONLY",
+        "acceptance_scope": "STRUCTURAL_METADATA_AND_COMPLETE_ARCHIVED_PROVENANCE_BYTES" if archive else "STRUCTURAL_METADATA_ONLY",
         "authenticity_verified": False,
         "source_bytes_rehashed": bool(archive),
+        "model_artifact_bytes_verified": bool(archive),
+        "config_bytes_verified": bool(archive),
+        "forecast_payload_bytes_verified": bool(archive),
+        "complete_provenance_chain_verified": bool(archive),
         "historical_dataset_certified": False,
         "decision_weight": 0.0,
         "production_eligible": False,
