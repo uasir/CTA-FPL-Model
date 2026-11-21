@@ -10,13 +10,13 @@ The official FPL `ep_next` snapshot is an exploratory expected-points baseline. 
 
 ## Forecasting approach selected by project owner (2026-11-21)
 
-The project will **not use CTA/CTF-derived features, predictions, or covariance as the CoVar forecast source at this stage**. The forecast foundation is the conventional FPL method already integrated into the recommendation system.
+The current CoVar workstream will use **the conventional forecasting model already integrated into M3** as its player-level expected-points/minutes foundation. It will continue using that M3 model; it will not switch to CTA or introduce a new forecasting model for CoVar.
 
-The CoVar work must consume that conventional forecast foundation and extend its evaluation from player-level expected points to portfolio-level outcomes. It must not introduce a parallel CTA forecasting stack.
+CTA-derived features, predictions, covariance and provider panels are not CoVar forecast inputs at this stage. This decision is specific to the current CoVar workstream and does not remove or suspend CTA research elsewhere in the repository.
 
-Important distinction: conventional player expected-points estimates alone do not define a calibrated joint probability distribution. The research implementation must derive scenario uncertainty and dependence from eligible realized FPL outcomes and validated residual/dependence methods, while preserving the conventional forecast as the expected-points anchor. Until this is implemented and empirically validated, joint scenario probabilities must be treated as supplied research inputs, not as model predictions.
+CoVar extends the M3 forecast from player-level expected points to portfolio-level outcomes. Conventional player expected-points estimates alone do not define a calibrated joint probability distribution. The research implementation must therefore derive scenario uncertainty and dependence from eligible realized FPL outcomes and validated residual/dependence methods, while retaining the M3 conventional forecast as the expected-points anchor. Until this is implemented and empirically validated, joint scenario probabilities must be treated as supplied research inputs, not as model predictions.
 
-The existing downstream composer, Gameweek aggregator, scorer, calibration evaluator, bootstrap and archive tooling remain reusable. Any future data-readiness work should prioritize conventional FPL inputs and realized FPL outcomes. CTA/CTF provider panels are out of scope for this CoVar forecasting path unless the project owner explicitly reopens that decision.
+The existing downstream composer, Gameweek aggregator, scorer, calibration evaluator, bootstrap and archive tooling remain reusable. Data-readiness work for this path should prioritize the M3 conventional forecast inputs/snapshots and realized FPL outcomes.
 
 ## Required producer boundary
 
