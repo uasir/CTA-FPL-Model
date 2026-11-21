@@ -1,0 +1,49 @@
+name: Inspect and capture FPL Lucho forecast schema
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: FPL season label
+        required: true
+        default: "2026-27"
+      gameweek:
+        description: Target Gameweek; capture must complete strictly before its official deadline
+        required: true
+        default: "12"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fpl-lucho-one-shot-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out selected M3 branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Capture exact page, CSV and official metadata in runner workspace
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/capture_fpl_lucho_raw.py \
+            --season "${{ inputs.season }}" \
+            --gameweek "${{ inputs.gameweek }}" \
+            --output "artifacts/fpl_lucho/fpl-lucho-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json"
+      - name: Emit sanitized schema and provenance summary only
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/summarize_provider_capture.py \
+            --provider "FPL Lucho" \
+            --input "artifacts/fpl_lucho/fpl-lucho-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json" \
+            --output "artifacts/provider-summary/fpl-lucho.json"
+          cat artifacts/provider-summary/fpl-lucho.json
