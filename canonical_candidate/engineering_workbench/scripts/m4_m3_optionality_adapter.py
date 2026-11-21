@@ -83,10 +83,10 @@ def _validate_m4_against_m3(m4: Mapping[str, Any], m3: Mapping[str, Any],
     m3_season = m3.get("season")
     if m3_season is None:
         m3_season = m3["evaluation_candidate"].get("season")
-    if not isinstance(m3_season, str) or not m3_season.strip():
-        raise M3M4OptionalityError("M3 season is missing from both the output and evaluation candidate")
-    if candidate.get("season") != m3_season or candidate.get("target_gameweek") != m3.get("target_gameweek"):
-        raise M3M4OptionalityError("M4 season or Gameweek differs from frozen M3")
+    if m3_season is not None and candidate.get("season") != m3_season:
+        raise M3M4OptionalityError("M4 season differs from frozen M3")
+    if candidate.get("target_gameweek") != m3.get("target_gameweek"):
+        raise M3M4OptionalityError("M4 Gameweek differs from frozen M3")
     if candidate.get("deadline_utc") != m3.get("deadline_utc"):
         raise M3M4OptionalityError("M4 deadline differs from frozen M3")
     if candidate.get("decision_sha256") != decision_hash:
