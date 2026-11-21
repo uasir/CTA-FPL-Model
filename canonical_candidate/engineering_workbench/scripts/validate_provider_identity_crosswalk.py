@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse, csv, json, re, unicodedata
 from collections import Counter, defaultdict
+from typing import Mapping
 from pathlib import Path
 
 FIELDS = [
