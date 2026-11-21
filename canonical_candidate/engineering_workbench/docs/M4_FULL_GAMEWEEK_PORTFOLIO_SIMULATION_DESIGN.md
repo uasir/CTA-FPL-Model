@@ -516,3 +516,35 @@ acquisition records, trusted timestamping/signatures and real historical
 point-in-time evidence remain outstanding. No archive contents are committed
 or uploaded to public CI. All outputs remain
 `decision_weight=0` and `production_eligible=false`.
+
+
+## Expanding-window historical-frequency reference benchmark
+
+A reference-forecast builder is implemented in
+`scripts/m4_covar_historical_frequency_benchmark.py`, with tests in
+`tests/test_m4_covar_historical_frequency_benchmark.py`.
+
+For each model forecast, it constructs a smoothed categorical joint-state
+frequency distribution from one realized outcome per previously completed
+Gameweek. The state catalogue is fixed and explicit; Laplace smoothing is
+configurable (default alpha = 1). The builder emits the exact eligible
+Gameweek IDs and per-state counts for auditability. Its output can be passed
+directly to `evaluate_joint_probability_calibration` as the
+`reference_probabilities` input.
+
+The leakage rule is deliberately stricter than kickoff ordering: each
+historical outcome must carry both its first kickoff and
+`outcome_available_at_utc`, representing when the complete Gameweek result
+became available to the forecasting process. An outcome is eligible only if
+that availability timestamp is strictly earlier than the forecast's declared
+training cutoff. Thus, a Gameweek whose matches have started or even finished
+but whose complete result was not yet available cannot leak into the
+benchmark. Repeated forecast snapshots do not duplicate outcome observations;
+historical outcomes are unique by Gameweek.
+
+This is an auditable baseline-construction component, not a calibrated model.
+It does not infer missing state categories, choose the state catalogue,
+reconstruct point-in-time outcome availability, or authenticate source
+timestamps. Those fields require independently sourced historical records and
+the existing provenance/archive acceptance chain. The benchmark remains
+research-only with `decision_weight=0` and `production_eligible=false`.
