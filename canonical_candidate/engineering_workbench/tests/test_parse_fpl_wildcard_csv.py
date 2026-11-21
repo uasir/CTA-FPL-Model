@@ -43,6 +43,7 @@ def test_parses_documented_schema_and_maps_exact_player_club_identity():
     assert snap["records"][0]["expected_points"] == 6.4
     assert result["provider_native_rows"][0]["start_pct"] == "78"
     assert snap["timing"]["generated_at_utc"] is None
+    assert snap["coverage"]["identity_resolution_status"] == "UNVERIFIED_NAME_CLUB_MATCH"
     assert snap["decision_eligible"] is False
     assert result["source_metadata"]["storage_policy"] == "PRIVATE_RESTRICTED_NO_REDISTRIBUTION"
 
