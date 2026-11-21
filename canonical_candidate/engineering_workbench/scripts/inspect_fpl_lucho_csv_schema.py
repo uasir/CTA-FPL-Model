@@ -77,7 +77,7 @@ def inspect_fpl_lucho_csv_schema(capture: Mapping[str, Any]) -> dict[str, Any]:
     for index, header in enumerate(headers):
         values = [row[index] for row in rows]
         type_counts = Counter(_lexical_type(value) for value in values)
-        tokens = [int(value) for value in re.findall(r"(?i)(?:^|\b)GW\s*0*(\d+)\b", header)]
+        tokens = [int(value) for value in re.findall(r"(?i)(?:^|[^A-Z0-9])GW\s*0*(\d+)\b", header)]
         gameweek_tokens.update(tokens)
         columns.append({
             "index": index,
