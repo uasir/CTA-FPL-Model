@@ -6,6 +6,8 @@ anchor metadata needed by the CoVar research pipeline.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import json
 import math
@@ -126,8 +128,15 @@ def accept_m3_forecast_anchor(
         captured = _utc(source.get("captured_at_utc"), f"{source_type}.captured_at_utc")
         if captured > as_of:
             raise M3ForecastAnchorAcceptanceError(f"{source_type} was captured after forecast as-of")
-        if not isinstance(source.get("raw_payload_base64"), str) or not source["raw_payload_base64"]:
+        encoded = source.get("raw_payload_base64")
+        if not isinstance(encoded, str) or not encoded:
             raise M3ForecastAnchorAcceptanceError(f"{source_type} raw source bytes are missing")
+        try:
+            source_bytes = base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise M3ForecastAnchorAcceptanceError(f"{source_type} raw source bytes are invalid base64") from exc
+        if hashlib.sha256(source_bytes).hexdigest() != source_hash:
+            raise M3ForecastAnchorAcceptanceError(f"{source_type} raw source SHA-256 mismatch")
         match = [row for row in manifest_sources if isinstance(row, Mapping) and row.get("source_type") == source_type]
         if len(match) != 1:
             raise M3ForecastAnchorAcceptanceError(f"archive manifest is missing unique {source_type} provenance")
@@ -156,7 +165,6 @@ def accept_m3_forecast_anchor(
         if minutes is not None:
             _finite_number(minutes, f"player {player_id} expected_minutes", minimum=0)
 
-    # A player xP snapshot is an input anchor only; no joint-state probability is inferred.
     return {
         "schema_version": "1.0.0",
         "acceptance_status": "ACCEPTED_PLAYER_LEVEL_FORECAST_ANCHOR_ONLY",
