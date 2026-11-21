@@ -652,10 +652,13 @@ chronological dataset acceptance and empirical test-split evaluation.
 ## Cloud capture workflow (no local execution required)
 
 `.github/workflows/cta-fpl-point-in-time-source-capture.yml` runs the public
-source capture in GitHub Actions every 15 minutes and supports manual
+source capture in GitHub Actions at :05 and :35 each hour, but only when
+the next event deadline is within 35 minutes; it supports manual
 `workflow_dispatch` with an optional explicit event ID. When no event is
 provided, it resolves the next upcoming FPL event from official
-`bootstrap-static` metadata. It invokes the same tested capture script and
+`bootstrap-static` metadata and skips the run outside that final 35-minute
+window. Supplying an explicit event ID through manual dispatch forces a
+capture regardless of the deadline window. It invokes the same tested capture script and
 uploads only the public source JSON files and capture manifest as a
 90-day-retention Actions artifact.
 
