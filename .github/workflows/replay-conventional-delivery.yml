@@ -1,6 +1,14 @@
 name: Replay conventional delivery from archived evidence
 
 on:
+  push:
+    branches:
+      - feat/m5-conventional-delivery
+    paths:
+      - '.github/workflows/replay-conventional-delivery.yml'
+      - 'canonical_candidate/engineering_workbench/scripts/m4_conventional_delivery_report.py'
+      - 'canonical_candidate/engineering_workbench/scripts/m4_m3_optionality_adapter.py'
+      - 'canonical_candidate/engineering_workbench/scripts/m5_conventional_delivery_contract.py'
   workflow_dispatch:
     inputs:
       source_run_id:
@@ -33,9 +41,9 @@ jobs:
       - name: Download the exact historical evidence artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.artifact_name }}
+          name: ${{ github.event.inputs.artifact_name || 'predeadline-decision-evidence-manager-421025-gw11' }}
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.source_run_id }}
+          run-id: ${{ github.event.inputs.source_run_id || '44809552413' }}
           github-token: ${{ github.token }}
           path: archived-evidence
       - name: Verify expected frozen inputs exist
@@ -58,8 +66,8 @@ jobs:
       - name: Write replay provenance manifest
         working-directory: canonical_candidate/engineering_workbench
         env:
-          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-          SOURCE_ARTIFACT_NAME: ${{ inputs.artifact_name }}
+          SOURCE_RUN_ID: ${{ github.event.inputs.source_run_id || '44809552413' }}
+          SOURCE_ARTIFACT_NAME: ${{ github.event.inputs.artifact_name || 'predeadline-decision-evidence-manager-421025-gw11' }}
           SOURCE_COMMIT: ${{ github.sha }}
         run: |
           python - <<'PY'
@@ -106,7 +114,7 @@ jobs:
       - name: Upload historical M4 replay outputs
         uses: actions/upload-artifact@v4
         with:
-          name: conventional-m4-replay-source-run-${{ inputs.source_run_id }}
+          name: conventional-m4-replay-source-run-${{ github.event.inputs.source_run_id || '44809552413' }}
           path: |
             canonical_candidate/engineering_workbench/m4-conventional-delivery-acceptance.json
             canonical_candidate/engineering_workbench/m4-conventional-delivery-report.json
