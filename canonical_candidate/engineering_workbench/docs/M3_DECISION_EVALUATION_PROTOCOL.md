@@ -1,7 +1,7 @@
 # M3.4 — External Benchmark Decision Evaluation Protocol
 
 **Status:** Protocol specification; no provider or recommendation is promoted by this document.  
-**Scope:** M3 only. M2 continues independently. M4 field-relative/EO intelligence and M5 release remain out of scope.
+**Scope:** M3 decision-engine evaluation only. M2 forecast-performance evaluation and M4 recommendation-product performance evaluation remain deferred until the upcoming Gameweek's official scores. Field-relative/EO/CoVar integration is in M3 scope; release of the three recommendation products is M4.
 
 ## 1. Evaluation objective
 
