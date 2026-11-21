@@ -145,6 +145,15 @@ def capture_predeadline_decision_bundle(
     provider_raw, provider_payload = _decode_json(provider_raw_b64, "provider forecast")
     if provider.get("target_gameweek") != gameweek or provider_payload.get("gameweek") != gameweek:
         raise DecisionCaptureError(f"Provider did not return requested GW{gameweek}")
+    if provider_name == "Sideline Quant":
+        if not isinstance(provider_payload.get("rows"), list):
+            raise DecisionCaptureError("Sideline Quant raw forecast must contain fixture-grain rows")
+        if provider_payload.get("generated_at") != provider.get("timing", {}).get("generated_at_utc"):
+            raise DecisionCaptureError("Sideline Quant raw generation time differs from canonical snapshot")
+        if provider_payload.get("deadline") != provider.get("timing", {}).get("deadline_utc"):
+            raise DecisionCaptureError("Sideline Quant raw deadline differs from canonical snapshot")
+    elif not isinstance(provider_payload.get("players"), list):
+        raise DecisionCaptureError("FPL Cat raw forecast must contain a players array")
     deadline_text = provider.get("timing", {}).get("deadline_utc")
     deadline = _time(deadline_text, "official deadline")
     generated_text = provider.get("timing", {}).get("generated_at_utc")
