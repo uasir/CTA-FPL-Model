@@ -289,6 +289,8 @@ def capture_manager_context(
                 "personal_risk_profile": personal_risk_profile,
                 "formation": formation,
                 "starting_xi": sorted(starting_xi_ids) if starting_xi_ids is not None else None,
+                "active_chip": None,
+                "active_chip_status": "NOT_CAPTURED_PREDEADLINE_FALLBACK",
                 "entry_history": {},
                 "purchase_price_source": purchase_price_source,
             },
@@ -321,6 +323,11 @@ def capture_manager_context(
         missing = sorted(expected_element_ids - seen)
         unexpected = sorted(seen - expected_element_ids)
         raise CaptureError(f"squad identity mismatch; missing={missing}, unexpected={unexpected}")
+    active_chip = payload.get("active_chip")
+    if active_chip is not None and not isinstance(active_chip, str):
+        raise CaptureError("FPL active_chip must be a string or null")
+    active_chip_status = "VERIFIED_FROM_OFFICIAL_PICKS" if "active_chip" in payload else "NOT_CAPTURED"
+
     bank_raw = history.get("bank")
     if isinstance(bank_raw, bool) or not isinstance(bank_raw, int) or bank_raw < 0:
         raise CaptureError("entry_history.bank is missing or invalid")
@@ -346,6 +353,8 @@ def capture_manager_context(
             "personal_risk_profile": personal_risk_profile,
             "formation": formation,
             "starting_xi": sorted(starting_xi_ids) if starting_xi_ids is not None else None,
+            "active_chip": active_chip,
+            "active_chip_status": active_chip_status,
             "entry_history": history,
         },
     }
