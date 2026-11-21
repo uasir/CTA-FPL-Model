@@ -30,11 +30,11 @@ jobs:
   capture:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out M3 implementation
+      - name: Check out selected M5 implementation branch
         id: checkout
         uses: actions/checkout@v4
         with:
-          ref: feat/m3-external-benchmark-decision-engine
+          ref: ${{ github.ref }}
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -79,6 +79,12 @@ jobs:
             predeadline-m3-recommendation.json \
             --software-commit "$M3_CODE_SHA" \
             --output predeadline-m3-replay-report.json
+      - name: Validate conventional M5 delivery contract
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          PYTHONPATH=scripts python scripts/m5_conventional_delivery_contract.py \
+            --input predeadline-m3-recommendation.json \
+            --output m5-conventional-delivery-acceptance.json
       - name: Upload immutable pre-deadline decision evidence and recommendation
         uses: actions/upload-artifact@v4
         with:
@@ -87,5 +93,6 @@ jobs:
             canonical_candidate/engineering_workbench/predeadline-decision-evidence.json
             canonical_candidate/engineering_workbench/predeadline-m3-recommendation.json
             canonical_candidate/engineering_workbench/predeadline-m3-replay-report.json
+            canonical_candidate/engineering_workbench/m5-conventional-delivery-acceptance.json
           if-no-files-found: error
           retention-days: 90
