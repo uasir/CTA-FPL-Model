@@ -69,7 +69,7 @@ class TestRealizedFplFinalityBatch(unittest.TestCase):
             self.assertTrue(result["all_event_finality_reconciled"])
             self.assertTrue((output / "finality_batch_report.json").is_file())
 
-    def test_rejects_provisional_fixture_before_scoring_audit(self):
+    def test_accepts_finished_provisional_fixture_when_event_live_reconciles(self):
         with tempfile.TemporaryDirectory() as temp:
             dataset, captures, output = self._fixture(Path(temp))
             fixture_path = captures / "event_1" / "fixtures.json"
@@ -81,8 +81,14 @@ class TestRealizedFplFinalityBatch(unittest.TestCase):
             manifest = json.loads(manifest_path.read_text())
             next(x for x in manifest["source_snapshots"] if x["source_id"] == "fixtures")["content_sha256"] = hashlib.sha256(raw).hexdigest()
             manifest_path.write_text(json.dumps(manifest))
-            with self.assertRaisesRegex(FinalityBatchError, "non-provisional"):
-                run_finality_batch(dataset, captures, output)
+            result = run_finality_batch(dataset, captures, output)
+            self.assertEqual(result["status"], "PASS_ALL_EVENTS")
+            event_report = result["reports"][0]
+            self.assertEqual(event_report["fixtures_marked_finished_provisional_at_capture"], 1)
+            self.assertEqual(
+                event_report["fixture_finality_interpretation"],
+                "OFFICIAL_EVENT_LIVE_RECONCILIATION_REQUIRED_AND_PERFORMED",
+            )
 
     def test_rejects_capture_hash_mismatch(self):
         with tempfile.TemporaryDirectory() as temp:
