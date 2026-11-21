@@ -29,3 +29,36 @@ def test_public_provider_workflows_upload_metadata_summaries_only():
 
 def test_wildcard_has_no_public_capture_workflow():
     assert not (ROOT / ".github/workflows/capture-fplwildcard-benchmark.yml").exists()
+
+
+
+def test_personal_m3_workflow_is_private_guarded_and_uses_secret_configuration():
+    path = ROOT / ".github/workflows/capture-predeadline-decision-evidence.yml"
+    workflow = path.read_text(encoding="utf-8")
+    guard = workflow.index("Refuse personal decision capture in a public repository")
+    config = workflow.index("Check required private manager configuration")
+    checkout = workflow.index("Check out M3 implementation")
+    upload = workflow.index("Upload private pre-deadline decision evidence and recommendation")
+    assert guard < config < checkout < upload
+    assert "actions: read" in workflow
+    assert "M3_MANAGER_TEAM_ID" in workflow
+    assert "M3_MANAGER_STATE_JSON" in workflow
+    assert "M3_SEASON" in workflow
+    assert "421025" not in workflow
+    assert "manager_team_id" not in workflow.split("name: predeadline-decision-evidence-", 1)[1].split("\n", 1)[0]
+    assert "name: predeadline-decision-evidence-gw${{ inputs.gameweek }}-run${{ github.run_id }}" in workflow
+    assert "provisional-field-eo-${{ inputs.field_eo_capture_run_id }}" in workflow
+    assert "run-id: ${{ inputs.field_eo_capture_run_id }}" in workflow
+    assert "canonical_candidate/engineering_workbench/field-capture" in workflow
+
+
+def test_predeadline_field_eo_workflow_upload_path_matches_capture_output():
+    workflow_path = ROOT / ".github/workflows/capture-predeadline-field-eo.yml"
+    workflow = workflow_path.read_text(encoding="utf-8")
+    capture_script = (ROOT / "canonical_candidate/engineering_workbench/scripts/capture_predeadline_field_eo.py").read_text(encoding="utf-8")
+    assert "--out-dir ../../run_artifacts/predeadline_field_eo" in workflow
+    assert 'args.out_dir / "predeadline_field_eo.csv"' in capture_script
+    assert 'args.out_dir / "predeadline_field_report.json"' in capture_script
+    assert "run_artifacts/predeadline_field_eo/predeadline_field_eo.csv" in workflow
+    assert "run_artifacts/predeadline_field_eo/predeadline_field_report.json" in workflow
+    assert "name: provisional-field-eo-${{ github.run_id }}" in workflow
