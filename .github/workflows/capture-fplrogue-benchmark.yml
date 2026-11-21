@@ -2,6 +2,9 @@ name: Capture FPLRogue accepted forecast release
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - "canonical_candidate/engineering_workbench/.triggers/fplrogue-gw12-one-shot"
     inputs:
       season:
         description: FPL season label
@@ -34,8 +37,8 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/capture_fplrogue_raw.py \
-            --season "${{ inputs.season }}" \
-            --gameweek "${{ inputs.gameweek }}" \
+            --season "${{ inputs.season || '2026-27' }}" \
+            --gameweek "${{ inputs.gameweek || '12' }}" \
             --output "artifacts/fplrogue/fplrogue-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json"
       - name: Create metadata-only public summary
         working-directory: canonical_candidate/engineering_workbench
