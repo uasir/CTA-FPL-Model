@@ -24,6 +24,10 @@ The canonical conventional EV recommendation remains intact. The overlay adds Co
 
 `decision_weight` remains 0 and `production_eligible` remains false. The user can use the lowest-variance alternative or select from the Pareto frontier as a human decision aid. Any automatic CoVar weighting is a separate explicit decision.
 
+## Build the current matrix without local execution
+
+Open the GitHub Actions workflow **Build current historical CoVar matrix from reconciled FPL outcomes**. Its defaults use the verified GW1–GW10 finality evidence run `44882707622`, artifact `cta-covar-realized-evidence-44882707622-1`, a 10-Gameweek window, and 50% off-diagonal shrinkage. The workflow publishes only the manager-free covariance matrix, player variance summary, and report; it never exports sampled manager portfolios.
+
 ## Integration
 
 Use `recommend_personal_squad_with_historical_covar(...)` from `personal_squad_covar_recommendation.py`, supplying:
