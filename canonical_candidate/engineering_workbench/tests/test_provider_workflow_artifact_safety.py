@@ -82,3 +82,8 @@ def test_official_manager_reconciliation_workflow_is_private_and_uses_new_artifa
     assert "421025" not in workflow
     assert "name: predeadline-decision-evidence-gw${{ inputs.gameweeks }}-run${{ inputs.decision_evidence_run_id }}" in workflow
     assert "name: official-fpl-reconciliation-batch-${{ github.run_id }}" in workflow
+    assert "Validate requested Gameweeks and optional decision-evidence scope" in workflow
+    assert 'TARGET_GAMEWEEKS: ${{ inputs.gameweeks }}' in workflow
+    assert '--gameweeks "$TARGET_GAMEWEEKS"' in workflow
+    assert '--gameweeks "${{ inputs.gameweeks }}"' not in workflow
+    assert 'if [[ "${{ inputs.gameweeks }}"' not in workflow
