@@ -13,11 +13,11 @@ from parse_sideline_quant_snapshot import (
 def make_capture(rows=None):
     rows = rows or [
         {"player_id": 1, "fixture_id": 101, "gameweek": 11, "xP": 2.2,
-         "e_mins": 80, "p_start": 0.9, "sigma": 2.1, "gw_sigma": 3.4},
+         "e_mins": 80, "p_start": 0.9, "sigma": 2.1, "gw_sigma": 3.4, "gw_p10": 1.2, "gw_p90": 8.7},
         {"player_id": 1, "fixture_id": 102, "gameweek": 11, "xP": 3.3,
-         "e_mins": 75, "p_start": 0.85, "sigma": 2.0, "gw_sigma": 3.4},
+         "e_mins": 75, "p_start": 0.85, "sigma": 2.0, "gw_sigma": 3.4, "gw_p10": 1.2, "gw_p90": 8.7},
         {"player_id": 2, "fixture_id": 103, "gameweek": 11, "xP": 4.0,
-         "e_mins": 90, "p_start": 0.99, "sigma": 1.5, "gw_sigma": 1.5},
+         "e_mins": 90, "p_start": 0.99, "sigma": 1.5, "gw_sigma": 1.5, "gw_p10": 2.0, "gw_p90": 6.0},
     ]
     provider = {
         "schema_version": "1.0",
@@ -73,12 +73,33 @@ def test_explicitly_sums_fixture_xp_for_double_gameweek_player():
     assert by_id[2]["expected_points"] == pytest.approx(4.0)
 
 
-def test_does_not_aggregate_start_probabilities_or_sigma_fields():
+def test_maps_publisher_gameweek_distribution_without_summing_it():
     result = parse_sideline_quant_capture(make_capture())
-    derived = result["player_gameweek_sum_xp"][0]
-    assert "p_start" not in derived
-    assert "sigma" not in derived
-    assert "gw_sigma" not in derived
+    by_id = {row["fpl_element_id"]: row for row in result["player_gameweek_sum_xp"]}
+    # gw_sigma is the published SD of the player's total GW points; the
+    # canonical contract stores variance, so square it exactly once.
+    assert by_id[1]["points_variance"] == pytest.approx(3.4 ** 2)
+    assert by_id[1]["q10"] == pytest.approx(1.2)
+    assert by_id[1]["q90"] == pytest.approx(8.7)
+    assert by_id[2]["points_variance"] == pytest.approx(1.5 ** 2)
+    assert "p_start" not in by_id[1]
+    assert "sigma" not in by_id[1]
+    assert "gw_sigma" not in by_id[1]
+    assert result["aggregation_provenance"]["gameweek_distribution_fields"][
+        "consistency_checked_across_fixture_rows"
+    ] is True
+
+
+def test_rejects_inconsistent_gameweek_distribution_across_fixtures():
+    capture = make_capture()
+    provider = json.loads(base64.b64decode(capture["raw_archives"]["provider_response_base64"]))
+    provider["rows"][1]["gw_sigma"] = 9.9
+    raw = json.dumps(provider).encode()
+    capture["raw_archives"]["provider_response_base64"] = base64.b64encode(raw).decode()
+    capture["source"]["raw_sha256"] = hashlib.sha256(raw).hexdigest()
+    capture["source"]["raw_snapshot_id"] = "sha256:" + hashlib.sha256(raw).hexdigest()
+    with pytest.raises(SidelineQuantParseError, match="inconsistent gw_sigma"):
+        parse_sideline_quant_capture(capture)
 
 
 def test_rejects_invalid_fpl_player_identity():
