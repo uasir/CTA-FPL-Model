@@ -32,6 +32,7 @@ from typing import Any, Mapping
 from canonical_provider_forecast_contract import normalize_provider_snapshot
 from canonical_forecast_recommendation_adapter import build_recommendation_forecast_payload
 from personal_squad_engine import recommend_personal_squad
+from squad_decision_context import attach_squad_decision_context
 
 
 class BenchmarkDecisionRunError(ValueError):
@@ -97,6 +98,15 @@ def run_external_benchmark_personal_squad(payload: Mapping[str, Any]) -> dict[st
 
     request = {**forecast_payload, **dict(manager)}
     recommendation = recommend_personal_squad(request)
+    if payload.get("field_relative_context") is not None or payload.get("covar_context") is not None:
+        recommendation = attach_squad_decision_context(
+            recommendation=recommendation,
+            field_relative_context=payload.get("field_relative_context"),
+            covar_context=payload.get("covar_context"),
+            target_gameweek=snapshot["target_gameweek"],
+            as_of_utc=payload["as_of_utc"],
+            deadline_utc=snapshot["timing"]["deadline_utc"],
+        )
     coverage = forecast_payload["forecast_quality"]["data_coverage"]
     return {
         "run_contract_version": "1.0.0",
