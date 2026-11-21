@@ -134,3 +134,8 @@ Routing outcomes are explicit:
 - \`RECOMMENDATION_PAYLOAD_READY\`: the caller explicitly supplied player metadata and an as-of timestamp, and the existing recommendation adapter accepted the snapshot.
 
 The router rejects excluded/research-only providers, unregistered products and unregistered variants. It does not claim that a provider is live-captured, calibrated, validated through M2, or production-approved. Sideline Quant fixture rows must first pass its documented explicit player-Gameweek derivation; provider-native rows remain preserved.
+
+
+## FPLRogue schema inspection and registry alignment
+
+The raw capture identifies FPLRogue as `accepted_projections_release` / `provider_native_xpts`, matching the active registry. The model engine label (for example `xpts_v1`) remains provider version metadata, not a forecast variant. `scripts/inspect_fplrogue_csv_schema.py` reports the exact CSV headers, row widths, sample values and conservative lexical type hints. It deliberately leaves every semantic field mapping unset. A normalized player-Gameweek adapter is blocked until the actual CSV bytes and provider documentation support each mapping; display labels such as xPts/xMins are not sufficient proof of units, timing, identity or statistical semantics.

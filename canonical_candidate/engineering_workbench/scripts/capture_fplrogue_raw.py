@@ -115,8 +115,8 @@ def capture_fplrogue_raw(*, season, gameweek, fetch_bytes=fetch, clock=utc_now):
     token = page_dt.strftime("%Y%m%dT%H%M%S%fZ")
     return {
         "capture_id": f"fplrogue-gw{gameweek}-{token}",
-        "provider": {"name": "FPLRogue", "product": "accepted xPts projection release",
-                     "variant": "xpts_v1 CSV", "version": engine, "attribution": "FPLRogue"},
+        "provider": {"name": "FPLRogue", "product": "accepted_projections_release",
+                     "variant": "provider_native_xpts", "version": engine, "attribution": "FPLRogue"},
         "season": season, "target_gameweek": gameweek,
         "timing": {
             "provider_release_at_utc": updated.isoformat().replace("+00:00", "Z"),

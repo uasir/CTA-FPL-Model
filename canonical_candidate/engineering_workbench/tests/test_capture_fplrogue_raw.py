@@ -44,3 +44,36 @@ def test_rejects_duplicate_headers_and_ragged_rows():
         run(csv_data=b"player_id,player_id\n1,1\n2,2\n")
     with pytest.raises(CaptureError, match="inconsistent row widths"):
         run(csv_data=b"player_id,xPts\n1,8.2\n2,6.7,3\n")
+
+
+
+def test_provider_identity_matches_active_registry():
+    result = run()
+    assert result["provider"]["product"] == "accepted_projections_release"
+    assert result["provider"]["variant"] == "provider_native_xpts"
+
+
+def test_schema_inspector_reports_exact_columns_without_semantic_mapping():
+    from capture_fplrogue_raw import capture_fplrogue_raw
+    from inspect_fplrogue_csv_schema import inspect_fplrogue_csv_schema
+
+    capture = run()
+    inspected = inspect_fplrogue_csv_schema(capture)
+    assert [column["header"] for column in inspected["columns"]] == ["player_id", "xPts", "xMins"]
+    assert inspected["row_count"] == 2
+    assert all(column["semantic_mapping"] is None for column in inspected["columns"])
+    assert inspected["normalization_status"] == "SCHEMA_INSPECTED_MAPPING_NOT_APPROVED"
+
+
+def test_schema_inspector_rejects_ragged_and_duplicate_headers():
+    from inspect_fplrogue_csv_schema import (
+        FPLRogueSchemaInspectionError,
+        inspect_fplrogue_csv_schema,
+    )
+
+    capture = run(csv_data=b"player_id,xPts\n1,8.2,extra\n")
+    with pytest.raises(FPLRogueSchemaInspectionError, match="ragged"):
+        inspect_fplrogue_csv_schema(capture)
+    capture = run(csv_data=b"player_id,player_id\n1,8.2\n2,6.7\n")
+    with pytest.raises(FPLRogueSchemaInspectionError, match="duplicate"):
+        inspect_fplrogue_csv_schema(capture)
