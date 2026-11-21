@@ -1,0 +1,46 @@
+name: Capture FPLRogue accepted forecast release
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: FPL season label
+        required: true
+      gameweek:
+        description: Target Gameweek shown on the provider page
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fplrogue-benchmark-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Capture accepted CSV and source-page provenance
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/capture_fplrogue_raw.py \
+            --season "${{ inputs.season }}" \
+            --gameweek "${{ inputs.gameweek }}" \
+            --output "artifacts/fplrogue/fplrogue-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json"
+      - name: Upload restricted source capture
+        uses: actions/upload-artifact@v4
+        with:
+          name: fplrogue-${{ inputs.season }}-gw${{ inputs.gameweek }}-${{ github.run_id }}
+          path: canonical_candidate/engineering_workbench/artifacts/fplrogue/*.json
+          if-no-files-found: error
+          retention-days: 90
