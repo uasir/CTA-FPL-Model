@@ -2,17 +2,18 @@ name: Capture FPLRogue accepted forecast release
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "canonical_candidate/engineering_workbench/.triggers/fplrogue-gw12-one-shot"
     inputs:
       season:
         description: FPL season label
         required: true
+        default: "2026-27"
       gameweek:
         description: Target Gameweek shown on the provider page
         required: true
-
+        default: "12"
+  push:
+    paths:
+      - "canonical_candidate/engineering_workbench/.triggers/fplrogue-gw12-one-shot"
 permissions:
   contents: read
 
@@ -39,18 +40,18 @@ jobs:
           python scripts/capture_fplrogue_raw.py \
             --season "${{ inputs.season || '2026-27' }}" \
             --gameweek "${{ inputs.gameweek || '12' }}" \
-            --output "artifacts/fplrogue/fplrogue-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json"
+            --output "artifacts/fplrogue/fplrogue-${{ inputs.season || '2026-27' }}-gw${{ inputs.gameweek || '12' }}-raw.json"
       - name: Create metadata-only public summary
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/summarize_provider_capture.py \
             --provider "FPLRogue" \
-            --input "artifacts/fplrogue/fplrogue-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json" \
+            --input "artifacts/fplrogue/fplrogue-${{ inputs.season || '2026-27' }}-gw${{ inputs.gameweek || '12' }}-raw.json" \
             --output "artifacts/provider-summary/fplrogue.json"
       - name: Upload metadata-only capture summary
         uses: actions/upload-artifact@v4
         with:
-          name: fplrogue-summary-${{ inputs.season }}-gw${{ inputs.gameweek }}-${{ github.run_id }}
+          name: fplrogue-summary-${{ inputs.season || '2026-27' }}-gw${{ inputs.gameweek || '12' }}-${{ github.run_id }}
           path: canonical_candidate/engineering_workbench/artifacts/provider-summary/fplrogue.json
           if-no-files-found: error
           retention-days: 90
