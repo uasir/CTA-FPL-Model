@@ -201,6 +201,9 @@ def build_historical_covar_recommendation_overlay(
         raise HistoricalCoVarOverlayError("covariance source panel must use realized actual points only")
     if covariance_report.get("method") != "sample covariance across a complete-case player-gameweek panel":
         raise HistoricalCoVarOverlayError("unsupported historical covariance estimation method")
+    stability_diagnostic = covariance_report.get("rolling_correlation_stability")
+    if stability_diagnostic is not None and not isinstance(stability_diagnostic, Mapping):
+        raise HistoricalCoVarOverlayError("rolling correlation stability diagnostic must be an object")
     window = covariance_report.get("window_gameweeks")
     if not isinstance(window, list) or len(window) < 5 or len(set(window)) != len(window):
         raise HistoricalCoVarOverlayError("covariance report must identify at least five unique historical Gameweeks")
@@ -457,6 +460,7 @@ def build_historical_covar_recommendation_overlay(
         "historical_window_gameweeks": window,
         "historical_window_size": len(window),
         "historical_covariance_shrinkage": shrinkage.get("parameter"),
+        "historical_covariance_stability_diagnostic": stability_diagnostic,
         "historical_covariance_diagnostics": _historical_diagnostics(covariance_report),
         "historical_covariance_source": {
             "source_url": covariance_report.get("source_url"),
@@ -504,6 +508,7 @@ def build_historical_covar_recommendation_overlay(
         "limitations": [
             "Expected points come from the conventional M3 forecast; covariance comes from historical realized points.",
             "Historical dependence is a proxy, not a calibrated forward joint distribution.",
+            "The rolling correlation stability diagnostic is reported verbatim as a caution; it is not a formal stationarity test or a forecast validation."
             "Only transfers that change the starting XI are scored; bench-only upgrades are explicitly excluded.",
             "The overlay preserves the current captain and uses the vice-captain only if the captain is transferred out; bench autosubs and chip effects are not simulated.",
             "The field's joint portfolio covariance is unavailable; marginal EO is not used to reconstruct it.",
