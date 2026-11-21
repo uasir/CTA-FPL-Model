@@ -83,6 +83,9 @@ def package_forecast_archive(
     policy = capture.get("point_in_time_policy")
     if not isinstance(policy, Mapping) or policy.get("historical_reconstruction") is not False:
         raise ForecastArchivePackagingError("capture manifest has an unsupported historical-reconstruction status")
+    capture_context = capture.get("capture_context", {})
+    if not isinstance(capture_context, Mapping):
+        raise ForecastArchivePackagingError("capture_context must be an object when present")
     source_rows = capture.get("source_snapshots")
     if not isinstance(source_rows, list) or not source_rows:
         raise ForecastArchivePackagingError("capture manifest has no source snapshots")
@@ -186,6 +189,7 @@ def package_forecast_archive(
             })
 
         enriched_provenance["source_snapshots"] = normalized_sources
+        enriched_provenance["source_capture_context"] = dict(capture_context)
         enriched["provenance"] = enriched_provenance
         provenance_report = validate_joint_forecast_provenance([enriched])
         archive_report = verify_joint_forecast_archive([enriched], target, archive_rows)
@@ -194,6 +198,7 @@ def package_forecast_archive(
             "packaging_status": "COMPLETE_FORECAST_ARCHIVE_VERIFIED",
             "forecast": enriched,
             "archive_manifest": archive_rows,
+            "source_capture_context": dict(capture_context),
             "provenance_validation": provenance_report,
             "archive_verification": archive_report,
             "archive_directory": str(target),
