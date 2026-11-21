@@ -72,6 +72,8 @@ def test_overlay_uses_conventional_means_and_historical_covariance_without_chang
     assert len(result["candidate_metrics"]) == 2
     assert result["baseline"]["status"] == "COMPUTED_HISTORICAL_PROXY"
     assert result["candidate_metrics"][0]["expected_points_delta_vs_current"] > 0
+    assert all(row["captain_id"] == 11 for row in result["candidate_metrics"])
+    assert result["recommendation_policy"]["priority"] == "STARTING_XI_FIRST"
     assert result["pareto_frontier_transfer_pairs"]
 
 
