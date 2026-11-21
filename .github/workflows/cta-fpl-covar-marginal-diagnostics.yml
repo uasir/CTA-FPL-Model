@@ -47,8 +47,8 @@ jobs:
           name = os.environ["PANEL_ARTIFACT_NAME"].strip()
           if not re.fullmatch(r"[0-9]+", run):
               raise SystemExit("Panel run ID must be numeric.")
-          if not name or "/" in name or chr(92) in name:
-              raise SystemExit("Artifact name must be an exact plain name.")
+          if name != f"cta-covar-multi-gameweek-matched-panel-{run}":
+              raise SystemExit("Artifact name does not match the validated panel run ID.")
           info = json.loads(subprocess.check_output([
               "gh", "run", "view", run, "--repo", os.environ["GH_REPO"],
               "--json", "conclusion,status,workflowName,event",
