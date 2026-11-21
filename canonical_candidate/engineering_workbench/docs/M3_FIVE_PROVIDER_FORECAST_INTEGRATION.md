@@ -139,3 +139,16 @@ The router rejects excluded/research-only providers, unregistered products and u
 ## FPLRogue schema inspection and registry alignment
 
 The raw capture identifies FPLRogue as `accepted_projections_release` / `provider_native_xpts`, matching the active registry. The model engine label (for example `xpts_v1`) remains provider version metadata, not a forecast variant. `scripts/inspect_fplrogue_csv_schema.py` reports the exact CSV headers, row widths, sample values and conservative lexical type hints. It deliberately leaves every semantic field mapping unset. A normalized player-Gameweek adapter is blocked until the actual CSV bytes and provider documentation support each mapping; display labels such as xPts/xMins are not sufficient proof of units, timing, identity or statistical semantics.
+
+
+## FPLRogue public release archive and forecast semantics (2026-11-21)
+
+- The live research page identifies the accepted release as GW11, 672 players, engine `xpts_v1`, with distinct page-update and model-trained timestamps. It exposes a current CSV download and a dated-snapshot archive.
+- The public historical archive currently lists 13 frozen accepted releases across GW3–GW9. Each archive entry exposes a dated snapshot page and CSV link; the publisher describes the archive as append-only and says releases are replaced only to correct capture errors.
+- Treat each dated archive capture as its own point-in-time source object. Preserve its capture timestamp, target GW, engine/version, row count, source URL, raw hash and exact CSV bytes. Do not substitute the current live CSV for a historical snapshot.
+- The live page distinguishes one-Gameweek “Next GW” xPts from a three-Gameweek xPts total. The provider's xPts description says expected points combine expected minutes and position-specific routes to FPL points. xMins and start probability are separate forecast fields.
+- The current xPts v1 floor and ceiling are explicitly described by the publisher as indicative display ranges, not calibrated probability intervals or guaranteed bounds. Do not map them to q10/q90, floor/ceiling distributions or variance.
+- The displayed “Updated” and “Model trained” times remain distinct. Neither is silently promoted to a forecast-generation timestamp. A dated archive's explicit “Captured” time can be recorded as the publisher's snapshot capture time, but the semantic relationship between that time and forecast generation must remain explicit.
+- The web reader cannot retrieve the CSV payload because it is served as `text/csv`; no actual FPLRogue CSV bytes have yet been inspected by this project. The raw capture/schema-inspection tools are implemented, but no live capture or canonical column mapping is claimed.
+- Historical archive discovery is research-source evidence only. It does not start or complete the deferred M2 forecast-performance evaluation.
+- Attribution is required on public FPLRogue research material. Review the source's applicable terms before any redistribution or public artifact use; retain the current restricted/no-public-payload policy until reviewed.
