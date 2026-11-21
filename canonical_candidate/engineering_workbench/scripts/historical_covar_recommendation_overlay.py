@@ -8,6 +8,7 @@ joint outcomes, or production eligibility.
 from __future__ import annotations
 
 import math
+from datetime import datetime
 from typing import Any, Mapping, Sequence
 
 
@@ -157,6 +158,30 @@ def build_historical_covar_recommendation_overlay(
         raise HistoricalCoVarOverlayError("historical covariance artifact must remain research-only")
     if covariance_report.get("model_trained") is not False:
         raise HistoricalCoVarOverlayError("this overlay accepts historical covariance, not a trained CoVar model")
+    source_url = covariance_report.get("source_url")
+    source_hash = covariance_report.get("source_sha256")
+    retrieved_at = covariance_report.get("retrieved_at_utc")
+    attribution = covariance_report.get("source_license_and_attribution")
+    if not isinstance(source_url, str) or not source_url.startswith("https://"):
+        raise HistoricalCoVarOverlayError("historical covariance source must have an HTTPS source URL")
+    if (not isinstance(source_hash, str) or len(source_hash) != 64
+            or any(char not in "0123456789abcdef" for char in source_hash.lower())):
+        raise HistoricalCoVarOverlayError("historical covariance source hash must be a SHA-256")
+    if not isinstance(attribution, str) or not attribution.strip():
+        raise HistoricalCoVarOverlayError("historical covariance source attribution is required")
+    try:
+        retrieved = datetime.fromisoformat(retrieved_at.replace("Z", "+00:00"))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise HistoricalCoVarOverlayError("historical covariance retrieval time must be ISO-8601") from exc
+    if retrieved.tzinfo is None or retrieved.utcoffset() is None:
+        raise HistoricalCoVarOverlayError("historical covariance retrieval time must include a timezone")
+    source_panel = covariance_report.get("source_panel")
+    if (not isinstance(source_panel, Mapping)
+            or source_panel.get("target_field") != "actual_points only"
+            or source_panel.get("provider_forecasts_used") is not False):
+        raise HistoricalCoVarOverlayError("covariance source panel must use realized actual points only")
+    if covariance_report.get("method") != "sample covariance across a complete-case player-gameweek panel":
+        raise HistoricalCoVarOverlayError("unsupported historical covariance estimation method")
     window = covariance_report.get("window_gameweeks")
     if not isinstance(window, list) or len(window) < 5 or len(set(window)) != len(window):
         raise HistoricalCoVarOverlayError("covariance report must identify at least five unique historical Gameweeks")
@@ -167,8 +192,15 @@ def build_historical_covar_recommendation_overlay(
         raise HistoricalCoVarOverlayError("diagonal-shrunk covariance provenance is required")
     if shrinkage.get("positive_semidefinite_by_construction") is not True:
         raise HistoricalCoVarOverlayError("covariance report does not establish positive-semidefinite construction")
+    shrinkage_parameter = _finite(shrinkage.get("parameter"), "shrinkage.parameter")
+    if not 0.0 <= shrinkage_parameter <= 1.0:
+        raise HistoricalCoVarOverlayError("covariance shrinkage parameter must be between zero and one")
+    if shrinkage.get("off_diagonal_multiplier") != round(1.0 - shrinkage_parameter, 8):
+        raise HistoricalCoVarOverlayError("covariance shrinkage multiplier is inconsistent with its parameter")
+    if shrinkage.get("diagonal_unchanged") is not True:
+        raise HistoricalCoVarOverlayError("covariance shrinkage must preserve the diagonal")
 
-    forecasts: dict[int, Mapping[str, Any]] = {}
+    forecasts: dict[int, Mapping[str, Any]] = {};
     for row in forecast_rows:
         if not isinstance(row, Mapping):
             raise HistoricalCoVarOverlayError("forecast rows must be objects")
@@ -192,6 +224,8 @@ def build_historical_covar_recommendation_overlay(
             raise HistoricalCoVarOverlayError(f"duplicate covariance pair {key}")
         seen.add(key)
         value = _finite(row.get("shrunk_covariance"), f"shrunk_covariance.{left}.{right}")
+        if left == right and value < 0:
+            raise HistoricalCoVarOverlayError("covariance diagonal values must be non-negative")
         matrix.setdefault(left, {})[right] = value
         matrix.setdefault(right, {})[left] = value
 
