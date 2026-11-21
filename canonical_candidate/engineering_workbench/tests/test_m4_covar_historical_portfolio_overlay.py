@@ -138,7 +138,7 @@ def test_overlay_rejects_position_mismatched_transfer():
         raise AssertionError("position-mismatched transfer was accepted")
 
 
-def test_bench_transfer_that_cannot_displace_a_stronger_starter_keeps_xi_unchanged():
+def test_bench_only_transfer_that_cannot_improve_starting_xi_is_excluded():
     recommendation, forecasts, report, pairs = make_inputs()
     next(row for row in forecasts if row["fpl_element_id"] == 17)["expected_points"] = 3.0
     result = build_historical_covar_recommendation_overlay(
@@ -148,7 +148,17 @@ def test_bench_transfer_that_cannot_displace_a_stronger_starter_keeps_xi_unchang
         covariance_pairs=pairs,
     )
     baseline_xi = recommendation["current_squad_plan"]["starting_xi"]
-    bench_candidate = next(row for row in result["candidate_metrics"] if row["transfer_out_id"] == 15)
-    assert bench_candidate["starting_xi_ids"] == baseline_xi
-    assert bench_candidate["expected_points_delta_vs_current"] == 0.0
-    assert bench_candidate["variance_delta_vs_current"] == 0.0
+    assert all(row["transfer_out_id"] != 15 for row in result["candidate_metrics"])
+    assert result["excluded_bench_only_alternatives"] == [{
+        "transfer_out_id": 15,
+        "transfer_in_id": 17,
+        "reason": "NO_STARTING_XI_IMPROVEMENT",
+    }]
+    assert result["recommendation_policy"] == {
+        "priority": "STARTING_XI_FIRST",
+        "bench_role": "BUDGET_EMERGENCY_COVER_ONLY",
+        "routine_rotation": False,
+        "bench_only_transfers_eligible": False,
+        "candidate_must_change_starting_xi": True,
+    }
+    assert baseline_xi == recommendation["current_squad_plan"]["starting_xi"]
