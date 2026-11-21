@@ -5,17 +5,6 @@ import json
 
 import pytest
 
-# This PR is intentionally stacked on the unmerged M3 provider-adapter PR.
-# Skip this cross-milestone integration test on the standalone M4 branch until
-# the M3 base branch is included in the checkout.
-pytest.importorskip(
-    "build_sideline_quant_provider_capture",
-    reason="requires the Sideline Quant adapter from stacked M3 PR #58",
-)
-pytest.importorskip(
-    "parse_sideline_quant_snapshot",
-    reason="requires the Sideline Quant parser from stacked M3 PR #58",
-)
 from build_sideline_quant_provider_capture import build_sideline_quant_provider_capture
 from replay_frozen_m3_decision import (
     DecisionReplayError,
