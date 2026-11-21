@@ -23,11 +23,21 @@ Scope includes:
 Develop and validate the forecast/model layer that supplies player-level estimates and uncertainty to the decision engine.
 
 Scope includes:
-- Conventional forecast integration and model-output contracts.
 - CTA-derived feature/model development where source rights, identity mapping and point-in-time evidence permit it.
 - Forecast evaluation, calibration, benchmarking and model-selection evidence.
 - Explicit uncertainty and provenance; no synthetic evidence presented as real performance.
 - Separation of model research from validated model outputs.
+
+**Conventional-provider integration ownership:** The five-provider external conventional forecast integration is implemented within M3's existing forecast-input scope, not as a separate M2 integration project. M2 remains responsible for model-layer evaluation and validation. The five providers are:
+1. FPL Cat (existing integration).
+2. Sideline Quant.
+3. FPLRogue.
+4. FPL Lucho.
+5. FPL Wildcard.
+
+FPL Forecaster and FPL Review are excluded from the project: their forecasts and historical data are not to be used.
+
+**Evaluation timing:** Formal provider-by-provider forecast-performance evaluation is deferred until the upcoming Gameweek's official scores are available. Provider integration and capture engineering continue in parallel; this evaluation deferral does not block M3 implementation.
 
 **Completion gate:** Each model output used downstream has documented data lineage, point-in-time status, evaluation evidence and an explicit validation status. Research models remain labelled as such until they pass their gates.
 
@@ -38,7 +48,14 @@ Integrate the entire former Milestone 4 scope into the decision engine. CoVar an
 Scope includes:
 
 ### Forecasts and player evaluation
-- Consume the approved conventional and, when validated, CTA model outputs.
+- A unified, provider-neutral interface for the five agreed conventional forecast providers: FPL Cat, Sideline Quant, FPLRogue, FPL Lucho and FPL Wildcard.
+- Preserve each provider's identity, product/variant, original forecast values, forecast grain, source timestamps, capture timestamps, provenance, coverage and missingness.
+- Use provider-specific source adapters and schema validation; do not fabricate endpoints, values or timestamps.
+- Do not silently aggregate fixture-level forecasts into player-Gameweek forecasts. Any such transformation requires an explicit, tested and provenance-bearing aggregation contract.
+- Keep provider outputs individually addressable and evaluable. Do not average or blend providers arbitrarily; any future selection or weighting must be supported by evidence.
+- FPL Cat remains the existing integrated provider; the other four are additions to the same shared interface, not a competing integration track.
+- FPL Forecaster and FPL Review are excluded and must not be used as forecast or historical-data sources.
+- Consume approved conventional and, when validated, CTA model outputs.
 - Evaluate expected points, uncertainty and relevant player-level evidence.
 - Keep forecast quality and joint-outcome quality as distinct validation questions.
 
@@ -72,20 +89,23 @@ Deliver the three distinct recommendation products through a controlled, auditab
 2. **CTA-informed squad-specific recommendations:** based on the user's actual squad, with validated CTA/model and decision-engine intelligence, assessed against the field using EO, coverage and expected points.
 3. **General CTA player recommendations/rankings:** squad-independent market rankings that do not use a user's personal squad, budget, transfers, chip, formation or rank.
 
+**Evaluation timing:** Formal recommendation-product performance evaluation is deferred until the upcoming Gameweek's official scores are available. Product engineering and release-readiness work may continue without treating this evaluation as complete.
+
 **Completion gate:** Each product has a defined input contract, independent output, provenance, validation status and release/evaluation record. One product's context or experimental outputs must not contaminate another.
 
-## Explicit post-GW11 validation work
+## Post-GW11 and upcoming-Gameweek validation work
 
-The following work remains a post-deadline validation sequence associated with the relevant M2/M3 evidence gates. It does not create a separate milestone and does not require pausing independent engineering that can safely proceed.
+The following validation work remains separate from ongoing engineering and does not create a new milestone:
 
-1. Wait for GW11 official final scoring.
-2. Run finality reconciliation including GW11.
-3. Match the conventional forecast captured before the GW11 deadline to GW11 actual outcomes.
+1. Obtain the upcoming Gameweek's official final scores.
+2. Run finality reconciliation for the relevant completed Gameweek evidence, including GW11 where applicable.
+3. Match captured pre-deadline provider forecasts to the corresponding actual outcomes.
 4. Accumulate additional completed Gameweeks.
-5. Evaluate conventional forecast performance across the accumulated evidence.
-6. Validate joint CoVar scenarios separately.
+5. Perform the deferred M2 provider-by-provider forecast-performance evaluation.
+6. Perform the deferred M4 recommendation-product performance evaluation.
+7. Validate joint CoVar scenarios separately.
 
-**Validation separation:** A successful conventional forecast evaluation does not automatically validate joint CoVar scenarios. The two gates must be reported independently.
+**Validation separation:** Conventional forecast accuracy, recommendation-product performance and joint CoVar scenario validity are distinct evaluation questions. Passing one does not validate the others.
 
 ## Operating rules
 
