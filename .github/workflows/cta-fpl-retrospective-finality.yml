@@ -116,13 +116,6 @@ jobs:
           START_EVENT: ${{ inputs.start_event }}
           END_EVENT: ${{ inputs.end_event }}
           RUNNER_TEMP: ${{ runner.temp }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
-          GITHUB_SHA: ${{ github.sha }}
-          GITHUB_REF: ${{ github.ref }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_WORKFLOW: ${{ github.workflow }}
-          GITHUB_WORKFLOW_REF: ${{ github.workflow_ref }}
         run: |
           set -euo pipefail
           CAPTURE_ROOT="$RUNNER_TEMP/finality-captures"
