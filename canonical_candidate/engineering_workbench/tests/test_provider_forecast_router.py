@@ -28,7 +28,7 @@ def payload():
         },
         "grain": "player_gameweek",
         "records": [{"fpl_element_id": 1, "expected_points": 5.2, "expected_minutes": 80}],
-        "coverage": {"row_count": 1, "identity_mapped_count": 1},
+        "coverage": {"row_count": 1, "identity_mapped_count": 1, "identity_resolution_status": "VERIFIED"},
     }
 
 
