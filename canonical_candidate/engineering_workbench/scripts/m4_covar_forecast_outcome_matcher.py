@@ -233,7 +233,7 @@ def build_match_archive(
             forecast, realized_gw, realized_fixtures, finality
         )
         matched_path = target / "matched_forecast_outcomes.json"
-        matched_path.write_text(json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\\n", encoding="utf-8")
+        matched_path.write_text(json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
         manifest = {
             "schema_version": "1.0.0",
             "status": "MATCHED_RESEARCH_PANEL_CREATED",
@@ -249,7 +249,7 @@ def build_match_archive(
             "production_eligible": False,
         }
         manifest_path = target / "match_manifest.json"
-        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         for item in (matched_path, manifest_path):
             os.chmod(item, stat.S_IRUSR | stat.S_IWUSR)
         return manifest
