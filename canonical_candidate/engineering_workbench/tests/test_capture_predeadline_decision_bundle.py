@@ -223,3 +223,30 @@ def test_rejects_missing_current_player_price(monkeypatch):
         capture.capture_predeadline_decision_bundle(
             team_id=421025, gameweek=12, season="2026-27", manager_state=_state(),
         )
+
+
+def test_predeadline_bundle_accepts_registered_sideline_quant_provider_override(monkeypatch):
+    _fixtures(monkeypatch)
+    provider_capture = capture.capture_fpl_cat_snapshot(season="2026-27")
+    provider = provider_capture["provider_snapshot"]
+    provider["provider"] = {
+        "name": "Sideline Quant",
+        "product": "gameweek_projections",
+        "variant": "provider_native_xp",
+    }
+    provider["snapshot_id"] = "sidelinequant-gw12-test:player_gameweek_sum_xp"
+    provider["source"]["url"] = "https://sidelinequant.com/data/gw/12/projections.json"
+    monkeypatch.setattr(
+        capture, "capture_fpl_cat_snapshot",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("FPL Cat capture must not run when an override is supplied")),
+    )
+    result = capture.capture_predeadline_decision_bundle(
+        team_id=421025, gameweek=12, season="2026-27", manager_state=_state(),
+        provider_capture_override=provider_capture,
+    )
+    manifest = result["12"]
+    provider_source = next(row for row in manifest["sources"] if row["source_type"] == "provider_forecast")
+    assert manifest["provider_snapshot"]["provider"]["name"] == "Sideline Quant"
+    assert provider_source["provider_id"] == "sideline_quant"
+    assert provider_source["provider_variant"] == "provider_native_xp"
+    assert provider_source["source_url"] == "https://sidelinequant.com/data/gw/12/projections.json"
