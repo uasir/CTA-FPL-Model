@@ -31,8 +31,7 @@ METRICS = (
     "effective_ownership_pct_ci95_low", "effective_ownership_pct_ci95_high",
 )
 PERCENT_FIELDS_MAX_100 = {
-    "owned_by_pct", "starting_pct", "captain_pct",
-    "triple_captain_pct", "scoring_exposure_pct",
+    "owned_by_pct", "starting_pct", "captain_pct", "triple_captain_pct",
 }
 MAX_EFFECTIVE_OWNERSHIP_PCT = 300.0
 
