@@ -67,18 +67,28 @@ def align_m3_anchor_to_joint_scenarios(
         if not math.isfinite(probability) or probability <= 0:
             raise M3JointScenarioAlignmentError(f"{scenario_id}.probability must be finite and > 0")
         total_probability += probability
-        points = scenario.get("player_points")
-        if not isinstance(points, Mapping) or set(map(str, points.keys())) != set(anchor):
-            raise M3JointScenarioAlignmentError(
-                f"{scenario_id}.player_points must cover exactly the M3 anchor player universe"
-            )
-        for raw_id, raw_points in points.items():
-            player_id = str(raw_id)
+        outcomes = scenario.get("player_outcomes")
+        if not isinstance(outcomes, list):
+            raise M3JointScenarioAlignmentError(f"{scenario_id}.player_outcomes must be a list")
+        points = {}
+        for outcome in outcomes:
+            if not isinstance(outcome, Mapping):
+                raise M3JointScenarioAlignmentError(f"{scenario_id}.player_outcomes rows must be objects")
+            player_id = str(outcome.get("player_id", "")).strip()
+            if not player_id or player_id in points:
+                raise M3JointScenarioAlignmentError(f"{scenario_id} player IDs must be unique and non-empty")
+            raw_points = outcome.get("fpl_points")
             if isinstance(raw_points, bool) or not isinstance(raw_points, (int, float)):
-                raise M3JointScenarioAlignmentError(f"{scenario_id}.{player_id} points must be numeric")
+                raise M3JointScenarioAlignmentError(f"{scenario_id}.{player_id} fpl_points must be numeric")
             value = float(raw_points)
             if not math.isfinite(value):
-                raise M3JointScenarioAlignmentError(f"{scenario_id}.{player_id} points must be finite")
+                raise M3JointScenarioAlignmentError(f"{scenario_id}.{player_id} fpl_points must be finite")
+            points[player_id] = value
+        if set(points) != set(anchor):
+            raise M3JointScenarioAlignmentError(
+                f"{scenario_id}.player_outcomes must cover exactly the M3 anchor player universe"
+            )
+        for player_id, value in points.items():
             weighted_points[player_id] += probability * value
 
     if not math.isclose(total_probability, 1.0, rel_tol=0, abs_tol=1e-9):
