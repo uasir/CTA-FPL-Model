@@ -319,3 +319,28 @@ def test_replay_reconstructs_manager_purchase_prices_from_gw1_and_transfer_histo
     result = replay.replay_frozen_decision(bundle, frozen, software_commit="b" * 40)
     assert result["status"] == "PASSED"
 
+
+
+def test_replay_passes_the_same_optional_field_eo_artifact_to_decision_runner(monkeypatch):
+    bundle, frozen = _prepare(monkeypatch)
+    field_capture = {
+        "csv_path": "field-capture/predeadline_field_eo.csv",
+        "report_path": "field-capture/predeadline_field_report.json",
+        "source_url": "https://fantasy.premierleague.com/api/",
+    }
+    received = {}
+
+    def replay_runner(evidence_bundle, *, software_commit, predeadline_field_capture=None):
+        received["field_capture"] = predeadline_field_capture
+        return {
+            "frozen_decision": frozen["frozen_decision"],
+            "recommendation": frozen["recommendation"],
+        }
+
+    monkeypatch.setattr(replay, "run_predeadline_m3_decision", replay_runner)
+    result = replay.replay_frozen_decision(
+        bundle, frozen, software_commit="b" * 40,
+        predeadline_field_capture=field_capture,
+    )
+    assert result["status"] == "PASSED"
+    assert received["field_capture"] == field_capture
