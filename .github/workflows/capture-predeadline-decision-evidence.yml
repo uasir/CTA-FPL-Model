@@ -28,7 +28,6 @@ on:
       manager_state_json:
         description: Confirmed squad, bank, free transfers, formation, starting XI, ordered outfield bench, reserve goalkeeper, captain, vice-captain and chip state (update if your team changes)
         required: true
-        default: '{"squad_15":[8,31,79,110,115,124,154,166,183,229,282,411,426,497,524],"bank":0.9,"free_transfers":1,"formation":"4-3-3","starting_xi":[110,31,8,115,229,154,124,426,166,79,411],"bench_order":[282,183,524],"reserve_goalkeeper_id":497,"captain_id":411,"vice_captain_id":154,"chip_state":"NONE"}'
         type: string
 
 permissions:
