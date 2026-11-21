@@ -10,13 +10,13 @@ This is a data-readiness decision, not a claim that no future data source can sa
 
 ## Project-owner scope decision — 2026-11-21
 
-The CoVar forecast path will continue using **the conventional forecasting model already integrated into M3** as its player-level expected-points/minutes anchor. The documented M3 baseline uses official FPL `ep_next` plus latest-completed-Gameweek minutes per fixture scaled by the target Gameweek fixture count. We are not switching CoVar to CTA or introducing a new forecasting model for this workstream.
+The CoVar forecast path will continue using **the exact conventional forecast snapshot consumed by the M3 decision run** as its player-level expected-points/minutes anchor. M3 normalizes the external provider snapshot, preserves provider expected-points values unchanged, joins FPL metadata, and passes the resulting forecast records into the existing personal-squad engine. CoVar must bind to that same M3 `forecast_snapshot_id` and `model_version`. It must not substitute the separate exploratory official-`ep_next` baseline snapshot builder.
 
 CTA-derived player features, predictions, covariance and provider panels are out of scope as CoVar forecast inputs for now. This does not remove or suspend the separate CTA research elsewhere in the repository.
 
 CoVar adds portfolio-level uncertainty/dependence analysis using eligible realized FPL outcomes and independently validated statistical methods. Marginal expected points or marginal player probabilities alone do not determine a joint distribution. Until a joint scenario probability method is implemented and validated, scenario inputs remain research-only and must not be represented as calibrated model forecasts.
 
-Accordingly, the 11footy, Wyscout and StatsBomb provider datasets are not priorities for this CoVar forecast work. The immediate data priority is a reliable conventional FPL realized-outcome panel and point-in-time snapshots of the M3 conventional forecast.
+Accordingly, the 11footy, Wyscout and StatsBomb provider datasets are not priorities for this CoVar forecast work. The immediate data priority is a reliable realized FPL outcome panel and immutable point-in-time archives of the exact M3 provider forecast snapshots plus the FPL metadata used in each M3 decision.
 
 ## Source-by-source assessment
 
