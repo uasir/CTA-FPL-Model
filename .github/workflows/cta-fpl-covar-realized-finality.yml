@@ -2,12 +2,6 @@ name: CTA CoVar retrospective realized-outcome finality audit
 
 on:
   workflow_dispatch:
-    inputs:
-      ingestion_run_id:
-        description: "Successful official FPL ingestion workflow run containing the historical player-fixture panel"
-        required: true
-        default: "44357649202"
-        type: string
   push:
     branches: ["feat/m4-field-portfolio-intelligence"]
     paths:
@@ -17,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: cta-covar-realized-finality-${{ inputs.ingestion_run_id || '44357649202' }}
+  group: cta-covar-realized-finality-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -128,6 +122,17 @@ jobs:
           (out / "aggregate_finality_summary.json").write_text(json.dumps(safe, indent=2) + "\\n")
           print(json.dumps(safe, indent=2))
           PY
+      - name: Archive public realized outcomes and official source captures
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-covar-realized-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/covar-realized-panel/
+            ${{ runner.temp }}/covar-finality-captures/
+            ${{ runner.temp }}/covar-finality-result/
+          if-no-files-found: error
+          retention-days: 90
       - name: Upload aggregate-only audit summary
         if: always()
         uses: actions/upload-artifact@v4
