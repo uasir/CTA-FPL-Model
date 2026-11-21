@@ -8,6 +8,8 @@ from datetime import datetime
 import math
 from typing import Any, Mapping, Sequence
 
+from m4_covar_gameweek_cluster_bootstrap import evaluate_gameweek_cluster_bootstrap
+
 
 class JointProbabilityCalibrationError(ValueError):
     """Invalid or temporally contaminated calibration input."""
@@ -73,6 +75,7 @@ def _reliability_bins(rows: Sequence[tuple[float, int]], bin_count: int) -> list
 
 def evaluate_joint_probability_calibration(
     forecasts: Sequence[Mapping[str, Any]], *, reliability_bin_count: int = 10,
+    bootstrap_resamples: int = 2000, bootstrap_seed: int = 42,
 ) -> dict[str, Any]:
     """Score joint-state forecasts against outcomes and a supplied reference.
 
@@ -86,6 +89,10 @@ def evaluate_joint_probability_calibration(
         raise JointProbabilityCalibrationError("forecasts must be a non-empty sequence")
     if isinstance(reliability_bin_count, bool) or not isinstance(reliability_bin_count, int) or not 2 <= reliability_bin_count <= 20:
         raise JointProbabilityCalibrationError("reliability_bin_count must be an integer from 2 to 20")
+    if isinstance(bootstrap_resamples, bool) or not isinstance(bootstrap_resamples, int) or bootstrap_resamples < 100:
+        raise JointProbabilityCalibrationError("bootstrap_resamples must be an integer of at least 100")
+    if isinstance(bootstrap_seed, bool) or not isinstance(bootstrap_seed, int):
+        raise JointProbabilityCalibrationError("bootstrap_seed must be an integer")
 
     seen = set()
     per_forecast = []
@@ -156,8 +163,11 @@ def evaluate_joint_probability_calibration(
             "mean_model_brier_score": sum(r["model_brier_score"] for r in rows) / len(rows),
             "mean_reference_brier_score": sum(r["reference_brier_score"] for r in rows) / len(rows),
         }
+    cluster_bootstrap = evaluate_gameweek_cluster_bootstrap(
+        per_forecast, resamples=bootstrap_resamples, seed=bootstrap_seed,
+    )
     return {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "evaluation_status": "HISTORICAL_BACKTEST_ONLY",
         "forecast_count": count,
         "gameweek_count": len(grouped),
@@ -182,6 +192,11 @@ def evaluate_joint_probability_calibration(
             "bins": _reliability_bins(reliability_rows, reliability_bin_count),
         },
         "per_forecast": per_forecast,
+        "aggregation_estimands": {
+            "top_level_brier_and_log_loss": "FORECAST_ROW_WEIGHTED",
+            "gameweek_cluster_bootstrap": "GAMEWEEK_EQUAL_WEIGHTED_AFTER_WITHIN_GAMEWEEK_FORECAST_AVERAGING",
+        },
+        "gameweek_cluster_confidence_intervals": cluster_bootstrap,
         "decision_weight": 0.0,
         "production_eligible": False,
     }
