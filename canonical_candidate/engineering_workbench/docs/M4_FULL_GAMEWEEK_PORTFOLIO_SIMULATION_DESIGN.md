@@ -479,32 +479,40 @@ separate archive-verification and acquisition-audit process. Outputs remain
 `decision_weight=0` and `production_eligible=false`.
 
 
-## Archived source-byte verification
+## Complete forecast-provenance archive verification
 
-A separate archive verifier is implemented in
-`scripts/m4_covar_joint_forecast_archive_verifier.py`, with tests in
-`tests/test_m4_covar_joint_forecast_archive_verifier.py`. It matches each
-forecast/source pair to a relative archive path, reads the archived bytes in
-bounded chunks, recomputes SHA-256, and compares the result with the digest
-declared in that forecast's provenance. It fails closed for missing or unknown
-manifest entries, duplicate entries, digest mismatches, missing files, absolute
-or traversal paths, symlink paths and non-regular files.
+The archive verifier in
+`scripts/m4_covar_joint_forecast_archive_verifier.py`, tested by
+`tests/test_m4_covar_joint_forecast_archive_verifier.py`, now rehashes all
+four artifact classes declared by each forecast:
 
-This verifies the bytes currently present in the supplied archive against the
-declared digest; it does not establish that the archive itself is immutable,
-that the bytes were captured at the claimed historical time, or that the
-provider made them available at the declared timestamp. It also does not
-verify model artifact bytes. The archive verifier is intentionally a distinct
-stage from structural dataset acceptance, and all outputs remain
+- Each source snapshot, keyed by forecast ID and source ID.
+- The model artifact, against `model_artifact_sha256`.
+- The configuration, against `config_sha256`.
+- The serialized forecast payload, against `forecast_payload_sha256`.
+
+The version-2 manifest uses `forecast_id`, `artifact_type` and
+`archive_path`; source rows additionally require `source_id`. The verifier
+requires exactly one archive mapping for every declared artifact and rejects
+unknown, duplicate or missing mappings, invalid declared digests, digest
+mismatches, absolute/traversal paths, symlinks, missing files and non-regular
+files. SHA-256 is recomputed from the actual archived bytes in bounded chunks;
+the expected digest is always read from forecast provenance, never trusted
+from the manifest. The report exposes per-class verified counts and explicit
+booleans for source, model, config and payload byte verification.
+
+The combined acceptance function invokes this complete archive stage when
+both archive arguments are supplied. Its success status is
+`STRUCTURAL_AND_COMPLETE_PROVENANCE_BYTES_VERIFIED`; partial source-only
+archives fail closed because every declared artifact class is required.
+Without an archive, structural-only acceptance remains available.
+
+This proves only that the bytes currently present at the supplied archive
+paths match the forecast's declared digests. It does not authenticate who
+created those bytes, prove model/config bytes actually generated the forecast,
+prove that a provider made a source available at the declared historical time,
+or establish that the archive was immutable at capture time. Independent
+acquisition records, trusted timestamping/signatures and real historical
+point-in-time evidence remain outstanding. No archive contents are committed
+or uploaded to public CI. All outputs remain
 `decision_weight=0` and `production_eligible=false`.
-
-
-The combined acceptance function now supports an optional third archive stage.
-Callers supply both `archive_root` and `archive_manifest`; supplying only one
-fails closed. When supplied, all source snapshots must map to archived files
-and pass byte-level SHA-256 verification. The report then uses
-`STRUCTURAL_AND_ARCHIVE_BYTES_VERIFIED` while keeping
-`authenticity_verified=false`, `historical_dataset_certified=false`,
-`decision_weight=0`, and `production_eligible=false`. Without an archive,
-the original structural-only status is retained. Archive verification is
-not performed against public CI data and no archive contents are committed.
