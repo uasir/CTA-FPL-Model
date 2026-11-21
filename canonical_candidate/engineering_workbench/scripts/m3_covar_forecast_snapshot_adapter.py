@@ -110,6 +110,38 @@ def extract_m3_covar_forecast_bundle(
     provider_raw, provider_archive = _decode_source(source_by_type["provider_forecast"], "provider_forecast")
     metadata_raw, metadata_archive = _decode_source(source_by_type["player_metadata"], "player_metadata")
     normalized = normalize_provider_snapshot(provider)
+    try:
+        provider_payload = json.loads(provider_raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise M3CoVarForecastAdapterError("archived provider bytes are not valid JSON") from exc
+    if not isinstance(provider_payload, Mapping) or not isinstance(provider_payload.get("players"), list):
+        raise M3CoVarForecastAdapterError("archived provider payload must contain a players list")
+    if provider_payload.get("gameweek") != gw:
+        raise M3CoVarForecastAdapterError("archived provider payload Gameweek does not match M3 evidence")
+    if _utc(provider_payload.get("deadline"), "provider raw deadline") != _utc(normalized["timing"]["deadline_utc"], "provider deadline"):
+        raise M3CoVarForecastAdapterError("archived provider deadline does not match normalized snapshot")
+    raw_generated = provider_payload.get("computed_at")
+    normalized_generated = normalized["timing"].get("generated_at_utc")
+    if raw_generated in (None, ""):
+        if normalized_generated is not None:
+            raise M3CoVarForecastAdapterError("normalized provider generation time is not present in raw source")
+    elif _utc(raw_generated, "provider raw computed_at") != _utc(normalized_generated, "provider generated_at_utc"):
+        raise M3CoVarForecastAdapterError("provider generation time does not match raw source")
+    raw_provider_rows = {}
+    for raw_row in provider_payload["players"]:
+        if not isinstance(raw_row, Mapping):
+            raise M3CoVarForecastAdapterError("archived provider player row is malformed")
+        raw_id = raw_row.get("id")
+        if isinstance(raw_id, bool) or not isinstance(raw_id, int) or raw_id in raw_provider_rows:
+            raise M3CoVarForecastAdapterError("archived provider contains invalid or duplicate player IDs")
+        raw_provider_rows[raw_id] = raw_row
+    normalized_records = {row["fpl_element_id"]: row for row in normalized["records"]}
+    if set(raw_provider_rows) != set(normalized_records):
+        raise M3CoVarForecastAdapterError("normalized forecast player universe differs from archived provider source")
+    for pid, raw_row in raw_provider_rows.items():
+        record = normalized_records[pid]
+        if raw_row.get("xp") != record["expected_points"] or raw_row.get("expected_minutes") != record.get("expected_minutes"):
+            raise M3CoVarForecastAdapterError(f"normalized forecast values do not match provider source for player {pid}")
     if normalized.get("decision_eligible") is not True:
         raise M3CoVarForecastAdapterError("M3 provider forecast is not point-in-time decision eligible")
     if normalized.get("snapshot_id") != m3_run_result.get("provider_snapshot_id"):
@@ -146,6 +178,15 @@ def extract_m3_covar_forecast_bundle(
     raw_elements = bootstrap_raw.get("elements") if isinstance(bootstrap_raw, Mapping) else None
     if not isinstance(raw_elements, list):
         raise M3CoVarForecastAdapterError("archived bootstrap-static payload has no elements list")
+    raw_events = bootstrap_raw.get("events", [])
+    matching_events = [event for event in raw_events if isinstance(event, Mapping) and event.get("id") == gw]
+    if len(matching_events) != 1 or _utc(matching_events[0].get("deadline_time"), "bootstrap target deadline") != deadline:
+        raise M3CoVarForecastAdapterError("archived bootstrap deadline does not match M3 target Gameweek")
+    raw_types = bootstrap_raw.get("element_types", [])
+    type_names = {
+        row.get("id"): row.get("singular_name_short")
+        for row in raw_types if isinstance(row, Mapping)
+    }
     raw_by_id = {}
     for raw_row in raw_elements:
         if not isinstance(raw_row, Mapping):
@@ -166,7 +207,7 @@ def extract_m3_covar_forecast_bundle(
         raw_row = raw_by_id.get(pid)
         if raw_row is None:
             raise M3CoVarForecastAdapterError(f"FPL metadata player {pid} missing from archived bootstrap")
-        if row.get("team_id") != raw_row.get("team") or row.get("position") != position_names.get(raw_row.get("element_type")):
+        if row.get("team_id") != raw_row.get("team") or row.get("position") != type_names.get(raw_row.get("element_type")):
             raise M3CoVarForecastAdapterError(f"FPL metadata identity mismatch for player {pid}")
         price = row.get("price")
         now_cost = raw_row.get("now_cost")
