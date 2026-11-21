@@ -245,3 +245,30 @@ def test_predeadline_field_context_rejects_percentages_above_100(tmp_path):
     report_path.write_text(json.dumps(report))
     with pytest.raises(ValueError, match="must not exceed 100 percent"):
         run_external_benchmark_personal_squad(payload)
+
+
+
+def test_predeadline_field_context_allows_weighted_scoring_exposure_above_100(tmp_path):
+    payload, csv_path, report_path = _write_predeadline_field_capture(tmp_path)
+    csv_text = csv_path.read_text()
+    csv_text = csv_text.replace("50,40,10,0,60,45,55,65", "50,40,10,0,60,150,55,65", 1)
+    csv_path.write_text(csv_text)
+    report = json.loads(report_path.read_text())
+    report["csv_sha256"] = hashlib.sha256(csv_path.read_bytes()).hexdigest()
+    report_path.write_text(json.dumps(report))
+    result = run_external_benchmark_personal_squad(payload)
+    context = result["recommendation"]["predeadline_field_analysis"]
+    assert context["status"] == "ATTACHED_PROVISIONAL_FIELD_CONTEXT"
+    assert context["coverage"]["candidate_squad_covered"] is True
+
+
+def test_predeadline_field_context_rejects_weighted_scoring_exposure_above_300(tmp_path):
+    payload, csv_path, report_path = _write_predeadline_field_capture(tmp_path)
+    csv_text = csv_path.read_text()
+    csv_text = csv_text.replace("50,40,10,0,60,45,55,65", "50,40,10,0,60,301,55,65", 1)
+    csv_path.write_text(csv_text)
+    report = json.loads(report_path.read_text())
+    report["csv_sha256"] = hashlib.sha256(csv_path.read_bytes()).hexdigest()
+    report_path.write_text(json.dumps(report))
+    with pytest.raises(ValueError, match="must not exceed 300 percent"):
+        run_external_benchmark_personal_squad(payload)
