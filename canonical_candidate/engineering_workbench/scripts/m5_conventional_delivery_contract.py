@@ -78,6 +78,11 @@ def validate_conventional_m5_output(output: Mapping[str, Any]) -> dict[str, Any]
         for key in ("name", "product", "variant")
     ):
         raise M5DeliveryContractError("provider identity must preserve name, product and variant")
+    approved_providers = {"fpl cat", "sideline quant"}
+    if provider["name"].strip().casefold() not in approved_providers:
+        raise M5DeliveryContractError(
+            "conventional M4 accepts only the independently run FPL Cat and Sideline Quant providers"
+        )
     if not isinstance(output["provider_snapshot_id"], str) or not output["provider_snapshot_id"]:
         raise M5DeliveryContractError("provider_snapshot_id must be non-empty")
 
