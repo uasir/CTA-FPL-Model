@@ -82,15 +82,16 @@ class TestM4CovarFullGameweekScoring(unittest.TestCase):
             result["portfolio_results"]["candidate"]["scenario_scores"],
             [
                 {"scenario_id": "low", "points": 12.0, "probability": 0.4},
-                {"scenario_id": "high", "points": 27.0, "probability": 0.6},
+                {"scenario_id": "high", "points": 30.0, "probability": 0.6},
             ],
         )
-        self.assertAlmostEqual(result["portfolio_results"]["candidate"]["expected_points"], 21.0)
+        self.assertAlmostEqual(result["portfolio_results"]["candidate"]["expected_points"], 22.8)
         self.assertAlmostEqual(
             result["portfolio_results"]["candidate"]["field_comparison"]["expected_points_difference_vs_weighted_field"],
-            -0.6,
+            1.8,
         )
         self.assertEqual(result["field_comparison_status"], "AVAILABLE_EXPLICIT_FIELD_PORTFOLIOS")
+        self.assertAlmostEqual(result["portfolio_results"]["candidate"]["field_comparison"]["probability_outscoring_weighted_field_portfolio"], 0.6)
         self.assertEqual(result["portfolio_results"]["candidate"]["baseline_comparison"]["baseline_portfolio_id"], "field")
 
     def test_resolves_goalkeeper_and_outfield_autosubs_before_scoring(self):
