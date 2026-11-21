@@ -13,6 +13,20 @@ intake contract, a byte mapping keyed by source:<source_id>, model_artifact,
 config and forecast_payload, and a new archive destination outside the Git
 checkout. Missing or additional byte artifacts are rejected.
 
+The CLI accepts the same inputs as files:
+
+```text
+python m4_covar_joint_forecast_source_adapter.py \
+  --document /path/to/forecast.json \
+  --artifact-dir /path/to/provider-artifacts \
+  --archive-root /private/archive/gwNN-forecast-id
+```
+
+The artifact directory layout is `sources/<source_id>.bin`,
+`model/model.bin`, `model/config.bin` and `forecast/payload.bin`.
+The CLI rejects symlinked artifact files and preserves the validated forecast
+document in the archive as `forecast/validated_document.json`.
+
 ## Security
 
 The adapter refuses overwrite, unsafe forecast/source path identifiers and
