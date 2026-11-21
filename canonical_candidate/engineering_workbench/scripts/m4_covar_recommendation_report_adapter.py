@@ -112,7 +112,13 @@ def build_personal_recommendation_covar_report(
     field_rows = [row for row in portfolios if isinstance(row, Mapping) and row.get("portfolio_role") == "FIELD"]
     if not field_rows:
         raise CoVarRecommendationReportAdapterError("explicit manager-pick-derived field portfolios are required")
-    field_weight_total = sum(_number(row.get("field_weight"), "field_weight") for row in field_rows)
+    field_weights = {
+        str(row.get("portfolio_id")): _number(row.get("field_weight"), "field_weight")
+        for row in field_rows
+    }
+    if any(weight <= 0 for weight in field_weights.values()):
+        raise CoVarRecommendationReportAdapterError("field portfolio weights must be positive")
+    field_weight_total = sum(field_weights.values())
     if not math.isclose(field_weight_total, 1.0, rel_tol=0, abs_tol=1e-8):
         raise CoVarRecommendationReportAdapterError("field portfolio weights must sum to one")
     field_ids = {str(row.get("portfolio_id")) for row in field_rows}
