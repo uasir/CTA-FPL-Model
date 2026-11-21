@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
@@ -116,6 +117,12 @@ def extract_m3_covar_forecast_bundle(
         raise M3CoVarForecastAdapterError("provider source hash does not match M3 source archive")
     if normalized.get("source", {}).get("raw_snapshot_id") != provider_archive["raw_snapshot_id"]:
         raise M3CoVarForecastAdapterError("provider source snapshot ID does not match M3 source archive")
+    if normalized.get("source", {}).get("url") != provider_archive["source_url"]:
+        raise M3CoVarForecastAdapterError("provider source URL does not match M3 source archive")
+    if _utc(normalized["timing"]["captured_at_utc"], "provider.captured_at_utc") != _utc(provider_archive["captured_at_utc"], "provider archive captured_at_utc"):
+        raise M3CoVarForecastAdapterError("provider capture time does not match M3 source archive")
+    if _utc(normalized["timing"]["generated_at_utc"], "provider.generated_at_utc") != _utc(source_by_type["provider_forecast"].get("generated_at_utc"), "provider archive generated_at_utc"):
+        raise M3CoVarForecastAdapterError("provider generation time does not match M3 source archive")
 
     metadata_hash = metadata_provenance.get("raw_sha256")
     if metadata_hash != metadata_archive["raw_sha256"]:
@@ -127,11 +134,39 @@ def extract_m3_covar_forecast_bundle(
     metadata_captured = _utc(metadata_provenance.get("captured_at_utc"), "player_metadata_provenance.captured_at_utc")
     if metadata_captured != _utc(metadata_archive["captured_at_utc"], "player_metadata.captured_at_utc"):
         raise M3CoVarForecastAdapterError("FPL metadata capture time does not match M3 source archive")
+    if metadata_archive["source_url"] != "https://fantasy.premierleague.com/api/bootstrap-static/":
+        raise M3CoVarForecastAdapterError("FPL metadata archive must be official bootstrap-static")
+    if metadata_provenance.get("row_count") != len(metadata):
+        raise M3CoVarForecastAdapterError("FPL metadata row_count does not match metadata rows")
+    try:
+        bootstrap_raw = json.loads(metadata_raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise M3CoVarForecastAdapterError("archived FPL metadata bytes are not valid JSON") from exc
+    raw_elements = bootstrap_raw.get("elements") if isinstance(bootstrap_raw, Mapping) else None
+    if not isinstance(raw_elements, list):
+        raise M3CoVarForecastAdapterError("archived bootstrap-static payload has no elements list")
+    raw_by_id = {row.get("id"): row for row in raw_elements if isinstance(row, Mapping)}
+    position_names = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+    for row in metadata:
+        if not isinstance(row, Mapping):
+            raise M3CoVarForecastAdapterError("each FPL metadata row must be an object")
+        pid = row.get("fpl_element_id")
+        raw_row = raw_by_id.get(pid)
+        if raw_row is None:
+            raise M3CoVarForecastAdapterError(f"FPL metadata player {pid} missing from archived bootstrap")
+        if row.get("team_id") != raw_row.get("team") or row.get("position") != position_names.get(raw_row.get("element_type")):
+            raise M3CoVarForecastAdapterError(f"FPL metadata identity mismatch for player {pid}")
+        if abs(float(row.get("price")) - float(raw_row.get("now_cost")) / 10.0) > 1e-9:
+            raise M3CoVarForecastAdapterError(f"FPL metadata price mismatch for player {pid}")
 
     as_of = _utc(manifest.get("decision_as_of_utc"), "decision_as_of_utc")
     deadline = _utc(manifest.get("deadline_utc"), "deadline_utc")
     if as_of >= deadline:
         raise M3CoVarForecastAdapterError("M3 decision as-of must precede the FPL deadline")
+    if _utc(m3_run_result.get("decision_as_of_utc"), "M3 result decision_as_of_utc") != as_of:
+        raise M3CoVarForecastAdapterError("M3 result decision-as-of does not match evidence")
+    if _utc(m3_run_result.get("deadline_utc"), "M3 result deadline_utc") != deadline:
+        raise M3CoVarForecastAdapterError("M3 result deadline does not match evidence")
     for name, source in (("provider_forecast", provider_archive), ("player_metadata", metadata_archive)):
         captured = _utc(source["captured_at_utc"], f"{name}.captured_at_utc")
         if captured > as_of:
