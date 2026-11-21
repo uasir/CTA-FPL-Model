@@ -208,3 +208,40 @@ def test_predeadline_field_capture_csv_hash_mismatch_is_rejected(tmp_path):
     csv_path.write_text(csv_path.read_text() + "\\n", encoding="utf-8")
     with pytest.raises(ValueError, match="SHA-256"):
         run_external_benchmark_personal_squad(payload)
+
+
+
+def test_predeadline_field_context_applies_verified_triple_captain_exposure(tmp_path):
+    payload, _, _ = _write_predeadline_field_capture(tmp_path)
+    payload["manager_context"]["active_chip"] = "3xc"
+    payload["manager_context"]["active_chip_status"] = "VERIFIED_FROM_OFFICIAL_PICKS"
+    result = run_external_benchmark_personal_squad(payload)
+    context = result["recommendation"]["predeadline_field_analysis"]
+    assert context["personal_chip_context"]["captain_multiplier"] == 3
+    assert context["personal_chip_context"]["captain_multiplier_status"] == "VERIFIED"
+    hold = context["scenarios"][0]
+    captain = next(row for row in hold["players"] if row["is_captain"])
+    assert captain["personal_effective_ownership_pct"] == 300
+
+
+def test_predeadline_field_context_does_not_guess_unavailable_chip_state(tmp_path):
+    payload, _, _ = _write_predeadline_field_capture(tmp_path)
+    result = run_external_benchmark_personal_squad(payload)
+    context = result["recommendation"]["predeadline_field_analysis"]
+    assert context["personal_chip_context"]["captain_multiplier"] is None
+    assert context["personal_chip_context"]["captain_multiplier_status"] == "UNKNOWN_ACTIVE_CHIP_STATE"
+    hold = context["scenarios"][0]
+    captain = next(row for row in hold["players"] if row["is_captain"])
+    assert captain["personal_effective_ownership_pct"] is None
+
+
+def test_predeadline_field_context_rejects_percentages_above_100(tmp_path):
+    payload, csv_path, report_path = _write_predeadline_field_capture(tmp_path)
+    csv_text = csv_path.read_text()
+    csv_text = csv_text.replace(",60,45,55,65", ",160,45,55,65", 1)
+    csv_path.write_text(csv_text)
+    report = json.loads(report_path.read_text())
+    report["csv_sha256"] = hashlib.sha256(csv_path.read_bytes()).hexdigest()
+    report_path.write_text(json.dumps(report))
+    with pytest.raises(ValueError, match="must not exceed 100 percent"):
+        run_external_benchmark_personal_squad(payload)
