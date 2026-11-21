@@ -38,6 +38,8 @@ def evaluate_against_expanding_frequency_reference(
     ]
     if not test_forecasts:
         raise HistoricalFrequencyBacktestError("test split contains no forecast rows")
+    if not isinstance(historical_outcomes, Sequence) or isinstance(historical_outcomes, (str, bytes)) or not historical_outcomes:
+        raise HistoricalFrequencyBacktestError("test backtest requires completed historical training outcomes")
     reference = build_expanding_window_frequency_reference(
         test_forecasts, historical_outcomes, state_catalogue,
         smoothing_alpha=smoothing_alpha,
