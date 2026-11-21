@@ -24,23 +24,27 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Capture FPL Cat and official FPL metadata
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/capture_fpl_cat_snapshot.py \
             --season "${{ inputs.season }}" \
             --output "artifacts/fplcat/fplcat-${{ inputs.season }}-snapshot.json"
-
-      - name: Upload immutable capture bundle
+      - name: Create metadata-only public summary
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/summarize_provider_capture.py \
+            --provider "FPL Cat" \
+            --input "artifacts/fplcat/fplcat-${{ inputs.season }}-snapshot.json" \
+            --output "artifacts/provider-summary/fplcat.json"
+      - name: Upload metadata-only capture summary
         uses: actions/upload-artifact@v4
         with:
-          name: fplcat-${{ inputs.season }}-${{ github.run_id }}
-          path: canonical_candidate/engineering_workbench/artifacts/fplcat/*.json
+          name: fplcat-summary-${{ inputs.season }}-${{ github.run_id }}
+          path: canonical_candidate/engineering_workbench/artifacts/provider-summary/fplcat.json
           if-no-files-found: error
           retention-days: 90
