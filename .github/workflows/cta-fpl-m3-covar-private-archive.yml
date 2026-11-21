@@ -1,0 +1,167 @@
+name: Archive sanitized M3 CoVar forecast privately
+
+on:
+  workflow_run:
+    workflows: ["Capture pre-deadline FPL decision evidence"]
+    types: [completed]
+    branches: ["feat/m3-unified-evaluation-report"]
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful M3 evidence workflow run ID to sanitize and archive
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: m3-covar-private-archive-${{ github.event.workflow_run.id || inputs.source_run_id }}
+  cancel-in-progress: false
+
+jobs:
+  sanitize-and-archive:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ARCHIVE_REPOSITORY: uasir/cta-fpl-covar-archive
+      SOURCE_RUN_ID: ${{ github.event.workflow_run.id || inputs.source_run_id }}
+    steps:
+      - name: Check out the M4 sanitization adapter
+        uses: actions/checkout@v4
+        with:
+          repository: uasir/CTA-FPL-Model
+          ref: feat/m4-field-portfolio-intelligence
+          path: m4-workbench
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download the completed M3 run artifact into the ephemeral runner
+        uses: actions/download-artifact@v4
+        with:
+          repository: uasir/CTA-FPL-Model
+          run-id: ${{ github.event.workflow_run.id || inputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/m3-source-artifacts
+
+      - name: Locate exactly one evidence bundle and frozen M3 result
+        id: locate
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "m3-source-artifacts"
+          evidence = list(root.rglob("predeadline-decision-evidence.json"))
+          result = list(root.rglob("predeadline-m3-recommendation.json"))
+          if len(evidence) != 1 or len(result) != 1:
+              raise SystemExit(
+                  "Expected exactly one M3 evidence bundle and one frozen recommendation; "
+                  f"found evidence={len(evidence)}, recommendation={len(result)}"
+              )
+          output = Path(os.environ["GITHUB_OUTPUT"])
+          with output.open("a", encoding="utf-8") as handle:
+              handle.write(f"evidence={evidence[0]}\n")
+              handle.write(f"result={result[0]}\n")
+          PY
+
+      - name: Extract and package only the conventional M3 forecast
+        working-directory: m4-workbench/canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: |
+          python scripts/m3_covar_forecast_archive_packager.py \
+            --evidence "${{ steps.locate.outputs.evidence }}" \
+            --m3-result "${{ steps.locate.outputs.result }}" \
+            --output-dir "${{ runner.temp }}/m3-covar-private-archive"
+
+      - name: Check out the private archive repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.ARCHIVE_REPOSITORY }}
+          token: ${{ secrets.COVAR_ARCHIVE_TOKEN }}
+          path: private-archive
+          persist-credentials: true
+
+      - name: Verify private destination and write immutable archive
+        env:
+          GH_TOKEN: ${{ secrets.COVAR_ARCHIVE_TOKEN }}
+          SOURCE_RUN_ID: ${{ env.SOURCE_RUN_ID }}
+          SOURCE_WORKFLOW: ${{ github.workflow }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url || format('https://github.com/{0}/actions/runs/{1}', github.repository, inputs.source_run_id) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRIVATE_FLAG="$(gh api "repos/$ARCHIVE_REPOSITORY" --jq '.private')"
+          if [ "$PRIVATE_FLAG" != "true" ]; then
+            echo "Archive destination must be a private GitHub repository." >&2
+            exit 1
+          fi
+
+          MANIFEST="$RUNNER_TEMP/m3-covar-private-archive/archive_manifest.json"
+          SEASON="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["season"])' "$MANIFEST")"
+          GAMEWEEK="$(python -c 'import json,sys; print(int(json.load(open(sys.argv[1]))["target_gameweek"]))' "$MANIFEST")"
+          RELATIVE_DIR="$SEASON/gw$(printf '%02d' "$GAMEWEEK")/source-run-$SOURCE_RUN_ID"
+          DEST="$GITHUB_WORKSPACE/private-archive/$RELATIVE_DIR"
+
+          if [ -e "$DEST" ]; then
+            echo "Refusing to overwrite an existing private forecast archive: $RELATIVE_DIR" >&2
+            exit 1
+          fi
+          mkdir -p "$DEST"
+          cp "$RUNNER_TEMP/m3-covar-private-archive/m3_covar_forecast_gw$GAMEWEEK.json" "$DEST/"
+          cp "$MANIFEST" "$DEST/"
+
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          manifest_path = Path(os.environ["GITHUB_WORKSPACE"]) / "private-archive" / os.environ["RELATIVE_DIR"] / "archive_manifest.json"
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          handoff = {
+              "schema_version": "1.0.0",
+              "archive_type": "SANITIZED_M3_COVAR_FORECAST_HANDOFF",
+              "source_repository": os.environ["SOURCE_REPOSITORY"],
+              "source_workflow": "Capture pre-deadline FPL decision evidence",
+              "source_workflow_run_id": os.environ["SOURCE_RUN_ID"],
+              "source_workflow_run_url": os.environ["SOURCE_WORKFLOW_RUN_URL"],
+              "forecast_snapshot_id": manifest["forecast_snapshot_id"],
+              "model_version": manifest["model_version"],
+              "season": manifest["season"],
+              "target_gameweek": manifest["target_gameweek"],
+              "bundle_sha256": manifest["bundle_sha256"],
+              "manager_specific_source_bundle_retained": False,
+              "decision_weight": 0.0,
+              "production_eligible": False
+          }
+          target = manifest_path.parent / "handoff_manifest.json"
+          target.write_text(json.dumps(handoff, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          os.chmod(target, 0o600)
+          PY
+          chmod 600 "$DEST"/*.json
+          chmod 700 "$DEST"
+
+          cd "$GITHUB_WORKSPACE/private-archive"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$RELATIVE_DIR"
+          git commit -m "Archive sanitized M3 CoVar forecast GW$GAMEWEEK run $SOURCE_RUN_ID"
+          git push origin HEAD
+
+        env:
+          GH_TOKEN: ${{ secrets.COVAR_ARCHIVE_TOKEN }}
+          ARCHIVE_REPOSITORY: ${{ env.ARCHIVE_REPOSITORY }}
+          SOURCE_RUN_ID: ${{ env.SOURCE_RUN_ID }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url || format('https://github.com/{0}/actions/runs/{1}', github.repository, inputs.source_run_id) }}
+          RUNNER_TEMP: ${{ runner.temp }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+          RELATIVE_DIR: ${{ env.RELATIVE_DIR }}
