@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from m3_covar_forecast_snapshot_adapter import extract_m3_covar_forecast_bundle
+from m3_covar_forecast_anchor_acceptance import accept_m3_forecast_anchor
 
 
 class M3CoVarArchivePackagingError(ValueError):
@@ -107,6 +108,8 @@ def package_m3_covar_forecast_archive(
             "point_in_time_status": sanitized["point_in_time_status"],
             "retention": "PRIVATE_DESTINATION_POLICY_REQUIRED",
         }
+        anchor_acceptance = accept_m3_forecast_anchor(bundle_bytes, manifest)
+        manifest["anchor_acceptance"] = anchor_acceptance
         manifest_bytes = (json.dumps(
             manifest, sort_keys=True, indent=2, allow_nan=False
         ) + "\n").encode("utf-8")
@@ -140,6 +143,8 @@ def package_m3_covar_forecast_archive(
         "target_gameweek": sanitized["target_gameweek"],
         "decision_weight": 0.0,
         "production_eligible": False,
+        "anchor_acceptance_status": anchor_acceptance["acceptance_status"],
+        "joint_distribution_available": False,
         "private_destination_configured": False,
         "note": "This creates a local private archive only; a private durable storage destination and retention policy remain separate requirements.",
     }
