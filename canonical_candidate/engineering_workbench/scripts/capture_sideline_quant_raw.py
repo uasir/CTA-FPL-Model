@@ -127,6 +127,7 @@ def capture_sideline_quant_raw(
             "generated_at_utc": generated.isoformat().replace("+00:00", "Z"),
             "captured_at_utc": captured.isoformat().replace("+00:00", "Z"),
             "deadline_utc": deadline.isoformat().replace("+00:00", "Z"),
+            "provider_deadline_supplied": provider_deadline_supplied,
             "official_metadata_captured_at_utc": bootstrap_captured.isoformat().replace("+00:00", "Z"),
             "point_in_time_status": "PROVIDER_GENERATED_AND_CAPTURED_BEFORE_DEADLINE",
         },
