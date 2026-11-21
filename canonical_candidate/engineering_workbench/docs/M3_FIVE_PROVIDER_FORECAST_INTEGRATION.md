@@ -50,7 +50,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - Implemented first-stage raw capture plus a parser for the documented `rows` array. The parser validates `player_id`, `fixture_id`, `gameweek`, `xP`, `e_mins` and `p_start`; cross-checks player IDs against the archived official FPL bootstrap; rejects duplicate player-fixture keys and provider count mismatches; and preserves all native row fields.
 - The canonical snapshot remains at player-fixture grain. A separate derived player-Gameweek view explicitly sums fixture `xP` by `player_id`, with fixture count and aggregation provenance. It does not aggregate start probabilities, sigma or other distribution fields.
 - The manual capture workflow now runs the parser after raw capture. A target Gameweek must be supplied explicitly; there is no stale default to a Gameweek whose deadline has passed.
-- Engineering tests have been added for raw capture, fixture parser, double-Gameweek sum, native-field retention, identity mapping, duplicate keys and invalid Gameweek data. CI status is pending; no successful run has yet been observed.
+- Engineering tests have been added for raw capture, fixture parser, double-Gameweek sum, native-field retention, identity mapping, duplicate keys and invalid Gameweek data. The M3 feature-branch CI run at commit `6427d3351d37d9715ca8d30219f7d678becc78fb` passed the full engineering test suite (433 tests and 3 subtests). This verifies software behavior, not forecast accuracy.
 
 ### FPLRogue — source verified
 
@@ -60,7 +60,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - Page exposes xPts, xMins, floor/ceiling and start probability, and states that floor/ceiling are indicative display ranges rather than calibrated probability intervals.
 - Implemented first-stage accepted-release capture: archives the HTML page, CSV and official FPL bootstrap with independent SHA-256 hashes; records the exact CSV headers and row count; and cross-checks page Gameweek, player count and official deadline.
 - The page's `Updated` timestamp and `Model trained` timestamp are retained separately. Because the page does not explicitly define `Updated` as the forecast-generation timestamp, the capture leaves canonical `generated_at_utc` unset and is diagnostic-only for strict point-in-time decision use until the provider's timestamp semantics are verified.
-- Added a manual capture workflow and tests for page metadata, CSV shape, hashes, row-count checks and post-deadline rejection.
+- Added a manual capture workflow and tests for page metadata, CSV shape, hashes, row-count checks and post-deadline rejection. The same M3 feature-branch CI run passed the full engineering test suite (433 tests and 3 subtests). This does not mean a live provider capture has yet been executed.
 - CSV column mapping and canonical normalization remain pending inspection of an actual captured CSV payload.
 - Attribution: FPLRogue. The source states it is independent and not affiliated with the Premier League.
 
@@ -81,8 +81,10 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - Published grain: one row per selectable player in one projected Gameweek.
 - Displayed forecast field: `xpts`; minutes: `xmins`; optional start, appearance, sixty-plus, blank and haul probabilities.
 - Page exposes model version and projection update time; the adapter must preserve these values and their timestamp provenance.
-- The site states that no redistribution licence is granted. Treat captured payloads as private/restricted research inputs; do not republish raw rows or redistribute provider data in public artifacts. Confirm permitted storage and use against the provider's terms before enabling automated archival or public output.
-- CSV content and exact column names must be verified from the downloaded raw payload before mapping.
+- The site states that no redistribution licence is granted. **FPL Wildcard remains an active fifth provider; lack of redistribution permission is not a reason to drop it.** Do not republish raw rows, redistribute provider data, or place its raw/derived provider values in public repository files, public CI logs, or public workflow artifacts.
+- Use a compliant acquisition route: prefer a user-initiated download or other provider-permitted access, then process the file in private, access-controlled project storage. Do not automate scraping or repeated downloads unless the provider's terms or written permission clearly allow that access method. If automated retrieval is not permitted, keep the provider active through the manual/private intake path rather than excluding it.
+- Keep provider-specific values private and use only outputs/aggregates that are permitted for internal decision support. Re-check the applicable terms before any external display or sharing.
+- CSV content and exact column names must be verified from the downloaded raw payload before mapping. The current public page documents the schema, but the live CSV bytes have not yet been inspected.
 
 ## 4. Provider-specific implementation gates
 
@@ -96,7 +98,7 @@ A provider is not marked integrated merely because its URL is known. Each adapte
 6. FPL element identity mapping and duplicate/coverage checks.
 7. Canonical contract normalization with source grain preserved.
 8. Deterministic parser tests using captured, sanitized fixtures that respect source terms.
-9. A provider-specific capture workflow or an explicitly documented reason why automation is not permitted.
+9. A provider-specific capture workflow or an explicitly documented compliant manual/private intake route where automation is not permitted. Restricted sources must not be forced into public artifact storage just to satisfy automation parity.
 
 Do not create synthetic forecasts to fill gaps. A provider with unresolved access, terms or schema remains explicitly blocked/pending rather than being represented as integrated.
 
