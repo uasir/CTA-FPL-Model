@@ -45,12 +45,16 @@ def validate_headers(headers, provider):
     """Reject malformed/empty templates before treating them as an unpopulated crosswalk."""
     if headers is None:
         return ["CSV header row is missing"]
-    duplicates = sorted({name for name in headers if headers.count(name) > 1})
+    stripped = [name.strip() if isinstance(name, str) else "" for name in headers]
+    duplicates = sorted({name for name in stripped if name and stripped.count(name) > 1})
+    padded = sorted({raw for raw, clean in zip(headers, stripped) if raw != clean})
     required_headers = set(REQUIRED) | ({"fpl_team_code"} if provider == "opta_pulselive" else set())
-    missing = sorted(required_headers - set(headers))
+    missing = sorted(required_headers - set(stripped))
     errors = []
     if duplicates:
-        errors.append("duplicate CSV columns: " + ", ".join(duplicates))
+        errors.append("duplicate CSV columns after whitespace normalization: " + ", ".join(duplicates))
+    if padded:
+        errors.append("CSV columns must not contain leading/trailing whitespace: " + ", ".join(padded))
     if missing:
         errors.append("missing required crosswalk columns: " + ", ".join(missing))
     return errors
@@ -59,6 +63,9 @@ def validate_headers(headers, provider):
 def validate_rows(rows, provider):
     errors, accepted, statuses = [], [], Counter()
     for line, row in enumerate(rows, start=2):
+        if not isinstance(row, Mapping) or any(value is None for value in row.values()):
+            errors.append({"line": line, "error": "malformed_csv_row_width"})
+            continue
         status = (row.get("verification_status") or "").strip().lower()
         statuses[status or "blank"] += 1
         if status not in STATUSES:
