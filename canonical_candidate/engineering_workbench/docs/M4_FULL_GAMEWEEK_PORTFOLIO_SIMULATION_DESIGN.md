@@ -680,3 +680,12 @@ workflow execution without embedding credentials. The 15-minute schedule is
 intentional: unlike fixed minute marks, it covers arbitrary FPL deadline
 minutes while the final-35-minute gate limits captures to the useful
 pre-deadline window.
+
+
+When the forecast archive packager consumes a capture manifest, it carries the
+capture's GitHub Actions run identity into both the packaged forecast
+provenance and the top-level package manifest. This preserves the link from
+the forecast record to the exact repository/workflow/ref/commit/run attempt
+that captured its public source bytes. These fields are traceability metadata,
+not cryptographic authentication of the workflow runner or a trusted
+timestamping service.
