@@ -58,3 +58,25 @@ Specific resolver tests cover goalkeeper replacement, reserve goalkeeper absence
 4. Keep all CoVar outputs research-only with `decision_weight=0` and `production_eligible=false`.
 
 **Conclusion:** No conflict was found between the reviewed 2026/27 official lineup, autosubstitution, captaincy and chip rules and the implemented deterministic resolver. This is a rules-specification audit, not production certification.
+
+## Private official-result replay harness
+
+A local replay validator is implemented in
+`scripts/m4_covar_fpl_replay_validation.py`, with tests in
+`tests/test_m4_covar_fpl_replay_validation.py`.
+
+It accepts a normalized local replay case containing the submitted lineup,
+complete Gameweek player outcomes, official final FPL pick multipliers and
+official per-player Gameweek points. It compares all 15 official pick
+multipliers with the resolver's expected multipliers, checks active captain
+fallback, checks per-player points and reconciles the official team total
+from player points multiplied by official pick multipliers. It also provides
+a helper to derive the explicit Gameweek `played` flag from official minutes
+and yellow/red-card counts.
+
+The input validator rejects manager IDs, names and exact ranks. The CLI
+requires a private input file outside the repository and prints a local report;
+it does not write replay files, call external services, or upload data. No real
+manager-level replay file is included in the repository. Synthetic unit tests
+validate the comparison mechanics only; they are not evidence of a successful
+real-world FPL replay.
