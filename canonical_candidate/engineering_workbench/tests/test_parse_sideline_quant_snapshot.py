@@ -167,5 +167,5 @@ def test_rejects_unprovenanced_or_wrong_source_aggregation():
     result = parse_sideline_quant_capture(make_capture())
     rows = result["player_gameweek_sum_xp"]
     rows[0]["aggregation"] = "UNVERIFIED_SUM"
-    with pytest.raises(SidelineQuantParseError, match="lacks documented sum-xP provenance"):
+    with pytest.raises(SidelineQuantParseError, match="lacks documented sum-xP/expected-minutes provenance"):
         build_sideline_quant_player_gameweek_snapshot(result["canonical_snapshot"], rows)
