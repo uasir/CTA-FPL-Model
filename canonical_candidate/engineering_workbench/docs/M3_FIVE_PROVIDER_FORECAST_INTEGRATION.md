@@ -72,7 +72,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - The served forecast is odds-anchored xP. Since GW9, the site says the served values use a bookmaker-odds / archived-odds / fallback ladder for team goals, while minutes and player allocation remain model-derived.
 - Preserve the product variant as **served odds-anchored xP**. Do not silently substitute the raw model xP or relabel it as the separately reported Odds xP performance series.
 - The page reports an xP model calculation timestamp separately from the page build timestamp. The capture adapter must identify and retain the authoritative forecast-generation timestamp and its scope; if it cannot verify it from the exported payload/source metadata, mark the snapshot diagnostic-only.
-- CSV content and exact column names must be verified from the downloaded raw payload before mapping.
+- The CSV export URL is verified from the live page's download link, but the actual CSV response remains unavailable to the current web reader (it returns `text/csv`). Exact headers and values must be inspected from a permitted downloaded payload before mapping.
 
 ### FPL Wildcard — source verified
 
@@ -84,9 +84,16 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - The site states that no redistribution licence is granted. **FPL Wildcard remains an active fifth provider; lack of redistribution permission is not a reason to drop it.** Do not republish raw rows, redistribute provider data, or place its raw/derived provider values in public repository files, public CI logs, or public workflow artifacts.
 - Use a compliant acquisition route: prefer a user-initiated download or other provider-permitted access, then process the file in private, access-controlled project storage. Do not automate scraping or repeated downloads unless the provider's terms or written permission clearly allow that access method. If automated retrieval is not permitted, keep the provider active through the manual/private intake path rather than excluding it.
 - Keep provider-specific values private and use only outputs/aggregates that are permitted for internal decision support. Re-check the applicable terms before any external display or sharing.
-- CSV content and exact column names must be verified from the downloaded raw payload before mapping. The current public page documents the schema, but the live CSV bytes have not yet been inspected.
+- A local/private parser has been added against the page's documented CSV schema. It verifies required/optional headers, target Gameweek, SHA-256, exact player-plus-club identity mapping against official FPL bootstrap data, duplicates and numeric/probability ranges; it preserves all original CSV rows separately and leaves provider generation time unset.
+- The parser's synthetic-fixture tests pass in CI (included in the 437 passing tests on the M3 feature branch). This verifies parser logic only: the live CSV bytes and exact headers have not yet been inspected, and no live Wildcard capture has been performed.
 
-## 4. Provider-specific implementation gates
+## 4. Current engineering verification
+
+- M3 feature-branch CI at commit `573b0bcca3c8543b72319f745b943b373f4de5ae` completed successfully: **437 tests passed, 3 subtests passed**.
+- This is software-contract and parser-fixture verification. It is not evidence that Sideline Quant, FPLRogue, FPL Lucho or FPL Wildcard live captures have succeeded, nor that any provider is forecast-accurate.
+- Provider crosswalk validation remains `EMPTY_NOT_READY` until actual source player IDs/names are mapped and checked.
+
+## 5. Provider-specific implementation gates
 
 A provider is not marked integrated merely because its URL is known. Each adapter must pass:
 
@@ -102,7 +109,7 @@ A provider is not marked integrated merely because its URL is known. Each adapte
 
 Do not create synthetic forecasts to fill gaps. A provider with unresolved access, terms or schema remains explicitly blocked/pending rather than being represented as integrated.
 
-## 5. Evaluation boundary
+## 6. Evaluation boundary
 
 The five providers are integrated as independent forecast sources. Formal provider-by-provider performance evaluation is deferred until the upcoming Gameweek's official scores are available. When evaluation begins, compare providers on matched player/Gameweek populations and common outcome/finality evidence, while retaining provider-specific native fields and separate scorecards. Do not infer that one provider is superior from unmatched coverage or a single Gameweek.
 
