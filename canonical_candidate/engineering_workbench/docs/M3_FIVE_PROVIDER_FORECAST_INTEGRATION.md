@@ -179,3 +179,12 @@ The raw capture identifies FPLRogue as `accepted_projections_release` / `provide
 - Unlike a value-sampling report, the Lucho inspector deliberately emits no player names or forecast row values. Every column remains semantically unmapped; the tool does not infer xP units, player identity, or Gameweek semantics from header text alone.
 - Added synthetic tests for hash mismatch, provider-variant mismatch, duplicate headers, ragged rows, empty CSV, Gameweek token extraction and absence of raw row values in the report.
 - Registry status now records that a schema-only inspector exists. It does **not** claim that the live CSV was retrieved, inspected, normalized or routed. The export remains inaccessible to the current CSV retrieval tools; a permitted private intake is still required.
+
+
+## FPL Lucho one-shot pre-deadline capture workflow (2026-11-21)
+
+- Added manual workflow `.github/workflows/capture-fpl-lucho-benchmark.yml` for one explicitly selected season/Gameweek. It runs the existing raw intake against the live forecast page, CSV export and official FPL bootstrap; the capture fails closed if the provider page/model timestamps or any retrieval timestamp are at or after the official target deadline.
+- The raw capture JSON, including exact CSV bytes and official bootstrap, exists only in the ephemeral Actions runner workspace. The workflow emits a sanitized metadata-only summary to the public job log; it does not upload a raw or normalized forecast artifact.
+- Extended `summarize_provider_capture.py` with an FPL Lucho allow-list containing schema headers, row count, SHA-256, page-build/raw-model timestamps, capture/deadline timestamps and the explicit undisclosed served-CSV generation-time status. No player names, row values or raw payload fields are included.
+- Added summary and workflow contract tests. A successful run would verify one live retrieval and exact CSV schema availability only. Because the served CSV generation timestamp is not separately disclosed, the resulting capture remains diagnostic-only for strict pre-deadline decision use; it does not authorize semantic column mapping or provider evaluation.
+- The workflow has not yet been dispatched. A manual run before the target deadline is the single bounded live attempt; if it fails, preserve the diagnostic and do not enter repeated troubleshooting.
