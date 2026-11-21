@@ -67,6 +67,8 @@ def test_rejects_cross_season_archives(tmp_path):
     panel_path = b / "matched_forecast_outcomes.json"
     panel = json.loads(panel_path.read_text())
     panel["season"] = "2025-26"
+    for row in panel["matched_rows"]:
+        row["season"] = "2025-26"
     raw = (json.dumps(panel, indent=2, sort_keys=True) + "\n").encode()
     panel_path.write_bytes(raw)
     manifest_path = b / "match_manifest.json"
