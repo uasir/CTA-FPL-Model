@@ -170,3 +170,12 @@ The raw capture identifies FPLRogue as `accepted_projections_release` / `provide
 - This resolves a routing-contract mismatch in which the capture metadata used descriptive labels that the shared registry would not accept. It does not imply the CSV columns have been semantically mapped or that the capture has been executed against live bytes.
 - The live forecast page currently reports GW11, built 21 Nov 2026 09:13 UTC, with the model last calculated 09:03 UTC, and exports the next four Gameweeks. The page's export remains served odds-anchored xP. Preserve the build and raw-model calculation times separately; the served CSV's own generation timestamp remains undisclosed.
 - CI passed on commit `84760c4bfac0d583e8cc0954c1db60d4eb4bb2f9` (run [#44893153890](https://github.com/uasir/CTA-FPL-Model/actions/runs/44893153890)): 486 Python tests passed, 3 subtests passed, JavaScript contract tests passed, and four crosswalk checks completed.
+
+
+
+## FPL Lucho schema-only inspection utility (2026-11-21)
+
+- Added `scripts/inspect_fpl_lucho_csv_schema.py` to inspect an actual private capture after retrieval. It verifies provider/product/variant identity and the raw CSV SHA-256 before reporting exact headers, row counts, lexical type counts and Gameweek-like header tokens.
+- Unlike a value-sampling report, the Lucho inspector deliberately emits no player names or forecast row values. Every column remains semantically unmapped; the tool does not infer xP units, player identity, or Gameweek semantics from header text alone.
+- Added synthetic tests for hash mismatch, provider-variant mismatch, duplicate headers, ragged rows, empty CSV, Gameweek token extraction and absence of raw row values in the report.
+- Registry status now records that a schema-only inspector exists. It does **not** claim that the live CSV was retrieved, inspected, normalized or routed. The export remains inaccessible to the current CSV retrieval tools; a permitted private intake is still required.
