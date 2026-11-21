@@ -93,7 +93,7 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
                 pick["multiplier"] = 0
             if pick["element"] == "p11":
                 pick["multiplier"] = 2
-            if pick["element"] == "p15":
+            if pick["element"] == "p13":
                 pick["multiplier"] = 1
         case["official_final"]["player_total_points"]["p10"] = 0
         case["official_final"]["player_total_points"]["p11"] = 4
