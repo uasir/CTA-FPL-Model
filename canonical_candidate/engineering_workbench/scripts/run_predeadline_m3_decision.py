@@ -32,6 +32,7 @@ def run_predeadline_m3_decision(
     evidence_bundle: Mapping[str, Any],
     *,
     software_commit: str,
+    predeadline_field_capture: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     if not isinstance(evidence_bundle, Mapping) or len(evidence_bundle) != 1:
         raise PredeadlineDecisionError("evidence bundle must contain exactly one Gameweek manifest")
@@ -98,6 +99,19 @@ def run_predeadline_m3_decision(
         "manager_context": manager_context,
         "as_of_utc": manifest["decision_as_of_utc"],
     }
+    if predeadline_field_capture is not None:
+        if not isinstance(predeadline_field_capture, Mapping):
+            raise PredeadlineDecisionError("predeadline_field_capture must be an object")
+        required_field = ("csv_path", "report_path", "source_url")
+        missing_field = [key for key in required_field if not predeadline_field_capture.get(key)]
+        if missing_field:
+            raise PredeadlineDecisionError(
+                "predeadline field hand-off missing: " + ", ".join(missing_field)
+            )
+        engine_payload["predeadline_field_capture"] = {
+            **dict(predeadline_field_capture),
+            "season": manifest["season"],
+        }
     engine_run = run_external_benchmark_personal_squad(engine_payload)
     engine_recommendation = engine_run["recommendation"]
     transfer = engine_recommendation["transfer_recommendation"]
@@ -259,9 +273,24 @@ def main() -> int:
     parser.add_argument("evidence_bundle", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--software-commit", default=os.environ.get("M3_CODE_SHA"))
+    parser.add_argument("--field-eo-csv", type=Path)
+    parser.add_argument("--field-eo-report", type=Path)
+    parser.add_argument("--field-eo-source-url", default="https://fantasy.premierleague.com/api/")
     args = parser.parse_args()
     bundle = json.loads(args.evidence_bundle.read_text(encoding="utf-8"))
-    result = run_predeadline_m3_decision(bundle, software_commit=args.software_commit)
+    field_capture = None
+    if args.field_eo_csv is not None or args.field_eo_report is not None:
+        if args.field_eo_csv is None or args.field_eo_report is None:
+            raise PredeadlineDecisionError("both --field-eo-csv and --field-eo-report are required")
+        field_capture = {
+            "csv_path": str(args.field_eo_csv),
+            "report_path": str(args.field_eo_report),
+            "source_url": args.field_eo_source_url,
+        }
+    result = run_predeadline_m3_decision(
+        bundle, software_commit=args.software_commit,
+        predeadline_field_capture=field_capture,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n",
                            encoding="utf-8")
