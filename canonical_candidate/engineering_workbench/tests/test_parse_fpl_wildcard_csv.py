@@ -71,3 +71,21 @@ def test_rejects_undocumented_or_missing_columns():
         parse_fpl_wildcard_csv("rank,gameweek\n1,11\n", metadata(""), bootstrap())
     with pytest.raises(FPLWildcardParseError, match="undocumented columns"):
         parse_fpl_wildcard_csv(CSV.replace("rank,gameweek", "extra,rank,gameweek"), metadata(CSV.replace("rank,gameweek", "extra,rank,gameweek")), bootstrap())
+
+
+
+def test_wildcard_snapshot_matches_registry_and_routes_as_diagnostic_until_generation_time_is_verified():
+    from forecast_provider_registry import get_active_provider
+    from provider_forecast_router import route_provider_forecast
+
+    result = parse_fpl_wildcard_csv(CSV, metadata(), bootstrap())
+    snapshot = result["canonical_snapshot"]
+    spec = get_active_provider("FPL Wildcard")
+    assert snapshot["provider"]["product"] == spec["product"]
+    assert snapshot["provider"]["variant"] == spec["forecast_variant"]
+
+    routed = route_provider_forecast(snapshot)
+    assert routed["provider_id"] == "fpl_wildcard"
+    assert routed["routing_status"] == "DIAGNOSTIC_ONLY"
+    assert routed["decision_eligible"] is False
+    assert routed["routing_reason"] == "PROVIDER_GENERATION_TIME_NOT_DISCLOSED"
