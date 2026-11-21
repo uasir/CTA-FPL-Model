@@ -16,9 +16,15 @@ class HistoricalCoVarOverlayError(ValueError):
 
 
 def _finite(value: Any, label: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+    if isinstance(value, bool):
         raise HistoricalCoVarOverlayError(f"{label} must be a finite number")
-    return float(value)
+    try:
+        result = float(value)
+    except (TypeError, ValueError) as exc:
+        raise HistoricalCoVarOverlayError(f"{label} must be a finite number") from exc
+    if not math.isfinite(result):
+        raise HistoricalCoVarOverlayError(f"{label} must be a finite number")
+    return result
 
 
 def _portfolio_metrics(
