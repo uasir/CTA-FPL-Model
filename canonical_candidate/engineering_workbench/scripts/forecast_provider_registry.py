@@ -37,7 +37,7 @@ ACTIVE_PROVIDER_SPECS: tuple[dict[str, Any], ...] = (
         "product": "accepted_projections_release",
         "native_grain": "player_gameweek",
         "forecast_variant": "provider_native_xpts",
-        "integration_state": "raw_capture_implemented_schema_mapping_pending",
+        "integration_state": "live_gw12_capture_and_schema_inspected_identity_semantics_and_forecast_generation_time_unverified",
         "strict_pit_status": "generation_timestamp_semantics_unverified",
         "data_policy": "source_terms_review_required_before_redistribution",
     },
