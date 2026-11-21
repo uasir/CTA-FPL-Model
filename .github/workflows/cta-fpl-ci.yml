@@ -10,6 +10,9 @@ on:
       - .github/workflows/cta-fpl-eo-capture.yml
       - .github/workflows/cta-opta-pulselive-integration.yml
       - .github/workflows/capture-predeadline-decision-evidence.yml
+      - .github/workflows/capture-fplcat-benchmark.yml
+      - .github/workflows/capture-sidelinequant-benchmark.yml
+      - .github/workflows/cta-onside-covariance.yml
       - .github/workflows/reconcile-official-fpl-manager.yml
       - canonical_candidate/engineering_workbench/scripts/**
       - canonical_candidate/engineering_workbench/src/js/**
