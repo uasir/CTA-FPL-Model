@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/cta-fpl-ci.yml
       - .github/workflows/cta-fpl-retrospective-finality.yml
+      - .github/workflows/cta-fpl-covar-realized-finality.yml
       - .github/workflows/cta-fpl-ingestion.yml
       - .github/workflows/cta-fpl-eo-capture.yml
       - .github/workflows/cta-fpl-predeadline-field-eo.yml
