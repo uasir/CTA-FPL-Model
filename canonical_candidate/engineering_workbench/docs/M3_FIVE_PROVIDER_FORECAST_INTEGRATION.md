@@ -75,8 +75,6 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - Forecast page: `https://fpllucho.pythonanywhere.com/forecast`
 - Current CSV link: `https://fpllucho.pythonanywhere.com/export/predictions.csv`
 - The CSV export covers every player, xP and fixtures for the next four Gameweeks.
-- The served forecast is odds-anchored xP. Since GW9, the site says the served values use a bookmaker-odds / archived-odds / fallback ladder for team goals, while minutes and player allocation remain model-derived.
-- Preserve the product variant as **served odds-anchored xP**. Do not silently substitute the raw model xP or relabel it as the separately reported Odds xP performance series.
 - The page reports an xP model calculation timestamp separately from the page build timestamp. A first-stage raw intake script now captures the page, CSV and official FPL bootstrap, preserving exact CSV bytes, headers and SHA-256 while recording page-build and raw-model calculation timestamps separately.
 - The CSV export URL is verified from the live page's download link, but the actual CSV response remains unavailable to the current web reader (`text/csv`). Exact headers and values must be inspected from a permitted downloaded payload before mapping; no guessed column mapping is present.
 - The served product is explicitly **odds-anchored xP**. Keep it distinct from raw model xP and the separately reported Odds xP series. The raw-model calculation time is not treated as the generation time of the served odds-anchored CSV; `generated_at_utc` remains null and strict point-in-time eligibility is withheld until the served forecast's timestamp semantics are established.
