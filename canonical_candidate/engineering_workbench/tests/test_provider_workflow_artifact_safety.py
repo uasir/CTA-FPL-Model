@@ -88,3 +88,23 @@ def test_official_manager_reconciliation_accepts_public_manager_input_and_uses_n
     assert '--gameweeks "$TARGET_GAMEWEEKS"' in workflow
     assert '--gameweeks "${{ inputs.gameweeks }}"' not in workflow
     assert 'if [[ "${{ inputs.gameweeks }}"' not in workflow
+
+
+
+def test_fpl_lucho_one_shot_workflow_checks_deadline_and_emits_only_safe_summary():
+    workflow_path = ROOT / ".github/workflows/capture-fpl-lucho-benchmark.yml"
+    workflow = workflow_path.read_text(encoding="utf-8")
+    capture_script = (
+        ROOT / "canonical_candidate/engineering_workbench/scripts/capture_fpl_lucho_raw.py"
+    ).read_text(encoding="utf-8")
+    assert "workflow_dispatch:" in workflow
+    assert 'default: "2026-27"' in workflow
+    assert 'default: "12"' in workflow
+    assert "capture_fpl_lucho_raw.py" in workflow
+    assert "summarize_provider_capture.py" in workflow
+    assert '--provider "FPL Lucho"' in workflow
+    assert "artifacts/provider-summary/fpl-lucho.json" in workflow
+    assert "actions/upload-artifact" not in workflow
+    assert "csv_captured_at_utc" in capture_script
+    assert "FPL Lucho release or capture is at or after the official deadline" in capture_script
+    assert "raw_archives" in capture_script
