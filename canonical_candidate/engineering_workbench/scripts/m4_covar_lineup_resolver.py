@@ -110,6 +110,7 @@ def resolve_fpl_lineup(
     captain_id: str,
     vice_captain_id: str,
     player_minutes: Mapping[str, Any],
+    player_played: Mapping[str, Any],
     player_points: Mapping[str, Any],
     active_chip: str | None = None,
     mode: str = "REGULAR_GW",
@@ -140,6 +141,10 @@ def resolve_fpl_lineup(
     expected = set(squad)
     if not isinstance(player_minutes, Mapping) or set(map(str, player_minutes)) != expected:
         raise CovarLineupResolutionError("player_minutes must explicitly cover all 15 squad players")
+    if not isinstance(player_played, Mapping) or set(map(str, player_played)) != expected:
+        raise CovarLineupResolutionError("player_played must explicitly cover all 15 squad players")
+    if any(not isinstance(value, bool) for value in player_played.values()):
+        raise CovarLineupResolutionError("player_played values must be explicit booleans")
     if not isinstance(player_points, Mapping) or set(map(str, player_points)) != expected:
         raise CovarLineupResolutionError("player_points must explicitly cover all 15 squad players")
 
@@ -149,6 +154,9 @@ def resolve_fpl_lineup(
     }
     if any(value > 120 for value in minutes.values()):
         raise CovarLineupResolutionError("player minutes cannot exceed 120")
+    played = {str(pid): value for pid, value in player_played.items()}
+    if any(minutes[pid] > 0 and not played[pid] for pid in squad):
+        raise CovarLineupResolutionError("players with positive minutes must be marked as played")
     points = {
         str(pid): _finite_number(value, f"player_points[{pid}]")
         for pid, value in player_points.items()
@@ -158,14 +166,14 @@ def resolve_fpl_lineup(
     substitutions: list[dict[str, str]] = []
     starting_gk = str(starting_goalkeeper_id)
     reserve_gk = str(reserve_goalkeeper_id)
-    if minutes[starting_gk] == 0 and minutes[reserve_gk] > 0:
+    if not played[starting_gk] and played[reserve_gk]:
         resolved[resolved.index(starting_gk)] = reserve_gk
         substitutions.append({
             "out": starting_gk, "in": reserve_gk, "type": "GOALKEEPER",
         })
 
     for substitute in bench:
-        if minutes[substitute] <= 0:
+        if not played[substitute]:
             continue
         absent_starters = [
             pid for pid in starters
@@ -186,9 +194,9 @@ def resolve_fpl_lineup(
                 break
 
     active_captain = None
-    if minutes[str(captain_id)] > 0:
+    if played[str(captain_id)]:
         active_captain = str(captain_id)
-    elif minutes[str(vice_captain_id)] > 0:
+    elif played[str(vice_captain_id)]:
         active_captain = str(vice_captain_id)
 
     captain_total_multiplier = 3 if chip == "3xc" else 2
