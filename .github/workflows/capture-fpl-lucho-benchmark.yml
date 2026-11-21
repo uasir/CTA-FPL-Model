@@ -11,7 +11,9 @@ on:
         description: Target Gameweek; capture must complete strictly before its official deadline
         required: true
         default: "12"
-
+  push:
+    paths:
+      - "canonical_candidate/engineering_workbench/.triggers/fpl-lucho-gw12-one-shot"
 permissions:
   contents: read
 
@@ -36,21 +38,21 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/capture_fpl_lucho_raw.py \
-            --season "${{ inputs.season }}" \
-            --gameweek "${{ inputs.gameweek }}" \
-            --output "artifacts/fpl_lucho/fpl-lucho-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json"
+            --season "${{ inputs.season || '2026-27' }}" \
+            --gameweek "${{ inputs.gameweek || '12' }}" \
+            --output "artifacts/fpl_lucho/fpl-lucho-${{ inputs.season || '2026-27' }}-gw${{ inputs.gameweek || '12' }}-raw.json"
       - name: Emit sanitized schema and provenance summary only
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/summarize_provider_capture.py \
             --provider "FPL Lucho" \
-            --input "artifacts/fpl_lucho/fpl-lucho-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json" \
+            --input "artifacts/fpl_lucho/fpl-lucho-${{ inputs.season || '2026-27' }}-gw${{ inputs.gameweek || '12' }}-raw.json" \
             --output "artifacts/provider-summary/fpl-lucho.json"
           cat artifacts/provider-summary/fpl-lucho.json
       - name: Upload sanitized schema and provenance summary only
         uses: actions/upload-artifact@v4
         with:
-          name: fpl-lucho-summary-${{ inputs.season }}-gw${{ inputs.gameweek }}-${{ github.run_id }}
+          name: fpl-lucho-summary-${{ inputs.season || '2026-27' }}-gw${{ inputs.gameweek || '12' }}-${{ github.run_id }}
           path: canonical_candidate/engineering_workbench/artifacts/provider-summary/fpl-lucho.json
           if-no-files-found: error
           retention-days: 90
