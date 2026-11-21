@@ -11,9 +11,6 @@ on:
         description: Target Gameweek shown on the provider page
         required: true
         default: "12"
-  push:
-    paths:
-      - "canonical_candidate/engineering_workbench/.triggers/fplrogue-gw12-one-shot"
 permissions:
   contents: read
 
