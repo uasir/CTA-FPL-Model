@@ -42,6 +42,13 @@ def evaluate_against_expanding_frequency_reference(
         test_forecasts, historical_outcomes, state_catalogue,
         smoothing_alpha=smoothing_alpha,
     )
+    if any(
+        row["reference_benchmark"]["training_gameweek_count"] < 1
+        for row in reference["forecasts"]
+    ):
+        raise HistoricalFrequencyBacktestError(
+            "each test forecast requires at least one completed historical training Gameweek"
+        )
     calibration = evaluate_joint_probability_calibration(
         reference["forecasts"],
         bootstrap_resamples=bootstrap_resamples,
