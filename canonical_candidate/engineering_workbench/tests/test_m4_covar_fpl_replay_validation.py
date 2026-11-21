@@ -102,7 +102,7 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
             for pick in case["official_final"]["picks"]
         )
         result = validate_official_replay_case(case)
-        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["status"], "PASS", result)
         self.assertEqual(result["resolver_active_captain_id"], "p11")
 
     def test_supports_card_only_appearance_from_official_stats(self):
