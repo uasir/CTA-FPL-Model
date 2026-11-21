@@ -71,6 +71,7 @@ class TestRealizedFplFinalityAudit(unittest.TestCase):
 
     def test_wrong_gameweek_rejected(self):
         rows, live, provenance, raw = _fixture()
+        provenance["source_url"] = "https://fantasy.premierleague.com/api/event/2/live/"
         with self.assertRaisesRegex(RealizedFplFinalityAuditError, "requested season and event"):
             audit_player_gameweek_finality(
                 rows, live, season="2026-27", event_id=2, source_provenance=provenance,
