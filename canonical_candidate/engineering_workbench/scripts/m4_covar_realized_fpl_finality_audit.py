@@ -8,7 +8,8 @@ never fills missing history rows with zero.
 from __future__ import annotations
 
 import hashlib
-import math
+import hashlib
+import json
 from typing import Any, Mapping, Sequence
 
 
@@ -43,6 +44,7 @@ def audit_player_gameweek_finality(
     season: str,
     event_id: int,
     source_provenance: Mapping[str, Any],
+    raw_source_bytes: bytes,
 ) -> dict[str, Any]:
     if not isinstance(player_gameweek_rows, Sequence) or not player_gameweek_rows:
         raise RealizedFplFinalityAuditError("player_gameweek_rows must be non-empty")
@@ -66,6 +68,17 @@ def audit_player_gameweek_finality(
     digest = source_provenance["raw_sha256"].lower()
     if len(digest) != 64 or any(ch not in _SHA256 for ch in digest):
         raise RealizedFplFinalityAuditError("raw_sha256 must be a 64-character hexadecimal SHA-256")
+    if not isinstance(raw_source_bytes, bytes) or not raw_source_bytes:
+        raise RealizedFplFinalityAuditError("raw_source_bytes must contain the exact captured response bytes")
+    actual_digest = hashlib.sha256(raw_source_bytes).hexdigest()
+    if actual_digest != digest:
+        raise RealizedFplFinalityAuditError("event-live raw source bytes do not match source provenance SHA-256")
+    try:
+        parsed_raw = json.loads(raw_source_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RealizedFplFinalityAuditError("event-live raw source bytes are not valid JSON") from exc
+    if parsed_raw != event_live_payload:
+        raise RealizedFplFinalityAuditError("parsed event-live payload does not match exact captured response bytes")
     try:
         from datetime import datetime
         captured = datetime.fromisoformat(source_provenance["captured_at_utc"].replace("Z", "+00:00"))
