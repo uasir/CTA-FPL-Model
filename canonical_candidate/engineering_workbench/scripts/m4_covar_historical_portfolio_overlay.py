@@ -312,4 +312,3 @@ def build_historical_covar_recommendation_overlay(
             "No transfer, starting XI, captaincy or canonical EV ranking is changed automatically.",
         ],
     }
-}
