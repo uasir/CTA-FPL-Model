@@ -497,3 +497,14 @@ provider made them available at the declared timestamp. It also does not
 verify model artifact bytes. The archive verifier is intentionally a distinct
 stage from structural dataset acceptance, and all outputs remain
 `decision_weight=0` and `production_eligible=false`.
+
+
+The combined acceptance function now supports an optional third archive stage.
+Callers supply both `archive_root` and `archive_manifest`; supplying only one
+fails closed. When supplied, all source snapshots must map to archived files
+and pass byte-level SHA-256 verification. The report then uses
+`STRUCTURAL_AND_ARCHIVE_BYTES_VERIFIED` while keeping
+`authenticity_verified=false`, `historical_dataset_certified=false`,
+`decision_weight=0`, and `production_eligible=false`. Without an archive,
+the original structural-only status is retained. Archive verification is
+not performed against public CI data and no archive contents are committed.
