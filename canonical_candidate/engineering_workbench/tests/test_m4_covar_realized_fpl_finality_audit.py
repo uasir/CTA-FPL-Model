@@ -95,10 +95,6 @@ class TestRealizedFplFinalityAudit(unittest.TestCase):
             )
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_rejects_raw_bytes_that_do_not_match_declared_hash(self):
         rows, live, provenance, raw = _fixture()
         with self.assertRaisesRegex(RealizedFplFinalityAuditError, "SHA-256"):
@@ -106,3 +102,7 @@ if __name__ == "__main__":
                 rows, live, season="2026-27", event_id=1, source_provenance=provenance,
                 raw_source_bytes=raw + b"tampered",
             )
+
+
+if __name__ == "__main__":
+    unittest.main()
