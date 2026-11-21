@@ -72,7 +72,11 @@ def test_rejects_split_overlap_or_nonchronological_gameweeks():
 
 
 def test_fails_when_test_gameweek_has_no_historical_training_outcomes():
-    forecasts = [row("f1","gw1","2025-08-01T18:00:00Z","A")]
+    forecasts = [
+        row("f1","gw1","2025-08-01T18:00:00Z","A"),
+        row("f2","gw2","2025-08-08T18:00:00Z","B"),
+        row("f3","gw3","2025-08-15T18:00:00Z","A"),
+    ]
     with pytest.raises(HistoricalFrequencyBacktestError):
         evaluate_against_expanding_frequency_reference(
             forecasts, [], ["A","B"],
