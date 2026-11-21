@@ -25,6 +25,17 @@ def _historical_context(payload):
             "retrieved_at_utc": "2026-11-21T17:00:00Z",
             "source_license_and_attribution": "Provider-stated CC BY 4.0",
             "method": "sample covariance across a complete-case player-gameweek panel",
+            "rolling_correlation_stability": {
+                "status": "EXPLORATORY_STABILITY_DIAGNOSTIC",
+                "first_window": [1, 2],
+                "second_window": [3, 4, 5],
+                "players": 12,
+                "pairs": 66,
+                "correlation_of_correlations": 0.00779916,
+                "median_absolute_correlation_change": 0.50044957,
+                "mean_absolute_correlation_change": 0.5779996,
+                "interpretation": "Short-window instability caution only",
+            },
             "source_panel": {
                 "target_field": "actual_points only",
                 "provider_forecasts_used": False,
@@ -70,6 +81,7 @@ def test_runner_invokes_historical_covar_without_changing_ev_decision():
     assert recommendation["historical_covar_overlay"]["production_eligible"] is False
     assert recommendation["historical_covar_overlay"]["field_comparison_status"] == "NOT_AVAILABLE_NO_FIELD_EXPOSURE_CAPTURE"
     assert recommendation["historical_covar_overlay"]["historical_covariance_source"]["source_sha256"] == "a" * 64
+    assert recommendation["historical_covar_overlay"]["historical_covariance_stability_diagnostic"]["correlation_of_correlations"] == 0.00779916
     diagnostics = recommendation["historical_covar_overlay"]["historical_covariance_diagnostics"]
     assert diagnostics["rolling_correlation_stability"]["correlation_of_correlations"] == 0.0078
     assert diagnostics["sample_coverage"]["covariance_players"] == 14
