@@ -89,7 +89,8 @@ def test_rejects_forecast_as_of_before_any_source_was_retrieved(tmp_path):
     capture_manifest, _ = make_capture(tmp_path)
     forecast, model, config, payload = make_forecast(tmp_path)
     forecast["as_of_utc"] = "2026-11-21T04:59:59Z"
-    with pytest.raises(ForecastArchivePackagingError, match="not available by forecast as-of"):
+    forecast["provenance"]["generated_at_utc"] = "2026-11-21T04:59:00Z"
+    with pytest.raises(ForecastArchivePackagingError, match="not available by forecast generation time"):
         package_forecast_archive(
             forecast, capture_manifest, model, config, payload,
             (tmp_path / "too_early").resolve(),
@@ -117,4 +118,32 @@ def test_rejects_capture_manifest_with_incomplete_marker_status(tmp_path):
         package_forecast_archive(
             forecast, capture_manifest, model, config, payload,
             (tmp_path / "invalid_capture").resolve(),
+        )
+
+
+
+def test_rejects_source_manifest_that_backdates_availability_before_retrieval(tmp_path):
+    capture_manifest, _ = make_capture(tmp_path)
+    document = json.loads(capture_manifest.read_text())
+    document["source_snapshots"][0]["available_at_utc"] = "2026-11-21T04:00:00Z"
+    capture_manifest.write_text(json.dumps(document))
+    forecast, model, config, payload = make_forecast(tmp_path)
+    with pytest.raises(ForecastArchivePackagingError, match="availability must equal"):
+        package_forecast_archive(
+            forecast, capture_manifest, model, config, payload,
+            (tmp_path / "backdated_source").resolve(),
+        )
+
+
+def test_rejects_source_retrieved_after_forecast_generation_even_if_before_as_of(tmp_path):
+    capture_manifest, _ = make_capture(tmp_path)
+    document = json.loads(capture_manifest.read_text())
+    document["source_snapshots"][0]["retrieved_at_utc"] = "2026-11-21T05:35:00Z"
+    document["source_snapshots"][0]["available_at_utc"] = "2026-11-21T05:35:00Z"
+    capture_manifest.write_text(json.dumps(document))
+    forecast, model, config, payload = make_forecast(tmp_path)
+    with pytest.raises(ForecastArchivePackagingError, match="not available by forecast generation time"):
+        package_forecast_archive(
+            forecast, capture_manifest, model, config, payload,
+            (tmp_path / "after_generation").resolve(),
         )
