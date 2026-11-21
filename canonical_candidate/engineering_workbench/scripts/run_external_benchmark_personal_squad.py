@@ -33,6 +33,7 @@ from canonical_provider_forecast_contract import normalize_provider_snapshot
 from canonical_forecast_recommendation_adapter import build_recommendation_forecast_payload
 from personal_squad_engine import recommend_personal_squad
 from squad_decision_context import attach_squad_decision_context
+from historical_covar_recommendation_overlay import build_historical_covar_recommendation_overlay
 
 
 class BenchmarkDecisionRunError(ValueError):
@@ -107,6 +108,25 @@ def run_external_benchmark_personal_squad(payload: Mapping[str, Any]) -> dict[st
             as_of_utc=payload["as_of_utc"],
             deadline_utc=snapshot["timing"]["deadline_utc"],
         )
+    historical_covar = payload.get("historical_covariance_context")
+    if historical_covar is not None:
+        if not isinstance(historical_covar, Mapping):
+            raise BenchmarkDecisionRunError("historical_covariance_context must be an object")
+        required_covar = ("covariance_report", "covariance_pairs")
+        missing_covar = [key for key in required_covar if key not in historical_covar]
+        if missing_covar:
+            raise BenchmarkDecisionRunError(
+                "missing historical covariance fields: " + ", ".join(missing_covar)
+            )
+        historical_overlay = build_historical_covar_recommendation_overlay(
+            recommendation=recommendation,
+            forecast_rows=forecast_payload["player_forecasts"],
+            covariance_report=historical_covar["covariance_report"],
+            covariance_pairs=historical_covar["covariance_pairs"],
+        )
+        recommendation = dict(recommendation)
+        recommendation["historical_covar_overlay"] = historical_overlay
+
     coverage = forecast_payload["forecast_quality"]["data_coverage"]
     return {
         "run_contract_version": "1.0.0",
