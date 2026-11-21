@@ -58,6 +58,15 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - The manual capture workflow now runs the parser after raw capture. A target Gameweek must be supplied explicitly; there is no stale default to a Gameweek whose deadline has passed. The workflow publishes only a sanitized metadata summary; raw provider rows and the official FPL bootstrap are not uploaded to the public repository's workflow artifacts.
 - Engineering tests have been added for raw capture, fixture parser, double-Gameweek sum, native-field retention, identity mapping, duplicate keys and invalid Gameweek data. The M3 feature-branch CI run at commit `6427d3351d37d9715ca8d30219f7d678becc78fb` passed the full engineering test suite (433 tests and 3 subtests). This verifies software behavior, not forecast accuracy.
 
+
+### Sideline Quant GW12 bounded live-capture attempt (2026-11-21)
+
+- One pre-deadline GW12 capture was attempted through the existing workflow (run [#44931321831](https://github.com/uasir/CTA-FPL-Model/actions/runs/44931321831)).
+- The provider's GW12-specific endpoint returned HTTP 404 before any source payload was captured. The provider's `latest.json` pointer still redirects to the GW11 release (generated 18 Nov 2026 03:33:09Z); the GW11 release is not a valid substitute for a GW12 decision snapshot.
+- The temporary push trigger and marker were removed immediately after the attempt. The regular manual workflow remains available. Do not repeat the capture until the provider publishes a GW12 release or the current pointer advances.
+- The parser and recommendation-boundary tests now verify that player-Gameweek expected minutes are explicitly summed from the provider's fixture-level `e_mins` alongside fixture xP. This is a provider-native aggregation, not a cross-provider minutes proxy. The fixture-grain source snapshot remains preserved, and start probabilities and fixture distribution fields are not summed.
+- The bounded live attempt is therefore blocked by provider publication timing, not by the parser or recommendation contract. Software CI passed on commit `7568ccceb12bbb67faf7d8dc79bd2829b9734a55` (run [#44931237094](https://github.com/uasir/CTA-FPL-Model/actions/runs/44931237094)): 540 tests passed, 3 subtests passed, JavaScript recommendation contracts passed, and all four identity-crosswalk validators passed.
+
 ### FPLRogue — source verified
 
 - Research page: `https://www.fplrogue.com/research/projections`
