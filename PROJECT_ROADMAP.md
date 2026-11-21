@@ -28,16 +28,13 @@ Scope includes:
 - Explicit uncertainty and provenance; no synthetic evidence presented as real performance.
 - Separation of model research from validated model outputs.
 
-**Conventional-provider integration ownership:** The five-provider external conventional forecast integration is implemented within M3's existing forecast-input scope, not as a separate M2 integration project. M2 remains responsible for model-layer evaluation and validation. The five providers are:
+**Conventional-provider integration ownership:** M3 owns the external conventional forecast integrations through its provider-neutral forecast-input scope; M2 owns model-layer evaluation and validation. The approved external providers are exactly:
 1. FPL Cat (existing integration).
-2. Sideline Quant.
-3. FPLRogue.
-4. FPL Lucho.
-5. FPL Wildcard.
+2. FPL Sideline Quant (existing integration).
 
-FPL Forecaster and FPL Review are excluded from the project: their forecasts and historical data are not to be used.
+No additional external forecast providers are in scope. FPLRogue, FPL Lucho and FPL Wildcard are explicitly excluded; no adapters or forecast integrations will be built for them. FPL Forecaster and FPL Review are also excluded, and their forecasts and historical data must not be used.
 
-**Evaluation timing:** Formal provider-by-provider forecast-performance evaluation is deferred until the upcoming Gameweek's official scores are available. Provider integration and capture engineering continue in parallel; this evaluation deferral does not block M3 implementation.
+**Evaluation timing:** Formal provider-by-provider forecast-performance evaluation is deferred until the upcoming Gameweek's official scores are available. Work on the two approved integrations and capture engineering continues in parallel; this evaluation deferral does not block M3 implementation.
 
 **Completion gate:** Each model output used downstream has documented data lineage, point-in-time status, evaluation evidence and an explicit validation status. Research models remain labelled as such until they pass their gates.
 
@@ -48,14 +45,14 @@ Integrate the entire former Milestone 4 scope into the decision engine. CoVar an
 Scope includes:
 
 ### Forecasts and player evaluation
-- A unified, provider-neutral interface for the five agreed conventional forecast providers: FPL Cat, Sideline Quant, FPLRogue, FPL Lucho and FPL Wildcard.
+- A unified, provider-neutral interface for exactly two conventional forecast providers: FPL Cat and FPL Sideline Quant.
 - Preserve each provider's identity, product/variant, original forecast values, forecast grain, source timestamps, capture timestamps, provenance, coverage and missingness.
 - Use provider-specific source adapters and schema validation; do not fabricate endpoints, values or timestamps.
 - Do not silently aggregate fixture-level forecasts into player-Gameweek forecasts. Any such transformation requires an explicit, tested and provenance-bearing aggregation contract.
 - Keep provider outputs individually addressable and evaluable. Do not average or blend providers arbitrarily; any future selection or weighting must be supported by evidence.
-- FPL Cat remains the existing integrated provider; the other four are additions to the same shared interface, not a competing integration track.
+- FPL Cat and FPL Sideline Quant are the only approved integrated providers. Do not add FPLRogue, FPL Lucho or FPL Wildcard.
 - FPL Forecaster and FPL Review are excluded and must not be used as forecast or historical-data sources.
-- Consume approved conventional and, when validated, CTA model outputs.
+- Consume FPL Cat and FPL Sideline Quant as separate conventional forecast sources; when validated, consume the CTA-FPL model through the same canonical forecast interface.
 - Evaluate expected points, uncertainty and relevant player-level evidence.
 - Keep forecast quality and joint-outcome quality as distinct validation questions.
 
@@ -85,13 +82,13 @@ Scope includes:
 
 Deliver the three distinct recommendation products through a controlled, auditable Gameweek release.
 
-1. **Conventional squad-specific recommendations:** based on the user's actual squad and conventional expected-points forecasts, assessed against the field using available EO and coverage context.
-2. **CTA-informed squad-specific recommendations:** based on the user's actual squad, with validated CTA/model and decision-engine intelligence, assessed against the field using EO, coverage and expected points.
-3. **General CTA player recommendations/rankings:** squad-independent market rankings that do not use a user's personal squad, budget, transfers, chip, formation or rank.
+1. **Conventional squad-specific recommendations:** based on the user's actual squad and FPL Cat / FPL Sideline Quant forecasts, assessed against the field using available EO and coverage context.
+2. **CTA-informed squad-specific recommendations:** based on the user's actual squad and the validated CTA-FPL model. It replaces the conventional forecast inputs but uses the same canonical forecast interface and the same personal-squad recommendation pipeline, assessed against the field using EO, coverage and expected points.
+3. **General CTA player recommendations/rankings:** a separate squad-independent market product that does not use a user's personal squad, budget, transfers, chip, formation or rank.
 
 **Evaluation timing:** Formal recommendation-product performance evaluation is deferred until the upcoming Gameweek's official scores are available. Product engineering and release-readiness work may continue without treating this evaluation as complete.
 
-**Completion gate:** Each product has a defined input contract, independent output, provenance, validation status and release/evaluation record. One product's context or experimental outputs must not contaminate another.
+**Completion gate:** Each product has a defined input contract, independent output, provenance, validation status and release/evaluation record. The conventional and CTA-informed personal-squad products share the same recommendation pipeline; only their forecast source differs. General CTA rankings remain squad-independent. One product's context or experimental outputs must not contaminate another.
 
 ## Post-GW11 and upcoming-Gameweek validation work
 
