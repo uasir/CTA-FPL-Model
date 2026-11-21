@@ -17,6 +17,14 @@ on:
         required: true
         default: "2026-27"
         type: string
+      provider:
+        description: Independent conventional forecast source
+        required: true
+        default: "FPL Cat"
+        type: choice
+        options:
+          - FPL Cat
+          - Sideline Quant
       manager_state_json:
         description: Confirmed squad, bank, free transfers, formation, starting XI, ordered outfield bench, reserve goalkeeper, captain, vice-captain and chip state (update if your team changes)
         required: true
@@ -30,11 +38,11 @@ jobs:
   capture:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out M3 implementation
+      - name: Check out selected M5 implementation branch
         id: checkout
         uses: actions/checkout@v4
         with:
-          ref: feat/m3-external-benchmark-decision-engine
+          ref: ${{ github.ref }}
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -49,17 +57,43 @@ jobs:
             tests/test_audit_official_fpl_manager_batch.py \
             tests/test_run_predeadline_m3_decision.py \
             tests/test_replay_frozen_m3_decision.py
-      - name: Capture and seal pre-deadline decision evidence
+      - name: Capture and seal provider-specific pre-deadline decision evidence
         working-directory: canonical_candidate/engineering_workbench
         env:
           MANAGER_STATE_JSON: ${{ inputs.manager_state_json }}
+          PROVIDER: ${{ inputs.provider }}
         run: |
-          PYTHONPATH=scripts python scripts/capture_predeadline_decision_bundle.py \
-            --team-id "${{ inputs.manager_team_id }}" \
-            --gameweek "${{ inputs.gameweek }}" \
-            --season "${{ inputs.season }}" \
-            --manager-state-json "$MANAGER_STATE_JSON" \
-            --output predeadline-decision-evidence.json
+          set -euo pipefail
+          if [ "$PROVIDER" = "Sideline Quant" ]; then
+            python scripts/capture_sideline_quant_raw.py \
+              --season "${{ inputs.season }}" \
+              --gameweek "${{ inputs.gameweek }}" \
+              --output sidelinequant-raw.json
+            python scripts/parse_sideline_quant_snapshot.py \
+              --input sidelinequant-raw.json \
+              --output sidelinequant-normalized.json
+            python scripts/build_sideline_quant_provider_capture.py \
+              --raw-capture sidelinequant-raw.json \
+              --normalized-capture sidelinequant-normalized.json \
+              --output sidelinequant-provider-capture.json
+            PYTHONPATH=scripts python scripts/capture_predeadline_decision_bundle.py \
+              --team-id "${{ inputs.manager_team_id }}" \
+              --gameweek "${{ inputs.gameweek }}" \
+              --season "${{ inputs.season }}" \
+              --manager-state-json "$MANAGER_STATE_JSON" \
+              --provider-capture sidelinequant-provider-capture.json \
+              --output predeadline-decision-evidence.json
+          elif [ "$PROVIDER" = "FPL Cat" ]; then
+            PYTHONPATH=scripts python scripts/capture_predeadline_decision_bundle.py \
+              --team-id "${{ inputs.manager_team_id }}" \
+              --gameweek "${{ inputs.gameweek }}" \
+              --season "${{ inputs.season }}" \
+              --manager-state-json "$MANAGER_STATE_JSON" \
+              --output predeadline-decision-evidence.json
+          else
+            echo "Unsupported conventional provider: $PROVIDER" >&2
+            exit 1
+          fi
       - name: Generate and freeze the single conventional recommendation
         working-directory: canonical_candidate/engineering_workbench
         env:
@@ -79,6 +113,18 @@ jobs:
             predeadline-m3-recommendation.json \
             --software-commit "$M3_CODE_SHA" \
             --output predeadline-m3-replay-report.json
+      - name: Validate conventional M5 delivery contract
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          PYTHONPATH=scripts python scripts/m5_conventional_delivery_contract.py \
+            --input predeadline-m3-recommendation.json \
+            --output m5-conventional-delivery-acceptance.json
+      - name: Build conventional delivery report (field context remains optional)
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          PYTHONPATH=scripts python scripts/m4_conventional_delivery_report.py \
+            --conventional predeadline-m3-recommendation.json \
+            --output conventional-delivery-report.json
       - name: Upload immutable pre-deadline decision evidence and recommendation
         uses: actions/upload-artifact@v4
         with:
@@ -87,5 +133,7 @@ jobs:
             canonical_candidate/engineering_workbench/predeadline-decision-evidence.json
             canonical_candidate/engineering_workbench/predeadline-m3-recommendation.json
             canonical_candidate/engineering_workbench/predeadline-m3-replay-report.json
+            canonical_candidate/engineering_workbench/m5-conventional-delivery-acceptance.json
+            canonical_candidate/engineering_workbench/conventional-delivery-report.json
           if-no-files-found: error
           retention-days: 90
