@@ -44,10 +44,18 @@ jobs:
           python scripts/parse_sideline_quant_snapshot.py \
             --input "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json" \
             --output "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-normalized.json"
-      - name: Upload restricted raw capture bundle
+      - name: Create metadata-only public summary
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/summarize_provider_capture.py \
+            --provider "Sideline Quant" \
+            --input "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json" \
+            --normalized "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-normalized.json" \
+            --output "artifacts/provider-summary/sidelinequant.json"
+      - name: Upload metadata-only capture summary
         uses: actions/upload-artifact@v4
         with:
-          name: sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-${{ github.run_id }}
-          path: canonical_candidate/engineering_workbench/artifacts/sidelinequant/*.json
+          name: sidelinequant-summary-${{ inputs.season }}-gw${{ inputs.gameweek }}-${{ github.run_id }}
+          path: canonical_candidate/engineering_workbench/artifacts/provider-summary/sidelinequant.json
           if-no-files-found: error
           retention-days: 90
