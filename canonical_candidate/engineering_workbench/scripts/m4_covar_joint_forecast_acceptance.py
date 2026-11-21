@@ -1,12 +1,13 @@
 """Combined chronological and provenance acceptance for historical forecasts."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from m4_covar_joint_forecast_dataset import (
     JointForecastDatasetError, validate_joint_forecast_dataset,
 )
-from m4_covar_joint_forecast_provenance import (
+from m4_covar_joint_forecast_archive_verifier import (\n    JointForecastArchiveVerificationError, verify_joint_forecast_archive,\n)\nfrom m4_covar_joint_forecast_provenance import (
     JointForecastProvenanceError, validate_joint_forecast_provenance,
 )
 
