@@ -57,7 +57,7 @@ class RankedManagerSampleTests(unittest.TestCase):
 
     def test_capture_skips_when_not_near_deadline(self):
         bootstrap={"events":[{"id":11,"deadline_time":"2026-11-21T11:00:00Z"}]}
-        rows,report=capture(bootstrap,force=False)
+        rows,report=capture(bootstrap,force=False,now_fn=lambda:datetime(2026,11,21,10,0,tzinfo=timezone.utc))
         self.assertEqual(rows,[])
         self.assertEqual(report["status"],"SKIPPED_OUTSIDE_DEADLINE_WINDOW")
 
