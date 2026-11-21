@@ -10,7 +10,6 @@ on:
       gameweek:
         description: Target Gameweek
         required: true
-        default: "11"
 
 permissions:
   contents: read
@@ -39,6 +38,12 @@ jobs:
             --season "${{ inputs.season }}" \
             --gameweek "${{ inputs.gameweek }}" \
             --output "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json"
+      - name: Normalize fixture-grain snapshot and explicit Gameweek xP sum
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/parse_sideline_quant_snapshot.py \
+            --input "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-raw.json" \
+            --output "artifacts/sidelinequant/sidelinequant-${{ inputs.season }}-gw${{ inputs.gameweek }}-normalized.json"
       - name: Upload restricted raw capture bundle
         uses: actions/upload-artifact@v4
         with:
