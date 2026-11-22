@@ -213,3 +213,13 @@ Integration rules:
 - Formal provider-by-provider performance evaluation is deferred until the upcoming Gameweek's official scores. This does not block capture/parser engineering.
 
 The source and provider-specific gates are recorded in `docs/M3_FIVE_PROVIDER_FORECAST_INTEGRATION.md`.
+
+## 2026-11-22 — Provider-neutral pre-deadline handoff status
+
+- The common pre-deadline decision-bundle workflow now accepts either the default FPL Cat capture or an explicitly selected Sideline Quant capture run. The Sideline adapter converts the publisher-documented player-Gameweek sum-xP view into the common capture envelope while retaining the immutable fixture-grain source and raw provenance.
+- Provider identity is resolved from the active five-provider registry. Only FPL Cat and Sideline Quant are decision-capture eligible; the other three providers remain diagnostic-only.
+- Frozen replay fixtures and reconstruction now use the active FPL Cat registry identity (`projections` / `provider_native_xp`); validation was not weakened to accommodate legacy labels.
+- The evaluation scorer, real-record assembler, independent manager reconciliation and historical admission checks are implemented. Synthetic tests validate software behavior; no synthetic record is treated as historical evidence.
+- CI run [#44990122496](https://github.com/uasir/CTA-FPL-Model/actions/runs/44990122496) passed after the provider identity and integration-state updates.
+- Remaining live-evidence gates: obtain a genuine Sideline Quant GW12 release (the last bounded endpoint check returned 404), execute a timestamp-valid manager-backed decision capture, and later admit a finalized Gameweek only after independent reconciliation, replay and evidence audit. No retrospective capture or older-GW substitution is permitted.
+- PR #51 remains draft/open/unmerged. No merge is authorized by this status update.
