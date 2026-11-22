@@ -49,6 +49,7 @@ def test_captures_provider_and_metadata_with_independent_hashes():
         clock=lambda: next(times),
     )
     snapshot = result["provider_snapshot"]
+    assert result["provider_source_id"] == "fpl_cat_public_projections"
     assert snapshot["provider"]["name"] == "FPL Cat"
     assert snapshot["target_gameweek"] == 11
     assert snapshot["coverage"]["identity_resolution_status"] == "VERIFIED"
