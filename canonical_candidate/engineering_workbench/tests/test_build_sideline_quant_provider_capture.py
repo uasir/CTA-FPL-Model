@@ -44,6 +44,18 @@ def _fixtures():
         },
     }
     parsed = {
+        "canonical_snapshot": {
+            "snapshot_id": "sidelinequant-gw12-test",
+            "season": "2026-27",
+            "target_gameweek": 12,
+            "provider": {
+                "name": "Sideline Quant",
+                "product": "gameweek_projections",
+                "variant": "provider_native_xp",
+                "version": "1.0",
+            },
+            "grain": "player_fixture",
+        },
         "player_gameweek_snapshot": {
             "snapshot_id": "sidelinequant-gw12-test:player_gameweek_sum_xp",
             "season": "2026-27",
