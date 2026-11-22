@@ -44,7 +44,7 @@ def test_player_history_imports_raw_understat_match_rows():
         "raw": {
             "matches": [{
                 "id": "9001",
-                "season": "2025",
+                "season": "2025-26",
                 "date": "2025-08-15 15:00:00",
                 "h_team": "Arsenal",
                 "a_team": "Chelsea",
