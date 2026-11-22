@@ -161,7 +161,7 @@ def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
         "production_eligible": False,
     }
     report_path = output_dir / "cta_points_model_manifest.json"
-    report_path.write_text(json.dumps(report, indent=2) + "\\n", encoding="utf-8")
+    report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
 
 
