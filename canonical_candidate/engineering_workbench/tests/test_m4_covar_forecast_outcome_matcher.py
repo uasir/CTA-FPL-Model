@@ -49,7 +49,7 @@ def inputs():
         "season": "2026-27",
         "events_checked": [1, 2, 11],
         "reports": [
-            {"event_id": 11, "status": "PASS_EXACT_MATCH", "finality_reconciled": True}
+            {"event_id": 11, "status": "PASS_EXACT_MATCH", "finality_reconciled": True, "outcome_available_at_utc": "2026-11-22T12:00:00Z"}
         ],
     }
     return forecast, realized_gw, fixtures, finality
@@ -62,6 +62,7 @@ def test_matches_only_observed_intersection_and_reports_unmatched_without_zero_f
     assert result["forecast_players_without_observed_realized_row"] == 1
     assert result["realized_rows_without_forecast"] == 1
     assert result["missing_observations_zero_filled"] == 0
+    assert result["outcome_available_at_utc"] == "2026-11-22T12:00:00Z"
     assert result["matched_rows"][0]["points_error_actual_minus_expected"] == 3.5
 
 
