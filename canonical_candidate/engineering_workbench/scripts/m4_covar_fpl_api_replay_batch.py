@@ -51,9 +51,23 @@ def acquire_replay_batch(
     bootstrap = fetch(f"{BASE_URL}/bootstrap-static/")
     replays: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
+    skipped_unfinished: list[int] = []
+    official_events = bootstrap.get("events")
+    if not isinstance(official_events, list):
+        raise OfficialFplFetchError("bootstrap payload does not contain official event status")
+    event_status: dict[int, list[dict[str, Any]]] = {}
+    for row in official_events:
+        if isinstance(row, dict) and isinstance(row.get("id"), int) and not isinstance(row.get("id"), bool):
+            event_status.setdefault(row["id"], []).append(row)
 
     for event in event_ids:
         try:
+            matching = event_status.get(event, [])
+            if len(matching) != 1:
+                raise OfficialFplFetchError("requested Gameweek is missing or duplicated in bootstrap event status")
+            if matching[0].get("finished") is not True:
+                skipped_unfinished.append(event)
+                continue
             require_completed_event(bootstrap, event)
             picks = fetch(f"{BASE_URL}/entry/{int(entry_id)}/event/{event}/picks/")
             sleep(0.25)
@@ -83,8 +97,10 @@ def acquire_replay_batch(
             "status": "PASS" if not failures else "PARTIAL",
             "requested_event_ids": event_ids,
             "captured_event_ids": [row["event_id"] for row in replays],
+            "skipped_unfinished_event_ids": skipped_unfinished,
             "failed_event_ids": [row["event_id"] for row in failures],
             "captured_count": len(replays),
+            "skipped_count": len(skipped_unfinished),
             "failed_count": len(failures),
             "manager_identity_in_output": False,
             "manager_entry_id_in_output": False,
@@ -122,7 +138,9 @@ def main() -> int:
         "status": document["capture_report"]["status"],
         "captured_count": document["capture_report"]["captured_count"],
         "failed_count": document["capture_report"]["failed_count"],
+        "skipped_count": document["capture_report"]["skipped_count"],
         "captured_event_ids": document["capture_report"]["captured_event_ids"],
+        "skipped_unfinished_event_ids": document["capture_report"]["skipped_unfinished_event_ids"],
         "manager_identity_in_output": False,
         "manager_entry_id_in_output": False,
         "raw_manager_payloads_in_output": False,
