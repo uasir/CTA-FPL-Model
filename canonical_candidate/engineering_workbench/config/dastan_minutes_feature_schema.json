@@ -8,7 +8,9 @@
     "feature_cols_path": "models/feature_cols.json",
     "feature_cols_blob_sha": "a314c2724b182c0af7b4e3fa1a8fecd7afe32788",
     "production_artifact_source_commit": "081566ac76af582588e1a9f01d125e90dff90b9b",
-    "model_public_version": "1.1.0"
+    "model_public_version": "1.1.0",
+    "production_artifact_source_repository": "https://github.com/qazybekb/smartplayfplv2",
+    "reconstruction_code_commit": "758db9247e8b3a9a870c991064f74d8339d61cd0"
   },
   "model_outputs": [
     "p60",
@@ -320,5 +322,5 @@
     "snapshot_missing_sentinel": -1,
     "residual_nan_fill": 0
   },
-  "status": "SCHEMA_PINNED_TWO_STAGE_MISSINGNESS_POLICY_DOCUMENTED_ADAPTER_NOT_YET_MODEL_INFERENCE"
+  "status": "SCHEMA_PINNED_TWO_STAGE_MISSINGNESS_DOCUMENTED_P60_ONLY_INFERENCE_AND_FIVE_GW_FEATURE_BUILDER_ADDED_VALIDATION_PENDING"
 }
