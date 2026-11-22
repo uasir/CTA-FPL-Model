@@ -8,6 +8,12 @@ The repository has useful partial sources, but none currently satisfies all of: 
 
 This is a data-readiness decision, not a claim that no future data source can satisfy the requirement.
 
+## Research-only residual-block baseline added (2026-11-22)
+
+A first empirical dependence baseline is now implemented in `scripts/m4_covar_residual_bootstrap.py` and can feed the existing full-Gameweek lineup builder/scorer. It resamples complete, time-ordered Gameweek vectors of conventional M3 forecast residuals for the exact player union of candidate and anonymized field portfolios. It preserves player expected-points means, carries paired minutes/played outcomes, rejects incomplete blocks rather than zero-filling, verifies manager-free M3 source bytes, and requires each historical outcome's observed event-live retrieval timestamp to precede the explicit training cutoff.
+
+This does **not** change the decision above. The current prospective M3 forecast/outcome archive is not yet large enough to establish a reliable empirical distribution, and the equal-weight bootstrap probabilities are not calibrated. The full-Gameweek scorer may be used to inspect research-only portfolio distributions, but it must retain `decision_weight=0`, `production_eligible=false`, and `covar_used=false`. No recommendation or production CoVar use is authorized.
+
 ## Project-owner scope decision — 2026-11-21
 
 The CoVar forecast path will continue using **the exact conventional forecast snapshot consumed by the M3 decision run** as its player-level expected-points/minutes anchor. M3 normalizes the external provider snapshot, preserves provider expected-points values unchanged, joins FPL metadata, and passes the resulting forecast records into the existing personal-squad engine. CoVar must bind to that same M3 `forecast_snapshot_id` and `model_version`. It must not substitute the separate exploratory official-`ep_next` baseline snapshot builder.
