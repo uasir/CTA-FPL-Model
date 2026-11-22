@@ -75,7 +75,7 @@ def acquire_replay_batch(
             sleep(0.25)
             replays.append(
                 normalize_official_fpl_replay(
-                    picks, live, bootstrap, event_id=event
+                    picks, live, bootstrap, event_id=event, expected_entry_id=entry_id
                 )
             )
         except (OfficialFplFetchError, CovarFplApiReplayAdapterError, ValueError) as exc:
