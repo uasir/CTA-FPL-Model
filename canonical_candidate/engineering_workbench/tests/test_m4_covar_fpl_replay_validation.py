@@ -78,6 +78,13 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
         self.assertTrue(result["official_team_points_reconcile"])
         self.assertEqual(result["resolver_total_points"], 24.0)
 
+    def test_accepts_official_double_gameweek_minutes_above_120(self):
+        case = replay()
+        case["player_outcomes"]["p2"]["minutes"] = 165
+        result = validate_official_replay_case(case)
+        self.assertEqual(result["status"], "PASS", result)
+        self.assertEqual(result["resolver_total_points"], 24.0)
+
     def test_detects_official_autosub_multiplier_mismatch(self):
         case = replay()
         case["official_final"]["picks"][12]["multiplier"] = 1
