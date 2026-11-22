@@ -148,7 +148,9 @@ def evaluate_cta_five_gameweek_squad(
         after = dict(team_counts)
         after[old["team_id"]] -= 1
         for incoming, new in first.items():
-            if incoming in owned or new["position"] != old["position"] or new["price"] > budget + 1e-9:
+            if incoming in owned or any(incoming not in by_week[gw] for gw in weeks):
+                continue
+            if new["position"] != old["position"] or new["price"] > budget + 1e-9:
                 continue
             if after.get(new["team_id"], 0) >= 3:
                 continue
