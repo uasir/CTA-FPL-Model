@@ -98,3 +98,10 @@ Keep the poll-implied estimate as a separate descriptive field-context estimate,
 `estimated_eo_pct = current_ownership_pct + captaincy_poll_pct + triple_captain_poll_pct`
 
 The agreed assumption is that the captaincy poll includes Triple Captain voters; the Triple Captain poll percentage is added as the additional exposure contribution. Preserve poll source, capture time, sample size and coverage, and label the output `POLL_IMPLIED_EO_ESTIMATE`. It must not replace observed EO or influence conventional EV/transfer decisions. This remains an M4 backlog item pending a reliable poll source and validation of the poll interpretation.
+
+
+### Verification record — 22 Nov 2026
+
+The PR #51 branch CI run [45003655183](https://github.com/uasir/CTA-FPL-Model/actions/runs/45003655183) passed on code commit `d903d28fc199b340c3036941db8d3264cbb091b8`: **611 Python engineering tests and 3 subtests passed**. JavaScript recommendation contract tests, canonical Python feature-core tests and all four identity crosswalk validations also passed.
+
+The run validates the new contracts, evaluator and TECM bundle adapter as isolated code. It does not prove that a live provider currently supplies the required five-plus-Gameweek fixture forecast bundle or that joint scenario distributions are calibrated. No production recommendation behavior has been changed.
