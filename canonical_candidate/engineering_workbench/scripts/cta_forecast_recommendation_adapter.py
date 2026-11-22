@@ -340,6 +340,7 @@ def build_cta_forecast_provider_snapshot(
             "fpl_element_id": element_id,
             "expected_points": _finite(row.get("expected_points"), f"player {element_id} GW{gw} expected_points"),
             "expected_minutes": _finite(row.get("expected_minutes"), f"player {element_id} GW{gw} expected_minutes", non_negative=True),
+            "price": element["now_cost"] / 10.0,
             "team_id": element["team"],
             "position": position,
             "display_name": str(element.get("web_name") or element.get("second_name") or element_id),
