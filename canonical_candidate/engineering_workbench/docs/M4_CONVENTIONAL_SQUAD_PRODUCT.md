@@ -161,3 +161,25 @@ CI run [45007383012](https://github.com/uasir/CTA-FPL-Model/actions/runs/4500738
 The product adapter additionally binds the multi-Gameweek bundle to the same provider identity, season, exact decision as-of timestamp and starting Gameweek as the personal-squad run. Current player prices/positions/team IDs must match the captured metadata provenance envelope and the forecast bundle; mismatches are rejected rather than silently combined.
 
 CI run [45007552091](https://github.com/uasir/CTA-FPL-Model/actions/runs/45007552091) passed after the strict provider/as-of/season/metadata provenance binding tests: **627 Python engineering tests and 3 subtests passed**, plus all JavaScript, feature-core and four identity crosswalk checks.
+
+
+## Multi-Gameweek provider capture readiness gate — 22 Nov 2026
+
+The capture pipeline must not turn repeated single-Gameweek retrievals into a multi-Gameweek forecast bundle merely because each response has a distinct Gameweek label. A provider is eligible for this path only after the source contract demonstrates all of the following:
+
+1. An explicitly addressable forecast panel for each of at least five consecutive target Gameweeks, with the provider's documented player-fixture grain and fixture IDs.
+2. A provider-native generated timestamp and retrieval timestamp for every panel, plus the correct official deadline and proof that the panel was generated and captured before that deadline.
+3. Stable provider product/variant/version and season identity across panels, with a unique raw-response SHA-256 and immutable snapshot ID per Gameweek.
+4. Complete player metadata and fixture schedule coverage sufficient to reconcile every required squad/candidate player's fixtures; a missing row is not interpreted as a blank Gameweek unless the schedule proves no fixture.
+5. An authorized, reproducible acquisition method. Account-only features, undocumented endpoints, inferred URLs, season aggregates and manually relabelled snapshots are not acceptable substitutes.
+
+**Provider readiness as of this assessment:**
+
+| Provider/source | Public capture grain | Explicit five-plus-GW fixture panels | M4 capture status |
+|---|---|---|---|
+| FPL Cat /api/v1/projections | Player-Gameweek | Not present in inspected response/schema | BLOCKED_SINGLE_GAMEWEEK_PLAYER_GRAIN |
+| Sideline Quant public /data/gw/{gw}/projections.json | Player-fixture, one next-GW panel | Not established; old panel URLs are not durable and current public whole-season view is aggregate | BLOCKED_NO_REPRODUCIBLE_MULTI_GAMEWEEK_ACCESS |
+
+**Implementation decision:** do not build a scheduled five-GW collector around guessed URLs or repeatedly call the current next-GW endpoint for historical/future labels. That would create apparent panel coverage without proving that the provider supplied those forecasts at the relevant decision time. Keep the canonical bundle contract and manager-aware assembler ready to consume a valid bundle, but leave live multi-GW capture disabled until a provider supplies a documented, authorized, reproducible five-plus-GW panel source. The first qualifying artifact should be captured as an immutable raw fixture, schema-inspected, normalized independently, and only then passed to the bundle contract.
+
+This is a provider-access blocker, not an engineering failure in the evaluator or assembler. Conventional live recommendations continue through the approved FPL Cat one-GW route, while the five-GW HOLD-vs-TRANSFER diagnostic remains unavailable rather than extrapolated. No actionable M4 transfer decision is unlocked by this readiness assessment.
