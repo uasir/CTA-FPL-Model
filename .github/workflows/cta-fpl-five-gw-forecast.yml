@@ -3,6 +3,8 @@ name: CTA five-Gameweek forecast pipeline
 on:
   # The expensive forecast build runs once per PR update, not twice for both
   # the branch push and its pull_request event. Main-branch pushes remain supported.
+  # Do not cancel an in-flight three-hour build when a follow-up commit arrives;
+  # queue the newer run so source acquisition and forecast stages can finish.
   push:
     branches:
       - main
@@ -20,7 +22,7 @@ permissions:
 
 concurrency:
   group: cta-five-gw-forecast-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   validate:
