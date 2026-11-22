@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from build_cta_five_gw_feature_matrix import (
     add_live_snapshot_features,
     anchor_team_features_to_deadline,
+    anchor_player_features_to_deadline,
     build_future_rows,
     validate_bootstrap_snapshot,
 )
@@ -127,3 +128,24 @@ def test_bootstrap_snapshot_requires_five_minute_predeadline_margin():
         assert "inside the deadline safety buffer" in str(exc)
     else:
         raise AssertionError("snapshot captured inside five-minute buffer was accepted")
+
+
+def test_same_gameweek_player_history_is_anchored_across_dgw_fixtures():
+    frame = pd.DataFrame([
+        {"fpl_code": 101, "fixture": 900, "kickoff_time": "2026-11-28T15:00:00Z",
+         "player_minutes_3": 180.0, "p60_3": 0.8, "ar_dc_hit_rate_3": 0.6,
+         "ar_rest_days": 5.0, "ar_opp_dc_allowed_3": 2.0},
+        {"fpl_code": 101, "fixture": 901, "kickoff_time": "2026-12-01T15:00:00Z",
+         "player_minutes_3": 0.0, "p60_3": 0.0, "ar_dc_hit_rate_3": 0.0,
+         "ar_rest_days": 2.0, "ar_opp_dc_allowed_3": 7.0},
+    ])
+    features = [
+        "player_minutes_3", "p60_3", "ar_dc_hit_rate_3",
+        "ar_rest_days", "ar_opp_dc_allowed_3",
+    ]
+    result = anchor_player_features_to_deadline(frame, features)
+    assert result["player_minutes_3"].tolist() == [180.0, 180.0]
+    assert result["p60_3"].tolist() == [0.8, 0.8]
+    assert result["ar_dc_hit_rate_3"].tolist() == [0.6, 0.6]
+    assert result["ar_rest_days"].tolist() == [5.0, 2.0]
+    assert result["ar_opp_dc_allowed_3"].tolist() == [2.0, 7.0]
