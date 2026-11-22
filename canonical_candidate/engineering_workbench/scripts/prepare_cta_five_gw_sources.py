@@ -410,17 +410,18 @@ def active_season_understat_refresh_ids(
 ) -> set[int]:
     """Return only mapped players with actual FPL minutes and no cached live history."""
     expected = sources._expected_understat_player_dates(raw_dir, seasons)
-    root = raw_dir / "understat" / "players"
-    refresh = set()
-    for value in player_ids:
-        player_id = int(value)
-        if not expected.get(player_id):
-            continue
-        cached = root / f"{player_id}.json"
-        if cached.is_file() and cached.stat().st_size:
-            continue
-        refresh.add(player_id)
-    return refresh
+    json_root = raw_dir / "understat" / "players"
+    wanted = {
+        int(value) for value in player_ids
+        if expected.get(int(value))
+        and not (
+            (json_root / f"{int(value)}.json").is_file()
+            and (json_root / f"{int(value)}.json").stat().st_size
+        )
+    }
+    # A complete pinned CSV is already a usable source. Only refresh players
+    # whose actual FPL appearance dates are absent from both caches.
+    return sources._incomplete_pinned_players(raw_dir, seasons, wanted) if wanted else set()
 
 
 def parallel_understat_fallbacks(
