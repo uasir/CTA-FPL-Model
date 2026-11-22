@@ -5,6 +5,7 @@ import argparse, base64, hashlib, json
 from pathlib import Path
 from typing import Any, Mapping
 from capture_fpl_cat_snapshot import FPL_BOOTSTRAP_URL
+from provider_capability_registry import ProviderCapabilityError, validate_capture_against_registry
 
 class ProviderCaptureBuildError(ValueError):
     pass
@@ -25,6 +26,17 @@ def build_sideline_quant_provider_capture(raw_capture: Mapping[str, Any], parsed
     if raw_capture.get("provider", {}).get("name") != "Sideline Quant":
         raise ProviderCaptureBuildError("raw capture is not from Sideline Quant")
     snapshot = parsed.get("player_gameweek_snapshot")
+    fixture_snapshot = parsed.get("canonical_snapshot")
+    if not isinstance(fixture_snapshot, Mapping):
+        raise ProviderCaptureBuildError("parsed artifact lacks canonical player-fixture source snapshot")
+    try:
+        validate_capture_against_registry(
+            "sideline_quant_public_next_gw", fixture_snapshot
+        )
+    except ProviderCapabilityError as exc:
+        raise ProviderCaptureBuildError(
+            f"provider capability registry rejected capture: {exc}"
+        ) from exc
     if not isinstance(snapshot, Mapping):
         raise ProviderCaptureBuildError("parsed artifact lacks player-Gameweek decision snapshot")
     provider = snapshot.get("provider", {})
@@ -75,6 +87,7 @@ def build_sideline_quant_provider_capture(raw_capture: Mapping[str, Any], parsed
     if missing:
         raise ProviderCaptureBuildError("official bootstrap is missing player IDs: "+", ".join(map(str,missing)))
     return {
+        "provider_source_id": "sideline_quant_public_next_gw",
         "provider_snapshot":dict(snapshot),
         "player_metadata":[metadata[i] for i in ids],
         "raw_archives":{
