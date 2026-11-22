@@ -12,6 +12,7 @@ import argparse
 import csv
 import hashlib
 import json
+import shutil
 import sys
 import time
 import urllib.error
@@ -424,6 +425,11 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "history_rows_from_official_api": current_api_report["api_player_fixture_rows"],
     }
     manifest_path.write_text(json.dumps(source_manifest, indent=2) + "\n", encoding="utf-8")
+    source_manifest_copy = output_dir / "source_download_manifest.json"
+    shutil.copy2(manifest_path, source_manifest_copy)
+    dastan_manifest_path = dastan_root / "models" / "artifact_manifest.json"
+    dastan_manifest_copy = output_dir / "dastan_artifact_manifest.json"
+    shutil.copy2(dastan_manifest_path, dastan_manifest_copy)
 
     print("Building canonical player/team match tables", flush=True)
     player_matches, team_matches, player_lookup = sources.build_canonical_matches(raw_dir, seasons)
@@ -499,6 +505,8 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
             "canonical_player_matches": {"path": str(player_matches_path), "sha256": sha256(player_matches_path)},
             "canonical_team_matches": {"path": str(team_matches_path), "sha256": sha256(team_matches_path)},
             "safe_current_player_mapping": {"path": str(safe_mapping_path), "sha256": sha256(safe_mapping_path)},
+            "source_download_manifest": {"path": str(source_manifest_copy), "sha256": sha256(source_manifest_copy)},
+            "dastan_artifact_manifest": {"path": str(dastan_manifest_copy), "sha256": sha256(dastan_manifest_copy)},
             "historical_training_frame": {"path": str(training_dir / "features_with_snapshots.parquet"), "sha256": sha256(training_dir / "features_with_snapshots.parquet")},
         },
         "important_boundaries": [
