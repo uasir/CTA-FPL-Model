@@ -870,7 +870,7 @@ def merge_understat_team_metrics(
     if understat_team_matches.empty:
         raise RuntimeError("Understat team history is empty; refusing FPL-only silent fallback")
 
-    left = fpl_team_matches.copy()
+    left = fpl_team_matches.drop(columns=[name for name in metrics if name in fpl_team_matches]).copy()
     right = understat_team_matches.copy()
     left["_match_date"] = pd.to_datetime(left["date"], utc=True, errors="coerce").dt.date
     right["_match_date"] = pd.to_datetime(right["date"], utc=True, errors="coerce").dt.date
