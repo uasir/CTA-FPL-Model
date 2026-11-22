@@ -18,7 +18,7 @@ permissions:
 
 concurrency:
   group: cta-five-gw-forecast-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   validate:
