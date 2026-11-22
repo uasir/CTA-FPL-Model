@@ -15,6 +15,7 @@ from pathlib import Path
 
 POSITIONS = {"GKP", "DEF", "MID", "FWD"}
 KEY_FIELDS = ("fpl_element_id", "fixture_id")
+SNAPSHOT_FEATURES = {"ar_ep_next", "sig_status_risk", "sig_chance_playing", "sig_has_news"}
 
 
 def load_schema(path: Path) -> dict:
@@ -38,6 +39,8 @@ def build_rows(rows: list[dict], schema: dict) -> tuple[list[dict], dict]:
 
     seen = set()
     output = []
+    missing_snapshot_values = 0
+    residual_nan_fills = 0
     for line_number, row in enumerate(rows, start=2):
         key = tuple(str(row.get(field, "")).strip() for field in KEY_FIELDS)
         if not all(key):
@@ -52,13 +55,24 @@ def build_rows(rows: list[dict], schema: dict) -> tuple[list[dict], dict]:
         for feature in features:
             raw = row.get(feature)
             if raw is None or str(raw).strip() == "":
-                raise ValueError(f"Row {line_number}: missing feature value {feature}")
-            try:
-                value = float(raw)
-            except (TypeError, ValueError) as exc:
-                raise ValueError(f"Row {line_number}: non-numeric feature {feature}") from exc
-            if not math.isfinite(value):
-                raise ValueError(f"Row {line_number}: non-finite feature {feature}")
+                if feature in SNAPSHOT_FEATURES:
+                    value = -1.0
+                    missing_snapshot_values += 1
+                else:
+                    value = 0.0
+                    residual_nan_fills += 1
+            else:
+                try:
+                    value = float(raw)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f"Row {line_number}: non-numeric feature {feature}") from exc
+                if not math.isfinite(value):
+                    if feature in SNAPSHOT_FEATURES:
+                        value = -1.0
+                        missing_snapshot_values += 1
+                    else:
+                        value = 0.0
+                        residual_nan_fills += 1
             values[feature] = value
         output.append({
             "fpl_element_id": key[0],
@@ -73,7 +87,12 @@ def build_rows(rows: list[dict], schema: dict) -> tuple[list[dict], dict]:
         "feature_count": len(features),
         "feature_schema_version": schema["schema_version"],
         "upstream_feature_cols_blob_sha": schema["upstream"]["feature_cols_blob_sha"],
-        "imputation": "NONE_FAIL_CLOSED",
+        "missing_value_policy": {
+            "snapshot_absence_sentinel": -1.0,
+            "snapshot_missing_values": missing_snapshot_values,
+            "residual_nan_fill": 0.0,
+            "residual_nan_fills": residual_nan_fills,
+        },
     }
     return output, report
 
