@@ -64,6 +64,28 @@ def test_emits_complete_equal_weight_joint_blocks_and_preserves_target_means():
 
 
 
+def test_preserves_minutes_mean_when_residual_scenarios_hit_gameweek_bounds():
+    target, panel = fixture_inputs()
+    target["player_forecasts"][0]["expected_minutes"] = 90.0
+    for row in panel["matched_rows"]:
+        if row["fpl_element_id"] == 10:
+            row["minutes_error_actual_minus_expected"] = {
+                1: 500.0, 2: -500.0, 3: 350.0, 4: -350.0, 5: 0.0
+            }[row["gameweek"]]
+    result = build_residual_bootstrap_scenarios(
+        target, panel, training_cutoff_utc="2026-11-26T20:00:00Z"
+    )
+    values = [
+        next(x["minutes"] for x in scenario["player_outcomes"] if x["player_id"] == "10")
+        for scenario in result["scenarios"]
+    ]
+    assert min(values) >= 0.0
+    assert max(values) <= 270.0
+    assert sum(values) / len(values) == pytest.approx(90.0, abs=1e-9)
+    assert result["minutes_mean_preserved"] is True
+    assert result["minutes_clipping_count"] > 0
+
+
 def test_restricts_scenario_universe_to_portfolio_player_ids():
     target, panel = fixture_inputs()
     result = build_residual_bootstrap_scenarios(target, panel, training_cutoff_utc="2026-11-26T20:00:00Z", target_player_ids=[10])
