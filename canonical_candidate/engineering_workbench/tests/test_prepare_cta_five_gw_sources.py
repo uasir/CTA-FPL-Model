@@ -3,7 +3,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from prepare_cta_five_gw_sources import (
-    active_season_understat_refresh_ids,
+    understat_players_needing_refresh,
     apply_historical_snapshot_safety_buffer,
     copy_verified_dastan_release,
     copy_verified_dastan_model_contract,
@@ -277,27 +277,6 @@ def test_snapshot_safety_buffer_creates_provenance_for_imported_artifacts(tmp_pa
     assert sidecar["source"] == "imported Dastan release artifact"
 
 
-def test_active_understat_refresh_only_selects_players_with_minutes_and_without_cache(tmp_path: Path):
-    class FakeSources:
-        @staticmethod
-        def _expected_understat_player_dates(raw_dir, seasons):
-            assert seasons == ["2026-27"]
-            return {101: {"2026-08-15"}, 202: set(), 303: {"2026-09-01"}}
-
-        @staticmethod
-        def _incomplete_pinned_players(raw_dir, seasons, player_ids):
-            assert player_ids == {101}
-            return {101}
-
-    cache = tmp_path / "understat" / "players"
-    cache.mkdir(parents=True)
-    (cache / "303.json").write_text('[{"id": 1}]')
-    selected = active_season_understat_refresh_ids(
-        tmp_path, ["2026-27"], {101, 202, 303}, FakeSources,
-    )
-    assert selected == {101}
-
-
 def test_copy_verified_dastan_model_contract_imports_all_40_files(tmp_path: Path):
     import hashlib
     import json
@@ -333,3 +312,32 @@ def test_copy_dastan_operational_mappings_preserves_current_mapping_files(tmp_pa
     report = copy_dastan_operational_mappings(tmp_path / "dastan", tmp_path / "outputs")
     assert report["artifact_count"] == 2
     assert (tmp_path / "outputs" / "dastan_mappings" / "current_fpl_understat_players.csv").is_file()
+
+
+def test_understat_refresh_only_selects_current_roster_appearances_missing_from_both_caches(tmp_path: Path):
+    import pandas as pd
+
+    class FakeSources:
+        @staticmethod
+        def _expected_understat_player_dates(raw_dir, seasons):
+            assert seasons == ["2026-27"]
+            return {
+                101: {"2026-08-15"},
+                202: set(),
+                303: {"2026-09-01"},
+                404: {"2026-09-15"},
+                505: {"2026-10-01"},
+            }
+
+    csv_root = tmp_path / "vaastav" / "understat" / "players"
+    json_root = tmp_path / "understat" / "players"
+    csv_root.mkdir(parents=True)
+    json_root.mkdir(parents=True)
+    pd.DataFrame({"date": ["2026-09-01"]}).to_csv(csv_root / "303.csv", index=False)
+    (json_root / "404.json").write_text('[{"date":"2026-09-15"}]')
+    (json_root / "505.json").write_text('[{"date":"2026-09-20"}]')
+
+    selected = understat_players_needing_refresh(
+        tmp_path, ["2026-27"], {101, 202, 303, 404, 505}, FakeSources,
+    )
+    assert selected == {101, 505}
