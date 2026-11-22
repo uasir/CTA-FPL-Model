@@ -251,6 +251,23 @@ def anchor_player_features_to_deadline(target: pd.DataFrame, features: list[str]
     return out
 
 
+def anchor_opponent_features_to_deadline(target: pd.DataFrame, features: list[str]) -> pd.DataFrame:
+    """Keep opponent-history features fixed to each opponent's pre-deadline state."""
+    out = target.copy()
+    anchored = [feature for feature in features if feature.startswith("ar_opp_")]
+    if not anchored or "opponent_team_name" not in out:
+        return out
+    ordered = out.sort_values(
+        ["kickoff_time", "fixture"], kind="mergesort"
+    ).drop_duplicates("opponent_team_name", keep="first").set_index("opponent_team_name")
+    for index, row in out.iterrows():
+        opponent = row["opponent_team_name"]
+        for feature in anchored:
+            if feature in out.columns:
+                out.at[index, feature] = ordered.at[opponent, feature]
+    return out
+
+
 def validate_bootstrap_snapshot(bootstrap: dict, first_gameweek: int, deadline: pd.Timestamp) -> dict:
     metadata = bootstrap.get("_cta_snapshot")
     if not isinstance(metadata, dict):
@@ -357,6 +374,7 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
         ].copy()
         target = anchor_team_features_to_deadline(target)
         target = anchor_player_features_to_deadline(target, features)
+        target = anchor_opponent_features_to_deadline(target, features)
         target = add_live_snapshot_features(target, bootstrap, first_gw)
         metadata = gw_players[[
             "season", "gameweek", "fixture", "fpl_code", "element", "position",
