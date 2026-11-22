@@ -13,6 +13,8 @@ on:
     paths:
       - .github/workflows/capture-fplcat-benchmark.yml
       - canonical_candidate/engineering_workbench/scripts/run_fplcat_m3_m4_replay.py
+      - canonical_candidate/engineering_workbench/scripts/capture_public_fpl_manager_snapshot.py
+      - canonical_candidate/engineering_workbench/scripts/run_fplcat_live_m4_recommendation.py
 
 permissions:
   contents: read
