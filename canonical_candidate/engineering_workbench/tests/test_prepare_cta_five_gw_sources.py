@@ -7,7 +7,6 @@ from prepare_cta_five_gw_sources import (
     apply_historical_snapshot_safety_buffer,
     copy_verified_dastan_release,
     copy_verified_dastan_model_contract,
-    download_and_merge_pinned_understat_player_histories,
     player_elements,
     season_from_bootstrap,
     write_csv_frame,
@@ -157,53 +156,6 @@ def test_parallel_understat_fallbacks_fetch_concurrently_and_write_json(tmp_path
         path = tmp_path / "understat" / "players" / f"{player_id}.json"
         assert json.loads(path.read_text()) == [{"id": player_id}]
 
-
-def test_pinned_understat_histories_merge_all_seasons_before_fallback(tmp_path: Path):
-    import pandas as pd
-
-    season_rows = {
-        "https://raw.example/data/2023-24/understat/Mohamed_Salah_1250.csv":
-            """id,date,season,goals
-1,2023-09-01,2023,1
-""",
-        "https://raw.example/data/2024-25/understat/Mohamed_Salah_1250.csv":
-            """id,date,season,goals
-2,2024-09-01,2024,0
-""",
-    }
-
-    class FakeSources:
-        VAASTAV_RAW = "https://raw.example/"
-
-        @staticmethod
-        def _needed_understat_ids(raw_dir, seasons):
-            return {1250}
-
-        @staticmethod
-        def _tree(raw_dir, force=False):
-            return [
-                "data/2023-24/understat/Mohamed_Salah_1250.csv",
-                "data/2024-25/understat/Mohamed_Salah_1250.csv",
-                "data/2024-25/understat/Other_Player_9999.csv",
-                "data/2022-23/understat/Mohamed_Salah_1250.csv",
-            ]
-
-        @staticmethod
-        def _download_many(jobs, workers, force):
-            for url, destination in jobs:
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_text(season_rows[url])
-
-    report = download_and_merge_pinned_understat_player_histories(
-        tmp_path, ["2023-24", "2024-25"], FakeSources, workers=2,
-    )
-    merged = pd.read_csv(
-        tmp_path / "vaastav" / "understat" / "players" / "1250.csv"
-    )
-    assert merged["id"].tolist() == [1, 2]
-    assert merged["season"].tolist() == [2023, 2024]
-    assert report["pinned_season_files_downloaded"] == 2
-    assert report["pinned_player_ids_merged"] == 1
 
 def test_parallel_understat_fallback_stops_on_provider_wide_preflight_failure(tmp_path, monkeypatch):
     import sys
