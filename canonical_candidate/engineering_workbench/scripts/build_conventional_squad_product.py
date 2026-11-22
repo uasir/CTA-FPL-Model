@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from multi_gameweek_transfer_evaluator import (
+from multi_gameweek_squad_request_assembler import (\n    MultiGameweekSquadAssemblyError,\n    assemble_multi_gameweek_squad_diagnostics,\n)\nfrom multi_gameweek_transfer_evaluator import (
     MultiGameweekTransferError,
     evaluate_multi_gameweek_transfer_bundle,
 )
@@ -77,12 +77,33 @@ def build_personal_squad_product(run: Mapping[str, Any]) -> dict[str, Any]:
     # a governed M4 promotion record exist. Caller-supplied status flags are
     # never sufficient to unlock a production decision.
     multi_gw_diagnostic = None
-    multi_gw_request = run.get("multi_gameweek_transfer_request")
-    if multi_gw_request is not None:
+    multi_gw_payload = run.get("multi_gameweek_forecast_payload")
+    if multi_gw_payload is not None:
+        manager_state = run.get("manager_context")
+        current_player_metadata = run.get("current_player_metadata")
+        if not isinstance(manager_state, Mapping) or not isinstance(current_player_metadata, list):
+            raise ConventionalSquadProductError(
+                "multi-Gameweek assembly requires source manager_context and current_player_metadata"
+            )
         try:
-            multi_gw_diagnostic = evaluate_multi_gameweek_transfer_bundle(multi_gw_request)
-        except MultiGameweekTransferError as exc:
-            raise ConventionalSquadProductError(f"multi-Gameweek diagnostic rejected: {exc}") from exc
+            multi_gw_diagnostic = assemble_multi_gameweek_squad_diagnostics(
+                multi_gw_payload,
+                manager_state,
+                list(current_plan["starting_xi"]),
+                current_player_metadata,
+                hit_cost_points=run.get("multi_gameweek_hit_cost_points", 4.0),
+            )
+        except MultiGameweekSquadAssemblyError as exc:
+            raise ConventionalSquadProductError(f"multi-Gameweek assembly rejected: {exc}") from exc
+    else:
+        # Retain the low-level request hook for focused evaluator contract tests
+        # and controlled diagnostics; the manager-aware assembler is preferred.
+        multi_gw_request = run.get("multi_gameweek_transfer_request")
+        if multi_gw_request is not None:
+            try:
+                multi_gw_diagnostic = evaluate_multi_gameweek_transfer_bundle(multi_gw_request)
+            except MultiGameweekTransferError as exc:
+                raise ConventionalSquadProductError(f"multi-Gameweek diagnostic rejected: {exc}") from exc
 
     forecast_horizon = recommendation.get("forecast_horizon_gameweeks", 1)
     if isinstance(forecast_horizon, bool) or not isinstance(forecast_horizon, int) or forecast_horizon < 1:
@@ -119,7 +140,7 @@ def build_personal_squad_product(run: Mapping[str, Any]) -> dict[str, Any]:
     }
 
     return {
-        "product_contract_version": "1.2.0",
+        "product_contract_version": "1.3.0",
         "product_id": ("conventional_personal_squad" if run_type == "EXTERNAL_BENCHMARK_PERSONAL_SQUAD" else "cta_informed_personal_squad"),
         "product_family": "personal_squad",
         "product_status": "EXPLORATORY_PREVIEW",
