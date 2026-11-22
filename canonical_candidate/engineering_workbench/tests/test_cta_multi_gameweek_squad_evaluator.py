@@ -42,6 +42,8 @@ class CTAMultiGameweekSquadEvaluatorTests(unittest.TestCase):
         panels, manager, xi = fixture_inputs()
         result = evaluate_cta_five_gameweek_squad(panels, manager, starting_xi_ids=xi)
         self.assertEqual(result["horizon_gameweeks"], [12, 13, 14, 15, 16])
+        self.assertEqual(result["recommendation_basis"], "FIVE_GAMEWEEK_CUMULATIVE_EXPECTED_POINTS")
+        self.assertEqual(result["recommended_action"], "TRANSFER")
         self.assertGreater(result["candidate_count"], 0)
         best = result["best_diagnostic"]
         self.assertIn(best["transfer_out_id"], {8, 9, 10, 11})
@@ -56,6 +58,27 @@ class CTAMultiGameweekSquadEvaluatorTests(unittest.TestCase):
         panels, manager, xi = fixture_inputs()
         with self.assertRaises(CTAMultiGameweekSquadError):
             evaluate_cta_five_gameweek_squad(panels[:4], manager, starting_xi_ids=xi)
+
+
+    def test_transfer_candidate_must_exist_across_all_five_panels(self):
+        panels, manager, xi = fixture_inputs()
+        panels[2]["player_forecasts"] = [
+            row for row in panels[2]["player_forecasts"]
+            if row["fpl_element_id"] != 16
+        ]
+        result = evaluate_cta_five_gameweek_squad(panels, manager, starting_xi_ids=xi)
+        self.assertNotIn(
+            16,
+            {row["transfer_in_id"] for row in result["candidate_evaluations"]},
+        )
+
+    def test_rejects_candidate_price_metadata_changes_across_panels(self):
+        panels, manager, xi = fixture_inputs()
+        for row in panels[3]["player_forecasts"]:
+            if row["fpl_element_id"] == 16:
+                row["price"] = 5.1
+        with self.assertRaisesRegex(CTAMultiGameweekSquadError, "metadata changed"):
+            evaluate_cta_five_gameweek_squad(panels, manager, starting_xi_ids=xi)
 
     def test_rejects_missing_owned_player_in_any_week(self):
         panels, manager, xi = fixture_inputs()
