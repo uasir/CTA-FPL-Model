@@ -168,6 +168,7 @@ def test_opponent_history_is_anchored_to_predeadline_state_across_dgw_fixtures()
 
 
 def test_unavailable_understat_features_are_zeroed_at_inference():
+    import pandas as pd
     from feature_availability import mask_unavailable_features
 
     features = ["player_xg_1", "player_fpl_points_1", "team_xg_5"]
