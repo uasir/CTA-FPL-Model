@@ -77,7 +77,6 @@ def _adapter_result():
 
 
 def _manager_context():
-    positions = ["GKP", "GKP"] + ["DEF"] * 5 + ["MID"] * 5 + ["FWD"] * 3
     return {
         "squad_snapshot": [
             {"fpl_element_id": index, "purchase_price": 5.0}
@@ -112,15 +111,48 @@ def test_cta_runner_emits_both_products_with_correct_forecast_horizons(monkeypat
     assert personal["decision"]["action"] == "NOT_DECISION_ELIGIBLE"
     assert personal["decision"]["decision_eligibility"]["status"] == "BLOCKED_PENDING_INDEPENDENT_MULTI_GAMEWEEK_VALIDATION"
     assert personal["release_eligible"] is False
+    assert result["guardrails"]["personal_squad_emitted"] is True
     assert result["guardrails"]["personal_squad_used_first_gameweek_panel"] is True
     assert result["guardrails"]["five_gameweek_total_used_as_single_gameweek_ev"] is False
     assert result["guardrails"]["covar_used"] is False
 
 
-def test_cta_runner_requires_real_manager_context(monkeypatch):
+def test_general_cta_product_runs_without_manager_context(monkeypatch):
+    adapted = _adapter_result()
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(adapted),
+    )
+    result = runner.run_cta_recommendation_products("/unused-bundle")
+    assert result["general_cta_market"]["forecast_horizon_gameweeks"] == 5
+    assert result["cta_informed_personal_squad"]["status"] == "NOT_REQUESTED"
+    assert result["cta_informed_personal_squad"]["enabled"] is False
+    assert result["guardrails"]["personal_squad_emitted"] is False
+    assert result["guardrails"]["personal_squad_used_first_gameweek_panel"] is False
+
+
+def test_general_cta_rankings_are_invariant_to_manager_context(monkeypatch):
+    adapted = _adapter_result()
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(adapted),
+    )
+    general_only = runner.run_cta_recommendation_products("/unused-bundle")["general_cta_market"]
+    manager_a = _manager_context()
+    manager_b = _manager_context()
+    manager_b["bank"] = 12.3
+    manager_b["free_transfers"] = 5
+    manager_b["personal_risk_profile"] = "conservative"
+    manager_b["squad_snapshot"] = list(reversed(manager_b["squad_snapshot"]))
+    output_a = runner.run_cta_recommendation_products("/unused-bundle", manager_a)["general_cta_market"]
+    output_b = runner.run_cta_recommendation_products("/unused-bundle", manager_b)["general_cta_market"]
+    assert general_only == output_a == output_b
+
+
+def test_cta_runner_rejects_incomplete_manager_context(monkeypatch):
     monkeypatch.setattr(
         runner, "build_cta_forecast_provider_snapshot",
         lambda *args, **kwargs: copy.deepcopy(_adapter_result()),
     )
-    with pytest.raises(runner.CTARecommendationRunError):
+    with pytest.raises(runner.CTARecommendationRunError, match="manager_context is missing"):
         runner.run_cta_recommendation_products("/unused-bundle", {})
