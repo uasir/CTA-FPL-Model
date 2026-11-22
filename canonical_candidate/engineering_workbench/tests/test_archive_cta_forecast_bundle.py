@@ -25,7 +25,7 @@ def bundle(root: Path):
     write(root / "forecasts/forecast_report.json", {
         "status":"PASS_CTA_FIVE_GW_CANDIDATE_FORECAST","season":"2026-27",
         "gameweeks":[12,13,14,15,16],"forecast_snapshot_id":"snapshot-123",
-        "fixture_rows":3,"player_gameweek_rows":3,"five_gameweek_player_rows":2,
+        "fixture_player_rows":3,"player_gameweek_rows":3,"five_gameweek_player_rows":2,
         "model_hashes":{"GKP":"abc"},"provenance":{"source_manifest_sha256":"source",
         "feature_matrix_sha256":"matrix"},"decision_safeguards":safeguards})
     write(root / "forecasts/bundle_validation_report.json", {
