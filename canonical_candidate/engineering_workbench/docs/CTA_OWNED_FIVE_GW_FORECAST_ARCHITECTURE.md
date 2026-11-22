@@ -39,7 +39,7 @@ Useful properties observed:
 - MIT-licensed code and published model weights; retain the MIT copyright and licence notice when importing code or substantial portions.
 - Six-season training frame described as 163,072 player-fixture rows and 286 features.
 - The released predictor returns `p60`, `p_any`, and `expected_minutes`. The minutes output is derived by applying the packaged, position-specific `minutes_calibration.json` curve to the position-specific `p60` classifier.
-- The minutes component is separable from Dastan's points heads: CTA needs the four `p60_{GKP,DEF,MID,FWD}` model artifacts, the minutes calibration curves, the ordered 286-feature contract, and the small inference adapter. CTA will not import Dastan's `xpts`, bucket, or direct-points heads as its primary points model.
+- The minutes component is separable from Dastan's points heads: CTA needs the four `p60_{GKP,DEF,MID,FWD}` model artifacts, the minutes calibration curves, the ordered 286-feature contract, and the small inference adapter. CTA will not use Dastan's `xpts`, bucket, or direct-points heads as its primary points model; they are retained as a separate benchmark.
 - Dastan's reported minutes/availability evaluation and point forecasts are model-reported evidence, not independent CTA validation. Its headline objective is a ranking score, not a literal forecast-accuracy percentage.
 
 **Adoption decision — minutes only:** Import Dastan's released minutes predictor as CTA's initial minutes component. Do not build a competing minutes model in parallel at this stage. Preserve the upstream model version, commit, artifact hashes, MIT attribution, and calibration metadata. CTA must provide a compatible feature frame and validate the model on its own deadline-safe evaluation windows before production use.
@@ -184,4 +184,4 @@ Before M4 production use:
 5. Build CTA's fixture-level conditional points model and combine it with the imported minutes output; then add the five-GW snapshot builder and completeness/provenance validator.
 6. Run chronological backtests and challenger comparisons; keep the product exploratory until it passes the gates above.
 
-**Non-goal:** This decision does not import Dastan's points model or require FPL Cat. Importing Dastan's minutes component is approved as an engineering direction, not a claim that it is already integrated, validated, or production-approved. This document does not authorize merging existing PRs.
+**Non-goal:** Dastan's points heads are not the CTA primary points model. They are imported and scored separately as a benchmark. FPL Cat is not a required dependency. Importing Dastan's minutes component is approved as an engineering direction, not a claim that it is already validated or production-approved. This document does not authorize merging existing PRs.
