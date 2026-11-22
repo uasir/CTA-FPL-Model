@@ -46,6 +46,20 @@ def build_personal_squad_product(run: Mapping[str, Any]) -> dict[str, Any]:
         raise ConventionalSquadProductError("source provenance is required")
     if not isinstance(provider, Mapping):
         raise ConventionalSquadProductError("provider identity is required")
+    team_exposure = run.get("team_exposure_context")
+    if team_exposure is not None:
+        if not isinstance(team_exposure, Mapping):
+            raise ConventionalSquadProductError("team_exposure_context must be an object")
+        if team_exposure.get("forecast_snapshot_id") != recommendation["forecast_snapshot_id"]:
+            raise ConventionalSquadProductError("team exposure must bind to the exact forecast snapshot")
+        if (isinstance(team_exposure.get("horizon_size"), bool)
+                or not isinstance(team_exposure.get("horizon_size"), int)
+                or team_exposure["horizon_size"] < 5):
+            raise ConventionalSquadProductError("team exposure must cover at least five Gameweeks")
+        if team_exposure.get("decision_weight") != 0 or team_exposure.get("production_eligible") is not False:
+            raise ConventionalSquadProductError("team exposure must remain diagnostic-only with zero decision weight")
+        if team_exposure.get("expected_points_are_additive") is not True:
+            raise ConventionalSquadProductError("team exposure must preserve additive expected-points accounting")
     blockers = list(run.get("release_blockers") or [])
     if run.get("release_eligible") is not True:
         blockers = blockers or ["Forecast source run is not release-eligible."]
@@ -82,8 +96,16 @@ def build_personal_squad_product(run: Mapping[str, Any]) -> dict[str, Any]:
             "player_metadata": dict(run.get("player_metadata_provenance") or {}),
         },
         "limitations": list(recommendation["limitations"]),
+        "team_exposure_context": dict(team_exposure) if team_exposure is not None else {
+            "status": "NOT_ATTACHED_MULTI_GAMEWEEK_INPUTS_REQUIRED",
+            "minimum_horizon_gameweeks": 5,
+            "decision_weight": 0.0,
+            "production_eligible": False,
+        },
         "excluded_context": {"field_relative_analysis": "NOT_PART_OF_CONVENTIONAL_SCORE",
-                             "covar": "NOT_PART_OF_CONVENTIONAL_SCORE", "cta_model_adjustments": "NOT_APPLIED"},
+                             "covar": "NOT_PART_OF_CONVENTIONAL_SCORE",
+                             "team_exposure": "DIAGNOSTIC_ONLY_NOT_PART_OF_CONVENTIONAL_SCORE",
+                             "cta_model_adjustments": "NOT_APPLIED"},
     }
 
 # Backwards-compatible alias; the adapter emits distinct conventional/CTA products.
