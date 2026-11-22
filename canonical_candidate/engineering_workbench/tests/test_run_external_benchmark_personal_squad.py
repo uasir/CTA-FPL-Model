@@ -34,7 +34,7 @@ def run_input():
             "snapshot_id": "gw11-fplcat-frozen-0900z",
             "season": "2026-27",
             "target_gameweek": 11,
-            "provider": {"name": "FPL Cat", "product": "published xP", "variant": "xP API", "version": "v1"},
+            "provider": {"name": "FPL Cat", "product": "projections", "variant": "provider_native_xp", "version": "v1"},
             "timing": {
                 "generated_at_utc": "2026-11-20T08:30:00Z",
                 "captured_at_utc": "2026-11-20T09:00:00Z",
