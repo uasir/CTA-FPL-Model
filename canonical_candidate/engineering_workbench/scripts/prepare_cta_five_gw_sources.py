@@ -829,14 +829,16 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     # training frame. They are still required to create genuinely current,
     # deadline-safe target features, so reuse Dastan's pinned source builder.
     # The published training frame itself is imported below; it is not rebuilt.
-    def defer_player_fallbacks(raw_dir, missing_players, missing_team_seasons, *,
-                               force, allow_missing):
+    def fetch_missing_understat_sources(raw_dir, missing_players, missing_team_seasons, *,
+                                         force, allow_missing):
         return parallel_understat_fallbacks(
-            raw_dir, [], missing_team_seasons,
+            raw_dir, missing_players, missing_team_seasons,
             force=force, allow_missing=allow_missing, workers=min(workers, 4),
         )
 
-    sources._fetch_understat_fallbacks = defer_player_fallbacks
+    # Use Dastan's own pinned-source downloader/completeness audit. Replace only
+    # its serial mutable-provider fallback with the bounded parallel equivalent.
+    sources._fetch_understat_fallbacks = fetch_missing_understat_sources
     operational_clubs = mappings.load_operational_clubs()
     dastan_features.FPL_TO_UNDERSTAT.update({
         str(row["club_name"]): str(row["understat_name"])
@@ -857,9 +859,6 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     sources.download_sources(
         raw_dir, historical_seasons, workers=workers, force=False,
         allow_missing_understat=False,
-    )
-    pinned_understat_report = download_and_merge_pinned_understat_player_histories(
-        raw_dir, seasons, sources, workers=workers,
     )
     download_fixture_schedules(raw_dir, historical_seasons, source_commit)
 
