@@ -58,6 +58,14 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/run_fplcat_m3_m4_replay.py --capture "artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-snapshot.json" --output "artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-m3-m4-replay.json"
+      - name: Run conventional M3-M4 recommendation for confirmed manager state
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/run_fplcat_live_m4_recommendation.py \
+            --capture "artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-snapshot.json" \
+            --manager-snapshot artifacts/fplcat/manager-421025-gw12-public-state-review.json \
+            --chip-state NONE \
+            --output "artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-manager-421025-live-m3-m4.json"
       - name: Upload immutable raw snapshot, M3-M4 replay and metadata summary
         uses: actions/upload-artifact@v4
         with:
@@ -67,5 +75,6 @@ jobs:
             canonical_candidate/engineering_workbench/artifacts/provider-summary/fplcat.json
             canonical_candidate/engineering_workbench/artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-m3-m4-replay.json
             canonical_candidate/engineering_workbench/artifacts/fplcat/manager-421025-gw12-public-state-review.json
+            canonical_candidate/engineering_workbench/artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-manager-421025-live-m3-m4.json
           if-no-files-found: error
           retention-days: 90
