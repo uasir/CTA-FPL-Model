@@ -510,26 +510,18 @@ def parallel_understat_fallbacks(
         path = root / f"{player_id}.json"
         if path.is_file() and path.stat().st_size and not force:
             return player_id, None, None
-        last_error = None
-        for attempt in range(3):
-            try:
-                history, _credits = get_client().player_history(player_id)
-                return player_id, history, None
-            except Exception as exc:
-                last_error = str(exc)
-                time.sleep(2 ** attempt)
-        return player_id, None, last_error or "unknown API.SH error"
+        try:
+            history, _credits = get_client().player_history(player_id)
+            return player_id, history, None
+        except Exception as exc:
+            return player_id, None, str(exc)
 
     def fetch_team(season: str, team_name: str) -> tuple[str, str, list | None, str | None]:
-        last_error = None
-        for attempt in range(3):
-            try:
-                history, _credits = get_client().team_history(team_name, season)
-                return season, team_name, history, None
-            except Exception as exc:
-                last_error = str(exc)
-                time.sleep(2 ** attempt)
-        return season, team_name, None, last_error or "unknown API.SH error"
+        try:
+            history, _credits = get_client().team_history(team_name, season)
+            return season, team_name, history, None
+        except Exception as exc:
+            return season, team_name, None, str(exc)
 
     player_success = 0
     team_success = 0
