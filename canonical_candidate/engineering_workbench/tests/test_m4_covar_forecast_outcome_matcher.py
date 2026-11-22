@@ -66,6 +66,25 @@ def test_matches_only_observed_intersection_and_reports_unmatched_without_zero_f
     assert result["matched_rows"][0]["points_error_actual_minus_expected"] == 3.5
 
 
+def test_uses_observed_capture_timestamp_when_finality_has_no_explicit_availability_field():
+    forecast, realized, fixtures, finality = inputs()
+    finality["reports"][0].pop("outcome_available_at_utc")
+    finality["reports"][0]["source_provenance"] = {
+        "captured_at_utc": "2026-11-22T12:00:00Z",
+        "raw_sha256": "a" * 64,
+        "source_url": "https://fantasy.premierleague.com/api/event/11/live/",
+    }
+    result = match_forecast_to_realized_outcomes(forecast, realized, fixtures, finality)
+    assert result["outcome_available_at_utc"] == "2026-11-22T12:00:00Z"
+
+
+def test_rejects_finality_without_any_observed_availability_timestamp():
+    forecast, realized, fixtures, finality = inputs()
+    finality["reports"][0].pop("outcome_available_at_utc")
+    with pytest.raises(ForecastOutcomeMatchError, match="observed outcome availability timestamp"):
+        match_forecast_to_realized_outcomes(forecast, realized, fixtures, finality)
+
+
 def test_rejects_finality_not_passed():
     forecast, realized, fixtures, finality = inputs()
     finality["status"] = "FAIL_MISMATCH"
