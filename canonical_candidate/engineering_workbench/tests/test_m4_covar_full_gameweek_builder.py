@@ -115,6 +115,7 @@ class TestM4CovarFullGameweekBuilder(unittest.TestCase):
             "decision_weight": 0.0,
             "production_eligible": False,
             "covar_used": False,
+            "players": [{"player_id": pid, "position": candidate["player_positions"][pid], "team_id": 1, "expected_points": 2.0, "expected_minutes": 90.0} for pid in candidate["player_ids"]],
             "payload_sha256": "a" * 64,
             "scenarios": scenarios,
         }
@@ -146,7 +147,10 @@ class TestM4CovarFullGameweekBuilder(unittest.TestCase):
             "played_status_method": "POSITIVE_MINUTES_PROXY_CARD_ONLY_UNOBSERVED",
             "complete_historical_gameweeks": [10, 11], "marginal_expected_points_preserved": True,
             "probability_calibrated": False, "decision_weight": 0.0,
-            "production_eligible": False, "covar_used": False, "payload_sha256": "a" * 64,
+            "production_eligible": False, "covar_used": False,
+            "minutes_mean_preserved": True,
+            "players": [{"player_id": pid, "position": candidate["player_positions"][pid], "team_id": 1, "expected_points": 2.0, "expected_minutes": 90.0} for pid in candidate["player_ids"]],
+            "payload_sha256": "a" * 64,
             "scenarios": scenarios,
         }
         provenance["payload_sha256"] = hashlib.sha256(
