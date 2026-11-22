@@ -54,6 +54,7 @@ def test_samples_public_entries_without_retaining_identity_in_report():
 
 def test_audits_public_manager_replays_and_emits_aggregate_only():
     bootstrap, live, picks = manager_payload(7)
+    picks["automatic_subs"] = [{"element_in": 10, "element_out": 13, "event": 7}]
     mapping = {
         f"{BASE_URL}/bootstrap-static/": bootstrap,
         f"{BASE_URL}/leagues-classic/314/standings/?page_standings=1": {
@@ -71,6 +72,8 @@ def test_audits_public_manager_replays_and_emits_aggregate_only():
     assert report["passed_count"] == 1
     assert report["team_points_reconciliation_cases"] == 1
     assert report["team_points_reconciliation_failures"] == 0
+    assert report["autosub_replay_count"] == 0
+    assert report["automatic_substitution_metadata_mismatch_replays"] == 1
     assert report["manager_entry_ids_retained"] is False
     assert "100" not in str(report)
 
