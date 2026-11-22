@@ -1012,7 +1012,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
             combined = combined.drop_duplicates(["date"], keep="last")
             destination = player_root / f"{player_id}.csv"
             destination.parent.mkdir(parents=True, exist_ok=True)
-            combined.to_csv(destination, index=False, lineterminator="\\n")
+            combined.to_csv(destination, index=False, lineterminator="\n")
             reconstructed += 1
 
         result = {
