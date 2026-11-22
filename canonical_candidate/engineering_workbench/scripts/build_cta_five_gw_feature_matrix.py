@@ -218,6 +218,30 @@ def anchor_team_features_to_deadline(target: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def validate_bootstrap_snapshot(bootstrap: dict, first_gameweek: int, deadline: pd.Timestamp) -> dict:
+    metadata = bootstrap.get("_cta_snapshot")
+    if not isinstance(metadata, dict):
+        raise ValueError("bootstrap snapshot is missing CTA capture-time provenance")
+    if int(metadata.get("gameweek", -1)) != int(first_gameweek):
+        raise ValueError("bootstrap snapshot metadata targets a different Gameweek")
+    captured = pd.to_datetime(metadata.get("captured_at_utc"), utc=True, errors="coerce")
+    stated_deadline = pd.to_datetime(metadata.get("deadline_time"), utc=True, errors="coerce")
+    if pd.isna(captured) or pd.isna(stated_deadline):
+        raise ValueError("bootstrap snapshot metadata has invalid timestamps")
+    if abs((stated_deadline - deadline).total_seconds()) > 1:
+        raise ValueError("bootstrap snapshot deadline metadata does not match FPL event")
+    safety_minutes = int(metadata.get("safety_buffer_minutes", 0))
+    if safety_minutes < 5:
+        raise ValueError("bootstrap snapshot safety buffer is below five minutes")
+    if captured > deadline - pd.Timedelta(minutes=safety_minutes):
+        raise ValueError("bootstrap snapshot was captured inside the deadline safety buffer")
+    return {
+        "captured_at_utc": captured.isoformat(),
+        "deadline_time": deadline.isoformat(),
+        "safety_buffer_minutes": safety_minutes,
+    }
+
+
 def build_matrix(dastan_root: Path, canonical_player_path: Path,
                  canonical_team_path: Path, player_mapping_path: Path,
                  bootstrap_path: Path, fixtures_path: Path, schema_path: Path,
@@ -244,6 +268,7 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
     if not deadlines:
         raise ValueError("next event is missing deadline_time")
     deadline = deadlines[0]
+    snapshot_metadata = validate_bootstrap_snapshot(bootstrap, first_gw, deadline)
     season_start = int(deadline.year) if deadline.month >= 6 else int(deadline.year) - 1
     season = f"{season_start}-{str(season_start + 1)[-2:]}"
 
@@ -344,7 +369,8 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
         "feature_count": len(features),
         "feature_schema": schema.get("schema_version"),
         "deadline": deadline.isoformat(),
-        "snapshot_policy": "live bootstrap ep_next/status/chance/news only for next GW; later GWs use -1 sentinel",
+        "bootstrap_snapshot": snapshot_metadata,
+        "snapshot_policy": "live bootstrap ep_next/status/chance/news only for next GW; later GWs use -1 sentinel; all snapshots must precede deadline by at least five minutes",
         "rolling_history_policy": "each target GW built independently from completed historical rows plus that GW's target fixtures only",
         "dastan_role": "historical feature definitions and minutes component only; no Dastan points heads used",
         "mapping_coverage": coverage,
