@@ -35,6 +35,26 @@ def test_season_from_bootstrap_handles_january_deadlines():
     }
     assert season_from_bootstrap(bootstrap) == "2026-27"
 
+
+def test_historical_source_seasons_excludes_live_season_and_preserves_order():
+    assert historical_source_seasons(
+        ["2022-23", "2023-24", "2024-25", "2025-26"], "2026-27"
+    ) == ["2022-23", "2023-24", "2024-25", "2025-26"]
+
+
+def test_historical_source_seasons_rejects_training_overlap():
+    import pytest
+
+    with pytest.raises(ValueError, match="overlaps"):
+        historical_source_seasons(["2025-26", "2026-27"], "2026-27")
+
+
+def test_historical_source_seasons_rejects_empty_training_history():
+    import pytest
+
+    with pytest.raises(ValueError, match="empty"):
+        historical_source_seasons([], "2026-27")
+
 def test_historical_snapshot_safety_buffer_rejects_captures_within_five_minutes(tmp_path: Path):
     import json
     import pandas as pd
