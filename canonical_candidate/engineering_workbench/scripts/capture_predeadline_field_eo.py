@@ -143,6 +143,9 @@ def capture_predeadline(
             if "id" in element and "element_type" in element
         },
     )
+    metadata["portfolio_structure_summary"] = summarize_field_portfolio_sample(
+        metadata["manager_id_stripped_portfolios"]
+    )
     return eo_rows, metadata
 
 
@@ -170,9 +173,6 @@ def main() -> int:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     if rows:
         manager_portfolio_artifact = metadata.pop("manager_id_stripped_portfolios")
-        metadata["portfolio_structure_summary"] = summarize_field_portfolio_sample(
-            manager_portfolio_artifact
-        )
         if args.manager_portfolio_output is not None:
             manager_portfolio_path = args.manager_portfolio_output
             if not manager_portfolio_path.is_absolute():
