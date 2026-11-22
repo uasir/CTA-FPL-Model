@@ -100,6 +100,7 @@ def _conventional_run(manager_context=None):
             "season": "2026-27",
             "target_gameweek": 12,
             "deadline_utc": "2026-11-27T18:30:00Z",
+            "point_in_time_status": "VERIFIED_PRE_DEADLINE",
         },
         "manager_context": manager,
         "recommendation": {"manager_context": copy.deepcopy(manager)},
@@ -359,4 +360,34 @@ def test_cta_runner_rejects_manager_capture_bank_mismatch(monkeypatch):
             "/unused-bundle",
             conventional_run=_real_schema_conventional_run(),
             manager_context_capture=capture,
+        )
+
+
+def test_real_m3_schema_rejects_unverified_point_in_time_status(monkeypatch):
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(_adapter_result()),
+    )
+    conventional = _real_schema_conventional_run()
+    conventional["source_provenance"]["point_in_time_status"] = "NOT_VERIFIED"
+    with pytest.raises(runner.CTARecommendationRunError, match="point-in-time status is not verified"):
+        runner.run_cta_recommendation_products(
+            "/unused-bundle",
+            conventional_run=conventional,
+            manager_context_capture=_m3_manager_capture(),
+        )
+
+
+def test_real_m3_schema_rejects_coverage_source_deadline_disagreement(monkeypatch):
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(_adapter_result()),
+    )
+    conventional = _real_schema_conventional_run()
+    conventional["source_provenance"]["deadline_utc"] = "2026-11-28T18:30:00Z"
+    with pytest.raises(runner.CTARecommendationRunError, match="coverage/source provenance deadline disagrees"):
+        runner.run_cta_recommendation_products(
+            "/unused-bundle",
+            conventional_run=conventional,
+            manager_context_capture=_m3_manager_capture(),
         )
