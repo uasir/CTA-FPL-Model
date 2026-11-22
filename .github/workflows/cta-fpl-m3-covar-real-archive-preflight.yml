@@ -62,7 +62,7 @@ jobs:
           repository: uasir/cta-fpl-covar-archive
           token: ${{ secrets.COVAR_ARCHIVE_TOKEN }}
           path: private-archive
-          persist-credentials: false
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -89,6 +89,7 @@ jobs:
           path: ${{ runner.temp }}/matched-panel-input
 
       - name: Verify the archived M3 bundle and run fail-closed CoVar preflight
+        id: preflight
         working-directory: canonical_candidate/engineering_workbench
         env:
           PYTHONPATH: scripts
@@ -128,9 +129,14 @@ jobs:
             ARGS+=(--matched-panel "$PANEL" --scenario-output "$RUNNER_TEMP/covar-preflight/residual_scenarios.json")
           fi
           python scripts/m3_covar_real_archive_preflight.py "${ARGS[@]}"
+          if [ -s "$RUNNER_TEMP/covar-preflight/residual_scenarios.json" ]; then
+            echo "scenario_created=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "scenario_created=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Store any generated residual scenarios in the private archive only
-        if: ${{ hashFiles(format('{0}/covar-preflight/residual_scenarios.json', runner.temp)) != '' }}
+        if: ${{ steps.preflight.outputs.scenario_created == 'true' }}
         env:
           RUNNER_TEMP: ${{ runner.temp }}
           TARGET_ARCHIVE_PATH: ${{ inputs.target_archive_path || '2026-27/gw11/source-run-44809552413' }}
