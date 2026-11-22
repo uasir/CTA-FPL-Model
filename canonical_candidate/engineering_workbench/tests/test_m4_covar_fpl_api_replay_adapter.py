@@ -51,16 +51,39 @@ class TestM4CovarFplApiReplayAdapter(unittest.TestCase):
         self.assertEqual(case["lineup"]["bench_order"], ["13", "14", "15"])
         self.assertEqual(validate_official_replay_case(case)["status"], "PASS")
 
-    def test_normalizes_official_automatic_substitutions_without_entry_identity(self):
+    def test_reverses_post_autosub_positions_to_recover_submitted_lineup(self):
         picks, live, bootstrap = api_payloads()
+        # Official completed-GW picks show the substitute in the XI and the
+        # replaced starter on the bench; automatic_subs reverses this swap.
+        picks["picks"][1]["position"] = 13
+        picks["picks"][1]["multiplier"] = 0
+        picks["picks"][12]["position"] = 2
+        picks["picks"][12]["multiplier"] = 1
+        live["elements"][1]["stats"].update({"minutes": 0, "total_points": 0})
         picks["automatic_subs"] = [{
             "entry": 999999, "element_in": 13, "element_out": 2, "event": 7,
         }]
         case = normalize_official_fpl_replay(picks, live, bootstrap, event_id=7)
+        self.assertEqual(case["lineup"]["starting_player_ids"][1], "2")
+        self.assertEqual(case["lineup"]["bench_order"][0], "13")
         self.assertEqual(case["official_final"]["automatic_subs"], [
             {"element_in": 13, "element_out": 2, "event": 7},
         ])
+        final_pick = next(row for row in case["official_final"]["picks"] if row["element"] == "13")
+        self.assertEqual(final_pick["position"], 13)
+        self.assertEqual(final_pick["post_autosub_position"], 2)
+        self.assertEqual(validate_official_replay_case(case)["status"], "PASS")
         self.assertNotIn("999999", str(case))
+
+    def test_rejects_automatic_sub_metadata_for_a_different_manager(self):
+        picks, live, bootstrap = api_payloads()
+        picks["automatic_subs"] = [{
+            "entry": 999999, "element_in": 13, "element_out": 2, "event": 7,
+        }]
+        with self.assertRaisesRegex(CovarFplApiReplayAdapterError, "does not match requested manager"):
+            normalize_official_fpl_replay(
+                picks, live, bootstrap, event_id=7, expected_entry_id=123456
+            )
 
     def test_infers_free_hit_mode_from_official_chip(self):
         picks, live, bootstrap = api_payloads("freehit")
