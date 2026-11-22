@@ -72,6 +72,21 @@ class TestConventionalDeliveryReport(unittest.TestCase):
         self.assertEqual(report["conventional"]["action"], "TRANSFER")
         self.assertEqual(output, original)
 
+    def test_field_context_accepts_season_from_live_candidate_only(self):
+        output = fixture("HOLD")
+        output["evaluation_candidate"]["season"] = "2026-27"
+        output.pop("season", None)
+        report = build_conventional_delivery_report(output, field_context_for(output))
+        self.assertEqual(report["field_context"]["status"], "ATTACHED_DESCRIPTIVE_CONTEXT")
+        self.assertEqual(report["conventional"]["action"], "HOLD")
+
+    def test_conflicting_top_level_and_candidate_seasons_are_rejected(self):
+        output = fixture("TRANSFER")
+        output["season"] = "2025-26"
+        output["evaluation_candidate"]["season"] = "2026-27"
+        with self.assertRaisesRegex(ValueError, "season differs from top-level output"):
+            build_conventional_delivery_report(output)
+
     def test_valid_field_context_is_descriptive_only(self):
         output = fixture("HOLD")
         original = copy.deepcopy(output)
