@@ -1,0 +1,125 @@
+{
+  "archive": {
+    "file": "forecast_bundle.zip",
+    "sha256": "2e84f57e3661a5f6600169857894ee73e4cd7ff27bf2b4c0aec55bf6dd20b9aa",
+    "size_bytes": 2303658
+  },
+  "archive_type": "CTA_FIVE_GAMEWEEK_CANDIDATE_FORECAST",
+  "bundle_validation_status": "PASS_CTA_FORECAST_BUNDLE_INTEGRITY",
+  "decision_safeguards": {
+    "covar_used": false,
+    "decision_weight": 0.0,
+    "production_eligible": false,
+    "reason": "M2 validation remains deferred; do not route candidate forecasts into recommendations",
+    "status": "EXPLORATORY_NOT_PRODUCTION"
+  },
+  "feature_matrix_sha256": "d6dd4c3cd9e6c4654ea8f000affb5e7b62c09862612a7d3671ba118ad6f3691f",
+  "files": {
+    "dastan_artifact_manifest.json": {
+      "sha256": "d8255d355f819002fe9342a7a04f4e067be7fa2e60f98e6c59ede70e82136d36",
+      "size_bytes": 7392
+    },
+    "feature_matrix.csv": {
+      "sha256": "d6dd4c3cd9e6c4654ea8f000affb5e7b62c09862612a7d3671ba118ad6f3691f",
+      "size_bytes": 5749948
+    },
+    "feature_matrix_report.json": {
+      "sha256": "adc020fa8626e4627e4912684f7134d4da9ff048a75195e83ad661e278ee1dd5",
+      "size_bytes": 16996
+    },
+    "forecasts/bundle_validation_report.json": {
+      "sha256": "07294efc17101fa8c7db1fb4c4141886b8e17e11961421697eb4350e704882a5",
+      "size_bytes": 689
+    },
+    "forecasts/fixture_forecasts.csv": {
+      "sha256": "932df95fc680fd96f2217836279b42f61eebbc3f6c7dc45b0af4c2f4050a521b",
+      "size_bytes": 924919
+    },
+    "forecasts/forecast_report.json": {
+      "sha256": "add54a4f8ed35af5bd10d6f965cfd915d534d2c9e9134c8dde1e60e43755716f",
+      "size_bytes": 4463
+    },
+    "forecasts/player_five_gw_forecasts.csv": {
+      "sha256": "91d6799bd730773ca9dcca6d3a4a45515d1bba24fad6f77f0c85b0c50cb78338",
+      "size_bytes": 118842
+    },
+    "forecasts/player_gameweek_forecasts.csv": {
+      "sha256": "6e12adda8d357f982284d00ba9539e56d4dc7ff78fb6b6302fed7c565428921f",
+      "size_bytes": 587207
+    },
+    "minutes_predictions.csv": {
+      "sha256": "d061f1f3c88e3c77df534e1271b64786ee9f9d77e4efd6aadcbd86160f79a821",
+      "size_bytes": 390976
+    },
+    "minutes_report.json": {
+      "sha256": "662ee1eb2eb72b494bd1eac4db8b98cf73c2c651cc684c062249e54e044df2df",
+      "size_bytes": 1621
+    },
+    "models/cta_points_DEF.json": {
+      "sha256": "3e62aacdb2ebcf4ae97d0598fc45eb71efa601143e8163e184355f20b2711f73",
+      "size_bytes": 1333630
+    },
+    "models/cta_points_FWD.json": {
+      "sha256": "9ec8f96a9e36dd2837637a088d53769531be21ade99b9638f1b75dbe3624b804",
+      "size_bytes": 1271112
+    },
+    "models/cta_points_GKP.json": {
+      "sha256": "b1354f6046caf45c7bcedfe0ab9090e24f946d2f135da895d1f04ccc0d228110",
+      "size_bytes": 1255746
+    },
+    "models/cta_points_MID.json": {
+      "sha256": "ab49042b7a0858ef84949b588abfc1d5d1e618ab4b1592327f7b772e3901c093",
+      "size_bytes": 1337163
+    },
+    "models/cta_points_model_manifest.json": {
+      "sha256": "103059e7a2027225f084eb23a59a05f108690c7fff1394afc921704a0a174fc2",
+      "size_bytes": 7698
+    },
+    "source_download_manifest.json": {
+      "sha256": "f308d6ae98e3faa7c61f9affb082683b5ee3b8b44aa3dede07a4049a91e431d5",
+      "size_bytes": 461591
+    },
+    "source_preparation_report.json": {
+      "sha256": "9e93bdfcc16dce82e53f7891c857b278dcdb4173c00ee000a560e9c7ffa25ddf",
+      "size_bytes": 28778
+    },
+    "target_gameweeks.json": {
+      "sha256": "c157b2a0aba0e38694f9d1111ce5378d711849626e05d620ecc92074effcec2d",
+      "size_bytes": 87
+    },
+    "training/release_manifest.json": {
+      "sha256": "08111cac5252486192adfcc420c6a745f506777ab39b60297b0c3dbb7577830a",
+      "size_bytes": 2592
+    },
+    "training/source_pins.json": {
+      "sha256": "ace448af63ee190b26609d8d8735419151f8159e23aa74dd4b5fbbd4f798abc8",
+      "size_bytes": 430
+    }
+  },
+  "forecast_snapshot_id": "30f47a260fc79baaca0783280f5e93c08bdc73492ea8777ea13b86a74a4699f7",
+  "forecast_status": "PASS_CTA_FIVE_GW_CANDIDATE_FORECAST",
+  "gameweeks": [
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  "model_status": "CANDIDATE_TRAINED_M2_VALIDATION_PENDING",
+  "points_model_hashes": {
+    "DEF": "3e62aacdb2ebcf4ae97d0598fc45eb71efa601143e8163e184355f20b2711f73",
+    "FWD": "9ec8f96a9e36dd2837637a088d53769531be21ade99b9638f1b75dbe3624b804",
+    "GKP": "b1354f6046caf45c7bcedfe0ab9090e24f946d2f135da895d1f04ccc0d228110",
+    "MID": "ab49042b7a0858ef84949b588abfc1d5d1e618ab4b1592327f7b772e3901c093"
+  },
+  "schema_version": "1.0.0",
+  "season": "2026-27",
+  "source_commit": "d7b05b51d137bfefef4b692386d18c610975b9b9",
+  "source_manifest_sha256": "f308d6ae98e3faa7c61f9affb082683b5ee3b8b44aa3dede07a4049a91e431d5",
+  "source_mode": "FPL_PLAYER_UNDERSTAT",
+  "source_run": {
+    "commit_sha": "93be3605e47717db5b062f5b26eabc2628169b2c",
+    "run_id": "45058800616",
+    "run_url": "https://github.com/uasir/CTA-FPL-Model/actions/runs/45058800616"
+  }
+}
