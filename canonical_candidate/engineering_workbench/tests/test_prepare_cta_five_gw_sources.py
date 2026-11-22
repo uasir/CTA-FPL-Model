@@ -116,6 +116,9 @@ def test_parallel_understat_fallbacks_fetch_concurrently_and_write_json(tmp_path
     peak = 0
 
     class FakeSession:
+        def __init__(self):
+            self.headers = {}
+
         def request(self, method, url, **kwargs):
             assert kwargs.get("timeout") == (10, 45)
             return None
@@ -136,6 +139,8 @@ def test_parallel_understat_fallbacks_fetch_concurrently_and_write_json(tmp_path
 
         def get_match_data(self):
             nonlocal active, peak
+            assert self.session.headers["Referer"] == "https://understat.com/"
+            assert "Mozilla/5.0" in self.session.headers["User-Agent"]
             self.session.request("GET", "https://understat.example/player")
             with lock:
                 active += 1
@@ -320,3 +325,52 @@ def test_understat_refresh_only_selects_current_roster_appearances_missing_from_
         tmp_path, ["2026-27"], {101, 202, 303, 404, 505}, FakeSources,
     )
     assert selected == {101, 505}
+
+
+def test_understat_html_challenge_is_reported_before_json_parse(tmp_path, monkeypatch):
+    import sys
+    import types
+    import pytest
+    from prepare_cta_five_gw_sources import parallel_understat_fallbacks
+    import prepare_cta_five_gw_sources as source_module
+
+    monkeypatch.setattr(source_module.time, "sleep", lambda _seconds: None)
+
+    class FakeResponse:
+        status_code = 200
+        text = "<html><title>Access denied</title></html>"
+        headers = {"Content-Type": "text/html"}
+
+    class FakeSession:
+        def __init__(self):
+            self.headers = {}
+
+        def request(self, method, url, **kwargs):
+            assert kwargs.get("timeout") == (10, 45)
+            return FakeResponse()
+
+    class FakeClient:
+        def __init__(self):
+            self.session = FakeSession()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def player(self, player):
+            return self
+
+        def get_match_data(self):
+            return self.session.request("GET", "https://understat.com/getPlayerData/37")
+
+    fake_module = types.ModuleType("understatapi")
+    fake_module.UnderstatClient = FakeClient
+    monkeypatch.setitem(sys.modules, "understatapi", fake_module)
+
+    with pytest.raises(RuntimeError, match="non-JSON/challenge response"):
+        parallel_understat_fallbacks(
+            tmp_path, [37, 62, 65, 99], [],
+            force=False, allow_missing=False, workers=2,
+        )
