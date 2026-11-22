@@ -1,0 +1,163 @@
+name: CTA M4 paired personal replay
+
+on:
+  workflow_dispatch:
+    inputs:
+      conventional_run_id:
+        description: Successful M3 GW12 conventional capture workflow run ID
+        required: true
+        type: string
+      conventional_artifact_name:
+        description: Exact manager-context artifact name from that M3 run
+        required: true
+        type: string
+      forecast_run_id:
+        description: Successful CTA five-GW forecast workflow run ID
+        required: true
+        default: "45059662965"
+        type: string
+      forecast_artifact_name:
+        description: Exact five-GW CTA forecast artifact name
+        required: true
+        default: "cta-five-gw-candidate-forecast"
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  paired-replay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the reviewed CTA implementation branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/m4-cta-five-gw-squad-evaluator
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download the exact five-GW CTA forecast bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.forecast_artifact_name }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.forecast_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: outputs/cta-five-gw
+
+      - name: Download the paired M3 recommendation and manager capture
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.conventional_artifact_name }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.conventional_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: outputs/m3-conventional
+
+      - name: Resolve and validate the paired M3 source files
+        id: inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t conventional < <(find outputs/m3-conventional -type f -name 'recommendation-*.json')
+          mapfile -t manager < <(find outputs/m3-conventional -type f -name 'manager-context-*.json')
+          test "${#conventional[@]}" -eq 1
+          test "${#manager[@]}" -eq 1
+          echo "conventional_run=$PWD/${conventional[0]}" >> "$GITHUB_OUTPUT"
+          echo "manager_capture=$PWD/${manager[0]}" >> "$GITHUB_OUTPUT"
+          CONVENTIONAL="${conventional[0]}" MANAGER_CAPTURE="${manager[0]}" python - <<'PY'
+          import json, os
+          from pathlib import Path
+          run = json.loads(Path(os.environ["CONVENTIONAL"]).read_text())
+          capture = json.loads(Path(os.environ["MANAGER_CAPTURE"]).read_text())
+          assert run.get("run_type") == "EXTERNAL_BENCHMARK_PERSONAL_SQUAD"
+          assert capture.get("manager_context_capture", {}).get("identity_verified") is True
+          assert capture.get("manager_context_capture", {}).get("row_count") == 15
+          print("Paired M3 recommendation and verified manager capture found.")
+          PY
+
+      - name: Run paired CTA personal and general products from the shared forecast
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_products.py \
+            --bundle-dir outputs/cta-five-gw \
+            --conventional-run "${{ steps.inputs.outputs.conventional_run }}" \
+            --manager-context-capture "${{ steps.inputs.outputs.manager_capture }}" \
+            --now-utc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --output outputs/paired-replay/cta-recommendation-previews.json
+
+      - name: Write privacy-safe paired replay manifest
+        env:
+          CONVENTIONAL_RUN_ID: ${{ inputs.conventional_run_id }}
+          CONVENTIONAL_ARTIFACT: ${{ inputs.conventional_artifact_name }}
+          FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
+          FORECAST_ARTIFACT: ${{ inputs.forecast_artifact_name }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          output = Path("outputs/paired-replay/cta-recommendation-previews.json")
+          result = json.loads(output.read_text())
+          personal = result["cta_informed_personal_squad"]
+          diagnostic = personal.get("multi_gameweek_squad_diagnostic", {})
+          manifest = {
+              "replay_type": "PAIRED_M3_CONVENTIONAL_AND_CTA_PERSONAL_FIVE_GW",
+              "conventional_source_run_id": int(os.environ["CONVENTIONAL_RUN_ID"]),
+              "conventional_source_artifact": os.environ["CONVENTIONAL_ARTIFACT"],
+              "cta_forecast_run_id": int(os.environ["FORECAST_RUN_ID"]),
+              "cta_forecast_artifact": os.environ["FORECAST_ARTIFACT"],
+              "implementation_commit": os.environ["GITHUB_SHA"],
+              "season": result["target"]["season"],
+              "target_gameweek": result["target"]["target_gameweek"],
+              "forecast_horizon_gameweeks": result["target"]["gameweeks"],
+              "forecast_snapshot_id": result["target"]["forecast_snapshot_id"],
+              "model_version": result["general_cta_market"]["model_version"],
+              "personal_product_status": personal.get("status"),
+              "five_gw_diagnostic_status": diagnostic.get("status"),
+              "five_gw_recommended_action": diagnostic.get("recommended_action"),
+              "five_gw_net_expected_points_delta": (
+                  diagnostic.get("best_diagnostic", {}).get("net_horizon_expected_points_delta")
+                  if diagnostic.get("best_diagnostic") else None
+              ),
+              "general_market_consumed_personal_context": result["guardrails"]["general_market_consumed_personal_context"],
+              "shared_forecast_identity_verified": (
+                  diagnostic.get("forecast_snapshot_id") == result["general_cta_market"]["forecast_snapshot_id"]
+                  and diagnostic.get("model_version") == result["general_cta_market"]["model_version"]
+                  and diagnostic.get("horizon_gameweeks") == result["target"]["gameweeks"]
+              ),
+              "decision_weight": 0,
+              "production_eligible": False,
+              "covar_used": False,
+              "manager_specific_report_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+              "manager_specific_report_published": False,
+          }
+          if not manifest["shared_forecast_identity_verified"]:
+              raise SystemExit("CTA personal and general products do not share exact forecast identity")
+          if diagnostic.get("status") != "EXPLORATORY_CTA_FIVE_GAMEWEEK_SQUAD_SWEEP":
+              raise SystemExit("five-GW squad diagnostic did not complete")
+          path = Path("outputs/paired-replay/paired-replay-manifest.json")
+          path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+          print(json.dumps(manifest, indent=2, sort_keys=True))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as handle:
+              handle.write(
+                  "## Paired CTA personal replay\n\n"
+                  f"- Status: {manifest['five_gw_diagnostic_status']}\n"
+                  f"- Target: GW{manifest['target_gameweek']}–GW{manifest['forecast_horizon_gameweeks'][-1]}\n"
+                  f"- Shared forecast identity verified: {manifest['shared_forecast_identity_verified']}\n"
+                  f"- Diagnostic action: {manifest['five_gw_recommended_action']}\n"
+                  f"- Decision weight: 0; production eligible: false; CoVar used: false\n"
+                  "- Manager-specific report retained only in the ephemeral job workspace.\n"
+              )
+          PY
+
+      - name: Upload privacy-safe paired replay manifest only
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-m4-paired-replay-manifest-gw12-16
+          path: outputs/paired-replay/paired-replay-manifest.json
+          if-no-files-found: error
+          retention-days: 90
