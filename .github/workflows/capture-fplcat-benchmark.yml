@@ -50,9 +50,7 @@ jobs:
       - name: Run M3 routing and M4 product with explicit synthetic manager fixture
         working-directory: canonical_candidate/engineering_workbench
         run: |
-          python scripts/run_fplcat_m3_m4_replay.py \\
-            --capture "artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-snapshot.json" \\
-            --output "artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-m3-m4-replay.json"
+          python scripts/run_fplcat_m3_m4_replay.py --capture "artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-snapshot.json" --output "artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-m3-m4-replay.json"
       - name: Upload immutable raw snapshot, M3-M4 replay and metadata summary
         uses: actions/upload-artifact@v4
         with:
