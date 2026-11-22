@@ -41,6 +41,7 @@ def build_full_gameweek_document(
     candidate_portfolios: Sequence[Mapping[str, Any]],
     field_adaptation: Mapping[str, Any] | None = None,
     mode: str = "REGULAR_GW",
+    scenario_provenance: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compose and validate one complete synthetic full-Gameweek input document.
 
@@ -56,6 +57,39 @@ def build_full_gameweek_document(
         raise CovarFullGameweekBuildError("at least one candidate portfolio is required")
     if not isinstance(scenarios, Sequence) or not scenarios:
         raise CovarFullGameweekBuildError("at least one full-Gameweek scenario is required")
+
+    data_status = "SYNTHETIC_FULL_GAMEWEEK_ONLY"
+    research_metadata: dict[str, Any] = {}
+    if scenario_provenance is not None:
+        if not isinstance(scenario_provenance, Mapping):
+            raise CovarFullGameweekBuildError("scenario_provenance must be an object")
+        if scenario_provenance.get("dataset_type") != "M4_COVAR_PLAYER_GAMEWEEK_RESIDUAL_BOOTSTRAP_RESEARCH_ONLY":
+            raise CovarFullGameweekBuildError("unsupported research scenario provenance")
+        if scenario_provenance.get("season") != season or scenario_provenance.get("target_gameweek") != int(target_gameweek):
+            raise CovarFullGameweekBuildError("residual scenario season or Gameweek differs from requested full-Gameweek document")
+        if scenario_provenance.get("probability_calibrated") is not False:
+            raise CovarFullGameweekBuildError("residual bootstrap probabilities must remain uncalibrated")
+        if scenario_provenance.get("decision_weight") != 0.0 or scenario_provenance.get("production_eligible") is not False or scenario_provenance.get("covar_used") is not False:
+            raise CovarFullGameweekBuildError("residual scenarios must remain research-only and disabled")
+        provenance_scenarios = scenario_provenance.get("scenarios")
+        if not isinstance(provenance_scenarios, list) or list(scenarios) != provenance_scenarios:
+            raise CovarFullGameweekBuildError("scenarios must be the exact residual-bootstrap scenario rows")
+        required = ("forecast_snapshot_id", "model_version", "training_cutoff_utc",
+                    "scenario_probability_method", "complete_historical_gameweeks")
+        if any(not scenario_provenance.get(key) for key in required):
+            raise CovarFullGameweekBuildError("residual scenario provenance is incomplete")
+        data_status = "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY"
+        research_metadata = {
+            "forecast_snapshot_id": scenario_provenance["forecast_snapshot_id"],
+            "model_version": scenario_provenance["model_version"],
+            "training_cutoff_utc": scenario_provenance["training_cutoff_utc"],
+            "scenario_probability_method": scenario_provenance["scenario_probability_method"],
+            "complete_historical_gameweeks": scenario_provenance["complete_historical_gameweeks"],
+            "probability_calibrated": False,
+            "marginal_expected_points_preserved": scenario_provenance.get("marginal_expected_points_preserved"),
+            "minutes_mean_preserved": scenario_provenance.get("minutes_mean_preserved"),
+            "residual_bootstrap_payload_sha256": scenario_provenance.get("payload_sha256"),
+        }
 
     portfolios: list[dict[str, Any]] = []
     for source in candidate_portfolios:
@@ -118,7 +152,7 @@ def build_full_gameweek_document(
 
     document = {
         "schema_version": "1.0.0",
-        "data_status": "SYNTHETIC_FULL_GAMEWEEK_ONLY",
+        "data_status": data_status,
         "scenario_scope": "FULL_GAMEWEEK",
         "mode": mode,
         "metadata": {
@@ -134,16 +168,21 @@ def build_full_gameweek_document(
                 field_metadata.get("selected_manager_count") if field_metadata is not None else 0
             ),
             "manager_entry_ids_retained": False,
+            **research_metadata,
         },
         "players": list(players_by_id.values()),
         "scenarios": [dict(row) for row in scenarios],
         "portfolios": portfolios,
+        "production_eligible": False,
+        "decision_weight": 0.0,
+        "covar_used": False,
     }
     try:
         validate_full_gameweek_document(document)
     except (TypeError, ValueError) as exc:
         raise CovarFullGameweekBuildError(f"composed full-Gameweek document failed validation: {exc}") from exc
-    document["validation_status"] = "VALID_SYNTHETIC_FULL_GAMEWEEK_INPUT"
+    document["validation_status"] = validate_full_gameweek_document(document)["validation_status"]
     document["production_eligible"] = False
     document["decision_weight"] = 0.0
+    document["covar_used"] = False
     return document
