@@ -265,3 +265,23 @@ def test_understat_features_are_retained_when_understat_source_mode_is_active():
     assert retained.loc[0, "team_xg_5"] == 1.7
     assert retained.loc[0, "player_fpl_points_1"] == 6.0
     assert unavailable == []
+
+
+def test_player_understat_mode_retains_player_metrics_and_masks_team_metrics():
+    from feature_availability import mask_unavailable_features
+
+    features = ["player_xg_1", "player_xa_5", "team_xg_5", "opp_deep_3"]
+    frame = pd.DataFrame([{
+        "player_xg_1": 0.8,
+        "player_xa_5": 0.4,
+        "team_xg_5": 1.7,
+        "opp_deep_3": 6.0,
+    }])
+    masked, unavailable = mask_unavailable_features(
+        frame, features, "FPL_PLAYER_UNDERSTAT",
+    )
+    assert masked.loc[0, "player_xg_1"] == 0.8
+    assert masked.loc[0, "player_xa_5"] == 0.4
+    assert masked.loc[0, "team_xg_5"] == 0.0
+    assert masked.loc[0, "opp_deep_3"] == 0.0
+    assert unavailable == ["team_xg_5", "opp_deep_3"]
