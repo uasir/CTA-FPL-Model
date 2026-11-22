@@ -211,7 +211,7 @@ def build_cta_forecast_provider_snapshot(
         raise CTAForecastAdapterError("official bootstrap safety buffer must be at least five minutes")
     if snapshot_manifest.get("gameweek") != gameweeks[0]:
         raise CTAForecastAdapterError("official bootstrap snapshot is not for the first target Gameweek")
-    if captured_at > deadline.replace() or (deadline - captured_at).total_seconds() < safety_minutes * 60:
+    if (deadline - captured_at).total_seconds() < safety_minutes * 60:
         raise CTAForecastAdapterError("official bootstrap snapshot violates the pre-deadline safety buffer")
     if not generated_at < deadline:
         raise CTAForecastAdapterError("CTA forecast was generated at or after the first target deadline")
@@ -300,6 +300,56 @@ def build_cta_forecast_provider_snapshot(
     if len({row["fpl_element_id"] for row in players}) != len(players):
         raise CTAForecastAdapterError("five-GW forecast maps multiple stable codes to one FPL element ID")
 
+    gameweek_csv = root / "forecasts" / "player_gameweek_forecasts.csv"
+    try:
+        with gameweek_csv.open("r", encoding="utf-8", newline="") as stream:
+            gameweek_rows = list(csv.DictReader(stream))
+    except OSError as exc:
+        raise CTAForecastAdapterError("player-Gameweek forecast CSV is missing") from exc
+    if len(gameweek_rows) != forecast_report.get("player_gameweek_rows"):
+        raise CTAForecastAdapterError("player-Gameweek row count differs from forecast report")
+    panels_by_gw: dict[int, list[dict[str, Any]]] = {gw: [] for gw in gameweeks}
+    seen_by_gw: dict[int, set[int]] = {gw: set() for gw in gameweeks}
+    for index, row in enumerate(gameweek_rows):
+        try:
+            gw = int(row["gameweek"])
+            code = int(row["fpl_code"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise CTAForecastAdapterError(f"player-Gameweek row {index} has invalid keys") from exc
+        if gw not in panels_by_gw:
+            raise CTAForecastAdapterError(f"player-Gameweek row {index} is outside the five-GW horizon")
+        if code not in seen_codes:
+            raise CTAForecastAdapterError(f"player-Gameweek row {index} has no matching five-GW player total")
+        if code in seen_by_gw[gw]:
+            raise CTAForecastAdapterError(f"duplicate player {code} in GW{gw} forecast")
+        seen_by_gw[gw].add(code)
+        element = by_code[code]
+        element_id = element["id"]
+        position = POSITION_BY_ELEMENT_TYPE.get(element.get("element_type"))
+        if row.get("position") != position:
+            raise CTAForecastAdapterError(f"position mismatch for player {element_id} in GW{gw}")
+        if row.get("forecast_snapshot_id") != snapshot_id:
+            raise CTAForecastAdapterError(f"player-Gameweek snapshot mismatch for player {element_id}")
+        if row.get("model_status") != "CANDIDATE_NOT_VALIDATED":
+            raise CTAForecastAdapterError(f"player {element_id} GW{gw} is not candidate-only")
+        if row.get("production_eligible", "").strip().lower() != "false":
+            raise CTAForecastAdapterError(f"player {element_id} GW{gw} is not production-ineligible")
+        if _finite(row.get("decision_weight"), f"player {element_id} GW{gw} decision_weight") != 0:
+            raise CTAForecastAdapterError(f"player {element_id} GW{gw} decision weight must be zero")
+        panels_by_gw[gw].append({
+            "fpl_element_id": element_id,
+            "expected_points": _finite(row.get("expected_points"), f"player {element_id} GW{gw} expected_points"),
+            "expected_minutes": _finite(row.get("expected_minutes"), f"player {element_id} GW{gw} expected_minutes", non_negative=True),
+            "team_id": element["team"],
+            "position": position,
+            "display_name": str(element.get("web_name") or element.get("second_name") or element_id),
+        })
+    if any(not panels_by_gw[gw] for gw in gameweeks):
+        raise CTAForecastAdapterError("one or more target Gameweeks have no player forecasts")
+    gameweek_panels = [
+        {"gameweek": gw, "player_forecasts": panels_by_gw[gw]}
+        for gw in gameweeks
+    ]
     eo_provenance = _optional_eo(players, eo_snapshot, snapshot_id, deadline)
     data_coverage = {
         "freshness_status": freshness,
@@ -350,6 +400,7 @@ def build_cta_forecast_provider_snapshot(
         "forecast_snapshot_id": snapshot_id,
         "season": season,
         "gameweeks": gameweeks,
+        "gameweek_panels": gameweek_panels,
         "timing": {
             "generated_at_utc": generated_at.isoformat(),
             "bootstrap_captured_at_utc": captured_at.isoformat(),
