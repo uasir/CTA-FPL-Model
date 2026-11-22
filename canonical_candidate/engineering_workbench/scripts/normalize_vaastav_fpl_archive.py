@@ -59,6 +59,7 @@ def normalize_archive(
     require_columns(teams, {"id", "name"}, "teams")
 
     by_element: dict[str, dict[str, str]] = {}
+    manager_elements: set[str] = set()
     seen_codes: set[str] = set()
     for line, player in enumerate(roster, start=2):
         element = (player.get("id") or "").strip()
@@ -69,8 +70,12 @@ def normalize_archive(
             raise ValueError(f"players_raw row {line}: duplicate element id {element}")
         if code in seen_codes:
             raise ValueError(f"players_raw row {line}: duplicate stable fpl_code {code}")
-        if (player.get("element_type") or "").strip() not in POSITION_BY_ELEMENT_TYPE:
-            raise ValueError(f"players_raw row {line}: unsupported element_type")
+        element_type = (player.get("element_type") or "").strip()
+        if element_type in {"5", "6"}:
+            manager_elements.add(element)
+            continue
+        if element_type not in POSITION_BY_ELEMENT_TYPE:
+            raise ValueError(f"players_raw row {line}: unsupported element_type {element_type!r}")
         by_element[element] = player
         seen_codes.add(code)
 
@@ -90,12 +95,19 @@ def normalize_archive(
     seen_keys = set()
     unknown_elements = set()
     unknown_teams = set()
+    excluded_non_player_rows = 0
     for line, row in enumerate(merged, start=2):
         element = (row.get("element") or "").strip()
         fixture = (row.get("fixture") or "").strip()
         gameweek = (row.get("round") or "").strip()
         if not element or not fixture or not gameweek:
             raise ValueError(f"merged_gw row {line}: missing element, fixture or round")
+        raw_position = (row.get("position") or "").strip().upper()
+        if raw_position in {"AM", "MNG", "MANAGER"} or element in manager_elements:
+            excluded_non_player_rows += 1
+            continue
+        if raw_position not in {"GK", "GKP", "DEF", "MID", "FWD"}:
+            raise ValueError(f"merged_gw row {line}: unsupported position {raw_position!r}")
         player = by_element.get(element)
         if player is None:
             unknown_elements.add(element)
@@ -170,6 +182,7 @@ def normalize_archive(
         "roster_players": len(roster),
         "teams": len(teams),
         "canonical_player_match_rows": len(output),
+        "excluded_non_player_rows": excluded_non_player_rows,
         "unique_fpl_codes_in_matches": len({r["fpl_code"] for r in output}),
         "unique_fixtures": len({r["fixture_id"] for r in output}),
         "unique_gameweeks": sorted({r["gameweek"] for r in output}, key=int),
