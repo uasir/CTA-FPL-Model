@@ -284,13 +284,20 @@ def build_cta_forecast_provider_snapshot(
             raise CTAForecastAdapterError(f"player {element_id} decision weight must be zero")
         if row.get("gameweeks") != ",".join(str(gw) for gw in gameweeks):
             raise CTAForecastAdapterError(f"player {element_id} has a different forecast horizon")
+        fixture_count = int(row.get("fixture_count_5gw", "0"))
+        gameweeks_with_fixtures = int(row.get("gameweeks_with_fixtures", "0"))
+        total_minutes = _finite(row.get("expected_minutes_5gw"), f"player {element_id} expected_minutes_5gw", non_negative=True)
+        if fixture_count < 1 or not 1 <= gameweeks_with_fixtures <= len(gameweeks):
+            raise CTAForecastAdapterError(f"player {element_id} has invalid five-GW fixture coverage")
+        if fixture_count < gameweeks_with_fixtures or total_minutes > 90.0 * fixture_count + 1e-6:
+            raise CTAForecastAdapterError(f"player {element_id} five-GW minutes exceed its fixture allowance")
         now_cost = element.get("now_cost")
         if isinstance(now_cost, bool) or not isinstance(now_cost, int) or now_cost <= 0:
             raise CTAForecastAdapterError(f"bootstrap element for player {element_id} has invalid price")
         players.append({
             "fpl_element_id": element_id,
             "expected_points": _finite(row.get("expected_points_5gw"), f"player {element_id} expected_points_5gw"),
-            "expected_minutes": _finite(row.get("expected_minutes_5gw"), f"player {element_id} expected_minutes_5gw", non_negative=True),
+            "expected_minutes": total_minutes,
             "price": now_cost / 10.0,
             "team_id": team_id,
             "position": position,
@@ -336,10 +343,15 @@ def build_cta_forecast_provider_snapshot(
             raise CTAForecastAdapterError(f"player {element_id} GW{gw} is not production-ineligible")
         if _finite(row.get("decision_weight"), f"player {element_id} GW{gw} decision_weight") != 0:
             raise CTAForecastAdapterError(f"player {element_id} GW{gw} decision weight must be zero")
+        fixture_count = int(row.get("fixture_count", "0"))
+        expected_minutes = _finite(row.get("expected_minutes"), f"player {element_id} GW{gw} expected_minutes", non_negative=True)
+        if fixture_count < 1 or expected_minutes > 90.0 * fixture_count + 1e-6:
+            raise CTAForecastAdapterError(f"player {element_id} GW{gw} minutes exceed its fixture allowance")
         panels_by_gw[gw].append({
             "fpl_element_id": element_id,
             "expected_points": _finite(row.get("expected_points"), f"player {element_id} GW{gw} expected_points"),
-            "expected_minutes": _finite(row.get("expected_minutes"), f"player {element_id} GW{gw} expected_minutes", non_negative=True),
+            "expected_minutes": expected_minutes,
+            "fixture_count": fixture_count,
             "team_id": element["team"],
             "position": position,
             "display_name": str(element.get("web_name") or element.get("second_name") or element_id),
@@ -423,7 +435,7 @@ def build_cta_forecast_provider_snapshot(
         "recommendation_products": {
             "conventional_personal_squad": {
                 "status": "SEPARATE_CONVENTIONAL_PROVIDER_PATH",
-                "enabled": True,
+                "not_modified_by_adapter": True,
                 "cta_points_used": False,
                 "providers": ["FPL Cat", "Sideline Quant"],
             },
