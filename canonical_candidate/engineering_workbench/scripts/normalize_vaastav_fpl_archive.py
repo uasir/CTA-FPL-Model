@@ -14,15 +14,17 @@ from datetime import datetime
 from pathlib import Path
 
 POSITION_BY_ELEMENT_TYPE = {"1": "GKP", "2": "DEF", "3": "MID", "4": "FWD"}
-CORE_MATCH_FIELDS = ("minutes", "total_points")\nOPTIONAL_MATCH_FIELDS = (
+CORE_MATCH_FIELDS = ("minutes", "total_points")
+OPTIONAL_MATCH_FIELDS = (
     "xP", "assists", "bonus", "bps", "clean_sheets", "creativity",
     "expected_assists", "expected_goal_involvements", "expected_goals",
     "expected_goals_conceded", "goals_conceded", "goals_scored", "ict_index",
-    "influence", "minutes", "own_goals", "penalties_missed", "penalties_saved",
-    "red_cards", "saves", "selected", "starts", "threat", "total_points",
-    "transfers_balance", "transfers_in", "transfers_out", "value", "yellow_cards",
+    "influence", "own_goals", "penalties_missed", "penalties_saved",
+    "red_cards", "saves", "selected", "starts", "threat", "transfers_balance",
+    "transfers_in", "transfers_out", "value", "yellow_cards",
     "clearances_blocks_interceptions", "defensive_contribution", "recoveries", "tackles",
 )
+OUTPUT_MATCH_FIELDS = (*CORE_MATCH_FIELDS, *OPTIONAL_MATCH_FIELDS)
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -38,8 +40,7 @@ def read_csv(path: Path) -> list[dict[str, str]]:
 def require_columns(rows: list[dict[str, str]], required: set[str], label: str) -> None:
     if not rows:
         raise ValueError(f"{label}: file contains no data rows")
-    available = set(rows[0])
-    missing = sorted(required - available)
+    missing = sorted(required - set(rows[0]))
     if missing:
         raise ValueError(f"{label}: missing required columns: {missing}")
 
@@ -52,11 +53,9 @@ def normalize_archive(
 ) -> tuple[list[dict[str, str]], dict]:
     require_columns(merged, {
         "element", "fixture", "round", "position", "team", "opponent_team",
-        "kickoff_time", "was_home", *MATCH_FIELDS,
+        "kickoff_time", "was_home", *CORE_MATCH_FIELDS,
     }, "merged_gw")
-    require_columns(roster, {
-        "id", "code", "element_type", "team", "web_name",
-    }, "players_raw")
+    require_columns(roster, {"id", "code", "element_type", "web_name"}, "players_raw")
     require_columns(teams, {"id", "name"}, "teams")
 
     by_element: dict[str, dict[str, str]] = {}
@@ -151,7 +150,7 @@ def normalize_archive(
             "kickoff_time": kickoff,
             "was_home": (row.get("was_home") or "").strip(),
         }
-        for field in MATCH_FIELDS:
+        for field in OUTPUT_MATCH_FIELDS:
             normalized[field] = (row.get(field) or "").strip()
         output.append(normalized)
 
@@ -178,7 +177,9 @@ def normalize_archive(
         "identity_join": "merged_gw.element -> season players_raw.id -> stable players_raw.code",
         "name_matching": "NOT_USED",
         "position_normalization": "GK -> GKP; validated against players_raw.element_type",
-        "source_completeness": "No missing fixture/player rows are inferred; archive coverage must be checked separately",\n        "unavailable_optional_match_columns": sorted(set(OPTIONAL_MATCH_FIELDS) - set(merged[0])),\n        "optional_column_policy": "Preserve available source values; leave unavailable historical columns blank and report them explicitly",
+        "source_completeness": "No missing fixture/player rows are inferred; archive coverage must be checked separately",
+        "unavailable_optional_match_columns": sorted(set(OPTIONAL_MATCH_FIELDS) - set(merged[0])),
+        "optional_column_policy": "Preserve available source values; leave unavailable historical columns blank and report them explicitly",
     }
     return output, report
 
