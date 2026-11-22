@@ -14,6 +14,16 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_lineup_resolver.py"
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_historical_portfolio_overlay.py"
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_build_historical_covariance.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_adapter.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_fetch.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_batch.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_replay_validation.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_lineup_resolver.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_adapter.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_fetch.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_batch.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_replay_validation.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_lineup_resolver.py"
       - ".github/workflows/cta-fpl-covar-historical-capture.yml"
       - "canonical_candidate/engineering_workbench/scripts/personal_squad_covar_recommendation.py"
       - "canonical_candidate/engineering_workbench/docs/M4_COVAR_IMMEDIATE_CONVENTIONAL_FORECAST_USE.md"
@@ -60,6 +70,11 @@ jobs:
             canonical_candidate/engineering_workbench/scripts/m4_covar_full_gameweek_contract.py \
             canonical_candidate/engineering_workbench/scripts/m4_covar_historical_portfolio_overlay.py \
             canonical_candidate/engineering_workbench/scripts/m4_covar_build_historical_covariance.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_lineup_resolver.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_replay_validation.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_adapter.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_fetch.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_batch.py \
             canonical_candidate/engineering_workbench/scripts/personal_squad_covar_recommendation.py
       - name: Run focused CoVar validation tests
         env:
@@ -74,4 +89,9 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_m4_covar_full_gameweek_contract.py \
             canonical_candidate/engineering_workbench/tests/test_m4_covar_historical_portfolio_overlay.py \
             canonical_candidate/engineering_workbench/tests/test_m4_covar_build_historical_covariance.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_lineup_resolver.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_replay_validation.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_adapter.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_fetch.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_batch.py \
             canonical_candidate/engineering_workbench/tests/test_personal_squad_covar_recommendation.py
