@@ -203,9 +203,9 @@ a team-total reconciliation only when either the reported score itself or
 reported score plus explicit transfer cost matches the lineup score.
 
 Workflow and evidence:
-- [Cloud replay + focused CoVar workflow run 44998077310](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077310)
-- [Full engineering CI run 44998077270 — 871 tests and 3 subtests](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077270)
-- Focused CoVar tests: **155 passed** in run 44998077310.
+- [Cloud replay + focused CoVar workflow run 44998292049](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998292049)
+- [Full engineering CI run 44998292016 — 871 tests and 3 subtests](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998292016)
+- Focused CoVar tests: **155 passed** in run 44998292049.
 
 This is a single-manager temporal validation set, not a representative field
 sample or a calibrated forward joint forecast. It now exercises real
@@ -244,8 +244,8 @@ Premier League:
 - [Official FPL FAQ](https://www.premierleague.com/en/news/4661030)
 
 Validation:
-- [Focused CoVar + official event-scoring + replay workflow run 44998077310](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077310)
-- [Full engineering CI run 44998077270 — 871 tests and 3 subtests](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077270)
+- [Focused CoVar + official event-scoring + replay workflow run 44998292049](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998292049)
+- [Full engineering CI run 44998292016 — 871 tests and 3 subtests](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998292016)
 - Focused CoVar tests: **155 passed**.
 
 This is retrospective realized-score reconciliation, not point-in-time
@@ -280,4 +280,4 @@ field-relative score forecast. It validates lineup reconstruction and
 scoring behavior over observed completed Gameweeks. CoVar remains
 `decision_weight=0` and `production_eligible=false`.
 
-Evidence: [public field replay + CoVar validation run 44998077310](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077310).
+Evidence: [public field replay + CoVar validation run 44998292049](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998292049).
