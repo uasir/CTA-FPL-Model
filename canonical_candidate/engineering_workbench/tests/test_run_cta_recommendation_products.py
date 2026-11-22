@@ -90,6 +90,22 @@ def _manager_context():
     }
 
 
+
+
+def _conventional_run(manager_context=None):
+    manager = copy.deepcopy(manager_context or _manager_context())
+    return {
+        "run_type": "EXTERNAL_BENCHMARK_PERSONAL_SQUAD",
+        "source_provenance": {
+            "season": "2026-27",
+            "target_gameweek": 12,
+            "deadline_utc": "2026-11-27T18:30:00Z",
+        },
+        "manager_context": manager,
+        "recommendation": {"manager_context": copy.deepcopy(manager)},
+    }
+
+
 def test_cta_runner_emits_both_products_with_correct_forecast_horizons(monkeypatch):
     adapted = _adapter_result()
     monkeypatch.setattr(
@@ -165,3 +181,66 @@ def test_cta_runner_rejects_incomplete_manager_context(monkeypatch):
     )
     with pytest.raises(runner.CTARecommendationRunError, match="manager_context is missing"):
         runner.run_cta_recommendation_products("/unused-bundle", {})
+
+
+def test_cta_personal_preview_can_reuse_same_gw_conventional_manager_state(monkeypatch):
+    adapted = _adapter_result()
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(adapted),
+    )
+    result = runner.run_cta_recommendation_products(
+        "/unused-bundle", conventional_run=_conventional_run(),
+    )
+    personal = result["cta_informed_personal_squad"]
+    assert personal["product_id"] == "cta_informed_personal_squad"
+    assert personal["forecast"]["horizon_gameweeks"] == 1
+    assert personal["manager_state"]["bank"] == 0.0
+    assert personal["manager_state"]["free_transfers"] == 1
+    assert result["guardrails"]["personal_squad_emitted"] is True
+
+
+@pytest.mark.parametrize("field,value,message", [
+    ("season", "2025-26", "season does not match"),
+    ("target_gameweek", 13, "target Gameweek does not match"),
+    ("deadline_utc", "2026-11-28T18:30:00Z", "deadline does not match"),
+])
+def test_cta_personal_preview_rejects_misaligned_conventional_manager_state(
+    monkeypatch, field, value, message,
+):
+    adapted = _adapter_result()
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(adapted),
+    )
+    conventional = _conventional_run()
+    conventional["source_provenance"][field] = value
+    with pytest.raises(runner.CTARecommendationRunError, match=message):
+        runner.run_cta_recommendation_products(
+            "/unused-bundle", conventional_run=conventional,
+        )
+
+
+def test_cta_personal_preview_rejects_conventional_manager_state_disagreement(monkeypatch):
+    adapted = _adapter_result()
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(adapted),
+    )
+    conventional = _conventional_run()
+    conventional["recommendation"]["manager_context"]["bank"] = 4.0
+    with pytest.raises(runner.CTARecommendationRunError, match="disagrees"):
+        runner.run_cta_recommendation_products(
+            "/unused-bundle", conventional_run=conventional,
+        )
+
+
+def test_cta_runner_rejects_two_competing_manager_context_sources(monkeypatch):
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(_adapter_result()),
+    )
+    with pytest.raises(runner.CTARecommendationRunError, match="either manager_context or conventional_run"):
+        runner.run_cta_recommendation_products(
+            "/unused-bundle", _manager_context(), conventional_run=_conventional_run(),
+        )
