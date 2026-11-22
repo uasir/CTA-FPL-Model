@@ -422,51 +422,69 @@ def parallel_understat_fallbacks(
     force: bool,
     allow_missing: bool,
     workers: int = 4,
-) -> None:
-    """Fetch Understat histories with one warmed session per worker and bounded retries."""
-    if not missing_players and not missing_team_seasons:
-        return
-    try:
-        from understatapi import UnderstatClient
-    except ImportError as exc:
-        raise RuntimeError("Understat fallbacks are required; install requirements-data.txt") from exc
+    team_names_by_season: dict[str, set[str]] | None = None,
+) -> dict:
+    """Acquire complete player/team histories through API.SH's documented JSON API."""
+    from understat_apish_provider import ApiShUnderstatClient, reserve_monthly_calls
 
+    api_key = os.environ.get("APISH_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "Understat's own automated endpoint now returns an HTML error page. "
+            "Add an API.SH key as GitHub Actions secret APISH_KEY; the API.SH "
+            "player endpoint supplies full career match rows and the team endpoint "
+            "supplies team match histories."
+        )
+    budget = int(os.environ.get("APISH_MONTHLY_CREDIT_BUDGET", "900"))
+    usage_path = raw_dir / "understat" / "apish_usage.json"
     root = raw_dir / "understat" / "players"
+    team_root = raw_dir / "understat" / "teams"
     root.mkdir(parents=True, exist_ok=True)
+    team_root.mkdir(parents=True, exist_ok=True)
+
     player_ids = sorted(set(int(value) for value in missing_players))
-    failures: list[str] = []
+    if not force:
+        player_ids = [
+            player_id for player_id in player_ids
+            if not (root / f"{player_id}.json").is_file()
+            or (root / f"{player_id}.json").stat().st_size == 0
+        ]
+    team_names_by_season = team_names_by_season or {}
+    team_requests = []
+    for season in missing_team_seasons:
+        path = team_root / f"{season}.json"
+        if path.is_file() and path.stat().st_size and not force:
+            continue
+        names = sorted(set(team_names_by_season.get(season, set())))
+        if not names:
+            raise RuntimeError(
+                f"API.SH team fallback has no Understat team names for season {season}"
+            )
+        team_requests.extend((season, name) for name in names)
+
+    if not player_ids and not team_requests:
+        return {
+            "provider": "API.SH",
+            "player_histories_fetched": 0,
+            "team_histories_fetched": 0,
+            "credits_reserved": 0,
+            "status": "CACHE_COMPLETE",
+        }
+
     worker_state = threading.local()
     clients: list[Any] = []
     clients_lock = threading.Lock()
 
-    def make_bounded_client():
-        client = UnderstatClient()
-        session = getattr(client, "session", None)
-        if session is not None:
-            original_request = session.request
-            def request_with_timeout(method, url, **kwargs):
-                if kwargs.get("timeout") is None:
-                    kwargs["timeout"] = (10, 45)
-                response = original_request(method, url, **kwargs)
-                api_paths = (
-                    "getPlayerData/", "getTeamData/", "getLeagueData/", "getMatchData/",
-                )
-                if response is not None and any(path in str(url) for path in api_paths):
-                    status = int(getattr(response, "status_code", 200))
-                    body = str(getattr(response, "text", "") or "")
-                    if status >= 400 or not body.strip() or body.lstrip().startswith("<"):
-                        preview = " ".join(body[:240].split())
-                        content_type = getattr(response, "headers", {}).get("Content-Type", "")
-                        raise RuntimeError(
-                            "Understat AJAX returned a non-JSON/challenge response: "
-                            f"HTTP {status}, content-type={content_type!r}, body={preview!r}"
-                        )
-                return response
-
-            session.request = request_with_timeout
+    def get_client():
+        client = getattr(worker_state, "client", None)
+        if client is None:
+            client = ApiShUnderstatClient(api_key=api_key)
+            worker_state.client = client
+            with clients_lock:
+                clients.append(client)
         return client
 
-    def close_worker_clients() -> None:
+    def close_clients():
         with clients_lock:
             owned = list(clients)
             clients.clear()
@@ -476,150 +494,140 @@ def parallel_understat_fallbacks(
             except Exception:
                 pass
 
-    def get_worker_client():
-        client = getattr(worker_state, "client", None)
-        if client is not None:
-            return client
-        client = make_bounded_client()
-        home = client.session.get("https://understat.com/", timeout=(10, 45))
-        home.raise_for_status()
-        home_text = str(getattr(home, "text", "") or "").lower()
-        if any(token in home_text for token in ("just a moment", "access denied", "cf-chl-")):
-            raise RuntimeError("Understat homepage returned an anti-bot challenge")
-        worker_state.client = client
-        with clients_lock:
-            clients.append(client)
-        return client
+    calls_reserved = 0
+    usage = None
+
+    def reserve(calls: int):
+        nonlocal calls_reserved, usage
+        if calls <= 0:
+            return
+        usage = reserve_monthly_calls(usage_path, calls, budget)
+        calls_reserved += calls
 
     def fetch_player(player_id: int) -> tuple[int, list | None, str | None]:
         path = root / f"{player_id}.json"
-        if path.exists() and path.stat().st_size and not force:
+        if path.is_file() and path.stat().st_size and not force:
             return player_id, None, None
         last_error = None
         for attempt in range(3):
             try:
-                client = get_worker_client()
-                player_url = f"https://understat.com/player/{player_id}"
-                client.session.headers["Referer"] = player_url
-                try:
-                    payload = client.player(player=str(player_id)).get_match_data()
-                except Exception as ajax_error:
-                    # The public player page embeds matchesData as a secondary
-                    # supported representation. Use it if the AJAX endpoint
-                    # responds with an empty/challenge body.
-                    page = client.session.get(player_url, timeout=(10, 45))
-                    page.raise_for_status()
-                    try:
-                        payload = client.player(player=str(player_id)).parser.get_match_data(page.text)
-                    except Exception as page_error:
-                        raise RuntimeError(
-                            f"AJAX request failed ({ajax_error}); player-page parser failed ({page_error})"
-                        ) from page_error
-                if not isinstance(payload, list):
-                    raise ValueError(f"unexpected player payload type: {type(payload).__name__}")
-                return player_id, payload, None
+                history, _credits = get_client().player_history(player_id)
+                return player_id, history, None
             except Exception as exc:
                 last_error = str(exc)
                 time.sleep(2 ** attempt)
-        return player_id, None, last_error or "unknown error"
+        return player_id, None, last_error or "unknown API.SH error"
 
-    def fetch_team_season(season: str) -> tuple[str, dict | None, str | None]:
-        path = raw_dir / "understat" / "teams" / f"{season}.json"
-        if path.exists() and path.stat().st_size and not force:
-            return season, None, None
+    def fetch_team(season: str, team_name: str) -> tuple[str, str, list | None, str | None]:
         last_error = None
         for attempt in range(3):
             try:
-                with make_bounded_client() as client:
-                    home = client.session.get("https://understat.com/", timeout=(10, 45))
-                    home.raise_for_status()
-                    payload = client.league(league="EPL").get_team_data(
-                        season=season.split("-")[0]
-                    )
-                if not payload:
-                    raise ValueError("empty team payload")
-                return season, payload, None
+                history, _credits = get_client().team_history(team_name, season)
+                return season, team_name, history, None
             except Exception as exc:
                 last_error = str(exc)
                 time.sleep(2 ** attempt)
-        return season, None, last_error or "unknown error"
+        return season, team_name, None, last_error or "unknown API.SH error"
 
+    player_success = 0
+    team_success = 0
+    failures: list[str] = []
     print(
-        f"  fetching {len(player_ids):,} missing Understat player histories "
-        f"with {min(max(1, workers), 4)} workers",
+        f"  API.SH import: {len(player_ids):,} player histories and "
+        f"{len(team_requests):,} team histories; monthly local credit cap={budget}",
         flush=True,
     )
-    preflight = [fetch_player(player_id) for player_id in player_ids[:3]]
-    successful_preflight = [item for item in preflight if item[1] is not None]
-    failed_preflight = [item for item in preflight if item[2] is not None]
-    for player_id, payload, error in successful_preflight:
-        (root / f"{player_id}.json").write_text(
-            json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8"
-        )
-    if not successful_preflight and failed_preflight:
-        details = "; ".join(
-            f"{player_id}: {error}" for player_id, _, error in failed_preflight
-        )
-        close_worker_clients()
-        raise RuntimeError(
-            "Understat fallback preflight failed for the first three mapped player IDs; "
-            f"stopping before bulk acquisition. Errors: {details}"
-        )
 
-    completed = len(preflight)
-    failures.extend(
-        f"player:{player_id}:{error}" for player_id, _, error in failed_preflight
-    )
+    # Reserve a small preflight first. Do not reserve the full bulk job until
+    # the provider has proved the key and response contract work.
+    preflight_ids = player_ids[:3]
+    if preflight_ids:
+        reserve(len(preflight_ids))
+        preflight = [fetch_player(player_id) for player_id in preflight_ids]
+        failed = [item for item in preflight if item[2] is not None]
+        for player_id, history, error in preflight:
+            if history is not None:
+                (root / f"{player_id}.json").write_text(
+                    json.dumps(history, ensure_ascii=False) + "\n", encoding="utf-8"
+                )
+                player_success += 1
+            else:
+                failures.append(f"player:{player_id}:{error}")
+        if player_success == 0 and failed:
+            close_clients()
+            raise RuntimeError(
+                "API.SH player-history preflight failed; stopping before bulk acquisition. "
+                f"Errors: {failures[:3]}"
+            )
+
+    remaining_player_ids = player_ids[len(preflight_ids):]
+    remaining_calls = len(remaining_player_ids) + len(team_requests)
+    reserve(remaining_calls)
     try:
-        with ThreadPoolExecutor(max_workers=min(max(1, workers), 4)) as pool:
-            futures = {
-                pool.submit(fetch_player, player_id): player_id
-                for player_id in player_ids[3:]
-            }
-            for future in as_completed(futures):
-                player_id, payload, error = future.result()
+        tasks = []
+        with ThreadPoolExecutor(max_workers=min(max(1, workers), 6)) as pool:
+            tasks.extend(
+                pool.submit(fetch_player, player_id)
+                for player_id in remaining_player_ids
+            )
+            tasks.extend(
+                pool.submit(fetch_team, season, team_name)
+                for season, team_name in team_requests
+            )
+            completed = 0
+            for future in as_completed(tasks):
+                result = future.result()
                 completed += 1
-                if error is not None:
-                    failures.append(f"player:{player_id}:{error}")
-                    if len(failures) <= 10:
-                        print(
-                            f"    Understat fallback error {len(failures)}: "
-                            f"player={player_id}; {error}",
-                            flush=True,
+                if len(result) == 3:
+                    player_id, history, error = result
+                    if error is not None:
+                        failures.append(f"player:{player_id}:{error}")
+                    elif history is not None:
+                        (root / f"{player_id}.json").write_text(
+                            json.dumps(history, ensure_ascii=False) + "\n", encoding="utf-8"
                         )
-                elif payload is not None:
-                    (root / f"{player_id}.json").write_text(
-                        json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8"
-                    )
-                if completed % 25 == 0 or completed == len(player_ids):
+                        player_success += 1
+                else:
+                    season, team_name, history, error = result
+                    if error is not None:
+                        failures.append(f"team:{season}:{team_name}:{error}")
+                    elif history is not None:
+                        team_path = team_root / f"{season}.json"
+                        if not team_path.exists():
+                            team_payload = {}
+                        else:
+                            team_payload = json.loads(team_path.read_text(encoding="utf-8"))
+                        team_payload[team_name] = {"title": team_name, "history": history}
+                        team_path.write_text(
+                            json.dumps(team_payload, ensure_ascii=False) + "\n",
+                            encoding="utf-8",
+                        )
+                        team_success += 1
+                if completed % 25 == 0 or completed == len(tasks):
                     print(
-                        f"    Understat player fallbacks {completed:,}/{len(player_ids):,}; "
+                        f"    API.SH source imports {completed:,}/{len(tasks):,}; "
+                        f"players={player_success:,}; teams={team_success:,}; "
                         f"failed={len(failures):,}",
                         flush=True,
                     )
     finally:
-        close_worker_clients()
-
-    team_root = raw_dir / "understat" / "teams"
-    team_root.mkdir(parents=True, exist_ok=True)
-    for season in missing_team_seasons:
-        path = team_root / f"{season}.json"
-        if path.exists() and path.stat().st_size and not force:
-            continue
-        season_key, payload, error = fetch_team_season(season)
-        if payload is not None:
-            path.write_text(
-                json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8"
-            )
-        else:
-            failures.append(f"teams:{season_key}:{error or 'unknown error'}")
+        close_clients()
 
     if failures and not allow_missing:
         raise RuntimeError(
-            f"Understat could not resolve {len(failures)} sources: {failures[:10]}"
+            f"API.SH could not resolve {len(failures)} Understat sources: {failures[:10]}"
         )
-    if failures:
-        print(f"  WARNING: {len(failures)} Understat fallbacks remain missing", flush=True)
+    return {
+        "provider": "API.SH",
+        "player_histories_requested": len(player_ids),
+        "player_histories_fetched": player_success,
+        "team_histories_requested": len(team_requests),
+        "team_histories_fetched": team_success,
+        "credits_reserved": calls_reserved,
+        "monthly_usage": usage,
+        "status": "PASS" if not failures else "PARTIAL",
+        "failures": failures[:10],
+    }
 
 
 def historical_source_seasons(training_seasons: list[str], active_season: str) -> list[str]:
