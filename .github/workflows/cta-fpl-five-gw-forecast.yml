@@ -129,6 +129,11 @@ jobs:
             --minutes-report outputs/cta-five-gw/minutes_report.json \
             --model-dir outputs/cta-five-gw/models \
             --output-dir outputs/cta-five-gw/forecasts
+      - name: Validate snapshot and aggregate forecast contract
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/validate_cta_forecast_bundle.py \
+            --forecast-dir outputs/cta-five-gw/forecasts \
+            --output outputs/cta-five-gw/forecasts/bundle_validation_report.json
       - name: Upload complete forecast and provenance bundle
         uses: actions/upload-artifact@v4
         with:
