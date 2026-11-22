@@ -197,7 +197,10 @@ def anchor_team_features_to_deadline(target: pd.DataFrame) -> pd.DataFrame:
     status_columns = [c for c in ("status_league_rank", "status_opp_league_rank") if c in out]
     if not team_columns and not status_columns:
         return out
-    ordered = out.sort_values(["kickoff_time", "fixture", "fpl_code"], kind="mergesort")
+    sort_columns = ["kickoff_time"] + (["fixture"] if "fixture" in out.columns else [])
+    if "fpl_code" in out.columns:
+        sort_columns.append("fpl_code")
+    ordered = out.sort_values(sort_columns, kind="mergesort")
     earliest = ordered.drop_duplicates("team_name", keep="first").set_index("team_name")
     for index, row in out.iterrows():
         own = earliest.loc[row["team_name"]]
