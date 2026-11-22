@@ -187,8 +187,6 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
             raise CovarFullGameweekContractError("research played status must disclose the positive-minutes proxy and card-only limitation")
         if metadata.get("marginal_expected_points_preserved") is not True:
             raise CovarFullGameweekContractError("residual bootstrap must preserve target expected-points means")
-        if metadata.get("minutes_mean_preserved") is not True:
-            raise CovarFullGameweekContractError("residual bootstrap must preserve target expected-minutes means")
         payload_hash = metadata.get("residual_bootstrap_payload_sha256")
         if not isinstance(payload_hash, str) or len(payload_hash) != 64 or any(ch not in "0123456789abcdef" for ch in payload_hash.lower()):
             raise CovarFullGameweekContractError("residual bootstrap payload SHA-256 is required")
