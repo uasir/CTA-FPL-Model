@@ -67,6 +67,7 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
                            on=IDENTITY, how="left", validate="one_to_one")
     if merged["expected_minutes"].isna().any():
         raise ValueError("Some fixture rows have no matching Dastan minutes prediction")
+    merged["cta_expected_points_per_90"] = np.nan
     merged["cta_expected_points"] = np.nan
     model_hashes = {}
     for position in POSITIONS:
@@ -85,10 +86,16 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
         if applied_mask != expected_mask:
             raise RuntimeError("Unavailable feature mask changed during scoring")
         X = scoring_features.apply(pd.to_numeric, errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
-        predictions = np.clip(model.predict(X), 0.0, None)
-        if not np.isfinite(predictions).all():
-            raise ValueError(f"{position}: non-finite CTA points predictions")
-        merged.loc[subset, "cta_expected_points"] = predictions
+        points_per_90 = model.predict(X)
+        if not np.isfinite(points_per_90).all():
+            raise ValueError(f"{position}: non-finite CTA points-per-90 predictions")
+        expected_minutes = pd.to_numeric(
+            merged.loc[subset, "expected_minutes"], errors="coerce"
+        ).to_numpy(dtype=np.float64)
+        if not np.isfinite(expected_minutes).all() or (expected_minutes < 0).any() or (expected_minutes > 90).any():
+            raise ValueError(f"{position}: expected minutes must be finite and within [0, 90]")
+        merged.loc[subset, "cta_expected_points_per_90"] = points_per_90
+        merged.loc[subset, "cta_expected_points"] = points_per_90 * expected_minutes / 90.0
         model_hashes[position] = expected_hash
     if merged["cta_expected_points"].isna().any():
         raise ValueError("Some fixture rows did not receive a CTA points prediction")
@@ -115,7 +122,8 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
     fixture_fields = [
         "season", "gameweek", "fpl_code", "fpl_element_id", "fixture_id",
         "position", "team_name", "opponent_team_name", "kickoff_time",
-        "forecast_snapshot_id", "p60", "p_any", "expected_minutes", "cta_expected_points",
+        "forecast_snapshot_id", "p60", "p_any", "expected_minutes",
+        "cta_expected_points_per_90", "cta_expected_points",
         "expected_points_model_status", "production_eligible", "decision_weight", "covar_used",
     ]
     fixture_out = merged[fixture_fields].sort_values(
