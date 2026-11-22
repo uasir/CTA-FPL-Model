@@ -1,7 +1,7 @@
 {
-  "archive_path": "snapshots/2026-27/gw12-16/dfb10c800b79dc1dac62a2fc2ba98028f22ffe2a89913d39eb23e06d061d42da/archive-v2/forecast_bundle.zip",
-  "archive_sha256": "8304398feb113e3795e42f73d800da058e656e112fc2e2a863724ef1e2cdee60",
-  "forecast_snapshot_id": "dfb10c800b79dc1dac62a2fc2ba98028f22ffe2a89913d39eb23e06d061d42da",
+  "archive_path": "snapshots/2026-27/gw12-16/2334f4994749b8a07c199d5fb58e88cd55fd46a30965a8233f714fa5eaa3cb3e/archive-v2/forecast_bundle.zip",
+  "archive_sha256": "172abd1b8f32b941dc252f4898fad0016a85c00b858f50ee831479347e9e2ffb",
+  "forecast_snapshot_id": "2334f4994749b8a07c199d5fb58e88cd55fd46a30965a8233f714fa5eaa3cb3e",
   "gameweeks": [
     12,
     13,
@@ -9,11 +9,11 @@
     15,
     16
   ],
-  "manifest_path": "snapshots/2026-27/gw12-16/dfb10c800b79dc1dac62a2fc2ba98028f22ffe2a89913d39eb23e06d061d42da/archive-v2/archive_manifest.json",
+  "manifest_path": "snapshots/2026-27/gw12-16/2334f4994749b8a07c199d5fb58e88cd55fd46a30965a8233f714fa5eaa3cb3e/archive-v2/archive_manifest.json",
   "season": "2026-27",
   "source_run": {
-    "commit_sha": "d1f178f749d3a951e024dc778af2ef59fdf129e1",
-    "run_id": "45076102918",
-    "run_url": "https://github.com/uasir/CTA-FPL-Model/actions/runs/45076102918"
+    "commit_sha": "7cd06b9e27dbac7510bef277a0c74dc6e110e390",
+    "run_id": "45078708036",
+    "run_url": "https://github.com/uasir/CTA-FPL-Model/actions/runs/45078708036"
   }
 }
