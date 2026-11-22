@@ -324,7 +324,7 @@ def main() -> int:
         "target_gameweek": result["target"]["target_gameweek"],
         "general_players_ranked": result["general_cta_market"]["coverage"]["filtered_players"],
         "personal_product_id": personal["product_id"],
-        "personal_product_status": personal["status"],
+        "personal_product_status": personal["product_status"],
         "personal_decision_eligibility": (
             personal.get("decision", {}).get("decision_eligibility", {}).get("status")
         ),
