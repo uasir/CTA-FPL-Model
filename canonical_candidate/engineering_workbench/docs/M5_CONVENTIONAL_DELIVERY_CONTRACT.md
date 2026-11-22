@@ -1,11 +1,11 @@
-# M5-T2 — Conventional recommendation input/output contract
+# M4-T2 — Conventional recommendation input/output contract
 
-The initial M5 product consumes exactly one frozen M3 conventional personal-squad
+The initial M4 conventional product consumes exactly one frozen M3 conventional personal-squad
 recommendation. It does not call a second optimizer or recalculate provider xP.
 The validator is a presentation/delivery boundary over the M3 output, not a
 substitute for M3's legality engine or statistical acceptance.
 
-`m5_conventional_delivery_contract.py` verifies:
+The implementation currently retains the legacy module name `m5_conventional_delivery_contract.py`; it verifies:
 - conventional personal-squad run type and explicit exploratory/non-release status;
 - provider identity and snapshot identity;
 - decision and deadline timestamps;
