@@ -1,6 +1,9 @@
 name: CTA five-Gameweek forecast pipeline
 
 on:
+  push:
+    branches:
+      - feat/cta-owned-five-gw-forecast-foundation
   pull_request:
     paths:
       - ".github/workflows/cta-fpl-five-gw-forecast.yml"
@@ -55,7 +58,7 @@ jobs:
 
   build-five-gw-forecast:
     name: Build current five-GW candidate forecast
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 180
