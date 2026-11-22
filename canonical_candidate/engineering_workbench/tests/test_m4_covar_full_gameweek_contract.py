@@ -76,6 +76,7 @@ def research_fixture():
         "model_version": "fplcat-v2",
         "training_cutoff_utc": "2026-11-27T17:00:00Z",
         "scenario_probability_method": "EQUAL_WEIGHT_EMPIRICAL_COMPLETE_GAMEWEEK_BLOCKS",
+        "played_status_method": "POSITIVE_MINUTES_PROXY_CARD_ONLY_UNOBSERVED",
         "complete_historical_gameweeks": [10, 11],
         "probability_calibrated": False,
         "marginal_expected_points_preserved": True,
