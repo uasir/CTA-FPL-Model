@@ -29,8 +29,22 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def with_training_target(frame: pd.DataFrame) -> pd.DataFrame:
+    """Expose the FPL match outcome as CTA's explicit supervised target."""
+    if "target_points" in frame.columns:
+        return frame
+    if "total_points" not in frame.columns:
+        raise ValueError(
+            "Training frame requires target_points or Dastan/FPL total_points"
+        )
+    out = frame.copy()
+    out["target_points"] = pd.to_numeric(out["total_points"], errors="coerce")
+    return out
+
+
 def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
                  source_path: Path) -> dict:
+    frame = with_training_target(frame)
     required = set(features) | {"season", "gameweek", "fixture", "fpl_code", "position", "target_points"}
     missing = sorted(required - set(frame.columns))
     if missing:
