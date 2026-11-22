@@ -373,23 +373,40 @@ def apply_historical_snapshot_safety_buffer(training_dir: Path, minutes: int = 5
     return reports
 
 
-def active_season_understat_refresh_ids(
+def understat_players_needing_refresh(
     raw_dir: Path, seasons: list[str], player_ids: set[int] | list[int], sources,
 ) -> set[int]:
-    """Return only mapped players with actual FPL minutes and no cached live history."""
+    """Select only mapped players with FPL appearances missing from both caches."""
     expected = sources._expected_understat_player_dates(raw_dir, seasons)
+    csv_root = raw_dir / "vaastav" / "understat" / "players"
     json_root = raw_dir / "understat" / "players"
-    wanted = {
-        int(value) for value in player_ids
-        if expected.get(int(value))
-        and not (
-            (json_root / f"{int(value)}.json").is_file()
-            and (json_root / f"{int(value)}.json").stat().st_size
-        )
-    }
-    # A complete pinned CSV is already a usable source. Only refresh players
-    # whose actual FPL appearance dates are absent from both caches.
-    return sources._incomplete_pinned_players(raw_dir, seasons, wanted) if wanted else set()
+    refresh = set()
+    for value in player_ids:
+        player_id = int(value)
+        expected_dates = expected.get(player_id, set())
+        if not expected_dates:
+            continue
+        json_path = json_root / f"{player_id}.json"
+        if json_path.is_file() and json_path.stat().st_size:
+            try:
+                payload = json.loads(json_path.read_text(encoding="utf-8"))
+                dates = pd.DataFrame(payload).get("date", pd.Series(dtype="object"))
+                actual = set(pd.to_datetime(dates, errors="coerce").dt.date.dropna())
+                if expected_dates.issubset(actual):
+                    continue
+            except (ValueError, TypeError, json.JSONDecodeError):
+                pass
+        csv_path = csv_root / f"{player_id}.csv"
+        if csv_path.is_file() and csv_path.stat().st_size:
+            try:
+                dates = pd.read_csv(csv_path, usecols=["date"])["date"]
+                actual = set(pd.to_datetime(dates, errors="coerce").dt.date.dropna())
+                if expected_dates.issubset(actual):
+                    continue
+            except (ValueError, KeyError, pd.errors.ParserError):
+                pass
+        refresh.add(player_id)
+    return refresh
 
 
 def parallel_understat_fallbacks(
@@ -737,10 +754,23 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     roster_path = write_current_roster(dastan_root, bootstrap, season)
     mapping_release_report = mappings.verify_operational_release()
     patch_identity_resolution(mappings, sources)
-    # The historical raw match tables are not included in Dastan's released
-    # training frame. They are still required to create genuinely current,
-    # deadline-safe target features, so reuse Dastan's pinned source builder.
-    # The published training frame itself is imported below; it is not rebuilt.
+    # Target rolling features need raw match histories, but only for players in
+    # the current FPL roster. Restrict acquisition to those stable FPL codes;
+    # fetch one complete history only when actual appearance dates are missing.
+    current_operational_players = mappings.load_operational_players()
+    current_fpl_codes = set(current_operational_players["fpl_code"].astype(int))
+
+    def current_roster_understat_ids(raw_dir, requested_seasons):
+        assignments = mappings.assignments_for_seasons(requested_seasons)
+        assignments = assignments[assignments["fpl_code"].astype(int).isin(current_fpl_codes)]
+        return set(assignments["understat_id"].dropna().astype(int))
+
+    sources._needed_understat_ids = current_roster_understat_ids
+    sources._latest_player_paths = lambda paths, wanted: {}
+    sources._incomplete_pinned_players = lambda raw_dir, requested_seasons, player_ids: (
+        understat_players_needing_refresh(raw_dir, requested_seasons, player_ids, sources)
+    )
+
     def fetch_missing_understat_sources(raw_dir, missing_players, missing_team_seasons, *,
                                          force, allow_missing):
         return parallel_understat_fallbacks(
@@ -748,8 +778,6 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
             force=force, allow_missing=allow_missing, workers=min(workers, 4),
         )
 
-    # Use Dastan's own pinned-source downloader/completeness audit. Replace only
-    # its serial mutable-provider fallback with the bounded parallel equivalent.
     sources._fetch_understat_fallbacks = fetch_missing_understat_sources
     operational_clubs = mappings.load_operational_clubs()
     dastan_features.FPL_TO_UNDERSTAT.update({
@@ -768,8 +796,14 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         f"published Dastan training data will be imported",
         flush=True,
     )
+    # Acquire historical and active-season FPL/team inputs, but only fetch
+    # Understat histories for current-roster players with actual appearances.
     sources.download_sources(
         raw_dir, historical_seasons, workers=workers, force=False,
+        allow_missing_understat=False,
+    )
+    sources.download_sources(
+        raw_dir, [season], workers=workers, force=False,
         allow_missing_understat=False,
     )
     download_fixture_schedules(raw_dir, historical_seasons, source_commit)
@@ -783,7 +817,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         for value in seasons
     }
     wanted_ids = sources._needed_understat_ids(raw_dir, [season])
-    incomplete_players = active_season_understat_refresh_ids(
+    incomplete_players = understat_players_needing_refresh(
         raw_dir, [season], wanted_ids, sources,
     )
     missing_team_seasons = sources._incomplete_team_seasons(raw_dir, [season], team_paths)
