@@ -333,38 +333,6 @@ def audit_all_fixture_archives(raw_dir: Path, seasons: list[str]) -> dict:
     return reports
 
 
-def normalize_all_fpl_archives(raw_dir: Path, output_dir: Path, seasons: list[str]) -> dict:
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from normalize_vaastav_fpl_archive import normalize_archive, read_csv
-    normalized_dir = output_dir / "normalized_fpl"
-    normalized_dir.mkdir(parents=True, exist_ok=True)
-    reports = {}
-    for season in seasons:
-        base = raw_dir / "vaastav" / season
-        rows, report = normalize_archive(
-            read_csv(base / "merged_gw.csv"),
-            read_csv(base / "players_raw.csv"),
-            read_csv(base / "teams.csv"),
-            season,
-        )
-        path = normalized_dir / f"{season}_player_matches.csv"
-        with path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
-            writer.writeheader()
-            writer.writerows(rows)
-        reports[season] = {
-            "status": report["status"],
-            "input_rows": report["input_merged_rows"],
-            "canonical_player_rows": report["canonical_player_match_rows"],
-            "excluded_non_player_rows": report["excluded_non_player_rows"],
-            "unique_fixtures": report["unique_fixtures"],
-            "unique_gameweeks": report["unique_gameweeks"],
-            "normalized_path": str(path),
-            "normalized_sha256": sha256(path),
-        }
-    return reports
-
-
 def apply_historical_snapshot_safety_buffer(training_dir: Path, minutes: int = 5) -> dict:
     """Drop archived snapshots captured inside the final safety buffer before deadline."""
     reports = {}
@@ -578,82 +546,6 @@ def parallel_understat_fallbacks(
         print(f"  WARNING: {len(failures)} Understat fallbacks remain missing", flush=True)
 
 
-def download_and_merge_pinned_understat_player_histories(
-    raw_dir: Path,
-    seasons: list[str],
-    sources,
-    *,
-    workers: int = 10,
-) -> dict:
-    """Merge Vaastav's separate per-season Understat player CSVs by stable ID.
-
-    The pinned Dastan downloader selects only the latest CSV per player. That
-    discards earlier seasons and causes avoidable live Understat API fallbacks.
-    Assemble every available pinned season before requesting missing histories.
-    """
-    wanted_ids = sources._needed_understat_ids(raw_dir, seasons)
-    season_set = set(seasons)
-    pattern = re.compile(r"^data/(20\d\d-\d\d)/understat/.+_(\d+)\.csv$")
-    selected: dict[int, list[tuple[str, str]]] = {}
-    for source_path in sources._tree(raw_dir, force=False):
-        match = pattern.match(source_path)
-        if not match:
-            continue
-        season, raw_player_id = match.groups()
-        player_id = int(raw_player_id)
-        if season in season_set and player_id in wanted_ids:
-            selected.setdefault(player_id, []).append((season, source_path))
-
-    staging = raw_dir / "vaastav" / "understat" / "player_seasons"
-    jobs = []
-    destinations: dict[int, list[Path]] = {}
-    for player_id, entries in sorted(selected.items()):
-        for season, source_path in sorted(entries):
-            destination = staging / season / Path(source_path).name
-            destinations.setdefault(player_id, []).append(destination)
-            jobs.append((sources.VAASTAV_RAW + source_path, destination))
-    if jobs:
-        sources._download_many(jobs, workers=workers, force=False)
-
-    output_root = raw_dir / "vaastav" / "understat" / "players"
-    output_root.mkdir(parents=True, exist_ok=True)
-    merged_players = merged_rows = 0
-    for player_id, paths in sorted(destinations.items()):
-        frames = [pd.read_csv(path, low_memory=False) for path in paths]
-        frames = [frame for frame in frames if not frame.empty]
-        if not frames:
-            continue
-        combined = pd.concat(frames, ignore_index=True, sort=False)
-        if "id" in combined.columns:
-            combined = combined.drop_duplicates("id", keep="last")
-        else:
-            keys = [column for column in ("date", "h_team", "a_team") if column in combined]
-            if not keys:
-                raise ValueError(f"Understat player {player_id} has no stable match key")
-            combined = combined.drop_duplicates(keys, keep="last")
-        if "date" in combined.columns:
-            combined = combined.sort_values("date", kind="mergesort")
-        combined.to_csv(output_root / f"{player_id}.csv", index=False, lineterminator="\n")
-        merged_players += 1
-        merged_rows += len(combined)
-
-    report = {
-        "pinned_player_ids_selected": len(selected),
-        "pinned_player_ids_merged": merged_players,
-        "pinned_season_files_downloaded": len(jobs),
-        "pinned_player_match_rows": merged_rows,
-        "season_scope": sorted(season_set),
-        "policy": "merge all pinned per-season player histories before live fallback",
-    }
-    print(
-        "  merged pinned Understat histories: "
-        f"{merged_players:,} players, {len(jobs):,} season files, "
-        f"{merged_rows:,} match rows",
-        flush=True,
-    )
-    return report
-
-
 def historical_source_seasons(training_seasons: list[str], active_season: str) -> list[str]:
     """Keep the pinned historical archive downloader away from the live season.
 
@@ -865,7 +757,6 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     current_api_report = refresh_current_core(raw_dir, season, bootstrap, fixtures, workers=workers)
     write_live_fixture_schedule(raw_dir, season, fixtures)
     fixture_archive_audits = audit_all_fixture_archives(raw_dir, seasons)
-    normalization_reports = normalize_all_fpl_archives(raw_dir, output_dir, seasons)
 
     team_paths = {
         value: list((raw_dir / "vaastav" / "understat" / "teams" / value).glob("*.csv"))
@@ -959,7 +850,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "historical_snapshot_safety_buffer": release_import_report["snapshot_safety_buffer"],
         "fixture_archive_audits": fixture_archive_audits,
         "historical_player_history_source": "Pinned Dastan/Vaastav/Understat raw inputs for target-feature reconstruction; Dastan released feature frame imported separately for model training",
-        "pinned_understat_player_history_merge": pinned_understat_report,
+        "historical_understat_source_policy": "Dastan pinned latest-player archives plus audited full-history fallback for incomplete IDs",
         "active_season_understat_player_fallbacks": len(incomplete_players),
         "canonical_player_match_rows": len(player_matches),
         "canonical_team_match_rows": len(team_matches),
