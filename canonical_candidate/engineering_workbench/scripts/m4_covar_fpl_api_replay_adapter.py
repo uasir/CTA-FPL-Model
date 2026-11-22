@@ -43,6 +43,7 @@ def normalize_official_fpl_replay(
     *,
     event_id: int,
     mode: str | None = None,
+    expected_entry_id: int | None = None,
 ) -> dict[str, Any]:
     """Build one anonymized replay case from the three official FPL API payloads.
 
@@ -56,6 +57,10 @@ def normalize_official_fpl_replay(
     event = _required_int(event_id, "event_id")
     if event < 1:
         raise CovarFplApiReplayAdapterError("event_id must be positive")
+    if expected_entry_id is not None:
+        expected_entry_id = _required_int(expected_entry_id, "expected_entry_id")
+        if expected_entry_id < 1:
+            raise CovarFplApiReplayAdapterError("expected_entry_id must be positive")
     # The official picks response includes entry_history.event. Fail closed
     # if the endpoint payload does not identify the requested Gameweek.
     entry_history = _required_mapping(
@@ -127,7 +132,67 @@ def normalize_official_fpl_replay(
         ordered_picks.append((position, pid, pick))
     if seen_positions != set(range(1, 16)):
         raise CovarFplApiReplayAdapterError("official pick positions must cover exactly 1 through 15")
-    ordered_picks.sort(key=lambda item: item[0])
+    raw_automatic_subs = picks_payload.get("automatic_subs")
+    normalized_automatic_subs: list[dict[str, int]] | None = None
+    if raw_automatic_subs is not None:
+        if not isinstance(raw_automatic_subs, list):
+            raise CovarFplApiReplayAdapterError("picks_payload.automatic_subs must be a list")
+        normalized_automatic_subs = []
+        seen_substitutions: set[tuple[int, int]] = set()
+        seen_substituted_players: set[int] = set()
+        for index, row in enumerate(raw_automatic_subs):
+            row = _required_mapping(row, f"picks_payload.automatic_subs[{index}]")
+            element_in = _required_int(row.get("element_in"), f"automatic_subs[{index}].element_in")
+            element_out = _required_int(row.get("element_out"), f"automatic_subs[{index}].element_out")
+            if element_in < 1 or element_out < 1 or element_in == element_out:
+                raise CovarFplApiReplayAdapterError("automatic substitution player IDs must be distinct positive integers")
+            if expected_entry_id is not None and row.get("entry") is not None:
+                row_entry = _required_int(row.get("entry"), f"automatic_subs[{index}].entry")
+                if row_entry != expected_entry_id:
+                    raise CovarFplApiReplayAdapterError("automatic substitution entry does not match requested manager")
+            substitution_event = row.get("event")
+            if substitution_event is not None and _required_int(
+                substitution_event, f"automatic_subs[{index}].event"
+            ) != event:
+                raise CovarFplApiReplayAdapterError("automatic substitution event does not match requested Gameweek")
+            pair = (element_in, element_out)
+            if pair in seen_substitutions or element_in in seen_substituted_players or element_out in seen_substituted_players:
+                raise CovarFplApiReplayAdapterError("official automatic substitutions contain duplicate player pairs")
+            seen_substitutions.add(pair)
+            seen_substituted_players.update((element_in, element_out))
+            normalized_automatic_subs.append({
+                "element_in": element_in,
+                "element_out": element_out,
+                "event": event,
+            })
+
+    # On a completed Gameweek the official picks endpoint exposes the final
+    # post-autosub positions. Reverse the official automatic_subs pairs to
+    # recover the manager's submitted deadline XI and bench order. Multipliers
+    # remain the official final scoring multipliers.
+    final_position_by_player = {pid: position for position, pid, _ in ordered_picks}
+    original_position_by_player = dict(final_position_by_player)
+    if normalized_automatic_subs is not None:
+        for substitution in normalized_automatic_subs:
+            element_in = str(substitution["element_in"])
+            element_out = str(substitution["element_out"])
+            if element_in not in original_position_by_player or element_out not in original_position_by_player:
+                raise CovarFplApiReplayAdapterError("automatic substitution references a player outside the 15 picks")
+            in_position = original_position_by_player[element_in]
+            out_position = original_position_by_player[element_out]
+            if in_position > 11 or out_position <= 11:
+                raise CovarFplApiReplayAdapterError("post-autosub pick positions do not place element_in in the XI and element_out on the bench")
+            original_position_by_player[element_in], original_position_by_player[element_out] = (
+                out_position, in_position
+            )
+
+    ordered_picks = sorted(
+        (
+            (original_position_by_player[pid], pid, pick)
+            for _, pid, pick in ordered_picks
+        ),
+        key=lambda item: item[0],
+    )
     player_ids = [pid for _, pid, _ in ordered_picks]
     starting = player_ids[:11]
     reserve_gk = player_ids[11]
@@ -148,35 +213,7 @@ def normalize_official_fpl_replay(
     if len(captain_ids) != 1 or len(vice_ids) != 1 or captain_ids[0] == vice_ids[0]:
         raise CovarFplApiReplayAdapterError("official picks must identify one distinct captain and vice-captain")
     if captain_ids[0] not in starting or vice_ids[0] not in starting:
-        raise CovarFplApiReplayAdapterError("captain and vice-captain must be in the starting XI")
-
-    raw_automatic_subs = picks_payload.get("automatic_subs")
-    normalized_automatic_subs: list[dict[str, int]] | None = None
-    if raw_automatic_subs is not None:
-        if not isinstance(raw_automatic_subs, list):
-            raise CovarFplApiReplayAdapterError("picks_payload.automatic_subs must be a list")
-        normalized_automatic_subs = []
-        seen_substitutions: set[tuple[int, int]] = set()
-        for index, row in enumerate(raw_automatic_subs):
-            row = _required_mapping(row, f"picks_payload.automatic_subs[{index}]")
-            element_in = _required_int(row.get("element_in"), f"automatic_subs[{index}].element_in")
-            element_out = _required_int(row.get("element_out"), f"automatic_subs[{index}].element_out")
-            if element_in < 1 or element_out < 1 or element_in == element_out:
-                raise CovarFplApiReplayAdapterError("automatic substitution player IDs must be distinct positive integers")
-            substitution_event = row.get("event")
-            if substitution_event is not None and _required_int(
-                substitution_event, f"automatic_subs[{index}].event"
-            ) != event:
-                raise CovarFplApiReplayAdapterError("automatic substitution event does not match requested Gameweek")
-            pair = (element_in, element_out)
-            if pair in seen_substitutions:
-                raise CovarFplApiReplayAdapterError("duplicate official automatic substitution pair")
-            seen_substitutions.add(pair)
-            normalized_automatic_subs.append({
-                "element_in": element_in,
-                "element_out": element_out,
-                "event": event,
-            })
+        raise CovarFplApiReplayAdapterError("captain and vice-captain must be in the reconstructed deadline starting XI")
 
     active_chip = picks_payload.get("active_chip")
     if active_chip is not None and not isinstance(active_chip, str):
@@ -203,6 +240,7 @@ def normalize_official_fpl_replay(
         official_final_picks.append({
             "element": pid,
             "position": position,
+            "post_autosub_position": final_position_by_player[pid],
             "multiplier": int(pick["multiplier"]),
             "is_captain": pick["is_captain"],
             "is_vice_captain": pick["is_vice_captain"],
