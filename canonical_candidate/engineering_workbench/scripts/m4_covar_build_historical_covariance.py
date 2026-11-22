@@ -6,6 +6,7 @@ import argparse
 import csv
 import hashlib
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -62,8 +63,18 @@ def build_historical_covariance_from_finality(
     reports = finality.get("reports")
     if not isinstance(reports, list) or not reports:
         raise HistoricalCovarianceBuildError("finality batch reports are required")
-    if any(row.get("status") != "PASS_EXACT_MATCH" or row.get("finality_reconciled") is not True for row in reports):
-        raise HistoricalCovarianceBuildError("every Gameweek must have PASS_EXACT_MATCH finality")
+    event_ids = []
+    for row in reports:
+        if not isinstance(row, dict):
+            raise HistoricalCovarianceBuildError("every finality report row must be an object")
+        event_id = row.get("event_id")
+        if isinstance(event_id, bool) or not isinstance(event_id, int) or event_id < 1:
+            raise HistoricalCovarianceBuildError("every finality report row requires a positive integer event_id")
+        if row.get("status") != "PASS_EXACT_MATCH" or row.get("finality_reconciled") is not True:
+            raise HistoricalCovarianceBuildError("every Gameweek must have PASS_EXACT_MATCH finality")
+        event_ids.append(event_id)
+    if len(event_ids) != len(set(event_ids)):
+        raise HistoricalCovarianceBuildError("finality report contains duplicate Gameweek event IDs")
     if manifest.get("status") != "PASS_STRUCTURAL_ONLY":
         raise HistoricalCovarianceBuildError("realized panel manifest must PASS_STRUCTURAL_ONLY")
     if finality.get("season") != manifest.get("season"):
@@ -72,8 +83,13 @@ def build_historical_covariance_from_finality(
     if not isinstance(expected_hash, str) or _sha256(panel_path) != expected_hash:
         raise HistoricalCovarianceBuildError("realized player-Gameweek panel SHA-256 does not match its manifest")
     finished_gws = manifest.get("finished_gameweeks")
-    finality_gws = sorted(int(row.get("event_id")) for row in reports)
-    if not isinstance(finished_gws, list) or sorted(int(value) for value in finished_gws) != finality_gws:
+    finality_gws = sorted(event_ids)
+    if (
+        not isinstance(finished_gws, list)
+        or any(isinstance(value, bool) or not isinstance(value, int) or value < 1 for value in finished_gws)
+        or len(finished_gws) != len(set(finished_gws))
+        or sorted(finished_gws) != finality_gws
+    ):
         raise HistoricalCovarianceBuildError("finality Gameweek set does not match realized panel manifest")
     if len(finality_gws) < window_size or window_size < 5:
         raise HistoricalCovarianceBuildError("at least five finality-reconciled Gameweeks are required")
@@ -96,15 +112,46 @@ def build_historical_covariance_from_finality(
     with panel_path.open(newline="", encoding="utf-8-sig") as handle:
         raw_rows = list(csv.DictReader(handle))
     rows = []
+    observed_gameweeks: set[int] = set()
+    seen_player_gameweeks: set[tuple[int, int]] = set()
+    reconciled_gameweeks = set(finality_gws)
     for row in raw_rows:
         if row.get("season") != finality.get("season"):
             raise HistoricalCovarianceBuildError("player-Gameweek row season mismatch")
+        try:
+            gameweek = int(row.get("gameweek"))
+            player_id = int(row.get("fpl_element_id"))
+            points = float(row.get("total_points"))
+        except (TypeError, ValueError) as exc:
+            raise HistoricalCovarianceBuildError(
+                "player-Gameweek rows require integer Gameweeks/player IDs and numeric total_points"
+            ) from exc
+        if gameweek not in reconciled_gameweeks:
+            raise HistoricalCovarianceBuildError(
+                f"realized panel contains Gameweek {gameweek} outside the finality-reconciled set"
+            )
+        if player_id < 1 or not math.isfinite(points) or not points.is_integer():
+            raise HistoricalCovarianceBuildError(
+                "player-Gameweek rows require positive player IDs and finite integer FPL points"
+            )
+        key = (player_id, gameweek)
+        if key in seen_player_gameweeks:
+            raise HistoricalCovarianceBuildError(
+                f"duplicate player-Gameweek row for player {player_id}, Gameweek {gameweek}"
+            )
+        seen_player_gameweeks.add(key)
+        observed_gameweeks.add(gameweek)
         rows.append({
             "season": row.get("season"),
-            "gameweek": row.get("gameweek"),
-            "fpl_element_id": row.get("fpl_element_id"),
-            "target_total_points": row.get("total_points"),
+            "gameweek": str(gameweek),
+            "fpl_element_id": str(player_id),
+            "target_total_points": str(int(points)),
         })
+    if observed_gameweeks != reconciled_gameweeks:
+        missing = sorted(reconciled_gameweeks - observed_gameweeks)
+        raise HistoricalCovarianceBuildError(
+            f"realized panel Gameweek set does not exactly match finality-reconciled set; missing {missing}"
+        )
 
     pairs, summaries, report = estimate_covariance(
         rows, player_rows, shrinkage=shrinkage, window_size=window_size
