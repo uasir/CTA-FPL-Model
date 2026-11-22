@@ -11,6 +11,7 @@ from test_multi_gameweek_squad_request_assembler import (
     forecast_payload as _multi_gameweek_forecast_payload,
     manager_context as _multi_gameweek_manager_context,
     current_player_metadata as _multi_gameweek_current_metadata,
+    _enable_synthetic_verified_provider as _enable_synthetic_multi_gameweek_provider,
 )
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "recommendation_requests.json").read_text())
@@ -184,7 +185,8 @@ def test_m4_runs_five_gameweek_evaluator_but_keeps_result_diagnostic_only():
 
 
 
-def test_m4_assembles_manager_specific_multi_gameweek_transfer_sweep():
+def test_m4_assembles_manager_specific_multi_gameweek_transfer_sweep(monkeypatch):
+    _enable_synthetic_multi_gameweek_provider(monkeypatch)
     run = _run()
     run["manager_context"] = _multi_gameweek_manager_context()
     run["current_player_metadata"] = _multi_gameweek_current_metadata()
