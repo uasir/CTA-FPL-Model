@@ -113,6 +113,7 @@ def test_cta_runner_emits_both_products_with_correct_forecast_horizons(monkeypat
                for row in result["gameweek_cta_markets"])
     personal = result["cta_informed_personal_squad"]
     assert personal["product_id"] == "cta_informed_personal_squad"
+    assert personal["product_status"] == "EXPLORATORY_PREVIEW"
     assert personal["forecast"]["horizon_gameweeks"] == 1
     assert personal["decision"]["basis"] == "CTA_MODEL_EXPECTED_POINTS_ONLY"
     assert personal["decision"]["scope"] == "ONE_GAMEWEEK_DIAGNOSTIC_ONLY"
