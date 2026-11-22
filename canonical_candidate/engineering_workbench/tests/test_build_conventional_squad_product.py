@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from run_external_benchmark_personal_squad import run_external_benchmark_personal_squad
-from build_conventional_squad_product import ConventionalSquadProductError, build_conventional_squad_product
+from build_conventional_squad_product import (ConventionalSquadProductError, build_conventional_squad_product, build_personal_squad_product)
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "recommendation_requests.json").read_text())
 
@@ -42,7 +42,8 @@ def _run():
 
 def test_conventional_product_exposes_ev_decision_and_source_provenance_only():
     run = _run()
-    product = build_conventional_squad_product(run)
+    product = build_personal_squad_product(run)
+    assert build_conventional_squad_product is build_personal_squad_product
     assert product["product_id"] == "conventional_personal_squad"
     assert product["product_status"] == "EXPLORATORY_PREVIEW"
     assert product["release_eligible"] is False
@@ -62,7 +63,7 @@ def test_m4_product_contract_accepts_cta_source_run_shape_without_promoting_it()
     run["provider_identity"] = {"name": "CTA-FPL", "product": "model_forecast", "variant": "cta_xp", "version": "unvalidated"}
     run["release_eligible"] = False
     run["release_blockers"] = ["CTA forecast validation is pending."]
-    product = build_conventional_squad_product(run)
+    product = build_personal_squad_product(run)
     assert product["forecast"]["source_run_type"] == "CTA_MODEL_PERSONAL_SQUAD"
     assert product["product_id"] == "cta_informed_personal_squad"
     assert product["decision"]["basis"] == "CTA_MODEL_EXPECTED_POINTS_ONLY"
