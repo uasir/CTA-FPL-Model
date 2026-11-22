@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""Train CTA-owned position-specific FPL points models on historical 286-feature rows.
+
+This is a candidate points model. It does not load Dastan points heads. M2 evaluation
+remains deferred, so saved weights are explicitly non-production and have zero
+recommendation decision weight until the separate validation gate is cleared.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import xgboost as xgb
+
+POSITIONS = ("GKP", "DEF", "MID", "FWD")
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
+                 source_path: Path) -> dict:
+    required = set(features) | {"season", "gameweek", "fixture", "fpl_code", "position", "target_points"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise ValueError(f"Training frame missing required fields: {missing[:20]}")
+    if len(features) != 286 or len(set(features)) != 286:
+        raise ValueError("CTA points model requires the pinned ordered 286-feature schema")
+    if frame.duplicated(["season", "gameweek", "fixture", "fpl_code"]).any():
+        raise ValueError("Training frame has duplicate player-fixture keys")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report_positions = {}
+    for position in POSITIONS:
+        rows = frame[frame["position"].astype(str).eq(position)].copy()
+        rows["target_points"] = pd.to_numeric(rows["target_points"], errors="coerce")
+        rows = rows[rows["target_points"].notna()]
+        if len(rows) < 500:
+            raise ValueError(f"{position}: insufficient training rows ({len(rows)})")
+        X = rows[features].apply(pd.to_numeric, errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+        y = rows["target_points"].to_numpy(dtype=np.float32)
+        if not np.isfinite(X).all() or not np.isfinite(y).all():
+            raise ValueError(f"{position}: non-finite training matrix or target")
+        model = xgb.XGBRegressor(
+            objective="reg:squarederror",
+            eval_metric="rmse",
+            n_estimators=700,
+            max_depth=4,
+            learning_rate=0.025,
+            min_child_weight=10,
+            subsample=0.85,
+            colsample_bytree=0.85,
+            reg_alpha=0.1,
+            reg_lambda=10.0,
+            tree_method="hist",
+            n_jobs=4,
+            random_state=42,
+        )
+        model.fit(X, y, verbose=False)
+        path = output_dir / f"cta_points_{position}.json"
+        model.save_model(str(path))
+        report_positions[position] = {
+            "training_rows": len(rows),
+            "seasons": sorted(rows["season"].astype(str).unique().tolist()),
+            "gameweeks": sorted(pd.to_numeric(rows["gameweek"], errors="coerce").dropna().astype(int).unique().tolist()),
+            "target_mean": float(np.mean(y)),
+            "target_std": float(np.std(y)),
+            "model_path": str(path),
+            "model_sha256": sha256(path),
+        }
+    report = {
+        "status": "CANDIDATE_TRAINED_M2_VALIDATION_PENDING",
+        "model_family": "CTA-owned XGBoost regression, one model per FPL position",
+        "feature_count": len(features),
+        "feature_order_sha256": hashlib.sha256("\n".join(features).encode()).hexdigest(),
+        "training_source": str(source_path),
+        "training_source_sha256": sha256(source_path),
+        "positions": report_positions,
+        "validation": {
+            "status": "NOT_RUN_M2_DEFERRED",
+            "reason": "M2 model evaluation remains deferred until the agreed official Gameweek scores are available",
+        },
+        "dastan_points_heads_used": False,
+        "dastan_role": "minutes prediction only; no Dastan points head loaded",
+        "decision_weight": 0.0,
+        "production_eligible": False,
+    }
+    report_path = output_dir / "cta_points_model_manifest.json"
+    report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    return report
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--training-frame", type=Path, required=True)
+    parser.add_argument("--schema", type=Path, required=True)
+    parser.add_argument("--model-dir", type=Path, required=True)
+    args = parser.parse_args()
+    frame = pd.read_parquet(args.training_frame)
+    schema = json.loads(args.schema.read_text(encoding="utf-8"))
+    report = train_models(frame, schema["feature_order"], args.model_dir, args.training_frame)
+    print(json.dumps(report, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
