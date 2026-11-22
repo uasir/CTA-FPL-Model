@@ -2,6 +2,8 @@
 """Compose private field portfolios, candidate lineups and outcomes into a full-GW document."""
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import datetime
 from typing import Any, Mapping, Sequence
 
@@ -69,6 +71,11 @@ def build_full_gameweek_document(
             raise CovarFullGameweekBuildError("residual scenario season or Gameweek differs from requested full-Gameweek document")
         if scenario_provenance.get("probability_calibrated") is not False:
             raise CovarFullGameweekBuildError("residual bootstrap probabilities must remain uncalibrated")
+        claimed_hash = scenario_provenance.get("payload_sha256")
+        unhashed_payload = {key: value for key, value in scenario_provenance.items() if key != "payload_sha256"}
+        canonical_payload = json.dumps(unhashed_payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+        if not isinstance(claimed_hash, str) or hashlib.sha256(canonical_payload).hexdigest() != claimed_hash:
+            raise CovarFullGameweekBuildError("residual bootstrap payload SHA-256 does not match its content")
         if scenario_provenance.get("decision_weight") != 0.0 or scenario_provenance.get("production_eligible") is not False or scenario_provenance.get("covar_used") is not False:
             raise CovarFullGameweekBuildError("residual scenarios must remain research-only and disabled")
         provenance_scenarios = scenario_provenance.get("scenarios")
