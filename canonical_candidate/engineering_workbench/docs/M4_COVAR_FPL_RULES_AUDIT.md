@@ -52,10 +52,11 @@ Specific resolver tests cover goalkeeper replacement, reserve goalkeeper absence
 
 ## Remaining acceptance work
 
-1. Run the private replay harness against actual completed Gameweeks and compare resolver output with official FPL final pick multipliers, including Double Gameweeks, card-only appearances and multiple simultaneous no-shows. The harness is implemented; no real replay batch has yet been supplied or validated.
-2. Independently verify that the event/scenario layer aggregates all fixtures and points at Gameweek level before invoking the resolver.
-3. Keep all real manager-level pick artifacts private and local. Never commit or upload them.
-4. Keep all CoVar outputs research-only with `decision_weight=0` and `production_eligible=false`.
+1. **Real-world replay baseline completed:** 10 officially finished Gameweeks (GW1-GW10) were captured and passed against the official FPL picks, player points and manager Gameweek points. This sample contained no automatic substitutions, so autosub edge cases still need real-world coverage.
+2. Expand the real replay sample to include at least one actual goalkeeper autosub, one outfield autosub, captain fallback, and a Double/Triple Gameweek. Synthetic tests cover the mechanics, but do not replace those observations.
+3. Independently verify the event/scenario layer's fixture aggregation and full-Gameweek event scoring against official realized data, including BPS and any missing event fields.
+4. Raw manager picks payloads must not be committed or uploaded. The cloud workflow uploads only the normalized replay artifact with manager entry identity, manager name and rank omitted; roster combinations can still be cross-referenced against public data.
+5. Keep all CoVar outputs research-only with `decision_weight=0` and `production_eligible=false`.
 
 **Conclusion:** No conflict was found between the reviewed 2026/27 official lineup, autosubstitution, captaincy and chip rules and the implemented deterministic resolver. This is a rules-specification audit, not production certification.
 
@@ -135,8 +136,9 @@ python m4_covar_fpl_replay_validation.py --input /secure/private/gw10_replay.jso
 ```
 
 Use only completed Gameweeks. A successful download is not itself a replay
-pass: the replay validator's report must show `PASS`. Real replay execution
-and a multi-Gameweek validation batch remain pending.
+pass: the replay validator's report must show `PASS`. The one-Gameweek local CLI remains available. A cloud batch workflow now
+captures multiple completed Gameweeks and validates them; see the real-world
+coverage section below.
 
 
 ## Multi-Gameweek replay coverage report
@@ -161,3 +163,43 @@ Gameweek of rule coverage, not independent temporal validation. The report
 remains private/local, and its production eligibility remains false with
 decision weight zero. Synthetic batch tests verify aggregation mechanics only;
 no real completed-Gameweek replay has yet been run.
+
+## Real-world multi-Gameweek replay — 2026-11-22
+
+A branch-scoped GitHub Actions workflow acquired the official picks, event-live
+and bootstrap-static responses for the user-authorized public manager entry,
+then normalized them in memory. Raw manager API payloads were not written to
+the artifact. The uploaded 30-day artifact contains only the normalized replay
+cases and validation report; it omits manager entry ID, manager name and rank.
+Player IDs and squad combinations remain cross-referenceable with public FPL
+data, so this should be described as identity-field-stripped rather than
+irreversibly anonymous.
+
+- Requested Gameweeks: GW1-GW11.
+- Captured and validated: **10 completed Gameweeks, GW1-GW10**.
+- GW11: skipped because official bootstrap metadata did not yet mark it finished.
+- Replay results: **10 PASS, 0 FAIL**.
+- Official player-point mismatches: 0.
+- Official pick-multiplier/autosub mismatches: 0.
+- Captain/vice-captain mismatches: 0.
+- Official `entry_history.points` reconciliations: **10/10**, 0 failures.
+- Chip coverage: 8 without a chip, 1 Free Hit, 1 Wildcard.
+- Actual autosubs in this manager sample: **0**. This run therefore validates
+  normal lineup multipliers, captaincy, chips, player points and team totals,
+  but does not empirically exercise an autosub event.
+
+The batch capture now treats an unfinished Gameweek as an expected skip, not
+a capture failure. The replay validator also distinguishes reported
+`entry_history.points` from the alternative net-of-hit convention and accepts
+a team-total reconciliation only when either the reported score itself or
+reported score plus explicit transfer cost matches the lineup score.
+
+Workflow and evidence:
+- [Cloud replay + focused CoVar workflow run 44994803507](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994803507)
+- [Full engineering CI run 44994803493 — 846 tests and 3 subtests](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994803493)
+- [Focused CoVar tests — 127 passed](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994803507)
+
+This is an initial single-manager temporal validation set, not a representative
+field sample, not evidence of autosub correctness under real autosub events,
+and not a calibrated forward joint forecast. All CoVar outputs remain
+`decision_weight=0` and `production_eligible=false`.
