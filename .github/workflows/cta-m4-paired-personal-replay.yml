@@ -83,7 +83,6 @@ jobs:
         run: |
           python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_products.py \
             --bundle-dir outputs/cta-five-gw \
-            --conventional-run "${{ steps.inputs.outputs.conventional_run }}" \
             --manager-context-capture "${{ steps.inputs.outputs.manager_capture }}" \
             --now-utc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --output outputs/paired-replay/cta-recommendation-previews.json
