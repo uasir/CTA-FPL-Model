@@ -4,6 +4,7 @@ import unittest
 
 import numpy as np
 import pandas as pd
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from build_cta_five_gw_feature_matrix import (
@@ -12,6 +13,7 @@ from build_cta_five_gw_feature_matrix import (
     anchor_player_features_to_deadline,
     anchor_opponent_features_to_deadline,
     build_future_rows,
+    exact_fixture_opponent_lookup,
     validate_bootstrap_snapshot,
 )
 
@@ -182,3 +184,28 @@ def test_unavailable_understat_features_are_zeroed_at_inference():
     assert masked.loc[0, "team_xg_5"] == 0.0
     assert masked.loc[0, "player_fpl_points_1"] == 6.0
     assert unavailable == ["player_xg_1", "team_xg_5"]
+
+
+def test_exact_fixture_opponent_lookup_avoids_same_kickoff_scoreline_ambiguity():
+    teams = pd.DataFrame([
+        {"season": "2026-27", "fixture": 1, "understat_team": "Arsenal", "opponent": "Chelsea"},
+        {"season": "2026-27", "fixture": 1, "understat_team": "Chelsea", "opponent": "Arsenal"},
+        {"season": "2026-27", "fixture": 2, "understat_team": "Liverpool", "opponent": "Everton"},
+        {"season": "2026-27", "fixture": 2, "understat_team": "Everton", "opponent": "Liverpool"},
+    ])
+    result = exact_fixture_opponent_lookup(teams)
+    assert result.set_index("understat_team")["opponent"].to_dict() == {
+        "Arsenal": "Chelsea",
+        "Chelsea": "Arsenal",
+        "Liverpool": "Everton",
+        "Everton": "Liverpool",
+    }
+
+
+def test_exact_fixture_opponent_lookup_rejects_non_reciprocal_pairing():
+    teams = pd.DataFrame([
+        {"season": "2026-27", "fixture": 1, "understat_team": "Arsenal", "opponent": "Chelsea"},
+        {"season": "2026-27", "fixture": 1, "understat_team": "Chelsea", "opponent": "Liverpool"},
+    ])
+    with pytest.raises(ValueError, match="non-reciprocal"):
+        exact_fixture_opponent_lookup(teams)
