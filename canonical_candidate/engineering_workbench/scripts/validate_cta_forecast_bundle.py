@@ -44,6 +44,36 @@ def validate_bundle(forecast_dir: Path, output_path: Path) -> dict:
     if not set(observed_gameweeks).issubset(set(gameweeks)):
         raise ValueError(f"fixture rows fall outside the declared horizon: {observed_gameweeks}")
 
+    if fixture["season"].astype(str).nunique() != 1:
+        raise ValueError("fixture forecast contains more than one season")
+
+    required_fixture_values = [
+        "p60", "p_any", "expected_minutes",
+        "cta_expected_points_per_90", "cta_expected_points",
+    ]
+    missing_values = sorted(set(required_fixture_values) - set(fixture.columns))
+    if missing_values:
+        raise ValueError(f"fixture forecast is missing model-output columns: {missing_values}")
+    numeric = {}
+    for column in required_fixture_values:
+        numeric[column] = pd.to_numeric(fixture[column], errors="raise").to_numpy(dtype=np.float64)
+        if not np.isfinite(numeric[column]).all():
+            raise ValueError(f"fixture forecast contains non-finite {column} values")
+
+    p60 = numeric["p60"]
+    p_any = numeric["p_any"]
+    minutes = numeric["expected_minutes"]
+    points_per_90 = numeric["cta_expected_points_per_90"]
+    expected_points = numeric["cta_expected_points"]
+    if np.any((p60 < 0.0) | (p60 > 1.0) | (p_any < 0.0) | (p_any > 1.0)):
+        raise ValueError("fixture appearance probabilities must lie in [0, 1]")
+    if np.any(p60 > p_any + 1e-9):
+        raise ValueError("fixture p60 probability cannot exceed p_any")
+    if np.any((minutes < 0.0) | (minutes > 90.0)):
+        raise ValueError("fixture expected minutes must lie in [0, 90]")
+    expected_from_components = p_any + p60 + points_per_90 * minutes / 90.0
+    if not np.allclose(expected_points, expected_from_components, rtol=0, atol=1e-5):
+        raise ValueError("fixture expected points do not match appearance + CTA points-per-90 components")
     fixture_group = (
         fixture.groupby(["season", "gameweek", "fpl_code", "position"], as_index=False)
         .agg(
