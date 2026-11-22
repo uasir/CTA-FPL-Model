@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Private local replay validator for M4's synthetic full-Gameweek lineup resolver.
+"""Validate normalized official FPL lineup replays against final picks.
 
-The input contains a normalized lineup, final Gameweek player outcomes and the
-official final FPL picks multipliers. Keep real manager-level replay files
-outside the repository and never upload them to CI or commit them.
+The validator is shared by the single-manager replay, aggregate-only public
+field stress-test, and synthetic full-Gameweek scoring test paths. Real
+manager-level picks are consumed in memory and are never retained in reports.
 """
 from __future__ import annotations
 
