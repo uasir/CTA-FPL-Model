@@ -79,6 +79,20 @@ def test_rejects_generation_after_capture_and_post_deadline_capture():
         run_capture(provider_raw, bootstrap_raw, ["2026-11-21T11:00:00Z", "2026-11-21T11:01:00Z"])
 
 
+def test_uses_official_fpl_deadline_when_provider_deadline_is_null():
+    provider_raw, bootstrap_raw = fixture_bytes()
+    provider = json.loads(provider_raw)
+    provider["deadline"] = None
+    result = run_capture(
+        json.dumps(provider).encode(),
+        bootstrap_raw,
+        ["2026-11-20T09:00:00Z", "2026-11-20T09:01:00Z"],
+    )
+    assert result["timing"]["deadline_utc"] == "2026-11-21T11:00:00Z"
+    assert result["timing"]["provider_deadline_supplied"] is False
+    assert result["timing"]["point_in_time_status"] == "PROVIDER_GENERATED_AND_CAPTURED_BEFORE_DEADLINE"
+
+
 def test_rejects_invalid_declared_coverage():
     provider_raw, bootstrap_raw = fixture_bytes()
     provider = json.loads(provider_raw)

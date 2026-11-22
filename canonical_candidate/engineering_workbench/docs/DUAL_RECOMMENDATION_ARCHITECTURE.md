@@ -1,4 +1,4 @@
-# Dual FPL Recommendation Architecture
+# Three-Output FPL Recommendation Architecture
 
 Status: **APPROVED ARCHITECTURE / EXPLORATORY V0.1 ENGINES IMPLEMENTED / VALIDATION IN PROGRESS**  
 Approved by the project owner: 2026-11-17  
@@ -12,6 +12,18 @@ CTA-FPL-Model will expose two recommendation products over one shared, versioned
 - `personal_squad`: recommendations optimized for one manager's actual squad, budget, transfers, chips, formation and preferences.
 
 The first deterministic versions of both engines now exist in Python and JavaScript with cross-language output-parity tests. They are exploratory only and are not production-ready; the shared FPL baseline still uses official ep_next plus latest-completed-gameweek minutes per fixture scaled by the target gameweek's fixture count.
+
+
+
+## 1.1 Non-negotiable product separation
+
+- The conventional product is not a CTA product. Its FPL Cat / Sideline Quant provider identity, frozen decision and acceptance contract remain isolated.
+- The CTA-informed personal-squad product consumes CTA points only after M2 is validated and approved. It also requires the exact manager squad/bank/free-transfer snapshot and verified LiveFPL EO/coverage for the target deadline.
+- General CTA rankings consume CTA forecasts without any manager-specific state. The general-market service must remain invariant to squad changes.
+- EO and ownership coverage are descriptive field context. They are never added to or blended into expected points.
+- Poll-implied EO is a separate descriptive estimate and must never be substituted for observed LiveFPL EO.
+- CoVar remains disabled until its independent stability, calibration and out-of-sample utility gates pass.
+- The current CTA five-GW artifact is a candidate only: `M2_VALIDATION_PENDING`, `production_eligible=false`, `decision_weight=0`, and `covar_used=false`.
 
 ## 2. Shared forecasting foundation
 
@@ -215,3 +227,17 @@ Do not rebuild the existing engine, replace recovered source lineage, fabricate 
 ### Current readiness boundary
 
 The complete architecture remains active, but the current working forecast is a baseline system, not yet the finished CTA-driven prediction system. The next engineering priorities are to review and verify the strongest 11footy identity candidates, complete StatsBomb-to-FPL identity mapping, add a common-frame transform only for cross-team spatial comparisons, and connect verified player-match rows to the shared training layer, and run chronological out-of-sample tests before promoting any CTA features. Keep general-market and personal-squad services separate; keep CoVar as a complementary portfolio-risk layer rather than a substitute for CTA points prediction.
+
+## 10. CTA forecast provider boundary
+
+`scripts/cta_forecast_recommendation_adapter.py` verifies the CTA five-GW artifact and normalizes its player totals into the shared forecast request contract. It also preserves per-Gameweek panels for the multi-Gameweek transfer evaluator. The adapter:
+
+- Verifies the bundle-validation result, forecast snapshot ID, source-manifest hash, CTA model-manifest hash, source mode and five consecutive target Gameweeks.
+- Maps stable FPL player codes to current official element IDs, team IDs, positions and prices using the captured official bootstrap; it does not fuzzy-match identities.
+- Preserves the CTA model's M2-pending status and emits no recommendation.
+- Accepts optional EO only when cohort, sample, deadline and post-lock picks provenance match the same forecast snapshot and target deadline.
+- Keeps conventional FPL Cat / Sideline Quant delivery separate.
+- Explicitly withholds CTA-informed personal-squad recommendations and general CTA rankings until M2 validation passes.
+
+The adapter is a data/contract boundary, not a performance validation or release gate. Passing its tests does not promote the CTA candidate.
+\n

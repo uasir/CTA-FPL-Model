@@ -79,22 +79,29 @@ def capture_sideline_quant_raw(
     if provider.get("gameweek") != gameweek:
         raise CaptureError("Sideline Quant payload Gameweek does not match requested Gameweek")
     generated = parse_utc(provider.get("generated_at"), "Sideline Quant generated_at")
-    deadline = parse_utc(provider.get("deadline"), "Sideline Quant deadline")
     captured = parse_utc(provider_captured_at, "provider capture time")
     bootstrap_captured = parse_utc(bootstrap_captured_at, "FPL bootstrap capture time")
     if generated > captured:
         raise CaptureError("Sideline Quant generated_at is later than retrieval time")
-    if captured >= deadline:
-        raise CaptureError("Sideline Quant snapshot was retrieved at or after its deadline")
-    if bootstrap_captured >= deadline:
-        raise CaptureError("official FPL metadata was retrieved at or after the deadline")
 
     events = [event for event in bootstrap["events"] if event.get("id") == gameweek]
     if len(events) != 1:
         raise CaptureError("official FPL bootstrap does not contain exactly one target event")
     official_deadline = parse_utc(events[0].get("deadline_time"), "official FPL deadline")
-    if official_deadline != deadline:
-        raise CaptureError("Sideline Quant deadline does not match official FPL deadline")
+    provider_deadline_raw = provider.get("deadline")
+    provider_deadline_supplied = provider_deadline_raw is not None
+    if provider_deadline_supplied:
+        provider_deadline = parse_utc(provider_deadline_raw, "Sideline Quant deadline")
+        if provider_deadline != official_deadline:
+            raise CaptureError("Sideline Quant deadline does not match official FPL deadline")
+    # The current public feed may omit its deadline field. In that case the
+    # official FPL event deadline is authoritative; never infer it from the
+    # provider page or the runner's local clock.
+    deadline = official_deadline
+    if captured >= deadline:
+        raise CaptureError("Sideline Quant snapshot was retrieved at or after its deadline")
+    if bootstrap_captured >= deadline:
+        raise CaptureError("official FPL metadata was retrieved at or after the deadline")
 
     for field in ("n_players", "n_rows"):
         value = provider.get(field)
@@ -120,6 +127,7 @@ def capture_sideline_quant_raw(
             "generated_at_utc": generated.isoformat().replace("+00:00", "Z"),
             "captured_at_utc": captured.isoformat().replace("+00:00", "Z"),
             "deadline_utc": deadline.isoformat().replace("+00:00", "Z"),
+            "provider_deadline_supplied": provider_deadline_supplied,
             "official_metadata_captured_at_utc": bootstrap_captured.isoformat().replace("+00:00", "Z"),
             "point_in_time_status": "PROVIDER_GENERATED_AND_CAPTURED_BEFORE_DEADLINE",
         },

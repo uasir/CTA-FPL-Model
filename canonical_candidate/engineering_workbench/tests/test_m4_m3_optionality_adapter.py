@@ -92,6 +92,21 @@ class TestM4M3Optionality(unittest.TestCase):
         self.assertEqual(result["m3_output"], original)
         self.assertEqual(result["m3_output_sha256"], hashlib.sha256(_canonical(original)).hexdigest())
 
+    def test_candidate_only_season_is_supported(self):
+        m3 = m3_fixture()
+        m3.pop("season")
+        original = copy.deepcopy(m3)
+        result = attach_optional_m4_context(m3)
+        self.assertEqual(result["m4_status"], "NOT_SUPPLIED")
+        self.assertEqual(result["m3_output"], original)
+
+    def test_valid_m4_is_attached_when_season_exists_only_in_candidate(self):
+        m3 = m3_fixture()
+        m3.pop("season")
+        result = attach_optional_m4_context(m3, m4_fixture(m3))
+        self.assertEqual(result["m4_status"], "ATTACHED_DESCRIPTIVE_CONTEXT")
+        self.assertEqual(result["m3_output"], m3)
+
     def test_valid_m4_is_attached_without_mutating_m3_ev_or_decision(self):
         m3 = m3_fixture()
         original = copy.deepcopy(m3)
