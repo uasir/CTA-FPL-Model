@@ -157,8 +157,15 @@ def refresh_current_core(raw_dir: Path, season: str, bootstrap: dict, fixtures: 
     merged_path = base / "merged_gw.csv"
     players_path = base / "players_raw.csv"
     teams_path = base / "teams.csv"
+    # The active season may not exist in the pinned historical archive yet.
+    # Seed empty source files; the official bootstrap and element-summary API below
+    # provide the authoritative current-season roster and completed match rows.
     if not merged_path.is_file():
-        raise FileNotFoundError(merged_path)
+        merged_path.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame(columns=[
+            "name", "position", "team", "element", "fixture", "round", "GW",
+            "opponent_team", "kickoff_time", "was_home", *API_HISTORY_FIELDS,
+        ]).to_csv(merged_path, index=False, lineterminator="\\n")
 
     live_players = pd.DataFrame([{
         "id": int(p["id"]), "code": int(p["code"]),
