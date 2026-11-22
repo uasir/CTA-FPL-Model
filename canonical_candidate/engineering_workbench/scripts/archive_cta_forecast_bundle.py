@@ -75,6 +75,9 @@ def archive_bundle(bundle_dir: Path, archive_root: Path, *, run_id: str,
         "minutes predictions": ("minutes_predictions.csv", provenance.get("minutes_predictions_sha256")),
         "CTA points model manifest": ("models/cta_points_model_manifest.json", provenance.get("points_model_manifest_sha256")),
     }
+    missing = [name for name in ARCHIVE_FILES if not (bundle_dir / name).is_file()]
+    if missing:
+        raise ValueError(f"forecast bundle is missing archive inputs: {missing}")
     for label, (relative_path, expected_hash) in required_hashes.items():
         path = bundle_dir / relative_path
         if not isinstance(expected_hash, str) or not expected_hash or sha256(path) != expected_hash:
@@ -118,7 +121,7 @@ def archive_bundle(bundle_dir: Path, archive_root: Path, *, run_id: str,
         raise ValueError("bundle validation candidate safeguards are missing or changed")
 
     for filename, count_key in (
-        ("forecasts/fixture_forecasts.csv", "fixture_rows"),
+        ("forecasts/fixture_forecasts.csv", "fixture_player_rows"),
         ("forecasts/player_gameweek_forecasts.csv", "player_gameweek_rows"),
         ("forecasts/player_five_gw_forecasts.csv", "five_gameweek_player_rows"),
     ):
@@ -129,6 +132,8 @@ def archive_bundle(bundle_dir: Path, archive_root: Path, *, run_id: str,
         for row in rows:
             if row.get("forecast_snapshot_id") != forecast.get("forecast_snapshot_id"):
                 raise ValueError(f"{filename} contains a different forecast snapshot ID")
+            if row.get("model_status") != "CANDIDATE_NOT_VALIDATED":
+                raise ValueError(f"{filename} contains a non-candidate model row")
             if row.get("production_eligible", "").strip().lower() != "false":
                 raise ValueError(f"{filename} contains a production-eligible candidate row")
             if float(row.get("decision_weight", "nan")) != 0:
@@ -141,13 +146,14 @@ def archive_bundle(bundle_dir: Path, archive_root: Path, *, run_id: str,
     weeks = [int(x) for x in gameweeks]
     if weeks != list(range(weeks[0], weeks[0] + len(weeks))):
         raise ValueError("forecast Gameweeks must be consecutive")
-    row_keys = ("fixture_rows", "player_gameweek_rows", "five_gameweek_player_rows")
-    for key in row_keys:
-        if int(forecast.get(key, -1)) != int(validation.get(key, -2)):
-            raise ValueError(f"forecast and validation row counts disagree for {key}")
-    missing = [name for name in ARCHIVE_FILES if not (bundle_dir / name).is_file()]
-    if missing:
-        raise ValueError(f"forecast bundle is missing archive inputs: {missing}")
+    row_key_pairs = (
+        ("fixture_player_rows", "fixture_rows"),
+        ("player_gameweek_rows", "player_gameweek_rows"),
+        ("five_gameweek_player_rows", "five_gameweek_player_rows"),
+    )
+    for forecast_key, validation_key in row_key_pairs:
+        if int(forecast.get(forecast_key, -1)) != int(validation.get(validation_key, -2)):
+            raise ValueError(f"forecast and validation row counts disagree for {forecast_key}")
     relative = Path("snapshots") / season / f"gw{weeks[0]:02d}-{weeks[-1]:02d}" / snapshot
     destination = archive_root / relative
     destination.mkdir(parents=True, exist_ok=False)
