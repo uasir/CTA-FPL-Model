@@ -79,6 +79,7 @@ def test_rejects_four_gameweek_horizon():
 def test_rejects_non_consecutive_gameweeks():
     source = payload()
     source["panels"][2]["snapshot"]["target_gameweek"] = 20
+    source["panels"][2]["fixtures"][0]["gameweek"] = 20
     with pytest.raises(MultiGameweekForecastError, match="consecutive"):
         build_multi_gameweek_forecast_bundle(source)
 
