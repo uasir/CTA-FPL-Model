@@ -67,6 +67,7 @@ def fixture():
             "target_gameweek": 12,
             "deadline_utc": "2026-11-28T11:00:00Z",
             "as_of_utc": "2026-11-27T18:00:00Z",
+            "minutes_mean_preserved": True,
         },
         "players": players,
         "scenarios": outcomes,
