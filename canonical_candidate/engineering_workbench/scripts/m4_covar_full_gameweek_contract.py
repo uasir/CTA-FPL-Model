@@ -185,6 +185,9 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
             raise CovarFullGameweekContractError("unsupported research scenario probability method")
         if metadata.get("marginal_expected_points_preserved") is not True:
             raise CovarFullGameweekContractError("residual bootstrap must preserve target expected-points means")
+        payload_hash = metadata.get("residual_bootstrap_payload_sha256")
+        if not isinstance(payload_hash, str) or len(payload_hash) != 64 or any(ch not in "0123456789abcdef" for ch in payload_hash.lower()):
+            raise CovarFullGameweekContractError("residual bootstrap payload SHA-256 is required")
         training_cutoff = _utc(metadata["training_cutoff_utc"], "metadata.training_cutoff_utc")
         if training_cutoff > as_of:
             raise CovarFullGameweekContractError("training cutoff cannot follow forecast as-of")
