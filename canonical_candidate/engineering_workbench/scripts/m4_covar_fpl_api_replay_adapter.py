@@ -150,6 +150,34 @@ def normalize_official_fpl_replay(
     if captain_ids[0] not in starting or vice_ids[0] not in starting:
         raise CovarFplApiReplayAdapterError("captain and vice-captain must be in the starting XI")
 
+    raw_automatic_subs = picks_payload.get("automatic_subs")
+    normalized_automatic_subs: list[dict[str, int]] | None = None
+    if raw_automatic_subs is not None:
+        if not isinstance(raw_automatic_subs, list):
+            raise CovarFplApiReplayAdapterError("picks_payload.automatic_subs must be a list")
+        normalized_automatic_subs = []
+        seen_substitutions: set[tuple[int, int]] = set()
+        for index, row in enumerate(raw_automatic_subs):
+            row = _required_mapping(row, f"picks_payload.automatic_subs[{index}]")
+            element_in = _required_int(row.get("element_in"), f"automatic_subs[{index}].element_in")
+            element_out = _required_int(row.get("element_out"), f"automatic_subs[{index}].element_out")
+            if element_in < 1 or element_out < 1 or element_in == element_out:
+                raise CovarFplApiReplayAdapterError("automatic substitution player IDs must be distinct positive integers")
+            substitution_event = row.get("event")
+            if substitution_event is not None and _required_int(
+                substitution_event, f"automatic_subs[{index}].event"
+            ) != event:
+                raise CovarFplApiReplayAdapterError("automatic substitution event does not match requested Gameweek")
+            pair = (element_in, element_out)
+            if pair in seen_substitutions:
+                raise CovarFplApiReplayAdapterError("duplicate official automatic substitution pair")
+            seen_substitutions.add(pair)
+            normalized_automatic_subs.append({
+                "element_in": element_in,
+                "element_out": element_out,
+                "event": event,
+            })
+
     active_chip = picks_payload.get("active_chip")
     if active_chip is not None and not isinstance(active_chip, str):
         raise CovarFplApiReplayAdapterError("active_chip must be a string or null")
@@ -208,5 +236,6 @@ def normalize_official_fpl_replay(
                     "picks_payload.entry_history.event_transfers_cost",
                 ),
             } if entry_history.get("points") is not None else {}),
+            **({"automatic_subs": normalized_automatic_subs} if normalized_automatic_subs is not None else {}),
         },
     }
