@@ -65,10 +65,11 @@ def test_records_unfinished_gameweeks_without_blocking_completed_captures():
     result = acquire_replay_batch(
         421025, [7, 8], fetch=lambda url: mapping[url], min_successful=1
     )
-    assert result["capture_report"]["status"] == "PARTIAL"
+    assert result["capture_report"]["status"] == "PASS"
     assert result["capture_report"]["captured_event_ids"] == [7]
-    assert result["capture_report"]["failed_event_ids"] == [8]
-    assert result["capture_report"]["failures"][0]["error_type"] == "OfficialFplFetchError"
+    assert result["capture_report"]["skipped_unfinished_event_ids"] == [8]
+    assert result["capture_report"]["failed_event_ids"] == []
+    assert result["capture_report"]["skipped_count"] == 1
 
 
 def test_rejects_duplicate_or_invalid_event_lists():
