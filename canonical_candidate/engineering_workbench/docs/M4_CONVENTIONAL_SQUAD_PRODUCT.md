@@ -115,3 +115,13 @@ Inspection of `capture_fpl_cat_snapshot.py` confirms that the current `/api/v1/p
 This is a capability statement about the fields consumed by the current capture contract, not a claim that no other FPL Cat endpoint or product could ever provide a multi-Gameweek feed. Until a separate provider response is obtained and inspected, FPL Cat remains single-Gameweek for the live recommendation path. The five-plus-Gameweek transfer evaluator and TECM bundle adapter must reject this snapshot as insufficient; no xP extrapolation or synthetic fixture splitting is permitted.
 
 Regression coverage asserts the explicit negative capability result. This change is metadata and guardrail only; it does not alter the one-Gameweek conventional recommendation.
+
+
+
+## Sideline Quant multi-Gameweek access assessment — 22 Nov 2026
+
+The public Sideline Quant data page currently publishes one next-Gameweek JSON address. The published GW11 feed contains 672 player rows at player-fixture grain, including fixture IDs and fixture xP, but its own payload explicitly states that it covers the next Gameweek only. The provider also states that each Gameweek has its own address and that old addresses return 404 after the feed advances. The current GW11 JSON has `deadline: null`, so it cannot satisfy the existing strict pre-deadline raw-capture contract as-is.
+
+The site separately advertises a whole-season view and a six-Gameweek prediction/planning horizon for account users. The public whole-season view is an aggregate season projection, not a verified fixture-by-fixture, Gameweek-by-Gameweek forecast panel. The six-Gameweek horizon is an account feature; no authenticated provider artifact or supported public multi-GW API response has been captured in this workflow. Do not infer a five-GW panel from the horizon total, and do not scrape or depend on an account-only interface without an approved, reproducible capture contract.
+
+**M4 decision:** Sideline Quant's public feed is a valid single-GW fixture-grain source, but it does not currently supply the required public five-plus-GW bundle. Keep the multi-GW evaluator gated. Do not substitute the season aggregate or duplicate the GW11 feed across future GWs. Continue the current conventional live path with FPL Cat as previously directed unless a genuine, authorized, reproducible multi-GW Sideline artifact becomes available. This assessment does not invalidate the value of Sideline's single-GW fixture-grain data for historical benchmark research.
