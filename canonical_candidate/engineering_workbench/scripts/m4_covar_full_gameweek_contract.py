@@ -183,6 +183,8 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
             raise CovarFullGameweekContractError("residual bootstrap probabilities must remain explicitly uncalibrated")
         if metadata.get("scenario_probability_method") != "EQUAL_WEIGHT_EMPIRICAL_COMPLETE_GAMEWEEK_BLOCKS":
             raise CovarFullGameweekContractError("unsupported research scenario probability method")
+        if metadata.get("played_status_method") != "POSITIVE_MINUTES_PROXY_CARD_ONLY_UNOBSERVED":
+            raise CovarFullGameweekContractError("research played status must disclose the positive-minutes proxy and card-only limitation")
         if metadata.get("marginal_expected_points_preserved") is not True:
             raise CovarFullGameweekContractError("residual bootstrap must preserve target expected-points means")
         payload_hash = metadata.get("residual_bootstrap_payload_sha256")
@@ -270,6 +272,10 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
             played = outcome.get("played")
             if not isinstance(played, bool):
                 raise CovarFullGameweekContractError(f"{scenario_id}.{player_id}.played must be an explicit boolean")
+            if minutes > 270:
+                raise CovarFullGameweekContractError(f"{scenario_id}.{player_id}.minutes exceeds the three-fixture Gameweek maximum")
+            if data_status == "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY" and played != (minutes > 0):
+                raise CovarFullGameweekContractError(f"{scenario_id}.{player_id}.played must match the disclosed positive-minutes proxy")
             if minutes > 0 and not played:
                 raise CovarFullGameweekContractError(f"{scenario_id}.{player_id} with positive minutes must be marked played")
             _number(outcome.get("fpl_points"), f"{scenario_id}.{player_id}.fpl_points")
