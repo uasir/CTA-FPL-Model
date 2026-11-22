@@ -244,3 +244,17 @@ def test_cta_runner_rejects_two_competing_manager_context_sources(monkeypatch):
         runner.run_cta_recommendation_products(
             "/unused-bundle", _manager_context(), conventional_run=_conventional_run(),
         )
+
+
+def test_conventional_deadline_accepts_equivalent_utc_offset(monkeypatch):
+    adapted = _adapter_result()
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(adapted),
+    )
+    conventional = _conventional_run()
+    conventional["source_provenance"]["deadline_utc"] = "2026-11-27T18:30:00+00:00"
+    result = runner.run_cta_recommendation_products(
+        "/unused-bundle", conventional_run=conventional,
+    )
+    assert result["guardrails"]["personal_squad_emitted"] is True
