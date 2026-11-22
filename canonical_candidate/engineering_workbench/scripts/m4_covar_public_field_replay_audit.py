@@ -211,16 +211,28 @@ def audit_public_field_replays(
                 captain_fallbacks += 1
 
             bench_picks = [row for row in case["official_final"]["picks"] if int(row["position"]) > 11]
-            actual_autosubs = (
-                [row for row in bench_picks if int(row["multiplier"]) > 0]
-                if chip != "bboost" else []
-            )
+            official_autosubs = case["official_final"].get("automatic_subs")
+            if official_autosubs is not None:
+                actual_autosubs = official_autosubs if chip != "bboost" else []
+            else:
+                actual_autosubs = (
+                    [row for row in bench_picks if int(row["multiplier"]) > 0]
+                    if chip != "bboost" else []
+                )
             if actual_autosubs:
                 autosub_replays += 1
                 event_summary["autosub_replays"] += 1
                 autosub_players += len(actual_autosubs)
-                goalkeeper_autosubs += sum(int(row["position"]) == 12 for row in actual_autosubs)
-                outfield_autosubs += sum(int(row["position"]) > 12 for row in actual_autosubs)
+                position_by_player = {
+                    str(row["element"]): int(row["position"])
+                    for row in case["official_final"]["picks"]
+                }
+                goalkeeper_autosubs += sum(
+                    position_by_player[str(row["element_in"])] == 12 for row in actual_autosubs
+                )
+                outfield_autosubs += sum(
+                    position_by_player[str(row["element_in"])] > 12 for row in actual_autosubs
+                )
 
     if replay_count < min_replays:
         raise OfficialFplFetchError(
