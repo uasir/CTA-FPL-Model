@@ -120,9 +120,13 @@ Software tests establish implementation behaviour, not forecast accuracy, decisi
 - Historical pre-deadline FPL Cat snapshots and exact historical manager states have not yet been established as a complete cohort.
 - Therefore provider decision accuracy, recommendation value and release eligibility remain **NOT VALIDATED**.
 
-## 11. Next implementation task
+## 11. Evaluation harness implementation status and next gate
 
-Implement a fail-closed evaluation input contract and deterministic scoring harness against synthetic fixtures first. The harness must encode the rules above without pretending synthetic fixtures are historical evidence. Only after its tests pass should archived real gameweeks be admitted, one at a time, with source and eligibility audits.
+The fail-closed evaluation contract and deterministic scoring harness are implemented in `scripts/evaluate_external_benchmark_decisions.py`, with synthetic regression coverage in `tests/test_evaluate_external_benchmark_decisions.py`. The separate `scripts/assemble_m3_real_evaluation_record.py` assembler binds frozen recommendations to finalized official points, independent replay/archive audit, manager reconciliation and a separate historical-admission report.
+
+The scorer accepts a `REAL_CANDIDATE` only when the caller supplies the matching admission report, independent audit report and official reconciliation batch. The target Gameweek must be explicitly classified `DECISION_BACKTEST_ELIGIBLE`; synthetic records remain labelled `SYNTHETIC_TEST` and can never be promoted by changing that label alone. These are implementation safeguards, not evidence that a real cohort has passed admission.
+
+**Next gate:** apply the completed chain to a genuine manager-deadline evidence bundle only after its matching Gameweek is finalized, independently reconciled, replay-verified and admitted. The live FPL Cat GW12 forecast capture alone is not a manager-decision record; the Sideline Quant GW12 feed is still unpublished as of the last bounded check. Do not create retrospective pre-deadline evidence or substitute an older provider snapshot.
 
 
 ## Manager strategy constraints — fixed XI and budget bench
@@ -141,7 +145,7 @@ These are manager-specific constraints, not universal FPL rules. They do not imp
 
 ## 10. Initial deterministic scorer contract (synthetic-only implementation)
 
-The first scorer is implemented in `scripts/evaluate_external_benchmark_decisions.py`. It validates a frozen record before scoring and currently admits only `SYNTHETIC_TEST` records. `REAL_CANDIDATE` records fail closed until a separate historical-evidence admission process is implemented.
+The first scorer is implemented in `scripts/evaluate_external_benchmark_decisions.py`. It validates synthetic records directly and requires a matching admission report, independent audit report and official reconciliation batch for `REAL_CANDIDATE` records. The real-evidence chain is implemented separately; no real candidate is scored as historical evidence unless its target Gameweek is explicitly admitted.
 
 Required evidence archives are separately hashed for:
 - provider forecast (including provider generation timestamp);
