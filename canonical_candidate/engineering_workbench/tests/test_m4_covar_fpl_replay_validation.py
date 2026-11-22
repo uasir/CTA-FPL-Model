@@ -255,6 +255,17 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
         self.assertFalse(result["production_eligible"])
         self.assertEqual(result["decision_weight"], 0.0)
 
+    def test_batch_report_separates_api_autosub_metadata_from_pick_validation(self):
+        case = replay(event_id=7)
+        case["official_final"]["automatic_subs"] = [
+            {"element_in": "p13", "element_out": "p3", "event": 7},
+        ]
+        result = validate_replay_batch({"replays": [case]})
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["automatic_substitution_mismatch_replays"], 0)
+        self.assertEqual(result["automatic_substitution_metadata_cases"], 1)
+        self.assertEqual(result["automatic_substitution_metadata_mismatch_replays"], 1)
+
     def test_batch_report_counts_failures_by_gameweek_and_mismatch_type(self):
         first = replay(event_id=7)
         first["official_final"]["picks"][12]["multiplier"] = 1
