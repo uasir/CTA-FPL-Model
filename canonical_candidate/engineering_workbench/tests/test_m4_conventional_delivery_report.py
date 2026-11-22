@@ -215,7 +215,7 @@ class TestConventionalDeliveryReport(unittest.TestCase):
         output = fixture("HOLD")
         replay, evidence = replay_evidence_for(output)
         evidence["12"]["sources"][0]["raw_payload_base64"] = base64.b64encode(b"tampered").decode("ascii")
-        with self.assertRaisesRegex(ValueError, "raw source archives"):
+        with self.assertRaisesRegex(ValueError, "raw payload SHA-256"):
             build_conventional_delivery_report(
                 output, m3_replay_report=replay, decision_evidence=evidence,
             )
