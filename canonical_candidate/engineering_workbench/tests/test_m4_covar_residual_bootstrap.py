@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import pytest
 from m4_covar_residual_bootstrap import ResidualBootstrapError, build_residual_bootstrap_scenarios
 
@@ -9,6 +11,17 @@ def fixture_inputs():
         "as_of_utc": "2026-11-27T08:00:00Z", "deadline_utc": "2026-11-27T11:00:00Z",
         "forecast_snapshot_id": "m3-gw12",
         "model_version": "fplcat-v2", "decision_weight": 0.0, "production_eligible": False,
+        "point_in_time_status": "M3_SOURCE_TIMESTAMPS_VALIDATED",
+        "privacy": {"manager_identity_included": False, "manager_squad_included": False,
+                    "bank_or_transfer_state_included": False, "frozen_decision_included": False},
+        "source_archives": [
+            {"source_type": "provider_forecast", "captured_at_utc": "2026-11-27T07:55:00Z",
+             "generated_at_utc": "2026-11-27T07:30:00Z", "raw_payload_base64": base64.b64encode(b"provider").decode(),
+             "raw_sha256": hashlib.sha256(b"provider").hexdigest()},
+            {"source_type": "player_metadata", "captured_at_utc": "2026-11-27T07:55:00Z",
+             "raw_payload_base64": base64.b64encode(b"metadata").decode(),
+             "raw_sha256": hashlib.sha256(b"metadata").hexdigest()},
+        ],
         "player_forecasts": [
             {"fpl_element_id": 10, "expected_points": 5.0, "expected_minutes": 90},
             {"fpl_element_id": 11, "expected_points": 4.0, "expected_minutes": 75},
@@ -39,6 +52,30 @@ def test_emits_complete_equal_weight_joint_blocks_and_preserves_target_means():
     assert result["decision_weight"] == 0.0
     assert result["production_eligible"] is False
     assert result["covar_used"] is False
+
+
+def test_preserves_positive_cross_player_residual_dependence():
+    target, panel = fixture_inputs()
+    result = build_residual_bootstrap_scenarios(target, panel, training_cutoff_utc="2026-11-26T20:00:00Z")
+    left = [next(x["fpl_points"] for x in row["player_outcomes"] if x["player_id"] == "10") for row in result["scenarios"]]
+    right = [next(x["fpl_points"] for x in row["player_outcomes"] if x["player_id"] == "11") for row in result["scenarios"]]
+    mean_left, mean_right = sum(left) / len(left), sum(right) / len(right)
+    covariance = sum((x-mean_left)*(y-mean_right) for x,y in zip(left,right)) / len(left)
+    assert covariance > 0
+
+
+def test_rejects_manager_data_in_target_bundle():
+    target, panel = fixture_inputs()
+    target["privacy"]["manager_squad_included"] = True
+    with pytest.raises(ResidualBootstrapError, match="exclude all manager-specific data"):
+        build_residual_bootstrap_scenarios(target, panel, training_cutoff_utc="2026-11-26T20:00:00Z")
+
+
+def test_rejects_tampered_m3_source_bytes():
+    target, panel = fixture_inputs()
+    target["source_archives"][0]["raw_payload_base64"] = base64.b64encode(b"tampered").decode()
+    with pytest.raises(ResidualBootstrapError, match="SHA-256 mismatch"):
+        build_residual_bootstrap_scenarios(target, panel, training_cutoff_utc="2026-11-26T20:00:00Z")
 
 
 def test_rejects_incomplete_gameweek_blocks_instead_of_zero_filling():
