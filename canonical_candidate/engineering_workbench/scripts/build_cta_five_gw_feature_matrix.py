@@ -178,6 +178,37 @@ def add_live_snapshot_features(frame: pd.DataFrame, bootstrap: dict, first_gamew
     return out
 
 
+def anchor_team_features_to_deadline(target: pd.DataFrame) -> pd.DataFrame:
+    """Prevent earlier target-GW dummy fixtures contaminating later DGW rows.
+
+    Player/own-team history is anchored by Dastan's deadline routine. Opponent
+    columns are intentionally not flattened there, so rebuild them from each
+    opponent's earliest target-GW row, whose shifted team history contains only
+    completed matches before the deadline.
+    """
+    out = target.copy()
+    team_columns = [c for c in out.columns if c.startswith("team_")]
+    status_columns = [c for c in ("status_league_rank", "status_opp_league_rank") if c in out]
+    if not team_columns and not status_columns:
+        return out
+    ordered = out.sort_values(["kickoff_time", "fixture", "fpl_code"], kind="mergesort")
+    earliest = ordered.drop_duplicates("team_name", keep="first").set_index("team_name")
+    for index, row in out.iterrows():
+        own = earliest.loc[row["team_name"]]
+        for column in team_columns + status_columns:
+            out.at[index, column] = own[column]
+        opponent = earliest.loc[row["opponent_team_name"]]
+        for column in team_columns:
+            target_column = column.replace("team_", "opp_", 1)
+            if target_column in out.columns:
+                out.at[index, target_column] = opponent[column]
+        if "opp_status_league_rank" in out.columns and "status_league_rank" in opponent:
+            out.at[index, "opp_status_league_rank"] = opponent["status_league_rank"]
+        if "opp_status_opp_league_rank" in out.columns and "status_opp_league_rank" in opponent:
+            out.at[index, "opp_status_opp_league_rank"] = opponent["status_opp_league_rank"]
+    return out
+
+
 def build_matrix(dastan_root: Path, raw_dir: Path, bootstrap_path: Path,
                  fixtures_path: Path, schema_path: Path, output: Path,
                  report_path: Path, target_gameweeks: list[int]) -> dict:
@@ -243,6 +274,7 @@ def build_matrix(dastan_root: Path, raw_dir: Path, bootstrap_path: Path,
             & pd.to_numeric(built["gameweek"], errors="coerce").eq(gw)
             & pd.to_numeric(built["fixture"], errors="coerce").isin(fixture_ids)
         ].copy()
+        target = anchor_team_features_to_deadline(target)
         target = add_live_snapshot_features(target, bootstrap, first_gw)
         metadata = gw_players[[
             "season", "gameweek", "fixture", "fpl_code", "element", "position",
@@ -260,9 +292,9 @@ def build_matrix(dastan_root: Path, raw_dir: Path, bootstrap_path: Path,
             raise RuntimeError(f"GW{gw}: feature builder missing schema fields: {missing}")
         for feature in features:
             values = pd.to_numeric(target[feature], errors="coerce")
-            if values.isna().any():
-                raise RuntimeError(f"GW{gw}: feature {feature} contains unresolved NaNs")
-            target[feature] = values.astype(float)
+            # Dastan's two-stage inference contract: snapshot absence is already
+            # -1.0; only residual NaNs are filled with 0.0.
+            target[feature] = values.fillna(0.0).astype(float)
         target["fpl_element_id"] = target["element"]
         target["fixture_id"] = target["fixture"]
         target["kickoff_time"] = pd.to_datetime(target["kickoff_time"], utc=True).astype(str)
