@@ -855,12 +855,18 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         understat_players_needing_refresh(raw_dir, requested_seasons, player_ids, sources)
     )
 
+    understat_provider_reports = []
+
     def fetch_missing_understat_sources(raw_dir, missing_players, missing_team_seasons, *,
                                          force, allow_missing):
-        return parallel_understat_fallbacks(
+        team_names = sources._epl_teams(raw_dir, missing_team_seasons) if missing_team_seasons else {}
+        report = parallel_understat_fallbacks(
             raw_dir, missing_players, missing_team_seasons,
-            force=force, allow_missing=allow_missing, workers=min(workers, 4),
+            force=force, allow_missing=allow_missing, workers=min(workers, 6),
+            team_names_by_season=team_names,
         )
+        understat_provider_reports.append(report)
+        return report
 
     sources._fetch_understat_fallbacks = fetch_missing_understat_sources
     operational_clubs = mappings.load_operational_clubs()
@@ -905,12 +911,16 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         raw_dir, [season], wanted_ids, sources,
     )
     missing_team_seasons = sources._incomplete_team_seasons(raw_dir, [season], team_paths)
-    parallel_understat_fallbacks(
+    current_team_names = sources._epl_teams(raw_dir, missing_team_seasons) if missing_team_seasons else {}
+    current_provider_report = parallel_understat_fallbacks(
         raw_dir, sorted(incomplete_players), missing_team_seasons,
-        force=False, allow_missing=False, workers=min(workers, 4),
+        force=False, allow_missing=False, workers=min(workers, 6),
+        team_names_by_season=current_team_names,
     )
+    understat_provider_reports.append(current_provider_report)
     manifest_path = sources.write_download_manifest(raw_dir, seasons)
     source_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    source_manifest["understat_provider"] = understat_provider_reports
     source_manifest["active_season_overrides"] = {
         "season": season,
         "captured_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -988,7 +998,8 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "historical_snapshot_safety_buffer": release_import_report["snapshot_safety_buffer"],
         "fixture_archive_audits": fixture_archive_audits,
         "historical_player_history_source": "Pinned Dastan/Vaastav/Understat raw inputs for target-feature reconstruction; Dastan released feature frame imported separately for model training",
-        "historical_understat_source_policy": "Dastan pinned latest-player archives plus audited full-history fallback for incomplete IDs",
+        "historical_understat_source_policy": "API.SH full player/team match histories; only current FPL roster player IDs are acquired",
+        "understat_provider_reports": understat_provider_reports,
         "active_season_understat_player_fallbacks": len(incomplete_players),
         "canonical_player_match_rows": len(player_matches),
         "canonical_team_match_rows": len(team_matches),
