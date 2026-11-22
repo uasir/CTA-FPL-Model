@@ -143,7 +143,7 @@ class ApiShUnderstatClient:
                     params=params,
                     timeout=120,
                 )
-                if response.status_code in (429, 503):
+                if response.status_code in (429, 500, 502, 503, 504):
                     retry_after = response.headers.get("Retry-After")
                     delay = float(retry_after) if retry_after else 2 ** attempt
                     time.sleep(min(max(delay, 1.0), 30.0))
