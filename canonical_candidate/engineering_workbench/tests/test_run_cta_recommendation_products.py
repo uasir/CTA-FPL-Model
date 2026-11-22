@@ -103,6 +103,12 @@ def test_cta_runner_emits_both_products_with_correct_forecast_horizons(monkeypat
     assert result["general_cta_market"]["system"] == "general_market"
     assert result["general_cta_market"]["forecast_horizon_gameweeks"] == 5
     assert result["general_cta_market"]["categories"]["overall"][0]["fpl_element_id"] == 15
+    assert "captaincy" not in result["general_cta_market"]["categories"]
+    assert [row["gameweek"] for row in result["gameweek_cta_markets"]] == [12, 13, 14, 15, 16]
+    assert all(row["recommendations"]["forecast_horizon_gameweeks"] == 1
+               for row in result["gameweek_cta_markets"])
+    assert all("captaincy" in row["recommendations"]["categories"]
+               for row in result["gameweek_cta_markets"])
     personal = result["cta_informed_personal_squad"]
     assert personal["product_id"] == "cta_informed_personal_squad"
     assert personal["forecast"]["horizon_gameweeks"] == 1
