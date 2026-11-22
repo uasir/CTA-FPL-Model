@@ -140,3 +140,16 @@ The prototype should demonstrate mechanics and EV opportunity-cost reporting, no
 **Manager-level field input bridge now implemented:** the existing pre-deadline rank-stratified capture builds a manager-ID-stripped 15-player sample in memory and exports it only when an explicit private local output path is supplied. The adapter verifies its capture-report SHA-256 manifest, enforces same-GW/deadline/as-of timing, preserves actual manager co-occurrence and captain/Triple Captain multipliers, normalizes existing sample weights, supports rank-page cohort filtering, and retains zero-player fixture slices. It uses actual sampled manager-pick rows rather than attempting to reconstruct joint ownership from marginal EO. Entry IDs and exact ranks are discarded; squad combinations may still be identifying, so the artifact is restricted. It is exported only to an explicitly chosen local path; the public Actions workflow never writes or uploads it.
 
 **Still not implemented:** full-Gameweek manager portfolio scoring, empirical representativeness/uncertainty validation of the sample for relative-score tails, set-piece taker/target attribution, and event-based BPS.
+
+
+## 7. 2026-11-22 — Historical covariance source-integrity hardening
+
+The historical covariance builder now independently verifies that the realized player-Gameweek panel contains exactly the Gameweeks covered by the finality batch and dataset manifest. It fails closed on duplicate finality event IDs, duplicate player-Gameweek rows, panel rows outside the reconciled Gameweek set, missing reconciled Gameweeks, invalid player IDs, and non-finite or non-integer FPL total points. The manifest SHA-256 check remains mandatory.
+
+This closes a source-set integrity gap; it does **not** establish point-in-time forecast validity, covariance stability, a calibrated forward joint distribution, manager-level field representativeness, or recommendation eligibility. The output remains retrospective and exploratory, with `decision_weight = 0` and `production_eligible = false`.
+
+Validation:
+- Full engineering CI: 840 tests and 3 subtests passed — [run 44994156520](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994156520).
+- Focused CoVar validation: 74 tests passed — [run 44994156529](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994156529).
+
+Next validation priority: execute the private official-FPL replay harness across multiple completed Gameweeks, then proceed to empirical field-sample representativeness and event-derived full-Gameweek scenario validation. No manager-level replay data is committed or uploaded by this change.
