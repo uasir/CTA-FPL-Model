@@ -51,6 +51,17 @@ class TestM4CovarFplApiReplayAdapter(unittest.TestCase):
         self.assertEqual(case["lineup"]["bench_order"], ["13", "14", "15"])
         self.assertEqual(validate_official_replay_case(case)["status"], "PASS")
 
+    def test_normalizes_official_automatic_substitutions_without_entry_identity(self):
+        picks, live, bootstrap = api_payloads()
+        picks["automatic_subs"] = [{
+            "entry": 999999, "element_in": 13, "element_out": 2, "event": 7,
+        }]
+        case = normalize_official_fpl_replay(picks, live, bootstrap, event_id=7)
+        self.assertEqual(case["official_final"]["automatic_subs"], [
+            {"element_in": 13, "element_out": 2, "event": 7},
+        ])
+        self.assertNotIn("999999", str(case))
+
     def test_infers_free_hit_mode_from_official_chip(self):
         picks, live, bootstrap = api_payloads("freehit")
         case = normalize_official_fpl_replay(picks, live, bootstrap, event_id=7)
