@@ -91,6 +91,12 @@ jobs:
             --dastan-root .cache/dastan \
             --raw-dir .cache/cta-fpl-raw \
             --output-dir outputs/cta-five-gw
+      - name: Save raw-source cache after acquisition
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/cta-fpl-raw
+          key: cta-fpl-raw-vaastav-d7b05b51d137bfefef4b692386d18c610975b9b9-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767
       - name: Build deadline-safe fixture feature matrix
         run: |
           GAMEWEEKS=$(python -c "import json; print(','.join(map(str, json.load(open('outputs/cta-five-gw/target_gameweeks.json'))['gameweeks'])))")
