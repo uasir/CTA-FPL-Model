@@ -532,6 +532,13 @@ def parallel_understat_fallbacks(
     player_success = 0
     team_success = 0
     failures: list[str] = []
+    team_payloads: dict[str, dict] = {}
+    for season in {season for season, _team in team_requests}:
+        path = team_root / f"{season}.json"
+        team_payloads[season] = (
+            json.loads(path.read_text(encoding="utf-8"))
+            if path.is_file() and path.stat().st_size else {}
+        )
     print(
         f"  API.SH import: {len(player_ids):,} player histories and "
         f"{len(team_requests):,} team histories; monthly local credit cap={budget}",
@@ -592,16 +599,10 @@ def parallel_understat_fallbacks(
                     if error is not None:
                         failures.append(f"team:{season}:{team_name}:{error}")
                     elif history is not None:
-                        team_path = team_root / f"{season}.json"
-                        if not team_path.exists():
-                            team_payload = {}
-                        else:
-                            team_payload = json.loads(team_path.read_text(encoding="utf-8"))
-                        team_payload[team_name] = {"title": team_name, "history": history}
-                        team_path.write_text(
-                            json.dumps(team_payload, ensure_ascii=False) + "\n",
-                            encoding="utf-8",
-                        )
+                        team_payloads.setdefault(season, {})[team_name] = {
+                            "title": team_name,
+                            "history": history,
+                        }
                         team_success += 1
                 if completed % 25 == 0 or completed == len(tasks):
                     print(
@@ -612,6 +613,12 @@ def parallel_understat_fallbacks(
                     )
     finally:
         close_clients()
+
+    for season, team_payload in team_payloads.items():
+        (team_root / f"{season}.json").write_text(
+            json.dumps(team_payload, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
 
     if failures and not allow_missing:
         raise RuntimeError(
