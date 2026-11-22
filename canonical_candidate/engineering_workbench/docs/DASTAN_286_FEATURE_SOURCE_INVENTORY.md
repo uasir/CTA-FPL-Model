@@ -225,6 +225,17 @@ team name, `opponent_team` is the numeric opponent ID, and `was_home`
 identifies the player's side. The normalizer's team-name/ID cross-check is
 therefore consistent with the inspected source schema.
 
+Inspection of the pinned upstream `collector.py` further establishes that
+`collect_gw` walks the per-player `gw.csv` files, selects rows whose
+`round` matches the requested gameweek, assigns the team name from the
+fixture/home-away lookup, and writes those rows into each `gwN.csv`; the
+merge routine concatenates the per-GW rows while filling absent historical
+columns with blanks. This explains the archive's row provenance and confirms
+that a missing row must not be silently manufactured by CTA. It does not, by
+itself, prove that every registered player is guaranteed a row for every
+fixture, so the audit keeps player-population completeness separate from
+fixture-level completeness.
+
 Unit tests cover a valid two-sided fixture, a finished fixture missing player
 rows, duplicate player-fixture keys and inconsistent opponent metadata. These
 tests are committed but remain unexecuted in a verified CI run. The audit has
