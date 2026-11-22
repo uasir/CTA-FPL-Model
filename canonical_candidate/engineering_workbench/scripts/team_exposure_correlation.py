@@ -108,6 +108,7 @@ def build_team_exposure_report(
         team_rows.append({
             "team_id": team_id,
             "squad_player_ids": sorted(all_player_ids),
+            "player_count": len(all_player_ids),
             "average_player_count": round(sum(
                 sum(forecasts[(pid, gw)]["team_id"] == team_id for pid in ids)
                 for gw in ordered_weeks
