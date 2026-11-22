@@ -92,6 +92,7 @@ def build_matched_panel_archive(
                 "forecast_snapshot_id": panel.get("forecast_snapshot_id"),
                 "forecast_as_of_utc": panel.get("forecast_as_of_utc"),
                 "finality_status": panel["finality_status"],
+                "outcome_available_at_utc": panel.get("outcome_available_at_utc"),
                 "matched_player_count": len(panel["matched_rows"]),
                 "source_match_manifest_sha256": hashlib.sha256(
                     (directory / "match_manifest.json").read_bytes()
