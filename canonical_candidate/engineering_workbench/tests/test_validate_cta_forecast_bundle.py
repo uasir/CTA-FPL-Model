@@ -8,8 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from validate_cta_forecast_bundle import validate_bundle
 
 
-def test_bundle_accepts_blank_fixture_gameweek_inside_declared_horizon(tmp_path: Path):
-    forecast_dir = tmp_path / "forecasts"
+def _write_valid_bundle(forecast_dir: Path):
     forecast_dir.mkdir()
     snapshot = "a" * 64
     fixture_rows = []
@@ -22,7 +21,9 @@ def test_bundle_accepts_blank_fixture_gameweek_inside_declared_horizon(tmp_path:
         fixture_rows.append({
             "season": "2026-27", "gameweek": gw, "fpl_code": 123,
             "position": "MID", "fixture_id": fixture_id,
-            "cta_expected_points": points, "expected_minutes": minutes,
+            "p60": 0.2, "p_any": 0.4, "expected_minutes": minutes,
+            "cta_expected_points_per_90": (points - 0.6) * 90.0 / minutes,
+            "cta_expected_points": points,
             "forecast_snapshot_id": snapshot, "production_eligible": False,
             "decision_weight": 0.0, "covar_used": False,
         })
@@ -59,7 +60,37 @@ def test_bundle_accepts_blank_fixture_gameweek_inside_declared_horizon(tmp_path:
         "gameweeks": [12, 13, 14, 15, 16],
         "decision_safeguards": {"production_eligible": False},
     }))
+
+
+def test_bundle_accepts_blank_fixture_gameweek_inside_declared_horizon(tmp_path: Path):
+    forecast_dir = tmp_path / "forecasts"
+    _write_valid_bundle(forecast_dir)
     report = validate_bundle(forecast_dir, forecast_dir / "validation.json")
     assert report["status"] == "PASS_CTA_FORECAST_BUNDLE_INTEGRITY"
     assert report["gameweeks"] == [12, 13, 14, 15, 16]
     assert report["fixture_rows"] == 4
+
+
+def test_bundle_rejects_invalid_appearance_probability_order(tmp_path: Path):
+    import pytest
+    forecast_dir = tmp_path / "forecasts"
+    _write_valid_bundle(forecast_dir)
+    fixture_path = forecast_dir / "fixture_forecasts.csv"
+    fixture = pd.read_csv(fixture_path)
+    fixture.loc[0, "p60"] = 0.6
+    fixture.loc[0, "p_any"] = 0.4
+    fixture.to_csv(fixture_path, index=False)
+    with pytest.raises(ValueError, match="p60 probability cannot exceed p_any"):
+        validate_bundle(forecast_dir, forecast_dir / "validation.json")
+
+
+def test_bundle_rejects_points_component_mismatch(tmp_path: Path):
+    import pytest
+    forecast_dir = tmp_path / "forecasts"
+    _write_valid_bundle(forecast_dir)
+    fixture_path = forecast_dir / "fixture_forecasts.csv"
+    fixture = pd.read_csv(fixture_path)
+    fixture.loc[0, "cta_expected_points"] += 0.25
+    fixture.to_csv(fixture_path, index=False)
+    with pytest.raises(ValueError, match="do not match appearance"):
+        validate_bundle(forecast_dir, forecast_dir / "validation.json")
