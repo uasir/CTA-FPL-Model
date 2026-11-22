@@ -218,6 +218,8 @@ def evaluate_cta_five_gameweek_squad(
 
     return {
         "status": "EXPLORATORY_CTA_FIVE_GAMEWEEK_SQUAD_SWEEP",
+        "recommendation_basis": "FIVE_GAMEWEEK_CUMULATIVE_EXPECTED_POINTS",
+        "recommended_action": candidates[0]["action"] if candidates else "HOLD",
         "forecast_snapshot_id": forecast_snapshot_id,
         "model_version": model_version,
         "horizon_gameweeks": weeks,
