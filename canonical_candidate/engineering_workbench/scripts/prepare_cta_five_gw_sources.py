@@ -64,6 +64,12 @@ def fetch_json(url: str):
     return json.loads(fetch_bytes(url).decode("utf-8"))
 
 
+def write_csv_frame(frame: pd.DataFrame, path: Path) -> None:
+    """Write portable UTF-8 CSV with a real LF line terminator."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_csv(path, index=False, lineterminator="\n")
+
+
 def player_elements(bootstrap: dict) -> list[dict]:
     """Return real FPL players only, excluding manager/club entity element types."""
     return [
@@ -288,7 +294,7 @@ def write_live_fixture_schedule(raw_dir: Path, season: str, fixtures: list[dict]
     } for row in fixtures]
     path = raw_dir / "vaastav" / season / "fixtures.csv"
     path.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(rows).to_csv(path, index=False, lineterminator="\\n")
+    write_csv_frame(pd.DataFrame(rows), path)
     return path
 
 
@@ -516,7 +522,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "understat_player_id",
     ] = pd.NA
     safe_mapping_path = output_dir / "safe_current_player_mapping.csv"
-    safe_mapping.to_csv(safe_mapping_path, index=False, lineterminator="\\n")
+    write_csv_frame(safe_mapping, safe_mapping_path)
     mapping_report = {
         "roster_players": len(bootstrap.get("elements", [])),
         "mapping_registry_rows": len(mapping_df),
