@@ -2,7 +2,7 @@
 
 **Status:** Engineering direction approved; implementation not yet production-ready  
 **Scope:** M4 conventional forecast foundation  
-**Decision:** CTA-FPL owns the primary five-Gameweek forecast pipeline. External forecasts are benchmarks or optional fallbacks, never a required long-term runtime dependency.
+**Decision:** CTA-FPL owns the primary five-Gameweek forecast pipeline. Import Dastan's released expected-minutes component as the minutes model; CTA retains ownership of the feature/data adapter, fixture-level points model, forecast snapshots, and validation. No paid forecast provider is a required runtime dependency.
 
 ## 1. Objective
 
@@ -36,20 +36,22 @@ Repository: https://github.com/qazybekb/smartplayfpl-dastan
 
 Useful properties observed:
 
-- MIT-licensed code and published model weights.
+- MIT-licensed code and published model weights; retain the MIT copyright and licence notice when importing code or substantial portions.
 - Six-season training frame described as 163,072 player-fixture rows and 286 features.
-- Published inference separates minutes/availability signals from points prediction and exposes scoring-band probabilities.
-- Evaluation is deadline-anchored, chronological, per-Gameweek, and reports both all-player and 60+-minute cohorts.
-- The methodology documents seed noise, multiple-comparison risk, leakage failures, and rejected feature families. This is a strong evaluation reference.
+- The released predictor returns `p60`, `p_any`, and `expected_minutes`. The minutes output is derived by applying the packaged, position-specific `minutes_calibration.json` curve to the position-specific `p60` classifier.
+- The minutes component is separable from Dastan's points heads: CTA needs the four `p60_{GKP,DEF,MID,FWD}` model artifacts, the minutes calibration curves, the ordered 286-feature contract, and the small inference adapter. CTA will not import Dastan's `xpts`, bucket, or direct-points heads as its primary points model.
+- Dastan's reported minutes/availability evaluation and point forecasts are model-reported evidence, not independent CTA validation. Its headline objective is a ranking score, not a literal forecast-accuracy percentage.
 
-Reasons not to adopt it as the CTA production engine unchanged:
+**Adoption decision — minutes only:** Import Dastan's released minutes predictor as CTA's initial minutes component. Do not build a competing minutes model in parallel at this stage. Preserve the upstream model version, commit, artifact hashes, MIT attribution, and calibration metadata. CTA must provide a compatible feature frame and validate the model on its own deadline-safe evaluation windows before production use.
 
-- Its model expects its exact 286-feature schema. CTA's current lagged builder does not produce that schema; the released weights cannot simply be pointed at CTA's current rows.
-- The published model was trained through 2025-26 GW30. Its current-roster mapping manifest is dated 2026-09-07 and reports 52 unmapped players and one shared Understat ID; mappings need refresh and audit before current-season use.
-- Its training frame combines FPL, Understat, and OpenFPL-derived features. The repository's MIT statement does not remove the need to review upstream source terms, attribution, redistribution, and operational data access independently.
-- Its public accuracy figures are model-reported evidence, not independent CTA validation. The headline objective is a ranking score, not a literal forecast-accuracy percentage.
+Important integration constraints:
 
-**Decision:** Use Dastan as a challenger/benchmark and a source of evaluation lessons. Do not make its model weights, 286-feature frame, or third-party data pipeline a runtime dependency. Reimplement only feature ideas that pass CTA's own provenance, usefulness, and validation tests.
+- The `p60` heads require Dastan's exact ordered 286-feature input contract. CTA's current lagged builder does not produce that schema, so a compatibility feature adapter is a prerequisite; never pass CTA's smaller feature frame directly to the released weights.
+- The released model was trained through 2025-26 GW30. Its current-roster mapping manifest is dated 2026-09-07 and reports 52 unmapped players and one shared Understat ID; refresh and audit current-season mappings before relying on any Understat-derived feature.
+- The training frame combines FPL, Understat, and OpenFPL-derived features. MIT licensing of the code and weights does not grant rights to upstream source data. Review upstream terms, attribution, redistribution and operational access independently; do not redistribute restricted raw data.
+- Missing features must follow Dastan's documented missing-value convention and exact column order. Do not silently substitute zeros for missing source observations unless that is the upstream model's defined inference behavior.
+- The released minutes calibration is fitted on a 2025-26 GW31-38 packaging holdout. Preserve that fact in provenance and test calibration drift on current-season data; do not present it as a newly calibrated CTA model.
+- Dastan's 2026-27 roster mapping is not itself proof that every active player can be scored. Report unmapped/missing-feature coverage explicitly and fail closed for unsupported rows.
 
 ## 4. Forecast architecture
 
@@ -75,11 +77,11 @@ Reasons not to adopt it as the CTA production engine unchanged:
 
 Build and validate separate components:
 
-1. Expected minutes / appearance probabilities.
-2. Conditional points production given appearance/minutes, with fixture context.
-3. Combined fixture expected points, with coherent uncertainty outputs only where calibrated and empirically supported.
+1. **Expected minutes / appearance probabilities:** Dastan `p60` classifier plus its packaged calibration curve, exposed as `expected_minutes`, `p60`, and `p_any`.
+2. **Conditional points production:** CTA-owned fixture-level points model using minutes as an input, with opponent, venue and fixture context.
+3. **Combined fixture expected points:** CTA-owned combination of expected minutes and conditional production, with coherent uncertainty outputs only where calibrated and empirically supported.
 
-A transparent statistical/gradient-boosted baseline should be established before adding complex model families. Keep a simple recent-form and official-`ep_next` benchmark where point-in-time coverage permits.
+Do not train a parallel CTA minutes model unless Dastan integration fails a predeclared validation or coverage gate. Keep a transparent recent-form and official-`ep_next` benchmark where point-in-time coverage permits.
 
 ### D. Five-GW panel and snapshot
 
@@ -115,9 +117,9 @@ Before M4 production use:
 
 1. Freeze this architecture and inventory the existing FPL ingestion artifacts, historical row schemas, source pins, and tests.
 2. Define a versioned CTA player-fixture training/inference schema that can produce all five target Gameweeks from a single as-of snapshot.
-3. Expand the existing lagged feature builder with tested, leakage-safe rolling features and stable cross-season identity.
-4. Build transparent minutes and points baselines, then a trained fixture-level model.
-5. Add a five-GW snapshot builder and completeness/provenance validator.
+3. Build the Dastan compatibility adapter: refresh player identity mappings; reproduce the ordered 286-feature input contract with deadline-safe sources; import only the four `p60` heads and minutes calibration; record upstream commit and artifact hashes.
+4. Validate Dastan expected-minutes outputs against CTA's chronological, deadline-aware holdouts, including calibration, player coverage, positions and double-GW invariance. Keep the current CTA minutes heuristic as a benchmark only.
+5. Build CTA's fixture-level conditional points model and combine it with the imported minutes output; then add the five-GW snapshot builder and completeness/provenance validator.
 6. Run chronological backtests and challenger comparisons; keep the product exploratory until it passes the gates above.
 
-**Non-goal:** This document does not adopt FPL Cat, Dastan, or any other external provider as the required production forecast source, and it does not authorize merging existing PRs.
+**Non-goal:** This decision does not import Dastan's points model or require FPL Cat. Importing Dastan's minutes component is approved as an engineering direction, not a claim that it is already integrated, validated, or production-approved. This document does not authorize merging existing PRs.
