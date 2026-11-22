@@ -74,6 +74,8 @@ def verify_real_m3_archive(bundle_path: Path, manifest_path: Path) -> tuple[dict
         raise M3CoVarArchivePreflightError("M3 archive does not preserve research-only safeguards")
     if bundle.get("point_in_time_status") != "M3_SOURCE_TIMESTAMPS_VALIDATED":
         raise M3CoVarArchivePreflightError("M3 archive source timestamps are not validated")
+    if bundle.get("model_version") != "external:FPL Cat:published xP:public next-gameweek JSON API:api/v1":
+        raise M3CoVarArchivePreflightError("CoVar target must use the approved conventional FPL Cat M3 forecast")
     privacy = bundle.get("privacy")
     required_privacy = {
         "manager_identity_included": False,
@@ -98,6 +100,13 @@ def verify_real_m3_archive(bundle_path: Path, manifest_path: Path) -> tuple[dict
         captured = _time(source.get("captured_at_utc"), f"{kind} captured_at_utc")
         if captured > as_of:
             raise M3CoVarArchivePreflightError(f"{kind} was captured after the M3 forecast as-of")
+        expected_url = (
+            "https://fplcat.com/api/v1/projections"
+            if kind == "provider_forecast"
+            else "https://fantasy.premierleague.com/api/bootstrap-static/"
+        )
+        if source.get("source_url") != expected_url:
+            raise M3CoVarArchivePreflightError(f"{kind} source URL is not the approved conventional M3 source")
         payload = source.get("raw_payload_base64")
         if not isinstance(payload, str) or not payload:
             raise M3CoVarArchivePreflightError(f"{kind} raw payload is missing")
@@ -105,8 +114,14 @@ def verify_real_m3_archive(bundle_path: Path, manifest_path: Path) -> tuple[dict
             decoded = base64.b64decode(payload, validate=True)
         except (ValueError, TypeError) as exc:
             raise M3CoVarArchivePreflightError(f"{kind} raw payload is invalid base64") from exc
-        if hashlib.sha256(decoded).hexdigest() != source.get("raw_sha256"):
+        digest = hashlib.sha256(decoded).hexdigest()
+        if digest != source.get("raw_sha256"):
             raise M3CoVarArchivePreflightError(f"{kind} raw payload SHA-256 mismatch")
+        if source.get("raw_snapshot_id") != f"sha256:{digest}":
+            raise M3CoVarArchivePreflightError(f"{kind} raw snapshot ID is detached from its content hash")
+        generated = source.get("generated_at_utc")
+        if generated is not None and _time(generated, f"{kind} generated_at_utc") > as_of:
+            raise M3CoVarArchivePreflightError(f"{kind} was generated after the M3 forecast as-of")
     if seen != {"provider_forecast", "player_metadata"}:
         raise M3CoVarArchivePreflightError("provider and player metadata source archives are both required")
     return manifest, bundle
