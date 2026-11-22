@@ -12,6 +12,7 @@ on:
       - feat/m3-external-benchmark-decision-engine
     paths:
       - .github/workflows/capture-fplcat-benchmark.yml
+      - canonical_candidate/engineering_workbench/scripts/run_fplcat_m3_m4_replay.py
 
 permissions:
   contents: read
@@ -46,12 +47,19 @@ jobs:
             --provider "FPL Cat" \
             --input "artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-snapshot.json" \
             --output "artifacts/provider-summary/fplcat.json"
-      - name: Upload immutable raw snapshot and metadata summary
+      - name: Run M3 routing and M4 product with explicit synthetic manager fixture
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/run_fplcat_m3_m4_replay.py \\
+            --capture "artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-snapshot.json" \\
+            --output "artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-m3-m4-replay.json"
+      - name: Upload immutable raw snapshot, M3-M4 replay and metadata summary
         uses: actions/upload-artifact@v4
         with:
           name: fplcat-${{ inputs.season || '2026-27' }}-${{ github.run_id }}
           path: |
             canonical_candidate/engineering_workbench/artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-snapshot.json
             canonical_candidate/engineering_workbench/artifacts/provider-summary/fplcat.json
+            canonical_candidate/engineering_workbench/artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-m3-m4-replay.json
           if-no-files-found: error
           retention-days: 90
