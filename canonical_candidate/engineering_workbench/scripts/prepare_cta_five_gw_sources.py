@@ -931,7 +931,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
             "historical_training_frame": release_import_report["training_frame"],
         },
         "important_boundaries": [
-            "Dastan published feature data, snapshot tables, mappings and minutes artifacts are imported; raw historical match inputs are used only to build current target features; CTA continues to own its points model.",
+            "Dastan's full data release and 40-file model contract are imported; its full xPts model is benchmark-only, while CTA retains its own primary points model.",
             "Historical point-in-time snapshot artifacts are imported from the verified Dastan release and safety-filtered; no historical fplcache reconstruction is performed.",
             "Current next-GW snapshot values come only from the live official bootstrap; later target GWs receive -1 snapshot sentinels.",
             "Raw player/team match histories are reconstructed only to calculate new target-fixture features; the historical training frame and pre-deadline snapshots are imported directly from Dastan.",
