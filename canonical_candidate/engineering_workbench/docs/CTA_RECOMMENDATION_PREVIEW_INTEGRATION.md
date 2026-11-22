@@ -97,3 +97,29 @@ This is a real-data integration/replay pass, not forecast-performance validation
 
 - Adapter tests verify the candidate-only bundle, five-GW horizon, stable FPL identity mapping, provenance, optional EO rules, season consistency and exact cumulative-to-panel reconciliation.
 - Runner tests verify cumulative and weekly horizons, per-Gameweek captaincy, general rankings without manager context and invariant to personal-state changes, exact conventional manager-state reuse and alignment, partial manager-context rejection, and zero CoVar decision weight.
+
+
+## Five-Gameweek squad-specific CTA diagnostic
+
+The CTA personal-squad preview now has a separate five-Gameweek HOLD-versus-
+single-transfer diagnostic in `cta_multi_gameweek_squad_evaluator.py`. It
+consumes the five ordered `gameweek_panels` already present in the verified
+CTA candidate bundle and evaluates the manager's fixed baseline starting XI
+over all five weeks. It enumerates affordable, same-position, outfield
+transfers, applies the FPL selling-price rule using recorded purchase prices,
+checks the three-player club limit, and reports weekly and cumulative expected
+points deltas net of any transfer hit.
+
+This does not mislabel the five panels as five independent provider snapshots
+and does not fabricate fixture-level forecasts. Weekly lineup/captaincy
+decisions remain distinct from the cumulative transfer comparison. The
+diagnostic requires all 15 squad rows to carry exact `purchase_price` values;
+if this manager-state evidence is absent, the personal product records an
+explicit blocked-input status rather than estimating sale proceeds.
+
+The diagnostic remains exploratory, zero-weight, non-production, and
+CoVar-free. It evaluates one transfer at a time against a fixed baseline XI;
+it does not optimize transfer sequences, future lineups, captaincy, chips,
+future prices, or transfer-flexibility option value. It is not an M4 promotion
+or a claim of validated performance. M2 forecast validation and M4 outcome
+evaluation remain pending.
