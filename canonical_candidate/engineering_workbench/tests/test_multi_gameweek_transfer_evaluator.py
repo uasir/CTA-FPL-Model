@@ -125,3 +125,14 @@ def test_transfer_that_breaks_three_player_club_limit_is_rejected():
         assert "three-player club limit" in str(exc)
     else:
         raise AssertionError("expected illegal club stack transfer to fail")
+
+
+
+def test_negative_expected_points_are_valid_finite_fpl_forecasts():
+    request = payload()
+    for week in request["gameweeks"]:
+        player = next(row for row in week["player_forecasts"] if row["fpl_element_id"] == 3)
+        player["expected_points"] = -0.25
+    result = evaluate_multi_gameweek_transfer(request)
+    assert result["action"] == "TRANSFER"
+    assert result["weekly_comparison"][0]["hold_starting_xi_points"] < 0 or result["weekly_comparison"][0]["transfer_starting_xi_points"] > 0
