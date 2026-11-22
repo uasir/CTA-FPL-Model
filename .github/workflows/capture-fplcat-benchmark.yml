@@ -7,6 +7,11 @@ on:
         description: FPL season label
         required: true
         default: "2026-27"
+  push:
+    branches:
+      - feat/m3-external-benchmark-decision-engine
+    paths:
+      - .github/workflows/capture-fplcat-benchmark.yml
 
 permissions:
   contents: read
@@ -32,21 +37,21 @@ jobs:
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/capture_fpl_cat_snapshot.py \
-            --season "${{ inputs.season }}" \
-            --output "artifacts/fplcat/fplcat-${{ inputs.season }}-snapshot.json"
+            --season "${{ inputs.season || '2026-27' }}" \
+            --output "artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-snapshot.json"
       - name: Create metadata-only public summary
         working-directory: canonical_candidate/engineering_workbench
         run: |
           python scripts/summarize_provider_capture.py \
             --provider "FPL Cat" \
-            --input "artifacts/fplcat/fplcat-${{ inputs.season }}-snapshot.json" \
+            --input "artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-snapshot.json" \
             --output "artifacts/provider-summary/fplcat.json"
       - name: Upload immutable raw snapshot and metadata summary
         uses: actions/upload-artifact@v4
         with:
-          name: fplcat-${{ inputs.season }}-${{ github.run_id }}
+          name: fplcat-${{ inputs.season || '2026-27' }}-${{ github.run_id }}
           path: |
-            canonical_candidate/engineering_workbench/artifacts/fplcat/fplcat-${{ inputs.season }}-snapshot.json
+            canonical_candidate/engineering_workbench/artifacts/fplcat/fplcat-${{ inputs.season || '2026-27' }}-snapshot.json
             canonical_candidate/engineering_workbench/artifacts/provider-summary/fplcat.json
           if-no-files-found: error
           retention-days: 90
