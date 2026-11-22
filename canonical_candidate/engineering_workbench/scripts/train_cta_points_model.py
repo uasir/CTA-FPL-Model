@@ -76,7 +76,7 @@ def with_training_target(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
-                 source_path: Path) -> dict:
+                 source_path: Path, feature_source_mode: str = FPL_NATIVE_MODE) -> dict:
     frame = with_training_target(frame)
     required = set(features) | {"season", "gameweek", "fixture", "fpl_code", "position", "target_points_per_90"}
     missing = sorted(required - set(frame.columns))
@@ -161,8 +161,7 @@ def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
         "production_eligible": False,
     }
     report_path = output_dir / "cta_points_model_manifest.json"
-    report_path.write_text(json.dumps(report, indent=2) + "
-", encoding="utf-8")
+    report_path.write_text(json.dumps(report, indent=2) + "\\n", encoding="utf-8")
     return report
 
 
@@ -171,6 +170,7 @@ def main() -> int:
     parser.add_argument("--training-frame", type=Path, required=True)
     parser.add_argument("--schema", type=Path, required=True)
     parser.add_argument("--model-dir", type=Path, required=True)
+    parser.add_argument("--source-report", type=Path, required=True)
     args = parser.parse_args()
     frame = pd.read_parquet(args.training_frame)
     schema = json.loads(args.schema.read_text(encoding="utf-8"))
