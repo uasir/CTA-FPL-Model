@@ -1,0 +1,198 @@
+name: M3 CoVar real archived forecast preflight and residual producer
+
+on:
+  push:
+    branches: ["feat/m3-covar-real-archive-integration"]
+    paths:
+      - .github/workflows/cta-fpl-m3-covar-real-archive-preflight.yml
+      - canonical_candidate/engineering_workbench/scripts/m3_covar_real_archive_preflight.py
+      - canonical_candidate/engineering_workbench/scripts/m4_covar_residual_bootstrap.py
+  workflow_dispatch:
+    inputs:
+      target_archive_path:
+        description: Exact directory in the private manager-free M3 archive repository
+        required: true
+        default: "2026-27/gw11/source-run-44809552413"
+        type: string
+      finality_run_id:
+        description: Successful official realized-outcome finality workflow run
+        required: true
+        default: "44882707622"
+        type: string
+      finality_artifact_name:
+        description: Exact finality evidence artifact name
+        required: true
+        default: "cta-covar-realized-evidence-44882707622-1"
+        type: string
+      matched_panel_run_id:
+        description: Optional run containing a real accumulated matched forecast/outcome panel
+        required: false
+        default: ""
+        type: string
+      matched_panel_artifact_name:
+        description: Optional exact accumulated matched-panel artifact name
+        required: false
+        default: ""
+        type: string
+      training_cutoff_utc:
+        description: Optional explicit cutoff; defaults to the archived M3 forecast as-of timestamp
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: m3-covar-real-archive-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out current M3 CoVar integration
+        uses: actions/checkout@v4
+
+      - name: Check out the private manager-free M3 forecast archive
+        uses: actions/checkout@v4
+        with:
+          repository: uasir/cta-fpl-covar-archive
+          token: ${{ secrets.COVAR_ARCHIVE_TOKEN }}
+          path: private-archive
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download real official finality evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.finality_artifact_name || 'cta-covar-realized-evidence-44882707622-1' }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.finality_run_id || '44882707622' }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/finality-input
+
+      - name: Optionally download a real matched forecast/outcome panel
+        if: ${{ inputs.matched_panel_run_id != '' && inputs.matched_panel_artifact_name != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.matched_panel_artifact_name }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.matched_panel_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/matched-panel-input
+
+      - name: Verify the archived M3 bundle and run fail-closed CoVar preflight
+        id: preflight
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+          RUNNER_TEMP: ${{ runner.temp }}
+          TARGET_ARCHIVE_PATH: ${{ inputs.target_archive_path || '2026-27/gw11/source-run-44809552413' }}
+          TRAINING_CUTOFF_UTC: ${{ inputs.training_cutoff_utc || '' }}
+          MATCHED_PANEL_RUN_ID: ${{ inputs.matched_panel_run_id || '' }}
+          MATCHED_PANEL_ARTIFACT_NAME: ${{ inputs.matched_panel_artifact_name || '' }}
+        run: |
+          set -euo pipefail
+          case "$TARGET_ARCHIVE_PATH" in
+            /*|*..*|*\\*) echo "Unsafe archive path" >&2; exit 1 ;;
+          esac
+          ARCHIVE="$GITHUB_WORKSPACE/private-archive/$TARGET_ARCHIVE_PATH"
+          BUNDLE=$(find "$ARCHIVE" -maxdepth 1 -type f -name 'm3_covar_forecast_gw*.json' -print -quit)
+          MANIFEST="$ARCHIVE/archive_manifest.json"
+          test -n "$BUNDLE" && test -s "$MANIFEST"
+          FINALITY="$RUNNER_TEMP/finality-input"
+          test -s "$FINALITY/covar-finality-result/finality_batch_report.json"
+          mkdir -m 700 -p "$RUNNER_TEMP/covar-preflight"
+          ARGS=(
+            --bundle "$BUNDLE"
+            --archive-manifest "$MANIFEST"
+            --finality-dir "$FINALITY"
+            --report "$RUNNER_TEMP/covar-preflight/preflight_report.json"
+          )
+          if [ -n "$TRAINING_CUTOFF_UTC" ]; then
+            ARGS+=(--training-cutoff-utc "$TRAINING_CUTOFF_UTC")
+          fi
+          if [ -n "$MATCHED_PANEL_RUN_ID" ] || [ -n "$MATCHED_PANEL_ARTIFACT_NAME" ]; then
+            if [ -z "$MATCHED_PANEL_RUN_ID" ] || [ -z "$MATCHED_PANEL_ARTIFACT_NAME" ]; then
+              echo "Both matched-panel run ID and artifact name are required." >&2
+              exit 1
+            fi
+            PANEL=$(find "$RUNNER_TEMP/matched-panel-input" -type f -name 'multi_gameweek_matched_panel.json' -print -quit)
+            test -n "$PANEL"
+            ARGS+=(--matched-panel "$PANEL" --scenario-output "$RUNNER_TEMP/covar-preflight/residual_scenarios.json")
+          fi
+          python scripts/m3_covar_real_archive_preflight.py "${ARGS[@]}"
+          if [ -s "$RUNNER_TEMP/covar-preflight/residual_scenarios.json" ]; then
+            echo "scenario_created=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "scenario_created=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Store any generated residual scenarios in the private archive only
+        if: ${{ steps.preflight.outputs.scenario_created == 'true' }}
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+          TARGET_ARCHIVE_PATH: ${{ inputs.target_archive_path || '2026-27/gw11/source-run-44809552413' }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          REPORT="$RUNNER_TEMP/covar-preflight/preflight_report.json"
+          SCENARIOS="$RUNNER_TEMP/covar-preflight/residual_scenarios.json"
+          python - "$REPORT" "$SCENARIOS" <<'PY'
+          import hashlib, json, sys
+          from pathlib import Path
+          report = json.loads(Path(sys.argv[1]).read_text())
+          scenario = Path(sys.argv[2]).read_bytes()
+          if report.get("status") != "PASS_RESEARCH_SCENARIOS_CREATED":
+              raise SystemExit("Refusing to archive scenarios without a passing research producer report")
+          if report.get("decision_weight") != 0.0 or report.get("production_eligible") is not False or report.get("covar_used") is not False:
+              raise SystemExit("Residual scenario safeguards changed")
+          manifest = {
+              "archive_type": "PRIVATE_M3_COVAR_RESIDUAL_BOOTSTRAP_RESEARCH",
+              "season": report["season"],
+              "target_gameweek": report["target_gameweek"],
+              "forecast_snapshot_id": report["forecast_snapshot_id"],
+              "model_version": report["model_version"],
+              "scenario_payload_sha256": hashlib.sha256(scenario).hexdigest(),
+              "scenario_count": report["scenario_count"],
+              "complete_historical_gameweeks": report["complete_historical_gameweeks"],
+              "producer_commit": __import__("os").environ["GITHUB_SHA"],
+              "decision_weight": 0.0,
+              "production_eligible": False,
+              "covar_used": False,
+          }
+          Path(sys.argv[2] + ".manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+          PY
+          SEASON=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["season"])' "$REPORT")
+          GW=$(python -c 'import json,sys; print(int(json.load(open(sys.argv[1]))["target_gameweek"]))' "$REPORT")
+          DEST="private-archive/residual-bootstrap/$SEASON/gw$(printf '%02d' "$GW")/$(basename "$TARGET_ARCHIVE_PATH")"
+          if [ -e "$DEST" ]; then
+            echo "Refusing to overwrite an existing residual archive." >&2
+            exit 1
+          fi
+          mkdir -m 700 -p "$DEST"
+          cp "$SCENARIOS" "$DEST/residual_scenarios.json"
+          cp "$SCENARIOS.manifest.json" "$DEST/archive_manifest.json"
+          chmod 600 "$DEST"/*.json
+          cd private-archive
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "residual-bootstrap/$SEASON/gw$(printf '%02d' "$GW")/$(basename "$TARGET_ARCHIVE_PATH")"
+          git commit -m "Archive research-only CoVar residual scenarios GW$GW"
+          git push origin HEAD:main
+
+      - name: Upload aggregate-only CoVar preflight report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3-covar-real-archive-preflight-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/covar-preflight/preflight_report.json
+          if-no-files-found: warn
+          retention-days: 90
