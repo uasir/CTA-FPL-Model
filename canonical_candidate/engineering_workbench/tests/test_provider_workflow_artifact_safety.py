@@ -16,7 +16,7 @@ def test_public_provider_workflows_preserve_raw_artifacts_only_for_redistributab
 
     # FPL Cat public use requires attribution; Sideline Quant provider data is CC BY 4.0.
     # Preserve immutable raw snapshots for those two eligible feeds, with run-scoped retention.
-    assert "Upload immutable raw snapshot and metadata summary" in fplcat
+    assert "Upload immutable raw snapshot, M3-M4 replay and metadata summary" in fplcat
     assert "artifacts/fplcat/" in fplcat
     assert "artifacts/provider-summary/" in fplcat
     assert "retention-days: 90" in fplcat
