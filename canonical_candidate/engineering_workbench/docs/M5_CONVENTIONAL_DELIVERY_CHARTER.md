@@ -102,3 +102,12 @@ A CI pass over deterministic fixtures does not prove a live data capture. A live
 - Do not change provider xP values in the adapter.
 - Do not blend EV, EO, covariance, risk preference or speculative CTA metrics into an unvalidated score.
 - Do not claim production readiness from structural tests alone.
+
+
+## 7. Multi-Gameweek transfer rationale — owner requirement (2026-11-22)
+
+The transfer decision must be evaluated over **at least five consecutive Gameweeks**, not justified by a one-Gameweek expected-points upgrade. The governing policy is documented in [M3_MULTI_GAMEWEEK_TRANSFER_POLICY.md](M3_MULTI_GAMEWEEK_TRANSFER_POLICY.md).
+
+A player must not be bought only because their immediate-Gameweek xP is higher, and an owned player must not be sold only because their immediate-Gameweek xP is low. Compare the TRANSFER and HOLD squad paths over the same minimum five-Gameweek horizon, report each Gameweek's starting-XI delta and cumulative net value, account for the outgoing player's counterfactual points and relevant transfer costs, and explain the value contributed after the first Gameweek.
+
+The existing one-Gameweek engine and its GW12 +1.26-point immediate-week comparison do **not** satisfy this requirement. That result remains an exploratory single-Gameweek diagnostic, not a sufficient transfer rationale. Until multi-Gameweek forecast coverage, engine logic, replay contracts and tests are implemented, the product must disclose that the horizon policy is not yet implemented and must not present a one-week xP gain as a completed transfer recommendation.
