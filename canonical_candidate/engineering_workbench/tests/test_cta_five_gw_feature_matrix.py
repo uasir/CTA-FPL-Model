@@ -10,6 +10,7 @@ from build_cta_five_gw_feature_matrix import (
     add_live_snapshot_features,
     anchor_team_features_to_deadline,
     anchor_player_features_to_deadline,
+    anchor_opponent_features_to_deadline,
     build_future_rows,
     validate_bootstrap_snapshot,
 )
@@ -149,3 +150,18 @@ def test_same_gameweek_player_history_is_anchored_across_dgw_fixtures():
     assert result["ar_dc_hit_rate_3"].tolist() == [0.6, 0.6]
     assert result["ar_rest_days"].tolist() == [5.0, 2.0]
     assert result["ar_opp_dc_allowed_3"].tolist() == [2.0, 7.0]
+
+
+def test_opponent_history_is_anchored_to_predeadline_state_across_dgw_fixtures():
+    frame = pd.DataFrame([
+        {"opponent_team_name": "Arsenal", "fixture": 900,
+         "kickoff_time": "2026-11-28T15:00:00Z", "ar_opp_dc_allowed_3": 4.0},
+        {"opponent_team_name": "Arsenal", "fixture": 901,
+         "kickoff_time": "2026-12-01T15:00:00Z", "ar_opp_dc_allowed_3": 0.0},
+        {"opponent_team_name": "Chelsea", "fixture": 902,
+         "kickoff_time": "2026-12-01T15:00:00Z", "ar_opp_dc_allowed_3": 7.0},
+    ])
+    result = anchor_opponent_features_to_deadline(
+        frame, ["ar_opp_dc_allowed_3"]
+    )
+    assert result["ar_opp_dc_allowed_3"].tolist() == [4.0, 4.0, 7.0]
