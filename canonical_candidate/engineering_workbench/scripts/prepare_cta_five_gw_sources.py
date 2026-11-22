@@ -445,14 +445,38 @@ def parallel_understat_fallbacks(
         session = getattr(client, "session", None)
         if session is not None:
             original_request = session.request
+            headers = getattr(session, "headers", None)
+            if headers is not None:
+                headers.update({
+                    "User-Agent": (
+                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                    ),
+                    "Accept": "application/json, text/javascript, */*; q=0.01",
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Referer": "https://understat.com/",
+                    "Origin": "https://understat.com",
+                })
 
             def request_with_timeout(method, url, **kwargs):
                 if kwargs.get("timeout") is None:
                     kwargs["timeout"] = (10, 45)
-                return original_request(method, url, **kwargs)
+                response = original_request(method, url, **kwargs)
+                if response is not None and "understat.com" in str(url):
+                    status = int(getattr(response, "status_code", 200))
+                    body = str(getattr(response, "text", "") or "")
+                    if status >= 400 or not body.strip() or body.lstrip().startswith("<"):
+                        preview = " ".join(body[:240].split())
+                        content_type = getattr(response, "headers", {}).get("Content-Type", "")
+                        raise RuntimeError(
+                            "Understat returned a non-JSON/challenge response: "
+                            f"HTTP {status}, content-type={content_type!r}, body={preview!r}"
+                        )
+                return response
 
-            # understatapi 0.7.1 does not set a requests timeout itself.
-            # Bound connect/read time so one stalled response cannot pin a worker.
+            # understatapi 0.7.1 sets X-Requested-With but omits browser request
+            # headers and timeouts. Preserve the public AJAX endpoint while adding
+            # ordinary browser headers and bounded connect/read times.
             session.request = request_with_timeout
         return client
 
