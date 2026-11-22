@@ -98,7 +98,7 @@ def _capture_failure_code(exc: Exception) -> str:
     """Classify capture failures without retaining player or manager identifiers."""
     message = str(exc).lower()
     patterns = (
-        ("captain and vice-captain must be in the starting xi", "CAPTAIN_OR_VICE_NOT_STARTING"),
+        ("captain and vice-captain must be in the reconstructed deadline starting xi", "CAPTAIN_OR_VICE_NOT_STARTING"),
         ("starting xi does not satisfy legal fpl formation", "ILLEGAL_STARTING_FORMATION"),
         ("position 12 must be the reserve goalkeeper", "RESERVE_GOALKEEPER_POSITION_INVALID"),
         ("starting xi must contain exactly one goalkeeper", "STARTING_GOALKEEPER_COUNT_INVALID"),
@@ -234,6 +234,8 @@ def audit_public_field_replays(
                     validation_failure_types["PLAYER_POINTS_MISMATCH"] = validation_failure_types.get("PLAYER_POINTS_MISMATCH", 0) + 1
                 if not result["active_captain_match"]:
                     validation_failure_types["CAPTAIN_MISMATCH"] = validation_failure_types.get("CAPTAIN_MISMATCH", 0) + 1
+                if result.get("automatic_substitution_metadata_match") is False:
+                    validation_failure_types["AUTOSUB_PAIR_MISMATCH"] = validation_failure_types.get("AUTOSUB_PAIR_MISMATCH", 0) + 1
                 if result["official_team_points_reconcile"] is False:
                     validation_failure_types["TEAM_POINTS_MISMATCH"] = validation_failure_types.get("TEAM_POINTS_MISMATCH", 0) + 1
 
@@ -245,8 +247,8 @@ def audit_public_field_replays(
             if result["resolver_active_captain_id"] == case["lineup"]["vice_captain_id"]:
                 captain_fallbacks += 1
 
-            # Infer actual autosubs from final pick multipliers, not the
-            # separate automatic_subs metadata field.
+            # After reversing official automatic_subs, original bench positions
+            # are restored while final scoring multipliers remain attached.
             bench_picks = [row for row in case["official_final"]["picks"] if int(row["position"]) > 11]
             actual_autosubs = (
                 [row for row in bench_picks if int(row["multiplier"]) > 0]
@@ -349,6 +351,7 @@ def main() -> int:
         "capture_failure_count": report["capture_failure_count"],
         "autosub_replay_count": report["autosub_replay_count"],
         "autosub_player_count": report["autosub_player_count"],
+        "automatic_substitution_metadata_mismatch_replays": report["automatic_substitution_metadata_mismatch_replays"],
         "goalkeeper_autosub_count": report["goalkeeper_autosub_count"],
         "outfield_autosub_count": report["outfield_autosub_count"],
         "captain_fallback_count": report["captain_fallback_count"],
