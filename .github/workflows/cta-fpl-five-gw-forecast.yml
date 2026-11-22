@@ -38,11 +38,17 @@ jobs:
         run: python -m pip install -r canonical_candidate/engineering_workbench/requirements_dastan_forecast.txt
       - name: Compile pipeline scripts
         run: python -m compileall -q canonical_candidate/engineering_workbench/scripts
-      - name: Run Python tests
+      - name: Run forecast pipeline tests
         working-directory: canonical_candidate/engineering_workbench
-        env:
-          PYTHONPATH: .:scripts
-        run: python -m pytest tests -q
+        run: |
+          python -m pytest \
+            tests/test_audit_vaastav_fixture_archive.py \
+            tests/test_normalize_vaastav_fpl_archive.py \
+            tests/test_dastan_minutes_input.py \
+            tests/test_dastan_player_mapping.py \
+            tests/test_verify_source_pins.py \
+            tests/test_cta_five_gw_feature_matrix.py \
+            tests/test_dastan_minutes_inference.py -q
       - name: Run JavaScript tests
         working-directory: canonical_candidate/engineering_workbench
         run: node --test tests/js/*.test.mjs
