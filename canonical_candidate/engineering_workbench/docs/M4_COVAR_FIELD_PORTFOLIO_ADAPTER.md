@@ -104,3 +104,34 @@ segmentation is not required.
 The current artifact captures the overall top-rank cohort. Rank strata are
 available for controlled cohort selection; small stratum sample sizes must be
 reported and must not be presented as precise cohort estimates.
+
+## Aggregate-only portfolio structure in the public predeadline report
+
+The predeadline capture now computes `portfolio_structure_summary` in memory
+from the same manager-pick sample used by the existing EO estimator. The
+ordinary public workflow adds only this aggregate summary to
+`fpl_predeadline_field_report.json`; it still pops and discards the
+manager-level portfolio artifact before writing the report. The optional
+`--manager-portfolio-output` remains an explicit private local export only.
+
+The summary reports:
+- weighted squad, starting-XI, bench, captain and Triple Captain inclusion shares;
+- pairwise squad and starting-XI co-selection covariance/correlation;
+- mean, median and 90th-percentile squad/XI overlap and squad Jaccard similarity;
+- sample size, observed rank strata, effective sample size and sample-weighting
+  metadata.
+
+These sample inclusion shares are descriptive statistics from the same
+manager-pick sample. They are **not a second EO estimator**: the existing
+rank-stratified EO estimator remains the sole field EO reference and its CSV
+is unchanged. Co-selection covariance/correlation measures binary
+co-occurrence of players across sampled manager portfolios; it is not
+historical player-points covariance, a joint match-outcome distribution, or a
+field-relative score forecast.
+
+The aggregate report retains no manager entry IDs, names, exact ranks or
+individual portfolios. It is provisional because picks may change before
+lock, is not a global census, and remains `decision_weight=0` and
+`production_eligible=false`. The next scheduled predeadline capture will
+provide the first live Gameweek sample for this summary. Until then, the
+summary implementation is covered by deterministic synthetic tests only.
