@@ -189,6 +189,7 @@ def test_m4_assembles_manager_specific_multi_gameweek_transfer_sweep():
     run["manager_context"] = _multi_gameweek_manager_context()
     run["current_player_metadata"] = _multi_gameweek_current_metadata()
     run["player_metadata_provenance"]["row_count"] = len(run["current_player_metadata"])
+    run["player_metadata_provenance"]["raw_sha256"] = "a" * 64
     run["multi_gameweek_forecast_payload"] = _aligned_multi_gameweek_payload(run)
     product = build_personal_squad_product(run)
     diagnostic = product["multi_gameweek_diagnostic"]
