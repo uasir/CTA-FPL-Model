@@ -193,8 +193,6 @@ def assemble_multi_gameweek_squad_diagnostics(
     return {
         "provider_source_id": bundle["provider_source_id"],
         "provider": dict(bundle["provider"]),
-        "forecast_bundle_id": bundle["forecast_bundle_id"],
-        "source_snapshot_ids": list(bundle["source_snapshot_ids"]),
         "model_version": bundle["model_version"],
         "contract_version": bundle["contract_version"],
         "status": "EXPLORATORY_MULTI_GAMEWEEK_SQUAD_SWEEP",
