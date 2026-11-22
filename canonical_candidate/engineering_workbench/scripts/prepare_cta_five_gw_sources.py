@@ -458,14 +458,48 @@ def parallel_understat_fallbacks(
         f"with {min(max(1, workers), 4)} workers",
         flush=True,
     )
-    completed = 0
+    # Probe a few real mapped IDs before scheduling hundreds of requests. This
+    # turns a provider-wide block, parser regression, or endpoint failure into a
+    # short actionable error instead of an hour of identical retries.
+    preflight = []
+    for player_id in player_ids[:3]:
+        result = fetch_player(player_id)
+        preflight.append(result)
+    successful_preflight = [item for item in preflight if item[1] is not None]
+    failed_preflight = [item for item in preflight if item[2] is not None]
+    for player_id, payload, error in successful_preflight:
+        (root / f"{player_id}.json").write_text(
+            json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+    if not successful_preflight and failed_preflight:
+        details = "; ".join(
+            f"{player_id}: {error}" for player_id, _, error in failed_preflight
+        )
+        raise RuntimeError(
+            "Understat fallback preflight failed for the first three mapped player IDs; "
+            f"stopping before bulk acquisition. Errors: {details}"
+        )
+
+    completed = len(preflight)
+    failures.extend(
+        f"player:{player_id}:{error}" for player_id, _, error in failed_preflight
+    )
     with ThreadPoolExecutor(max_workers=min(max(1, workers), 4)) as pool:
-        futures = {pool.submit(fetch_player, player_id): player_id for player_id in player_ids}
+        futures = {
+            pool.submit(fetch_player, player_id): player_id
+            for player_id in player_ids[3:]
+        }
         for future in as_completed(futures):
             player_id, payload, error = future.result()
             completed += 1
             if error is not None:
                 failures.append(f"player:{player_id}:{error}")
+                if len(failures) <= 10:
+                    print(
+                        f"    Understat fallback error {len(failures)}: "
+                        f"player={player_id}; {error}",
+                        flush=True,
+                    )
             elif payload is not None:
                 (root / f"{player_id}.json").write_text(
                     json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8"
@@ -697,8 +731,13 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         for value in seasons
     }
     wanted_ids = sources._needed_understat_ids(raw_dir, seasons)
-    incomplete_players = sources._incomplete_pinned_players(raw_dir, seasons, wanted_ids)
-    missing_team_seasons = sources._incomplete_team_seasons(raw_dir, seasons, team_paths)
+    # Historical seasons are supplied by the pinned, merged archives. Their
+    # residual Understat gaps are retained as missing values and handled by
+    # Dastan's documented feature-builder NaN -> 0 policy; do not issue hundreds
+    # of duplicate live API requests to backfill old seasons. Only current-season
+    # appearances need a live Understat refresh.
+    incomplete_players = sources._incomplete_pinned_players(raw_dir, [season], wanted_ids)
+    missing_team_seasons = sources._incomplete_team_seasons(raw_dir, [season], team_paths)
     sources._fetch_understat_fallbacks(
         raw_dir, sorted(incomplete_players), missing_team_seasons,
         force=False, allow_missing=False,
