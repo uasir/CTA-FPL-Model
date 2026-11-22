@@ -96,7 +96,8 @@ def build_future_rows(bootstrap: dict, fixtures: list[dict], player_map: dict, c
                 "season": season, "date": kickoff, "understat_team": own_us,
                 "is_home": float(is_home), "scored": 0.0, "missed": 0.0,
                 "xG": float(fixture_id * 2 + (0 if is_home else 1)),
-                "xGA": float(fixture_id * 2 + (1 if is_home else 0)),\n                "deep": 0.0, "deep_allowed": 0.0,
+                "xGA": float(fixture_id * 2 + (1 if is_home else 0)),
+                "deep": 0.0, "deep_allowed": 0.0,
                 "ppda_att": 0.0, "ppda_def": 0.0,
                 "ppda_allowed_att": 0.0, "ppda_allowed_def": 0.0, "pts": 0.0,
             })
