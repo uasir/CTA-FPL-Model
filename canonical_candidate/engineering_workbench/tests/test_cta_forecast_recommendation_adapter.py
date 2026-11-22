@@ -98,7 +98,7 @@ def build_bundle(root: Path):
                 "gameweek": gw,
                 "fpl_code": code,
                 "position": position,
-                "expected_points": round(total_points / 5 + index * 0.01, 6),
+                "expected_points": round(total_points / 5, 6),
                 "expected_minutes": total_minutes / 5,
                 "fixture_count": 1,
                 "fixture_ids": 100 + index,
@@ -242,3 +242,23 @@ def test_adapter_marks_old_bundle_stale_without_claiming_validation(tmp_path: Pa
     quality = result["shared_forecast"]["forecast_quality"]
     assert quality["validation_status"] == "EXPLORATORY_ONLY"
     assert quality["data_coverage"]["freshness_status"] == "STALE_OVER_24H"
+
+
+def test_adapter_rejects_five_gameweek_total_that_does_not_match_panels(tmp_path: Path):
+    bundle = build_bundle(tmp_path / "bundle")
+    path = bundle / "forecasts" / "player_five_gw_forecasts.csv"
+    rows = list(csv.DictReader(path.open()))
+    rows[0]["expected_points_5gw"] = "99.0"
+    write_csv(path, rows)
+    with pytest.raises(CTAForecastAdapterError, match="five-GW expected_points does not reconcile"):
+        build_cta_forecast_provider_snapshot(bundle, now_utc="2026-11-22T12:05:00Z")
+
+
+def test_adapter_rejects_gameweek_panel_with_wrong_season(tmp_path: Path):
+    bundle = build_bundle(tmp_path / "bundle")
+    path = bundle / "forecasts" / "player_gameweek_forecasts.csv"
+    rows = list(csv.DictReader(path.open()))
+    rows[0]["season"] = "2025-26"
+    write_csv(path, rows)
+    with pytest.raises(CTAForecastAdapterError, match="season mismatch"):
+        build_cta_forecast_provider_snapshot(bundle, now_utc="2026-11-22T12:05:00Z")
