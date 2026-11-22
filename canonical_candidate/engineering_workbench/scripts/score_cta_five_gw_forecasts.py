@@ -114,7 +114,7 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
         model = xgb.XGBRegressor()
         model.load_model(str(model_path))
         scoring_features, applied_mask = mask_unavailable_features(
-            merged.loc[subset, features], features,
+            merged.loc[subset, features], features, feature_source_mode,
         )
         if applied_mask != expected_mask:
             raise RuntimeError("Unavailable feature mask changed during scoring")
