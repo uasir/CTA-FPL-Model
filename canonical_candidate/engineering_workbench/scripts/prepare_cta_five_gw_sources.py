@@ -338,6 +338,14 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     id_counts = mapped.groupby("understat_player_id")["fpl_code"].nunique()
     shared_ids = sorted(id_counts[id_counts > 1].index.astype(int).tolist())
     unique_mapped = mapped[~mapped["understat_player_id"].astype(int).isin(shared_ids)]
+    safe_mapping = mapping_df.copy()
+    safe_mapping.loc[
+        safe_mapping["understat_player_id"].notna()
+        & safe_mapping["understat_player_id"].astype("Int64").isin(shared_ids),
+        "understat_player_id",
+    ] = pd.NA
+    safe_mapping_path = output_dir / "safe_current_player_mapping.csv"
+    safe_mapping.to_csv(safe_mapping_path, index=False, lineterminator="\\n")
     mapping_report = {
         "roster_players": len(bootstrap.get("elements", [])),
         "mapping_registry_rows": len(mapping_df),
@@ -371,6 +379,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
             "fixtures": {"path": str(fixtures_path), "sha256": sha256(fixtures_path)},
             "canonical_player_matches": {"path": str(player_matches_path), "sha256": sha256(player_matches_path)},
             "canonical_team_matches": {"path": str(team_matches_path), "sha256": sha256(team_matches_path)},
+            "safe_current_player_mapping": {"path": str(safe_mapping_path), "sha256": sha256(safe_mapping_path)},
             "historical_training_frame": {"path": str(training_dir / "features_with_snapshots.parquet"), "sha256": sha256(training_dir / "features_with_snapshots.parquet")},
         },
         "important_boundaries": [
