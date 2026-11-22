@@ -105,6 +105,8 @@ Remaining adapter prerequisites:
 - Exclude target-fixture outcomes and any post-deadline information.
 - Treat official `ep_next` as a benchmark/input only when an archived pre-deadline vintage proves it was available at that deadline.
 
+**DGW feature-state invariant:** All fixtures in a target Gameweek must use one common deadline-anchored player and team history. The Dastan rolling builder shifts match rows; therefore, after target-row construction, CTA explicitly re-anchors the player rolling/availability families to each player's earliest target-fixture row. Date- and opponent-dependent context (rest days, team matches in the preceding 14 days, and opponent allowance features) remains fixture-specific. Team and opponent history is separately re-anchored to the earliest target row for each team. This prevents an earlier dummy fixture in the same DGW from becoming artificial history for a later fixture.
+
 ### C. Forecast model
 
 Build and validate separate components:
