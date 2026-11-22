@@ -203,7 +203,7 @@ def audit_public_field_replays(
                 picks = fetch(f"{BASE_URL}/entry/{entry_id}/event/{event}/picks/")
                 sleep(0.25)
                 case = normalize_official_fpl_replay(
-                    picks, live, bootstrap, event_id=event
+                    picks, live, bootstrap, event_id=event, expected_entry_id=entry_id
                 )
                 result = validate_official_replay_case(case)
             except (OfficialFplFetchError, CovarFplApiReplayAdapterError, CovarFplReplayError, ValueError) as exc:
