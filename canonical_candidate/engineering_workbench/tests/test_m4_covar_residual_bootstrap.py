@@ -7,7 +7,7 @@ def fixture_inputs():
         "bundle_type": "M3_CONVENTIONAL_FORECAST_ONLY_COVAR_INPUT",
         "season": "2026-27", "target_gameweek": 12,
         "as_of_utc": "2026-11-27T08:00:00Z", "deadline_utc": "2026-11-27T11:00:00Z",
-        "first_kickoff_utc": "2026-11-27T12:30:00Z", "forecast_snapshot_id": "m3-gw12",
+        "forecast_snapshot_id": "m3-gw12",
         "model_version": "fplcat-v2", "decision_weight": 0.0, "production_eligible": False,
         "player_forecasts": [
             {"fpl_element_id": 10, "expected_points": 5.0, "expected_minutes": 90},
