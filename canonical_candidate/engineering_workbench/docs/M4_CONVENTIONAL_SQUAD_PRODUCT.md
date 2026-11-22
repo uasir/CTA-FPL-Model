@@ -130,8 +130,17 @@ The site separately advertises a whole-season view and a six-Gameweek prediction
 
 ## M4 actionability gate — 22 Nov 2026
 
-The conventional/CTA personal-squad product adapter now refuses to publish a one-Gameweek optimiser action as an actionable transfer recommendation. Without explicit `multi_gameweek_decision_evidence` marked `VALIDATED_FOR_M4_DECISION`, containing at least five consecutive Gameweeks, distinct source snapshot IDs and an eligible HOLD/TRANSFER decision, the product emits `NOT_DECISION_ELIGIBLE`. The original one-Gameweek action, candidate and proposed XI remain available only under `one_gameweek_preview`; the actionable `best_transfer` and `recommended_squad_plan` are null.
+The conventional/CTA personal-squad product adapter now refuses to publish a one-Gameweek optimiser action as an actionable transfer recommendation. The product emits `NOT_DECISION_ELIGIBLE` until independent multi-Gameweek forecast/outcome validation and governed M4 promotion are complete. Caller-supplied status flags or structural evidence alone cannot unlock a decision. The original one-Gameweek action, candidate and proposed XI remain available only under `one_gameweek_preview`; the actionable `best_transfer` and `recommended_squad_plan` are null.
 
 This prevents a one-week xP comparison from overriding the agreed five-plus-Gameweek investment policy. The gate applies equally to conventional external-benchmark and CTA-informed personal-squad products. It does not change the underlying M3 frozen decision or general CTA rankings. A future multi-Gameweek evaluator must supply the complete validated evidence contract before the product can emit an actionable HOLD/TRANSFER decision.
 
 CI run [45005650584](https://github.com/uasir/CTA-FPL-Model/actions/runs/45005650584) passed on commit `7e07520c08ecf8a575b8f3e4c496eeb5e2938d5f`: **617 Python engineering tests and 3 subtests passed**, with JavaScript recommendation contracts, canonical Python feature-core tests and all four identity crosswalk validations successful.
+
+
+## Five-Gameweek evaluator integration boundary — 22 Nov 2026
+
+- The M4 personal-squad adapter now accepts an explicit `multi_gameweek_transfer_request` and invokes the fixture-level `evaluate_multi_gameweek_transfer_bundle` directly. A successful evaluation is exposed under `multi_gameweek_diagnostic`, including weekly HOLD-vs-TRANSFER deltas, fixture detail, horizon totals, source snapshot IDs and evaluator limitations.
+- This is a diagnostic integration only. The evaluator's action remains descriptive; `decision_weight=0` and `production_eligible=false` are preserved. The product decision remains `NOT_DECISION_ELIGIBLE`, with no actionable transfer or recommended squad plan.
+- Caller-supplied `multi_gameweek_decision_evidence` and status flags can no longer unlock an actionable recommendation. Structural validity of five consecutive forecast panels is not the same as independent forecast/outcome validation or governed M4 promotion.
+- Invalid or incomplete diagnostic requests fail closed with a product-contract error. The existing one-GW recommendation remains isolated in `one_gameweek_preview` and cannot override the multi-GW gate.
+- The integration does not connect a provider feed or create multi-GW forecasts. It only consumes a supplied, provenance-checked bundle; FPL Cat's currently captured one-GW feed and public Sideline Quant next-GW feed remain insufficient inputs.
