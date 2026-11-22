@@ -80,7 +80,8 @@ def audit_mapping(roster: list[dict[str, str]], mapping: list[dict[str, str]], r
         "mapping_codes_not_in_roster": sorted(set(by_code) - {r["fpl_code"].strip() for r in roster}),
         "rows": output_rows,
         "join_policy": "exact fpl_code only; no display-name or fuzzy matching",
-        "understat_join_ready": not shared and not unmapped,\n        "understat_partial_join_usable": bool(mapped_count) and not shared,
+        "understat_join_ready": not shared and not unmapped,
+        "understat_partial_join_usable": bool(mapped_count) and not shared,
     }
 
 
