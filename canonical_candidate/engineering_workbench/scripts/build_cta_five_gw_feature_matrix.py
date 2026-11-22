@@ -236,18 +236,24 @@ def build_matrix(dastan_root: Path, raw_dir: Path, bootstrap_path: Path,
     season_start = int(deadline.year) if deadline.month >= 6 else int(deadline.year) - 1
     season = f"{season_start}-{str(season_start + 1)[-2:]}"
 
-    players_map = dastan_mappings.load_operational_players()
-    clubs_map = dastan_mappings.load_operational_clubs()
+    players_map = pd.read_csv(player_mapping_path, keep_default_na=False)
+    if not {"fpl_code", "understat_player_id", "mapping_status"}.issubset(players_map.columns):
+        raise ValueError("Safe current-player mapping is missing required columns")
+    players_map["understat_player_id"] = pd.to_numeric(players_map["understat_player_id"], errors="coerce")
+    mapped = players_map.dropna(subset=["understat_player_id"])
+    shared_ids = set(mapped.groupby("understat_player_id")["fpl_code"].nunique().loc[lambda x: x > 1].index.astype(int))
     player_map = {}
     for row in players_map.to_dict("records"):
         code = int(row["fpl_code"])
         raw_id = row.get("understat_player_id")
-        understat_id = int(raw_id) if pd.notna(raw_id) else None
+        understat_id = int(float(raw_id)) if raw_id not in (None, "") and pd.notna(raw_id) else None
+        if understat_id in shared_ids:
+            understat_id = None
         player_map[code] = {"understat_id": understat_id, "mapping_status": str(row.get("mapping_status", ""))}
+    club_path = dastan_root / "data" / "mappings" / "current_fpl_understat_clubs.csv"
+    clubs_map = pd.read_csv(club_path, keep_default_na=False)
     club_map = {str(row["club_name"]): row for row in clubs_map.to_dict("records")}
 
-    history_seasons = list(dastan_data.SEASONS) + [season]
-    player_history, team_history, _ = build_canonical_matches(raw_dir, history_seasons)
     future_players, future_teams, coverage = build_future_rows(
         bootstrap, fixtures, player_map, club_map, season, target_gameweeks
     )
@@ -336,7 +342,9 @@ def build_matrix(dastan_root: Path, raw_dir: Path, bootstrap_path: Path,
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dastan-root", type=Path, required=True)
-    parser.add_argument("--raw-dir", type=Path, required=True)
+    parser.add_argument("--canonical-player-matches", type=Path, required=True)
+    parser.add_argument("--canonical-team-matches", type=Path, required=True)
+    parser.add_argument("--player-mapping", type=Path, required=True)
     parser.add_argument("--bootstrap", type=Path, required=True)
     parser.add_argument("--fixtures", type=Path, required=True)
     parser.add_argument("--schema", type=Path, required=True)
@@ -347,8 +355,9 @@ def main() -> int:
     gameweeks = [int(value.strip()) for value in args.target_gameweeks.split(",") if value.strip()]
     if len(gameweeks) != 5:
         parser.error("--target-gameweeks must contain exactly five gameweek IDs")
-    build_matrix(args.dastan_root, args.raw_dir, args.bootstrap, args.fixtures,
-                 args.schema, args.output, args.report, gameweeks)
+    build_matrix(args.dastan_root, args.canonical_player_matches,
+                 args.canonical_team_matches, args.player_mapping, args.bootstrap,
+                 args.fixtures, args.schema, args.output, args.report, gameweeks)
     return 0
 
 
