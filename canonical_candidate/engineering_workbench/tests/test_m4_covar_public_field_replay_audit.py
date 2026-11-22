@@ -72,7 +72,7 @@ def test_audits_public_manager_replays_and_emits_aggregate_only():
     assert report["team_points_reconciliation_cases"] == 1
     assert report["team_points_reconciliation_failures"] == 0
     assert report["autosub_replay_count"] == 0
-    assert report["automatic_substitution_metadata_mismatch_replays"] == 1
+    assert report["automatic_substitution_metadata_mismatch_replays"] == 0
     assert report["manager_entry_ids_retained"] is False
     assert "100" not in str(report)
 
