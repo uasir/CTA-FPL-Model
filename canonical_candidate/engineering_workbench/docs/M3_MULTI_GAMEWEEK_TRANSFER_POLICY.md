@@ -114,3 +114,14 @@ Compare the incoming player's effect on the whole five-Gameweek squad portfolio,
 The report must show the resulting stack before and after the transfer, the affected Gameweeks, the expected-points contribution, and—only when validated joint scenarios exist—the change in portfolio variance/dependence and upside/downside distribution.
 
 Team stacking is therefore an explicit portfolio dimension alongside multi-Gameweek EV, field/EO context, squad legality and transfer flexibility. It remains distinct from CoVar validation: descriptive stacking analysis can be implemented now, but probabilistic dependence adjustments remain gated by joint-forecast validation and approval.
+
+
+## 9. Engineering prototype status — 2026-11-22
+
+A first isolated evaluator prototype now exists at `scripts/multi_gameweek_transfer_evaluator.py`, with focused tests at `tests/test_multi_gameweek_transfer_evaluator.py`. It:
+- Requires at least five consecutive, explicit Gameweek forecast panels and complete forecasts for all current squad players plus the incoming player.
+- Compares a fixed-XI HOLD path with a position-legal transfer path, reports per-Gameweek deltas and cumulative horizon value, and subtracts a hit once where applicable.
+- Reports descriptive same-club defensive and attacking stacks by Gameweek, without fabricating clean-sheet probabilities, correlations or CoVar.
+- Fails closed on incomplete/non-consecutive horizons.
+
+This is an **isolated exploratory prototype**, not yet wired into `personal_squad_engine.py`, the provider forecast adapter, M4 delivery, or the live recommendation workflow. It does not yet optimize future lineups/captaincy, model transfer sequences or future transfer flexibility, or estimate joint outcome distributions. The existing one-Gameweek live recommendation behavior therefore remains unchanged and does not satisfy this policy. Integration is blocked until an approved provider supplies genuine point-in-time forecasts for each future Gameweek (or an explicitly validated multi-Gameweek forecast source is available). The prototype's tests have been added but have not yet been observed passing in CI.
