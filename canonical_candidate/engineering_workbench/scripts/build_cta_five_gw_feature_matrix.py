@@ -329,7 +329,8 @@ def validate_bootstrap_snapshot(bootstrap: dict, first_gameweek: int, deadline: 
 def build_matrix(dastan_root: Path, canonical_player_path: Path,
                  canonical_team_path: Path, player_mapping_path: Path,
                  bootstrap_path: Path, fixtures_path: Path, schema_path: Path,
-                 output: Path, report_path: Path, target_gameweeks: list[int]) -> dict:
+                 source_report_path: Path, output: Path, report_path: Path,
+                 target_gameweeks: list[int]) -> dict:
     sys.path.insert(0, str(dastan_root))
     from dastan.rebuild import features as dastan_features
     build_feature_frame = dastan_features.build_feature_frame
@@ -388,6 +389,8 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
     )
 
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    source_report = json.loads(source_report_path.read_text(encoding="utf-8"))
+    feature_source_mode = source_report.get("feature_source_mode")
     features = schema.get("feature_order")
     if not isinstance(features, list) or len(features) != 286:
         raise ValueError("CTA Dastan feature schema is not 286 features")
@@ -459,7 +462,8 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
         "target_gameweeks": target_gameweeks,
         "rows": len(result),
         "feature_count": len(features),
-        "masked_unavailable_features": unavailable_feature_names(features),
+        "feature_source_mode": feature_source_mode,
+        "masked_unavailable_features": unavailable_feature_names(features, feature_source_mode),
         "feature_schema": schema.get("schema_version"),
         "deadline": deadline.isoformat(),
         "bootstrap_snapshot": snapshot_metadata,
@@ -487,6 +491,7 @@ def main() -> int:
     parser.add_argument("--bootstrap", type=Path, required=True)
     parser.add_argument("--fixtures", type=Path, required=True)
     parser.add_argument("--schema", type=Path, required=True)
+    parser.add_argument("--source-report", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--target-gameweeks", required=True, help="five comma-separated consecutive GW IDs")
