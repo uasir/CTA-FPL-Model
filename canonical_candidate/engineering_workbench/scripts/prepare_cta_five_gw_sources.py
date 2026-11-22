@@ -12,6 +12,7 @@ import argparse
 import csv
 import hashlib
 import json
+import re
 import shutil
 import sys
 import time
@@ -511,6 +512,82 @@ def parallel_understat_fallbacks(
         print(f"  WARNING: {len(failures)} Understat fallbacks remain missing", flush=True)
 
 
+def download_and_merge_pinned_understat_player_histories(
+    raw_dir: Path,
+    seasons: list[str],
+    sources,
+    *,
+    workers: int = 10,
+) -> dict:
+    """Merge Vaastav's separate per-season Understat player CSVs by stable ID.
+
+    The pinned Dastan downloader selects only the latest CSV per player. That
+    discards earlier seasons and causes avoidable live Understat API fallbacks.
+    Assemble every available pinned season before requesting missing histories.
+    """
+    wanted_ids = sources._needed_understat_ids(raw_dir, seasons)
+    season_set = set(seasons)
+    pattern = re.compile(r"^data/(20\\d\\d-\\d\\d)/understat/.+_(\\d+)\\.csv$")
+    selected: dict[int, list[tuple[str, str]]] = {}
+    for source_path in sources._tree(raw_dir, force=False):
+        match = pattern.match(source_path)
+        if not match:
+            continue
+        season, raw_player_id = match.groups()
+        player_id = int(raw_player_id)
+        if season in season_set and player_id in wanted_ids:
+            selected.setdefault(player_id, []).append((season, source_path))
+
+    staging = raw_dir / "vaastav" / "understat" / "player_seasons"
+    jobs = []
+    destinations: dict[int, list[Path]] = {}
+    for player_id, entries in sorted(selected.items()):
+        for season, source_path in sorted(entries):
+            destination = staging / season / Path(source_path).name
+            destinations.setdefault(player_id, []).append(destination)
+            jobs.append((sources.VAASTAV_RAW + source_path, destination))
+    if jobs:
+        sources._download_many(jobs, workers=workers, force=False)
+
+    output_root = raw_dir / "vaastav" / "understat" / "players"
+    output_root.mkdir(parents=True, exist_ok=True)
+    merged_players = merged_rows = 0
+    for player_id, paths in sorted(destinations.items()):
+        frames = [pd.read_csv(path, low_memory=False) for path in paths]
+        frames = [frame for frame in frames if not frame.empty]
+        if not frames:
+            continue
+        combined = pd.concat(frames, ignore_index=True, sort=False)
+        if "id" in combined.columns:
+            combined = combined.drop_duplicates("id", keep="last")
+        else:
+            keys = [column for column in ("date", "h_team", "a_team") if column in combined]
+            if not keys:
+                raise ValueError(f"Understat player {player_id} has no stable match key")
+            combined = combined.drop_duplicates(keys, keep="last")
+        if "date" in combined.columns:
+            combined = combined.sort_values("date", kind="mergesort")
+        combined.to_csv(output_root / f"{player_id}.csv", index=False, lineterminator="\\n")
+        merged_players += 1
+        merged_rows += len(combined)
+
+    report = {
+        "pinned_player_ids_selected": len(selected),
+        "pinned_player_ids_merged": merged_players,
+        "pinned_season_files_downloaded": len(jobs),
+        "pinned_player_match_rows": merged_rows,
+        "season_scope": sorted(season_set),
+        "policy": "merge all pinned per-season player histories before live fallback",
+    }
+    print(
+        "  merged pinned Understat histories: "
+        f"{merged_players:,} players, {len(jobs):,} season files, "
+        f"{merged_rows:,} match rows",
+        flush=True,
+    )
+    return report
+
+
 def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: str,
             workers: int = 10) -> dict:
     sys.path.insert(0, str(dastan_root))
@@ -553,7 +630,17 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     roster_path = write_current_roster(dastan_root, bootstrap, season)
     mapping_release_report = mappings.verify_operational_release()
     patch_identity_resolution(mappings, sources)
-    sources._fetch_understat_fallbacks = parallel_understat_fallbacks
+    # Defer player API fallback until all season-specific pinned histories
+    # have been assembled. The upstream downloader selects only each player's
+    # latest season file, which otherwise causes needless per-player API calls.
+    def defer_player_fallbacks(raw_dir, missing_players, missing_team_seasons, *,
+                               force, allow_missing):
+        return parallel_understat_fallbacks(
+            raw_dir, [], missing_team_seasons,
+            force=force, allow_missing=allow_missing, workers=min(workers, 4),
+        )
+
+    sources._fetch_understat_fallbacks = defer_player_fallbacks
     operational_clubs = mappings.load_operational_clubs()
     dastan_features.FPL_TO_UNDERSTAT.update({
         str(row["club_name"]): str(row["understat_name"])
@@ -569,6 +656,10 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         raise RuntimeError(f"Live FPL season {season} overlaps Dastan's completed training seasons")
     print(f"Downloading pinned source inputs for {seasons}", flush=True)
     sources.download_sources(raw_dir, seasons, workers=workers, force=False, allow_missing_understat=False)
+    sources._fetch_understat_fallbacks = parallel_understat_fallbacks
+    pinned_understat_report = download_and_merge_pinned_understat_player_histories(
+        raw_dir, seasons, sources, workers=workers,
+    )
     download_fixture_schedules(raw_dir, seasons, source_commit)
 
     current_api_report = refresh_current_core(raw_dir, season, bootstrap, fixtures, workers=workers)
@@ -677,6 +768,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "historical_snapshot_safety_buffer": historical_snapshot_buffer_report,
         "fixture_archive_audits": fixture_archive_audits,
         "normalization_reports": normalization_reports,
+        "pinned_understat_player_history_merge": pinned_understat_report,
         "canonical_player_match_rows": len(player_matches),
         "canonical_team_match_rows": len(team_matches),
         "historical_training_rows": len(training_frame),
