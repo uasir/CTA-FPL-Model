@@ -165,6 +165,7 @@ def _autosub_pair_diagnostic(
         "same_pair_count": len(resolver_pairs) == len(api_pairs),
         "final_multiplier_match": result.get("official_multiplier_match"),
         "team_points_reconcile": result.get("official_team_points_reconcile"),
+        "non_scoring_target_ambiguity": result.get("non_scoring_substitution_target_ambiguity", False),
     }
 
 
@@ -223,6 +224,7 @@ def audit_public_field_replays(
     capture_failure_types: dict[str, int] = {}
     autosub_metadata_mismatch_replays = 0
     autosub_player_set_mismatch_replays = 0
+    autosub_target_ambiguity_replays = 0
     autosub_pair_mismatch_diagnostics: list[dict[str, Any]] = []
 
     for event in event_ids:
@@ -276,13 +278,16 @@ def audit_public_field_replays(
             else:
                 mismatch_count += 1
                 event_summary["failed_count"] += 1
-                if not result["official_multiplier_match"]:
+                if not result["official_scoring_equivalence_match"]:
                     validation_failure_types["PICK_MULTIPLIER_MISMATCH"] = validation_failure_types.get("PICK_MULTIPLIER_MISMATCH", 0) + 1
                 if not result["player_points_match"]:
                     validation_failure_types["PLAYER_POINTS_MISMATCH"] = validation_failure_types.get("PLAYER_POINTS_MISMATCH", 0) + 1
                 if not result["active_captain_match"]:
                     validation_failure_types["CAPTAIN_MISMATCH"] = validation_failure_types.get("CAPTAIN_MISMATCH", 0) + 1
-                if result.get("automatic_substitution_player_sets_match") is False:
+                if (
+                    result.get("automatic_substitution_player_sets_match") is False
+                    and not result.get("non_scoring_substitution_target_ambiguity")
+                ):
                     validation_failure_types["AUTOSUB_PLAYER_SET_MISMATCH"] = validation_failure_types.get("AUTOSUB_PLAYER_SET_MISMATCH", 0) + 1
                 if result["official_team_points_reconcile"] is False:
                     validation_failure_types["TEAM_POINTS_MISMATCH"] = validation_failure_types.get("TEAM_POINTS_MISMATCH", 0) + 1
@@ -344,6 +349,7 @@ def audit_public_field_replays(
         "autosub_player_count": autosub_players,
         "automatic_substitution_metadata_mismatch_replays": autosub_metadata_mismatch_replays,
         "automatic_substitution_player_set_mismatch_replays": autosub_player_set_mismatch_replays,
+        "non_scoring_substitution_target_ambiguity_replays": autosub_target_ambiguity_replays,
         "autosub_pair_mismatch_diagnostics": autosub_pair_mismatch_diagnostics,
         "goalkeeper_autosub_count": goalkeeper_autosubs,
         "outfield_autosub_count": outfield_autosubs,
@@ -408,6 +414,7 @@ def main() -> int:
         "autosub_player_count": report["autosub_player_count"],
         "automatic_substitution_metadata_mismatch_replays": report["automatic_substitution_metadata_mismatch_replays"],
         "automatic_substitution_player_set_mismatch_replays": report["automatic_substitution_player_set_mismatch_replays"],
+        "non_scoring_substitution_target_ambiguity_replays": report["non_scoring_substitution_target_ambiguity_replays"],
         "goalkeeper_autosub_count": report["goalkeeper_autosub_count"],
         "outfield_autosub_count": report["outfield_autosub_count"],
         "captain_fallback_count": report["captain_fallback_count"],
