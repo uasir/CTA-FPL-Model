@@ -152,3 +152,23 @@ def test_rejects_metadata_capture_at_or_after_deadline():
             fetch_bytes=lambda url: responses[url],
             clock=lambda: next(times),
         )
+
+
+
+def test_single_gameweek_player_level_capture_is_explicitly_not_multi_gameweek_eligible():
+    provider_raw, bootstrap_raw = fixture_bytes()
+    responses = {FPL_CAT_URL: provider_raw, FPL_BOOTSTRAP_URL: bootstrap_raw}
+    times = iter(["2026-11-20T09:00:00Z", "2026-11-20T09:01:00Z"])
+    result = capture_fpl_cat_snapshot(
+        season="2026-27",
+        fetch_bytes=lambda url: responses[url],
+        clock=lambda: next(times),
+    )
+    capability = result["provider_snapshot"]["multi_gameweek_capability"]
+    assert capability["status"] == "NOT_SUPPORTED_BY_CAPTURE_SCHEMA"
+    assert capability["decision_eligible_for_multi_gameweek"] is False
+    assert capability["available_gameweeks"] == [11]
+    assert capability["available_grain"] == "player_gameweek"
+    assert capability["required_grain"] == "player_fixture"
+    assert "fixture_id" in capability["missing_fields"]
+    assert "explicit_future_gameweek_forecast_panel" in capability["missing_fields"]
