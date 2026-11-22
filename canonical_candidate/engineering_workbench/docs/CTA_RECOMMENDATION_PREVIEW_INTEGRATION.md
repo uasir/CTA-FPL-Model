@@ -16,7 +16,7 @@ The integration emits two distinct products:
 `cta_forecast_recommendation_adapter.py` verifies the CTA candidate bundle, official bootstrap identity mapping, five consecutive Gameweeks, model/source manifest hashes, point-in-time timing and candidate-only safeguards. It emits:
 
 - A five-Gameweek cumulative shared forecast for general-market ranking.
-- Five separate player-Gameweek panels for squad-specific use.
+- Five separate player-Gameweek panels for squad-specific use, with each player's cumulative five-GW points and minutes reconciled to the sum of those panels.
 - Current official price, team, position and FPL element identity on every panel record.
 - Explicit `EXPLORATORY_ONLY`, `decision_weight=0`, `production_eligible=false` and `covar_used=false` metadata.
 
@@ -64,5 +64,5 @@ Optional post-lock EO can be supplied using `--eo-snapshot`. The manager context
 
 ## Tests
 
-- Adapter tests verify the candidate-only bundle, five-GW horizon, stable FPL identity mapping, provenance and optional EO rules.
+- Adapter tests verify the candidate-only bundle, five-GW horizon, stable FPL identity mapping, provenance, optional EO rules, season consistency and exact cumulative-to-panel reconciliation.
 - Runner tests verify both products are emitted with the correct horizons, general rankings run without manager context and remain invariant to changes in personal state, partial manager context is rejected, and neither output gains CoVar decision weight.
