@@ -144,6 +144,33 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
         self.assertTrue(result["official_multiplier_match"])
         self.assertTrue(result["official_team_points_reconcile"])
 
+    def test_zero_point_same_role_autosub_target_ambiguity_is_scoring_equivalent(self):
+        case = replay()
+        for pid in ("p8", "p9", "p14", "p15"):
+            case["player_outcomes"][pid].update({"minutes": 0, "played": False, "fpl_points": 0})
+            case["official_final"]["player_total_points"][pid] = 0
+        case["official_final"]["picks"][8]["multiplier"] = 0
+        case["official_final"]["picks"][12]["multiplier"] = 1
+        case["official_final"]["automatic_subs"] = [
+            {"element_in": "p13", "element_out": "p9", "event": 7},
+        ]
+        case["official_final"]["team_points"] = sum(
+            case["official_final"]["player_total_points"][pick["element"]] * pick["multiplier"]
+            for pick in case["official_final"]["picks"]
+        )
+        result = validate_official_replay_case(case)
+        self.assertEqual(result["status"], "PASS", result)
+        self.assertFalse(result["official_multiplier_match"])
+        self.assertTrue(result["official_scoring_equivalence_match"])
+        self.assertTrue(result["non_scoring_substitution_target_ambiguity"])
+        self.assertEqual(result["non_scoring_substitution_target_roles"], {"MID": 2})
+        self.assertTrue(result["official_team_points_reconcile"])
+
+        case["player_outcomes"]["p9"]["played"] = True
+        rejected = validate_official_replay_case(case)
+        self.assertEqual(rejected["status"], "FAIL", rejected)
+        self.assertFalse(rejected["non_scoring_substitution_target_ambiguity"])
+
     def test_detects_official_autosub_multiplier_mismatch(self):
         case = replay()
         case["official_final"]["picks"][12]["multiplier"] = 1
@@ -296,6 +323,26 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
         self.assertEqual(result["automatic_substitution_metadata_cases"], 1)
         self.assertEqual(result["automatic_substitution_metadata_mismatch_replays"], 1)
         self.assertEqual(result["automatic_substitution_player_set_mismatch_replays"], 1)
+
+    def test_batch_report_counts_zero_point_autosub_target_ambiguity(self):
+        case = replay(event_id=7)
+        for pid in ("p8", "p9", "p14", "p15"):
+            case["player_outcomes"][pid].update({"minutes": 0, "played": False, "fpl_points": 0})
+            case["official_final"]["player_total_points"][pid] = 0
+        case["official_final"]["picks"][8]["multiplier"] = 0
+        case["official_final"]["picks"][12]["multiplier"] = 1
+        case["official_final"]["automatic_subs"] = [
+            {"element_in": "p13", "element_out": "p9", "event": 7},
+        ]
+        case["official_final"]["team_points"] = sum(
+            case["official_final"]["player_total_points"][pick["element"]] * pick["multiplier"]
+            for pick in case["official_final"]["picks"]
+        )
+        result = validate_replay_batch({"replays": [case]})
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["multiplier_mismatch_replays"], 1)
+        self.assertEqual(result["non_scoring_substitution_target_ambiguity_replays"], 1)
+        self.assertEqual(result["scoring_equivalence_mismatch_replays"], 0)
 
     def test_batch_report_keeps_pair_mapping_diagnostic_out_of_scoring_failures(self):
         case = replay(event_id=7)
