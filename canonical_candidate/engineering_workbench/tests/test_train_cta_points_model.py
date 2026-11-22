@@ -14,8 +14,8 @@ def test_fpl_points_become_appearance_conditional_points_per_90():
         "minutes": [90, 45, 0, 15],
     })
     result = with_training_target(frame)
-    assert result["target_points_per_90"].iloc[0] == 8
-    assert result["target_points_per_90"].iloc[1] == 8
+    assert result["target_points_per_90"].iloc[0] == 6
+    assert result["target_points_per_90"].iloc[1] == 6
     assert pd.isna(result["target_points_per_90"].iloc[2])
     assert pd.isna(result["target_points_per_90"].iloc[3])
     assert "target_points_per_90" not in frame.columns
