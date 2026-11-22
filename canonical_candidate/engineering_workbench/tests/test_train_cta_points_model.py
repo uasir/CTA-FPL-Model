@@ -32,5 +32,5 @@ def test_existing_explicit_points_per_90_target_is_preserved():
 
 
 def test_missing_training_target_inputs_fail_clearly():
-    with pytest.raises(ValueError, match="total_points/minutes"):
+    with pytest.raises(ValueError, match="observed FPL points field"):
         with_training_target(pd.DataFrame({"minutes": [90]}))
