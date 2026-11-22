@@ -10,6 +10,7 @@ from build_cta_five_gw_feature_matrix import (
     add_live_snapshot_features,
     anchor_team_features_to_deadline,
     build_future_rows,
+    validate_bootstrap_snapshot,
 )
 
 
@@ -101,3 +102,28 @@ class FiveGWFeatureMatrixTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+def test_bootstrap_snapshot_requires_five_minute_predeadline_margin():
+    deadline = pd.Timestamp("2026-11-28T11:00:00Z")
+    accepted = {
+        "_cta_snapshot": {
+            "gameweek": 13,
+            "captured_at_utc": "2026-11-28T10:54:00Z",
+            "deadline_time": "2026-11-28T11:00:00Z",
+            "safety_buffer_minutes": 5,
+        }
+    }
+    assert validate_bootstrap_snapshot(accepted, 13, deadline)["safety_buffer_minutes"] == 5
+
+    too_late = {
+        "_cta_snapshot": {
+            **accepted["_cta_snapshot"],
+            "captured_at_utc": "2026-11-28T10:56:00Z",
+        }
+    }
+    try:
+        validate_bootstrap_snapshot(too_late, 13, deadline)
+    except ValueError as exc:
+        assert "inside the deadline safety buffer" in str(exc)
+    else:
+        raise AssertionError("snapshot captured inside five-minute buffer was accepted")
