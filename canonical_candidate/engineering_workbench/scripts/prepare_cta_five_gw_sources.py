@@ -63,6 +63,14 @@ def fetch_json(url: str):
     return json.loads(fetch_bytes(url).decode("utf-8"))
 
 
+def player_elements(bootstrap: dict) -> list[dict]:
+    """Return real FPL players only, excluding manager/club entity element types."""
+    return [
+        player for player in bootstrap.get("elements", [])
+        if int(player.get("element_type", 0)) in POSITIONS
+    ]
+
+
 def season_from_bootstrap(bootstrap: dict) -> str:
     deadlines = [
         datetime.fromisoformat(event["deadline_time"].replace("Z", "+00:00"))
@@ -169,10 +177,7 @@ def refresh_current_core(raw_dir: Path, season: str, bootstrap: dict, fixtures: 
     team_by_id = {int(t["id"]): str(t["name"]) for t in bootstrap.get("teams", [])}
     # FPL bootstrap may also contain manager/club entities (element_type 5+).
     # Only the four player positions belong in the player-match archive.
-    players = [
-        player for player in bootstrap.get("elements", [])
-        if int(player.get("element_type", 0)) in POSITIONS
-    ]
+    players = player_elements(bootstrap)
     position_by_element = {
         int(player["id"]): POSITIONS[int(player["element_type"])]
         for player in players
