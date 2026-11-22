@@ -111,6 +111,16 @@ class TestM4CovarFullGameweekScoring(unittest.TestCase):
             [("p1", "p12"), ("p2", "p13")],
         )
 
+    def test_double_gameweek_aggregate_minutes_above_120_are_scored(self):
+        doc = fixture()
+        for scenario in doc["scenarios"]:
+            outcomes = {row["player_id"]: row for row in scenario["player_outcomes"]}
+            outcomes["p2"].update({"minutes": 165, "played": True})
+        result = score_full_gameweek_portfolios(doc)
+        resolution = result["portfolio_results"]["candidate"]["scenario_resolutions"][0]
+        self.assertIn("p2", resolution["resolved_starting_xi"])
+        self.assertEqual(resolution["total_points"], 12.0)
+
     def test_card_only_appearance_blocks_autosub_and_keeps_captain(self):
         doc = fixture()
         for scenario in doc["scenarios"]:
