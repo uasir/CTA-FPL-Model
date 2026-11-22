@@ -177,7 +177,7 @@ def test_parallel_apish_import_fetches_player_and_team_histories(tmp_path, monke
     )
     assert set(team_payload) == {"Arsenal", "Chelsea"}
     usage = json.loads((tmp_path / "understat" / "apish_usage.json").read_text())
-    assert usage["calls_reserved"] == 8
+    assert usage["calls_reserved"] == 7
 
 
 def test_parallel_apish_preflight_stops_before_bulk_on_provider_failure(tmp_path, monkeypatch):
