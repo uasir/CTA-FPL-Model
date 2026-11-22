@@ -181,6 +181,7 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
     automatic_substitution_match = not multiplier_mismatches
     official_automatic_subs = official.get("automatic_subs")
     automatic_substitution_metadata_match = None
+    automatic_substitution_player_sets_match = None
     automatic_substitution_mismatches: list[dict[str, Any]] = []
     if official_automatic_subs is not None and str(lineup.get("active_chip") or "").lower() != "bboost":
         if not isinstance(official_automatic_subs, list):
@@ -200,9 +201,17 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         ]
         if len(actual_pairs) != len(set(actual_pairs)):
             raise CovarFplReplayError("official automatic substitutions contain duplicate pairs")
+        expected_incoming = {incoming for incoming, _ in expected_pairs}
+        expected_outgoing = {outgoing for _, outgoing in expected_pairs}
+        actual_incoming = {incoming for incoming, _ in actual_pairs}
+        actual_outgoing = {outgoing for _, outgoing in actual_pairs}
+        automatic_substitution_player_sets_match = (
+            expected_incoming == actual_incoming
+            and expected_outgoing == actual_outgoing
+        )
         automatic_substitution_metadata_match = sorted(actual_pairs) == sorted(expected_pairs)
         automatic_substitution_match = (
-            automatic_substitution_metadata_match and not multiplier_mismatches
+            automatic_substitution_player_sets_match and not multiplier_mismatches
         )
         if not automatic_substitution_metadata_match:
             automatic_substitution_mismatches.append({
@@ -261,6 +270,7 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         "active_captain_match": not active_captain_mismatch,
         "official_automatic_substitution_match": automatic_substitution_match,
         "automatic_substitution_metadata_match": automatic_substitution_metadata_match,
+        "automatic_substitution_player_sets_match": automatic_substitution_player_sets_match,
         "mismatched_automatic_substitutions": automatic_substitution_mismatches,
         "official_team_points_reconcile": (not team_points_mismatch) if team_points_mismatch is not None else None,
         "team_points_reconciliation_basis": team_points_reconciliation_basis,
@@ -314,6 +324,7 @@ def validate_replay_batch(document: Mapping[str, Any]) -> dict[str, Any]:
         "automatic_substitution_mismatch_replays": sum(row["official_automatic_substitution_match"] is False for row in results),
         "automatic_substitution_metadata_cases": sum(row["automatic_substitution_metadata_match"] is not None for row in results),
         "automatic_substitution_metadata_mismatch_replays": sum(row["automatic_substitution_metadata_match"] is False for row in results),
+        "automatic_substitution_player_set_mismatch_replays": sum(row["automatic_substitution_player_sets_match"] is False for row in results),
         "team_points_reconciliation_cases": sum(row["official_team_points_reconcile"] is not None for row in results),
         "team_points_reconciliation_failures": sum(row["official_team_points_reconcile"] is False for row in results),
         "results": results,
