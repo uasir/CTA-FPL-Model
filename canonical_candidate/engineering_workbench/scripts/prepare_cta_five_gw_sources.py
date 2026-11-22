@@ -445,19 +445,6 @@ def parallel_understat_fallbacks(
         session = getattr(client, "session", None)
         if session is not None:
             original_request = session.request
-            headers = getattr(session, "headers", None)
-            if headers is not None:
-                headers.update({
-                    "User-Agent": (
-                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-                    ),
-                    "Accept": "application/json, text/javascript, */*; q=0.01",
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Referer": "https://understat.com/",
-                    "Origin": "https://understat.com",
-                })
-
             def request_with_timeout(method, url, **kwargs):
                 if kwargs.get("timeout") is None:
                     kwargs["timeout"] = (10, 45)
@@ -794,8 +781,8 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     # Target rolling features need raw match histories, but only for players in
     # the current FPL roster. Restrict acquisition to those stable FPL codes;
     # fetch one complete history only when actual appearance dates are missing.
-    current_operational_players = mappings.load_operational_players()
-    current_fpl_codes = set(current_operational_players["fpl_code"].astype(int))
+    current_roster = mappings.load_roster()
+    current_fpl_codes = set(current_roster["fpl_code"].astype(int))
 
     def current_roster_understat_ids(raw_dir, requested_seasons):
         assignments = mappings.assignments_for_seasons(requested_seasons)
