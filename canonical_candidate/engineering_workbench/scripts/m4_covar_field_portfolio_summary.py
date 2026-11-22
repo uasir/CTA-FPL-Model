@@ -99,7 +99,10 @@ def summarize_field_portfolio_sample(
         raise CovarFieldPortfolioSummaryError("manager entry IDs must be discarded before summarization")
     if metadata.get("evidence_role") != "PRE_DEADLINE_PROVISIONAL_FIELD_ESTIMATE":
         raise CovarFieldPortfolioSummaryError("only pre-deadline provisional field portfolios are admitted")
-    if isinstance(top_players, bool) or top_players < 1 or isinstance(top_pairs, bool) or top_pairs < 1:
+    if (
+        isinstance(top_players, bool) or not isinstance(top_players, int) or top_players < 1
+        or isinstance(top_pairs, bool) or not isinstance(top_pairs, int) or top_pairs < 1
+    ):
         raise CovarFieldPortfolioSummaryError("top_players and top_pairs must be positive integers")
     if int(metadata.get("manager_count", -1)) != len(portfolios):
         raise CovarFieldPortfolioSummaryError("metadata manager_count does not match portfolio sample")
@@ -149,15 +152,22 @@ def summarize_field_portfolio_sample(
         player_positions = portfolio.get("player_positions")
         if not isinstance(player_positions, Mapping) or set(map(str, player_positions)) != set(squad_ids):
             raise CovarFieldPortfolioSummaryError("each portfolio must include positions for all 15 players")
+        normalized_positions = {str(pid): str(role).upper() for pid, role in player_positions.items()}
+        if any(role not in ("GK", "DEF", "MID", "FWD") for role in normalized_positions.values()):
+            raise CovarFieldPortfolioSummaryError("player positions must be GK, DEF, MID or FWD")
         if (
             starting_goalkeeper not in starting_ids
             or str(player_positions.get(starting_goalkeeper, "")).upper() != "GK"
             or str(player_positions.get(reserve_goalkeeper, "")).upper() != "GK"
+            or sum(normalized_positions[pid] == "GK" for pid in starting_ids) != 1
             or any(str(player_positions.get(pid, "")).upper() == "GK" for pid in bench)
         ):
             raise CovarFieldPortfolioSummaryError(
                 "starting and reserve goalkeeper slots must be valid; outfield bench cannot contain a goalkeeper"
             )
+        formation = {role: sum(normalized_positions[pid] == role for pid in starting_ids) for role in ("DEF", "MID", "FWD")}
+        if formation["DEF"] < 3 or formation["MID"] < 2 or formation["FWD"] < 1:
+            raise CovarFieldPortfolioSummaryError("starting XI does not satisfy legal FPL formation minimums")
         captain = str(portfolio.get("captain_id") or "")
         vice = str(portfolio.get("vice_captain_id") or "")
         if captain not in starting_ids or vice not in starting_ids or captain == vice:
@@ -168,6 +178,8 @@ def summarize_field_portfolio_sample(
         chip = portfolio.get("active_chip")
         if chip not in (None, "3xc", "bboost", "freehit", "wildcard"):
             raise CovarFieldPortfolioSummaryError("unsupported active chip")
+        if (chip == "3xc" and multiplier != 3) or (chip != "3xc" and multiplier != 2):
+            raise CovarFieldPortfolioSummaryError("captain multiplier must agree with active chip")
         weight = _finite(portfolio.get("field_weight"), f"portfolios[{index}].field_weight")
         if weight <= 0:
             raise CovarFieldPortfolioSummaryError("field weights must be positive")
