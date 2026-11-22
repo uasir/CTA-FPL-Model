@@ -26,6 +26,7 @@ from m4_covar_field_portfolio_adapter import (
     strip_manager_identifiers_from_manager_picks,
     canonical_artifact_sha256,
 )
+from m4_covar_field_portfolio_summary import summarize_field_portfolio_sample
 
 
 def capture_predeadline(
@@ -169,6 +170,9 @@ def main() -> int:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     if rows:
         manager_portfolio_artifact = metadata.pop("manager_id_stripped_portfolios")
+        metadata["portfolio_structure_summary"] = summarize_field_portfolio_sample(
+            manager_portfolio_artifact
+        )
         if args.manager_portfolio_output is not None:
             manager_portfolio_path = args.manager_portfolio_output
             if not manager_portfolio_path.is_absolute():
