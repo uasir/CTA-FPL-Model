@@ -331,6 +331,11 @@ def test_active_understat_refresh_only_selects_players_with_minutes_and_without_
             assert seasons == ["2026-27"]
             return {101: {"2026-08-15"}, 202: set(), 303: {"2026-09-01"}}
 
+        @staticmethod
+        def _incomplete_pinned_players(raw_dir, seasons, player_ids):
+            assert player_ids == {101}
+            return {101}
+
     cache = tmp_path / "understat" / "players"
     cache.mkdir(parents=True)
     (cache / "303.json").write_text('[{"id": 1}]')
