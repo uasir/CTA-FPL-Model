@@ -171,6 +171,10 @@ class ApiShUnderstatClient:
                         f"API.SH {endpoint} error: {payload.get('error', 'unspecified')}"
                     )
                 return payload
+            except requests.HTTPError:
+                # Authentication, not-found and other non-transient HTTP errors
+                # must fail immediately; do not spend credits retrying them.
+                raise
             except Exception as exc:
                 last_error = exc
                 if attempt < 2:
