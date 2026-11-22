@@ -7,6 +7,7 @@ from prepare_cta_five_gw_sources import (
     historical_source_seasons,
     apply_historical_snapshot_safety_buffer,
     build_fpl_team_matches,
+    merge_understat_team_metrics,
     copy_verified_dastan_release,
     copy_verified_dastan_model_contract,
     copy_dastan_operational_mappings,
@@ -368,3 +369,77 @@ def test_build_fpl_team_matches_uses_fixture_scores_and_stable_team_names():
     assert (home["scored"], home["missed"], home["pts"]) == (2.0, 1.0, 3.0)
     assert (away["scored"], away["missed"], away["pts"]) == (1.0, 2.0, 0.0)
     assert team_matches[["xG", "xGA", "deep", "ppda_att"]].to_numpy().sum() == 0.0
+
+
+def test_merge_understat_team_metrics_preserves_fpl_fixture_identity_and_adds_metrics():
+    import pandas as pd
+
+    fpl = pd.DataFrame([
+        {
+            "season": "2026-27", "fixture": 99,
+            "date": pd.Timestamp("2026-08-15T15:00:00Z"),
+            "understat_team": "Arsenal", "is_home": 1, "opponent": "Chelsea",
+            "scored": 2, "missed": 0, "pts": 3,
+            "xG": 0.0, "xGA": 0.0, "deep": 0.0, "deep_allowed": 0.0,
+            "ppda_att": 0.0, "ppda_def": 0.0,
+            "ppda_allowed_att": 0.0, "ppda_allowed_def": 0.0,
+        },
+        {
+            "season": "2026-27", "fixture": 99,
+            "date": pd.Timestamp("2026-08-15T15:00:00Z"),
+            "understat_team": "Chelsea", "is_home": 0, "opponent": "Arsenal",
+            "scored": 0, "missed": 2, "pts": 0,
+            "xG": 0.0, "xGA": 0.0, "deep": 0.0, "deep_allowed": 0.0,
+            "ppda_att": 0.0, "ppda_def": 0.0,
+            "ppda_allowed_att": 0.0, "ppda_allowed_def": 0.0,
+        },
+    ])
+    understat = pd.DataFrame([
+        {
+            "season": "2026-27", "date": "2026-08-15 15:00:00",
+            "understat_team": "Arsenal", "is_home": 1,
+            "xG": 1.5, "xGA": 0.4, "deep": 10, "deep_allowed": 4,
+            "ppda_att": 8, "ppda_def": 12,
+            "ppda_allowed_att": 12, "ppda_allowed_def": 8,
+        },
+        {
+            "season": "2026-27", "date": "2026-08-15 15:00:00",
+            "understat_team": "Chelsea", "is_home": 0,
+            "xG": 0.4, "xGA": 1.5, "deep": 4, "deep_allowed": 10,
+            "ppda_att": 12, "ppda_def": 8,
+            "ppda_allowed_att": 8, "ppda_allowed_def": 12,
+        },
+    ])
+    merged, report = merge_understat_team_metrics(fpl, understat)
+    assert merged["fixture"].tolist() == [99, 99]
+    assert merged["opponent"].tolist() == ["Chelsea", "Arsenal"]
+    assert merged["xG"].tolist() == [1.5, 0.4]
+    assert report["status"] == "PASS_UNDERSTAT_TEAM_METRIC_JOIN"
+    assert all(value == 1.0 for value in report["metric_coverage"].values())
+
+
+def test_merge_understat_team_metrics_fails_closed_on_low_coverage():
+    import pandas as pd
+    import pytest
+
+    fpl = pd.DataFrame([
+        {
+            "season": "2026-27", "fixture": 99,
+            "date": pd.Timestamp("2026-08-15T15:00:00Z"),
+            "understat_team": "Arsenal", "is_home": 1, "opponent": "Chelsea",
+        },
+        {
+            "season": "2026-27", "fixture": 99,
+            "date": pd.Timestamp("2026-08-15T15:00:00Z"),
+            "understat_team": "Chelsea", "is_home": 0, "opponent": "Arsenal",
+        },
+    ])
+    understat = pd.DataFrame([{
+        "season": "2026-27", "date": "2026-08-15 15:00:00",
+        "understat_team": "Arsenal", "is_home": 1,
+        "xG": 1.5, "xGA": 0.4, "deep": 10, "deep_allowed": 4,
+        "ppda_att": 8, "ppda_def": 12,
+        "ppda_allowed_att": 12, "ppda_allowed_def": 8,
+    }])
+    with pytest.raises(RuntimeError, match="coverage below 95%"):
+        merge_understat_team_metrics(fpl, understat)

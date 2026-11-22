@@ -214,3 +214,74 @@ def test_exact_fixture_opponent_lookup_rejects_non_reciprocal_pairing():
     ])
     with pytest.raises(ValueError, match="non-reciprocal"):
         exact_fixture_opponent_lookup(teams)
+
+
+def test_cta_points_target_adapter_accepts_verified_dastan_observed_labels():
+    from train_cta_points_model import with_training_target
+
+    frame = pd.DataFrame({
+        "target_points": [6.0, 3.0, 0.0],
+        "minutes": [90, 45, 0],
+    })
+    result = with_training_target(frame)
+    assert result.loc[0, "target_points_per_90"] == 4.0
+    assert result.loc[1, "target_points_per_90"] == 4.0
+    assert np.isnan(result.loc[2, "target_points_per_90"])
+
+
+def test_cta_points_target_adapter_retains_fpl_native_column_support():
+    from train_cta_points_model import with_training_target
+
+    frame = pd.DataFrame({
+        "total_points": [8.0, 2.0],
+        "minutes": [90, 30],
+    })
+    result = with_training_target(frame)
+    assert result.loc[0, "target_points_per_90"] == 6.0
+    assert result.loc[1, "target_points_per_90"] == 3.0
+
+
+def test_cta_points_target_adapter_preserves_precomputed_target():
+    from train_cta_points_model import with_training_target
+
+    frame = pd.DataFrame({"target_points_per_90": [1.25]})
+    result = with_training_target(frame)
+    assert result.loc[0, "target_points_per_90"] == 1.25
+
+
+def test_understat_features_are_retained_when_understat_source_mode_is_active():
+    from feature_availability import mask_unavailable_features
+
+    features = ["player_xg_1", "player_fpl_points_1", "team_xg_5"]
+    frame = pd.DataFrame([{
+        "player_xg_1": 0.8,
+        "player_fpl_points_1": 6.0,
+        "team_xg_5": 1.7,
+    }])
+    retained, unavailable = mask_unavailable_features(
+        frame, features, "FPL_UNDERSTAT",
+    )
+    assert retained.loc[0, "player_xg_1"] == 0.8
+    assert retained.loc[0, "team_xg_5"] == 1.7
+    assert retained.loc[0, "player_fpl_points_1"] == 6.0
+    assert unavailable == []
+
+
+def test_player_understat_mode_retains_player_metrics_and_masks_team_metrics():
+    from feature_availability import mask_unavailable_features
+
+    features = ["player_xg_1", "player_xa_5", "team_xg_5", "opp_deep_3"]
+    frame = pd.DataFrame([{
+        "player_xg_1": 0.8,
+        "player_xa_5": 0.4,
+        "team_xg_5": 1.7,
+        "opp_deep_3": 6.0,
+    }])
+    masked, unavailable = mask_unavailable_features(
+        frame, features, "FPL_PLAYER_UNDERSTAT",
+    )
+    assert masked.loc[0, "player_xg_1"] == 0.8
+    assert masked.loc[0, "player_xa_5"] == 0.4
+    assert masked.loc[0, "team_xg_5"] == 0.0
+    assert masked.loc[0, "opp_deep_3"] == 0.0
+    assert unavailable == ["team_xg_5", "opp_deep_3"]

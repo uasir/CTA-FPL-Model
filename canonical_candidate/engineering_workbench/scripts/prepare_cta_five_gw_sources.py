@@ -848,6 +848,61 @@ def build_fpl_team_matches(player_matches: pd.DataFrame, fpl_to_understat) -> pd
     ].sort_values(["season", "date", "understat_team"], kind="mergesort").reset_index(drop=True)
 
 
+def merge_understat_team_metrics(
+    fpl_team_matches: pd.DataFrame,
+    understat_team_matches: pd.DataFrame,
+    *,
+    minimum_coverage: float = 0.95,
+) -> tuple[pd.DataFrame, dict]:
+    """Attach Understat team metrics to exact FPL fixture/team identities."""
+    metrics = [
+        "xG", "xGA", "deep", "deep_allowed",
+        "ppda_att", "ppda_def", "ppda_allowed_att", "ppda_allowed_def",
+    ]
+    required_left = {"season", "fixture", "date", "understat_team", "is_home", "opponent"}
+    required_right = {"season", "date", "understat_team", "is_home", *metrics}
+    missing_left = sorted(required_left - set(fpl_team_matches.columns))
+    missing_right = sorted(required_right - set(understat_team_matches.columns))
+    if missing_left or missing_right:
+        raise ValueError(
+            f"Understat team merge inputs incomplete: fpl={missing_left}, understat={missing_right}"
+        )
+    if understat_team_matches.empty:
+        raise RuntimeError("Understat team history is empty; refusing FPL-only silent fallback")
+
+    left = fpl_team_matches.drop(columns=[name for name in metrics if name in fpl_team_matches]).copy()
+    right = understat_team_matches.copy()
+    left["_match_date"] = pd.to_datetime(left["date"], utc=True, errors="coerce").dt.date
+    right["_match_date"] = pd.to_datetime(right["date"], utc=True, errors="coerce").dt.date
+    left["is_home"] = pd.to_numeric(left["is_home"], errors="raise").astype(int)
+    right["is_home"] = pd.to_numeric(right["is_home"], errors="raise").astype(int)
+    keys = ["season", "_match_date", "understat_team", "is_home"]
+    if left[keys].isna().any().any() or right[keys].isna().any().any():
+        raise ValueError("Understat team merge has incomplete season/date/team/venue keys")
+    if left.duplicated(keys).any() or right.duplicated(keys).any():
+        raise ValueError("Understat team merge keys are not unique by season/date/team/venue")
+
+    merged = left.merge(
+        right[keys + metrics], on=keys, how="left", validate="one_to_one",
+    )
+    coverage = {metric: float(merged[metric].notna().mean()) for metric in metrics}
+    weak = {name: value for name, value in coverage.items() if value < minimum_coverage}
+    if weak:
+        raise RuntimeError(
+            f"Understat team metric coverage below {minimum_coverage:.0%}: {weak}"
+        )
+    merged = merged.drop(columns=["_match_date"])
+    return merged, {
+        "status": "PASS_UNDERSTAT_TEAM_METRIC_JOIN",
+        "fixture_team_rows": len(merged),
+        "understat_source_rows": len(right),
+        "minimum_required_coverage": minimum_coverage,
+        "metric_coverage": coverage,
+        "join_keys": keys,
+        "fixture_identity_source": "official FPL fixture ID and reciprocal opponent mapping",
+    }
+
+
 def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: str,
             workers: int = 10) -> dict:
     sys.path.insert(0, str(dastan_root))
@@ -891,19 +946,91 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     roster_path = write_current_roster(dastan_root, bootstrap, season)
     mapping_release_report = mappings.verify_operational_release()
     patch_identity_resolution(mappings, sources)
-    # Understat returns HTML rather than its documented JSON endpoint. Use
-    # FPL-native player and fixture histories; preserve the 286-column Dastan
-    # interface and mask unavailable Understat inputs consistently for CTA points.
-    sources._needed_understat_ids = lambda raw_dir, requested_seasons: set()
-    sources._latest_player_paths = lambda paths, wanted: {}
-    sources._incomplete_pinned_players = lambda raw_dir, requested_seasons, player_ids: set()
-    sources._incomplete_team_seasons = lambda raw_dir, requested_seasons, team_paths: []
-    sources._team_paths = lambda paths, requested_season: []
-    sources._fetch_understat_fallbacks = (
-        lambda raw_dir, missing_players, missing_team_seasons, *, force, allow_missing: None
-    )
-    sources.load_understat_player_matches = lambda raw_dir, requested_seasons: pd.DataFrame()
-    sources.load_understat_team_matches = lambda raw_dir, requested_seasons: pd.DataFrame()
+    # Prefer pinned Vaastav histories. API.SH is used only when its key is
+    # configured; without it, reconstruct player histories from the season files
+    # already published in the pinned Vaastav repository. Team metrics remain
+    # FPL-native unless API.SH supplies complete team-season histories.
+    apish_fallback_reports = []
+
+    def fetch_understat_fallbacks(
+        fallback_raw_dir, missing_players, missing_team_seasons, *,
+        force, allow_missing,
+    ):
+        if os.environ.get("APISH_KEY"):
+            team_names = (
+                sources._epl_teams(fallback_raw_dir, missing_team_seasons)
+                if missing_team_seasons else {}
+            )
+            result = parallel_understat_fallbacks(
+                fallback_raw_dir, missing_players, missing_team_seasons,
+                force=force, allow_missing=allow_missing, workers=workers,
+                team_names_by_season=team_names,
+            )
+            apish_fallback_reports.append(result)
+            return result
+
+        # The pinned Vaastav tree has season-scoped player CSVs. Dastan's
+        # default downloader selects only the latest file per player; combine
+        # all available requested-season files so the history is not truncated.
+        tree_paths = sources._tree(fallback_raw_dir, force=False)
+        pattern = re.compile(r"^data/(20\d\d-\d\d)/understat/.+_(\d+)\.csv$")
+        wanted = set(int(value) for value in missing_players)
+        requested_seasons = set(seasons)
+        player_sources: dict[int, list[tuple[str, str]]] = {}
+        for source in tree_paths:
+            match = pattern.match(source)
+            if not match:
+                continue
+            source_season, player_id = match.group(1), int(match.group(2))
+            if player_id in wanted and source_season in requested_seasons:
+                player_sources.setdefault(player_id, []).append((source_season, source))
+        parts_root = fallback_raw_dir / "understat" / "pinned_player_parts"
+        jobs = []
+        for player_id, entries in player_sources.items():
+            for source_season, source in entries:
+                destination = parts_root / str(player_id) / f"{source_season}.csv"
+                jobs.append((sources.VAASTAV_RAW + source, destination))
+        if jobs:
+            sources._download_many(jobs, workers=min(workers, 12), force=False)
+
+        player_root = fallback_raw_dir / "vaastav" / "understat" / "players"
+        reconstructed = 0
+        for player_id in sorted(wanted):
+            part_paths = sorted((parts_root / str(player_id)).glob("*.csv"))
+            if not part_paths:
+                continue
+            frames = []
+            for part_path in part_paths:
+                frame = pd.read_csv(part_path, low_memory=False)
+                if "season" not in frame:
+                    start_year = int(part_path.stem.split("-")[0])
+                    frame["season"] = start_year
+                frames.append(frame)
+            combined = pd.concat(frames, ignore_index=True, sort=False)
+            if "date" not in combined:
+                raise RuntimeError(f"Pinned Understat player parts lack date for ID {player_id}")
+            combined = combined.drop_duplicates(["date"], keep="last")
+            destination = player_root / f"{player_id}.csv"
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            combined.to_csv(destination, index=False, lineterminator="\n")
+            reconstructed += 1
+
+        result = {
+            "provider": "VAASTAV_PINNED_MULTI_SEASON",
+            "status": "PASS" if reconstructed else "PARTIAL",
+            "player_histories_requested": len(wanted),
+            "player_histories_reconstructed": reconstructed,
+            "team_seasons_missing": list(missing_team_seasons),
+            "team_metrics_policy": "FPL fixture scores/standings retained; team/opp Understat feature families masked",
+            "api_sh_used": False,
+            "reason": "APISH_KEY is not configured; no paid API calls were attempted",
+        }
+        apish_fallback_reports.append(result)
+        if reconstructed == 0 and wanted and not allow_missing:
+            raise RuntimeError("No pinned Understat player histories could be reconstructed")
+        return result
+
+    sources._fetch_understat_fallbacks = fetch_understat_fallbacks
     operational_clubs = mappings.load_operational_clubs()
     dastan_features.FPL_TO_UNDERSTAT.update({
         str(row["club_name"]): str(row["understat_name"])
@@ -925,11 +1052,11 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     # Understat histories for current-roster players with actual appearances.
     sources.download_sources(
         raw_dir, historical_seasons, workers=workers, force=False,
-        allow_missing_understat=False,
+        allow_missing_understat=True,
     )
     sources.download_sources(
         raw_dir, [season], workers=workers, force=False,
-        allow_missing_understat=False,
+        allow_missing_understat=True,
     )
     download_fixture_schedules(raw_dir, historical_seasons, source_commit)
 
@@ -939,8 +1066,9 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
 
     manifest_path = sources.write_download_manifest(raw_dir, seasons)
     source_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    source_manifest["feature_source_mode"] = "FPL_NATIVE_NO_UNDERSTAT"
-    source_manifest["understat_status"] = "DISABLED_NON_JSON_PROVIDER_RESPONSE"
+    source_manifest["feature_source_mode"] = "FPL_PLAYER_UNDERSTAT"
+    source_manifest["understat_status"] = "PINNED_PLAYER_HISTORIES_WITH_OPTIONAL_API_SH_FALLBACK"
+    source_manifest["understat_fallback_reports"] = apish_fallback_reports
     source_manifest["active_season_overrides"] = {
         "season": season,
         "captured_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -957,16 +1085,31 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         ],
         "history_rows_from_official_api": current_api_report["api_player_fixture_rows"],
     }
-    manifest_path.write_text(json.dumps(source_manifest, indent=2) + "\n", encoding="utf-8")
-    source_manifest_copy = output_dir / "source_download_manifest.json"
-    shutil.copy2(manifest_path, source_manifest_copy)
     dastan_manifest_path = dastan_root / "models" / "artifact_manifest.json"
     dastan_manifest_copy = output_dir / "dastan_artifact_manifest.json"
     shutil.copy2(dastan_manifest_path, dastan_manifest_copy)
 
     print("Building canonical current/historical match tables for target feature generation", flush=True)
-    player_matches, _, player_lookup = sources.build_canonical_matches(raw_dir, seasons)
+    player_matches, understat_team_matches, player_lookup = sources.build_canonical_matches(raw_dir, seasons)
     team_matches = build_fpl_team_matches(player_matches, dastan_features.fpl_to_understat)
+    player_understat_columns = ["us_xG", "us_xA", "us_shots", "us_key_passes"]
+    player_understat_coverage = {
+        name: float(pd.to_numeric(player_matches[name], errors="coerce").notna().mean())
+        for name in player_understat_columns
+    }
+    weak_player_coverage = {name: value for name, value in player_understat_coverage.items() if value < 0.70}
+    feature_source_mode = "FPL_PLAYER_UNDERSTAT" if not weak_player_coverage else "FPL_NATIVE_NO_UNDERSTAT"
+    source_manifest["feature_source_mode"] = feature_source_mode
+    source_manifest["understat_player_metric_coverage"] = player_understat_coverage
+    source_manifest["understat_team_history_rows"] = len(understat_team_matches)
+    source_manifest["team_metrics_policy"] = "FPL fixture scores and standings retained; team/opp Understat feature families masked"
+    source_manifest["understat_status"] = (
+        "PASS_PINNED_PLAYER_HISTORY_RECONSTRUCTION" if not weak_player_coverage
+        else "PARTIAL_PLAYER_HISTORY_FPL_NATIVE_FALLBACK"
+    )
+    manifest_path.write_text(json.dumps(source_manifest, indent=2) + "\n", encoding="utf-8")
+    source_manifest_copy = output_dir / "source_download_manifest.json"
+    shutil.copy2(manifest_path, source_manifest_copy)
     if player_matches.duplicated(["season", "fixture", "fpl_code"]).any():
         raise RuntimeError("Canonical player-match table contains duplicate season-fixture-player keys")
     if team_matches.duplicated(["season", "understat_team", "date"]).any():
@@ -1018,12 +1161,17 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "current_bootstrap_snapshot": bootstrap["_cta_snapshot"],
         "historical_snapshot_safety_buffer": release_import_report["snapshot_safety_buffer"],
         "fixture_archive_audits": fixture_archive_audits,
-        "feature_source_mode": "FPL_NATIVE_NO_UNDERSTAT",
-        "understat_status": "DISABLED_NON_JSON_PROVIDER_RESPONSE",
-        "historical_player_history_source": "Pinned Vaastav FPL match archives plus current official FPL API history",
-        "team_match_source": "FPL fixture scores and standings; Understat xG/deep/PPDA metrics unavailable and zero-filled",
+        "feature_source_mode": feature_source_mode,
+        "understat_status": source_manifest["understat_status"],
+        "understat_fallback_reports": apish_fallback_reports,
+        "understat_player_metric_coverage": player_understat_coverage,
+        "understat_team_history_rows": len(understat_team_matches),
+        "team_metrics_policy": "FPL fixture scores and standings; team/opp Understat feature families masked consistently in training and scoring",
+        "historical_player_history_source": "Pinned Vaastav FPL match archives plus official FPL API history, joined to available Understat player match metrics",
+        "team_match_source": "FPL fixture scores and standings; Understat team metrics are not used in the player-only Understat source mode",
         "masked_unavailable_features": unavailable_feature_names(
-            json.loads((dastan_root / "models" / "feature_cols.json").read_text(encoding="utf-8"))
+            json.loads((dastan_root / "models" / "feature_cols.json").read_text(encoding="utf-8")),
+            feature_source_mode,
         ),
         "canonical_player_match_rows": len(player_matches),
         "canonical_team_match_rows": len(team_matches),
@@ -1054,6 +1202,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
             "Historical point-in-time snapshot artifacts are imported from the verified Dastan release and safety-filtered; no historical fplcache reconstruction is performed.",
             "Current next-GW snapshot values come only from the live official bootstrap; later target GWs receive -1 snapshot sentinels.",
             "Raw player/team match histories are reconstructed only to calculate new target-fixture features; the historical training frame and pre-deadline snapshots are imported directly from Dastan.",
+            "Understat player histories use pinned Vaastav season files reconstructed across seasons; API.SH documented JSON fallback is optional and bounded by a monthly credit guard.",
             "Source acquisition and feature generation do not clear CTA M2 validation or production eligibility.",
         ],
     }

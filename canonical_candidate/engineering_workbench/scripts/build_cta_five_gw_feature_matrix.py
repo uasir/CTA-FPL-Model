@@ -329,7 +329,8 @@ def validate_bootstrap_snapshot(bootstrap: dict, first_gameweek: int, deadline: 
 def build_matrix(dastan_root: Path, canonical_player_path: Path,
                  canonical_team_path: Path, player_mapping_path: Path,
                  bootstrap_path: Path, fixtures_path: Path, schema_path: Path,
-                 output: Path, report_path: Path, target_gameweeks: list[int]) -> dict:
+                 source_report_path: Path, output: Path, report_path: Path,
+                 target_gameweeks: list[int]) -> dict:
     sys.path.insert(0, str(dastan_root))
     from dastan.rebuild import features as dastan_features
     build_feature_frame = dastan_features.build_feature_frame
@@ -388,6 +389,8 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
     )
 
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    source_report = json.loads(source_report_path.read_text(encoding="utf-8"))
+    feature_source_mode = source_report.get("feature_source_mode")
     features = schema.get("feature_order")
     if not isinstance(features, list) or len(features) != 286:
         raise ValueError("CTA Dastan feature schema is not 286 features")
@@ -434,7 +437,7 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
             target[feature] = values.fillna(0.0).astype(float)
         # Keep current FPL-native inference aligned with CTA training: the
         # Understat-derived feature family is unavailable in this source mode.
-        target, _masked = mask_unavailable_features(target, features)
+        target, _masked = mask_unavailable_features(target, features, feature_source_mode)
         element_column = "element_target" if "element_target" in target.columns else "element"
         if element_column not in target.columns:
             raise RuntimeError(f"GW{gw}: feature builder lost FPL element identity")
@@ -459,7 +462,8 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
         "target_gameweeks": target_gameweeks,
         "rows": len(result),
         "feature_count": len(features),
-        "masked_unavailable_features": unavailable_feature_names(features),
+        "feature_source_mode": feature_source_mode,
+        "masked_unavailable_features": unavailable_feature_names(features, feature_source_mode),
         "feature_schema": schema.get("schema_version"),
         "deadline": deadline.isoformat(),
         "bootstrap_snapshot": snapshot_metadata,
@@ -487,6 +491,7 @@ def main() -> int:
     parser.add_argument("--bootstrap", type=Path, required=True)
     parser.add_argument("--fixtures", type=Path, required=True)
     parser.add_argument("--schema", type=Path, required=True)
+    parser.add_argument("--source-report", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--target-gameweeks", required=True, help="five comma-separated consecutive GW IDs")
@@ -496,7 +501,7 @@ def main() -> int:
         parser.error("--target-gameweeks must contain exactly five gameweek IDs")
     build_matrix(args.dastan_root, args.canonical_player_matches,
                  args.canonical_team_matches, args.player_mapping, args.bootstrap,
-                 args.fixtures, args.schema, args.output, args.report, gameweeks)
+                 args.fixtures, args.schema, args.source_report, args.output, args.report, gameweeks)
     return 0
 
 
