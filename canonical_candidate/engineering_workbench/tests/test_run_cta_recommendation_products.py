@@ -143,16 +143,19 @@ def test_general_cta_rankings_are_invariant_to_manager_context(monkeypatch):
         runner, "build_cta_forecast_provider_snapshot",
         lambda *args, **kwargs: copy.deepcopy(adapted),
     )
-    general_only = runner.run_cta_recommendation_products("/unused-bundle")["general_cta_market"]
+    general_only_result = runner.run_cta_recommendation_products("/unused-bundle")
+    general_only = general_only_result["general_cta_market"]
+    weekly_only = general_only_result["gameweek_cta_markets"]
     manager_a = _manager_context()
     manager_b = _manager_context()
     manager_b["bank"] = 12.3
     manager_b["free_transfers"] = 5
     manager_b["personal_risk_profile"] = "conservative"
     manager_b["squad_snapshot"] = list(reversed(manager_b["squad_snapshot"]))
-    output_a = runner.run_cta_recommendation_products("/unused-bundle", manager_a)["general_cta_market"]
-    output_b = runner.run_cta_recommendation_products("/unused-bundle", manager_b)["general_cta_market"]
-    assert general_only == output_a == output_b
+    result_a = runner.run_cta_recommendation_products("/unused-bundle", manager_a)
+    result_b = runner.run_cta_recommendation_products("/unused-bundle", manager_b)
+    assert general_only == result_a["general_cta_market"] == result_b["general_cta_market"]
+    assert weekly_only == result_a["gameweek_cta_markets"] == result_b["gameweek_cta_markets"]
 
 
 def test_cta_runner_rejects_incomplete_manager_context(monkeypatch):
