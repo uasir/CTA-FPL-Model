@@ -385,7 +385,13 @@ def apply_historical_snapshot_safety_buffer(training_dir: Path, minutes: int = 5
         if frame.empty:
             raise RuntimeError(f"{stem}: no rows survive the {minutes}-minute safety buffer")
         frame.to_parquet(parquet_path, index=False)
-        sidecar = json.loads(report_path.read_text(encoding="utf-8"))
+        sidecar = (
+            json.loads(report_path.read_text(encoding="utf-8"))
+            if report_path.is_file() else {
+                "source": "imported Dastan release artifact",
+                "release_artifact": str(parquet_path.name),
+            }
+        )
         sidecar["rows_before_cta_safety_buffer"] = before
         sidecar["rows"] = len(frame)
         sidecar["cta_deadline_safety_buffer"] = {
