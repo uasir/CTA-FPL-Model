@@ -25,6 +25,19 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def scale_points_per_90(points_per_90, expected_minutes) -> np.ndarray:
+    """Convert conditional points-per-90 into fixture expected points."""
+    rate = np.asarray(points_per_90, dtype=np.float64)
+    minutes = np.asarray(expected_minutes, dtype=np.float64)
+    if rate.shape != minutes.shape:
+        raise ValueError("points-per-90 and expected-minutes arrays must have matching shapes")
+    if not np.isfinite(rate).all():
+        raise ValueError("points-per-90 predictions must be finite")
+    if not np.isfinite(minutes).all() or (minutes < 0).any() or (minutes > 90).any():
+        raise ValueError("expected minutes must be finite and within [0, 90]")
+    return rate * minutes / 90.0
+
+
 def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
           source_report_path: Path, feature_report_path: Path,
           minutes_report_path: Path, model_dir: Path, output_dir: Path) -> dict:
@@ -92,10 +105,10 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
         expected_minutes = pd.to_numeric(
             merged.loc[subset, "expected_minutes"], errors="coerce"
         ).to_numpy(dtype=np.float64)
-        if not np.isfinite(expected_minutes).all() or (expected_minutes < 0).any() or (expected_minutes > 90).any():
-            raise ValueError(f"{position}: expected minutes must be finite and within [0, 90]")
         merged.loc[subset, "cta_expected_points_per_90"] = points_per_90
-        merged.loc[subset, "cta_expected_points"] = points_per_90 * expected_minutes / 90.0
+        merged.loc[subset, "cta_expected_points"] = scale_points_per_90(
+            points_per_90, expected_minutes,
+        )
         model_hashes[position] = expected_hash
     if merged["cta_expected_points"].isna().any():
         raise ValueError("Some fixture rows did not receive a CTA points prediction")
