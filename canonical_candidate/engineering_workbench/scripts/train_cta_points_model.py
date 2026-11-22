@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 
-from feature_availability import mask_unavailable_features, unavailable_feature_names
+from feature_availability import (\n    FPL_NATIVE_MODE, mask_unavailable_features, unavailable_feature_names,\n)
 
 POSITIONS = ("GKP", "DEF", "MID", "FWD")
 
@@ -85,7 +85,7 @@ def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
     if frame.duplicated(["season", "gameweek", "fixture", "fpl_code"]).any():
         raise ValueError("Training frame has duplicate player-fixture keys")
     output_dir.mkdir(parents=True, exist_ok=True)
-    masked_features = unavailable_feature_names(features)
+    masked_features = unavailable_feature_names(features, feature_source_mode)
     report_positions = {}
     for position in POSITIONS:
         rows = frame[frame["position"].astype(str).eq(position)].copy()
@@ -93,7 +93,7 @@ def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
         rows = rows[rows["target_points_per_90"].notna()]
         if len(rows) < 500:
             raise ValueError(f"{position}: insufficient training rows ({len(rows)})")
-        train_features, applied_mask = mask_unavailable_features(rows[features], features)
+        train_features, applied_mask = mask_unavailable_features(rows[features], features, feature_source_mode)
         if applied_mask != masked_features:
             raise RuntimeError("Unavailable feature mask changed between position partitions")
         X = train_features.apply(pd.to_numeric, errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
@@ -140,7 +140,7 @@ def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
         "status": "CANDIDATE_TRAINED_M2_VALIDATION_PENDING",
         "model_family": "CTA-owned position-specific XGBoost conditional non-appearance points-per-90 regression; multiplied by Dastan expected minutes at scoring",
         "feature_count": len(features),
-        "feature_source_mode": "FPL_NATIVE_NO_UNDERSTAT",
+        "feature_source_mode": feature_source_mode,
         "masked_unavailable_feature_count": len(masked_features),
         "masked_unavailable_features": masked_features,
         "feature_order_sha256": hashlib.sha256("\n".join(features).encode()).hexdigest(),
@@ -170,7 +170,7 @@ def main() -> int:
     args = parser.parse_args()
     frame = pd.read_parquet(args.training_frame)
     schema = json.loads(args.schema.read_text(encoding="utf-8"))
-    report = train_models(frame, schema["feature_order"], args.model_dir, args.training_frame)
+    report = train_models(\n        frame, schema["feature_order"], args.model_dir, args.training_frame,\n        json.loads(args.source_report.read_text(encoding="utf-8"))["feature_source_mode"],\n    )
     print(json.dumps(report, indent=2))
     return 0
 
