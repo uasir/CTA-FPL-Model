@@ -146,3 +146,12 @@ CI run [45005650584](https://github.com/uasir/CTA-FPL-Model/actions/runs/4500565
 - The integration does not connect a provider feed or create multi-GW forecasts. It only consumes a supplied, provenance-checked bundle; FPL Cat's currently captured one-GW feed and public Sideline Quant next-GW feed remain insufficient inputs.
 
 CI run [45006811321](https://github.com/uasir/CTA-FPL-Model/actions/runs/45006811321) passed on the evaluator-integration code commit: **619 Python engineering tests and 3 subtests passed**, plus JavaScript recommendation contracts, canonical Python feature-core tests and all four identity crosswalk validations. The subsequent documentation-only commit does not change tested code.
+
+
+## Manager-aware five-Gameweek request assembly — 22 Nov 2026
+
+- Added `multi_gameweek_squad_request_assembler.py`. It first validates the raw multi-Gameweek payload with the canonical fixture-level forecast contract, then builds a manager-specific transfer sweep from the actual 15-player squad, fixed current starting XI, bank, free transfers, purchase prices and current player prices.
+- The assembler enumerates affordable, same-position outfield transfers, excludes goalkeeper sales, checks current metadata against forecast position/team identity, and runs each candidate through the existing HOLD-vs-transfer evaluator. The evaluator remains responsible for squad legality, club limits, affordability and fixture-to-Gameweek reconciliation.
+- The result contains every candidate evaluation, the highest net horizon-xP diagnostic, skipped-candidate counts and the exact manager/forecast snapshot context. It does not select a production transfer; decision weight remains zero and production eligibility false.
+- The external benchmark runner now preserves manager context and current player metadata in its run artifact. The M4 product adapter invokes the assembler when supplied an explicit `multi_gameweek_forecast_payload`; missing manager or price metadata fails closed. A preassembled low-level evaluator request remains available for contract-level tests.
+- The assembler does not extrapolate the one-GW provider feed. It requires a raw payload that passes the existing five-plus-GW, fixture-grain, point-in-time and provenance contract. Current FPL Cat and public Sideline Quant one-GW feeds remain ineligible for this path.
