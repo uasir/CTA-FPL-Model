@@ -18,7 +18,6 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_fetch.py"
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_batch.py"
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_replay_validation.py"
-      - "canonical_candidate/engineering_workbench/scripts/m4_covar_lineup_resolver.py"
       - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_adapter.py"
       - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_fetch.py"
       - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_batch.py"
