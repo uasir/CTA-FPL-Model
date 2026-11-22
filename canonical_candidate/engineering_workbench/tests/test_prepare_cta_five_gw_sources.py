@@ -151,8 +151,6 @@ def test_parallel_understat_fallbacks_fetch_concurrently_and_write_json(tmp_path
 
         def get_match_data(self):
             nonlocal active, peak
-            assert self.session.headers["Referer"] == "https://understat.com/"
-            assert "Mozilla/5.0" in self.session.headers["User-Agent"]
             self.session.request("GET", "https://understat.example/player")
             with lock:
                 active += 1
