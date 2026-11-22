@@ -31,12 +31,9 @@ class FixtureArchiveAuditTests(unittest.TestCase):
         self.assertEqual(report["fixture_summaries"][0]["zero_minute_rows"], 1)
 
     def test_finished_fixture_without_player_rows_fails(self):
-        # A non-empty archive from another fixture keeps the input contract valid.
-        other = dict(FIXTURES[0], id="11")
-        row = dict(ROWS[0], fixture="11", team="Arsenal", opponent_team="2")
-        report = audit_archive([row], FIXTURES + [other], TEAMS, "2026-27")
+        report = audit_archive([], FIXTURES, TEAMS, "2026-27")
         self.assertEqual(report["status"], "FAIL_FIXTURE_ARCHIVE_AUDIT")
-        self.assertIn("10", report["finished_fixtures_missing_player_rows"])
+        self.assertEqual(report["finished_fixtures_missing_player_rows"], ["10"])
 
     def test_duplicate_player_fixture_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "duplicate fixture/player"):
