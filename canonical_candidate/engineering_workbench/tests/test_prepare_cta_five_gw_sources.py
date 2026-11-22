@@ -6,6 +6,7 @@ from prepare_cta_five_gw_sources import (
     understat_players_needing_refresh,
     historical_source_seasons,
     apply_historical_snapshot_safety_buffer,
+    build_fpl_team_matches,
     copy_verified_dastan_release,
     copy_verified_dastan_model_contract,
     copy_dastan_operational_mappings,
@@ -140,20 +141,21 @@ def test_parallel_apish_import_fetches_player_and_team_histories(tmp_path, monke
                 "a_team": "Chelsea",
             }], 1
 
-        def team_history(self, team_name, season):
-            return [{
-                "date": "2025-08-15 15:00:00",
-                "h_a": "h",
-                "scored": 2,
-                "missed": 0,
-                "xG": 1.5,
-                "xGA": 0.4,
-                "deep": 10,
-                "deep_allowed": 4,
-                "ppda": 8,
-                "ppda_allowed": 12,
-                "pts": 3,
-            }], 1
+        def league_team_histories(self, season):
+            return {
+                "Arsenal": {"title": "Arsenal", "history": [{
+                    "date": "2025-08-15 15:00:00", "h_a": "h",
+                    "scored": 2, "missed": 0, "xG": 1.5, "xGA": 0.4,
+                    "deep": 10, "deep_allowed": 4, "ppda": 8,
+                    "ppda_allowed": 12, "pts": 3,
+                }]},
+                "Chelsea": {"title": "Chelsea", "history": [{
+                    "date": "2025-08-15 15:00:00", "h_a": "a",
+                    "scored": 0, "missed": 2, "xG": 0.4, "xGA": 1.5,
+                    "deep": 4, "deep_allowed": 10, "ppda": 12,
+                    "ppda_allowed": 8, "pts": 0,
+                }]},
+            }, 1
 
     monkeypatch.setattr(provider, "ApiShUnderstatClient", FakeClient)
     report = parallel_understat_fallbacks(
@@ -166,7 +168,7 @@ def test_parallel_apish_import_fetches_player_and_team_histories(tmp_path, monke
     assert report["provider"] == "API.SH"
     assert report["player_histories_fetched"] == 6
     assert report["team_histories_fetched"] == 2
-    assert report["credits_reserved"] == 8
+    assert report["credits_reserved"] == 7
     for player_id in [11, 12, 13, 14, 15, 16]:
         path = tmp_path / "understat" / "players" / f"{player_id}.json"
         assert json.loads(path.read_text())[0]["h_team"] == "Arsenal"
