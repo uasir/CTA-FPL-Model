@@ -48,7 +48,11 @@ def test_conventional_product_exposes_ev_decision_and_source_provenance_only():
     assert product["product_status"] == "EXPLORATORY_PREVIEW"
     assert product["release_eligible"] is False
     assert product["decision"]["basis"] == "CONVENTIONAL_EXPECTED_POINTS_ONLY"
-    assert product["decision"]["action"] == run["recommendation"]["transfer_recommendation"]["action"]
+    assert product["decision"]["action"] == "NOT_DECISION_ELIGIBLE"
+    assert product["decision"]["scope"] == "ONE_GAMEWEEK_DIAGNOSTIC_ONLY"
+    assert product["decision"]["best_transfer"] is None
+    assert product["decision"]["recommended_squad_plan"] is None
+    assert product["decision"]["one_gameweek_preview"]["action"] == run["recommendation"]["transfer_recommendation"]["action"]
     assert product["decision"]["current_squad_plan"] == run["recommendation"]["current_squad_plan"]
     assert product["forecast"]["provider"]["name"] == "FPL Cat"
     assert product["forecast"]["source_run_type"] == "EXTERNAL_BENCHMARK_PERSONAL_SQUAD"
@@ -67,6 +71,8 @@ def test_m4_product_contract_accepts_cta_source_run_shape_without_promoting_it()
     assert product["forecast"]["source_run_type"] == "CTA_MODEL_PERSONAL_SQUAD"
     assert product["product_id"] == "cta_informed_personal_squad"
     assert product["decision"]["basis"] == "CTA_MODEL_EXPECTED_POINTS_ONLY"
+    assert product["decision"]["action"] == "NOT_DECISION_ELIGIBLE"
+    assert product["decision"]["best_transfer"] is None
     assert product["forecast"]["provider"]["name"] == "CTA-FPL"
     assert product["release_eligible"] is False
     assert "CTA forecast validation is pending." in product["release_blockers"]
@@ -102,7 +108,8 @@ def test_m4_attaches_five_gameweek_team_exposure_as_diagnostic_only():
     product = build_personal_squad_product(run)
     assert product["team_exposure_context"]["horizon_size"] == 5
     assert product["excluded_context"]["team_exposure"] == "DIAGNOSTIC_ONLY_NOT_PART_OF_CONVENTIONAL_SCORE"
-    assert product["decision"]["action"] == run["recommendation"]["transfer_recommendation"]["action"]
+    assert product["decision"]["action"] == "NOT_DECISION_ELIGIBLE"
+    assert product["decision"]["best_transfer"] is None
 
 
 @pytest.mark.parametrize("mutation, message", [
@@ -124,3 +131,44 @@ def test_m4_rejects_invalid_team_exposure_context(mutation, message):
     run["team_exposure_context"].update(mutation)
     with pytest.raises(ConventionalSquadProductError, match=message):
         build_personal_squad_product(run)
+
+
+
+def test_five_gameweek_action_requires_explicit_validated_consecutive_snapshot_evidence():
+    run = _run()
+    run["multi_gameweek_decision_evidence"] = {
+        "status": "VALIDATED_FOR_M4_DECISION",
+        "decision_eligible": True,
+        "horizon_gameweeks": 5,
+        "gameweeks": [12, 13, 14, 15, 16],
+        "source_snapshot_ids": ["s12", "s13", "s14", "s15", "s16"],
+        "decision": {"action": "HOLD", "hit_cost_points_applied": 0},
+    }
+    product = build_personal_squad_product(run)
+    assert product["decision"]["action"] == "HOLD"
+    assert product["decision"]["scope"] == "MULTI_GAMEWEEK_HOLD_VS_TRANSFER"
+    assert product["decision"]["decision_eligibility"]["status"] == "VALIDATED_FOR_M4_DECISION"
+    assert "one_gameweek_preview" not in product["decision"]
+
+
+@pytest.mark.parametrize("mutation", [
+    {"gameweeks": [12, 13, 14, 16, 17]},
+    {"source_snapshot_ids": ["same", "same", "s14", "s15", "s16"]},
+    {"horizon_gameweeks": 4},
+    {"decision_eligible": False},
+])
+def test_incomplete_multi_gameweek_evidence_cannot_unlock_actionable_transfer(mutation):
+    run = _run()
+    evidence = {
+        "status": "VALIDATED_FOR_M4_DECISION",
+        "decision_eligible": True,
+        "horizon_gameweeks": 5,
+        "gameweeks": [12, 13, 14, 15, 16],
+        "source_snapshot_ids": ["s12", "s13", "s14", "s15", "s16"],
+        "decision": {"action": "HOLD"},
+    }
+    evidence.update(mutation)
+    run["multi_gameweek_decision_evidence"] = evidence
+    product = build_personal_squad_product(run)
+    assert product["decision"]["action"] == "NOT_DECISION_ELIGIBLE"
+    assert product["decision"]["best_transfer"] is None
