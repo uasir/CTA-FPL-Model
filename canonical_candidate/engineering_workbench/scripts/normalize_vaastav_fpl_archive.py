@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 POSITION_BY_ELEMENT_TYPE = {"1": "GKP", "2": "DEF", "3": "MID", "4": "FWD"}
-MATCH_FIELDS = (
+CORE_MATCH_FIELDS = ("minutes", "total_points")\nOPTIONAL_MATCH_FIELDS = (
     "xP", "assists", "bonus", "bps", "clean_sheets", "creativity",
     "expected_assists", "expected_goal_involvements", "expected_goals",
     "expected_goals_conceded", "goals_conceded", "goals_scored", "ict_index",
@@ -178,7 +178,7 @@ def normalize_archive(
         "identity_join": "merged_gw.element -> season players_raw.id -> stable players_raw.code",
         "name_matching": "NOT_USED",
         "position_normalization": "GK -> GKP; validated against players_raw.element_type",
-        "source_completeness": "No missing fixture/player rows are inferred; archive coverage must be checked separately",
+        "source_completeness": "No missing fixture/player rows are inferred; archive coverage must be checked separately",\n        "unavailable_optional_match_columns": sorted(set(OPTIONAL_MATCH_FIELDS) - set(merged[0])),\n        "optional_column_policy": "Preserve available source values; leave unavailable historical columns blank and report them explicitly",
     }
     return output, report
 
