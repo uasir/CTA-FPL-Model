@@ -53,6 +53,35 @@ Important integration constraints:
 - The released minutes calibration is fitted on a 2025-26 GW31-38 packaging holdout. Preserve that fact in provenance and test calibration drift on current-season data; do not present it as a newly calibrated CTA model.
 - Dastan's 2026-27 roster mapping is not itself proof that every active player can be scored. Report unmapped/missing-feature coverage explicitly and fail closed for unsupported rows.
 
+
+## 3A. Dastan minutes adapter — first implementation slice
+
+Pinned the upstream ordered 286-column feature contract in
+`config/dastan_minutes_feature_schema.json`, including the upstream feature-file
+blob SHA, MIT attribution, model version and production artifact source commit.
+The schema preserves the upstream feature order exactly.
+
+Added `scripts/build_dastan_minutes_input.py` and focused tests. This adapter
+validates player-fixture identity, position, all 286 numeric features, finite values,
+and duplicate keys, then emits the ordered input matrix. It is deliberately
+**schema-only**: it does not load model weights or claim to predict minutes.
+
+A material upstream ambiguity was identified and is now a blocking integration
+item: `docs/FEATURES.md` says missing feature values are `-1`, while
+`dastan/predictor.py` currently calls `.fillna(0.0)` before inference. CTA's
+adapter therefore rejects missing values rather than silently choosing either
+convention. Resolve this against the exact training/rebuild pipeline before
+connecting the released classifiers.
+
+Remaining adapter prerequisites:
+- Reproduce all feature families, including OpenFPL rolling player/team/opponent
+  values, availability-history features, and defensive-contribution features.
+- Audit the 2026-27 player-to-Understat mapping and quantify unsupported players.
+- Confirm feature missingness and scaling semantics against the model's training
+  frame and exact artifact version.
+- Import only the four `p60_{GKP,DEF,MID,FWD}` heads and minutes calibration,
+  with hashes and upstream licence notice; do not load Dastan points heads.
+
 ## 4. Forecast architecture
 
 ### A. Data and identity layer
