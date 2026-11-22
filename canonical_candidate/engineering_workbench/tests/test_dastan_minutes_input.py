@@ -10,8 +10,8 @@ class DastanMinutesInputTests(unittest.TestCase):
     def setUp(self):
         self.schema = {
             "schema_version": "1.0.0",
-            "feature_count": 2,
-            "feature_order": ["feature_a", "feature_b"],
+            "feature_count": 4,
+            "feature_order": ["feature_a", "feature_b", "ar_ep_next", "sig_status_risk"],
             "upstream": {"feature_cols_blob_sha": "pinned"},
         }
         self.row = {
@@ -20,19 +20,23 @@ class DastanMinutesInputTests(unittest.TestCase):
             "position": "MID",
             "feature_a": "1.25",
             "feature_b": "-1",
+            "ar_ep_next": "",
+            "sig_status_risk": "0",
         }
 
     def test_orders_and_accepts_complete_numeric_features(self):
         rows, report = build_rows([self.row], self.schema)
-        self.assertEqual(list(rows[0]), ["fpl_element_id", "fixture_id", "position", "feature_a", "feature_b"])
+        self.assertEqual(list(rows[0]), ["fpl_element_id", "fixture_id", "position", "feature_a", "feature_b", "ar_ep_next", "sig_status_risk"])
         self.assertEqual(rows[0]["feature_b"], -1.0)
+        self.assertEqual(rows[0]["ar_ep_next"], -1.0)
+        self.assertEqual(report["missing_value_policy"]["snapshot_absence_sentinel"], -1.0)
         self.assertEqual(report["status"], "PASS_SCHEMA_ONLY_NOT_MODEL_VALIDATION")
 
-    def test_rejects_missing_feature_instead_of_imputing(self):
-        row = dict(self.row)
-        row["feature_b"] = ""
-        with self.assertRaisesRegex(ValueError, "missing feature value"):
-            build_rows([row], self.schema)
+    def test_residual_missing_feature_is_zero_filled(self):
+        row = dict(self.row, feature_a="")
+        rows, report = build_rows([row], self.schema)
+        self.assertEqual(rows[0]["feature_a"], 0.0)
+        self.assertEqual(report["missing_value_policy"]["residual_nan_fills"], 1)
 
     def test_rejects_duplicate_player_fixture(self):
         with self.assertRaisesRegex(ValueError, "duplicate player-fixture"):
