@@ -1066,8 +1066,8 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
 
     manifest_path = sources.write_download_manifest(raw_dir, seasons)
     source_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    source_manifest["feature_source_mode"] = "FPL_UNDERSTAT"
-    source_manifest["understat_status"] = "PINNED_VAASTAV_WITH_API_SH_FALLBACK"
+    source_manifest["feature_source_mode"] = "FPL_PLAYER_UNDERSTAT"
+    source_manifest["understat_status"] = "PINNED_PLAYER_HISTORIES_WITH_OPTIONAL_API_SH_FALLBACK"
     source_manifest["understat_fallback_reports"] = apish_fallback_reports
     source_manifest["active_season_overrides"] = {
         "season": season,
@@ -1085,27 +1085,31 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         ],
         "history_rows_from_official_api": current_api_report["api_player_fixture_rows"],
     }
-    manifest_path.write_text(json.dumps(source_manifest, indent=2) + "\n", encoding="utf-8")
-    source_manifest_copy = output_dir / "source_download_manifest.json"
-    shutil.copy2(manifest_path, source_manifest_copy)
     dastan_manifest_path = dastan_root / "models" / "artifact_manifest.json"
     dastan_manifest_copy = output_dir / "dastan_artifact_manifest.json"
     shutil.copy2(dastan_manifest_path, dastan_manifest_copy)
 
     print("Building canonical current/historical match tables for target feature generation", flush=True)
     player_matches, understat_team_matches, player_lookup = sources.build_canonical_matches(raw_dir, seasons)
-    fpl_team_matches = build_fpl_team_matches(player_matches, dastan_features.fpl_to_understat)
-    team_matches, understat_team_report = merge_understat_team_metrics(
-        fpl_team_matches, understat_team_matches, minimum_coverage=0.95,
-    )
+    team_matches = build_fpl_team_matches(player_matches, dastan_features.fpl_to_understat)
     player_understat_columns = ["us_xG", "us_xA", "us_shots", "us_key_passes"]
     player_understat_coverage = {
         name: float(pd.to_numeric(player_matches[name], errors="coerce").notna().mean())
         for name in player_understat_columns
     }
     weak_player_coverage = {name: value for name, value in player_understat_coverage.items() if value < 0.70}
-    if weak_player_coverage:
-        raise RuntimeError(f"Understat player metric coverage below 70%: {weak_player_coverage}")
+    feature_source_mode = "FPL_PLAYER_UNDERSTAT" if not weak_player_coverage else "FPL_NATIVE_NO_UNDERSTAT"
+    source_manifest["feature_source_mode"] = feature_source_mode
+    source_manifest["understat_player_metric_coverage"] = player_understat_coverage
+    source_manifest["understat_team_history_rows"] = len(understat_team_matches)
+    source_manifest["team_metrics_policy"] = "FPL fixture scores and standings retained; team/opp Understat feature families masked"
+    source_manifest["understat_status"] = (
+        "PASS_PINNED_PLAYER_HISTORY_RECONSTRUCTION" if not weak_player_coverage
+        else "PARTIAL_PLAYER_HISTORY_FPL_NATIVE_FALLBACK"
+    )
+    manifest_path.write_text(json.dumps(source_manifest, indent=2) + "\n", encoding="utf-8")
+    source_manifest_copy = output_dir / "source_download_manifest.json"
+    shutil.copy2(manifest_path, source_manifest_copy)
     if player_matches.duplicated(["season", "fixture", "fpl_code"]).any():
         raise RuntimeError("Canonical player-match table contains duplicate season-fixture-player keys")
     if team_matches.duplicated(["season", "understat_team", "date"]).any():
@@ -1157,16 +1161,17 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "current_bootstrap_snapshot": bootstrap["_cta_snapshot"],
         "historical_snapshot_safety_buffer": release_import_report["snapshot_safety_buffer"],
         "fixture_archive_audits": fixture_archive_audits,
-        "feature_source_mode": "FPL_UNDERSTAT",
-        "understat_status": "PASS_PINNED_VAASTAV_WITH_API_SH_FALLBACK",
+        "feature_source_mode": feature_source_mode,
+        "understat_status": source_manifest["understat_status"],
         "understat_fallback_reports": apish_fallback_reports,
         "understat_player_metric_coverage": player_understat_coverage,
-        "understat_team_metric_join": understat_team_report,
-        "historical_player_history_source": "Pinned Vaastav FPL match archives plus official FPL API history, joined to Understat player match metrics",
-        "team_match_source": "Understat xG/deep/PPDA team histories joined to exact FPL fixture IDs and reciprocal opponents",
+        "understat_team_history_rows": len(understat_team_matches),
+        "team_metrics_policy": "FPL fixture scores and standings; team/opp Understat feature families masked consistently in training and scoring",
+        "historical_player_history_source": "Pinned Vaastav FPL match archives plus official FPL API history, joined to available Understat player match metrics",
+        "team_match_source": "FPL fixture scores and standings; Understat team metrics are not used in the player-only Understat source mode",
         "masked_unavailable_features": unavailable_feature_names(
             json.loads((dastan_root / "models" / "feature_cols.json").read_text(encoding="utf-8")),
-            "FPL_UNDERSTAT",
+            feature_source_mode,
         ),
         "canonical_player_match_rows": len(player_matches),
         "canonical_team_match_rows": len(team_matches),
@@ -1197,7 +1202,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
             "Historical point-in-time snapshot artifacts are imported from the verified Dastan release and safety-filtered; no historical fplcache reconstruction is performed.",
             "Current next-GW snapshot values come only from the live official bootstrap; later target GWs receive -1 snapshot sentinels.",
             "Raw player/team match histories are reconstructed only to calculate new target-fixture features; the historical training frame and pre-deadline snapshots are imported directly from Dastan.",
-            "Understat player/team histories use pinned Vaastav data with API.SH documented JSON fallback, bounded by a monthly credit guard.",
+            "Understat player histories use pinned Vaastav season files reconstructed across seasons; API.SH documented JSON fallback is optional and bounded by a monthly credit guard.",
             "Source acquisition and feature generation do not clear CTA M2 validation or production eligibility.",
         ],
     }
