@@ -55,8 +55,8 @@ jobs:
           market = result["general_cta_market"]
           categories = market["categories"]
 
-          def table(rows):
-              lines = ["| Player | Pos | 5GW points | Price |", "|---|---:|---:|---:|"]
+          def table(rows, points_label="5GW points"):
+              lines = [f"| Player | Pos | {points_label} | Price |", "|---|---:|---:|---:|"]
               for row in rows[:10]:
                   lines.append(
                       f"| {row.get('display_name', row['fpl_element_id'])} | "
@@ -90,7 +90,7 @@ jobs:
                   "",
                   f"### GW{weekly['gameweek']}",
                   "",
-                  table(weekly["recommendations"]["categories"]["captaincy"]),
+                  table(weekly["recommendations"]["categories"]["captaincy"], "GW points"),
               ])
           lines.extend([
               "",
