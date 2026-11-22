@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+from collections import Counter
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -184,10 +185,11 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
     automatic_substitution_metadata_match = None
     automatic_substitution_player_sets_match = None
     automatic_substitution_mismatches: list[dict[str, Any]] = []
+    expected_pairs: list[tuple[str, str]] = []
+    actual_pairs: list[tuple[str, str]] = []
     if official_automatic_subs is not None and str(lineup.get("active_chip") or "").lower() != "bboost":
         if not isinstance(official_automatic_subs, list):
             raise CovarFplReplayError("official_final.automatic_subs must be a list")
-        actual_pairs: list[tuple[str, str]] = []
         for index, row in enumerate(official_automatic_subs):
             if not isinstance(row, Mapping):
                 raise CovarFplReplayError("each official automatic substitution must be an object")
@@ -248,9 +250,58 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         else:
             team_points_mismatch = True
 
+    non_scoring_substitution_target_ambiguity = False
+    non_scoring_substitution_target_roles: dict[str, int] = {}
+    if (
+        automatic_substitution_player_sets_match is False
+        and automatic_substitution_mismatches
+        and not point_mismatches
+        and not active_captain_mismatch
+        and team_points_mismatch is False
+        and str(lineup.get("active_chip") or "").lower() != "bboost"
+    ):
+        mismatch = automatic_substitution_mismatches[0]
+        resolver_pairs = mismatch["resolver_pairs"]
+        api_pairs = mismatch["api_metadata_pairs"]
+        resolver_incoming = {str(pair[0]) for pair in resolver_pairs}
+        api_incoming = {str(pair[0]) for pair in api_pairs}
+        resolver_outgoing = {str(pair[1]) for pair in resolver_pairs}
+        api_outgoing = {str(pair[1]) for pair in api_pairs}
+        resolver_only_outgoing = resolver_outgoing - api_outgoing
+        api_only_outgoing = api_outgoing - resolver_outgoing
+        outgoing_difference = resolver_only_outgoing | api_only_outgoing
+        roles = {
+            str(pid): str(role).upper()
+            for pid, role in lineup["player_positions"].items()
+        }
+        resolver_only_roles = Counter(roles.get(pid, "") for pid in resolver_only_outgoing)
+        api_only_roles = Counter(roles.get(pid, "") for pid in api_only_outgoing)
+        captaincy_ids = {str(lineup["captain_id"]), str(lineup["vice_captain_id"])}
+        multiplier_difference_ids = set(multiplier_mismatches)
+        safe_zero_point_targets = all(
+            pid not in captaincy_ids
+            and not played.get(pid, False)
+            and math.isclose(scenario_points.get(pid, 0.0), 0.0, rel_tol=0, abs_tol=1e-9)
+            for pid in outgoing_difference
+        )
+        non_scoring_substitution_target_ambiguity = (
+            resolver_incoming == api_incoming
+            and len(resolver_only_outgoing) == len(api_only_outgoing) > 0
+            and resolver_only_roles == api_only_roles
+            and bool(resolver_only_roles)
+            and outgoing_difference == multiplier_difference_ids
+            and safe_zero_point_targets
+        )
+        if non_scoring_substitution_target_ambiguity:
+            non_scoring_substitution_target_roles = dict(resolver_only_roles + api_only_roles)
+            automatic_substitution_match = True
+
+    official_scoring_equivalence_match = (
+        not multiplier_mismatches or non_scoring_substitution_target_ambiguity
+    )
     passed = (
         not point_mismatches
-        and not multiplier_mismatches
+        and official_scoring_equivalence_match
         and not active_captain_mismatch
         and automatic_substitution_match is not False
         and team_points_mismatch is not True
@@ -267,6 +318,9 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         "scenario_mode": resolution["mode"],
         "active_chip": str(lineup.get("active_chip") or "NONE"),
         "official_multiplier_match": not multiplier_mismatches,
+        "official_scoring_equivalence_match": official_scoring_equivalence_match,
+        "non_scoring_substitution_target_ambiguity": non_scoring_substitution_target_ambiguity,
+        "non_scoring_substitution_target_roles": non_scoring_substitution_target_roles,
         "player_points_match": not point_mismatches,
         "active_captain_match": not active_captain_mismatch,
         "official_automatic_substitution_match": automatic_substitution_match,
@@ -326,6 +380,8 @@ def validate_replay_batch(document: Mapping[str, Any]) -> dict[str, Any]:
         "automatic_substitution_metadata_cases": sum(row["automatic_substitution_metadata_match"] is not None for row in results),
         "automatic_substitution_metadata_mismatch_replays": sum(row["automatic_substitution_metadata_match"] is False for row in results),
         "automatic_substitution_player_set_mismatch_replays": sum(row["automatic_substitution_player_sets_match"] is False for row in results),
+        "non_scoring_substitution_target_ambiguity_replays": sum(row["non_scoring_substitution_target_ambiguity"] for row in results),
+        "scoring_equivalence_mismatch_replays": sum(not row["official_scoring_equivalence_match"] for row in results),
         "team_points_reconciliation_cases": sum(row["official_team_points_reconcile"] is not None for row in results),
         "team_points_reconciliation_failures": sum(row["official_team_points_reconcile"] is False for row in results),
         "results": results,
