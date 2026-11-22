@@ -82,8 +82,8 @@ The real CTA-owned forecast archive was replayed through the recommendation runn
 - Forecast snapshot: `ee6ad9f5a78c958a4851f573d95a212479982196c608333ae92c9f45a22ce181`.
 - Season/horizon: 2026-27, GW12-GW16.
 - Forecast universe: 674 players.
-- Recommendation replay run: `45070408218` (successful).
-- Recommendation artifact: `cta-general-recommendation-preview-gw12-16`, GitHub artifact ID `14773081160`.
+- Latest recommendation replay run: `45070950617` (successful).
+- Latest recommendation artifact: `cta-general-recommendation-preview-gw12-16`, GitHub artifact ID `14772998594`.
 
 The replay produced:
 - A five-Gameweek cumulative overall ranking and value ranking.
