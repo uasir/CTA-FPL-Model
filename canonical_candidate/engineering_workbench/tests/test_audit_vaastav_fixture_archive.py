@@ -35,9 +35,19 @@ class FixtureArchiveAuditTests(unittest.TestCase):
         self.assertEqual(report["status"], "FAIL_FIXTURE_ARCHIVE_AUDIT")
         self.assertEqual(report["finished_fixtures_missing_player_rows"], ["10"])
 
-    def test_duplicate_player_fixture_fails_closed(self):
-        with self.assertRaisesRegex(ValueError, "duplicate fixture/player"):
-            audit_archive(ROWS + [ROWS[0]], FIXTURES, TEAMS, "2026-27")
+    def test_exact_duplicate_player_fixture_row_is_collapsed_and_reported(self):
+        report = audit_archive(ROWS + [ROWS[0]], FIXTURES, TEAMS, "2026-27")
+        self.assertEqual(report["status"], "PASS_FIXTURE_ARCHIVE_AUDIT")
+        self.assertEqual(report["exact_duplicate_player_rows_collapsed"], 1)
+        self.assertEqual(report["unique_fixture_player_keys"], 2)
+
+    def test_conflicting_duplicate_player_fixture_fails_closed(self):
+        duplicate = dict(ROWS[0])
+        duplicate["minutes"] = "45"
+        report = audit_archive(ROWS + [duplicate], FIXTURES, TEAMS, "2026-27")
+        self.assertEqual(report["status"], "FAIL_FIXTURE_ARCHIVE_AUDIT")
+        self.assertTrue(any("conflicting duplicate fixture/player key" in item
+                            for item in report["fixture_metadata_errors"]))
 
     def test_revised_fixture_schedule_kickoff_is_a_warning_not_archive_failure(self):
         rows = [dict(row) for row in ROWS]
