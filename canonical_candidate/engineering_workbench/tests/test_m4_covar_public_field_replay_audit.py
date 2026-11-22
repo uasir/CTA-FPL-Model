@@ -86,8 +86,8 @@ def test_skips_unfinished_events_and_excludes_bench_boost_from_autosub_counts():
         f"{BASE_URL}/event/7/live/": live,
         f"{BASE_URL}/entry/100/event/7/picks/": {
             **picks, "active_chip": "bboost",
-            "picks": [{**row, "multiplier": 1} for row in picks["picks"]],
-            "entry_history": {"event": 7, "points": 30, "event_transfers_cost": 0},
+            "picks": [{**row, "multiplier": 2 if row["element"] == 10 else 1} for row in picks["picks"]],
+            "entry_history": {"event": 7, "points": 32, "event_transfers_cost": 0},
         },
     }
     report = audit_public_field_replays(
