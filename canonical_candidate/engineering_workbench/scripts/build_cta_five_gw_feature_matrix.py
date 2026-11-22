@@ -46,6 +46,38 @@ def _float(value, default=0.0):
     return result if math.isfinite(result) else float(default)
 
 
+def exact_fixture_opponent_lookup(team_matches: pd.DataFrame) -> pd.DataFrame:
+    """Preserve FPL fixture-linked opponents instead of inferring them by scoreline.
+
+    Multiple EPL matches can share a kickoff and scoreline. The Dastan generic
+    Understat matcher can then pair the wrong clubs when xG is unavailable.
+    CTA's FPL fixture ID and reciprocal opponent mapping are exact identifiers.
+    """
+    required = {"season", "fixture", "understat_team", "opponent"}
+    missing = sorted(required - set(team_matches.columns))
+    if missing:
+        raise ValueError(
+            f"FPL-native team matches require exact fixture/opponent keys: {missing}"
+        )
+    out = team_matches.copy()
+    keys = ["season", "fixture"]
+    if out.duplicated(keys + ["understat_team"]).any():
+        raise ValueError("duplicate team row within an FPL fixture")
+    for (season, fixture), group in out.groupby(keys, sort=False):
+        if len(group) != 2 or group["understat_team"].nunique() != 2:
+            raise ValueError(
+                f"{season} fixture {fixture} must contain exactly two distinct teams"
+            )
+        mapping = dict(zip(group["understat_team"].astype(str),
+                           group["opponent"].astype(str)))
+        if any(mapping.get(team) != opponent or mapping.get(opponent) != team
+               for team, opponent in mapping.items()):
+            raise ValueError(
+                f"{season} fixture {fixture} has non-reciprocal opponent mapping: {mapping}"
+            )
+    return out
+
+
 def build_future_rows(bootstrap: dict, fixtures: list[dict], player_map: dict, club_map: dict,
                       season: str, gameweeks: list[int]) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     teams = {int(team["id"]): str(team["name"]) for team in bootstrap.get("teams", [])}
@@ -95,7 +127,8 @@ def build_future_rows(bootstrap: dict, fixtures: list[dict], player_map: dict, c
             (home_id, home_us, away_us, True), (away_id, away_us, home_us, False)
         ):
             team_rows.append({
-                "season": season, "date": kickoff, "understat_team": own_us,
+                "season": season, "fixture": fixture_id, "date": kickoff,
+                "understat_team": own_us, "opponent": opp_us,
                 "is_home": float(is_home), "scored": 0.0, "missed": 0.0,
                 "xG": float(fixture_id * 2 + (0 if is_home else 1)),
                 "xGA": float(fixture_id * 2 + (1 if is_home else 0)),
@@ -301,6 +334,9 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
     sys.path.insert(0, str(dastan_root))
     from dastan.rebuild import features as dastan_features
     build_feature_frame = dastan_features.build_feature_frame
+    # FPL fixture IDs provide exact opponent pairing even when same-kickoff
+    # fixtures share identical scorelines and Understat xG is unavailable.
+    dastan_features.build_opponent_lookup = exact_fixture_opponent_lookup
 
     bootstrap = json.loads(bootstrap_path.read_text(encoding="utf-8"))
     fixtures = json.loads(fixtures_path.read_text(encoding="utf-8"))
