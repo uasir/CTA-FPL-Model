@@ -7,6 +7,7 @@ from prepare_cta_five_gw_sources import (
     apply_historical_snapshot_safety_buffer,
     copy_verified_dastan_release,
     copy_verified_dastan_model_contract,
+    copy_dastan_operational_mappings,
     player_elements,
     season_from_bootstrap,
     write_csv_frame,
@@ -322,3 +323,13 @@ def test_copy_verified_dastan_model_contract_imports_all_40_files(tmp_path: Path
     assert report["model_version"] == "1.1.0"
     for name in files:
         assert (tmp_path / "outputs" / "dastan_model" / name).is_file()
+
+
+def test_copy_dastan_operational_mappings_preserves_current_mapping_files(tmp_path: Path):
+    source = tmp_path / "dastan" / "data" / "mappings"
+    source.mkdir(parents=True)
+    (source / "current_fpl_understat_players.csv").write_text("fpl_code,understat_player_id\n1,11\n")
+    (source / "current_fpl_understat_clubs.csv").write_text("club_name,understat_name\nArsenal,Arsenal\n")
+    report = copy_dastan_operational_mappings(tmp_path / "dastan", tmp_path / "outputs")
+    assert report["artifact_count"] == 2
+    assert (tmp_path / "outputs" / "dastan_mappings" / "current_fpl_understat_players.csv").is_file()
