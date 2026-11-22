@@ -86,3 +86,41 @@ def test_conventional_product_keeps_field_and_covar_out_of_ev_decision():
     product = build_conventional_squad_product(run)
     assert "predeadline_field_analysis" not in product["decision"]
     assert "historical_covar_overlay" not in product["decision"]
+
+
+def test_m4_attaches_five_gameweek_team_exposure_as_diagnostic_only():
+    run = _run()
+    run["team_exposure_context"] = {
+        "forecast_snapshot_id": run["recommendation"]["forecast_snapshot_id"],
+        "horizon_size": 5,
+        "expected_points_are_additive": True,
+        "decision_weight": 0,
+        "production_eligible": False,
+        "team_exposure": [{"team_id": 1, "player_count": 2,
+                           "stack_type": "DEFENSIVE_CLEAN_SHEET_EXPOSURE"}],
+    }
+    product = build_personal_squad_product(run)
+    assert product["team_exposure_context"]["horizon_size"] == 5
+    assert product["excluded_context"]["team_exposure"] == "DIAGNOSTIC_ONLY_NOT_PART_OF_CONVENTIONAL_SCORE"
+    assert product["decision"]["action"] == run["recommendation"]["transfer_recommendation"]["action"]
+
+
+@pytest.mark.parametrize("mutation, message", [
+    ({"horizon_size": 4}, "at least five Gameweeks"),
+    ({"forecast_snapshot_id": "other-snapshot"}, "exact forecast snapshot"),
+    ({"decision_weight": 0.1}, "diagnostic-only"),
+    ({"production_eligible": True}, "diagnostic-only"),
+    ({"expected_points_are_additive": False}, "additive expected-points"),
+])
+def test_m4_rejects_invalid_team_exposure_context(mutation, message):
+    run = _run()
+    run["team_exposure_context"] = {
+        "forecast_snapshot_id": run["recommendation"]["forecast_snapshot_id"],
+        "horizon_size": 5,
+        "expected_points_are_additive": True,
+        "decision_weight": 0,
+        "production_eligible": False,
+    }
+    run["team_exposure_context"].update(mutation)
+    with pytest.raises(ConventionalSquadProductError, match=message):
+        build_personal_squad_product(run)
