@@ -94,7 +94,7 @@ def main() -> int:
 
     report = audit_mapping(read_rows(args.roster), read_rows(args.mapping), args.release_id)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\\n", encoding="utf-8")
+    args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     summary = {key: value for key, value in report.items() if key not in {"rows", "shared_understat_ids", "unmapped_fpl_codes", "mapping_codes_not_in_roster"}}
     print(json.dumps(summary, indent=2))
     return 0
