@@ -17,7 +17,7 @@ SUPPORTED_RUN_TYPES = {
     "CTA_MODEL_PERSONAL_SQUAD",
 }
 
-def build_conventional_squad_product(run: Mapping[str, Any]) -> dict[str, Any]:
+def build_personal_squad_product(run: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(run, Mapping):
         raise ConventionalSquadProductError("forecast run must be an object")
     run_type = run.get("run_type")
