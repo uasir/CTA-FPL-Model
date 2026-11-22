@@ -87,6 +87,7 @@ def audit_archive(
         rows_by_fixture[fixture_id].append(row)
 
     errors = []
+    kickoff_schedule_differences = []
     fixture_summaries = []
     expected_finished = {
         fixture_id for fixture_id, fixture in fixture_by_id.items()
@@ -110,8 +111,19 @@ def audit_archive(
             return parsed.astimezone(timezone.utc).isoformat()
         kickoffs = {normalized_kickoff(row.get("kickoff_time", "")) for row in rows}
         scheduled_kickoff = normalized_kickoff(fixture.get("kickoff_time", ""))
-        if kickoffs != {scheduled_kickoff}:
-            errors.append(f"fixture {fixture_id}: player kickoff values disagree with fixture schedule")
+        if len(kickoffs) != 1:
+            errors.append(
+                f"fixture {fixture_id}: player rows contain inconsistent kickoff values {sorted(kickoffs)}"
+            )
+        elif next(iter(kickoffs)) != scheduled_kickoff:
+            # Historical fixture schedules can be revised after the match. The
+            # player archive's consistent match timestamp is the historical
+            # observation; retain the schedule discrepancy as an audit warning.
+            kickoff_schedule_differences.append({
+                "fixture_id": fixture_id,
+                "player_archive_kickoff_utc": next(iter(kickoffs)),
+                "fixture_schedule_kickoff_utc": scheduled_kickoff,
+            })
 
         sides = set()
         for row in rows:
@@ -161,6 +173,7 @@ def audit_archive(
         "player_match_rows": len(player_rows),
         "unique_fixture_player_keys": len(seen_keys),
         "fixture_metadata_errors": errors,
+        "fixture_kickoff_schedule_differences": kickoff_schedule_differences,
         "player_row_population_policy": (
             "No all-roster-per-fixture assumption; player rows are not synthesized. "
             "Per-fixture row counts and zero-minute rows are diagnostic only."
