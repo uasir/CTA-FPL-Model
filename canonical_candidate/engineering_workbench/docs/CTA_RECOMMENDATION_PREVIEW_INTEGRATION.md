@@ -135,3 +135,10 @@ is separate from the one-Gameweek XI, bench and captaincy preview. Candidate
 transfers must have forecast rows in all five panels with stable position,
 team and price metadata; partial-horizon candidates are excluded and
 inconsistent metadata blocks evaluation.
+
+Manager purchase prices are sourced from the conventional manager-context capture:
+exact prior-Gameweek official FPL picks when the squad identity matches and
+that Gameweek was not a Free Hit, otherwise chronological season-history
+reconstruction from GW1 picks and official transfer history. The five-GW
+evaluator requires the resulting per-player purchase_price values and blocks
+rather than approximating when they are absent.
