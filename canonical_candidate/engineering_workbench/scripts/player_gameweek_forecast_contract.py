@@ -11,6 +11,11 @@ from datetime import datetime, timezone
 import math
 from typing import Any, Mapping
 
+from provider_capability_registry import (
+    ProviderCapabilityError,
+    require_player_gameweek_multi_gameweek_capture,
+)
+
 
 class PlayerGameweekForecastError(ValueError):
     """Raised when a player-Gameweek forecast panel is incomplete or invalid."""
@@ -53,6 +58,12 @@ def build_player_gameweek_forecast_bundle(
         raise PlayerGameweekForecastError("capture must be an object")
     if capture.get("provider_source_id") != "fpl_cat_partner_projections":
         raise PlayerGameweekForecastError("capture is not from the registered FPL Cat partner source")
+    try:
+        require_player_gameweek_multi_gameweek_capture(
+            "fpl_cat_partner_projections", required_horizon=minimum_horizon_gameweeks
+        )
+    except ProviderCapabilityError as exc:
+        raise PlayerGameweekForecastError(f"provider capability gate rejected bundle: {exc}") from exc
     snapshot = capture.get("provider_snapshot")
     if not isinstance(snapshot, Mapping):
         raise PlayerGameweekForecastError("provider_snapshot is required")
