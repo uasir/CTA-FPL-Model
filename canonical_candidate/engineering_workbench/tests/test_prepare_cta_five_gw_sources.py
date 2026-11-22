@@ -160,9 +160,13 @@ def test_pinned_understat_histories_merge_all_seasons_before_fallback(tmp_path: 
 
     season_rows = {
         "https://raw.example/data/2023-24/understat/Mohamed_Salah_1250.csv":
-            "id,date,season,goals\\n1,2023-09-01,2023,1\\n",
+            """id,date,season,goals
+1,2023-09-01,2023,1
+""",
         "https://raw.example/data/2024-25/understat/Mohamed_Salah_1250.csv":
-            "id,date,season,goals\\n2,2024-09-01,2024,0\\n",
+            """id,date,season,goals
+2,2024-09-01,2024,0
+""",
     }
 
     class FakeSources:
