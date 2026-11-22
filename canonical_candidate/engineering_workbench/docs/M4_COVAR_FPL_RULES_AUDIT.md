@@ -184,9 +184,13 @@ irreversibly anonymous.
 - Captain/vice-captain mismatches: 0.
 - Official `entry_history.points` reconciliations: **10/10**, 0 failures.
 - Chip coverage: 8 without a chip, 1 Free Hit, 1 Wildcard.
-- Actual autosubs in this manager sample: **0**. This run therefore validates
-  normal lineup multipliers, captaincy, chips, player points and team totals,
-  but does not empirically exercise an autosub event.
+- Actual autosubs in this manager sample: **3** across GW4-GW5:
+  one outfield substitution in GW4, then one goalkeeper and one outfield
+  substitution in GW5. All three official pairs match the resolver exactly.
+- Completed-Gameweek API positions are post-autosub. The adapter reverses each
+  official `automatic_subs` pair to reconstruct the submitted deadline XI,
+  reserve goalkeeper and bench order, while retaining final scoring multipliers.
+  This also restores captain/vice positions when a starter was replaced.
 - Double-Gameweek aggregate-minute handling: the resolver now accepts
   Gameweek totals above 120 minutes; the per-fixture scenario and event-scoring
   contracts retain the 120-minute per-match bound. A full-Gameweek scoring
@@ -199,14 +203,14 @@ a team-total reconciliation only when either the reported score itself or
 reported score plus explicit transfer cost matches the lineup score.
 
 Workflow and evidence:
-- [Cloud replay + focused CoVar workflow run 44994803507](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994803507)
-- [Full engineering CI run 44994911593 — 847 tests and 3 subtests](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994911593)
-- [Focused CoVar tests — 128 passed](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994911531)
+- [Cloud replay + focused CoVar workflow run 44998077310](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077310)
+- [Full engineering CI run 44998077270 — 871 tests and 3 subtests](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077270)
+- Focused CoVar tests: **155 passed** in run 44998077310.
 
-This is an initial single-manager temporal validation set, not a representative
-field sample, not evidence of autosub correctness under real autosub events,
-and not a calibrated forward joint forecast. All CoVar outputs remain
-`decision_weight=0` and `production_eligible=false`.
+This is a single-manager temporal validation set, not a representative field
+sample or a calibrated forward joint forecast. It now exercises real
+goalkeeper and outfield autosubs, captaincy, chips and team-score reconciliation.
+All CoVar outputs remain `decision_weight=0` and `production_eligible=false`.
 
 ## Official event-scoring reconciliation — 2026-11-22
 
@@ -240,10 +244,40 @@ Premier League:
 - [Official FPL FAQ](https://www.premierleague.com/en/news/4661030)
 
 Validation:
-- [Focused CoVar + official event-scoring + replay workflow run 44995259297](https://github.com/uasir/CTA-FPL-Model/actions/runs/44995259297)
-- [Full engineering CI run 44995259271 — 852 tests and 3 subtests](https://github.com/uasir/CTA-FPL-Model/actions/runs/44995259271)
-- Focused CoVar tests: **133 passed**.
+- [Focused CoVar + official event-scoring + replay workflow run 44998077310](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077310)
+- [Full engineering CI run 44998077270 — 871 tests and 3 subtests](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077270)
+- Focused CoVar tests: **155 passed**.
 
 This is retrospective realized-score reconciliation, not point-in-time
 forecast validation or a forward joint distribution. CoVar remains
 `decision_weight=0` and `production_eligible=false`.
+
+## Public Overall-league replay stress test — 2026-11-22
+
+A second, aggregate-only audit sampled 25 public managers from five separated
+Overall classic-league standings pages and replayed GW6-GW10. Entry IDs, names,
+exact ranks and individual picks were used only in memory and are not retained
+in the report.
+
+- Manager sample: **25** across five rank pages.
+- Manager-Gameweek replays: **125/125 PASS** across GW6-GW10.
+- Capture failures: **0**.
+- Official final multipliers and team totals: **125/125 reconciled**.
+- Autosub replays: **52**, involving **68** incoming players.
+- Captain fallbacks: **6**.
+- Chip coverage: 6 Triple Captain, 5 Bench Boost, 2 Free Hit, 5 Wildcard and
+  107 without a chip.
+- Six records had different exact pair assignments between the resolver and
+  API metadata, but every one retained the same incoming and outgoing player
+  sets and the same final scoring multipliers. These are pair-mapping
+  diagnostics, not scoring failures. No autosub player-set mismatches occurred.
+- No goalkeeper autosub occurred in this 25-manager sample; the private
+  manager replay above independently exercises a real goalkeeper autosub.
+
+This is a rank-stratified resolver stress-test, not a representative estimate
+of the global field, not a pre-deadline portfolio census, and not a
+field-relative score forecast. It validates lineup reconstruction and
+scoring behavior over observed completed Gameweeks. CoVar remains
+`decision_weight=0` and `production_eligible=false`.
+
+Evidence: [public field replay + CoVar validation run 44998077310](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077310).
