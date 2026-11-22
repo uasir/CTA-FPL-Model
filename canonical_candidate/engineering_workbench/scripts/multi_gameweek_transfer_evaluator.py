@@ -42,7 +42,7 @@ def _validate_week(week: Mapping[str, Any], index: int) -> tuple[int, dict[int, 
             raise MultiGameweekTransferError(f"gameweeks[{index}] contains an invalid FPL element ID")
         if player_id in by_id:
             raise MultiGameweekTransferError(f"gameweeks[{index}] has duplicate player {player_id}")
-        points = _finite_number(row.get("expected_points"), f"GW{gw} player {player_id} expected_points", non_negative=True)
+        points = _finite_number(row.get("expected_points"), f"GW{gw} player {player_id} expected_points")
         minutes = _finite_number(row.get("expected_minutes"), f"GW{gw} player {player_id} expected_minutes", non_negative=True)
         team_id = row.get("team_id")
         if isinstance(team_id, bool) or not isinstance(team_id, int) or team_id < 1:
