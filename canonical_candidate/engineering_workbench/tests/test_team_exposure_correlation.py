@@ -23,6 +23,9 @@ def scenarios():
         ):
             rows.append({
                 "gameweek": gw, "scenario_id": scenario,
+                "scenario_set_id": "frozen-joint-scenario-set-v1",
+                "forecast_snapshot_id": "fplcat-bundle-gw12-gw16",
+                "model_version": "fplcat-fixture-xp-v2",
                 "player_points": {
                     1: clean_sheet, 2: clean_sheet, 3: goals, 4: goals * 0.8,
                 },
@@ -30,11 +33,27 @@ def scenarios():
     return rows
 
 
+def scenario_provenance():
+    return {
+        "scenario_set_id": "frozen-joint-scenario-set-v1",
+        "forecast_snapshot_id": "fplcat-bundle-gw12-gw16",
+        "model_version": "fplcat-fixture-xp-v2",
+        "generated_at_utc": "2026-11-22T05:30:00Z",
+        "captured_at_utc": "2026-11-22T05:45:00Z",
+        "source_url": "https://example.test/joint-scenarios.json",
+        "raw_sha256": "a" * 64,
+        "scenario_count": 15,
+    }
+
+
 def test_five_gameweek_team_stacking_and_joint_covariance_are_reported():
     result = build_team_exposure_report(
         squad_player_ids=[1, 2, 3, 4],
         player_gameweek_forecasts=forecasts(),
         joint_scenarios=scenarios(),
+        forecast_snapshot_id="fplcat-bundle-gw12-gw16",
+        model_version="fplcat-fixture-xp-v2",
+        joint_scenario_provenance=scenario_provenance(),
     )
     assert result["horizon_size"] == 5
     assert result["expected_points_are_additive"] is True
@@ -81,3 +100,69 @@ def test_duplicate_player_gameweek_forecast_is_rejected():
     with pytest.raises(TeamExposureError, match="duplicate"):
         build_team_exposure_report(squad_player_ids=[1, 2, 3, 4],
                                    player_gameweek_forecasts=rows)
+
+
+def test_joint_scenarios_require_snapshot_and_scenario_set_provenance():
+    with pytest.raises(TeamExposureError, match="joint_scenario_provenance is required"):
+        build_team_exposure_report(
+            squad_player_ids=[1, 2, 3, 4],
+            player_gameweek_forecasts=forecasts(),
+            joint_scenarios=scenarios(),
+        )
+
+
+def test_joint_scenario_snapshot_mismatch_is_rejected():
+    rows = scenarios()
+    rows[0]["forecast_snapshot_id"] = "different-bundle"
+    with pytest.raises(TeamExposureError, match="does not match forecast bundle"):
+        build_team_exposure_report(
+            squad_player_ids=[1, 2, 3, 4],
+            player_gameweek_forecasts=forecasts(),
+            joint_scenarios=rows,
+            forecast_snapshot_id="fplcat-bundle-gw12-gw16",
+            model_version="fplcat-fixture-xp-v2",
+            joint_scenario_provenance=scenario_provenance(),
+        )
+
+
+def test_incomplete_joint_scenario_player_vector_is_rejected():
+    rows = scenarios()
+    rows[0]["player_points"].pop(4)
+    with pytest.raises(TeamExposureError, match="missing squad players"):
+        build_team_exposure_report(
+            squad_player_ids=[1, 2, 3, 4],
+            player_gameweek_forecasts=forecasts(),
+            joint_scenarios=rows,
+            forecast_snapshot_id="fplcat-bundle-gw12-gw16",
+            model_version="fplcat-fixture-xp-v2",
+            joint_scenario_provenance=scenario_provenance(),
+        )
+
+
+def test_insufficient_scenarios_in_any_gameweek_is_rejected():
+    rows = [row for row in scenarios() if not (row["gameweek"] == 14 and row["scenario_id"] == "high")]
+    provenance = scenario_provenance()
+    provenance["scenario_count"] = len(rows)
+    with pytest.raises(TeamExposureError, match="at least two complete"):
+        build_team_exposure_report(
+            squad_player_ids=[1, 2, 3, 4],
+            player_gameweek_forecasts=forecasts(),
+            joint_scenarios=rows,
+            forecast_snapshot_id="fplcat-bundle-gw12-gw16",
+            model_version="fplcat-fixture-xp-v2",
+            joint_scenario_provenance=provenance,
+        )
+
+
+def test_joint_scenario_hash_and_generation_timing_are_validated():
+    provenance = scenario_provenance()
+    provenance["raw_sha256"] = "not-a-hash"
+    with pytest.raises(TeamExposureError, match="64-character SHA-256"):
+        build_team_exposure_report(
+            squad_player_ids=[1, 2, 3, 4],
+            player_gameweek_forecasts=forecasts(),
+            joint_scenarios=scenarios(),
+            forecast_snapshot_id="fplcat-bundle-gw12-gw16",
+            model_version="fplcat-fixture-xp-v2",
+            joint_scenario_provenance=provenance,
+        )
