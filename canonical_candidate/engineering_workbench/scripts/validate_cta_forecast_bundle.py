@@ -10,6 +10,14 @@ import numpy as np
 import pandas as pd
 
 
+def any_true(values: pd.Series) -> bool:
+    normalized = values.astype(str).str.strip().str.lower()
+    invalid = sorted(set(normalized) - {"true", "false", "1", "0"})
+    if invalid:
+        raise ValueError(f"invalid boolean values in forecast output: {invalid}")
+    return normalized.isin({"true", "1"}).any()
+
+
 def validate_bundle(forecast_dir: Path, output_path: Path) -> dict:
     fixture = pd.read_csv(forecast_dir / "fixture_forecasts.csv")
     gameweek = pd.read_csv(forecast_dir / "player_gameweek_forecasts.csv")
@@ -79,11 +87,11 @@ def validate_bundle(forecast_dir: Path, output_path: Path) -> dict:
         if not np.allclose(left, right, rtol=0, atol=1e-6):
             raise ValueError(f"five-GW {metric} is not the sum of player-GW rows")
 
-    if fixture["production_eligible"].astype(bool).any() or gameweek["production_eligible"].astype(bool).any() or horizon["production_eligible"].astype(bool).any():
+    if any_true(fixture["production_eligible"]) or any_true(gameweek["production_eligible"]) or any_true(horizon["production_eligible"]):
         raise ValueError("candidate forecast incorrectly marked production-eligible")
     if not np.allclose(pd.to_numeric(fixture["decision_weight"]), 0.0):
         raise ValueError("candidate forecast has non-zero decision weight")
-    if fixture["covar_used"].astype(bool).any():
+    if any_true(fixture["covar_used"]):
         raise ValueError("forecast unexpectedly used CoVar")
     if report.get("decision_safeguards", {}).get("production_eligible") is not False:
         raise ValueError("forecast report does not preserve the production gate")
