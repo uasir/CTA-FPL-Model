@@ -59,6 +59,14 @@ class TestPredeadlineFieldCapture(unittest.TestCase):
         self.assertAlmostEqual(
             sum(row["field_weight"] for row in field_artifact["portfolios"]), 1.0
         )
+        portfolio_summary = report["portfolio_structure_summary"]
+        self.assertEqual(portfolio_summary["data_status"], "AGGREGATE_ONLY_PRE_DEADLINE_PORTFOLIO_STRUCTURE")
+        self.assertEqual(portfolio_summary["metadata"]["manager_count"], 100)
+        self.assertEqual(portfolio_summary["metadata"]["effective_sample_size"], 100)
+        self.assertFalse(portfolio_summary["metadata"]["manager_entry_ids_retained"])
+        self.assertFalse(portfolio_summary["production_eligible"])
+        self.assertNotIn("100001", str(portfolio_summary))
+        self.assertEqual(portfolio_summary["portfolio_overlap"]["squad_shared_players"]["mean"], 15.0)
 
     def test_rejects_capture_that_crosses_deadline(self):
         clock = Clock([
