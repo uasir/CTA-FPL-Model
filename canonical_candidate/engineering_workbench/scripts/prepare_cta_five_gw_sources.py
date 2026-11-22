@@ -445,7 +445,7 @@ def parallel_understat_fallbacks(
                 failures.append(f"player:{player_id}:{error}")
             elif payload is not None:
                 (root / f"{player_id}.json").write_text(
-                    json.dumps(payload, ensure_ascii=False) + "\\n", encoding="utf-8"
+                    json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8"
                 )
             if completed % 25 == 0 or completed == len(player_ids):
                 print(
@@ -476,7 +476,7 @@ def parallel_understat_fallbacks(
                 time.sleep(2 ** attempt)
         if payload:
             path.write_text(
-                json.dumps(payload, ensure_ascii=False) + "\\n", encoding="utf-8"
+                json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8"
             )
         else:
             failures.append(f"teams:{season}:{last_error or 'unknown error'}")
