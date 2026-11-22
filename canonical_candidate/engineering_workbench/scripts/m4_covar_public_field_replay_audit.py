@@ -32,6 +32,7 @@ from m4_covar_fpl_replay_validation import (
 )
 
 
+# Keep the cohort bounded to avoid excessive requests to the public FPL API.
 OVERALL_LEAGUE_ID = 314
 
 
