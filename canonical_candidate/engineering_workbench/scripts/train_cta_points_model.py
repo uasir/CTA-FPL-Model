@@ -30,7 +30,7 @@ def sha256(path: Path) -> str:
 
 
 def with_training_target(frame: pd.DataFrame) -> pd.DataFrame:
-    """Convert observed FPL points into an appearance-conditional points/90 target."""
+    """Convert non-appearance FPL points into an appearance-conditional points/90 target."""
     if "target_points_per_90" in frame.columns:
         return frame
     required = {"total_points", "minutes"}
@@ -43,10 +43,14 @@ def with_training_target(frame: pd.DataFrame) -> pd.DataFrame:
     out = frame.copy()
     points = pd.to_numeric(out["total_points"], errors="coerce")
     minutes = pd.to_numeric(out["minutes"], errors="coerce")
-    eligible = minutes.ge(30) & points.notna()
+    appearance_points = np.where(
+        minutes.ge(60), 2.0, np.where(minutes.gt(0), 1.0, 0.0),
+    )
+    non_appearance_points = points - appearance_points
+    eligible = minutes.ge(30) & non_appearance_points.notna()
     out["target_points_per_90"] = np.nan
     out.loc[eligible, "target_points_per_90"] = (
-        points.loc[eligible] * 90.0 / minutes.loc[eligible]
+        non_appearance_points.loc[eligible] * 90.0 / minutes.loc[eligible]
     )
     return out
 
@@ -100,7 +104,7 @@ def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
             "training_rows": len(rows),
             "seasons": sorted(rows["season"].astype(str).unique().tolist()),
             "gameweeks": sorted(pd.to_numeric(rows["gameweek"], errors="coerce").dropna().astype(int).unique().tolist()),
-            "target_points_basis": "observed FPL points scaled to a 90-minute appearance; training appearances >=30 minutes",
+            "target_points_basis": "observed total points less 1 point for 1-59 minutes or 2 points for 60+ minutes, scaled to 90 minutes; training appearances >=30 minutes",
             "target_mean": float(np.mean(y)),
             "target_std": float(np.std(y)),
             "model_path": str(path),
