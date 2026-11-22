@@ -1,4 +1,5 @@
 import pytest
+import multi_gameweek_forecast_contract as forecast_contract
 
 from multi_gameweek_squad_request_assembler import (
     MultiGameweekSquadAssemblyError,
@@ -56,7 +57,7 @@ def forecast_payload():
         })
     return {
         "forecast_bundle_id": "fplcat-test-gw12-gw16",
-        "season": "2026-27", "provider": provider,
+        "season": "2026-27", "provider_source_id": "test_verified_fixture_provider", "provider": provider,
         "model_version": "fplcat-fixture-xp-v2",
         "decision_as_of_utc": "2026-11-22T07:00:00Z",
         "required_player_ids": list(range(1, 17)), "panels": panels,
@@ -86,7 +87,22 @@ def current_player_metadata():
     } for pid in range(1, 17)]
 
 
-def test_assembles_all_affordable_same_position_transfers_from_manager_state():
+def _enable_synthetic_verified_provider(monkeypatch):
+    capability = {
+        "provider": {"name": "FPL Cat", "product": "published xP", "variant": "fixture xP", "version": "v2"},
+        "capture_grain": "player_fixture",
+        "max_explicit_gameweeks_per_capture": 5,
+        "fixture_ids": True,
+        "explicit_multi_gameweek_panels": True,
+        "point_in_time_capture": True,
+        "authorized_reproducible_access": True,
+    }
+    monkeypatch.setattr(forecast_contract, "require_multi_gameweek_capture", lambda source_id, required_horizon=5: capability)
+    monkeypatch.setattr(forecast_contract, "validate_capture_against_registry", lambda source_id, capture: capability)
+
+
+def test_assembles_all_affordable_same_position_transfers_from_manager_state(monkeypatch):
+    _enable_synthetic_verified_provider(monkeypatch)
     result = assemble_multi_gameweek_squad_diagnostics(
         forecast_payload(), manager_context(),
         [1, 3, 4, 5, 6, 8, 9, 10, 13, 14, 15],
@@ -101,7 +117,8 @@ def test_assembles_all_affordable_same_position_transfers_from_manager_state():
     assert result["production_eligible"] is False
 
 
-def test_rejects_manager_snapshot_without_purchase_prices():
+def test_rejects_manager_snapshot_without_purchase_prices(monkeypatch):
+    _enable_synthetic_verified_provider(monkeypatch)
     manager = manager_context()
     del manager["squad_snapshot"][2]["purchase_price"]
     with pytest.raises(MultiGameweekSquadAssemblyError, match="purchase_price"):
@@ -112,7 +129,8 @@ def test_rejects_manager_snapshot_without_purchase_prices():
         )
 
 
-def test_rejects_current_metadata_that_disagrees_with_forecast_bundle():
+def test_rejects_current_metadata_that_disagrees_with_forecast_bundle(monkeypatch):
+    _enable_synthetic_verified_provider(monkeypatch)
     metadata = current_player_metadata()
     metadata[-1]["team_id"] = 99
     with pytest.raises(MultiGameweekSquadAssemblyError, match="does not match forecast bundle"):
@@ -123,7 +141,8 @@ def test_rejects_current_metadata_that_disagrees_with_forecast_bundle():
         )
 
 
-def test_rejects_invalid_forecast_horizon_before_candidate_enumeration():
+def test_rejects_invalid_forecast_horizon_before_candidate_enumeration(monkeypatch):
+    _enable_synthetic_verified_provider(monkeypatch)
     source = forecast_payload()
     source["panels"] = source["panels"][:4]
     with pytest.raises(MultiGameweekSquadAssemblyError, match="forecast bundle rejected"):
