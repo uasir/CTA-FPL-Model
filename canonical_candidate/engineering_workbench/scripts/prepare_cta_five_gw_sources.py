@@ -88,10 +88,8 @@ def write_current_roster(dastan_root: Path, bootstrap: dict, season: str) -> Pat
     path = mapping_dir / "fpl_players_current.csv"
     teams = {int(row["id"]): str(row["name"]) for row in bootstrap.get("teams", [])}
     rows = []
-    for player in bootstrap.get("elements", []):
-        position = POSITIONS.get(int(player.get("element_type", 0)))
-        if not position:
-            continue
+    for player in player_elements(bootstrap):
+        position = POSITIONS[int(player["element_type"])]
         rows.append({
             "season": season,
             "fpl_code": int(player["code"]),
