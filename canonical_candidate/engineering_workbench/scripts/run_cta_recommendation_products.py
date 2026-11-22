@@ -85,13 +85,22 @@ def manager_context_from_conventional_run(
         raise CTARecommendationRunError("conventional run season does not match CTA forecast")
     if gameweek != expected_gameweek:
         raise CTARecommendationRunError("conventional run target Gameweek does not match CTA forecast")
+    if source.get("point_in_time_status") not in {"VERIFIED_PRE_DEADLINE", "VERIFIED"}:
+        raise CTARecommendationRunError("conventional run point-in-time status is not verified")
     try:
         conventional_deadline = datetime.fromisoformat(str(deadline).replace("Z", "+00:00"))
         cta_deadline = datetime.fromisoformat(str(expected_deadline_utc).replace("Z", "+00:00"))
+        source_deadline = (
+            datetime.fromisoformat(str(source["deadline_utc"]).replace("Z", "+00:00"))
+            if source.get("deadline_utc") is not None else conventional_deadline
+        )
     except ValueError as exc:
         raise CTARecommendationRunError("conventional/CTA deadlines must be ISO-8601") from exc
     if (conventional_deadline.tzinfo is None or cta_deadline.tzinfo is None
-            or conventional_deadline.astimezone(timezone.utc) != cta_deadline.astimezone(timezone.utc)):
+            or source_deadline.tzinfo is None
+            or conventional_deadline.astimezone(timezone.utc) != source_deadline.astimezone(timezone.utc)):
+        raise CTARecommendationRunError("conventional coverage/source provenance deadline disagrees")
+    if conventional_deadline.astimezone(timezone.utc) != cta_deadline.astimezone(timezone.utc):
         raise CTARecommendationRunError("conventional run deadline does not match CTA forecast deadline")
 
     recommendation = conventional_run.get("recommendation")
