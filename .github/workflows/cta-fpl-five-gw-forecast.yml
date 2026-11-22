@@ -187,11 +187,11 @@ jobs:
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          python canonical_candidate/engineering_workbench/scripts/archive_cta_forecast_bundle.py \\
-            --bundle-dir /tmp/cta-five-gw-bundle \\
-            --archive-root /tmp/cta-five-gw-archive \\
-            --run-id "$GITHUB_RUN_ID" \\
-            --commit-sha "$GITHUB_SHA" \\
+          python canonical_candidate/engineering_workbench/scripts/archive_cta_forecast_bundle.py \
+            --bundle-dir /tmp/cta-five-gw-bundle \
+            --archive-root /tmp/cta-five-gw-archive \
+            --run-id "$GITHUB_RUN_ID" \
+            --commit-sha "$GITHUB_SHA" \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
       - name: Commit immutable snapshot to forecast-archive branch
         env:
