@@ -48,6 +48,9 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("status") != "CANDIDATE_TRAINED_M2_VALIDATION_PENDING":
         raise ValueError("CTA points model manifest is not a candidate awaiting M2 validation")
+    feature_order_hash = hashlib.sha256("\\n".join(features).encode()).hexdigest()
+    if manifest.get("feature_order_sha256") != feature_order_hash:
+        raise ValueError("CTA points model feature order differs from forecast schema")
 
     merged = matrix.merge(minutes[IDENTITY + ["p60", "p_any", "expected_minutes"]],
                            on=IDENTITY, how="left", validate="one_to_one")
@@ -119,8 +122,10 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
     gw_out.to_csv(gw_path, index=False, lineterminator="\n")
     horizon_out.to_csv(horizon_path, index=False, lineterminator="\n")
     gameweeks = sorted(pd.to_numeric(merged["gameweek"], errors="raise").astype(int).unique().tolist())
-    if len(gameweeks) != 5:
-        raise ValueError(f"Expected five target gameweeks, got {gameweeks}")
+    if len(gameweeks) != 5 or gameweeks != list(range(gameweeks[0], gameweeks[0] + 5)):
+        raise ValueError(f"Expected five consecutive target gameweeks, got {gameweeks}")
+    if merged["season"].astype(str).nunique() != 1:
+        raise ValueError("Forecast matrix contains more than one season")
     report = {
         "status": "PASS_CTA_FIVE_GW_CANDIDATE_FORECAST",
         "season": str(merged["season"].iloc[0]),
