@@ -246,6 +246,7 @@ def score_full_gameweek_portfolios(
 
     return {
         "schema_version": "1.0.0",
+        "data_status": validated["data_status"],
         "mode": mode,
         "input_validation_status": validated["validation_status"],
         "shared_scenario_ids": [str(row["scenario_id"]) for row in scenarios],
@@ -254,4 +255,5 @@ def score_full_gameweek_portfolios(
         "field_comparison_status": field_status,
         "production_eligible": False,
         "decision_weight": 0.0,
+        "covar_used": False,
     }
