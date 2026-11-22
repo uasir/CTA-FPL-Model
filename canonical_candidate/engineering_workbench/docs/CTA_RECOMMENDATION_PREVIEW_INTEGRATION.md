@@ -54,9 +54,9 @@ python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_
 To generate a manager-specific preview on the exact same squad/budget/transfer state as the conventional M3 run, pass that private conventional run output directly. The adapter checks the run type, season, target Gameweek and deadline, then verifies the manager context is internally consistent:
 
 ```bash
-python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_products.py \\
-  --bundle-dir /path/to/verified/cta-bundle \\
-  --conventional-run /path/to/private/conventional-m3-run.json \\
+python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_products.py \
+  --bundle-dir /path/to/verified/cta-bundle \
+  --conventional-run /path/to/private/conventional-m3-run.json \
   --output /path/to/private-output/cta-recommendation-previews.json
 ```
 
