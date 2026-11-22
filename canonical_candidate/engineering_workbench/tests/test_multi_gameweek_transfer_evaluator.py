@@ -127,11 +127,15 @@ def test_rejects_unaffordable_incoming_player():
 def test_rejects_transfer_that_exceeds_three_player_club_limit():
     source = request()
     for row in source["forecast_bundle"]["player_gameweek_forecasts"]:
-        if row["fpl_element_id"] == 16:
+        if row["fpl_element_id"] in {4, 5, 6, 16}:
             row["team_id"] = 1
+        if row["fpl_element_id"] == 3:
+            row["team_id"] = 2
     for row in source["forecast_bundle"]["fixture_forecasts"]:
-        if row["fpl_element_id"] == 16:
+        if row["fpl_element_id"] in {4, 5, 6, 16}:
             row["team_id"] = 1
+        if row["fpl_element_id"] == 3:
+            row["team_id"] = 2
     with pytest.raises(MultiGameweekTransferError, match="three-player"):
         evaluate_multi_gameweek_transfer_bundle(source)
 
@@ -140,7 +144,7 @@ def test_bench_transfer_must_improve_horizon_starting_xi_to_add_value():
     source = request()
     source["transfer_out_id"] = 7
     result = evaluate_multi_gameweek_transfer_bundle(source)
-    assert result["transfer"]["displaced_starting_player_id"] == 6
+    assert result["transfer"]["displaced_starting_player_id"] == 3
     assert 16 in result["transfer_starting_xi_ids"]
     assert len(result["transfer_starting_xi_ids"]) == 11
 
