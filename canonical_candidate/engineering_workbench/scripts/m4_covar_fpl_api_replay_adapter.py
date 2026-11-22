@@ -199,5 +199,14 @@ def normalize_official_fpl_replay(
         "official_final": {
             "picks": official_final_picks,
             "player_total_points": official_points,
+            **({
+                "team_points": _required_int(
+                    entry_history.get("points"), "picks_payload.entry_history.points"
+                ),
+                "event_transfers_cost": _required_int(
+                    entry_history.get("event_transfers_cost", 0),
+                    "picks_payload.entry_history.event_transfers_cost",
+                ),
+            } if entry_history.get("points") is not None else {}),
         },
     }
