@@ -12,6 +12,12 @@ from datetime import datetime, timezone
 import math
 from typing import Any, Mapping
 
+from provider_capability_registry import (
+    ProviderCapabilityError,
+    require_multi_gameweek_capture,
+    validate_capture_against_registry,
+)
+
 
 class MultiGameweekForecastError(ValueError):
     """Raised when a forecast bundle is incomplete or provenance-inconsistent."""
@@ -68,6 +74,13 @@ def build_multi_gameweek_forecast_bundle(payload: Mapping[str, Any]) -> dict[str
     minimum = payload.get("minimum_horizon_gameweeks", 5)
     if isinstance(minimum, bool) or not isinstance(minimum, int) or minimum < 5:
         raise MultiGameweekForecastError("minimum_horizon_gameweeks must be an integer of at least 5")
+    source_id = payload.get("provider_source_id")
+    if not isinstance(source_id, str) or not source_id.strip():
+        raise MultiGameweekForecastError("provider_source_id must identify a registered capture source")
+    try:
+        require_multi_gameweek_capture(source_id, required_horizon=minimum)
+    except ProviderCapabilityError as exc:
+        raise MultiGameweekForecastError(f"provider capability gate rejected bundle: {exc}") from exc
     required_ids = payload.get("required_player_ids")
     if not isinstance(required_ids, list) or not required_ids:
         raise MultiGameweekForecastError("required_player_ids must be a non-empty list")
@@ -90,6 +103,19 @@ def build_multi_gameweek_forecast_bundle(payload: Mapping[str, Any]) -> dict[str
             raise MultiGameweekForecastError(f"panels[{index}] season does not match bundle")
         if snapshot.get("provider") != dict(provider):
             raise MultiGameweekForecastError(f"panels[{index}] provider identity/version does not match bundle")
+        try:
+            validate_capture_against_registry(
+                source_id,
+                {
+                    "provider": snapshot.get("provider"),
+                    "grain": snapshot.get("grain"),
+                    "multi_gameweek_capability": snapshot.get("multi_gameweek_capability", {}),
+                },
+            )
+        except ProviderCapabilityError as exc:
+            raise MultiGameweekForecastError(
+                f"panels[{index}] provider capability registry rejected snapshot: {exc}"
+            ) from exc
         if snapshot.get("grain") != "player_fixture":
             raise MultiGameweekForecastError("fixture-by-fixture transfer evaluation requires player_fixture forecast grain")
         if snapshot.get("decision_eligible") is not True:
@@ -231,6 +257,7 @@ def build_multi_gameweek_forecast_bundle(payload: Mapping[str, Any]) -> dict[str
         "forecast_snapshot_id": payload["forecast_bundle_id"],
         "season": payload["season"],
         "provider": dict(provider),
+        "provider_source_id": source_id,
         "model_version": payload["model_version"],
         "decision_as_of_utc": as_of.isoformat(),
         "horizon_gameweeks": weeks,
