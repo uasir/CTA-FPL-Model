@@ -85,6 +85,26 @@ def run_cta_recommendation_products(
         "filters": {},
     }
     general = recommend_general_market(general_request)
+    # A cumulative five-GW ranking is useful for medium-term targets, but its
+    # cumulative EV must not be presented as a captaincy recommendation for one
+    # specific Gameweek. Build separate one-GW market views for weekly choices.
+    general["categories"].pop("captaincy", None)
+    gameweek_markets = []
+    for panel in provider_snapshot.get("gameweek_panels", []):
+        if not isinstance(panel, Mapping) or not isinstance(panel.get("player_forecasts"), list):
+            raise CTARecommendationRunError("CTA provider snapshot contains a malformed Gameweek panel")
+        weekly_request = {
+            "forecast_snapshot_id": shared["forecast_snapshot_id"],
+            "model_version": shared["model_version"],
+            "forecast_horizon_gameweeks": 1,
+            "forecast_quality": dict(quality),
+            "player_forecasts": [dict(row) for row in panel["player_forecasts"]],
+            "filters": {},
+        }
+        gameweek_markets.append({
+            "gameweek": panel.get("gameweek"),
+            "recommendations": recommend_general_market(weekly_request),
+        })
 
     result_personal: dict[str, Any] = {
         "product_id": "cta_informed_personal_squad",
@@ -160,6 +180,7 @@ def run_cta_recommendation_products(
             "forecast_snapshot_id": shared["forecast_snapshot_id"],
         },
         "general_cta_market": general,
+        "gameweek_cta_markets": gameweek_markets,
         "cta_informed_personal_squad": result_personal,
         "guardrails": {
             "candidate_only": True,
