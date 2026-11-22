@@ -1,0 +1,115 @@
+name: CTA M4 recommendation replay
+
+on:
+  pull_request:
+    branches:
+      - feat/m4-conventional-delivery-m3-aligned
+    paths:
+      - ".github/workflows/cta-m4-cta-recommendation-replay.yml"
+      - "canonical_candidate/engineering_workbench/scripts/cta_forecast_recommendation_adapter.py"
+      - "canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_products.py"
+      - "canonical_candidate/engineering_workbench/scripts/general_market_engine.py"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  replay-real-candidate:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'feat/m4-cta-informed-and-general-recommendations'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download the verified GW12-GW16 CTA forecast artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cta-five-gw-candidate-forecast
+          repository: ${{ github.repository }}
+          run-id: "45059662965"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: outputs/cta-five-gw
+
+      - name: Build squad-independent CTA recommendations from the real bundle
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_products.py \\
+            --bundle-dir outputs/cta-five-gw \\
+            --now-utc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \\
+            --output outputs/cta-recommendations/cta-recommendation-previews.json
+
+      - name: Publish concise exploratory ranking summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("outputs/cta-recommendations/cta-recommendation-previews.json")
+          result = json.loads(path.read_text(encoding="utf-8"))
+          market = result["general_cta_market"]
+          categories = market["categories"]
+
+          def table(rows):
+              lines = ["| Player | Pos | 5GW points | Price |", "|---|---:|---:|---:|"]
+              for row in rows[:10]:
+                  lines.append(
+                      f"| {row.get('display_name', row['fpl_element_id'])} | "
+                      f"{row['position']} | {row['expected_points']:.2f} | "
+                      f"£{row['price']:.1f} |"
+                  )
+              return "\\n".join(lines)
+
+          lines = [
+              "# CTA general recommendation replay",
+              "",
+              f"- Snapshot: `{result['target']['forecast_snapshot_id']}`",
+              f"- Horizon: GW{result['target']['gameweeks'][0]}–GW{result['target']['gameweeks'][-1]}",
+              f"- Model: `{market['model_version']}`",
+              "- Status: EXPLORATORY ONLY — M2 validation pending",
+              "- Decision weight: 0; production eligible: false; CoVar used: false",
+              "- No manager/squad data or EO snapshot was supplied.",
+              "",
+              "## Five-Gameweek overall ranking",
+              "",
+              table(categories["overall"]),
+              "",
+              "## Five-Gameweek value ranking",
+              "",
+              table(categories["value"]),
+              "",
+              "## Weekly captaincy shortlists",
+          ]
+          for weekly in result["gameweek_cta_markets"]:
+              lines.extend([
+                  "",
+                  f"### GW{weekly['gameweek']}",
+                  "",
+                  table(weekly["recommendations"]["categories"]["captaincy"]),
+              ])
+          lines.extend([
+              "",
+              "## Personal squad product",
+              "",
+              "Not requested: no current manager squad snapshot was supplied.",
+          ])
+          summary = "\\n".join(lines) + "\\n"
+          Path("outputs/cta-recommendations/summary.md").write_text(summary, encoding="utf-8")
+          with open(__import__("os").environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write(summary)
+          PY
+
+      - name: Upload exploratory CTA recommendation output
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-general-recommendation-preview-gw12-16
+          path: |
+            outputs/cta-recommendations/cta-recommendation-previews.json
+            outputs/cta-recommendations/summary.md
+          if-no-files-found: error
+          retention-days: 30
