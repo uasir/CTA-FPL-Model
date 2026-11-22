@@ -191,6 +191,7 @@ def test_adapter_accepts_only_provenance_matched_post_lock_eo(tmp_path: Path):
     assert coverage["eo_cohort"] == "overall top-10k sample"
     assert coverage["eo_sample_managers"] == 250
     assert coverage["eo_players_with_coverage"] == 1
+    assert coverage["eo_temporal_role"] == "POST_LOCK_RETROSPECTIVE_DESCRIPTIVE_ONLY"
     player = next(p for p in result["shared_forecast"]["player_forecasts"] if p["fpl_element_id"] == 101)
     assert player["effective_ownership_pct"] == 82.5
 
