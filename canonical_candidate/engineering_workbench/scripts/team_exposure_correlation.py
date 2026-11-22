@@ -35,6 +35,8 @@ def build_team_exposure_report(
     player_gameweek_forecasts: Sequence[Mapping[str, Any]],
     joint_scenarios: Sequence[Mapping[str, Any]] | None = None,
     minimum_horizon_gameweeks: int = 5,
+    forecast_snapshot_id: str | None = None,
+    model_version: str | None = None,
 ) -> dict[str, Any]:
     """Summarize squad club/position stacking and scenario-derived covariance.
 
@@ -86,28 +88,37 @@ def build_team_exposure_report(
         raise TeamExposureError(f"forecast coverage is incomplete for {len(missing)} player/Gameweek rows")
 
     player_totals = {pid: sum(forecasts[(pid, gw)]["expected_points"] for gw in ordered_weeks) for pid in ids}
+    team_ids = sorted({forecasts[(pid, gw)]["team_id"] for pid in ids for gw in ordered_weeks})
     team_rows = []
-    for team_id in sorted({forecasts[(pid, gw)]["team_id"] for pid in ids for gw in ordered_weeks}):
-        player_ids = sorted(pid for pid in ids if forecasts[(pid, ordered_weeks[0])]["team_id"] == team_id)
-        if not player_ids:
+    for team_id in team_ids:
+        by_week = {}
+        all_player_ids = set()
+        position_totals = {pos: 0 for pos in ("GKP", "DEF", "MID", "FWD")}
+        for gw in ordered_weeks:
+            members = [pid for pid in ids if forecasts[(pid, gw)]["team_id"] == team_id]
+            all_player_ids.update(members)
+            by_week[str(gw)] = round(sum(forecasts[(pid, gw)]["expected_points"] for pid in members), 6)
+            for pos in position_totals:
+                position_totals[pos] += sum(forecasts[(pid, gw)]["position"] == pos for pid in members)
+        if not all_player_ids:
             continue
-        position_counts = {pos: sum(forecasts[(pid, gw)]["position"] == pos
-                                    for pid in player_ids for gw in ordered_weeks) / len(ordered_weeks)
-                           for pos in ("GKP", "DEF", "MID", "FWD")}
+        position_counts = {pos: count / len(ordered_weeks) for pos, count in position_totals.items()}
+        has_defensive = position_totals["GKP"] + position_totals["DEF"] > 0
+        has_attacking = position_totals["MID"] + position_totals["FWD"] > 0
         team_rows.append({
             "team_id": team_id,
-            "squad_player_ids": player_ids,
-            "player_count": len(player_ids),
-            "position_counts_average": position_counts,
-            "expected_points_by_gameweek": {
-                str(gw): round(sum(forecasts[(pid, gw)]["expected_points"] for pid in player_ids), 6)
+            "squad_player_ids": sorted(all_player_ids),
+            "average_player_count": round(sum(
+                sum(forecasts[(pid, gw)]["team_id"] == team_id for pid in ids)
                 for gw in ordered_weeks
-            },
-            "expected_points_horizon": round(sum(player_totals[pid] for pid in player_ids), 6),
+            ) / len(ordered_weeks), 4),
+            "position_counts_average": position_counts,
+            "expected_points_by_gameweek": by_week,
+            "expected_points_horizon": round(sum(by_week.values()), 6),
             "stack_type": (
-                "DEFENSIVE_CLEAN_SHEET_EXPOSURE" if all(forecasts[(pid, ordered_weeks[0])]["position"] in {"GKP", "DEF"} for pid in player_ids)
-                else "ATTACKING_EXPOSURE" if all(forecasts[(pid, ordered_weeks[0])]["position"] in {"MID", "FWD"} for pid in player_ids)
-                else "MIXED_TEAM_EXPOSURE"
+                "MIXED_TEAM_EXPOSURE" if has_defensive and has_attacking
+                else "DEFENSIVE_CLEAN_SHEET_EXPOSURE" if has_defensive
+                else "ATTACKING_EXPOSURE"
             ),
         })
 
@@ -181,8 +192,15 @@ def build_team_exposure_report(
                 "portfolio_variance_contribution": round(2 * cov, 8) if cov is not None else None,
             })
 
+    if forecast_snapshot_id is not None and (not isinstance(forecast_snapshot_id, str) or not forecast_snapshot_id.strip()):
+        raise TeamExposureError("forecast_snapshot_id must be a non-empty string when supplied")
+    if model_version is not None and (not isinstance(model_version, str) or not model_version.strip()):
+        raise TeamExposureError("model_version must be a non-empty string when supplied")
+
     return {
         "contract_version": "1.0.0",
+        "forecast_snapshot_id": forecast_snapshot_id,
+        "model_version": model_version,
         "status": "TEAM_EXPOSURE_COMPUTED" if not scenario_rows else "TEAM_EXPOSURE_AND_SCENARIO_COVARIANCE_COMPUTED",
         "horizon_gameweeks": ordered_weeks,
         "horizon_size": len(ordered_weeks),
