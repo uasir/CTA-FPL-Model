@@ -335,3 +335,34 @@ def test_understat_refresh_only_selects_current_roster_appearances_missing_from_
     assert selected == {101, 505}
 
 
+
+
+def test_build_fpl_team_matches_uses_fixture_scores_and_stable_team_names():
+    import pandas as pd
+
+    rows = []
+    for team, opponent, home in [
+        ("Arsenal", "Chelsea", True),
+        ("Arsenal", "Chelsea", True),
+        ("Chelsea", "Arsenal", False),
+        ("Chelsea", "Arsenal", False),
+    ]:
+        rows.append({
+            "season": "2026-27", "fixture": 99, "team_name": team,
+            "opponent_team_name": opponent, "is_home": home,
+            "kickoff_time": "2026-08-15T15:00:00Z",
+            "team_h_score": 2, "team_a_score": 1,
+        })
+    player_matches = pd.DataFrame(rows)
+    mapping = {
+        "Arsenal": "Arsenal", "Chelsea": "Chelsea",
+    }
+    team_matches = build_fpl_team_matches(
+        player_matches, lambda name: mapping.get(str(name), str(name)),
+    )
+    assert len(team_matches) == 2
+    home = team_matches.loc[team_matches["understat_team"].eq("Arsenal")].iloc[0]
+    away = team_matches.loc[team_matches["understat_team"].eq("Chelsea")].iloc[0]
+    assert (home["scored"], home["missed"], home["pts"]) == (2.0, 1.0, 3.0)
+    assert (away["scored"], away["missed"], away["pts"]) == (1.0, 2.0, 0.0)
+    assert team_matches[["xG", "xGA", "deep", "ppda_att"]].to_numpy().sum() == 0.0
