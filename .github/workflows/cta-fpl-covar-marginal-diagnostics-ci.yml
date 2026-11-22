@@ -94,3 +94,51 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_fetch.py \
             canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_batch.py \
             canonical_candidate/engineering_workbench/tests/test_personal_squad_covar_recommendation.py
+
+  private-official-fpl-replay:
+    if: github.ref == 'refs/heads/feat/m4-field-portfolio-intelligence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Capture anonymized completed-Gameweek manager replays
+        id: capture
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+          FPL_MANAGER_ENTRY_ID: "421025"
+        run: |
+          python scripts/m4_covar_fpl_api_replay_batch.py \
+            --events "1,2,3,4,5,6,7,8,9,10,11" \
+            --min-successful 5 \
+            --output "$RUNNER_TEMP/covar-official-replays.json"
+      - name: Validate lineup resolver against official final picks and points
+        id: replay-validation
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: |
+          set +e
+          python scripts/m4_covar_fpl_replay_validation.py \
+            --input "$RUNNER_TEMP/covar-official-replays.json" \
+            > "$RUNNER_TEMP/covar-replay-validation.json"
+          result=$?
+          cat "$RUNNER_TEMP/covar-replay-validation.json"
+          exit "$result"
+      - name: Upload anonymized replay evidence and validation report
+        if: always() && steps.capture.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-covar-official-replays-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/covar-official-replays.json
+            ${{ runner.temp }}/covar-replay-validation.json
+          if-no-files-found: warn
+          retention-days: 30
