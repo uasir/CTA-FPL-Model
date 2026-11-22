@@ -260,7 +260,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     sys.path.insert(0, str(dastan_root))
     from dastan import data as dastan_data
     from dastan import mappings
-    from dastan.rebuild import sources
+    from dastan.rebuild import sources, features as dastan_features
     from dastan.rebuild.features import build_feature_frame
     from dastan.rebuild.fplcache import build_predeadline_artifacts
 
@@ -284,6 +284,12 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
 
     roster_path = write_current_roster(dastan_root, bootstrap, season)
     patch_identity_resolution(mappings, sources)
+    operational_clubs = mappings.load_operational_clubs()
+    dastan_features.FPL_TO_UNDERSTAT.update({
+        str(row["club_name"]): str(row["understat_name"])
+        for row in operational_clubs.to_dict("records")
+        if row.get("understat_name")
+    })
     sources.VAASTAV_COMMIT = source_commit
     sources.VAASTAV_RAW = f"https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/{source_commit}/"
     sources.VAASTAV_TREE = f"https://api.github.com/repos/vaastav/Fantasy-Premier-League/git/trees/{source_commit}?recursive=1"
