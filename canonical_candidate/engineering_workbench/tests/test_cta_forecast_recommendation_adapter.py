@@ -241,3 +241,24 @@ def test_adapter_marks_old_bundle_stale_without_claiming_validation(tmp_path: Pa
     quality = result["shared_forecast"]["forecast_quality"]
     assert quality["validation_status"] == "EXPLORATORY_ONLY"
     assert quality["data_coverage"]["freshness_status"] == "STALE_OVER_24H"
+
+
+
+def test_adapter_rejects_five_gameweek_minutes_above_fixture_allowance(tmp_path: Path):
+    bundle = build_bundle(tmp_path / "bundle")
+    path = bundle / "forecasts" / "player_five_gw_forecasts.csv"
+    rows = list(csv.DictReader(path.open()))
+    rows[0]["expected_minutes_5gw"] = 500
+    write_csv(path, rows)
+    with pytest.raises(CTAForecastAdapterError, match="five-GW minutes exceed"):
+        build_cta_forecast_provider_snapshot(bundle, now_utc="2026-11-22T12:05:00Z")
+
+
+def test_adapter_rejects_gameweek_minutes_above_fixture_allowance(tmp_path: Path):
+    bundle = build_bundle(tmp_path / "bundle")
+    path = bundle / "forecasts" / "player_gameweek_forecasts.csv"
+    rows = list(csv.DictReader(path.open()))
+    rows[0]["expected_minutes"] = 91
+    write_csv(path, rows)
+    with pytest.raises(CTAForecastAdapterError, match="minutes exceed its fixture allowance"):
+        build_cta_forecast_provider_snapshot(bundle, now_utc="2026-11-22T12:05:00Z")
