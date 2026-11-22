@@ -1093,14 +1093,15 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     player_matches, understat_team_matches, player_lookup = sources.build_canonical_matches(raw_dir, seasons)
     team_matches = build_fpl_team_matches(player_matches, dastan_features.fpl_to_understat)
     player_understat_columns = ["us_xG", "us_xA", "us_shots", "us_key_passes"]
-    player_understat_coverage = {
-        name: float(pd.to_numeric(player_matches[name], errors="coerce").notna().mean())
-        for name in player_understat_columns
-    }
+    player_matches, understat_coverage = prepare_player_understat_metrics(
+        player_matches, player_understat_columns,
+    )
+    player_understat_coverage = understat_coverage["appearance_metric_coverage"]
     weak_player_coverage = {name: value for name, value in player_understat_coverage.items() if value < 0.70}
     feature_source_mode = "FPL_PLAYER_UNDERSTAT" if not weak_player_coverage else "FPL_NATIVE_NO_UNDERSTAT"
     source_manifest["feature_source_mode"] = feature_source_mode
     source_manifest["understat_player_metric_coverage"] = player_understat_coverage
+    source_manifest["understat_player_coverage"] = understat_coverage
     source_manifest["understat_team_history_rows"] = len(understat_team_matches)
     source_manifest["team_metrics_policy"] = "FPL fixture scores and standings retained; team/opp Understat feature families masked"
     source_manifest["understat_status"] = (
@@ -1165,6 +1166,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "understat_status": source_manifest["understat_status"],
         "understat_fallback_reports": apish_fallback_reports,
         "understat_player_metric_coverage": player_understat_coverage,
+        "understat_player_coverage": understat_coverage,
         "understat_team_history_rows": len(understat_team_matches),
         "team_metrics_policy": "FPL fixture scores and standings; team/opp Understat feature families masked consistently in training and scoring",
         "historical_player_history_source": "Pinned Vaastav FPL match archives plus official FPL API history, joined to available Understat player match metrics",
@@ -1213,6 +1215,48 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     print(json.dumps({k: v for k, v in report.items() if k not in {"mapping", "artifacts"}}, indent=2))
     return report
 
+
+def prepare_player_understat_metrics(
+    player_matches: pd.DataFrame, metric_columns: list[str],
+) -> tuple[pd.DataFrame, dict]:
+    """Treat zero-minute rows as zero Understat output, not missing coverage.
+
+    Understat player-match metrics are meaningful on appearances. Counting every
+    FPL roster row in the denominator penalizes players who did not appear, even
+    though their xG/xA/shots/key-passes for that match are structurally zero.
+    """
+    required = {"minutes", *metric_columns}
+    missing = sorted(required - set(player_matches.columns))
+    if missing:
+        raise ValueError(f"canonical player matches lack Understat coverage fields: {missing}")
+    out = player_matches.copy()
+    minutes = pd.to_numeric(out["minutes"], errors="coerce")
+    appearances = minutes.gt(0)
+    nonappearances = minutes.eq(0)
+    appearance_coverage = {}
+    all_rows_before = {}
+    for column in metric_columns:
+        values = pd.to_numeric(out[column], errors="coerce")
+        out[column] = values
+        appearance_coverage[column] = (
+            float(values.loc[appearances].notna().mean()) if appearances.any() else 0.0
+        )
+        all_rows_before[column] = float(values.notna().mean()) if len(values) else 0.0
+        out.loc[nonappearances, column] = 0.0
+    all_rows_after = {
+        column: float(pd.to_numeric(out[column], errors="coerce").notna().mean())
+        if len(out) else 0.0
+        for column in metric_columns
+    }
+    return out, {
+        "appearance_rows": int(appearances.sum()),
+        "nonappearance_rows": int(nonappearances.sum()),
+        "unknown_minutes_rows": int(minutes.isna().sum()),
+        "appearance_metric_coverage": appearance_coverage,
+        "all_row_metric_coverage_before_zero_fill": all_rows_before,
+        "all_row_metric_coverage_after_zero_fill": all_rows_after,
+        "zero_fill_policy": "Understat player metrics set to 0 only when verified FPL minutes == 0; unknown/appearance rows remain missing",
+    }
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)

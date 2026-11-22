@@ -16,6 +16,7 @@ from prepare_cta_five_gw_sources import (
     season_from_bootstrap,
     write_csv_frame,
     write_live_fixture_schedule,
+    prepare_player_understat_metrics,
 )
 
 
@@ -443,3 +444,45 @@ def test_merge_understat_team_metrics_fails_closed_on_low_coverage():
     }])
     with pytest.raises(RuntimeError, match="coverage below 95%"):
         merge_understat_team_metrics(fpl, understat)
+
+
+def test_understat_coverage_uses_appearances_and_zero_fills_only_zero_minute_rows():
+    import numpy as np
+    import pandas as pd
+
+    frame = pd.DataFrame({
+        "minutes": [90, 60, 0, 0, 0, 0, 0, 0, 0, 0],
+        "us_xG": [0.2, 0.1, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
+        "us_xA": [0.1, 0.0, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
+        "us_shots": [2, 1, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
+        "us_key_passes": [1, 0, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
+    })
+    prepared, report = prepare_player_understat_metrics(
+        frame, ["us_xG", "us_xA", "us_shots", "us_key_passes"],
+    )
+    assert report["appearance_rows"] == 2
+    assert report["nonappearance_rows"] == 8
+    assert all(value == 1.0 for value in report["appearance_metric_coverage"].values())
+    assert all(value == 0.2 for value in report["all_row_metric_coverage_before_zero_fill"].values())
+    assert all(value == 1.0 for value in report["all_row_metric_coverage_after_zero_fill"].values())
+    assert prepared.loc[2:, ["us_xG", "us_xA", "us_shots", "us_key_passes"]].eq(0.0).all().all()
+    assert frame.loc[2:, ["us_xG", "us_xA", "us_shots", "us_key_passes"]].isna().all().all()
+
+
+def test_understat_appearance_coverage_does_not_zero_fill_missing_appearance_metrics():
+    import numpy as np
+    import pandas as pd
+
+    frame = pd.DataFrame({
+        "minutes": [90, 60, 0],
+        "us_xG": [0.2, np.nan, np.nan],
+        "us_xA": [0.1, np.nan, np.nan],
+        "us_shots": [2, np.nan, np.nan],
+        "us_key_passes": [1, np.nan, np.nan],
+    })
+    prepared, report = prepare_player_understat_metrics(
+        frame, ["us_xG", "us_xA", "us_shots", "us_key_passes"],
+    )
+    assert all(value == 0.5 for value in report["appearance_metric_coverage"].values())
+    assert prepared.loc[1, "us_xG"] != prepared.loc[1, "us_xG"]
+    assert prepared.loc[2, "us_xG"] == 0.0
