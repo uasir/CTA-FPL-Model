@@ -94,6 +94,34 @@ def sample_public_entries(
     return selected
 
 
+def _capture_failure_code(exc: Exception) -> str:
+    """Classify capture failures without retaining player or manager identifiers."""
+    message = str(exc).lower()
+    patterns = (
+        ("captain and vice-captain must be in the starting xi", "CAPTAIN_OR_VICE_NOT_STARTING"),
+        ("starting xi does not satisfy legal fpl formation", "ILLEGAL_STARTING_FORMATION"),
+        ("position 12 must be the reserve goalkeeper", "RESERVE_GOALKEEPER_POSITION_INVALID"),
+        ("starting xi must contain exactly one goalkeeper", "STARTING_GOALKEEPER_COUNT_INVALID"),
+        ("captain and vice-captain must be distinct starting xi players", "CAPTAINCY_SELECTION_INVALID"),
+        ("official picks must identify one distinct captain and vice-captain", "OFFICIAL_CAPTAINCY_FLAGS_INVALID"),
+        ("official captain does not match submitted lineup captain", "CAPTAIN_ID_MISMATCH"),
+        ("official vice-captain does not match submitted lineup vice-captain", "VICE_CAPTAIN_ID_MISMATCH"),
+        ("picks must have unique player ids and positions", "PICK_ORDER_OR_ID_INVALID"),
+        ("missing from bootstrap metadata", "PLAYER_BOOTSTRAP_METADATA_MISSING"),
+        ("missing from event live data", "PLAYER_EVENT_LIVE_DATA_MISSING"),
+    )
+    for phrase, code in patterns:
+        if phrase in message:
+            return code
+    if isinstance(exc, OfficialFplFetchError):
+        return "OFFICIAL_API_FETCH_FAILURE"
+    if isinstance(exc, CovarFplApiReplayAdapterError):
+        return "ADAPTER_VALIDATION_OTHER"
+    if isinstance(exc, CovarFplReplayError):
+        return "REPLAY_VALIDATION_OTHER"
+    return "UNCLASSIFIED_CAPTURE_FAILURE"
+
+
 def audit_public_field_replays(
     event_ids: Sequence[int],
     *,
@@ -146,6 +174,8 @@ def audit_public_field_replays(
     team_points_cases = 0
     team_points_failures = 0
     validation_failure_types: dict[str, int] = {}
+    capture_failure_types: dict[str, int] = {}
+    autosub_metadata_mismatch_replays = 0
 
     for event in event_ids:
         matching = event_status.get(event, [])
@@ -181,7 +211,10 @@ def audit_public_field_replays(
                     "event_id": event,
                     "rank_page": rank_page,
                     "failure_type": type(exc).__name__,
+                    "failure_code": _capture_failure_code(exc),
                 })
+                code = _capture_failure_code(exc)
+                capture_failure_types[code] = capture_failure_types.get(code, 0) + 1
                 continue
 
             replay_count += 1
@@ -204,35 +237,27 @@ def audit_public_field_replays(
                 if result["official_team_points_reconcile"] is False:
                     validation_failure_types["TEAM_POINTS_MISMATCH"] = validation_failure_types.get("TEAM_POINTS_MISMATCH", 0) + 1
 
+            if result.get("automatic_substitution_metadata_match") is False:
+                autosub_metadata_mismatch_replays += 1
             if result["official_team_points_reconcile"] is not None:
                 team_points_cases += 1
                 team_points_failures += int(result["official_team_points_reconcile"] is False)
             if result["resolver_active_captain_id"] == case["lineup"]["vice_captain_id"]:
                 captain_fallbacks += 1
 
+            # Infer actual autosubs from final pick multipliers, not the
+            # separate automatic_subs metadata field.
             bench_picks = [row for row in case["official_final"]["picks"] if int(row["position"]) > 11]
-            official_autosubs = case["official_final"].get("automatic_subs")
-            if official_autosubs is not None:
-                actual_autosubs = official_autosubs if chip != "bboost" else []
-            else:
-                actual_autosubs = (
-                    [row for row in bench_picks if int(row["multiplier"]) > 0]
-                    if chip != "bboost" else []
-                )
+            actual_autosubs = (
+                [row for row in bench_picks if int(row["multiplier"]) > 0]
+                if chip != "bboost" else []
+            )
             if actual_autosubs:
                 autosub_replays += 1
                 event_summary["autosub_replays"] += 1
                 autosub_players += len(actual_autosubs)
-                position_by_player = {
-                    str(row["element"]): int(row["position"])
-                    for row in case["official_final"]["picks"]
-                }
-                goalkeeper_autosubs += sum(
-                    position_by_player[str(row["element_in"])] == 12 for row in actual_autosubs
-                )
-                outfield_autosubs += sum(
-                    position_by_player[str(row["element_in"])] > 12 for row in actual_autosubs
-                )
+                goalkeeper_autosubs += sum(int(row["position"]) == 12 for row in actual_autosubs)
+                outfield_autosubs += sum(int(row["position"]) > 12 for row in actual_autosubs)
 
     if replay_count < min_replays:
         raise OfficialFplFetchError(
@@ -256,11 +281,13 @@ def audit_public_field_replays(
         "passed_count": passed_count,
         "failed_count": mismatch_count,
         "capture_failure_count": len(capture_failures),
+        "capture_failure_types": capture_failure_types,
         "by_gameweek": by_event,
         "by_rank_page_replay_count": by_rank_page,
         "by_chip": by_chip,
         "autosub_replay_count": autosub_replays,
         "autosub_player_count": autosub_players,
+        "automatic_substitution_metadata_mismatch_replays": autosub_metadata_mismatch_replays,
         "goalkeeper_autosub_count": goalkeeper_autosubs,
         "outfield_autosub_count": outfield_autosubs,
         "captain_fallback_count": captain_fallbacks,
