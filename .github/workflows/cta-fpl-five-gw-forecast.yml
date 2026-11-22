@@ -39,7 +39,10 @@ jobs:
       - name: Compile pipeline scripts
         run: python -m compileall -q canonical_candidate/engineering_workbench/scripts
       - name: Run Python tests
-        run: python -m pytest canonical_candidate/engineering_workbench/tests -q
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: .:scripts
+        run: python -m pytest tests -q
       - name: Run JavaScript tests
         working-directory: canonical_candidate/engineering_workbench
         run: node --test tests/js/*.test.mjs
