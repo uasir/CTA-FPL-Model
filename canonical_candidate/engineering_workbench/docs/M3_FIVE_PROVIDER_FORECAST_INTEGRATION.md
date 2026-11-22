@@ -40,7 +40,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 
 - Endpoint: `https://fplcat.com/api/v1/projections`
 - Existing capture: `scripts/capture_fpl_cat_snapshot.py`
-- Existing capture preserves raw provider and official FPL bootstrap payloads in the runner's temporary workspace, hashes, capture times, provider-declared `computed_at`, expected points and expected minutes. Its public workflow artifact is now metadata-only; raw forecast rows and FPL bootstrap data are not uploaded.
+- Existing capture preserves raw provider and official FPL bootstrap payloads, hashes, capture times, provider-declared `computed_at`, expected points and expected minutes. The manual workflow now retains the immutable raw capture bundle plus a sanitized metadata summary as a run-scoped 90-day artifact. FPL Cat attribution is included in the summary; this bounded retention policy does not imply blanket redistribution rights for third-party fields.
 - Bounded live GW12 capture succeeded on 21 Nov 2026 at 17:44:52.710605Z (run [#44931714336](https://github.com/uasir/CTA-FPL-Model/actions/runs/44931714336)): 672 provider rows and 672 official FPL metadata rows; provider `computed_at` 17:10:08.084Z; capture strictly before the official GW12 deadline 27 Nov 2026 18:30Z. Provider API SHA-256: `e6a1bcd630578b71bbc50fcfa718d151f24463eddc33882efb9e866c33e488bb`; official bootstrap SHA-256: `74d3f581149bf05f977d02d862db5ba6e5c83c2b5e0711935811636daaf94435`. Snapshot ID: `fplcat-gw12-20261121T174452710605Z`. Generation time is explicitly verified; only the sanitized summary artifact was uploaded.
 - Grain: player-Gameweek.
 - Keep this implementation as the existing baseline; do not duplicate it with a second FPL Cat adapter.
@@ -56,7 +56,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 - The source is CC BY 4.0 for the provider's own data, with attribution; FPL-owned fields remain subject to their own terms.
 - Implemented first-stage raw capture plus a parser for the documented `rows` array. The parser validates `player_id`, `fixture_id`, `gameweek`, `xP`, `e_mins` and `p_start`; cross-checks player IDs against the archived official FPL bootstrap; rejects duplicate player-fixture keys and provider count mismatches; and preserves all native row fields.
 - The canonical snapshot remains at player-fixture grain. A separate derived player-Gameweek view explicitly sums fixture `xP` and provider `e_mins` by `player_id`, with fixture count and aggregation provenance. It does not aggregate start probabilities or fixture-level distribution fields; publisher-provided Gameweek distribution fields are retained once after cross-fixture consistency checks.
-- The manual capture workflow now runs the parser after raw capture. A target Gameweek must be supplied explicitly; there is no stale default to a Gameweek whose deadline has passed. The workflow publishes only a sanitized metadata summary; raw provider rows and the official FPL bootstrap are not uploaded to the public repository's workflow artifacts.
+- The manual capture workflow now runs the parser after raw capture. A target Gameweek must be supplied explicitly; there is no stale default to a Gameweek whose deadline has passed. It retains the immutable raw capture, normalized fixture/Gameweek outputs and sanitized summary in a run-scoped 90-day artifact. Sideline Quant's provider data is CC BY 4.0 and the summary carries attribution; FPL-owned fields remain subject to their own terms.
 - Engineering tests have been added for raw capture, fixture parser, double-Gameweek sum, native-field retention, identity mapping, duplicate keys and invalid Gameweek data. The M3 feature-branch CI run at commit `6427d3351d37d9715ca8d30219f7d678becc78fb` passed the full engineering test suite (433 tests and 3 subtests). This verifies software behavior, not forecast accuracy.
 
 
@@ -106,7 +106,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 ## 4. Current engineering verification
 
 - M3 feature-branch CI at commit `49ba63112276cb5dfc2713ad3635cfbc4ae520e7` completed successfully: **540 tests passed, 3 subtests passed**, plus JavaScript recommendation-contract tests and all four identity-crosswalk validators.
-- This is software-contract and parser-fixture verification. It is not evidence that Sideline Quant, FPLRogue, FPL Lucho or FPL Wildcard live captures have succeeded, nor that any provider is forecast-accurate. The repository is public, so FPL Cat, Sideline Quant and FPLRogue workflows now upload metadata-only summaries; their raw source files remain temporary runner files and are not retained as public artifacts. FPL Lucho and FPL Wildcard remain private-intake paths.
+- This is software-contract and parser-fixture verification. It is not evidence that Sideline Quant, FPLRogue, FPL Lucho or FPL Wildcard live captures have succeeded, nor that any provider is forecast-accurate. FPL Cat and Sideline Quant workflows now retain immutable raw capture bundles plus sanitized summaries as run-scoped artifacts with provider attribution; FPLRogue remains metadata-only pending source-terms clearance. FPL Lucho retains only a sanitized metadata summary, while FPL Wildcard remains private-intake only.
 - Provider crosswalk validation remains `EMPTY_NOT_READY` until actual source player IDs/names are mapped and checked.
 
 ## 5. Provider-specific implementation gates
@@ -114,7 +114,7 @@ FPL Forecaster and FPL Review are excluded. Do not ingest their current forecast
 A provider is not marked integrated merely because its URL is known. Each adapter must pass:
 
 1. Successful retrieval with HTTP status, content type, source URL and retrieval timestamp recorded.
-2. Raw response retention in private, access-controlled storage and SHA-256 verification. Never place raw provider rows or FPL bootstrap payloads in public GitHub artifacts; public workflow artifacts are limited to sanitized metadata summaries.
+2. Raw response retention and SHA-256 verification under a provider-specific source policy. FPL Cat and Sideline Quant currently use immutable, run-scoped raw capture artifacts with attribution; FPLRogue and FPL Lucho remain metadata-only in public artifacts until their applicable terms permit more. FPL Wildcard remains private-only. Provider permissions do not automatically grant redistribution rights for FPL-owned or other third-party fields.
 3. Exact schema/column verification against the actual downloaded payload.
 4. Provider identity, product/variant and target Gameweek verification.
 5. Provider-generation timestamp provenance and strict deadline eligibility handling.
