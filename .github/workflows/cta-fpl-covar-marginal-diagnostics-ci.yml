@@ -18,6 +18,8 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_fetch.py"
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_batch.py"
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_official_event_scoring_audit.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_public_field_replay_audit.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_public_field_replay_audit.py"
       - "canonical_candidate/engineering_workbench/tests/test_m4_covar_official_event_scoring_audit.py"
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_replay_validation.py"
       - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_adapter.py"
@@ -77,6 +79,7 @@ jobs:
             canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_fetch.py \
             canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_batch.py \
             canonical_candidate/engineering_workbench/scripts/m4_covar_official_event_scoring_audit.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_public_field_replay_audit.py \
             canonical_candidate/engineering_workbench/scripts/personal_squad_covar_recommendation.py
       - name: Run focused CoVar validation tests
         env:
@@ -97,6 +100,7 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_fetch.py \
             canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_batch.py \
             canonical_candidate/engineering_workbench/tests/test_m4_covar_official_event_scoring_audit.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_public_field_replay_audit.py \
             canonical_candidate/engineering_workbench/tests/test_personal_squad_covar_recommendation.py
 
   private-official-fpl-replay:
@@ -175,5 +179,39 @@ jobs:
         with:
           name: cta-covar-official-event-scoring-audit-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/covar-official-event-scoring-audit.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  public-field-replay-stress-test:
+    if: github.ref == 'refs/heads/feat/m4-field-portfolio-intelligence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Stress-test resolver on public Overall-league manager replays
+        id: audit
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: |
+          python scripts/m4_covar_public_field_replay_audit.py \
+            --events "1,2,3,4,5,6,7,8,9,10,11" \
+            --rank-pages "1,200,2000,20000,100000" \
+            --sample-positions "4,24,44" \
+            --min-replays 25 \
+            --output "$RUNNER_TEMP/covar-public-field-replay-audit.json"
+      - name: Upload aggregate-only public field replay audit
+        if: always() && steps.audit.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-covar-public-field-replay-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/covar-public-field-replay-audit.json
           if-no-files-found: warn
           retention-days: 30
