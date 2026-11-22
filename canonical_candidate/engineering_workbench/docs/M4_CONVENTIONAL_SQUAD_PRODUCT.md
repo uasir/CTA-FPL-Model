@@ -73,3 +73,19 @@ A transfer is an investment across at least five upcoming Gameweeks, not a one-w
 ## TECM implementation boundary
 
 The TECM module provides a reusable analytical contract and M4 attachment guard. Its output is optional until complete multi-Gameweek forecasts and coherent joint scenarios are captured. No forward covariance, player correlation, field joint portfolio, or transfer benefit is claimed from club stacking alone. The existing conventional and CTA-informed product identities remain separate and use the same squad constraints.
+
+
+## Five-plus-Gameweek forecast bundle and transfer evaluator — 22 Nov 2026
+
+Two isolated engineering components now define and consume the required multi-Gameweek inputs:
+
+- `scripts/multi_gameweek_forecast_contract.py` validates a bundle of at least five consecutive, immutable provider snapshots. Each panel must be fixture-grain (`player_fixture`), retain the same provider/product/variant/version and season, carry pre-deadline provenance, be no more than 24 hours old at the decision as-of time, and include player metadata and fixture schedule. The bundle binds the per-Gameweek source snapshot IDs under one `forecast_bundle_id`. It fails closed for missing player metadata, missing scheduled player-fixture forecasts, duplicate snapshots, mismatched provider identity, stale panels or incomplete horizons. A blank Gameweek is represented as zero only when the supplied fixture schedule confirms that the player's club has no fixture.
+- `scripts/multi_gameweek_transfer_evaluator.py` consumes that bundle and compares HOLD with one affordable, position-legal transfer over the same five-plus-Gameweek horizon. It reconciles fixture-level xP/minutes to player-Gameweek totals, checks full squad/starting-XI composition and club limits, reports per-GW starting-XI deltas and incoming/outgoing fixture detail, and subtracts a hit once. A bench transfer only adds starting-XI value if the incoming player displaces a starter on the full-horizon comparison.
+
+Both components are exploratory and have decision weight zero / production eligibility disabled. They are not wired into `personal_squad_engine.py`, the provider capture workflows or the live recommendation path. The existing production path remains one-Gameweek until genuine provider snapshots for the required future Gameweeks are obtained and validated. No one-week value is extrapolated to fill the horizon.
+
+### Joint scenario provenance hardening
+
+`scripts/team_exposure_correlation.py` now requires a provenance envelope when joint scenarios are supplied: scenario-set ID, matching forecast bundle/snapshot ID, matching model version, generation/capture timestamps, source URL, raw SHA-256 and exact row count. Every scenario row must bind to the same scenario set, forecast snapshot and model version and contain a complete player-point vector for the requested squad. Every Gameweek must have at least two scenarios, with consistent scenario counts across the horizon. Missing or mismatched scenario evidence fails closed; no covariance is inferred from club membership or marginal xP/EO.
+
+The current explicit cross-Gameweek independence assumption remains: within-Gameweek covariance estimates are summed across Gameweeks. TECM remains diagnostic-only with zero decision weight and production eligibility disabled. This contract does not establish scenario calibration or statistical validation.
