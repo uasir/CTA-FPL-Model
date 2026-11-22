@@ -9,7 +9,7 @@ Connect the independently trained CTA five-Gameweek candidate forecast to both C
 The integration emits two distinct products:
 
 1. `general_cta_market`: squad-independent player rankings over the five-Gameweek cumulative CTA expected-points forecast.
-2. `cta_informed_personal_squad`: a squad-specific one-Gameweek diagnostic preview using the first target-Gameweek player forecast panel and an explicit manager squad snapshot.
+2. `cta_informed_personal_squad`: an optional squad-specific one-Gameweek diagnostic preview using the first target-Gameweek player forecast panel and an explicit manager squad snapshot.
 
 ## Data flow
 
@@ -22,7 +22,7 @@ The integration emits two distinct products:
 
 `run_cta_recommendation_products.py` then calls the existing deterministic recommendation engines:
 
-- `general_market_engine.recommend_general_market` receives only the shared forecast fields and filters. No manager/squad state is passed.
+- `general_market_engine.recommend_general_market` receives only the shared forecast fields and filters. No manager/squad state is passed, and it can run without a manager context.
 - `personal_squad_engine.recommend_personal_squad` receives only the first target-Gameweek panel plus an explicit manager context. It does not receive the five-Gameweek aggregate as single-Gameweek expected points.
 - `build_personal_squad_product` wraps the squad-specific preview in the distinct `cta_informed_personal_squad` product contract.
 
@@ -41,7 +41,16 @@ This integration is a structural and exploratory preview, not a release of CTA r
 
 ## Execution
 
-The runner requires a verified local CTA bundle and an explicit manager-context JSON file:
+The general CTA market can be generated without a manager file:
+
+```bash
+python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_products.py \
+  --bundle-dir /path/to/verified/cta-bundle \
+  --now-utc 2026-11-22T12:05:00Z \
+  --output /path/to/general-cta-market.json
+```
+
+To additionally generate the manager-specific preview, supply a private manager-context file:
 
 ```bash
 python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_products.py \
@@ -51,9 +60,9 @@ python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_
   --output /path/to/private-output/cta-recommendation-previews.json
 ```
 
-Optional post-lock EO can be supplied using `--eo-snapshot`. The manager context and full personal recommendation output are private manager data: do not publish them as public workflow artifacts. The general-market product can be produced independently, but this combined runner requires explicit manager context so it cannot silently invent a personal squad.
+Optional post-lock EO can be supplied using `--eo-snapshot`. The manager context and full personal recommendation output are private manager data: do not publish them as public workflow artifacts. General CTA rankings do not depend on manager context.
 
 ## Tests
 
 - Adapter tests verify the candidate-only bundle, five-GW horizon, stable FPL identity mapping, provenance and optional EO rules.
-- Runner tests verify both products are emitted, the general product receives the five-GW horizon, the personal product receives a one-GW panel, manager context is required, and neither output gains CoVar decision weight.
+- Runner tests verify both products are emitted with the correct horizons, general rankings run without manager context and remain invariant to changes in personal state, partial manager context is rejected, and neither output gains CoVar decision weight.
