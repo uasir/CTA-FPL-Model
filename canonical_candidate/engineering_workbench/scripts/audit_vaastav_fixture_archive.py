@@ -40,12 +40,14 @@ def audit_archive(
 ) -> dict:
     required_fixture = {"id", "event", "finished", "team_h", "team_a", "kickoff_time"}
     required_player = {"fixture", "round", "element", "team", "opponent_team", "was_home", "minutes"}
-    if not fixtures or not player_rows or not teams:
-        raise ValueError("player rows, fixtures and teams must all contain data")
+    if not fixtures or not teams:
+        raise ValueError("fixtures and teams must contain data")
     for label, rows, required in (
         ("fixtures", fixtures, required_fixture),
         ("merged_gw", player_rows, required_player),
     ):
+        if not rows and label == "merged_gw":
+            continue
         missing = sorted(required - set(rows[0]))
         if missing:
             raise ValueError(f"{label}: missing required columns {missing}")
