@@ -18,6 +18,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from feature_availability import mask_unavailable_features, unavailable_feature_names
+
 POSITIONS = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
 STATUS_RISK = {"a": 0, "d": 1, "s": 2, "i": 3, "u": 4, "n": 4}
 BASE_MATCH_STATS = (
@@ -395,6 +397,9 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
             # Dastan's two-stage inference contract: snapshot absence is already
             # -1.0; only residual NaNs are filled with 0.0.
             target[feature] = values.fillna(0.0).astype(float)
+        # Keep current FPL-native inference aligned with CTA training: the
+        # Understat-derived feature family is unavailable in this source mode.
+        target, _masked = mask_unavailable_features(target, features)
         element_column = "element_target" if "element_target" in target.columns else "element"
         if element_column not in target.columns:
             raise RuntimeError(f"GW{gw}: feature builder lost FPL element identity")
@@ -419,6 +424,7 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
         "target_gameweeks": target_gameweeks,
         "rows": len(result),
         "feature_count": len(features),
+        "masked_unavailable_features": unavailable_feature_names(features),
         "feature_schema": schema.get("schema_version"),
         "deadline": deadline.isoformat(),
         "bootstrap_snapshot": snapshot_metadata,
