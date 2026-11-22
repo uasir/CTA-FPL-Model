@@ -180,6 +180,10 @@ jobs:
         with:
           name: cta-five-gw-candidate-forecast
           path: /tmp/cta-five-gw-bundle
+      - name: Add exact feature schema to archive bundle
+        run: |
+          cp canonical_candidate/engineering_workbench/config/dastan_minutes_feature_schema.json \
+            /tmp/cta-five-gw-bundle/dastan_minutes_feature_schema.json
       - name: Build compact hash-verified archive snapshot
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
@@ -194,8 +198,6 @@ jobs:
             --commit-sha "$GITHUB_SHA" \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
       - name: Commit immutable snapshot to forecast-archive branch
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -206,9 +208,41 @@ jobs:
             git checkout --orphan forecast-archive
             git rm -rf . >/dev/null 2>&1 || true
           fi
-          mkdir -p snapshots
-          cp -a /tmp/cta-five-gw-archive/snapshots/. snapshots/
-          cp /tmp/cta-five-gw-archive/latest.json latest.json
+          python - <<'PY'
+          import hashlib
+          import json
+          import shutil
+          from pathlib import Path
+
+          archive_root = Path("/tmp/cta-five-gw-archive")
+          latest = json.loads((archive_root / "latest.json").read_text(encoding="utf-8"))
+          relative_manifest = Path(latest["manifest_path"])
+          relative_archive = Path(latest["archive_path"])
+          existing_manifest_path = relative_manifest
+          existing_archive_path = relative_archive
+          new_manifest_path = archive_root / relative_manifest
+          snapshot_dir = existing_manifest_path.parent
+
+          if snapshot_dir.exists():
+              if not existing_manifest_path.is_file() or not existing_archive_path.is_file():
+                  raise SystemExit("existing immutable forecast snapshot is incomplete")
+              existing = json.loads(existing_manifest_path.read_text(encoding="utf-8"))
+              candidate = json.loads(new_manifest_path.read_text(encoding="utf-8"))
+              if (existing.get("forecast_snapshot_id") != candidate.get("forecast_snapshot_id")
+                      or existing.get("files") != candidate.get("files")):
+                  raise SystemExit("immutable forecast snapshot ID collision: source files differ")
+              digest = hashlib.sha256(existing_archive_path.read_bytes()).hexdigest()
+              if digest != existing.get("archive", {}).get("sha256"):
+                  raise SystemExit("existing immutable forecast archive failed its SHA-256 check")
+              print("Snapshot already archived with identical source-file hashes; leaving it immutable.")
+          else:
+              shutil.copytree(archive_root / "snapshots", Path("snapshots"), dirs_exist_ok=True)
+              shutil.copy2(archive_root / "latest.json", Path("latest.json"))
+          PY
           git add snapshots latest.json
-          git commit -m "Archive CTA forecast snapshot $GITHUB_RUN_ID"
-          git push origin HEAD:forecast-archive
+          if git diff --cached --quiet; then
+            echo "No new archive content; forecast-archive branch is already current."
+          else
+            git commit -m "Archive CTA forecast snapshot $GITHUB_RUN_ID"
+            git push origin HEAD:forecast-archive
+          fi
