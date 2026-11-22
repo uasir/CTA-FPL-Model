@@ -183,3 +183,12 @@ The capture pipeline must not turn repeated single-Gameweek retrievals into a mu
 **Implementation decision:** do not build a scheduled five-GW collector around guessed URLs or repeatedly call the current next-GW endpoint for historical/future labels. That would create apparent panel coverage without proving that the provider supplied those forecasts at the relevant decision time. Keep the canonical bundle contract and manager-aware assembler ready to consume a valid bundle, but leave live multi-GW capture disabled until a provider supplies a documented, authorized, reproducible five-plus-GW panel source. The first qualifying artifact should be captured as an immutable raw fixture, schema-inspected, normalized independently, and only then passed to the bundle contract.
 
 This is a provider-access blocker, not an engineering failure in the evaluator or assembler. Conventional live recommendations continue through the approved FPL Cat one-GW route, while the five-GW HOLD-vs-TRANSFER diagnostic remains unavailable rather than extrapolated. No actionable M4 transfer decision is unlocked by this readiness assessment.
+
+
+## Machine-readable provider capability registry — 22 Nov 2026
+
+Added `provider_capability_registry.py` as the central source of truth for capture capabilities. It registers the inspected public FPL Cat and Sideline Quant feeds separately, including provider/product/variant/version identity, native grain, fixture-ID availability, maximum explicit Gameweeks per capture, point-in-time status, reproducible-access status and a machine-readable multi-GW blocker.
+
+The registry exposes defensive-copy lookup/list operations, capture identity-and-grain validation, and a fail-closed `require_multi_gameweek_capture` gate. The gate requires fixture-level grain, fixture IDs, explicit multi-GW panels, at least the requested five-Gameweek horizon, point-in-time capture and authorized reproducible access. Neither currently registered public source passes. Unknown sources also fail closed. Adding a future provider requires an explicit reviewed registry entry; a source cannot self-assert eligibility in its capture payload.
+
+Regression tests cover both current provider classifications, fail-closed behaviour, unknown sources, immutable registry reads, capture identity/grain mismatch and attempted self-assertion. This registry does not change the live FPL Cat one-GW route, the multi-GW forecast contract, or product actionability gates.
