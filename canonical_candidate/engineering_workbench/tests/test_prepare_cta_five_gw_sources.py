@@ -8,7 +8,6 @@ from prepare_cta_five_gw_sources import (
     copy_verified_dastan_release,
     copy_verified_dastan_model_contract,
     download_and_merge_pinned_understat_player_histories,
-    load_dastan_release_player_history,
     player_elements,
     season_from_bootstrap,
     write_csv_frame,
