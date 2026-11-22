@@ -200,3 +200,33 @@ unknown player elements, position conflicts, historical optional-column
 absence, invalid kickoff timestamps and duplicate stable codes. Tests are
 committed but have not yet been run in a verified CI environment. The
 normalizer has not yet been executed against the full upstream archive.
+
+
+## 10. Fixture-level FPL archive completeness audit
+
+CTA now has `scripts/audit_vaastav_fixture_archive.py`, which compares
+`merged_gw.csv` against the season's `fixtures.csv` and `teams.csv`.
+It checks unique fixture IDs and fixture/player keys, finished fixtures with
+no player-match rows, both home/away sides represented, event and kickoff
+agreement, and team/opponent/home-away consistency. It emits per-fixture row
+counts and zero-minute row counts.
+
+The audit deliberately does **not** assume that every registered player must
+appear in every fixture. It does not synthesize missing player rows or
+reinterpret absent rows as zero-minute appearances. Row-count distributions
+are diagnostic; the strict completeness claim is limited to fixture-level
+coverage and internal fixture metadata. Player-population completeness needs
+an independently established upstream row-generation contract before it can
+be asserted.
+
+The upstream season fixture schedule is `data/2026-27/fixtures.csv`, with
+numeric team IDs and fixture IDs; the player archive's `team` field is a
+team name, `opponent_team` is the numeric opponent ID, and `was_home`
+identifies the player's side. The normalizer's team-name/ID cross-check is
+therefore consistent with the inspected source schema.
+
+Unit tests cover a valid two-sided fixture, a finished fixture missing player
+rows, duplicate player-fixture keys and inconsistent opponent metadata. These
+tests are committed but remain unexecuted in a verified CI run. The audit has
+not yet been run against a fully acquired local copy of the entire season
+archive.
