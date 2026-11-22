@@ -159,3 +159,5 @@ CI run [45006811321](https://github.com/uasir/CTA-FPL-Model/actions/runs/4500681
 CI run [45007383012](https://github.com/uasir/CTA-FPL-Model/actions/runs/45007383012) passed on the manager-aware assembler test commit: **625 Python engineering tests and 3 subtests passed**, with JavaScript recommendation contracts, canonical Python feature-core tests and all four identity crosswalk validations successful.
 
 The product adapter additionally binds the multi-Gameweek bundle to the same provider identity, season, exact decision as-of timestamp and starting Gameweek as the personal-squad run. Current player prices/positions/team IDs must match the captured metadata provenance envelope and the forecast bundle; mismatches are rejected rather than silently combined.
+
+CI run [45007552091](https://github.com/uasir/CTA-FPL-Model/actions/runs/45007552091) passed after the strict provider/as-of/season/metadata provenance binding tests: **627 Python engineering tests and 3 subtests passed**, plus all JavaScript, feature-core and four identity crosswalk checks.
