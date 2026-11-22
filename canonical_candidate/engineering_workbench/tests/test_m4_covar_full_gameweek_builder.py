@@ -65,7 +65,7 @@ def inputs():
 
 
 class TestM4CovarFullGameweekBuilder(unittest.TestCase):
-    def build(self, candidate=None, adaptation=None, scenarios=None, mode="REGULAR_GW"):
+    def build(self, candidate=None, adaptation=None, scenarios=None, mode="REGULAR_GW", scenario_provenance=None):
         original_candidate, original_adaptation, original_scenarios = inputs()
         return build_full_gameweek_document(
             season="2026/27",
@@ -76,6 +76,7 @@ class TestM4CovarFullGameweekBuilder(unittest.TestCase):
             candidate_portfolios=[original_candidate if candidate is None else candidate],
             field_adaptation=original_adaptation if adaptation is None else adaptation,
             mode=mode,
+            scenario_provenance=scenario_provenance,
         )
 
     def test_composes_full_universe_and_candidate_field_portfolios(self):
@@ -88,6 +89,63 @@ class TestM4CovarFullGameweekBuilder(unittest.TestCase):
         self.assertNotIn("rank_stratum", doc["portfolios"][1])
         self.assertFalse(doc["production_eligible"])
         self.assertEqual(doc["decision_weight"], 0.0)
+
+    def test_composes_research_residual_scenarios_for_full_gameweek_lineup_scoring(self):
+        candidate, adaptation, base_scenarios = inputs()
+        scenarios = [copy.deepcopy(base_scenarios[0]), copy.deepcopy(base_scenarios[0])]
+        for scenario, gw in zip(scenarios, (10, 11)):
+            scenario["scenario_id"] = f"residual-gw-{gw}"
+            scenario["source_gameweek"] = gw
+            scenario["probability"] = 0.5
+        provenance = {
+            "dataset_type": "M4_COVAR_PLAYER_GAMEWEEK_RESIDUAL_BOOTSTRAP_RESEARCH_ONLY",
+            "season": "2026/27",
+            "target_gameweek": 12,
+            "forecast_snapshot_id": "m3-gw12-snapshot",
+            "model_version": "fplcat-v2",
+            "training_cutoff_utc": "2026-11-27T17:00:00Z",
+            "scenario_probability_method": "EQUAL_WEIGHT_EMPIRICAL_COMPLETE_GAMEWEEK_BLOCKS",
+            "complete_historical_gameweeks": [10, 11],
+            "marginal_expected_points_preserved": True,
+            "minutes_mean_preserved": True,
+            "probability_calibrated": False,
+            "decision_weight": 0.0,
+            "production_eligible": False,
+            "covar_used": False,
+            "payload_sha256": "a" * 64,
+            "scenarios": scenarios,
+        }
+        doc = self.build(candidate=candidate, adaptation=adaptation, scenarios=scenarios,
+                         scenario_provenance=provenance)
+        self.assertEqual(doc["data_status"], "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY")
+        self.assertEqual(doc["validation_status"], "VALID_RESEARCH_RESIDUAL_BLOCK_FULL_GAMEWEEK_INPUT")
+        self.assertFalse(doc["production_eligible"])
+        self.assertFalse(doc["covar_used"])
+        self.assertEqual(doc["metadata"]["forecast_snapshot_id"], "m3-gw12-snapshot")
+
+    def test_rejects_scenario_rows_not_bound_to_residual_provenance(self):
+        candidate, adaptation, base_scenarios = inputs()
+        scenarios = [copy.deepcopy(base_scenarios[0]), copy.deepcopy(base_scenarios[0])]
+        for scenario, gw in zip(scenarios, (10, 11)):
+            scenario["scenario_id"] = f"residual-gw-{gw}"
+            scenario["source_gameweek"] = gw
+            scenario["probability"] = 0.5
+        provenance = {
+            "dataset_type": "M4_COVAR_PLAYER_GAMEWEEK_RESIDUAL_BOOTSTRAP_RESEARCH_ONLY",
+            "season": "2026/27", "target_gameweek": 12,
+            "forecast_snapshot_id": "m3-gw12-snapshot", "model_version": "fplcat-v2",
+            "training_cutoff_utc": "2026-11-27T17:00:00Z",
+            "scenario_probability_method": "EQUAL_WEIGHT_EMPIRICAL_COMPLETE_GAMEWEEK_BLOCKS",
+            "complete_historical_gameweeks": [10, 11], "marginal_expected_points_preserved": True,
+            "probability_calibrated": False, "decision_weight": 0.0,
+            "production_eligible": False, "covar_used": False, "payload_sha256": "a" * 64,
+            "scenarios": scenarios,
+        }
+        altered = copy.deepcopy(scenarios)
+        altered[0]["player_outcomes"][0]["fpl_points"] = 99
+        with self.assertRaisesRegex(CovarFullGameweekBuildError, "exact residual-bootstrap scenario rows"):
+            self.build(candidate=candidate, adaptation=adaptation, scenarios=altered,
+                       scenario_provenance=provenance)
 
     def test_accepts_explicit_free_hit_mode(self):
         self.assertEqual(self.build(mode="FREE_HIT")["mode"], "FREE_HIT")
