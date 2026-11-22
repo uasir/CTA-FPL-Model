@@ -246,7 +246,7 @@ def test_cta_runner_rejects_two_competing_manager_context_sources(monkeypatch):
         runner, "build_cta_forecast_provider_snapshot",
         lambda *args, **kwargs: copy.deepcopy(_adapter_result()),
     )
-    with pytest.raises(runner.CTARecommendationRunError, match="either manager_context or conventional_run"):
+    with pytest.raises(runner.CTARecommendationRunError, match="one independent manager-state source"):
         runner.run_cta_recommendation_products(
             "/unused-bundle", _manager_context(), conventional_run=_conventional_run(),
         )
