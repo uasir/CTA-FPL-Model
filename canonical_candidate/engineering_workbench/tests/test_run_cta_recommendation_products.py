@@ -263,3 +263,100 @@ def test_conventional_deadline_accepts_equivalent_utc_offset(monkeypatch):
         "/unused-bundle", conventional_run=conventional,
     )
     assert result["guardrails"]["personal_squad_emitted"] is True
+
+
+def _m3_manager_capture(manager_context=None, gameweek=12):
+    manager = copy.deepcopy(manager_context or _manager_context())
+    manager["starting_xi"] = list(range(1, 12))
+    return {
+        "manager_context_capture": {
+            "team_id": 421025,
+            "gameweek": gameweek,
+            "identity_verified": True,
+            "row_count": 15,
+            "raw_sha256": "b" * 64,
+        },
+        "manager_context": manager,
+    }
+
+
+def _real_schema_conventional_run():
+    return {
+        "run_type": "EXTERNAL_BENCHMARK_PERSONAL_SQUAD",
+        "coverage": {
+            "season": "2026-27",
+            "target_gameweek": 12,
+            "target_deadline_utc": "2026-11-27T18:30:00+00:00",
+        },
+        "source_provenance": {
+            "deadline_utc": "2026-11-27T18:30:00Z",
+            "point_in_time_status": "VERIFIED_PRE_DEADLINE",
+        },
+        "recommendation": {
+            "manager_context": {
+                "bank": 0.0,
+                "free_transfers": 1,
+                "personal_risk_profile": "aggressive",
+            },
+            "current_squad_plan": {"starting_xi": list(range(1, 12))},
+        },
+    }
+
+
+def test_cta_runner_accepts_real_m3_schema_with_paired_manager_capture(monkeypatch):
+    adapted = _adapter_result()
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(adapted),
+    )
+    result = runner.run_cta_recommendation_products(
+        "/unused-bundle",
+        conventional_run=_real_schema_conventional_run(),
+        manager_context_capture=_m3_manager_capture(),
+    )
+    personal = result["cta_informed_personal_squad"]
+    assert personal["product_id"] == "cta_informed_personal_squad"
+    assert personal["manager_state"]["bank"] == 0.0
+    assert personal["manager_state"]["free_transfers"] == 1
+    diagnostic = personal["multi_gameweek_squad_diagnostic"]
+    assert diagnostic["forecast_snapshot_id"] == "cta-snapshot-test"
+    assert len(diagnostic["manager_state"]["squad_snapshot"]) == 15
+
+
+def test_cta_runner_blocks_real_m3_run_without_full_manager_capture(monkeypatch):
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(_adapter_result()),
+    )
+    with pytest.raises(runner.CTARecommendationRunError, match="paired manager-context capture"):
+        runner.run_cta_recommendation_products(
+            "/unused-bundle", conventional_run=_real_schema_conventional_run(),
+        )
+
+
+def test_cta_runner_rejects_mismatched_manager_capture_gameweek(monkeypatch):
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(_adapter_result()),
+    )
+    with pytest.raises(runner.CTARecommendationRunError, match="capture Gameweek"):
+        runner.run_cta_recommendation_products(
+            "/unused-bundle",
+            conventional_run=_real_schema_conventional_run(),
+            manager_context_capture=_m3_manager_capture(gameweek=11),
+        )
+
+
+def test_cta_runner_rejects_manager_capture_bank_mismatch(monkeypatch):
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(_adapter_result()),
+    )
+    capture = _m3_manager_capture()
+    capture["manager_context"]["bank"] = 2.0
+    with pytest.raises(runner.CTARecommendationRunError, match="disagrees.*bank"):
+        runner.run_cta_recommendation_products(
+            "/unused-bundle",
+            conventional_run=_real_schema_conventional_run(),
+            manager_context_capture=capture,
+        )
