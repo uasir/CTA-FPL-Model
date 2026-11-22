@@ -18,7 +18,7 @@ def fixture():
         "p10": "FWD", "p11": "FWD",
         "p12": "GK", "p13": "DEF", "p14": "MID", "p15": "FWD",
     }
-    players = [{"player_id": pid, "position": positions[pid], "expected_points": 3.4 if pid == "p10" else 1.6, "expected_minutes": 90.0} for pid in ids]
+    players = [{"player_id": pid, "position": positions[pid], "expected_points": 3.0 if pid == "p10" else 1.5, "expected_minutes": 90.0} for pid in ids]
     candidate = {
         "portfolio_id": "candidate",
         "portfolio_role": "CANDIDATE",
