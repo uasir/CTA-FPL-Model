@@ -3,6 +3,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from prepare_cta_five_gw_sources import (
+    active_season_understat_refresh_ids,
     apply_historical_snapshot_safety_buffer,
     copy_verified_dastan_release,
     download_and_merge_pinned_understat_player_histories,
@@ -321,3 +322,19 @@ def test_snapshot_safety_buffer_creates_provenance_for_imported_artifacts(tmp_pa
     assert report["pre_deadline_ep_next"]["rows_retained"] == 1
     sidecar = json.loads((tmp_path / "pre_deadline_ep_next.json").read_text())
     assert sidecar["source"] == "imported Dastan release artifact"
+
+
+def test_active_understat_refresh_only_selects_players_with_minutes_and_without_cache(tmp_path: Path):
+    class FakeSources:
+        @staticmethod
+        def _expected_understat_player_dates(raw_dir, seasons):
+            assert seasons == ["2026-27"]
+            return {101: {"2026-08-15"}, 202: set(), 303: {"2026-09-01"}}
+
+    cache = tmp_path / "understat" / "players"
+    cache.mkdir(parents=True)
+    (cache / "303.json").write_text('[{"id": 1}]')
+    selected = active_season_understat_refresh_ids(
+        tmp_path, ["2026-27"], {101, 202, 303}, FakeSources,
+    )
+    assert selected == {101}
