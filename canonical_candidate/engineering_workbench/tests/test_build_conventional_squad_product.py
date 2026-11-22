@@ -7,7 +7,7 @@ import pytest
 from run_external_benchmark_personal_squad import run_external_benchmark_personal_squad
 from build_conventional_squad_product import (ConventionalSquadProductError, build_conventional_squad_product, build_personal_squad_product)
 from test_multi_gameweek_transfer_evaluator import request as _multi_gameweek_request
-
+from test_multi_gameweek_squad_request_assembler import (\n    forecast_payload as _multi_gameweek_forecast_payload,\n    manager_context as _multi_gameweek_manager_context,\n    current_player_metadata as _multi_gameweek_current_metadata,\n)\n
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "recommendation_requests.json").read_text())
 
 def _run():
@@ -165,6 +165,31 @@ def test_m4_runs_five_gameweek_evaluator_but_keeps_result_diagnostic_only():
     assert product["decision"]["best_transfer"] is None
     assert product["decision"]["decision_eligibility"]["status"] == "BLOCKED_PENDING_INDEPENDENT_MULTI_GAMEWEEK_VALIDATION"
 
+
+
+def test_m4_assembles_manager_specific_multi_gameweek_transfer_sweep():
+    run = _run()
+    run["manager_context"] = _multi_gameweek_manager_context()
+    run["current_player_metadata"] = _multi_gameweek_current_metadata()
+    run["multi_gameweek_forecast_payload"] = _multi_gameweek_forecast_payload()
+    product = build_personal_squad_product(run)
+    diagnostic = product["multi_gameweek_diagnostic"]
+    assert diagnostic["manager_state"]["squad_ids"] == list(range(1, 16))
+    assert diagnostic["horizon_gameweeks"] == [12, 13, 14, 15, 16]
+    assert diagnostic["candidate_count"] > 0
+    assert diagnostic["best_diagnostic"]["transfer"]["out_id"] == 3
+    assert diagnostic["best_diagnostic"]["transfer"]["in_id"] == 16
+    assert product["decision"]["action"] == "NOT_DECISION_ELIGIBLE"
+    assert product["decision"]["best_transfer"] is None
+    assert diagnostic["decision_weight"] == 0
+    assert diagnostic["production_eligible"] is False
+
+
+def test_m4_fails_closed_when_multi_gameweek_manager_metadata_is_missing():
+    run = _run()
+    run["multi_gameweek_forecast_payload"] = _multi_gameweek_forecast_payload()
+    with pytest.raises(ConventionalSquadProductError, match="requires source manager_context"):
+        build_personal_squad_product(run)
 
 def test_m4_rejects_invalid_multi_gameweek_diagnostic_input():
     run = _run()
