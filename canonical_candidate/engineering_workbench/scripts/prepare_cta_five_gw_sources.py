@@ -12,6 +12,7 @@ import argparse
 import csv
 import hashlib
 import json
+import os
 import re
 import shutil
 import sys
@@ -448,7 +449,7 @@ def parallel_understat_fallbacks(
     # skip a partial cached JSON file: it is exactly what needs refreshing.
     player_ids = sorted(set(int(value) for value in missing_players))
     team_names_by_season = team_names_by_season or {}
-    team_requests = []
+    team_requests: dict[str, list[str]] = {}
     for season in missing_team_seasons:
         path = team_root / f"{season}.json"
         existing_team_payload = (
@@ -458,11 +459,10 @@ def parallel_understat_fallbacks(
         names = sorted(
             set(team_names_by_season.get(season, set())) - set(existing_team_payload)
         )
-        if not names:
-            raise RuntimeError(
-                f"API.SH team fallback has no Understat team names for season {season}"
-            )
-        team_requests.extend((season, name) for name in names)
+        if names:
+            # API.SH exposes all EPL team histories in one league request.
+            # One request per season avoids N repeated calls for N clubs.
+            team_requests[season] = names
 
     if not player_ids and not team_requests:
         return {
@@ -516,18 +516,18 @@ def parallel_understat_fallbacks(
         except Exception as exc:
             return player_id, None, str(exc)
 
-    def fetch_team(season: str, team_name: str) -> tuple[str, str, list | None, str | None]:
+    def fetch_teams(season: str) -> tuple[str, dict | None, str | None]:
         try:
-            history, _credits = get_client().team_history(team_name, season)
-            return season, team_name, history, None
+            histories, _credits = get_client().league_team_histories(season)
+            return season, histories, None
         except Exception as exc:
-            return season, team_name, None, str(exc)
+            return season, None, str(exc)
 
     player_success = 0
     team_success = 0
     failures: list[str] = []
     team_payloads: dict[str, dict] = {}
-    for season in {season for season, _team in team_requests}:
+    for season in team_requests:
         path = team_root / f"{season}.json"
         team_payloads[season] = (
             json.loads(path.read_text(encoding="utf-8"))
@@ -535,7 +535,8 @@ def parallel_understat_fallbacks(
         )
     print(
         f"  API.SH import: {len(player_ids):,} player histories and "
-        f"{len(team_requests):,} team histories; monthly local credit cap={budget}",
+        f"{sum(len(names) for names in team_requests.values()):,} team histories across "
+        f"{len(team_requests):,} league requests; monthly local credit cap={budget}",
         flush=True,
     )
 
@@ -572,8 +573,8 @@ def parallel_understat_fallbacks(
                 for player_id in remaining_player_ids
             )
             tasks.extend(
-                pool.submit(fetch_team, season, team_name)
-                for season, team_name in team_requests
+                pool.submit(fetch_teams, season)
+                for season in team_requests
             )
             completed = 0
             for future in as_completed(tasks):
@@ -589,15 +590,18 @@ def parallel_understat_fallbacks(
                         )
                         player_success += 1
                 else:
-                    season, team_name, history, error = result
+                    season, histories, error = result
                     if error is not None:
-                        failures.append(f"team:{season}:{team_name}:{error}")
-                    elif history is not None:
-                        team_payloads.setdefault(season, {})[team_name] = {
-                            "title": team_name,
-                            "history": history,
-                        }
-                        team_success += 1
+                        failures.append(f"league:{season}:{error}")
+                    elif histories is not None:
+                        requested_names = set(team_requests.get(season, []))
+                        for team_name in requested_names:
+                            history = histories.get(team_name)
+                            if history is None:
+                                failures.append(f"team:{season}:{team_name}:missing from league payload")
+                                continue
+                            team_payloads.setdefault(season, {})[team_name] = history
+                            team_success += 1
                 if completed % 25 == 0 or completed == len(tasks):
                     print(
                         f"    API.SH source imports {completed:,}/{len(tasks):,}; "
@@ -622,7 +626,7 @@ def parallel_understat_fallbacks(
         "provider": "API.SH",
         "player_histories_requested": len(player_ids),
         "player_histories_fetched": player_success,
-        "team_histories_requested": len(team_requests),
+        "team_histories_requested": sum(len(names) for names in team_requests.values()),
         "team_histories_fetched": team_success,
         "credits_reserved": calls_reserved,
         "monthly_usage": usage,
