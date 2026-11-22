@@ -12,14 +12,15 @@ Counts below are computed from the pinned `feature_order` in CTA's schema artifa
 |---|---|---:|---|
 | Player rolling | `player_*` | 115 | FPL player-match statistics plus Understat player attacking metrics; 23 source metrics × 5 windows |
 | Own-team rolling | `team_*` | 60 | Understat team-match metrics and pre-match league ranks; 12 metrics × 5 windows |
-| Opponent rolling/context | `opp_*` | 61 | Opponent Understat team-match rolling metrics plus opponent rank context |
+| Opponent rolling/context | `opp_*` | 61 | 60 rolling opponent metrics (12 × 5 windows) plus `opp_status_league_rank` |
 | Availability history | `p_any_*`, `p60_*`, `e_minutes_*` | 9 | Lagged FPL appearances, 60+ minute appearances, and minutes; windows 3, 5, 10 |
-| Dastan engineered/context | `ar_*` | 33 | Lagged defensive contribution, CBIT, recoveries, tackles, threshold rates, starts, rest/congestion, opponent defensive allowance, and `ar_ep_next` |
-| Flat context | Remaining non-signal scalar fields | 5 | Venue, league-rank/context, price, ownership, transfer balance |
+| Dastan engineered/context | `ar_*` | 32 | Defensive workload rolling stats, threshold rates, starts, rest/congestion and opponent defensive allowance |
+| Pre-deadline FPL projection | `ar_ep_next` | 1 | Provenance-checked pre-deadline FPL `ep_next` snapshot |
+| Flat context | `is_home_num`, `status_league_rank`, `value`, `selected`, `transfers_balance` | 5 | Venue, own-team rank, price, ownership, transfer balance |
 | Pre-deadline availability | `sig_*` | 3 | FPL bootstrap status risk, chance of playing, news presence |
 | **Total** | | **286** | |
 
-The upstream `docs/FEATURES.md` family table does not reconcile arithmetically to 286 as currently written. CTA's pinned feature list is the executable schema authority; the source-family table above is grouped from that list and should be refined against the exact upstream build code.
+The upstream `docs/FEATURES.md` family table does not reconcile arithmetically to 286 as currently written (its published family counts sum to 274). CTA's pinned feature list is the executable schema authority. The reconciled count above separates `ar_ep_next` from the 32 `ar_*` engineered features.
 
 ## 2. Source and transformation inventory
 
@@ -57,7 +58,7 @@ Used for own-team and opponent rolling blocks:
 - Defensive contribution family: prior rolling averages for defensive contribution, CBIT, recoveries and tackles; defensive-contribution hit/near rates use position-specific thresholds; prior starts rates; defensive contribution points proxy.
 - Rest/congestion: days since prior Premier League fixture and team matches in the preceding 14 days.
 - Opponent defensive allowance: prior opponent defensive-contribution and tackle totals allowed.
-- `ar_ep_next`: provenance-checked FPL `ep_next` captured before the target deadline.
+- `ar_ep_next`: provenance-checked FPL `ep_next` captured before the target deadline. It is named with the `ar_` prefix but is a separate source snapshot feature, not calculated by `add_dastan_features()`.
 
 ### E. Pre-deadline FPL bootstrap signals
 
@@ -98,3 +99,16 @@ Used for own-team and opponent rolling blocks:
 8. Compare reconstructed rows and values against the released feature frame where available; document expected drift from mutable source histories.
 
 **Current status:** Source families and major transformations are identified. Full source-table reconstruction, current-season mapping coverage, and row-level parity are not yet implemented or verified.
+
+
+## 6. Identity coverage: do not mix mapping populations
+
+The upstream repository exposes three different mapping populations, and their coverage figures must not be combined:
+
+- **Frozen training mapping:** the historical identities used to reproduce the released model frame.
+- **Corrected historical mapping:** an audited correction of that model-era population.
+- **Operational registry/current-roster projection:** a newer mapping release used for new-season ingestion.
+
+The pinned operational manifest dated 2026-09-07 reports 1,738 registry players, 1,686 mapped, 52 unmapped, and one shared Understat ID. That is the global operational registry, not the 2026-27 roster coverage. The current-roster CSV is a separate season-scoped projection. The upstream mapping README and DATA documentation report different current-roster coverage snapshots (518/577 versus 627/654), so CTA must calculate coverage directly from the exact pinned `fpl_understat_current.csv` artifact and its matching roster, not copy either prose figure.
+
+For CTA's active-season build, retain one row per `(season, fpl_code)`, nullable Understat ID, mapping status, confidence, source manifest ID and source hash. Reject duplicate FPL codes; explicitly flag shared Understat IDs; never fill an unmapped ID with a name-based or fuzzy match. Unmapped players may still receive FPL-only features, but Understat-dependent features must retain their missingness state and be handled through Dastan's exact input policy.
