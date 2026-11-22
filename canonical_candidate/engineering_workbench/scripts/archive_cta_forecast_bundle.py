@@ -120,10 +120,10 @@ def archive_bundle(bundle_dir: Path, archive_root: Path, *, run_id: str,
             or validation.get("covar_used") is not False):
         raise ValueError("bundle validation candidate safeguards are missing or changed")
 
-    for filename, count_key in (
-        ("forecasts/fixture_forecasts.csv", "fixture_player_rows"),
-        ("forecasts/player_gameweek_forecasts.csv", "player_gameweek_rows"),
-        ("forecasts/player_five_gw_forecasts.csv", "five_gameweek_player_rows"),
+    for filename, count_key, status_key in (
+        ("forecasts/fixture_forecasts.csv", "fixture_player_rows", "expected_points_model_status"),
+        ("forecasts/player_gameweek_forecasts.csv", "player_gameweek_rows", "model_status"),
+        ("forecasts/player_five_gw_forecasts.csv", "five_gameweek_player_rows", "model_status"),
     ):
         with (bundle_dir / filename).open("r", encoding="utf-8", newline="") as stream:
             rows = list(csv.DictReader(stream))
@@ -132,7 +132,7 @@ def archive_bundle(bundle_dir: Path, archive_root: Path, *, run_id: str,
         for row in rows:
             if row.get("forecast_snapshot_id") != forecast.get("forecast_snapshot_id"):
                 raise ValueError(f"{filename} contains a different forecast snapshot ID")
-            if row.get("model_status") != "CANDIDATE_NOT_VALIDATED":
+            if row.get(status_key) != "CANDIDATE_NOT_VALIDATED":
                 raise ValueError(f"{filename} contains a non-candidate model row")
             if row.get("production_eligible", "").strip().lower() != "false":
                 raise ValueError(f"{filename} contains a production-eligible candidate row")
