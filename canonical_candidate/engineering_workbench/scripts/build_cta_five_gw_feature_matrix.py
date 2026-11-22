@@ -405,7 +405,7 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
         "deadline": deadline.isoformat(),
         "bootstrap_snapshot": snapshot_metadata,
         "snapshot_policy": "live bootstrap ep_next/status/chance/news only for next GW; later GWs use -1 sentinel; all snapshots must precede deadline by at least five minutes",
-        "rolling_history_policy": "each target GW built independently from completed historical rows plus that GW's target fixtures only",
+        "rolling_history_policy": "player rolling/availability history and team history are anchored to the pre-deadline state across every fixture in each GW; date/opponent-dependent context remains fixture-specific",
         "dastan_role": "historical feature definitions and minutes component only; no Dastan points heads used",
         "mapping_coverage": coverage,
         "input_artifacts": {
