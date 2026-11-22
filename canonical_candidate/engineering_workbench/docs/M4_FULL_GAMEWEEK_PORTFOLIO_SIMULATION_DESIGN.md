@@ -8,7 +8,7 @@ Design gate for the next M4 engineering increment. The full-Gameweek contract, l
 
 - The producer binds to an exact manager-free M3 conventional forecast snapshot and model version.
 - It samples complete historical Gameweek residual vectors only for the exact candidate/field portfolio player union. Missing player rows exclude the entire historical Gameweek block; they are never zero-filled.
-- It preserves target player expected-points means, carries paired minutes residuals and explicit played flags, and retains source Gameweek IDs and observed outcome-availability timestamps.
+- It preserves target player expected-points means, carries paired minutes residuals, clipped to the 0–270 aggregate Gameweek range and explicit positive-minutes played flags (zero-minute card-only appearances are not observable in the aggregate panel), and retains source Gameweek IDs and observed outcome-availability timestamps.
 - The full-Gameweek builder verifies the residual payload SHA-256 and binds the scenario set to the requested season/Gameweek and private field adaptation.
 - The contract requires exact source Gameweek coverage, equal empirical weights, an explicit training cutoff, and uncalibrated probability status.
 - The lineup scorer can now evaluate candidate and anonymized field portfolios against the same residual scenarios, including automatic substitutions and captain/bench rules.
