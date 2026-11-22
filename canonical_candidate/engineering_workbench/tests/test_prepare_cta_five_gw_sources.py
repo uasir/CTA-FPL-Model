@@ -373,13 +373,24 @@ def test_understat_html_challenge_is_reported_before_json_parse(tmp_path, monkey
         text = "<html><title>Access denied</title></html>"
         headers = {"Content-Type": "text/html"}
 
+        def raise_for_status(self):
+            return None
+
     class FakeSession:
         def __init__(self):
             self.headers = {}
 
+        def get(self, url, **kwargs):
+            assert kwargs.get("timeout") == (10, 45)
+            return FakeResponse()
+
         def request(self, method, url, **kwargs):
             assert kwargs.get("timeout") == (10, 45)
             return FakeResponse()
+
+    class FakeParser:
+        def get_match_data(self, html):
+            raise ValueError("matchesData is absent")
 
     class FakeClient:
         def __init__(self):
@@ -390,6 +401,8 @@ def test_understat_html_challenge_is_reported_before_json_parse(tmp_path, monkey
 
         def __exit__(self, *args):
             return False
+
+        parser = FakeParser()
 
         def player(self, player):
             return self
