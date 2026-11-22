@@ -194,18 +194,49 @@ class ApiShUnderstatClient:
         rows = _extract_list(payload, ("matches", "history", "player_matches"))
         return normalize_player_matches(rows, player_id), int(payload.get("credits_used", 1))
 
-    def team_history(self, team_name: str, season: str) -> tuple[list[dict[str, Any]], int]:
+    def league_team_histories(self, season: str) -> tuple[dict[str, dict[str, Any]], int]:
+        """Import the raw Understat league payload, including each team's match history."""
         payload = self._get(
-            "team",
+            "league",
             {
-                "team": team_name,
+                "league": "EPL",
                 "season": int(str(season).split("-")[0]),
                 "fresh": "true",
                 "raw": "true",
             },
         )
-        rows = _extract_list(payload, ("history", "matches", "team_matches"))
-        return normalize_team_history(rows, team_name, season), int(payload.get("credits_used", 1))
+        teams_payload = None
+        for candidate in _object_candidates(payload):
+            value = candidate.get("teams")
+            if isinstance(value, dict):
+                teams_payload = list(value.values())
+                break
+            if isinstance(value, list):
+                teams_payload = value
+                break
+        if teams_payload is None:
+            raise ValueError(
+                "API.SH league response omitted raw team history; "
+                f"top-level keys={sorted(payload)}"
+            )
+        result: dict[str, dict[str, Any]] = {}
+        for team in teams_payload:
+            if not isinstance(team, dict):
+                continue
+            title = str(team.get("title") or team.get("name") or "").strip()
+            history = team.get("history")
+            if not title or not isinstance(history, list):
+                continue
+            result[title] = {
+                "title": title,
+                "history": normalize_team_history(history, title, season),
+            }
+        if not result:
+            raise ValueError(
+                f"API.SH league response contained no team histories for {season}"
+            )
+        return result, int(payload.get("credits_used", 1))
+
 
 
 def load_monthly_usage(path: Path, budget: int) -> dict[str, Any]:
