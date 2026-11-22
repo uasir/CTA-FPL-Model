@@ -56,6 +56,7 @@ jobs:
             tests/test_dastan_minutes_inference.py \
             tests/test_dastan_full_model_inference.py \
             tests/test_prepare_cta_five_gw_sources.py \
+            tests/test_understat_apish_provider.py \
             tests/test_validate_cta_forecast_bundle.py -q
       - name: Run JavaScript tests
         working-directory: canonical_candidate/engineering_workbench
