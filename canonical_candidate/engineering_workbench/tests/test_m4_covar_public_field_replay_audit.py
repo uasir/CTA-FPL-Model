@@ -78,6 +78,31 @@ def test_audits_public_manager_replays_and_emits_aggregate_only():
     assert "100" not in str(report)
 
 
+def test_counts_real_outfield_autosub_from_final_pick_multipliers():
+    bootstrap, live, picks = manager_payload(7)
+    live["elements"][1]["stats"].update({"minutes": 0, "total_points": 0})
+    live["elements"][12]["stats"].update({"minutes": 90, "total_points": 2})
+    picks["picks"][1]["multiplier"] = 0
+    picks["picks"][12]["multiplier"] = 1
+    mapping = {
+        f"{BASE_URL}/bootstrap-static/": bootstrap,
+        f"{BASE_URL}/leagues-classic/314/standings/?page_standings=1": {
+            "standings": {"results": [{"entry": 100, "rank": 1}]}
+        },
+        f"{BASE_URL}/event/7/live/": live,
+        f"{BASE_URL}/entry/100/event/7/picks/": picks,
+    }
+    report = audit_public_field_replays(
+        [7], rank_pages=[1], sample_positions=[0], min_replays=1,
+        fetch=lambda url: mapping[url], sleep=lambda _: None,
+    )
+    assert report["validation_status"] == "PASS"
+    assert report["autosub_replay_count"] == 1
+    assert report["autosub_player_count"] == 1
+    assert report["outfield_autosub_count"] == 1
+    assert report["goalkeeper_autosub_count"] == 0
+
+
 def test_skips_unfinished_events_and_excludes_bench_boost_from_autosub_counts():
     bootstrap, live, picks = manager_payload(7, chip="bboost")
     bootstrap["events"].append({"id": 8, "finished": False, "data_checked": False})
