@@ -1,8 +1,8 @@
 # M4 Execution Charter — Conventional FPL Recommendation Delivery
 
-**Status:** M4-T1 complete; M4-T2/T4/T5/T6 engineering implementation CI-tested; GW11 live evidence archived; exact archive-to-report acceptance passed in historical replay run `44937997402`.
-**Base:** current M3 branch head `0c345a989a3aa6818f60a1d3fd6b8a4cd919392c`.
-**Branch:** `feat/m5-conventional-delivery-integrated`.
+**Status:** M4-T1 scope defined; conventional delivery ported onto current M3 foundation; engineering CI and archived-evidence replay checks are being reconciled. Live Sideline Quant manager-backed capture and performance acceptance remain outstanding.
+**Base:** current M3 branch head `1e3bc7d6688f467a5306cbbeaacef25c1afa076e`.
+**Branch:** `feat/m4-conventional-delivery-current-m3`.
 **Release posture:** engineering-only until the live-data and M3 acceptance gates are met.
 
 ## 1. Delivery scope
