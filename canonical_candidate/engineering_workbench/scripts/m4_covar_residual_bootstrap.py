@@ -80,10 +80,9 @@ def build_residual_bootstrap_scenarios(
 
     as_of = _time(target_forecast.get("as_of_utc"), "target as_of_utc")
     cutoff = _time(training_cutoff_utc, "training_cutoff_utc")
-    kickoff = _time(target_forecast.get("first_kickoff_utc"), "target first_kickoff_utc")
     deadline = _time(target_forecast.get("deadline_utc"), "target deadline_utc")
-    if cutoff > as_of or as_of >= deadline or deadline > kickoff:
-        raise ResidualBootstrapError("training cutoff <= forecast as-of < deadline <= first kickoff is required")
+    if cutoff > as_of or as_of >= deadline:
+        raise ResidualBootstrapError("training cutoff <= forecast as-of < deadline is required")
 
     snapshot_id = str(target_forecast.get("forecast_snapshot_id", "")).strip()
     model_version = str(target_forecast.get("model_version", "")).strip()
@@ -192,7 +191,6 @@ def build_residual_bootstrap_scenarios(
         "model_version": model_version,
         "training_cutoff_utc": cutoff.isoformat(),
         "as_of_utc": as_of.isoformat(),
-        "first_kickoff_utc": kickoff.isoformat(),
         "player_count": len(target_by_id),
         "scenario_count": len(scenarios),
         "complete_historical_gameweeks": complete_blocks,
