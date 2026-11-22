@@ -706,7 +706,7 @@ def import_dastan_release(dastan_root: Path, training_dir: Path) -> tuple[pd.Dat
         "reconstruction_performed": False,
     }
     (training_dir / "dastan_release_import_report.json").write_text(
-        json.dumps(report, indent=2) + "\\n", encoding="utf-8"
+        json.dumps(report, indent=2) + "\n", encoding="utf-8"
     )
     return frame, report
 
@@ -747,9 +747,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     sys.path.insert(0, str(dastan_root))
     from dastan import data as dastan_data
     from dastan import mappings
-    from dastan.rebuild import sources, features as dastan_features
-    from dastan.rebuild.features import build_feature_frame
-    from dastan.rebuild.fplcache import build_predeadline_artifacts
+    from dastan.rebuild import sources
 
     output_dir.mkdir(parents=True, exist_ok=True)
     snapshot_dir = output_dir / "snapshots"
@@ -783,6 +781,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
 
     roster_path = write_current_roster(dastan_root, bootstrap, season)
     mapping_release_report = mappings.verify_operational_release()
+    operational_clubs = mappings.load_operational_clubs()
     patch_identity_resolution(mappings, sources)
     sources.VAASTAV_COMMIT = source_commit
     sources.VAASTAV_RAW = f"https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/{source_commit}/"
@@ -868,7 +867,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         ],
         "history_rows_from_official_api": current_api_report["api_player_fixture_rows"],
     }
-    manifest_path.write_text(json.dumps(source_manifest, indent=2) + "\\n", encoding="utf-8")
+    manifest_path.write_text(json.dumps(source_manifest, indent=2) + "\n", encoding="utf-8")
     source_manifest_copy = output_dir / "source_download_manifest.json"
     shutil.copy2(manifest_path, source_manifest_copy)
     dastan_manifest_path = dastan_root / "models" / "artifact_manifest.json"
@@ -885,7 +884,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     lookup_path = output_dir / "canonical_player_lookup.csv"
     player_matches.to_parquet(player_matches_path, index=False)
     team_matches.to_parquet(team_matches_path, index=False)
-    player_lookup.to_csv(lookup_path, index=False, lineterminator="\\n")
+    player_lookup.to_csv(lookup_path, index=False, lineterminator="\n")
 
     mapping_file = dastan_root / "data" / "mappings" / "current_fpl_understat_players.csv"
     mapping_df = pd.read_csv(mapping_file)
@@ -914,7 +913,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "join_policy": "exact fpl_code; shared Understat IDs excluded; unmapped retained",
     }
     report = {
-        "status": "PASS_SOURCE_AND_CANONICAL_PREPARATION",
+        "status": "PASS_IMPORTED_DASTAN_RELEASE_AND_CURRENT_SOURCE_PREPARATION",
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "season": season,
         "target_gameweeks": target_gameweeks,
@@ -925,13 +924,13 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "current_roster_snapshot": str(roster_path),
         "current_api_history": current_api_report,
         "current_bootstrap_snapshot": bootstrap["_cta_snapshot"],
-        "historical_snapshot_safety_buffer": historical_snapshot_buffer_report,
+        "historical_snapshot_safety_buffer": release_import_report["snapshot_safety_buffer"],
         "fixture_archive_audits": fixture_archive_audits,
-        "normalization_reports": normalization_reports,
-        "pinned_understat_player_history_merge": pinned_understat_report,
+        "historical_player_history_source": "Dastan published data/features.parquet; no historical player-source reconstruction",
+        "historical_understat_player_downloads": 0,\n        "active_season_understat_player_fallbacks": len(incomplete_players),
         "canonical_player_match_rows": len(player_matches),
         "canonical_team_match_rows": len(team_matches),
-        "historical_training_rows": len(training_frame),
+        "historical_training_rows": len(training_frame),\n        "dastan_release_import": release_import_report,
         "training_features": len(json.loads((dastan_root / "models" / "feature_cols.json").read_text(encoding="utf-8"))),
         "mapping_release_verification": mapping_release_report,
         "mapping": mapping_report,
@@ -950,13 +949,13 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
             "safe_current_player_mapping": {"path": str(safe_mapping_path), "sha256": sha256(safe_mapping_path)},
             "source_download_manifest": {"path": str(source_manifest_copy), "sha256": sha256(source_manifest_copy)},
             "dastan_artifact_manifest": {"path": str(dastan_manifest_copy), "sha256": sha256(dastan_manifest_copy)},
-            "historical_training_frame": {"path": str(training_dir / "features_with_snapshots.parquet"), "sha256": sha256(training_dir / "features_with_snapshots.parquet")},
+            "historical_training_frame": release_import_report["training_frame"],
         },
         "important_boundaries": [
-            "Dastan expected-points heads are not loaded or used.",
-            "Historical point-in-time snapshot artifacts are rebuilt from the pinned fplcache commit.",
+            "Dastan published feature data, snapshot tables, mappings and minutes artifacts are imported; CTA continues to own its points model.",
+            "Historical point-in-time snapshot artifacts are imported from the verified Dastan release and safety-filtered; no historical fplcache reconstruction is performed.",
             "Current next-GW snapshot values come only from the live official bootstrap; later target GWs receive -1 snapshot sentinels.",
-            "The active-season match archive is refreshed from official FPL element-summary history.",
+            "Only active-season player match history is assembled from the official FPL API and current Understat data; historical player matches are imported from Dastan.",
             "Source acquisition and feature generation do not clear CTA M2 validation or production eligibility.",
         ],
     }
