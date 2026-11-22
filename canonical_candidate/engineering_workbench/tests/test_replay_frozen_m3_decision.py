@@ -97,8 +97,8 @@ def _bind_raw_sources(manifest):
         "season": "2026-27",
         "target_gameweek": 12,
         "provider": {
-            "name": "FPL Cat", "product": "published xP",
-            "variant": "public next-gameweek JSON API", "version": "api/v1",
+            "name": "FPL Cat", "product": "projections",
+            "variant": "provider_native_xp", "version": "api/v1",
         },
         "timing": {
             "generated_at_utc": "2026-11-20T09:00:00Z",
