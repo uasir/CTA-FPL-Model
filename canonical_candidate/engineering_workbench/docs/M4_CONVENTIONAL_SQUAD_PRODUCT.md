@@ -40,3 +40,19 @@ Input is the complete JSON output of a conforming personal-squad run. The output
 ## Acceptance coverage
 
 tests/test_build_conventional_squad_product.py checks EV-only decision content, provenance preservation, exclusion of field/CoVar context, rejection of incomplete or unsupported runs, and a CTA-model-shaped run that retains the separate `cta_informed_personal_squad` identity without becoming release-eligible.
+## Live manager execution path
+
+The FPL Cat capture workflow also supports a real-manager conventional M3-to-M4 execution:
+- Capture the official previous-Gameweek picks, manager history, transfer log and FPL bootstrap metadata for the confirmed public manager ID.
+- Carry the previous official starting XI, outfield bench order, reserve goalkeeper and captaincy forward only as the initial hold-plan baseline. The personal-squad engine may optimize the XI and captaincy for the target Gameweek.
+- Derive free transfers from official event transfer counts, hit costs and Wildcard/Free Hit history. A chip consumes the new transfer for that Gameweek while preserving banked transfers, consistent with the official FPL rules.
+- Reuse the previous deadline bank only when the target-Gameweek transfer log is empty. If target-Gameweek transfers exist, stop and require a refreshed bank/state rather than guessing.
+- Capture provider, metadata and manager evidence before the target deadline; run the frozen M3 conventional decision and the same personal-squad engine through the M4 adapter; require their action and transfer candidate to agree.
+- Public previous-Gameweek picks cannot reveal an unsaved target-Gameweek chip selection. The initial workflow therefore records chip_state: NONE as an explicit assumption, not as an independently verified fact; a planned chip requires a rerun with the correct manager state.
+
+Entry points:
+- scripts/capture_public_fpl_manager_snapshot.py — public manager state and transfer-history snapshot
+- scripts/run_fplcat_live_m4_recommendation.py — FT reconstruction, strict pre-deadline capture, frozen M3 decision and M4 conventional product
+- .github/workflows/capture-fplcat-benchmark.yml — capture, synthetic contract replay and live-manager execution
+
+The live execution remains EXPLORATORY_PREVIEW and release-ineligible. It is a one-Gameweek provider-xP decision, not a validated multi-week strategy or a CTA-informed recommendation.
