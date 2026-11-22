@@ -267,7 +267,7 @@ def test_conventional_deadline_accepts_equivalent_utc_offset(monkeypatch):
 
 def _m3_manager_capture(manager_context=None, gameweek=12):
     manager = copy.deepcopy(manager_context or _manager_context())
-    manager["starting_xi"] = list(range(1, 12))
+    manager["starting_xi"] = [1, 3, 4, 5, 6, 8, 9, 10, 13, 14, 15]
     return {
         "manager_context_capture": {
             "team_id": 421025,
@@ -298,7 +298,7 @@ def _real_schema_conventional_run():
                 "free_transfers": 1,
                 "personal_risk_profile": "aggressive",
             },
-            "current_squad_plan": {"starting_xi": list(range(1, 12))},
+            "current_squad_plan": {"starting_xi": [1, 3, 4, 5, 6, 8, 9, 10, 13, 14, 15]},
         },
     }
 
