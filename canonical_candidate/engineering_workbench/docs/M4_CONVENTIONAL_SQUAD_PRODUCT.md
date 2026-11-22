@@ -125,3 +125,13 @@ The public Sideline Quant data page currently publishes one next-Gameweek JSON a
 The site separately advertises a whole-season view and a six-Gameweek prediction/planning horizon for account users. The public whole-season view is an aggregate season projection, not a verified fixture-by-fixture, Gameweek-by-Gameweek forecast panel. The six-Gameweek horizon is an account feature; no authenticated provider artifact or supported public multi-GW API response has been captured in this workflow. Do not infer a five-GW panel from the horizon total, and do not scrape or depend on an account-only interface without an approved, reproducible capture contract.
 
 **M4 decision:** Sideline Quant's public feed is a valid single-GW fixture-grain source, but it does not currently supply the required public five-plus-GW bundle. Keep the multi-GW evaluator gated. Do not substitute the season aggregate or duplicate the GW11 feed across future GWs. Continue the current conventional live path with FPL Cat as previously directed unless a genuine, authorized, reproducible multi-GW Sideline artifact becomes available. This assessment does not invalidate the value of Sideline's single-GW fixture-grain data for historical benchmark research.
+
+
+
+## M4 actionability gate — 22 Nov 2026
+
+The conventional/CTA personal-squad product adapter now refuses to publish a one-Gameweek optimiser action as an actionable transfer recommendation. Without explicit `multi_gameweek_decision_evidence` marked `VALIDATED_FOR_M4_DECISION`, containing at least five consecutive Gameweeks, distinct source snapshot IDs and an eligible HOLD/TRANSFER decision, the product emits `NOT_DECISION_ELIGIBLE`. The original one-Gameweek action, candidate and proposed XI remain available only under `one_gameweek_preview`; the actionable `best_transfer` and `recommended_squad_plan` are null.
+
+This prevents a one-week xP comparison from overriding the agreed five-plus-Gameweek investment policy. The gate applies equally to conventional external-benchmark and CTA-informed personal-squad products. It does not change the underlying M3 frozen decision or general CTA rankings. A future multi-Gameweek evaluator must supply the complete validated evidence contract before the product can emit an actionable HOLD/TRANSFER decision.
+
+CI run [45005650584](https://github.com/uasir/CTA-FPL-Model/actions/runs/45005650584) passed on commit `7e07520c08ecf8a575b8f3e4c496eeb5e2938d5f`: **617 Python engineering tests and 3 subtests passed**, with JavaScript recommendation contracts, canonical Python feature-core tests and all four identity crosswalk validations successful.
