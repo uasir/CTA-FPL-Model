@@ -39,9 +39,9 @@ jobs:
 
       - name: Build squad-independent CTA recommendations from the real bundle
         run: |
-          python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_products.py \\
-            --bundle-dir outputs/cta-five-gw \\
-            --now-utc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \\
+          python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_products.py \
+            --bundle-dir outputs/cta-five-gw \
+            --now-utc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --output outputs/cta-recommendations/cta-recommendation-previews.json
 
       - name: Publish concise exploratory ranking summary
@@ -63,7 +63,7 @@ jobs:
                       f"{row['position']} | {row['expected_points']:.2f} | "
                       f"£{row['price']:.1f} |"
                   )
-              return "\\n".join(lines)
+              return "\n".join(lines)
 
           lines = [
               "# CTA general recommendation replay",
@@ -98,7 +98,7 @@ jobs:
               "",
               "Not requested: no current manager squad snapshot was supplied.",
           ])
-          summary = "\\n".join(lines) + "\\n"
+          summary = "\n".join(lines) + "\n"
           Path("outputs/cta-recommendations/summary.md").write_text(summary, encoding="utf-8")
           with open(__import__("os").environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
               handle.write(summary)
