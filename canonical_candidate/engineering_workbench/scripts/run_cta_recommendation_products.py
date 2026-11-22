@@ -339,7 +339,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--manager-context-capture", type=Path,
-        help="paired full 15-player manager capture JSON from the same M3 target Gameweek",
+        help="full 15-player manager capture JSON paired with --conventional-run",
     )
     parser.add_argument("--eo-snapshot", type=Path)
     parser.add_argument("--now-utc")
