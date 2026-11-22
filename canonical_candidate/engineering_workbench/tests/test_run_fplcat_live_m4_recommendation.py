@@ -53,12 +53,20 @@ def test_manager_state_uses_official_gw11_squad_and_lineup_as_gw12_baseline():
         },
         "target_gameweek_transfer_activity": {"transfers_reported": 0},
     }
+    transfer_data = {
+        2: (0, 0), 3: (2, 0), 4: (10, 0), 5: (1, 0),
+        6: (2, 4), 7: (2, 4), 8: (1, 0), 9: (11, 0),
+        10: (3, 8), 11: (1, 0),
+    }
     history = {
         "current": [
-            {"event": event, "event_transfers": 0, "event_transfers_cost": 0}
-            for event in range(2, 12)
+            {"event": event, "event_transfers": count, "event_transfers_cost": cost}
+            for event, (count, cost) in transfer_data.items()
         ],
-        "chips": [],
+        "chips": [
+            {"name": "wildcard", "event": 4},
+            {"name": "freehit", "event": 9},
+        ],
     }
     state = build_manager_state(snapshot, history, chip_state="NONE")
     assert state["squad_15"] == list(range(1, 16))
