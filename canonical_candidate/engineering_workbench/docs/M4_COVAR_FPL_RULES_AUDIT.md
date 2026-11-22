@@ -187,6 +187,10 @@ irreversibly anonymous.
 - Actual autosubs in this manager sample: **0**. This run therefore validates
   normal lineup multipliers, captaincy, chips, player points and team totals,
   but does not empirically exercise an autosub event.
+- Double-Gameweek aggregate-minute handling: the resolver now accepts
+  Gameweek totals above 120 minutes; the per-fixture scenario and event-scoring
+  contracts retain the 120-minute per-match bound. A full-Gameweek scoring
+  regression test covers a 165-minute aggregate.
 
 The batch capture now treats an unfinished Gameweek as an expected skip, not
 a capture failure. The replay validator also distinguishes reported
@@ -196,8 +200,8 @@ reported score plus explicit transfer cost matches the lineup score.
 
 Workflow and evidence:
 - [Cloud replay + focused CoVar workflow run 44994803507](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994803507)
-- [Full engineering CI run 44994803493 — 846 tests and 3 subtests](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994803493)
-- [Focused CoVar tests — 127 passed](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994803507)
+- [Full engineering CI run 44994911593 — 847 tests and 3 subtests](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994911593)
+- [Focused CoVar tests — 128 passed](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994911531)
 
 This is an initial single-manager temporal validation set, not a representative
 field sample, not evidence of autosub correctness under real autosub events,
