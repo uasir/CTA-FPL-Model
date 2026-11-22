@@ -153,7 +153,7 @@ Validation:
 - Focused CoVar validation: 128 tests passed — [run 44994911531](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994911531).
 - Real official FPL replay: 10 completed Gameweeks passed, including 10/10 official team-score reconciliations — [run 44994911531](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994911531).
 
-The first real replay baseline is complete. The next validation priority is to expand the real sample to include actual autosubs and Double/Triple Gameweeks, then test field-sample representativeness and event-derived full-Gameweek scenario validation. Only normalized identity-field-stripped replay cases are retained in a 30-day Actions artifact; raw manager API payloads are not committed or uploaded.
+The real replay baseline now includes actual goalkeeper and outfield autosubs. The next validation priority is field-sample representativeness and uncertainty for relative-score tails, followed by event-derived full-Gameweek scenario validation. Only normalized identity-field-stripped replay cases are retained in a 30-day Actions artifact; raw manager API payloads are not committed or uploaded.
 
 ## 8. 2026-11-22 — Official event-scoring reconciliation
 
@@ -179,3 +179,60 @@ Next priority: move from per-player/per-fixture scoring validation to full
 Gameweek portfolio scoring with actual field samples, then test sample
 representativeness and relative-score tail stability. Official bonus remains
 an input; a BPS forecast is still out of scope.
+
+## 9. 2026-11-22 — Real autosub validation and aggregate field portfolio structure
+
+### Official FPL replay evidence
+
+The API adapter now reverses the official post-autosub pick positions using
+`automatic_subs` pairs to reconstruct the submitted deadline XI and bench.
+Final scoring multipliers remain attached to their players. This corrected the
+earlier assumption that completed-GW pick positions were the original
+deadline order.
+
+- Private manager replay: GW1-GW10, **10/10 PASS**.
+- Real autosubs in that replay: **3** — one outfield substitution in GW4,
+  plus one goalkeeper and one outfield substitution in GW5.
+- Final multipliers, player points, captaincy, official autosub pairs and
+  `entry_history.points`: all reconciled, zero failures.
+- Public Overall-league sample: 25 managers across five separated standings
+  pages, **125/125 PASS** across GW6-GW10, zero capture failures.
+- Public sample autosubs: **52** replays involving **68** incoming players;
+  six captain fallbacks; 125/125 official team-point reconciliations.
+- Six public records differed only in exact pair assignment. The incoming and
+  outgoing player sets and final scoring multipliers matched; these are
+  diagnostics, not scoring mismatches. No autosub player-set mismatch remained.
+
+The public sample is a resolver stress-test, not a representative estimate of
+the whole field or a pre-deadline field portfolio census. The private replay
+and public sample are retrospective validation only.
+
+### Aggregate-only predeadline portfolio structure
+
+The existing rank-stratified predeadline capture now computes an aggregate
+portfolio-structure summary from its in-memory manager-pick sample. The public
+report contains weighted squad/XI/bench inclusion shares, captain/Triple
+Captain shares, pairwise co-selection covariance/correlation and portfolio
+overlap. It does not export individual manager portfolios, manager IDs, names
+or exact ranks.
+
+This summary is derived from the same manager-pick sample as the existing EO
+estimator. It is not a second EO estimator: the existing rank-stratified EO
+estimator remains the sole field EO source. Binary player co-selection
+covariance is distinct from historical player-points covariance and does not
+create a joint match-outcome distribution. The summary remains provisional,
+not a global census, `decision_weight=0` and `production_eligible=false`.
+The first live predeadline capture for the next target Gameweek is still
+pending.
+
+### Validation and next work
+
+- Full engineering CI: **871 tests and 3 subtests passed** — [run 44998077270](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077270).
+- Focused CoVar validation: **155 passed** — [run 44998077310](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077310).
+- Official manager replay, public field replay and event-scoring audits: [run 44998077310](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077310).
+
+Next: capture the first live predeadline portfolio-structure sample; quantify
+its sampling uncertainty and rank-cohort representativeness; then connect
+observed portfolio structure to scenario-matched full-Gameweek score
+distributions. Event-derived scenario generation, set-piece attribution and
+event-based BPS remain open. CoVar remains research-only.
