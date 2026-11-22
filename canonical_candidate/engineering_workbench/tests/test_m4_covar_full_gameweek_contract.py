@@ -121,6 +121,20 @@ class TestM4CovarFullGameweekContract(unittest.TestCase):
         with self.assertRaisesRegex(CovarFullGameweekContractError, "unique"):
             validate_full_gameweek_document(doc)
 
+    def test_rejects_residual_scenarios_that_shift_target_marginal_means(self):
+        doc = research_fixture()
+        for scenario in doc["scenarios"]:
+            for outcome in scenario["player_outcomes"]:
+                outcome["fpl_points"] += 1.0
+        with self.assertRaisesRegex(CovarFullGameweekContractError, "do not preserve target expected-points mean"):
+            validate_full_gameweek_document(doc)
+        doc = research_fixture()
+        for scenario in doc["scenarios"]:
+            for outcome in scenario["player_outcomes"]:
+                outcome["minutes"] = 80.0
+        with self.assertRaisesRegex(CovarFullGameweekContractError, "do not preserve target expected-minutes mean"):
+            validate_full_gameweek_document(doc)
+
     def test_rejects_training_cutoff_after_forecast_as_of(self):
         doc = research_fixture()
         doc["metadata"]["training_cutoff_utc"] = "2026-11-27T19:00:00Z"
