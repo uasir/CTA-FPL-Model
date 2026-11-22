@@ -760,7 +760,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     sys.path.insert(0, str(dastan_root))
     from dastan import data as dastan_data
     from dastan import mappings
-    from dastan.rebuild import sources
+    from dastan.rebuild import sources, features as dastan_features
 
     output_dir.mkdir(parents=True, exist_ok=True)
     snapshot_dir = output_dir / "snapshots"
@@ -794,7 +794,6 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
 
     roster_path = write_current_roster(dastan_root, bootstrap, season)
     mapping_release_report = mappings.verify_operational_release()
-    operational_clubs = mappings.load_operational_clubs()
     patch_identity_resolution(mappings, sources)
     # The historical raw match tables are not included in Dastan's released
     # training frame. They are still required to create genuinely current,
@@ -832,7 +831,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     pinned_understat_report = download_and_merge_pinned_understat_player_histories(
         raw_dir, seasons, sources, workers=workers,
     )
-    download_fixture_schedules(raw_dir, seasons, source_commit)
+    download_fixture_schedules(raw_dir, historical_seasons, source_commit)
 
     current_api_report = refresh_current_core(raw_dir, season, bootstrap, fixtures, workers=workers)
     write_live_fixture_schedule(raw_dir, season, fixtures)
@@ -843,7 +842,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         value: list((raw_dir / "vaastav" / "understat" / "teams" / value).glob("*.csv"))
         for value in seasons
     }
-    wanted_ids = sources._needed_understat_ids(raw_dir, seasons)
+    wanted_ids = sources._needed_understat_ids(raw_dir, [season])
     incomplete_players = sources._incomplete_pinned_players(raw_dir, [season], wanted_ids)
     missing_team_seasons = sources._incomplete_team_seasons(raw_dir, [season], team_paths)
     parallel_understat_fallbacks(
@@ -932,8 +931,8 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "current_bootstrap_snapshot": bootstrap["_cta_snapshot"],
         "historical_snapshot_safety_buffer": release_import_report["snapshot_safety_buffer"],
         "fixture_archive_audits": fixture_archive_audits,
-        "historical_player_history_source": "Dastan published data/features.parquet; no historical player-source reconstruction",
-        "historical_understat_player_downloads": 0,\n        "active_season_understat_player_fallbacks": len(incomplete_players),
+        "historical_player_history_source": "Pinned Dastan/Vaastav/Understat raw inputs for target-feature reconstruction; Dastan released feature frame imported separately for model training",
+        "pinned_understat_player_history_merge": pinned_understat_report,\n        "active_season_understat_player_fallbacks": len(incomplete_players),
         "canonical_player_match_rows": len(player_matches),
         "canonical_team_match_rows": len(team_matches),
         "historical_training_rows": len(training_frame),\n        "dastan_release_import": release_import_report,
@@ -958,7 +957,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
             "historical_training_frame": release_import_report["training_frame"],
         },
         "important_boundaries": [
-            "Dastan published feature data, snapshot tables, mappings and minutes artifacts are imported; CTA continues to own its points model.",
+            "Dastan published feature data, snapshot tables, mappings and minutes artifacts are imported; raw historical match inputs are used only to build current target features; CTA continues to own its points model.",
             "Historical point-in-time snapshot artifacts are imported from the verified Dastan release and safety-filtered; no historical fplcache reconstruction is performed.",
             "Current next-GW snapshot values come only from the live official bootstrap; later target GWs receive -1 snapshot sentinels.",
             "Only active-season player match history is assembled from the official FPL API and current Understat data; historical player matches are imported from Dastan.",
