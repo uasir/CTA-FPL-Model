@@ -50,13 +50,26 @@ def test_conventional_product_exposes_ev_decision_and_source_provenance_only():
     assert product["decision"]["action"] == run["recommendation"]["transfer_recommendation"]["action"]
     assert product["decision"]["current_squad_plan"] == run["recommendation"]["current_squad_plan"]
     assert product["forecast"]["provider"]["name"] == "FPL Cat"
+    assert product["forecast"]["source_run_type"] == "EXTERNAL_BENCHMARK_PERSONAL_SQUAD"
     assert product["provenance"]["raw_sha256"] == run["source_provenance"]["raw_sha256"]
     assert product["excluded_context"]["covar"] == "NOT_PART_OF_CONVENTIONAL_SCORE"
     assert "predeadline_field_analysis" not in product
     assert "historical_covar_overlay" not in product
 
+def test_m4_product_contract_accepts_cta_source_run_shape_without_promoting_it():
+    run = _run()
+    run["run_type"] = "CTA_MODEL_PERSONAL_SQUAD"
+    run["provider_identity"] = {"name": "CTA-FPL", "product": "model_forecast", "variant": "cta_xp", "version": "unvalidated"}
+    run["release_eligible"] = False
+    run["release_blockers"] = ["CTA forecast validation is pending."]
+    product = build_conventional_squad_product(run)
+    assert product["forecast"]["source_run_type"] == "CTA_MODEL_PERSONAL_SQUAD"
+    assert product["forecast"]["provider"]["name"] == "CTA-FPL"
+    assert product["release_eligible"] is False
+    assert "CTA forecast validation is pending." in product["release_blockers"]
+
 def test_conventional_product_rejects_non_personal_or_incomplete_run():
-    with pytest.raises(ConventionalSquadProductError, match="not an external-benchmark"):
+    with pytest.raises(ConventionalSquadProductError, match="source run type is not supported"):
         build_conventional_squad_product({"run_type": "OTHER"})
     broken = copy.deepcopy(_run())
     del broken["recommendation"]["current_squad_plan"]
