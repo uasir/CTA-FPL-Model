@@ -174,6 +174,33 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         pid for pid in player_ids
         if expected_multipliers[pid] != official_multipliers[pid]
     ]
+    official_automatic_subs = official.get("automatic_subs")
+    automatic_substitution_match = None
+    automatic_substitution_mismatches: list[dict[str, Any]] = []
+    if official_automatic_subs is not None and str(lineup.get("active_chip") or "").lower() != "bboost":
+        if not isinstance(official_automatic_subs, list):
+            raise CovarFplReplayError("official_final.automatic_subs must be a list")
+        actual_pairs: list[tuple[str, str]] = []
+        for index, row in enumerate(official_automatic_subs):
+            if not isinstance(row, Mapping):
+                raise CovarFplReplayError("each official automatic substitution must be an object")
+            element_in = str(row.get("element_in", ""))
+            element_out = str(row.get("element_out", ""))
+            if element_in not in player_ids or element_out not in player_ids or element_in == element_out:
+                raise CovarFplReplayError("official automatic substitution contains an invalid player pair")
+            actual_pairs.append((element_in, element_out))
+        expected_pairs = [
+            (str(row["in"]), str(row["out"]))
+            for row in resolution["substitutions"]
+        ]
+        if len(actual_pairs) != len(set(actual_pairs)):
+            raise CovarFplReplayError("official automatic substitutions contain duplicate pairs")
+        automatic_substitution_match = sorted(actual_pairs) == sorted(expected_pairs)
+        if not automatic_substitution_match:
+            automatic_substitution_mismatches.append({
+                "expected_pairs": sorted(expected_pairs),
+                "official_pairs": sorted(actual_pairs),
+            })
     official_total = sum(
         official_player_points[pid] * official_multipliers[pid]
         for pid in player_ids
@@ -207,6 +234,7 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         not point_mismatches
         and not multiplier_mismatches
         and not active_captain_mismatch
+        and automatic_substitution_match is not False
         and team_points_mismatch is not True
     )
     event_id = case.get("event_id")
@@ -223,6 +251,8 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         "official_multiplier_match": not multiplier_mismatches,
         "player_points_match": not point_mismatches,
         "active_captain_match": not active_captain_mismatch,
+        "official_automatic_substitution_match": automatic_substitution_match,
+        "mismatched_automatic_substitutions": automatic_substitution_mismatches,
         "official_team_points_reconcile": (not team_points_mismatch) if team_points_mismatch is not None else None,
         "team_points_reconciliation_basis": team_points_reconciliation_basis,
         "mismatched_player_multipliers": multiplier_mismatches,
@@ -272,6 +302,7 @@ def validate_replay_batch(document: Mapping[str, Any]) -> dict[str, Any]:
         "multiplier_mismatch_replays": sum(not row["official_multiplier_match"] for row in results),
         "player_points_mismatch_replays": sum(not row["player_points_match"] for row in results),
         "captain_mismatch_replays": sum(not row["active_captain_match"] for row in results),
+        "automatic_substitution_mismatch_replays": sum(row["official_automatic_substitution_match"] is False for row in results),
         "team_points_reconciliation_cases": sum(row["official_team_points_reconcile"] is not None for row in results),
         "team_points_reconciliation_failures": sum(row["official_team_points_reconcile"] is False for row in results),
         "results": results,
