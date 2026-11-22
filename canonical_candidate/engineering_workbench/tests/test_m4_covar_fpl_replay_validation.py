@@ -112,7 +112,37 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
         self.assertEqual(result["status"], "FAIL", result)
         self.assertFalse(result["official_automatic_substitution_match"])
         self.assertFalse(result["automatic_substitution_metadata_match"])
+        self.assertFalse(result["automatic_substitution_player_sets_match"])
         self.assertTrue(result["official_multiplier_match"])
+
+    def test_pair_mapping_difference_passes_when_final_incoming_and_outgoing_sets_match(self):
+        case = replay()
+        for pid in ("p2", "p11", "p14"):
+            case["player_outcomes"][pid].update({"minutes": 0, "played": False, "fpl_points": 0})
+            case["official_final"]["player_total_points"][pid] = 0
+        for pid in ("p13", "p15"):
+            case["player_outcomes"][pid].update({"minutes": 90, "played": True, "fpl_points": 2})
+            case["official_final"]["player_total_points"][pid] = 2
+        for pick in case["official_final"]["picks"]:
+            if pick["element"] in ("p2", "p11", "p14"):
+                pick["multiplier"] = 0
+            elif pick["element"] in ("p13", "p15"):
+                pick["multiplier"] = 1
+        case["official_final"]["automatic_subs"] = [
+            {"element_in": "p13", "element_out": "p11", "event": 7},
+            {"element_in": "p15", "element_out": "p2", "event": 7},
+        ]
+        case["official_final"]["team_points"] = sum(
+            case["official_final"]["player_total_points"][pick["element"]] * pick["multiplier"]
+            for pick in case["official_final"]["picks"]
+        )
+        result = validate_official_replay_case(case)
+        self.assertEqual(result["status"], "PASS", result)
+        self.assertTrue(result["official_automatic_substitution_match"])
+        self.assertFalse(result["automatic_substitution_metadata_match"])
+        self.assertTrue(result["automatic_substitution_player_sets_match"])
+        self.assertTrue(result["official_multiplier_match"])
+        self.assertTrue(result["official_team_points_reconcile"])
 
     def test_detects_official_autosub_multiplier_mismatch(self):
         case = replay()
@@ -265,6 +295,34 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
         self.assertEqual(result["automatic_substitution_mismatch_replays"], 1)
         self.assertEqual(result["automatic_substitution_metadata_cases"], 1)
         self.assertEqual(result["automatic_substitution_metadata_mismatch_replays"], 1)
+        self.assertEqual(result["automatic_substitution_player_set_mismatch_replays"], 1)
+
+    def test_batch_report_keeps_pair_mapping_diagnostic_out_of_scoring_failures(self):
+        case = replay(event_id=7)
+        for pid in ("p2", "p11", "p14"):
+            case["player_outcomes"][pid].update({"minutes": 0, "played": False, "fpl_points": 0})
+            case["official_final"]["player_total_points"][pid] = 0
+        for pid in ("p13", "p15"):
+            case["player_outcomes"][pid].update({"minutes": 90, "played": True, "fpl_points": 2})
+            case["official_final"]["player_total_points"][pid] = 2
+        for pick in case["official_final"]["picks"]:
+            if pick["element"] in ("p2", "p11", "p14"):
+                pick["multiplier"] = 0
+            elif pick["element"] in ("p13", "p15"):
+                pick["multiplier"] = 1
+        case["official_final"]["automatic_subs"] = [
+            {"element_in": "p13", "element_out": "p11", "event": 7},
+            {"element_in": "p15", "element_out": "p2", "event": 7},
+        ]
+        case["official_final"]["team_points"] = sum(
+            case["official_final"]["player_total_points"][pick["element"]] * pick["multiplier"]
+            for pick in case["official_final"]["picks"]
+        )
+        result = validate_replay_batch({"replays": [case]})
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["automatic_substitution_mismatch_replays"], 0)
+        self.assertEqual(result["automatic_substitution_metadata_mismatch_replays"], 1)
+        self.assertEqual(result["automatic_substitution_player_set_mismatch_replays"], 0)
 
     def test_batch_report_counts_failures_by_gameweek_and_mismatch_type(self):
         first = replay(event_id=7)
