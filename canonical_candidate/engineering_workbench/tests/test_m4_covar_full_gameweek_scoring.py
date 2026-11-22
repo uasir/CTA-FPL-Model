@@ -73,8 +73,40 @@ def fixture():
         "portfolios": [candidate, field],
     }
 
+def research_fixture():
+    doc = fixture()
+    doc["data_status"] = "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY"
+    doc["production_eligible"] = False
+    doc["decision_weight"] = 0.0
+    doc["covar_used"] = False
+    doc["metadata"].update({
+        "forecast_snapshot_id": "m3-gw12-snapshot",
+        "model_version": "fplcat-v2",
+        "training_cutoff_utc": "2026-11-27T17:00:00Z",
+        "scenario_probability_method": "EQUAL_WEIGHT_EMPIRICAL_COMPLETE_GAMEWEEK_BLOCKS",
+        "complete_historical_gameweeks": [10, 11],
+        "probability_calibrated": False,
+        "marginal_expected_points_preserved": True,
+        "residual_bootstrap_payload_sha256": "a" * 64,
+    })
+    for scenario, gw in zip(doc["scenarios"], (10, 11)):
+        scenario["source_gameweek"] = gw
+        scenario["probability"] = 0.5
+    return doc
+
+
+
 
 class TestM4CovarFullGameweekScoring(unittest.TestCase):
+    def test_scores_research_residual_blocks_without_enabling_covar(self):
+        result = score_full_gameweek_portfolios(research_fixture(), baseline_portfolio_id="field")
+        self.assertEqual(result["data_status"], "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY")
+        self.assertEqual(result["input_validation_status"], "VALID_RESEARCH_RESIDUAL_BLOCK_FULL_GAMEWEEK_INPUT")
+        self.assertFalse(result["production_eligible"])
+        self.assertEqual(result["decision_weight"], 0.0)
+        self.assertFalse(result["covar_used"])
+        self.assertEqual(result["shared_scenario_ids"], ["low", "high"])
+
     def test_scores_every_portfolio_on_identical_scenario_ids(self):
         result = score_full_gameweek_portfolios(fixture(), baseline_portfolio_id="field")
         self.assertEqual(result["shared_scenario_ids"], ["low", "high"])
