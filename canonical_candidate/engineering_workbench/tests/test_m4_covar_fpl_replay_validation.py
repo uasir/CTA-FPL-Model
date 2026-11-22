@@ -85,6 +85,32 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
         self.assertEqual(result["status"], "PASS", result)
         self.assertEqual(result["resolver_total_points"], 24.0)
 
+    def test_matches_exact_official_automatic_substitution_pair(self):
+        case = replay()
+        case["player_outcomes"]["p2"].update({"minutes": 0, "played": False, "fpl_points": 0})
+        case["official_final"]["player_total_points"]["p2"] = 0
+        case["official_final"]["picks"][1]["multiplier"] = 0
+        case["official_final"]["picks"][12]["multiplier"] = 1
+        case["official_final"]["automatic_subs"] = [
+            {"element_in": "p13", "element_out": "p2", "event": 7},
+        ]
+        result = validate_official_replay_case(case)
+        self.assertEqual(result["status"], "PASS", result)
+        self.assertTrue(result["official_automatic_substitution_match"])
+
+    def test_detects_official_automatic_substitution_pair_mismatch(self):
+        case = replay()
+        case["player_outcomes"]["p2"].update({"minutes": 0, "played": False, "fpl_points": 0})
+        case["official_final"]["player_total_points"]["p2"] = 0
+        case["official_final"]["picks"][1]["multiplier"] = 0
+        case["official_final"]["picks"][12]["multiplier"] = 1
+        case["official_final"]["automatic_subs"] = [
+            {"element_in": "p13", "element_out": "p3", "event": 7},
+        ]
+        result = validate_official_replay_case(case)
+        self.assertEqual(result["status"], "FAIL")
+        self.assertFalse(result["official_automatic_substitution_match"])
+
     def test_detects_official_autosub_multiplier_mismatch(self):
         case = replay()
         case["official_final"]["picks"][12]["multiplier"] = 1
