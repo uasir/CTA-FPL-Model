@@ -39,6 +39,17 @@ That finality pass is not proof that the historical outcomes were observed by th
 
 There is also no verified accumulated prospective conventional forecast/outcome matched panel for GW1-GW10. A finality-only realized-points panel cannot substitute for forecast residuals. Retrospective FPL points without matching same-version pre-deadline M3 forecasts are not residual observations.
 
+## Prospective match-archive intake
+
+A separate manual workflow, `.github/workflows/cta-fpl-m3-covar-match-prospective-evidence.yml`, now connects a specific manager-free M3 forecast archive to a later official finality artifact. It:
+- re-verifies the exact M3 bundle SHA-256, byte count, model version, raw FPL Cat provider bytes and official bootstrap metadata bytes against the private archive manifest;
+- requires the official realized player-Gameweek and fixture CSVs plus the exact event-level finality report;
+- matches only the intersection of observed FPL element IDs, with no zero-fill;
+- records the conservative observed outcome availability timestamp from `reports[].source_provenance.captured_at_utc` when the finality report does not carry a dedicated `outcome_available_at_utc` field;
+- writes the matched player-level archive only to the private CoVar archive repository, with immutable hashes and research-only flags.
+
+This workflow is manual because the forecast can only be matched after the corresponding Gameweek's final official scoring reconciliation is complete. The current GW1-GW10 finality artifact cannot match GW11 because it does not contain an event-11 finality pass. When GW11 finality is available, the exact GW11 M3 forecast archive can be matched and preserved as the first prospective residual block. It becomes eligible only for a later target forecast whose training cutoff is strictly after the recorded outcome-availability time and whose model version is identical.
+
 ## What is required before scenarios can be emitted
 
 1. Accumulate genuine prospective conventional M3 forecast snapshots and their later official outcomes, matched by exact season, Gameweek and player ID.
