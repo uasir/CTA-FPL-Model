@@ -57,6 +57,17 @@ def evaluate_multi_gameweek_transfer_bundle(payload: Mapping[str, Any]) -> dict[
     model_version = bundle.get("model_version")
     if not isinstance(model_version, str) or not model_version.strip():
         raise MultiGameweekTransferError("forecast bundle model_version is required")
+    provider_source_id = bundle.get("provider_source_id")
+    if not isinstance(provider_source_id, str) or not provider_source_id.strip():
+        raise MultiGameweekTransferError("forecast bundle provider_source_id is required")
+    provider = bundle.get("provider")
+    if not isinstance(provider, Mapping) or any(
+        not isinstance(provider.get(key), str) or not provider[key].strip()
+        for key in ("name", "product", "variant", "version")
+    ):
+        raise MultiGameweekTransferError("forecast bundle provider identity is required")
+    if bundle.get("contract_version") != "1.0.0":
+        raise MultiGameweekTransferError("forecast bundle must come from the supported canonical contract version")
 
     squad = _ids(payload.get("squad_ids"), "squad_ids", 15)
     xi = _ids(payload.get("starting_xi_ids"), "starting_xi_ids", 11)
@@ -201,6 +212,12 @@ def evaluate_multi_gameweek_transfer_bundle(payload: Mapping[str, Any]) -> dict[
     gross = sum(row["incremental_expected_points"] for row in weekly)
     net = gross - applied_hit
     return {
+        "provider_source_id": provider_source_id,
+        "provider": dict(provider),
+        "forecast_bundle_id": bundle_id,
+        "source_snapshot_ids": list(source_ids),
+        "model_version": model_version,
+        "contract_version": bundle["contract_version"],
         "status": "EXPLORATORY_MULTI_GAMEWEEK_TRANSFER_COMPARISON",
         "forecast_bundle_id": bundle_id,
         "forecast_snapshot_id": bundle_id,
