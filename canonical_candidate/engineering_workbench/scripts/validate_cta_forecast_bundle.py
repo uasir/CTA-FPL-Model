@@ -37,9 +37,12 @@ def validate_bundle(forecast_dir: Path, output_path: Path) -> dict:
         raise ValueError("player-GW forecast has duplicate player-gameweek keys")
     if horizon.duplicated(["season", "fpl_code", "position"]).any():
         raise ValueError("five-GW forecast has duplicate player horizon keys")
-    gameweeks = sorted(pd.to_numeric(fixture["gameweek"], errors="raise").astype(int).unique().tolist())
+    observed_gameweeks = sorted(pd.to_numeric(fixture["gameweek"], errors="raise").astype(int).unique().tolist())
+    gameweeks = [int(value) for value in report.get("gameweeks", [])]
     if len(gameweeks) != 5 or gameweeks != list(range(gameweeks[0], gameweeks[0] + 5)):
-        raise ValueError(f"fixture forecasts do not cover five consecutive gameweeks: {gameweeks}")
+        raise ValueError(f"forecast report does not declare five consecutive gameweeks: {gameweeks}")
+    if not set(observed_gameweeks).issubset(set(gameweeks)):
+        raise ValueError(f"fixture rows fall outside the declared horizon: {observed_gameweeks}")
 
     fixture_group = (
         fixture.groupby(["season", "gameweek", "fpl_code", "position"], as_index=False)
@@ -89,10 +92,11 @@ def validate_bundle(forecast_dir: Path, output_path: Path) -> dict:
 
     if any_true(fixture["production_eligible"]) or any_true(gameweek["production_eligible"]) or any_true(horizon["production_eligible"]):
         raise ValueError("candidate forecast incorrectly marked production-eligible")
-    if not np.allclose(pd.to_numeric(fixture["decision_weight"]), 0.0):
-        raise ValueError("candidate forecast has non-zero decision weight")
-    if any_true(fixture["covar_used"]):
-        raise ValueError("forecast unexpectedly used CoVar")
+    for label, frame in (("fixture", fixture), ("player-GW", gameweek), ("five-GW", horizon)):
+        if not np.allclose(pd.to_numeric(frame["decision_weight"], errors="raise"), 0.0):
+            raise ValueError(f"{label} candidate forecast has non-zero decision weight")
+        if "covar_used" in frame and any_true(frame["covar_used"]):
+            raise ValueError(f"{label} forecast unexpectedly used CoVar")
     if report.get("decision_safeguards", {}).get("production_eligible") is not False:
         raise ValueError("forecast report does not preserve the production gate")
 
