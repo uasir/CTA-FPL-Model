@@ -15,6 +15,18 @@ from test_multi_gameweek_squad_request_assembler import (
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "recommendation_requests.json").read_text())
 
+def _aligned_multi_gameweek_payload(run):
+    payload = _multi_gameweek_forecast_payload()
+    payload["provider"] = dict(run["provider_identity"])
+    payload["decision_as_of_utc"] = run["source_provenance"]["decision_as_of_utc"]
+    run["source_provenance"]["target_gameweek"] = 12
+    for panel in payload["panels"]:
+        panel["snapshot"]["provider"] = dict(run["provider_identity"])
+        panel["snapshot"]["timing"]["generated_at_utc"] = "2026-11-20T08:00:00Z"
+        panel["snapshot"]["timing"]["captured_at_utc"] = "2026-11-20T09:00:00Z"
+    return payload
+
+
 def _run():
     manager = copy.deepcopy(FIXTURE["personal_squad"])
     forecasts = copy.deepcopy(manager["player_forecasts"])
@@ -176,7 +188,8 @@ def test_m4_assembles_manager_specific_multi_gameweek_transfer_sweep():
     run = _run()
     run["manager_context"] = _multi_gameweek_manager_context()
     run["current_player_metadata"] = _multi_gameweek_current_metadata()
-    run["multi_gameweek_forecast_payload"] = _multi_gameweek_forecast_payload()
+    run["player_metadata_provenance"]["row_count"] = len(run["current_player_metadata"])
+    run["multi_gameweek_forecast_payload"] = _aligned_multi_gameweek_payload(run)
     product = build_personal_squad_product(run)
     diagnostic = product["multi_gameweek_diagnostic"]
     assert diagnostic["manager_state"]["squad_ids"] == list(range(1, 16))
