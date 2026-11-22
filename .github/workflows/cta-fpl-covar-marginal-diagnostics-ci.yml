@@ -22,6 +22,7 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_field_portfolio_summary.py"
       - "canonical_candidate/engineering_workbench/scripts/capture_predeadline_field_eo.py"
       - "canonical_candidate/engineering_workbench/tests/test_m4_covar_field_portfolio_summary.py"
+      - "canonical_candidate/engineering_workbench/tests/test_capture_predeadline_field_eo.py"
       - "canonical_candidate/engineering_workbench/tests/test_m4_covar_public_field_replay_audit.py"
       - "canonical_candidate/engineering_workbench/tests/test_m4_covar_official_event_scoring_audit.py"
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_replay_validation.py"
@@ -107,6 +108,7 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_m4_covar_official_event_scoring_audit.py \
             canonical_candidate/engineering_workbench/tests/test_m4_covar_public_field_replay_audit.py \
             canonical_candidate/engineering_workbench/tests/test_m4_covar_field_portfolio_summary.py \
+            canonical_candidate/engineering_workbench/tests/test_capture_predeadline_field_eo.py \
             canonical_candidate/engineering_workbench/tests/test_personal_squad_covar_recommendation.py
 
   private-official-fpl-replay:
