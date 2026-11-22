@@ -74,6 +74,10 @@ def normalize_player_matches(rows: list[dict[str, Any]], player_id: int) -> list
                 value = _first(source, names)
                 if value is not None:
                     row[target] = value
+        if row.get("season") is not None:
+            season_text = str(row["season"])
+            if len(season_text) >= 4 and season_text[:4].isdigit():
+                row["season"] = season_text[:4]
         missing = [name for name in ("season", "date", "h_team", "a_team") if row.get(name) is None]
         if missing:
             raise ValueError(
@@ -111,6 +115,12 @@ def normalize_team_history(rows: list[dict[str, Any]], team_name: str, season: s
                     row[target] = value
         if row.get("h_a") is None and source.get("is_home") is not None:
             row["h_a"] = "h" if bool(source["is_home"]) else "a"
+        if row.get("h_a") is not None:
+            venue = str(row["h_a"]).lower()
+            if venue in {"home", "h"}:
+                row["h_a"] = "h"
+            elif venue in {"away", "a"}:
+                row["h_a"] = "a"
         if row.get("date") is None:
             raise ValueError(
                 f"API.SH team {team_name} {season} row lacks date; available={sorted(source)}"
