@@ -22,6 +22,7 @@ ARCHIVE_FILES = (
     "dastan_model/p60_GKP.json", "dastan_model/p60_DEF.json",
     "dastan_model/p60_MID.json", "dastan_model/p60_FWD.json",
     "training/release_manifest.json", "training/source_pins.json",
+    "dastan_minutes_feature_schema.json",
     "models/cta_points_model_manifest.json",
     "models/cta_points_GKP.json", "models/cta_points_DEF.json",
     "models/cta_points_MID.json", "models/cta_points_FWD.json",
@@ -72,9 +73,20 @@ def archive_bundle(bundle_dir: Path, archive_root: Path, *, run_id: str,
     required_hashes = {
         "source manifest": ("source_download_manifest.json", provenance.get("source_manifest_sha256")),
         "feature matrix": ("feature_matrix.csv", provenance.get("feature_matrix_sha256")),
+        "feature matrix report": ("feature_matrix_report.json", provenance.get("feature_report_sha256")),
         "minutes predictions": ("minutes_predictions.csv", provenance.get("minutes_predictions_sha256")),
+        "minutes report": ("minutes_report.json", provenance.get("minutes_report_sha256")),
+        "feature schema": ("dastan_minutes_feature_schema.json", provenance.get("feature_schema_sha256")),
         "CTA points model manifest": ("models/cta_points_model_manifest.json", provenance.get("points_model_manifest_sha256")),
     }
+    output_hashes = forecast.get("outputs", {})
+    for output_key, relative_path in (
+        ("fixture_forecasts", "forecasts/fixture_forecasts.csv"),
+        ("player_gameweek_forecasts", "forecasts/player_gameweek_forecasts.csv"),
+        ("player_five_gw_forecasts", "forecasts/player_five_gw_forecasts.csv"),
+    ):
+        output_details = output_hashes.get(output_key, {})
+        required_hashes[f"{output_key} output"] = (relative_path, output_details.get("sha256"))
     missing = [name for name in ARCHIVE_FILES if not (bundle_dir / name).is_file()]
     if missing:
         raise ValueError(f"forecast bundle is missing archive inputs: {missing}")
