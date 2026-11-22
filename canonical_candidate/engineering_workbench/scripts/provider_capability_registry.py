@@ -28,7 +28,7 @@ _REGISTRY: dict[str, dict[str, Any]] = {
         "evidence": "Inspected public /api/v1/projections capture schema and regression tests.",
     },
     "sideline_quant_public_next_gw": {
-        "provider": {"name": "Sideline Quant", "product": "public next-Gameweek projections", "variant": "fixture-grain JSON feed", "version": "1.0"},
+        "provider": {"name": "Sideline Quant", "product": "gameweek_projections", "variant": "provider_native_xp", "version": "1.0"},
         "capture_grain": "player_fixture",
         "max_explicit_gameweeks_per_capture": 1,
         "fixture_ids": True,
