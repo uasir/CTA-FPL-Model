@@ -5,6 +5,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from prepare_cta_five_gw_sources import (
     apply_historical_snapshot_safety_buffer,
     download_and_merge_pinned_understat_player_histories,
+    load_dastan_release_player_history,
     player_elements,
     season_from_bootstrap,
     write_csv_frame,
@@ -239,3 +240,27 @@ def test_parallel_understat_fallback_stops_on_provider_wide_preflight_failure(tm
             force=False, allow_missing=False, workers=4,
         )
 
+
+
+def test_dastan_release_history_extracts_raw_inputs_without_precomputed_features(tmp_path: Path):
+    import pandas as pd
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    frame = pd.DataFrame([{
+        "season": "2025-26", "gameweek": 1, "fixture": 1, "fpl_code": 100,
+        "element": 10, "position": "MID", "player_name": "Player",
+        "team_name": "Arsenal", "opponent_team_name": "Chelsea",
+        "us_opponent": "Chelsea", "kickoff_time": "2025-08-15T19:00:00Z",
+        "minutes": 90, "total_points": 8, "is_home": True, "understat_id": 900,
+        "us_xG": 0.5, "us_xA": 0.2, "defensive_contribution": 12,
+        "player_fpl_points_1": 7.0, "team_xg_5": 1.2, "ar_rest_days": 7.0,
+    }])
+    frame.to_parquet(data_dir / "features.parquet", index=False)
+
+    raw = load_dastan_release_player_history(tmp_path, ["2025-26"])
+    assert raw.loc[0, "us_xG"] == 0.5
+    assert raw.loc[0, "defensive_contribution"] == 12
+    assert "player_fpl_points_1" not in raw.columns
+    assert "team_xg_5" not in raw.columns
+    assert "ar_rest_days" not in raw.columns
