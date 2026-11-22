@@ -147,3 +147,26 @@ Its feature builder creates a 304-column frame. The minutes classifier consumes 
 ### CTA implementation rule
 
 The current CTA official API ingestion already produces current-season FPL player, fixture and player-fixture CSVs, but it is not a substitute for the historical FPL archive or Understat match tables. Reuse it for live-season operations; build the historical source adapter separately. Never mix current-snapshot API values into a historical pre-deadline training row unless an archived vintage proves availability at that deadline.
+
+
+## 8. CTA source-pin verification utility
+
+CTA now has a fail-closed verifier at
+`scripts/verify_source_pins.py`. Its version-1 pin document records, per
+source, a stable source ID, repository, full 40-character commit SHA, and
+each acquired file's relative path, expected SHA-256 and required/optional
+flag. The verifier:
+
+- resolves every path beneath the declared source root and rejects traversal;
+- checks required-file presence and every supplied digest;
+- reports optional missing files distinctly from required missing files;
+- emits a machine-readable verification manifest with actual hashes and
+  explicit PASS/FAIL status; and
+- returns a non-zero exit code for missing required files or digest mismatch.
+
+This utility verifies already-acquired files; it does not download archives,
+infer upstream paths, or claim that the Vaastav/fplcache inputs have been
+acquired. The next ingestion step is to pin the exact upstream commits and
+file inventory, then add schema-aware normalizers for each source family.
+The verifier's unit tests have been added but have not yet been executed in a
+verified CI run.
