@@ -94,7 +94,7 @@ def main() -> None:
         writer = csv.DictWriter(handle, fieldnames=["fpl_element_id", "fixture_id", "position", *schema["feature_order"]])
         writer.writeheader()
         writer.writerows(output)
-    args.report.write_text(json.dumps(report, indent=2) + "\\n", encoding="utf-8")
+    args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
