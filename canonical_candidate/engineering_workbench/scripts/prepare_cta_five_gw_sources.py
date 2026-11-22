@@ -1102,7 +1102,8 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "historical_player_history_source": "Pinned Vaastav FPL match archives plus official FPL API history, joined to Understat player match metrics",
         "team_match_source": "Understat xG/deep/PPDA team histories joined to exact FPL fixture IDs and reciprocal opponents",
         "masked_unavailable_features": unavailable_feature_names(
-            json.loads((dastan_root / "models" / "feature_cols.json").read_text(encoding="utf-8"))
+            json.loads((dastan_root / "models" / "feature_cols.json").read_text(encoding="utf-8")),
+            "FPL_UNDERSTAT",
         ),
         "canonical_player_match_rows": len(player_matches),
         "canonical_team_match_rows": len(team_matches),
