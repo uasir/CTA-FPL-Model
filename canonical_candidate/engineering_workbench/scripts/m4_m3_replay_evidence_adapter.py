@@ -36,31 +36,35 @@ def _source_archive_hashes(candidate: Mapping[str, Any], evidence: Mapping[str, 
     if not isinstance(evidence_sources, list) or len(evidence_sources) != len(candidate_sources):
         raise M3ReplayEvidenceError("decision evidence source archive count differs from M3 candidate")
 
-    def normalize(rows: list[Any], label: str) -> list[tuple[str, str, str]]:
+    def normalize(rows: list[Any], label: str) -> list[tuple[str, str, str, str, str, str]]:
         normalized = []
         for index, raw in enumerate(rows):
             row = _mapping(raw, f"{label}[{index}]")
             captured = row.get("captured_at_utc")
-            generated = row.get("generated_at_utc")
+            generated = row.get("generated_at_utc") or ""
             payload = row.get("raw_payload_base64")
-            if not all(isinstance(value, str) and value for value in (captured, generated, payload)):
+            expected_sha = row.get("raw_sha256")
+            snapshot_id = row.get("raw_snapshot_id")
+            source_url = row.get("source_url")
+            if not all(isinstance(value, str) and value for value in (captured, payload, expected_sha, snapshot_id, source_url)):
                 raise M3ReplayEvidenceError(f"{label}[{index}] lacks raw archive provenance")
+            if generated and not isinstance(generated, str):
+                raise M3ReplayEvidenceError(f"{label}[{index}] has invalid generated_at_utc")
             try:
                 decoded = base64.b64decode(payload, validate=True)
             except (ValueError, TypeError) as exc:
                 raise M3ReplayEvidenceError(f"{label}[{index}] has invalid base64 payload") from exc
             if not decoded:
                 raise M3ReplayEvidenceError(f"{label}[{index}] has an empty raw payload")
-            normalized.append((captured, generated, payload))
+            actual_sha = hashlib.sha256(decoded).hexdigest()
+            _same(actual_sha, expected_sha, f"{label}[{index}] raw payload SHA-256")
+            normalized.append((captured, generated, expected_sha, snapshot_id, source_url, payload))
         return sorted(normalized)
 
     candidate_rows = normalize(candidate_sources, "M3 candidate source_archives")
     evidence_rows = normalize(evidence_sources, "decision evidence sources")
     _same(candidate_rows, evidence_rows, "raw source archives")
-    return [
-        hashlib.sha256(base64.b64decode(payload, validate=True)).hexdigest()
-        for _, _, payload in candidate_rows
-    ]
+    return [row[2] for row in candidate_rows]
 
 
 def verify_m3_replay_evidence(
