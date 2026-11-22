@@ -59,8 +59,15 @@ def manager_context_from_conventional_run(
     expected_season: str,
     expected_gameweek: int,
     expected_deadline_utc: str,
+    manager_context_capture: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Reuse the exact manager state from the conventional run for paired CTA comparison."""
+    """Reuse the exact manager state from the paired M3 recommendation and capture.
+
+    M3's recommendation artifact carries manager summary fields, while its
+    separate manager-context capture carries the verified 15-player squad and
+    purchase prices. Accept both as one paired input and fail closed if they
+    cannot be reconciled.
+    """
     if not isinstance(conventional_run, Mapping):
         raise CTARecommendationRunError("conventional_run must be an object")
     if conventional_run.get("run_type") != "EXTERNAL_BENCHMARK_PERSONAL_SQUAD":
@@ -68,31 +75,64 @@ def manager_context_from_conventional_run(
     source = conventional_run.get("source_provenance")
     if not isinstance(source, Mapping):
         raise CTARecommendationRunError("conventional_run source_provenance is missing")
-    if source.get("season") != expected_season:
-        raise CTARecommendationRunError("conventional run season does not match CTA forecast season")
-    if source.get("target_gameweek") != expected_gameweek:
+    coverage = conventional_run.get("coverage")
+    coverage = coverage if isinstance(coverage, Mapping) else {}
+
+    season = coverage.get("season", source.get("season"))
+    gameweek = coverage.get("target_gameweek", source.get("target_gameweek"))
+    deadline = coverage.get("target_deadline_utc", source.get("deadline_utc"))
+    if season != expected_season:
+        raise CTARecommendationRunError("conventional run season does not match CTA forecast")
+    if gameweek != expected_gameweek:
         raise CTARecommendationRunError("conventional run target Gameweek does not match CTA forecast")
     try:
-        conventional_deadline = datetime.fromisoformat(
-            str(source.get("deadline_utc")).replace("Z", "+00:00")
-        )
-        cta_deadline = datetime.fromisoformat(
-            str(expected_deadline_utc).replace("Z", "+00:00")
-        )
+        conventional_deadline = datetime.fromisoformat(str(deadline).replace("Z", "+00:00"))
+        cta_deadline = datetime.fromisoformat(str(expected_deadline_utc).replace("Z", "+00:00"))
     except ValueError as exc:
         raise CTARecommendationRunError("conventional/CTA deadlines must be ISO-8601") from exc
     if (conventional_deadline.tzinfo is None or cta_deadline.tzinfo is None
             or conventional_deadline.astimezone(timezone.utc) != cta_deadline.astimezone(timezone.utc)):
         raise CTARecommendationRunError("conventional run deadline does not match CTA forecast deadline")
+
+    recommendation = conventional_run.get("recommendation")
+    embedded = recommendation.get("manager_context") if isinstance(recommendation, Mapping) else None
     manager = conventional_run.get("manager_context")
     if not isinstance(manager, Mapping):
+        manager = embedded
+    if not isinstance(manager, Mapping):
         raise CTARecommendationRunError("conventional run manager_context is missing")
-    required = ("squad_snapshot", "bank", "free_transfers", "personal_risk_profile")
+
+    required = ("bank", "free_transfers", "personal_risk_profile")
     missing = [field for field in required if field not in manager]
     if missing:
         raise CTARecommendationRunError("conventional manager_context is missing: " + ", ".join(missing))
-    recommendation = conventional_run.get("recommendation")
-    embedded = recommendation.get("manager_context") if isinstance(recommendation, Mapping) else None
+    if isinstance(manager_context_capture, Mapping):
+        capture_meta = manager_context_capture.get("manager_context_capture")
+        captured_manager = manager_context_capture.get("manager_context")
+        if not isinstance(capture_meta, Mapping) or not isinstance(captured_manager, Mapping):
+            raise CTARecommendationRunError("manager_context_capture must contain capture metadata and manager_context")
+        if capture_meta.get("gameweek") != expected_gameweek:
+            raise CTARecommendationRunError("manager-context capture Gameweek does not match CTA forecast")
+        if capture_meta.get("identity_verified") is not True or capture_meta.get("row_count") != 15:
+            raise CTARecommendationRunError("manager-context capture does not verify the complete 15-player squad")
+        squad = captured_manager.get("squad_snapshot")
+        if not isinstance(squad, list) or len(squad) != 15:
+            raise CTARecommendationRunError("manager-context capture must contain exactly 15 squad_snapshot rows")
+        for field in required:
+            if field not in captured_manager:
+                raise CTARecommendationRunError(f"manager-context capture is missing {field}")
+            if captured_manager[field] != manager[field]:
+                raise CTARecommendationRunError(
+                    f"manager-context capture disagrees with conventional manager state for {field}"
+                )
+        manager = {**dict(captured_manager), **{
+            key: value for key, value in captured_manager.items()
+        }}
+    elif not isinstance(manager.get("squad_snapshot"), list) or len(manager["squad_snapshot"]) != 15:
+        raise CTARecommendationRunError(
+            "full 15-player squad_snapshot is absent; supply the paired manager-context capture artifact"
+        )
+
     if isinstance(embedded, Mapping):
         for field in required:
             if field in embedded and embedded[field] != manager[field]:
@@ -107,6 +147,7 @@ def run_cta_recommendation_products(
     manager_context: Mapping[str, Any] | None = None,
     *,
     conventional_run: Mapping[str, Any] | None = None,
+    manager_context_capture: Mapping[str, Any] | None = None,
     eo_snapshot: Mapping[str, Any] | None = None,
     now_utc: str | None = None,
 ) -> dict[str, Any]:
@@ -145,6 +186,8 @@ def run_cta_recommendation_products(
     target_gw = gameweeks[0]
     if manager_context is not None and conventional_run is not None:
         raise CTARecommendationRunError("supply either manager_context or conventional_run, not both")
+    if manager_context_capture is not None and conventional_run is None:
+        raise CTARecommendationRunError("manager_context_capture must be paired with conventional_run")
     if conventional_run is not None:
         timing = provider_snapshot.get("timing", {})
         manager_context = manager_context_from_conventional_run(
@@ -152,6 +195,7 @@ def run_cta_recommendation_products(
             expected_season=str(provider_snapshot.get("season")),
             expected_gameweek=target_gw,
             expected_deadline_utc=str(timing.get("deadline_utc")),
+            manager_context_capture=manager_context_capture,
         )
 
     # Squad-independent product: five-GW cumulative forecast totals, no manager data.
@@ -295,6 +339,10 @@ def main() -> int:
         "--conventional-run", type=Path,
         help="reuse the exact manager state from a same-GW conventional M3 run",
     )
+    parser.add_argument(
+        "--manager-context-capture", type=Path,
+        help="paired full 15-player manager capture JSON from the same M3 target Gameweek",
+    )
     parser.add_argument("--eo-snapshot", type=Path)
     parser.add_argument("--now-utc")
     parser.add_argument("--output", type=Path, required=True)
@@ -307,12 +355,16 @@ def main() -> int:
         json.loads(args.conventional_run.read_text(encoding="utf-8"))
         if args.conventional_run else None
     )
+    manager_capture = (
+        json.loads(args.manager_context_capture.read_text(encoding="utf-8"))
+        if args.manager_context_capture else None
+    )
     eo = None
     if args.eo_snapshot:
         eo = json.loads(args.eo_snapshot.read_text(encoding="utf-8"))
     result = run_cta_recommendation_products(
         args.bundle_dir, manager, conventional_run=conventional_run,
-        eo_snapshot=eo, now_utc=args.now_utc,
+        manager_context_capture=manager_capture, eo_snapshot=eo, now_utc=args.now_utc,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
