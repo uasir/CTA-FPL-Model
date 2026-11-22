@@ -11,12 +11,10 @@ on:
       finality_run_id:
         description: Run containing the official finality evidence artifact for this Gameweek
         required: true
-        default: "44882707622"
         type: string
       finality_artifact_name:
         description: Exact artifact containing the finality report and realized CSV panels
         required: true
-        default: "cta-covar-realized-evidence-44882707622-1"
         type: string
 
 permissions:
