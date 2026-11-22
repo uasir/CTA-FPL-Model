@@ -405,6 +405,24 @@ def apply_historical_snapshot_safety_buffer(training_dir: Path, minutes: int = 5
     return reports
 
 
+def active_season_understat_refresh_ids(
+    raw_dir: Path, seasons: list[str], player_ids: set[int] | list[int], sources,
+) -> set[int]:
+    """Return only mapped players with actual FPL minutes and no cached live history."""
+    expected = sources._expected_understat_player_dates(raw_dir, seasons)
+    root = raw_dir / "understat" / "players"
+    refresh = set()
+    for value in player_ids:
+        player_id = int(value)
+        if not expected.get(player_id):
+            continue
+        cached = root / f"{player_id}.json"
+        if cached.is_file() and cached.stat().st_size:
+            continue
+        refresh.add(player_id)
+    return refresh
+
+
 def parallel_understat_fallbacks(
     raw_dir: Path,
     missing_players: list[int],
@@ -812,7 +830,9 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         for value in seasons
     }
     wanted_ids = sources._needed_understat_ids(raw_dir, [season])
-    incomplete_players = sources._incomplete_pinned_players(raw_dir, [season], wanted_ids)
+    incomplete_players = active_season_understat_refresh_ids(
+        raw_dir, [season], wanted_ids, sources,
+    )
     missing_team_seasons = sources._incomplete_team_seasons(raw_dir, [season], team_paths)
     parallel_understat_fallbacks(
         raw_dir, sorted(incomplete_players), missing_team_seasons,
