@@ -9,6 +9,8 @@ club identity or marginal EO.
 from __future__ import annotations
 
 import math
+import re
+from datetime import datetime, timezone
 from collections import defaultdict
 from typing import Any, Mapping, Sequence
 
@@ -37,6 +39,7 @@ def build_team_exposure_report(
     minimum_horizon_gameweeks: int = 5,
     forecast_snapshot_id: str | None = None,
     model_version: str | None = None,
+    joint_scenario_provenance: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Summarize squad club/position stacking and scenario-derived covariance.
 
@@ -126,6 +129,40 @@ def build_team_exposure_report(
     scenario_rows = joint_scenarios or []
     if not isinstance(scenario_rows, (list, tuple)):
         raise TeamExposureError("joint_scenarios must be a sequence")
+    if scenario_rows:
+        if not isinstance(joint_scenario_provenance, Mapping):
+            raise TeamExposureError("joint_scenario_provenance is required when joint scenarios are supplied")
+        required_provenance = (
+            "scenario_set_id", "forecast_snapshot_id", "model_version",
+            "generated_at_utc", "captured_at_utc", "source_url", "raw_sha256",
+        )
+        missing_provenance = [key for key in required_provenance if not joint_scenario_provenance.get(key)]
+        if missing_provenance:
+            raise TeamExposureError("joint scenario provenance is missing: " + ", ".join(missing_provenance))
+        if not isinstance(forecast_snapshot_id, str) or not forecast_snapshot_id.strip():
+            raise TeamExposureError("forecast_snapshot_id is required for joint scenario covariance")
+        if not isinstance(model_version, str) or not model_version.strip():
+            raise TeamExposureError("model_version is required for joint scenario covariance")
+        if joint_scenario_provenance["forecast_snapshot_id"] != forecast_snapshot_id:
+            raise TeamExposureError("joint scenario forecast_snapshot_id does not match forecast bundle")
+        if joint_scenario_provenance["model_version"] != model_version:
+            raise TeamExposureError("joint scenario model_version does not match forecast bundle")
+        if not isinstance(joint_scenario_provenance["scenario_set_id"], str) or not joint_scenario_provenance["scenario_set_id"].strip():
+            raise TeamExposureError("joint scenario scenario_set_id must be non-empty")
+        if not isinstance(joint_scenario_provenance["source_url"], str) or not joint_scenario_provenance["source_url"].strip():
+            raise TeamExposureError("joint scenario source_url must be non-empty")
+        if not isinstance(joint_scenario_provenance["raw_sha256"], str) or not re.fullmatch(r"[0-9a-fA-F]{64}", joint_scenario_provenance["raw_sha256"]):
+            raise TeamExposureError("joint scenario raw_sha256 must be a 64-character SHA-256")
+        try:
+            generated = datetime.fromisoformat(joint_scenario_provenance["generated_at_utc"].replace("Z", "+00:00"))
+            captured = datetime.fromisoformat(joint_scenario_provenance["captured_at_utc"].replace("Z", "+00:00"))
+        except (TypeError, ValueError) as exc:
+            raise TeamExposureError("joint scenario provenance timestamps must be ISO-8601") from exc
+        if generated.tzinfo is None or captured.tzinfo is None or generated > captured:
+            raise TeamExposureError("joint scenario provenance timestamps must be timezone-aware and generation cannot follow capture")
+    elif joint_scenario_provenance is not None:
+        raise TeamExposureError("joint_scenario_provenance cannot be supplied without joint scenarios")
+
     by_week: dict[int, dict[str, dict[int, float]]] = defaultdict(dict)
     for index, row in enumerate(scenario_rows):
         if not isinstance(row, Mapping):
@@ -136,6 +173,12 @@ def build_team_exposure_report(
         scenario_id = row.get("scenario_id")
         if not isinstance(scenario_id, str) or not scenario_id.strip():
             raise TeamExposureError(f"joint scenario {index}.scenario_id is required")
+        if row.get("forecast_snapshot_id") != forecast_snapshot_id:
+            raise TeamExposureError(f"joint scenario {index} forecast_snapshot_id does not match forecast bundle")
+        if row.get("model_version") != model_version:
+            raise TeamExposureError(f"joint scenario {index} model_version does not match forecast bundle")
+        if row.get("scenario_set_id") != joint_scenario_provenance["scenario_set_id"]:
+            raise TeamExposureError(f"joint scenario {index} scenario_set_id does not match provenance")
         if scenario_id in by_week[gw]:
             raise TeamExposureError(f"duplicate scenario_id in Gameweek {gw}: {scenario_id}")
         raw_points = row.get("player_points")
@@ -149,7 +192,24 @@ def build_team_exposure_report(
                 raise TeamExposureError(f"joint scenario {index} has an invalid player ID") from exc
             if pid in ids:
                 values[pid] = _finite(points, f"joint scenario {index}.player_points[{pid}]")
+        missing_players = sorted(set(ids) - set(values))
+        if missing_players:
+            raise TeamExposureError(f"joint scenario {index} is missing squad players: {missing_players}")
         by_week[gw][scenario_id] = values
+
+    if scenario_rows:
+        missing_weeks = sorted(set(ordered_weeks) - set(by_week))
+        if missing_weeks:
+            raise TeamExposureError(f"joint scenarios are missing Gameweeks: {missing_weeks}")
+        scenario_counts_by_week = {gw: len(rows) for gw, rows in by_week.items()}
+        if any(count < 2 for count in scenario_counts_by_week.values()):
+            raise TeamExposureError("at least two complete joint scenarios are required in every Gameweek")
+        if len(set(scenario_counts_by_week.values())) != 1:
+            raise TeamExposureError("joint scenario count must be consistent across the forecast horizon")
+        declared_count = joint_scenario_provenance.get("scenario_count")
+        expected_count = sum(scenario_counts_by_week.values())
+        if declared_count != expected_count:
+            raise TeamExposureError("joint scenario provenance scenario_count does not match supplied rows")
 
     covariance_sum: dict[tuple[int, int], float] = defaultdict(float)
     variance_sum: dict[int, float] = defaultdict(float)
@@ -202,6 +262,7 @@ def build_team_exposure_report(
         "contract_version": "1.0.0",
         "forecast_snapshot_id": forecast_snapshot_id,
         "model_version": model_version,
+        "joint_scenario_provenance": dict(joint_scenario_provenance) if scenario_rows else None,
         "status": "TEAM_EXPOSURE_COMPUTED" if not scenario_rows else "TEAM_EXPOSURE_AND_SCENARIO_COVARIANCE_COMPUTED",
         "horizon_gameweeks": ordered_weeks,
         "horizon_size": len(ordered_weeks),
