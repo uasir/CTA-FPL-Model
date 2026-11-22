@@ -24,7 +24,7 @@ The integration emits two distinct products:
 `run_cta_recommendation_products.py` then calls the existing deterministic recommendation engines:
 
 - `general_market_engine.recommend_general_market` receives only shared forecast fields and filters. The cumulative five-GW ranking omits single-GW captaincy; each weekly panel gets its own one-GW market and captaincy shortlist. No manager/squad state is passed, and these products can run without manager context.
-- `personal_squad_engine.recommend_personal_squad` receives only the first target-Gameweek panel plus an explicit manager context. It does not receive the five-Gameweek aggregate as single-Gameweek expected points.
+- `personal_squad_engine.recommend_personal_squad` receives only the first target-Gameweek panel plus an explicit manager context. For paired conventional-vs-CTA runs, the preferred CLI path extracts that exact context from a same-season, same-Gameweek, same-deadline conventional M3 run. It does not receive the five-Gameweek aggregate as single-Gameweek expected points.
 - `build_personal_squad_product` wraps the squad-specific preview in the distinct `cta_informed_personal_squad` product contract.
 
 ## Decision and release limits
@@ -51,7 +51,16 @@ python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_
   --output /path/to/general-cta-market.json
 ```
 
-To additionally generate the manager-specific preview, supply a private manager-context file:
+To generate a manager-specific preview on the exact same squad/budget/transfer state as the conventional M3 run, pass that private conventional run output directly. The adapter checks the run type, season, target Gameweek and deadline, then verifies the manager context is internally consistent:
+
+```bash
+python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_products.py \\
+  --bundle-dir /path/to/verified/cta-bundle \\
+  --conventional-run /path/to/private/conventional-m3-run.json \\
+  --output /path/to/private-output/cta-recommendation-previews.json
+```
+
+Alternatively, supply a private manager-context file:
 
 ```bash
 python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_products.py \
@@ -86,4 +95,4 @@ This is a real-data integration/replay pass, not forecast-performance validation
 ## Tests
 
 - Adapter tests verify the candidate-only bundle, five-GW horizon, stable FPL identity mapping, provenance, optional EO rules, season consistency and exact cumulative-to-panel reconciliation.
-- Runner tests verify cumulative and weekly horizons, per-Gameweek captaincy, general rankings without manager context and invariant to personal-state changes, partial manager-context rejection, and zero CoVar decision weight.
+- Runner tests verify cumulative and weekly horizons, per-Gameweek captaincy, general rankings without manager context and invariant to personal-state changes, exact conventional manager-state reuse and alignment, partial manager-context rejection, and zero CoVar decision weight.
