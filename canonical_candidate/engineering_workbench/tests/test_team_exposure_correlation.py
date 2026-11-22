@@ -1,6 +1,9 @@
 import pytest
 
-from team_exposure_correlation import (\n    TeamExposureError, build_team_exposure_report,\n    build_team_exposure_report_from_forecast_bundle,\n)
+from team_exposure_correlation import (
+    TeamExposureError, build_team_exposure_report,
+    build_team_exposure_report_from_forecast_bundle,
+)
 
 
 def forecasts():
