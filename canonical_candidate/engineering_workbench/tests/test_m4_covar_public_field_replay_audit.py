@@ -103,6 +103,7 @@ def test_counts_real_outfield_autosub_from_final_pick_multipliers():
     assert report["autosub_player_count"] == 1
     assert report["outfield_autosub_count"] == 1
     assert report["goalkeeper_autosub_count"] == 0
+    assert report["automatic_substitution_metadata_mismatch_replays"] == 0
 
 
 def test_skips_unfinished_events_and_excludes_bench_boost_from_autosub_counts():
