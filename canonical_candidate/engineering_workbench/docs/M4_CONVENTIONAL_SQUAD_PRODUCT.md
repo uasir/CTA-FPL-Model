@@ -105,3 +105,13 @@ The agreed assumption is that the captaincy poll includes Triple Captain voters;
 The PR #51 branch CI run [45003655183](https://github.com/uasir/CTA-FPL-Model/actions/runs/45003655183) passed on code commit `d903d28fc199b340c3036941db8d3264cbb091b8`: **611 Python engineering tests and 3 subtests passed**. JavaScript recommendation contract tests, canonical Python feature-core tests and all four identity crosswalk validations also passed.
 
 The run validates the new contracts, evaluator and TECM bundle adapter as isolated code. It does not prove that a live provider currently supplies the required five-plus-Gameweek fixture forecast bundle or that joint scenario distributions are calibrated. No production recommendation behavior has been changed.
+
+
+
+## FPL Cat multi-Gameweek capability assessment — 22 Nov 2026
+
+Inspection of `capture_fpl_cat_snapshot.py` confirms that the current `/api/v1/projections` capture contract consumes one `gameweek` value and player-level `xp` / `expected_minutes` fields. It does not capture a `fixture_id` or explicit future-Gameweek forecast panels. The capture now emits a machine-readable `multi_gameweek_capability` block with status `NOT_SUPPORTED_BY_CAPTURE_SCHEMA`, decision eligibility false, the single available Gameweek and the exact missing fields.
+
+This is a capability statement about the fields consumed by the current capture contract, not a claim that no other FPL Cat endpoint or product could ever provide a multi-Gameweek feed. Until a separate provider response is obtained and inspected, FPL Cat remains single-Gameweek for the live recommendation path. The five-plus-Gameweek transfer evaluator and TECM bundle adapter must reject this snapshot as insufficient; no xP extrapolation or synthetic fixture splitting is permitted.
+
+Regression coverage asserts the explicit negative capability result. This change is metadata and guardrail only; it does not alter the one-Gameweek conventional recommendation.
