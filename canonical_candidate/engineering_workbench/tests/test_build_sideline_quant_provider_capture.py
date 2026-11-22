@@ -69,6 +69,7 @@ def _fixtures():
 def test_builds_registered_sideline_quant_capture_envelope():
     raw, parsed, provider_hash, bootstrap_hash = _fixtures()
     result = build_sideline_quant_provider_capture(raw, parsed)
+    assert result["provider_source_id"] == "sideline_quant_public_next_gw"
     assert result["provider_snapshot"]["provider"]["name"] == "Sideline Quant"
     assert result["provider_snapshot"]["grain"] == "player_gameweek"
     assert result["provider_snapshot"]["source"]["raw_sha256"] == provider_hash
