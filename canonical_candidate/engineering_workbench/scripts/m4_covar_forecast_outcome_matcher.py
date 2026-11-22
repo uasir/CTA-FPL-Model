@@ -191,6 +191,7 @@ def match_forecast_to_realized_outcomes(
         "deadline_utc": deadline.isoformat(),
         "first_kickoff_utc": first_kickoff.isoformat(),
         "finality_status": "PASS_EXACT_MATCH",
+        "outcome_available_at_utc": matching_reports[0].get("outcome_available_at_utc"),
         "forecast_player_count": len(forecast_by_id),
         "realized_player_gameweek_count": len(realized_by_id),
         "matched_player_count": len(matched),
