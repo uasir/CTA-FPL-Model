@@ -204,3 +204,10 @@ The machine-readable capability registry is now enforced in the actual capture p
 - The five-plus-Gameweek bundle builder now requires a registered provider_source_id, checks that the source has explicitly approved capabilities for the requested horizon, validates each panel provider identity and grain against that registry entry, and preserves the source ID in the resulting bundle. Both currently registered public sources are rejected for five-GW use; unknown and missing source IDs are rejected.
 
 Contract tests use an isolated monkeypatched synthetic capability only to exercise bundle aggregation logic. That synthetic provider is not registered in production and cannot pass the real registry gate. Tests separately assert that current FPL Cat and unknown sources fail the production gate. These changes do not unlock live multi-GW recommendations or alter the existing one-GW FPL Cat route.
+
+
+## Multi-Gameweek provenance continuity — 22 Nov 2026
+
+The canonical provider source identity now travels with the validated five-plus-Gameweek bundle through the transfer evaluator and manager-aware squad assembler. The evaluator rejects bundles missing the registered source ID, full provider identity, or supported canonical contract version. Its output retains provider source ID, provider identity, bundle ID, model version, contract version and per-Gameweek immutable source snapshot IDs. The manager-aware assembler carries the same provenance fields into its diagnostic envelope. The personal-squad adapter already attaches that complete diagnostic without changing its zero-decision-weight / non-production status.
+
+Regression tests assert that provenance survives both evaluator and assembler outputs and that the evaluator rejects missing source identity or contract version. These checks preserve traceability; they do not independently authenticate arbitrary caller-created bundle objects or establish forecast accuracy. The canonical bundle builder remains the boundary that enforces the actual registry eligibility gate.
