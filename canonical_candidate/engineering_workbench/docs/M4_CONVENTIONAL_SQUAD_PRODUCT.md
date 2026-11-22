@@ -29,7 +29,7 @@ The engine retains its existing rules: one transfer at a time, legal budget/posi
 
 ## Release boundary
 
-The adapter consumes a source-labelled personal-squad run; it does not create new forecasts or promote a provider. It preserves the source run's release blockers and always reports EXPLORATORY_PREVIEW until the relevant forecast and decision-evaluation gates allow release. A passing contract test is not evidence of live decision readiness.
+The shared product adapter consumes a source-labelled personal-squad run; it does not create new forecasts or promote a provider. It emits `conventional_personal_squad` for an external-benchmark run and `cta_informed_personal_squad` for a CTA-model run, preserving distinct labels and provenance. It preserves the source run's release blockers and always reports EXPLORATORY_PREVIEW until the relevant forecast and decision-evaluation gates allow release. A passing contract test is not evidence of live decision readiness.
 
 ## Entry point
 
@@ -39,4 +39,4 @@ Input is the complete JSON output of a conforming personal-squad run. The output
 
 ## Acceptance coverage
 
-tests/test_build_conventional_squad_product.py checks EV-only decision content, provenance preservation, exclusion of field/CoVar context, and rejection of incomplete or unsupported runs. The same product contract must be exercised against a CTA-model run fixture when that forecast adapter is implemented.
+tests/test_build_conventional_squad_product.py checks EV-only decision content, provenance preservation, exclusion of field/CoVar context, rejection of incomplete or unsupported runs, and a CTA-model-shaped run that retains the separate `cta_informed_personal_squad` identity without becoming release-eligible.
