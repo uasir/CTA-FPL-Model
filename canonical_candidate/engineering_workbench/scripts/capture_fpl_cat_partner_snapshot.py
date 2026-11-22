@@ -95,7 +95,7 @@ def capture_fpl_cat_partner_snapshot(
     if not isinstance(bootstrap, dict) or not isinstance(bootstrap.get("elements"), list):
         raise PartnerCaptureError("FPL bootstrap response must contain an elements array")
 
-    gw_ids = [row.get("gameweek") if isinstance(row, dict) else None for row in gameweeks]
+    gw_ids = [row.get("gameweek") if isinstance(row, dict) else row for row in gameweeks]
     if any(isinstance(gw, bool) or not isinstance(gw, int) or gw < 1 for gw in gw_ids):
         raise PartnerCaptureError("partner gameweek identifiers must be positive integers")
     if gw_ids != list(range(gw_ids[0], gw_ids[0] + len(gw_ids))):
