@@ -43,6 +43,35 @@ def _finite(value: Any, label: str) -> float:
     return result
 
 
+def _bounded_values_with_mean(values: Sequence[float], target_mean: float, lower: float = 0.0, upper: float = 270.0) -> list[float]:
+    """Project values onto [lower, upper] while preserving their requested mean."""
+    if not values or not lower <= target_mean <= upper:
+        raise ResidualBootstrapError("target minutes mean is outside the feasible Gameweek range")
+    target_sum = target_mean * len(values)
+    lo, hi = lower - max(values), upper - min(values)
+    for _ in range(100):
+        shift = (lo + hi) / 2.0
+        total = sum(min(upper, max(lower, value + shift)) for value in values)
+        if total < target_sum:
+            lo = shift
+        else:
+            hi = shift
+    shift = (lo + hi) / 2.0
+    adjusted = [min(upper, max(lower, value + shift)) for value in values]
+    # Remove floating-point residue without violating the bounds.
+    difference = target_sum - sum(adjusted)
+    for index in range(len(adjusted)):
+        if abs(difference) <= 1e-10:
+            break
+        capacity = (upper - adjusted[index]) if difference > 0 else (adjusted[index] - lower)
+        change = math.copysign(min(abs(difference), capacity), difference)
+        adjusted[index] += change
+        difference -= change
+    if abs(sum(adjusted) - target_sum) > 1e-8:
+        raise ResidualBootstrapError("could not preserve target expected-minutes mean within Gameweek bounds")
+    return adjusted
+
+
 def build_residual_bootstrap_scenarios(
     target_forecast: Mapping[str, Any],
     matched_panel: Mapping[str, Any],
@@ -259,17 +288,28 @@ def build_residual_bootstrap_scenarios(
         }
         for pid in target_by_id
     }
-    scenarios = []
+    scenario_minutes: dict[str, list[float]] = {}
+    raw_minutes_by_player: dict[str, list[float]] = {}
     minutes_clipping_count = 0
-    for gw in complete_blocks:
+    for pid in target_by_id:
+        raw_values = [
+            target_by_id[pid]["expected_minutes"] + (
+                by_gw[gw][pid]["minutes_residual"] - mean_residual[pid]["minutes_residual"]
+            )
+            for gw in complete_blocks
+        ]
+        raw_minutes_by_player[pid] = raw_values
+        minutes_clipping_count += sum(int(value < 0.0 or value > 270.0) for value in raw_values)
+        scenario_minutes[pid] = _bounded_values_with_mean(
+            raw_values, target_by_id[pid]["expected_minutes"], 0.0, 270.0
+        )
+
+    scenarios = []
+    for scenario_index, gw in enumerate(complete_blocks):
         outcomes = []
         for pid in sorted(target_by_id, key=int):
             point_residual = by_gw[gw][pid]["points_residual"] - mean_residual[pid]["points_residual"]
-            raw_minutes = target_by_id[pid]["expected_minutes"] + (
-                by_gw[gw][pid]["minutes_residual"] - mean_residual[pid]["minutes_residual"]
-            )
-            minutes = min(270.0, max(0.0, raw_minutes))
-            minutes_clipping_count += int(not math.isclose(minutes, raw_minutes, rel_tol=0, abs_tol=1e-12))
+            minutes = scenario_minutes[pid][scenario_index]
             outcomes.append({
                 "player_id": pid,
                 "minutes": minutes,
