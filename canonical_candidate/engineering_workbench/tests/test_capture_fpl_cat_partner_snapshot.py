@@ -12,8 +12,8 @@ from capture_fpl_cat_partner_snapshot import (
 def _fixtures():
     weeks = []
     deadlines = {}
-    for gw in range(12, 18):
-        deadline = f"2026-11-27T18:30:00Z" if gw == 12 else f"2026-12-{4 + (gw - 13) * 7:02d}T18:30:00Z"
+    deadline_values = ["2026-11-27T18:30:00Z", "2026-12-04T18:30:00Z", "2026-12-11T18:30:00Z", "2026-12-18T18:30:00Z", "2026-12-25T18:30:00Z", "2027-01-01T18:30:00Z"]
+    for gw, deadline in zip(range(12, 18), deadline_values):
         deadlines[gw] = deadline
         weeks.append({"gameweek": gw, "fixtures": 1, "opponents": [{"team": "ARS", "home": False}],
                       "xp": 4.5, "expected_minutes": 80, "play_chance": 0.9,
