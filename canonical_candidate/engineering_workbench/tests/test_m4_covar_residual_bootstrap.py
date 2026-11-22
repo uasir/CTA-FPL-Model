@@ -26,13 +26,18 @@ def fixture_inputs():
             {"fpl_element_id": 10, "expected_points": 5.0, "expected_minutes": 90},
             {"fpl_element_id": 11, "expected_points": 4.0, "expected_minutes": 75},
         ],
+        "player_metadata": [
+            {"fpl_element_id": 10, "position": "GKP", "team_id": 1},
+            {"fpl_element_id": 11, "position": "MID", "team_id": 2},
+        ],
     }
     clusters, rows = [], []
-    residuals = [(2, 1), (-2, -1), (1, 0.5), (-1, -0.5), (0, 0)]
-    for gw, (a, b) in enumerate(residuals, start=1):
+    residuals = [(2, 1, 0, 10), (-2, -1, 0, -10), (1, 0.5, 0, 5), (-1, -0.5, 0, -5), (0, 0, 0, 0)]
+    for gw, (a, b, ma, mb) in enumerate(residuals, start=1):
         clusters.append({"gameweek": gw, "outcome_available_at_utc": f"2026-10-{gw+1:02d}T18:00:00Z", "finality_status": "PASS_EXACT_MATCH"})
-        for pid, err in ((10, a), (11, b)):
+        for pid, err, minute_err in ((10, a, ma), (11, b, mb)):
             rows.append({"gameweek": gw, "fpl_element_id": pid, "points_error_actual_minus_expected": err,
+                         "minutes_error_actual_minus_expected": minute_err,
                          "model_version": "fplcat-v2", "finality_status": "PASS_EXACT_MATCH"})
     panel = {"dataset_type": "MULTI_GAMEWEEK_PROSPECTIVE_CONVENTIONAL_FORECAST_OUTCOME_PANEL",
              "season": "2026-27", "cluster_unit": "GAMEWEEK", "missing_observations_zero_filled": 0,
@@ -52,7 +57,23 @@ def test_emits_complete_equal_weight_joint_blocks_and_preserves_target_means():
     assert result["decision_weight"] == 0.0
     assert result["production_eligible"] is False
     assert result["covar_used"] is False
+    assert result["players"][0]["position"] == "GK"
+    assert all("minutes" in outcome and isinstance(outcome["played"], bool) for scenario in result["scenarios"] for outcome in scenario["player_outcomes"])
 
+
+
+def test_restricts_scenario_universe_to_portfolio_player_ids():
+    target, panel = fixture_inputs()
+    result = build_residual_bootstrap_scenarios(target, panel, training_cutoff_utc="2026-11-26T20:00:00Z", target_player_ids=[10])
+    assert result["target_player_ids"] == ["10"]
+    assert result["player_count"] == 1
+    assert all(len(scenario["player_outcomes"]) == 1 for scenario in result["scenarios"])
+
+
+def test_rejects_selected_player_missing_from_target_forecast():
+    target, panel = fixture_inputs()
+    with pytest.raises(ResidualBootstrapError, match="missing from the M3 forecast"):
+        build_residual_bootstrap_scenarios(target, panel, training_cutoff_utc="2026-11-26T20:00:00Z", target_player_ids=[999])
 
 def test_preserves_positive_cross_player_residual_dependence():
     target, panel = fixture_inputs()
