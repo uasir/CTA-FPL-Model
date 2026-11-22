@@ -124,6 +124,9 @@ jobs:
             --feature-matrix outputs/cta-five-gw/feature_matrix.csv \
             --minutes-predictions outputs/cta-five-gw/minutes_predictions.csv \
             --schema canonical_candidate/engineering_workbench/config/dastan_minutes_feature_schema.json \
+            --source-report outputs/cta-five-gw/source_preparation_report.json \
+            --feature-report outputs/cta-five-gw/feature_matrix_report.json \
+            --minutes-report outputs/cta-five-gw/minutes_report.json \
             --model-dir outputs/cta-five-gw/models \
             --output-dir outputs/cta-five-gw/forecasts
       - name: Upload complete forecast and provenance bundle
