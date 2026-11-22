@@ -28,7 +28,7 @@ ACTIVE_PROVIDER_SPECS: tuple[dict[str, Any], ...] = (
         "product": "gameweek_projections",
         "native_grain": "player_fixture",
         "forecast_variant": "provider_native_xp",
-        "integration_state": "provider_neutral_predeadline_handoff_and_fixture_plus_gameweek_parser_implemented_live_gw12_snapshot_pending_latest_checked_endpoint_404",
+        "integration_state": "provider_neutral_predeadline_handoff_and_fixture_plus_gameweek_parser_implemented_gw11_publication_verified_generated_2026_11_18T033309Z_gw12_not_yet_published",
         "strict_pit_status": "provider_generation_timestamp_required",
         "decision_capture_eligible": True,
         "data_policy": "cc_by_4_0_with_attribution_for_provider_data",
