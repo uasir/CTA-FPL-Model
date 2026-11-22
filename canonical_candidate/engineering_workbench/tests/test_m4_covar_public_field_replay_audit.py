@@ -36,19 +36,19 @@ def manager_payload(event, chip=None):
 def test_autosub_pair_diagnostic_reports_positions_without_player_ids():
     case = {
         "lineup": {
-            "player_ids": [str(i) for i in range(1, 16)],
+            "player_ids": [str(i) for i in range(101, 116)],
             "player_positions": {
-                **{"1": "GK", "12": "GK"},
-                **{str(i): "DEF" for i in [2, 3, 4, 5, 13]},
-                **{str(i): "MID" for i in [6, 7, 8, 9, 14]},
-                **{str(i): "FWD" for i in [10, 11, 15]},
+                **{"101": "GK", "112": "GK"},
+                **{str(i): "DEF" for i in [102, 103, 104, 105, 113]},
+                **{str(i): "MID" for i in [106, 107, 108, 109, 114]},
+                **{str(i): "FWD" for i in [110, 111, 115]},
             },
         }
     }
     result = {
         "mismatched_automatic_substitutions": [{
-            "resolver_pairs": [("13", "2")],
-            "api_metadata_pairs": [("14", "2")],
+            "resolver_pairs": [("113", "102")],
+            "api_metadata_pairs": [("114", "102")],
         }],
         "official_multiplier_match": True,
         "official_team_points_reconcile": True,
@@ -62,8 +62,8 @@ def test_autosub_pair_diagnostic_reports_positions_without_player_ids():
         "outgoing_original_position": 2,
         "outgoing_role": "DEF",
     }]
-    assert "13" not in str(diagnostic)
-    assert "14" not in str(diagnostic)
+    assert "113" not in str(diagnostic)
+    assert "114" not in str(diagnostic)
 
 
 def test_samples_public_entries_without_retaining_identity_in_report():
