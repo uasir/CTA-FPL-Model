@@ -127,7 +127,7 @@ jobs:
         run: |
           set -euo pipefail
           SEASON=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["season"])' "$RUNNER_TEMP/matched-output/per-gameweek/matched_forecast_outcomes.json")
-          GW=$(python -c 'import json,sys; print(int(json.load(open(sys.argv[1]))["gameweek"])' "$RUNNER_TEMP/matched-output/per-gameweek/matched_forecast_outcomes.json")
+          GW=$(python -c 'import json,sys; print(int(json.load(open(sys.argv[1]))["gameweek"]))' "$RUNNER_TEMP/matched-output/per-gameweek/matched_forecast_outcomes.json")
           SOURCE_KEY=$(basename "$TARGET_ARCHIVE_PATH")
           DEST="private-archive/matched-outcomes/$SEASON/gw$(printf '%02d' "$GW")/$SOURCE_KEY"
           if [ -e "$DEST" ]; then
