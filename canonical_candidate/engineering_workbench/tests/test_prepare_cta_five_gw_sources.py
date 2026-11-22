@@ -89,7 +89,15 @@ def test_parallel_understat_fallbacks_fetch_concurrently_and_write_json(tmp_path
     active = 0
     peak = 0
 
+    class FakeSession:
+        def request(self, method, url, **kwargs):
+            assert kwargs.get("timeout") == (10, 45)
+            return None
+
     class FakeClient:
+        def __init__(self):
+            self.session = FakeSession()
+
         def __enter__(self):
             return self
 
@@ -102,6 +110,7 @@ def test_parallel_understat_fallbacks_fetch_concurrently_and_write_json(tmp_path
 
         def get_match_data(self):
             nonlocal active, peak
+            self.session.request("GET", "https://understat.example/player")
             with lock:
                 active += 1
                 peak = max(peak, active)
