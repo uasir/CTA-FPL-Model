@@ -222,6 +222,7 @@ def audit_public_field_replays(
     validation_failure_types: dict[str, int] = {}
     capture_failure_types: dict[str, int] = {}
     autosub_metadata_mismatch_replays = 0
+    autosub_player_set_mismatch_replays = 0
     autosub_pair_mismatch_diagnostics: list[dict[str, Any]] = []
 
     for event in event_ids:
@@ -281,8 +282,8 @@ def audit_public_field_replays(
                     validation_failure_types["PLAYER_POINTS_MISMATCH"] = validation_failure_types.get("PLAYER_POINTS_MISMATCH", 0) + 1
                 if not result["active_captain_match"]:
                     validation_failure_types["CAPTAIN_MISMATCH"] = validation_failure_types.get("CAPTAIN_MISMATCH", 0) + 1
-                if result.get("automatic_substitution_metadata_match") is False:
-                    validation_failure_types["AUTOSUB_PAIR_MISMATCH"] = validation_failure_types.get("AUTOSUB_PAIR_MISMATCH", 0) + 1
+                if result.get("automatic_substitution_player_sets_match") is False:
+                    validation_failure_types["AUTOSUB_PLAYER_SET_MISMATCH"] = validation_failure_types.get("AUTOSUB_PLAYER_SET_MISMATCH", 0) + 1
                 if result["official_team_points_reconcile"] is False:
                     validation_failure_types["TEAM_POINTS_MISMATCH"] = validation_failure_types.get("TEAM_POINTS_MISMATCH", 0) + 1
 
@@ -342,6 +343,7 @@ def audit_public_field_replays(
         "autosub_replay_count": autosub_replays,
         "autosub_player_count": autosub_players,
         "automatic_substitution_metadata_mismatch_replays": autosub_metadata_mismatch_replays,
+        "automatic_substitution_player_set_mismatch_replays": autosub_player_set_mismatch_replays,
         "autosub_pair_mismatch_diagnostics": autosub_pair_mismatch_diagnostics,
         "goalkeeper_autosub_count": goalkeeper_autosubs,
         "outfield_autosub_count": outfield_autosubs,
@@ -405,6 +407,7 @@ def main() -> int:
         "autosub_replay_count": report["autosub_replay_count"],
         "autosub_player_count": report["autosub_player_count"],
         "automatic_substitution_metadata_mismatch_replays": report["automatic_substitution_metadata_mismatch_replays"],
+        "automatic_substitution_player_set_mismatch_replays": report["automatic_substitution_player_set_mismatch_replays"],
         "goalkeeper_autosub_count": report["goalkeeper_autosub_count"],
         "outfield_autosub_count": report["outfield_autosub_count"],
         "captain_fallback_count": report["captain_fallback_count"],
