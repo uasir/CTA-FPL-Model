@@ -154,7 +154,7 @@ def archive_bundle(bundle_dir: Path, archive_root: Path, *, run_id: str,
     for forecast_key, validation_key in row_key_pairs:
         if int(forecast.get(forecast_key, -1)) != int(validation.get(validation_key, -2)):
             raise ValueError(f"forecast and validation row counts disagree for {forecast_key}")
-    relative = Path("snapshots") / season / f"gw{weeks[0]:02d}-{weeks[-1]:02d}" / snapshot
+    relative = Path("snapshots") / season / f"gw{weeks[0]:02d}-{weeks[-1]:02d}" / snapshot / "archive-v2"
     destination = archive_root / relative
     destination.mkdir(parents=True, exist_ok=False)
     zip_path = destination / "forecast_bundle.zip"
@@ -165,7 +165,7 @@ def archive_bundle(bundle_dir: Path, archive_root: Path, *, run_id: str,
             file_hashes[name] = {"sha256": sha256(path), "size_bytes": path.stat().st_size}
             archive.write(path, arcname=name)
     manifest = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "archive_type": "CTA_FIVE_GAMEWEEK_CANDIDATE_FORECAST",
         "season": season, "gameweeks": weeks, "forecast_snapshot_id": snapshot,
         "source_mode": source.get("feature_source_mode"),
