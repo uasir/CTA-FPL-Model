@@ -247,6 +247,8 @@ def run_cta_recommendation_products(
                     panels,
                     manager_context,
                     starting_xi_ids=list(personal_recommendation["current_squad_plan"]["starting_xi"]),
+                    forecast_snapshot_id=shared["forecast_snapshot_id"],
+                    model_version=shared["model_version"],
                 )
             )
         except CTAMultiGameweekSquadError as exc:
