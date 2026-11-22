@@ -241,3 +241,14 @@ rows, duplicate player-fixture keys and inconsistent opponent metadata. These
 tests are committed but remain unexecuted in a verified CI run. The audit has
 not yet been run against a fully acquired local copy of the entire season
 archive.
+
+## API.SH Understat import contract
+
+- API.SH provides JSON player-season/match histories and team-season match histories.
+- Player imports use include_shots=false and raw=true; team imports use raw=true.
+- Current FPL roster only is required for target forecasts; Dastan's published all-player feature frame supplies historical model training.
+- The raw source cache stores player histories by Understat player ID and team histories by season.
+- GitHub Actions reads APISH_KEY from a repository secret; the key is never written to source manifests or artifacts.
+- The local monthly credit guard defaults to 900 calls, below the provider's documented 1,000 recurring monthly free credits. Paid use is not enabled automatically; increase the guard only after reviewing billing.
+- Each acquisition report records provider, player/team request counts, reserved credits, cache status and failures.
+
