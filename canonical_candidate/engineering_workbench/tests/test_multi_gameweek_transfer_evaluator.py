@@ -72,6 +72,9 @@ def request():
 
 def test_compares_transfer_over_five_gameweeks_not_only_first_week():
     result = evaluate_multi_gameweek_transfer_bundle(request())
+    assert result["provider_source_id"] == "test_verified_fixture_provider"
+    assert result["provider"]["name"] == "FPL Cat"
+    assert result["source_snapshot_ids"] == [f"gw{gw}-immutable" for gw in range(12, 17)]
     assert result["horizon_gameweeks"] == [12, 13, 14, 15, 16]
     assert result["weekly_comparison"][0]["incremental_expected_points"] == 1
     assert result["gross_horizon_expected_points_delta"] == 17
@@ -156,4 +159,18 @@ def test_rejects_duplicate_provider_snapshot_ids():
     source = request()
     source["forecast_bundle"]["source_snapshot_ids"][1] = source["forecast_bundle"]["source_snapshot_ids"][0]
     with pytest.raises(MultiGameweekTransferError, match="unique immutable"):
+        evaluate_multi_gameweek_transfer_bundle(source)
+
+
+def test_rejects_bundle_without_provider_source_identity():
+    source = request()
+    source["forecast_bundle"].pop("provider_source_id")
+    with pytest.raises(MultiGameweekTransferError, match="provider_source_id"):
+        evaluate_multi_gameweek_transfer_bundle(source)
+
+
+def test_rejects_bundle_without_canonical_contract_version():
+    source = request()
+    source["forecast_bundle"].pop("contract_version")
+    with pytest.raises(MultiGameweekTransferError, match="canonical contract version"):
         evaluate_multi_gameweek_transfer_bundle(source)
