@@ -786,6 +786,9 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     output_dir.mkdir(parents=True, exist_ok=True)
     snapshot_dir = output_dir / "snapshots"
     snapshot_dir.mkdir(parents=True, exist_ok=True)
+    training_dir = output_dir / "training"
+    print("Importing and verifying Dastan's complete published data/model release", flush=True)
+    training_frame, release_import_report = import_dastan_release(dastan_root, training_dir)
     bootstrap = fetch_json(f"{FPL_API}/bootstrap-static/")
     fixtures = fetch_json(f"{FPL_API}/fixtures/")
     bootstrap_captured_at = datetime.now(timezone.utc)
@@ -909,10 +912,6 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     player_matches.to_parquet(player_matches_path, index=False)
     team_matches.to_parquet(team_matches_path, index=False)
     player_lookup.to_csv(lookup_path, index=False, lineterminator="\n")
-
-    print("Importing Dastan's published training frame and pre-deadline snapshots", flush=True)
-    training_dir = output_dir / "training"
-    training_frame, release_import_report = import_dastan_release(dastan_root, training_dir)
 
     mapping_file = dastan_root / "data" / "mappings" / "current_fpl_understat_players.csv"
     mapping_df = pd.read_csv(mapping_file)
