@@ -29,11 +29,11 @@ The engine retains its existing rules: one transfer at a time, legal budget/posi
 
 ## Release boundary
 
-The shared product adapter consumes a source-labelled personal-squad run; it does not create new forecasts or promote a provider. It emits `conventional_personal_squad` for an external-benchmark run and `cta_informed_personal_squad` for a CTA-model run, preserving distinct labels and provenance. It preserves the source run's release blockers and always reports EXPLORATORY_PREVIEW until the relevant forecast and decision-evaluation gates allow release. A passing contract test is not evidence of live decision readiness.
+The shared `build_personal_squad_product` adapter (with a backwards-compatible legacy function alias) consumes a source-labelled personal-squad run; it does not create new forecasts or promote a provider. It emits `conventional_personal_squad` for an external-benchmark run and `cta_informed_personal_squad` for a CTA-model run, preserving distinct labels and provenance. It preserves the source run's release blockers and always reports EXPLORATORY_PREVIEW until the relevant forecast and decision-evaluation gates allow release. A passing contract test is not evidence of live decision readiness.
 
 ## Entry point
 
-scripts/build_conventional_squad_product.py
+scripts/build_conventional_squad_product.py (`build_personal_squad_product`; legacy `build_conventional_squad_product` alias retained)
 
 Input is the complete JSON output of a conforming personal-squad run. The output is a versioned conventional_personal_squad product object suitable for a delivery/API layer.
 
