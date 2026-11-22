@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from m4_covar_public_field_replay_audit import (
+    _autosub_pair_diagnostic,
     audit_public_field_replays,
     sample_public_entries,
 )
@@ -30,6 +31,39 @@ def manager_payload(event, chip=None):
         "active_chip": chip, "picks": picks, "automatic_subs": [],
     }
     return bootstrap, live, picks_response
+
+
+def test_autosub_pair_diagnostic_reports_positions_without_player_ids():
+    case = {
+        "lineup": {
+            "player_ids": [str(i) for i in range(1, 16)],
+            "player_positions": {
+                **{"1": "GK", "12": "GK"},
+                **{str(i): "DEF" for i in [2, 3, 4, 5, 13]},
+                **{str(i): "MID" for i in [6, 7, 8, 9, 14]},
+                **{str(i): "FWD" for i in [10, 11, 15]},
+            },
+        }
+    }
+    result = {
+        "mismatched_automatic_substitutions": [{
+            "resolver_pairs": [("13", "2")],
+            "api_metadata_pairs": [("14", "2")],
+        }],
+        "official_multiplier_match": True,
+        "official_team_points_reconcile": True,
+    }
+    diagnostic = _autosub_pair_diagnostic(case, result, event_id=8, rank_page=2000)
+    assert diagnostic["same_incoming_player_set"] is False
+    assert diagnostic["same_outgoing_player_set"] is True
+    assert diagnostic["resolver_pairs_by_position"] == [{
+        "incoming_original_position": 13,
+        "incoming_role": "DEF",
+        "outgoing_original_position": 2,
+        "outgoing_role": "DEF",
+    }]
+    assert "13" not in str(diagnostic)
+    assert "14" not in str(diagnostic)
 
 
 def test_samples_public_entries_without_retaining_identity_in_report():
