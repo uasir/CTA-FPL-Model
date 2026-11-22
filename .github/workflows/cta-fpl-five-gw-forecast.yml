@@ -180,6 +180,10 @@ jobs:
         with:
           name: cta-five-gw-candidate-forecast
           path: /tmp/cta-five-gw-bundle
+      - name: Add exact feature schema to archive bundle
+        run: |
+          cp canonical_candidate/engineering_workbench/config/dastan_minutes_feature_schema.json \
+            /tmp/cta-five-gw-bundle/dastan_minutes_feature_schema.json
       - name: Build compact hash-verified archive snapshot
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
