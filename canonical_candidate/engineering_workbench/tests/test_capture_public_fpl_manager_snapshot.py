@@ -8,7 +8,6 @@ def test_public_manager_snapshot_preserves_official_picks_and_target_transfers()
         {
             "element": player_id,
             "position": position,
-            "purchase_price": 50,
             "is_captain": position == 1,
             "is_vice_captain": position == 2,
         }
@@ -55,6 +54,7 @@ def test_public_manager_snapshot_preserves_official_picks_and_target_transfers()
     assert previous["starting_xi_ids"] == list(range(1, 12))
     assert previous["outfield_bench_ids"] == [13, 14, 15]
     assert previous["reserve_goalkeeper_id"] == 12
+    assert previous["players_in_official_pick_order"][0]["purchase_price"] is None
     assert previous["captain_id"] == 1
     assert previous["vice_captain_id"] == 2
     assert previous["bank_at_previous_deadline"] == 2.0
