@@ -51,6 +51,11 @@ class FiveGWFeatureMatrixTests(unittest.TestCase):
         self.assertEqual(len(players), 2)
         self.assertEqual(len(teams), 2)
         self.assertEqual(set(players["fixture"]), {900})
+        self.assertEqual(set(teams["fixture"]), {900})
+        self.assertEqual(
+            teams.set_index("understat_team")["opponent"].to_dict(),
+            {"Arsenal": "Aston Villa", "Aston Villa": "Arsenal"},
+        )
         self.assertEqual(report["understat_mapped_target_players"], 2)
 
     def test_shared_understat_id_is_not_used(self):
