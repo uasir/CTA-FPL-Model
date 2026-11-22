@@ -77,6 +77,11 @@ def route_provider_forecast(
         "routing_reason": None,
     }
 
+    if not spec.get("decision_capture_eligible", False):
+        result["routing_status"] = "DIAGNOSTIC_ONLY"
+        result["routing_reason"] = "PROVIDER_NOT_APPROVED_FOR_DECISION_CAPTURE"
+        return result
+
     if not canonical["decision_eligible"]:
         result["routing_status"] = "DIAGNOSTIC_ONLY"
         result["routing_reason"] = canonical["eligibility_reason"]
