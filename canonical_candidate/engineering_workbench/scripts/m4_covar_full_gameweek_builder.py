@@ -83,7 +83,7 @@ def build_full_gameweek_document(
             raise CovarFullGameweekBuildError("scenarios must be the exact residual-bootstrap scenario rows")
         required = ("forecast_snapshot_id", "model_version", "training_cutoff_utc",
                     "scenario_probability_method", "complete_historical_gameweeks", "payload_sha256",
-                    "played_status_method")
+                    "played_status_method", "players")
         if any(not scenario_provenance.get(key) for key in required):
             raise CovarFullGameweekBuildError("residual scenario provenance is incomplete")
         data_status = "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY"
@@ -158,6 +158,33 @@ def build_full_gameweek_document(
             if existing is not None and existing["position"] != position:
                 raise CovarFullGameweekBuildError(f"conflicting position metadata for player {pid}")
             players_by_id[pid] = {"player_id": pid, "position": position}
+
+    if data_status == "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY":
+        residual_players = scenario_provenance["players"]
+        if not isinstance(residual_players, list):
+            raise CovarFullGameweekBuildError("residual provenance players must be a list")
+        residual_by_id = {}
+        for player in residual_players:
+            if not isinstance(player, Mapping):
+                raise CovarFullGameweekBuildError("residual provenance player rows must be objects")
+            pid = str(player.get("player_id", "")).strip()
+            if not pid or pid in residual_by_id:
+                raise CovarFullGameweekBuildError("residual provenance player IDs must be unique")
+            residual_by_id[pid] = dict(player)
+        if set(residual_by_id) != set(players_by_id):
+            raise CovarFullGameweekBuildError("residual player universe must equal candidate/field portfolio union")
+        for pid, player in residual_by_id.items():
+            if str(player.get("position", "")).upper() != players_by_id[pid]["position"]:
+                raise CovarFullGameweekBuildError(f"residual position metadata mismatch for player {pid}")
+            for field in ("expected_points", "expected_minutes"):
+                value = player.get(field)
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    raise CovarFullGameweekBuildError(f"residual player {pid} requires numeric {field}")
+                players_by_id[pid][field] = float(value)
+            team_id = player.get("team_id")
+            if isinstance(team_id, bool) or not isinstance(team_id, int) or team_id < 1:
+                raise CovarFullGameweekBuildError(f"residual player {pid} requires valid team_id")
+            players_by_id[pid]["team_id"] = team_id
 
     document = {
         "schema_version": "1.0.0",
