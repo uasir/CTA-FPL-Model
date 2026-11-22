@@ -173,6 +173,9 @@ def run_external_benchmark_personal_squad(payload: Mapping[str, Any]) -> dict[st
         "provider_identity": snapshot["provider"],
         "player_metadata_provenance": dict(metadata_provenance),
         "source_provenance": {
+            "season": snapshot["season"],
+            "target_gameweek": snapshot["target_gameweek"],
+            "decision_as_of_utc": payload["as_of_utc"],
             "snapshot_id": snapshot["snapshot_id"],
             "source_url": snapshot["source"]["url"],
             "raw_snapshot_id": snapshot["source"]["raw_snapshot_id"],
