@@ -444,20 +444,20 @@ def parallel_understat_fallbacks(
     root.mkdir(parents=True, exist_ok=True)
     team_root.mkdir(parents=True, exist_ok=True)
 
+    # The caller supplies only missing or incomplete player histories. Do not
+    # skip a partial cached JSON file: it is exactly what needs refreshing.
     player_ids = sorted(set(int(value) for value in missing_players))
-    if not force:
-        player_ids = [
-            player_id for player_id in player_ids
-            if not (root / f"{player_id}.json").is_file()
-            or (root / f"{player_id}.json").stat().st_size == 0
-        ]
     team_names_by_season = team_names_by_season or {}
     team_requests = []
     for season in missing_team_seasons:
         path = team_root / f"{season}.json"
-        if path.is_file() and path.stat().st_size and not force:
-            continue
-        names = sorted(set(team_names_by_season.get(season, set())))
+        existing_team_payload = (
+            json.loads(path.read_text(encoding="utf-8"))
+            if path.is_file() and path.stat().st_size and not force else {}
+        )
+        names = sorted(
+            set(team_names_by_season.get(season, set())) - set(existing_team_payload)
+        )
         if not names:
             raise RuntimeError(
                 f"API.SH team fallback has no Understat team names for season {season}"
