@@ -75,6 +75,25 @@ class TestM4CovarFplApiReplayAdapter(unittest.TestCase):
         self.assertEqual(validate_official_replay_case(case)["status"], "PASS")
         self.assertNotIn("999999", str(case))
 
+    def test_reverses_post_autosub_positions_for_goalkeeper_replacement(self):
+        picks, live, bootstrap = api_payloads()
+        picks["picks"][0]["position"] = 12
+        picks["picks"][0]["multiplier"] = 0
+        picks["picks"][11]["position"] = 1
+        picks["picks"][11]["multiplier"] = 1
+        live["elements"][0]["stats"].update({"minutes": 0, "total_points": 0})
+        picks["automatic_subs"] = [{
+            "element_in": 12, "element_out": 1, "event": 7,
+        }]
+        case = normalize_official_fpl_replay(picks, live, bootstrap, event_id=7)
+        self.assertEqual(case["lineup"]["starting_goalkeeper_id"], "1")
+        self.assertEqual(case["lineup"]["reserve_goalkeeper_id"], "12")
+        result = validate_official_replay_case(case)
+        self.assertEqual(result["status"], "PASS", result)
+        self.assertEqual(result["resolver_substitutions"], [
+            {"out": "1", "in": "12", "type": "GOALKEEPER"},
+        ])
+
     def test_rejects_automatic_sub_metadata_for_a_different_manager(self):
         picks, live, bootstrap = api_payloads()
         picks["automatic_subs"] = [{
