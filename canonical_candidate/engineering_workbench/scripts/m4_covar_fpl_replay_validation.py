@@ -201,6 +201,9 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         if len(actual_pairs) != len(set(actual_pairs)):
             raise CovarFplReplayError("official automatic substitutions contain duplicate pairs")
         automatic_substitution_metadata_match = sorted(actual_pairs) == sorted(expected_pairs)
+        automatic_substitution_match = (
+            automatic_substitution_metadata_match and not multiplier_mismatches
+        )
         if not automatic_substitution_metadata_match:
             automatic_substitution_mismatches.append({
                 "resolver_pairs": sorted(expected_pairs),
