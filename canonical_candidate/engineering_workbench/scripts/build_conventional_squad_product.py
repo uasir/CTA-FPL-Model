@@ -89,6 +89,25 @@ def build_personal_squad_product(run: Mapping[str, Any]) -> dict[str, Any]:
             raise ConventionalSquadProductError(
                 "multi-Gameweek assembly requires source manager_context and current_player_metadata"
             )
+        metadata_provenance = run.get("player_metadata_provenance")
+        if not isinstance(metadata_provenance, Mapping):
+            raise ConventionalSquadProductError("multi-Gameweek assembly requires current player metadata provenance")
+        if (metadata_provenance.get("row_count") != len(current_player_metadata)
+                or not isinstance(metadata_provenance.get("raw_sha256"), str)
+                or len(metadata_provenance["raw_sha256"]) != 64):
+            raise ConventionalSquadProductError("current player metadata does not match its provenance envelope")
+        if multi_gw_payload.get("provider") != dict(provider):
+            raise ConventionalSquadProductError("multi-Gameweek provider identity must match the personal-squad forecast provider")
+        if multi_gw_payload.get("season") != source.get("season"):
+            raise ConventionalSquadProductError("multi-Gameweek forecast season must match the personal-squad source season")
+        if multi_gw_payload.get("decision_as_of_utc") != source.get("decision_as_of_utc"):
+            raise ConventionalSquadProductError("multi-Gameweek and personal-squad snapshots must share the exact decision as-of time")
+        panels = multi_gw_payload.get("panels")
+        if (not isinstance(panels, list) or not panels
+                or not isinstance(panels[0], Mapping)
+                or not isinstance(panels[0].get("snapshot"), Mapping)
+                or panels[0]["snapshot"].get("target_gameweek") != source.get("target_gameweek")):
+            raise ConventionalSquadProductError("multi-Gameweek horizon must begin at the personal-squad target Gameweek")
         try:
             multi_gw_diagnostic = assemble_multi_gameweek_squad_diagnostics(
                 multi_gw_payload,
