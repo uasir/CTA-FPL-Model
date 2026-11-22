@@ -292,3 +292,28 @@ def test_captures_official_triple_captain_chip_state(monkeypatch):
     )
     assert result["manager_context"]["active_chip"] == "3xc"
     assert result["manager_context"]["active_chip_status"] == "VERIFIED_FROM_OFFICIAL_PICKS"
+
+
+
+def test_reconstructs_transfers_already_made_for_target_gameweek():
+    gw1 = picks_payload(event=1)
+    transfers = [
+        {
+            "event": 12, "time": "2026-11-22T21:30:00Z",
+            "element_out": 1, "element_out_cost": 51,
+            "element_in": 16, "element_in_cost": 64,
+        },
+        {
+            "event": 13, "time": "2026-11-29T10:00:00Z",
+            "element_out": 2, "element_out_cost": 52,
+            "element_in": 17, "element_in_cost": 65,
+        },
+    ]
+    expected = set(range(2, 17))
+    squad = manager_capture.reconstruct_purchase_prices(
+        gw1, transfers, _history(), 12, expected
+    )
+    prices = {row["fpl_element_id"]: row["purchase_price"] for row in squad}
+    assert prices[16] == 6.4
+    assert prices[2] == 5.2
+    assert 17 not in prices
