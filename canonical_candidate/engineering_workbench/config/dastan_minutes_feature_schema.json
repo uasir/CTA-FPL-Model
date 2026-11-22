@@ -316,7 +316,9 @@
     "reject_non_finite_values": true,
     "reject_duplicate_player_fixture_keys": true,
     "no_implicit_imputation": true,
-    "note": "Dastan's predictor currently fills NaN with 0.0 at inference, while its feature documentation states missing values are -1. CTA adapter deliberately fails closed until source-specific missing-value semantics are verified."
+    "note": "Missing-value semantics are two-stage upstream: dastan/data.py fills absent pre-deadline snapshot artifact fields with -1.0; dastan/model.py fills remaining NaNs with 0.0 during training, and dastan/predictor.py applies the same residual NaN-to-zero fill at inference. CTA must preserve this distinction.",
+    "snapshot_missing_sentinel": -1,
+    "residual_nan_fill": 0
   },
-  "status": "SCHEMA_PINNED_ADAPTER_NOT_YET_MODEL_INFERENCE"
+  "status": "SCHEMA_PINNED_TWO_STAGE_MISSINGNESS_POLICY_DOCUMENTED_ADAPTER_NOT_YET_MODEL_INFERENCE"
 }
