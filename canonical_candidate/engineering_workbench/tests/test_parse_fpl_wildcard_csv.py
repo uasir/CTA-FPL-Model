@@ -89,4 +89,4 @@ def test_wildcard_snapshot_matches_registry_and_routes_as_diagnostic_until_gener
     assert routed["provider_id"] == "fpl_wildcard"
     assert routed["routing_status"] == "DIAGNOSTIC_ONLY"
     assert routed["decision_eligible"] is False
-    assert routed["routing_reason"] == "PROVIDER_GENERATION_TIME_NOT_DISCLOSED"
+    assert routed["routing_reason"] == "PROVIDER_NOT_APPROVED_FOR_DECISION_CAPTURE"
