@@ -122,6 +122,52 @@ def _capture_failure_code(exc: Exception) -> str:
     return "UNCLASSIFIED_CAPTURE_FAILURE"
 
 
+def _autosub_pair_diagnostic(
+    case: Mapping[str, Any], result: Mapping[str, Any], *, event_id: int, rank_page: int
+) -> dict[str, Any] | None:
+    """Summarize pair mismatches by lineup position/role without exposing a roster."""
+    mismatches = result.get("mismatched_automatic_substitutions") or []
+    if not mismatches:
+        return None
+    lineup = case["lineup"]
+    positions = {str(pid): index + 1 for index, pid in enumerate(lineup["player_ids"])}
+    roles = {str(pid): str(role) for pid, role in lineup["player_positions"].items()}
+
+    def describe(pairs: Sequence[Sequence[str]]) -> list[dict[str, Any]]:
+        rows = []
+        for incoming, outgoing in pairs:
+            incoming, outgoing = str(incoming), str(outgoing)
+            rows.append({
+                "incoming_original_position": positions.get(incoming),
+                "incoming_role": roles.get(incoming),
+                "outgoing_original_position": positions.get(outgoing),
+                "outgoing_role": roles.get(outgoing),
+            })
+        return sorted(rows, key=lambda row: (
+            row["incoming_original_position"] or 0,
+            row["outgoing_original_position"] or 0,
+        ))
+
+    first = mismatches[0]
+    resolver_pairs = first.get("resolver_pairs", [])
+    api_pairs = first.get("api_metadata_pairs", [])
+    resolver_in = {str(pair[0]) for pair in resolver_pairs}
+    resolver_out = {str(pair[1]) for pair in resolver_pairs}
+    api_in = {str(pair[0]) for pair in api_pairs}
+    api_out = {str(pair[1]) for pair in api_pairs}
+    return {
+        "event_id": event_id,
+        "rank_page": rank_page,
+        "resolver_pairs_by_position": describe(resolver_pairs),
+        "api_pairs_by_position": describe(api_pairs),
+        "same_incoming_player_set": resolver_in == api_in,
+        "same_outgoing_player_set": resolver_out == api_out,
+        "same_pair_count": len(resolver_pairs) == len(api_pairs),
+        "final_multiplier_match": result.get("official_multiplier_match"),
+        "team_points_reconcile": result.get("official_team_points_reconcile"),
+    }
+
+
 def audit_public_field_replays(
     event_ids: Sequence[int],
     *,
@@ -176,6 +222,7 @@ def audit_public_field_replays(
     validation_failure_types: dict[str, int] = {}
     capture_failure_types: dict[str, int] = {}
     autosub_metadata_mismatch_replays = 0
+    autosub_pair_mismatch_diagnostics: list[dict[str, Any]] = []
 
     for event in event_ids:
         matching = event_status.get(event, [])
@@ -241,6 +288,11 @@ def audit_public_field_replays(
 
             if result.get("automatic_substitution_metadata_match") is False:
                 autosub_metadata_mismatch_replays += 1
+                diagnostic = _autosub_pair_diagnostic(
+                    case, result, event_id=event, rank_page=rank_page
+                )
+                if diagnostic is not None:
+                    autosub_pair_mismatch_diagnostics.append(diagnostic)
             if result["official_team_points_reconcile"] is not None:
                 team_points_cases += 1
                 team_points_failures += int(result["official_team_points_reconcile"] is False)
@@ -290,6 +342,7 @@ def audit_public_field_replays(
         "autosub_replay_count": autosub_replays,
         "autosub_player_count": autosub_players,
         "automatic_substitution_metadata_mismatch_replays": autosub_metadata_mismatch_replays,
+        "autosub_pair_mismatch_diagnostics": autosub_pair_mismatch_diagnostics,
         "goalkeeper_autosub_count": goalkeeper_autosubs,
         "outfield_autosub_count": outfield_autosubs,
         "captain_fallback_count": captain_fallbacks,
