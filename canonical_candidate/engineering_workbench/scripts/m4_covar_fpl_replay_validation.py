@@ -309,6 +309,8 @@ def validate_replay_batch(document: Mapping[str, Any]) -> dict[str, Any]:
         "player_points_mismatch_replays": sum(not row["player_points_match"] for row in results),
         "captain_mismatch_replays": sum(not row["active_captain_match"] for row in results),
         "automatic_substitution_mismatch_replays": sum(row["official_automatic_substitution_match"] is False for row in results),
+        "automatic_substitution_metadata_cases": sum(row["automatic_substitution_metadata_match"] is not None for row in results),
+        "automatic_substitution_metadata_mismatch_replays": sum(row["automatic_substitution_metadata_match"] is False for row in results),
         "team_points_reconciliation_cases": sum(row["official_team_points_reconcile"] is not None for row in results),
         "team_points_reconciliation_failures": sum(row["official_team_points_reconcile"] is False for row in results),
         "results": results,
