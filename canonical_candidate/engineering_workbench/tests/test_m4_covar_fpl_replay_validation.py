@@ -144,6 +144,25 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
         self.assertIn("p2", result["mismatched_player_points"])
         self.assertFalse(result["official_team_points_reconcile"])
 
+    def test_reconciles_entry_history_points_before_transfer_cost(self):
+        case = replay()
+        case["official_final"]["team_points"] = 24
+        case["official_final"]["event_transfers_cost"] = 4
+        result = validate_official_replay_case(case)
+        self.assertEqual(result["status"], "PASS", result)
+        self.assertEqual(result["team_points_reconciliation_basis"], "ENTRY_HISTORY_POINTS_MATCH")
+
+    def test_reconciles_entry_history_points_net_of_transfer_cost(self):
+        case = replay()
+        case["official_final"]["team_points"] = 20
+        case["official_final"]["event_transfers_cost"] = 4
+        result = validate_official_replay_case(case)
+        self.assertEqual(result["status"], "PASS", result)
+        self.assertEqual(
+            result["team_points_reconciliation_basis"],
+            "ENTRY_HISTORY_POINTS_PLUS_TRANSFER_COST_MATCH",
+        )
+
     def test_requires_complete_official_picks_and_outcomes(self):
         case = replay()
         case["official_final"]["picks"].pop()
