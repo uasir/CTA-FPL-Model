@@ -92,6 +92,18 @@ def match_forecast_to_realized_outcomes(
     matching_reports = [row for row in reports if isinstance(row, Mapping) and row.get("event_id") == gw]
     if len(matching_reports) != 1 or matching_reports[0].get("status") != "PASS_EXACT_MATCH" or matching_reports[0].get("finality_reconciled") is not True:
         raise ForecastOutcomeMatchError("target Gameweek lacks an exact official event-live finality pass")
+    finality_report = matching_reports[0]
+    source_provenance = finality_report.get("source_provenance")
+    outcome_available_at_utc = finality_report.get("outcome_available_at_utc")
+    if not outcome_available_at_utc and isinstance(source_provenance, Mapping):
+        # The production finality audit records the conservative observed
+        # availability upper bound as source_provenance.captured_at_utc.
+        outcome_available_at_utc = source_provenance.get("captured_at_utc")
+    if not outcome_available_at_utc:
+        raise ForecastOutcomeMatchError(
+            "target Gameweek finality report lacks an observed outcome availability timestamp"
+        )
+    _time(outcome_available_at_utc, "outcome_available_at_utc")
 
     as_of = _time(forecast_bundle.get("as_of_utc"), "forecast as_of_utc")
     deadline = _time(forecast_bundle.get("deadline_utc"), "forecast deadline_utc")
@@ -191,7 +203,7 @@ def match_forecast_to_realized_outcomes(
         "deadline_utc": deadline.isoformat(),
         "first_kickoff_utc": first_kickoff.isoformat(),
         "finality_status": "PASS_EXACT_MATCH",
-        "outcome_available_at_utc": matching_reports[0].get("outcome_available_at_utc"),
+        "outcome_available_at_utc": outcome_available_at_utc,
         "forecast_player_count": len(forecast_by_id),
         "realized_player_gameweek_count": len(realized_by_id),
         "matched_player_count": len(matched),
