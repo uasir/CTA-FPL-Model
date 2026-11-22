@@ -112,3 +112,38 @@ The upstream repository exposes three different mapping populations, and their c
 The pinned operational manifest dated 2026-09-07 reports 1,738 registry players, 1,686 mapped, 52 unmapped, and one shared Understat ID. That is the global operational registry, not the 2026-27 roster coverage. The current-roster CSV is a separate season-scoped projection. The upstream mapping README and DATA documentation report different current-roster coverage snapshots (518/577 versus 627/654), so CTA must calculate coverage directly from the exact pinned `fpl_understat_current.csv` artifact and its matching roster, not copy either prose figure.
 
 For CTA's active-season build, retain one row per `(season, fpl_code)`, nullable Understat ID, mapping status, confidence, source manifest ID and source hash. Reject duplicate FPL codes; explicitly flag shared Understat IDs; never fill an unmapped ID with a name-based or fuzzy match. Unmapped players may still receive FPL-only features, but Understat-dependent features must retain their missingness state and be handled through Dastan's exact input policy.
+
+
+## 7. Canonical raw-table reconstruction contract
+
+The upstream source builder establishes the following raw-table contract. CTA should implement or wrap this sequence without changing the model-facing feature definitions:
+
+| Canonical input | Upstream raw inputs | Join / key | Required fields and checks |
+|---|---|---|---|
+| FPL player-match table | Vaastav `merged_gw.csv`, `players_raw.csv`, `teams.csv` for each season | Season + element to season roster; stable `fpl_code` thereafter | Filter valid positions; normalize GK to GKP; retain fixture, GW, kickoff, player/team/opponent, minutes and FPL match statistics; reject missing stable codes and duplicate fixture keys |
+| Understat player-match table | Pinned Vaastav Understat player CSVs; live Understat player-history fallback where pinned match-date coverage is incomplete | Understat player ID + match date | Validate expected played FPL dates against Understat history; a complete live fallback supersedes an incomplete pinned file; reject duplicate player/date keys |
+| Understat team-match table | Pinned Vaastav team CSVs; live Understat EPL team-history fallback for incomplete seasons | Understat team + match date | Normalize team names; parse PPDA into attack/defence and allowed attack/defence components; retain goals, xG/xGA, deep/deep allowed, points and home/away |
+| FPL-to-Understat assignment table | Frozen historical assignment intervals plus versioned operational mapping for the active season | `(season, fpl_code)` with first/last GW interval | Frozen training assignments are immutable; active-season mapping must be versioned and coverage-audited; no fuzzy fallback |
+| Pre-deadline projection/signal tables | Pinned fplcache snapshots | `(season, gameweek, fpl_code)` | Target GW must be `is_next`, deadline must match, capture must precede deadline with five-minute safety buffer; stale/missing snapshots are refused |
+
+### Source acquisition and reproducibility
+
+The upstream data rebuild pins:
+- Vaastav `Fantasy-Premier-League` commit from `data/source_pins.json` for FPL match/roster/team archives and cached Understat histories.
+- `Randdalf/fplcache` commit from the same source-pins file for historical pre-deadline bootstrap snapshots.
+- `understatapi==0.7.1` as a live fallback when pinned Understat player/team histories are incomplete.
+
+Each download run writes a manifest containing source commits, file sizes and SHA-256 hashes. The rebuild writes a second manifest binding output artifacts to the source-manifest hash. CTA should retain both manifests alongside every generated feature snapshot.
+
+### Frame grain and model-facing projection
+
+The upstream canonical builder returns:
+1. player-match rows at `(season, fixture, fpl_code)`;
+2. team-match rows at `(season, understat_team, date)`;
+3. a season-scoped player lookup.
+
+Its feature builder creates a 304-column frame. The minutes classifier consumes only the exact ordered 286 columns in `models/feature_cols.json`; the remaining columns are identity, targets, or intermediate raw/engineered fields. CTA must retain the richer canonical frame for audit and evaluation, then project the 286 model columns in pinned order only at the inference boundary.
+
+### CTA implementation rule
+
+The current CTA official API ingestion already produces current-season FPL player, fixture and player-fixture CSVs, but it is not a substitute for the historical FPL archive or Understat match tables. Reuse it for live-season operations; build the historical source adapter separately. Never mix current-snapshot API values into a historical pre-deadline training row unless an archived vintage proves availability at that deadline.
