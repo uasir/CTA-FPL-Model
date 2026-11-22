@@ -108,6 +108,9 @@ def test_assembles_all_affordable_same_position_transfers_from_manager_state(mon
         [1, 3, 4, 5, 6, 8, 9, 10, 13, 14, 15],
         current_player_metadata(),
     )
+    assert result["provider_source_id"] == "test_verified_fixture_provider"
+    assert result["provider"]["name"] == "FPL Cat"
+    assert result["source_snapshot_ids"] == [f"immutable-gw{gw}" for gw in range(12, 17)]
     assert result["horizon_gameweeks"] == [12, 13, 14, 15, 16]
     assert result["manager_state"]["squad_ids"] == list(range(1, 16))
     assert result["candidate_count"] > 0
