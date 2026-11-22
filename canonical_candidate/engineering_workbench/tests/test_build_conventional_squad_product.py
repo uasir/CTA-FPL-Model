@@ -211,6 +211,27 @@ def test_m4_fails_closed_when_multi_gameweek_manager_metadata_is_missing():
     with pytest.raises(ConventionalSquadProductError, match="requires source manager_context"):
         build_personal_squad_product(run)
 
+
+@pytest.mark.parametrize("mutation, message", [
+    (("provider", "version", "other-version"), "provider identity must match"),
+    (("decision_as_of_utc", None, "2026-11-20T09:59:00Z"), "exact decision as-of time"),
+])
+def test_m4_rejects_multi_gameweek_bundle_not_aligned_to_personal_snapshot(mutation, message):
+    run = _run()
+    run["manager_context"] = _multi_gameweek_manager_context()
+    run["current_player_metadata"] = _multi_gameweek_current_metadata()
+    run["player_metadata_provenance"]["row_count"] = len(run["current_player_metadata"])
+    payload = _aligned_multi_gameweek_payload(run)
+    key, nested, value = mutation
+    if nested is None:
+        payload[key] = value
+    else:
+        payload[key][nested] = value
+    run["multi_gameweek_forecast_payload"] = payload
+    with pytest.raises(ConventionalSquadProductError, match=message):
+        build_personal_squad_product(run)
+
+
 def test_m4_rejects_invalid_multi_gameweek_diagnostic_input():
     run = _run()
     request = _multi_gameweek_request()
