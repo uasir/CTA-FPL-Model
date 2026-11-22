@@ -18,7 +18,9 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 
-from feature_availability import (\n    FPL_NATIVE_MODE, mask_unavailable_features, unavailable_feature_names,\n)
+from feature_availability import (
+    FPL_NATIVE_MODE, mask_unavailable_features, unavailable_feature_names,
+)
 
 POSITIONS = ("GKP", "DEF", "MID", "FWD")
 
@@ -143,7 +145,8 @@ def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
         "feature_source_mode": feature_source_mode,
         "masked_unavailable_feature_count": len(masked_features),
         "masked_unavailable_features": masked_features,
-        "feature_order_sha256": hashlib.sha256("\n".join(features).encode()).hexdigest(),
+        "feature_order_sha256": hashlib.sha256("
+".join(features).encode()).hexdigest(),
         "training_source": str(source_path),
         "training_source_sha256": sha256(source_path),
         "training_label_source": "observed historical FPL points in the verified feature frame; no Dastan points predictions or heads",
@@ -158,7 +161,8 @@ def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
         "production_eligible": False,
     }
     report_path = output_dir / "cta_points_model_manifest.json"
-    report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    report_path.write_text(json.dumps(report, indent=2) + "
+", encoding="utf-8")
     return report
 
 
@@ -170,7 +174,10 @@ def main() -> int:
     args = parser.parse_args()
     frame = pd.read_parquet(args.training_frame)
     schema = json.loads(args.schema.read_text(encoding="utf-8"))
-    report = train_models(\n        frame, schema["feature_order"], args.model_dir, args.training_frame,\n        json.loads(args.source_report.read_text(encoding="utf-8"))["feature_source_mode"],\n    )
+    report = train_models(
+        frame, schema["feature_order"], args.model_dir, args.training_frame,
+        json.loads(args.source_report.read_text(encoding="utf-8"))["feature_source_mode"],
+    )
     print(json.dumps(report, indent=2))
     return 0
 
