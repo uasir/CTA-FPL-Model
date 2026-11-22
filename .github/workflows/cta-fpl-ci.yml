@@ -47,8 +47,8 @@ jobs:
       - name: Run canonical Python feature-core tests
         working-directory: canonical_candidate
         run: python -m unittest discover -s tests -v
-      - name: Install pytest
-        run: python -m pip install pytest
+      - name: Install engineering test dependencies
+        run: python -m pip install -r canonical_candidate/engineering_workbench/requirements_dastan_forecast.txt
       - name: Run engineering tests
         working-directory: canonical_candidate/engineering_workbench
         env:
