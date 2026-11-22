@@ -18,7 +18,7 @@ def fixture():
         "p10": "FWD", "p11": "FWD",
         "p12": "GK", "p13": "DEF", "p14": "MID", "p15": "FWD",
     }
-    players = [{"player_id": pid, "position": positions[pid]} for pid in ids]
+    players = [{"player_id": pid, "position": positions[pid], "expected_points": 2.0, "expected_minutes": 90.0} for pid in ids]
     candidate = {
         "portfolio_id": "candidate",
         "portfolio_role": "CANDIDATE",
@@ -80,6 +80,7 @@ def research_fixture():
         "complete_historical_gameweeks": [10, 11],
         "probability_calibrated": False,
         "marginal_expected_points_preserved": True,
+        "minutes_mean_preserved": True,
         "residual_bootstrap_payload_sha256": "a" * 64,
     })
     for scenario, gw in zip(doc["scenarios"], (10, 11)):
