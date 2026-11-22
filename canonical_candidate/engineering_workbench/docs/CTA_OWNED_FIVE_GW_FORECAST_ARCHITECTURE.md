@@ -66,19 +66,22 @@ validates player-fixture identity, position, all 286 numeric features, finite va
 and duplicate keys, then emits the ordered input matrix. It is deliberately
 **schema-only**: it does not load model weights or claim to predict minutes.
 
-A material upstream ambiguity was identified and is now a blocking integration
-item: `docs/FEATURES.md` says missing feature values are `-1`, while
-`dastan/predictor.py` currently calls `.fillna(0.0)` before inference. CTA's
-adapter therefore rejects missing values rather than silently choosing either
-convention. Resolve this against the exact training/rebuild pipeline before
-connecting the released classifiers.
+Missing-value handling has now been traced across the upstream loader, trainer,
+and predictor. `dastan/data.py` fills absent pre-deadline snapshot fields with
+`-1.0`; `dastan/model.py` fills remaining NaNs with `0.0` when building training
+matrices; and `dastan/predictor.py` applies the same NaN-to-zero operation at
+inference. Thus the documented `-1` sentinel and executable `0.0` fill apply at
+different stages and are not contradictory. CTA must reproduce the source-specific
+sentinel stage before applying the model's residual NaN fill. The current strict
+adapter remains fail-closed until that two-stage policy is implemented and tested.
 
 Remaining adapter prerequisites:
 - Reproduce all feature families, including OpenFPL rolling player/team/opponent
   values, availability-history features, and defensive-contribution features.
 - Audit the 2026-27 player-to-Understat mapping and quantify unsupported players.
-- Confirm feature missingness and scaling semantics against the model's training
-  frame and exact artifact version.
+- Implement and test the two-stage missing-value policy: `-1.0` for absent
+  pre-deadline snapshot artefacts, then `0.0` for residual NaNs as in training
+  and inference.
 - Import only the four `p60_{GKP,DEF,MID,FWD}` heads and minutes calibration,
   with hashes and upstream licence notice; do not load Dastan points heads.
 
