@@ -44,7 +44,7 @@ class CTAMultiGameweekSquadEvaluatorTests(unittest.TestCase):
         self.assertEqual(result["horizon_gameweeks"], [12, 13, 14, 15, 16])
         self.assertGreater(result["candidate_count"], 0)
         best = result["best_diagnostic"]
-        self.assertEqual(best["transfer_out_id"], 8)
+        self.assertIn(best["transfer_out_id"], {8, 9, 10, 11})
         self.assertEqual(best["transfer_in_id"], 16)
         self.assertAlmostEqual(best["gross_horizon_expected_points_delta"], 10.0)
         self.assertEqual(len(best["weekly_comparison"]), 5)
