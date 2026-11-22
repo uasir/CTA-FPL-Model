@@ -132,7 +132,9 @@ def test_blank_gameweek_zero_requires_confirmed_no_club_fixture():
         "fixture_id": 999, "gameweek": 12,
         "home_team_id": 30, "away_team_id": 40, "kickoff_time": "2026-11-27T15:00:00Z",
     }]
-    source["panels"][0]["snapshot"]["records"] = []
+    source["panels"][0]["snapshot"]["records"] = [
+        {"fpl_element_id": 999, "fixture_id": 999, "expected_points": 2.0, "expected_minutes": 90}
+    ]
     result = build_multi_gameweek_forecast_bundle(source)
     blank = [row for row in result["forecast_coverage"]["blank_gameweeks_inferred_from_schedule"]
              if row["gameweek"] == 12]
