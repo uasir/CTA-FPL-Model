@@ -133,6 +133,11 @@ def test_cta_runner_emits_both_products_with_correct_forecast_horizons(monkeypat
     assert personal["decision"]["action"] == "NOT_DECISION_ELIGIBLE"
     assert personal["decision"]["decision_eligibility"]["status"] == "BLOCKED_PENDING_INDEPENDENT_MULTI_GAMEWEEK_VALIDATION"
     assert personal["release_eligible"] is False
+    squad_diagnostic = personal["multi_gameweek_squad_diagnostic"]
+    assert squad_diagnostic["forecast_snapshot_id"] == result["target"]["forecast_snapshot_id"]
+    assert squad_diagnostic["forecast_snapshot_id"] == result["general_cta_market"]["forecast_snapshot_id"]
+    assert squad_diagnostic["model_version"] == result["general_cta_market"]["model_version"]
+    assert squad_diagnostic["horizon_gameweeks"] == result["target"]["gameweeks"]
     assert result["guardrails"]["personal_squad_emitted"] is True
     assert result["guardrails"]["personal_squad_used_first_gameweek_panel"] is True
     assert result["guardrails"]["five_gameweek_total_used_as_single_gameweek_ev"] is False
