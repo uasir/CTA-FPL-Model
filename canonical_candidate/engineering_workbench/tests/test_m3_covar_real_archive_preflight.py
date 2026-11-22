@@ -36,7 +36,7 @@ def write_fixture(root: Path, *, available_at: str = "2026-11-21T08:00:15Z"):
         "source_archives": [
             {
                 "source_type": "provider_forecast",
-                "source_url": "https://provider.example/xp",
+                "source_url": "https://fplcat.com/api/v1/projections",
                 "raw_snapshot_id": "sha256:" + hashlib.sha256(raw_provider).hexdigest(),
                 "captured_at_utc": "2026-11-20T20:14:42Z",
                 "raw_payload_base64": base64.b64encode(raw_provider).decode(),
@@ -44,7 +44,7 @@ def write_fixture(root: Path, *, available_at: str = "2026-11-21T08:00:15Z"):
             },
             {
                 "source_type": "player_metadata",
-                "source_url": "https://fpl.example/bootstrap",
+                "source_url": "https://fantasy.premierleague.com/api/bootstrap-static/",
                 "raw_snapshot_id": "sha256:" + hashlib.sha256(raw_metadata).hexdigest(),
                 "captured_at_utc": "2026-11-20T20:14:42Z",
                 "raw_payload_base64": base64.b64encode(raw_metadata).decode(),
