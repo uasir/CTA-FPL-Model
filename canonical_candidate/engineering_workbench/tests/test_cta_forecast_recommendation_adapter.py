@@ -164,6 +164,7 @@ def test_adapter_builds_candidate_only_shared_forecast_and_five_gameweek_panels(
     assert len(result["provider_snapshot"]["gameweek_panels"]) == 5
     assert [panel["gameweek"] for panel in result["provider_snapshot"]["gameweek_panels"]] == GAMEWEEKS
     assert len(result["provider_snapshot"]["gameweek_panels"][0]["player_forecasts"]) == 2
+    assert result["provider_snapshot"]["gameweek_panels"][0]["player_forecasts"][0]["price"] == 5.5
     assert result["recommendation_products"]["cta_informed_personal_squad"]["enabled"] is False
     assert result["recommendation_products"]["general_cta_player_rankings"]["squad_independent"] is True
     assert result["guardrails"]["recommendations_emitted"] is False
