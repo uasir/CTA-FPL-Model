@@ -99,11 +99,11 @@ for CTA's historical training frame; CTA no longer reconstructs those historical
 training features or re-downloads/rebuilds the historical fplcache snapshots.
 
 The imported model contract is retained in the forecast bundle with its original
-manifest and hashes. In line with the earlier model-role decision, the four Dastan
-p60 heads and minutes calibration are used for minutes inference; the Dastan points
-heads are imported and preserved as upstream artifacts but are not loaded into CTA's
-primary points model. CTA's own points model is trained from the imported published
-feature frame.
+manifest and hashes. The four Dastan p60 heads and minutes calibration are used for minutes inference.
+The complete Dastan points heads are also run as a separate, independently sourced
+benchmark forecast and retained in the output bundle. They are not substituted into
+CTA's primary points model or fed into CTA recommendations. CTA's own points model is
+trained from the imported published feature frame.
 
 **Important boundary:** the published feature frame is an engineered training
 dataset, not the complete raw player/team match archive needed to calculate new
