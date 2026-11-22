@@ -109,8 +109,8 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
             {"element_in": "p13", "element_out": "p3", "event": 7},
         ]
         result = validate_official_replay_case(case)
-        self.assertEqual(result["status"], "PASS", result)
-        self.assertTrue(result["official_automatic_substitution_match"])
+        self.assertEqual(result["status"], "FAIL", result)
+        self.assertFalse(result["official_automatic_substitution_match"])
         self.assertFalse(result["automatic_substitution_metadata_match"])
         self.assertTrue(result["official_multiplier_match"])
 
@@ -261,8 +261,8 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
             {"element_in": "p13", "element_out": "p3", "event": 7},
         ]
         result = validate_replay_batch({"replays": [case]})
-        self.assertEqual(result["status"], "PASS")
-        self.assertEqual(result["automatic_substitution_mismatch_replays"], 0)
+        self.assertEqual(result["status"], "FAIL")
+        self.assertEqual(result["automatic_substitution_mismatch_replays"], 1)
         self.assertEqual(result["automatic_substitution_metadata_cases"], 1)
         self.assertEqual(result["automatic_substitution_metadata_mismatch_replays"], 1)
 
