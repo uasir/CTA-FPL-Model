@@ -1,21 +1,28 @@
 #!/usr/bin/env python3
-"""Build the first M4 user-facing product from an M3 personal-squad run.
+"""Build an M4 personal-squad product from a source-labelled forecast run.
 
-This adapter publishes only the conventional expected-points decision. Optional
-field-relative and CoVar research context is deliberately excluded.
+The M4 squad decision contract is forecast-source independent: conventional
+benchmarks and the future CTA-FPL model must produce the same personal-squad
+run shape. This adapter publishes the conventional product only.
 """
 from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
 class ConventionalSquadProductError(ValueError):
-    """Raised when an M3 run cannot safely back the conventional product."""
+    """Raised when a forecast run cannot safely back the conventional product."""
+
+SUPPORTED_RUN_TYPES = {
+    "EXTERNAL_BENCHMARK_PERSONAL_SQUAD",
+    "CTA_MODEL_PERSONAL_SQUAD",
+}
 
 def build_conventional_squad_product(run: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(run, Mapping):
-        raise ConventionalSquadProductError("M3 run must be an object")
-    if run.get("run_type") != "EXTERNAL_BENCHMARK_PERSONAL_SQUAD":
-        raise ConventionalSquadProductError("source run is not an external-benchmark personal-squad run")
+        raise ConventionalSquadProductError("forecast run must be an object")
+    run_type = run.get("run_type")
+    if run_type not in SUPPORTED_RUN_TYPES:
+        raise ConventionalSquadProductError("source run type is not supported by the M4 squad contract")
     recommendation = run.get("recommendation")
     if not isinstance(recommendation, Mapping) or recommendation.get("system") != "personal_squad":
         raise ConventionalSquadProductError("source run has no personal-squad recommendation")
@@ -41,7 +48,7 @@ def build_conventional_squad_product(run: Mapping[str, Any]) -> dict[str, Any]:
         raise ConventionalSquadProductError("provider identity is required")
     blockers = list(run.get("release_blockers") or [])
     if run.get("release_eligible") is not True:
-        blockers = blockers or ["M3 source run is not release-eligible."]
+        blockers = blockers or ["Forecast source run is not release-eligible."]
     return {
         "product_contract_version": "1.0.0",
         "product_id": "conventional_personal_squad",
@@ -53,7 +60,8 @@ def build_conventional_squad_product(run: Mapping[str, Any]) -> dict[str, Any]:
         "forecast": {"snapshot_id": recommendation["forecast_snapshot_id"],
                      "model_version": recommendation["model_version"],
                      "horizon_gameweeks": recommendation.get("forecast_horizon_gameweeks"),
-                     "quality": recommendation["forecast_quality"], "provider": dict(provider)},
+                     "quality": recommendation["forecast_quality"], "provider": dict(provider),
+                     "source_run_type": run_type},
         "manager_state": {"bank": manager.get("bank"), "free_transfers": manager.get("free_transfers"),
                           "risk_profile_recorded": manager.get("personal_risk_profile")},
         "decision": {
