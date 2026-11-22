@@ -669,10 +669,11 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
 
     historical_seasons = historical_source_seasons(list(dastan_data.SEASONS), season)
     seasons = historical_seasons + [season]
-    # Install CTA's bounded concurrent fallback BEFORE invoking Dastan's
-    # downloader. Otherwise its first completeness pass calls the upstream
-    # serial, unbounded-timeout implementation and can stall source acquisition.
-    sources._fetch_understat_fallbacks = parallel_understat_fallbacks
+    # Keep the deliberate two-phase strategy: Dastan's first pass downloads
+    # pinned historical files and only fills missing team seasons. Player API
+    # fallbacks are deferred until all season-specific pinned player histories
+    # have been merged, avoiding unnecessary per-player API requests.
+    sources._fetch_understat_fallbacks = defer_player_fallbacks
     print(
         f"Downloading pinned Dastan historical inputs for {historical_seasons}; "
         f"live season {season} will be refreshed separately",
