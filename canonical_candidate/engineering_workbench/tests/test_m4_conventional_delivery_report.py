@@ -65,10 +65,16 @@ def replay_evidence_for(output):
     payload = base64.b64encode(b"frozen-provider-source").decode("ascii")
     source_time = "2026-11-20T09:59:00Z"
     generated_time = "2026-11-20T09:30:00Z"
+    raw_sha = hashlib.sha256(base64.b64decode(payload)).hexdigest()
+    raw_snapshot_id = f"sha256:{raw_sha}"
+    source_url = "https://fplcat.com/api/v1/projections"
     candidate["source_archives"] = [{
         "captured_at_utc": source_time,
         "generated_at_utc": generated_time,
         "raw_payload_base64": payload,
+        "raw_sha256": raw_sha,
+        "raw_snapshot_id": raw_snapshot_id,
+        "source_url": source_url,
     }]
     evidence_state = {
         "bank": candidate_state["bank"],
@@ -103,6 +109,9 @@ def replay_evidence_for(output):
                 "captured_at_utc": source_time,
                 "generated_at_utc": generated_time,
                 "raw_payload_base64": payload,
+                "raw_sha256": raw_sha,
+                "raw_snapshot_id": raw_snapshot_id,
+                "source_url": source_url,
             }],
         }
     }
