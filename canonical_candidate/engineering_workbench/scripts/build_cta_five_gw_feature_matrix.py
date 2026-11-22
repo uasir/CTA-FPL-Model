@@ -218,6 +218,39 @@ def anchor_team_features_to_deadline(target: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def anchor_player_features_to_deadline(target: pd.DataFrame, features: list[str]) -> pd.DataFrame:
+    """Give every same-GW fixture for a player the same pre-deadline player history.
+
+    Dastan's rolling builder shifts rows, so a player with two target fixtures in
+    one GW can otherwise have the earlier dummy target row enter the later row's
+    player rolling features. Anchor player-history and availability families to
+    that player's earliest target row. Keep date/opponent-dependent ar_* features
+    fixture-specific.
+    """
+    out = target.copy()
+    dynamic_ar = {"ar_rest_days", "ar_team_matches_14d"}
+    anchored = [
+        feature for feature in features
+        if feature.startswith(("player_", "p_any_", "p60_", "e_minutes_"))
+        or (
+            feature.startswith("ar_")
+            and feature not in dynamic_ar
+            and not feature.startswith("ar_opp_")
+        )
+    ]
+    if not anchored or "fpl_code" not in out:
+        return out
+    ordered = out.sort_values(
+        ["kickoff_time", "fixture"], kind="mergesort"
+    ).drop_duplicates("fpl_code", keep="first").set_index("fpl_code")
+    for index, row in out.iterrows():
+        code = row["fpl_code"]
+        for feature in anchored:
+            if feature in out.columns:
+                out.at[index, feature] = ordered.at[code, feature]
+    return out
+
+
 def validate_bootstrap_snapshot(bootstrap: dict, first_gameweek: int, deadline: pd.Timestamp) -> dict:
     metadata = bootstrap.get("_cta_snapshot")
     if not isinstance(metadata, dict):
@@ -323,6 +356,7 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
             & pd.to_numeric(built["fixture"], errors="coerce").isin(fixture_ids)
         ].copy()
         target = anchor_team_features_to_deadline(target)
+        target = anchor_player_features_to_deadline(target, features)
         target = add_live_snapshot_features(target, bootstrap, first_gw)
         metadata = gw_players[[
             "season", "gameweek", "fixture", "fpl_code", "element", "position",
