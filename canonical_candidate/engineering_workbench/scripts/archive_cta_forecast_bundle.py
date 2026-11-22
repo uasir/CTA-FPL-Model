@@ -72,7 +72,7 @@ def archive_bundle(bundle_dir: Path, archive_root: Path, *, run_id: str,
     destination.mkdir(parents=True, exist_ok=False)
     zip_path = destination / "forecast_bundle.zip"
     file_hashes = {}
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
         for name in ARCHIVE_FILES:
             path = bundle_dir / name
             file_hashes[name] = {"sha256": sha256(path), "size_bytes": path.stat().st_size}
