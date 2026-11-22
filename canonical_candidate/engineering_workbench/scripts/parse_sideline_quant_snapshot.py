@@ -15,6 +15,10 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from canonical_provider_forecast_contract import normalize_provider_snapshot
+from provider_capability_registry import (
+    ProviderCapabilityError,
+    validate_capture_against_registry,
+)
 
 
 class SidelineQuantParseError(ValueError):
@@ -161,6 +165,14 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
         },
     }
     canonical = normalize_provider_snapshot(snapshot)
+    try:
+        validate_capture_against_registry(
+            "sideline_quant_public_next_gw", canonical
+        )
+    except ProviderCapabilityError as exc:
+        raise SidelineQuantParseError(
+            f"provider capability registry rejected capture: {exc}"
+        ) from exc
 
     # The publisher explicitly defines player-GW xP as the sum of fixture xP.
     # This is an explicit derived view; native fixture rows remain authoritative.
@@ -192,6 +204,7 @@ def parse_sideline_quant_capture(capture: Mapping[str, Any]) -> dict[str, Any]:
         canonical, gameweek_rows
     )
     return {
+        "provider_source_id": "sideline_quant_public_next_gw",
         "canonical_snapshot": canonical,
         "player_gameweek_snapshot": player_gameweek_snapshot,
         "provider_native_rows": native_rows,
