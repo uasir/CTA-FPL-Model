@@ -125,3 +125,10 @@ A first isolated evaluator prototype now exists at `scripts/multi_gameweek_trans
 - Fails closed on incomplete/non-consecutive horizons.
 
 This is an **isolated exploratory prototype**, not yet wired into `personal_squad_engine.py`, the provider forecast adapter, M4 delivery, or the live recommendation workflow. It does not yet optimize future lineups/captaincy, model transfer sequences or future transfer flexibility, or estimate joint outcome distributions. The existing one-Gameweek live recommendation behavior therefore remains unchanged and does not satisfy this policy. Integration is blocked until an approved provider supplies genuine point-in-time forecasts for each future Gameweek (or an explicitly validated multi-Gameweek forecast source is available). The prototype's tests have been added but have not yet been observed passing in CI.
+
+
+### Prototype verification update — 2026-11-22 08:27 UTC
+
+The PR #74 branch CI completed successfully on commit `11316ab252d76907e3f1326acb7a2c60ffa4d00f`: **863 Python engineering tests and 3 subtests passed**, alongside the JavaScript recommendation contract tests and canonical Python feature-core tests. The new evaluator tests are included in that run. This verifies the isolated prototype and its regression tests; it does not establish live multi-Gameweek provider coverage or integration into the production recommendation path.
+
+[CI run 45002894747](https://github.com/uasir/CTA-FPL-Model/actions/runs/45002894747)
