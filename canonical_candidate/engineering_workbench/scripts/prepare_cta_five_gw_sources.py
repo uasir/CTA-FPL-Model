@@ -527,7 +527,7 @@ def download_and_merge_pinned_understat_player_histories(
     """
     wanted_ids = sources._needed_understat_ids(raw_dir, seasons)
     season_set = set(seasons)
-    pattern = re.compile(r"^data/(20\\d\\d-\\d\\d)/understat/.+_(\\d+)\\.csv$")
+    pattern = re.compile(r"^data/(20\d\d-\d\d)/understat/.+_(\d+)\.csv$")
     selected: dict[int, list[tuple[str, str]]] = {}
     for source_path in sources._tree(raw_dir, force=False):
         match = pattern.match(source_path)
