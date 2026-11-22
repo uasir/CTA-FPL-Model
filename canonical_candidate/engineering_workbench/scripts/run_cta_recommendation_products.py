@@ -75,6 +75,20 @@ def run_cta_recommendation_products(
     if coverage.get("covar_used") is not False:
         raise CTARecommendationRunError("CTA recommendation previews cannot consume CoVar")
 
+    gameweeks = provider_snapshot.get("gameweeks")
+    panels = provider_snapshot.get("gameweek_panels")
+    if not isinstance(gameweeks, list) or len(gameweeks) != 5:
+        raise CTARecommendationRunError("CTA provider snapshot must declare five target Gameweeks")
+    if not isinstance(panels, list) or len(panels) != 5:
+        raise CTARecommendationRunError("CTA provider snapshot must contain five Gameweek panels")
+    panel_gameweeks = [
+        panel.get("gameweek") if isinstance(panel, Mapping) else None
+        for panel in panels
+    ]
+    if panel_gameweeks != gameweeks:
+        raise CTARecommendationRunError("CTA Gameweek panels must match the declared ordered five-GW horizon")
+    target_gw = gameweeks[0]
+
     # Squad-independent product: five-GW cumulative forecast totals, no manager data.
     general_request = {
         "forecast_snapshot_id": shared["forecast_snapshot_id"],
@@ -90,7 +104,7 @@ def run_cta_recommendation_products(
     # specific Gameweek. Build separate one-GW market views for weekly choices.
     general["categories"].pop("captaincy", None)
     gameweek_markets = []
-    for panel in provider_snapshot.get("gameweek_panels", []):
+    for panel in panels:
         if not isinstance(panel, Mapping) or not isinstance(panel.get("player_forecasts"), list):
             raise CTARecommendationRunError("CTA provider snapshot contains a malformed Gameweek panel")
         weekly_request = {
@@ -113,19 +127,10 @@ def run_cta_recommendation_products(
         "reason": "General CTA rankings do not require or infer manager-specific context.",
     }
     personal_used_first_panel = False
-    target_gw = None
-    gameweeks = provider_snapshot.get("gameweeks")
-    if not isinstance(gameweeks, list) or len(gameweeks) != 5:
-        raise CTARecommendationRunError("CTA provider snapshot must declare five target Gameweeks")
-    target_gw = gameweeks[0]
-
     # Personal product is optional and isolated: first GW only, never the 5-GW total.
     if manager_context is not None:
         if not isinstance(manager_context, Mapping):
             raise CTARecommendationRunError("manager_context must be an object")
-        panels = provider_snapshot.get("gameweek_panels")
-        if not isinstance(panels, list) or len(panels) != 5:
-            raise CTARecommendationRunError("CTA provider snapshot must contain five Gameweek panels")
         target_panel = next(
             (panel for panel in panels if isinstance(panel, Mapping) and panel.get("gameweek") == target_gw),
             None,
