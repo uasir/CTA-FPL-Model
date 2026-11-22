@@ -128,7 +128,7 @@ def _validate_portfolio(
 
 
 def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, Any]:
-    """Validate one complete synthetic full-Gameweek scenario document."""
+    """Validate one complete synthetic or research-only residual full-Gameweek document."""
     if not isinstance(document, Mapping):
         raise CovarFullGameweekContractError("document must be an object")
     if document.get("schema_version") != CONTRACT_VERSION:
