@@ -14,19 +14,19 @@ on:
       gameweek:
         description: Target gameweek
         required: true
-        default: "11"
+        default: "12"
       expected_bank:
-        description: Expected manager bank in £m for cross-check
+        description: Current manager bank in £m; required for pre-deadline fallback and official-picks cross-check
         required: true
-        default: "0.9"
       free_transfers:
-        description: Confirmed free transfers available for GW11
+        description: Confirmed free transfers available for the target Gameweek
         required: true
-        default: "1"
       starting_xi_ids:
-        description: Manager-confirmed fixed starting XI element IDs (comma-separated)
+        description: Manager-confirmed baseline starting XI element IDs for the target Gameweek (comma-separated)
         required: true
-        default: "110,31,8,115,229,154,124,426,166,79,411"
+      expected_element_ids:
+        description: Manager-confirmed current 15-player squad FPL element IDs for the target Gameweek (comma-separated)
+        required: true
 
 permissions:
   contents: read
@@ -71,7 +71,7 @@ jobs:
             --allow-user-confirmed-fallback \
             --formation "4-3-3" \
             --starting-xi-ids "${{ inputs.starting_xi_ids }}" \
-            --expected-element-ids "110,497,31,8,115,229,282,154,124,426,183,524,166,79,411" \
+            --expected-element-ids "${{ inputs.expected_element_ids }}" \
             --output "artifacts/fplcat/manager-context-${{ inputs.gameweek }}-${{ github.run_id }}.json"
 
       - name: Assemble the benchmark-backed decision input
