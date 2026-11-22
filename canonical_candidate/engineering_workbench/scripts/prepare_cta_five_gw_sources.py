@@ -638,6 +638,110 @@ def historical_source_seasons(training_seasons: list[str], active_season: str) -
     return historical
 
 
+
+def copy_verified_dastan_release(dastan_root: Path, training_dir: Path) -> dict:
+    """Import Dastan's published training/snapshot artifacts instead of rebuilding them."""
+    release_dir = dastan_root / "data"
+    manifest_path = release_dir / "release_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    required = (
+        "features.parquet",
+        "pre_deadline_ep_next.parquet",
+        "pre_deadline_signals.parquet",
+    )
+    copied = {}
+    training_dir.mkdir(parents=True, exist_ok=True)
+    for relative in required:
+        source = release_dir / relative
+        expected = manifest.get("files", {}).get(relative)
+        if not source.is_file() or not isinstance(expected, dict):
+            raise RuntimeError(f"Dastan release artifact is missing: {relative}")
+        actual_hash = sha256(source)
+        if actual_hash != expected.get("sha256"):
+            raise RuntimeError(
+                f"Dastan release hash mismatch for {relative}: "
+                f"{actual_hash} != {expected.get('sha256')}"
+            )
+        destination = training_dir / relative
+        shutil.copy2(source, destination)
+        copied[relative] = {
+            "path": str(destination),
+            "sha256": sha256(destination),
+            "bytes": destination.stat().st_size,
+            "rows": expected.get("rows"),
+            "columns": expected.get("columns"),
+        }
+    return {
+        "release_manifest_sha256": sha256(manifest_path),
+        "release_manifest_path": str(manifest_path),
+        "source_commit": "758db9247e8b3a9a870c991064f74d8339d61cd0",
+        "artifacts": copied,
+    }
+
+
+def import_dastan_release(dastan_root: Path, training_dir: Path) -> tuple[pd.DataFrame, dict]:
+    """Verify and load the published Dastan frame and point-in-time snapshot tables."""
+    sys.path.insert(0, str(dastan_root))
+    from dastan import data as dastan_data
+    from dastan import datasets as dastan_datasets
+
+    dastan_datasets.verify_release()
+    imported = copy_verified_dastan_release(dastan_root, training_dir)
+    safety = apply_historical_snapshot_safety_buffer(training_dir, minutes=5)
+    frame = dastan_data.load(check_rows=True, data_dir=training_dir)
+    output = training_dir / "features_with_snapshots.parquet"
+    frame.to_parquet(output, index=False)
+    report = {
+        "status": "PASS_IMPORTED_DASTAN_RELEASE",
+        **imported,
+        "training_rows": len(frame),
+        "training_columns": len(frame.columns),
+        "feature_count": len(dastan_data.shipped_features(frame)),
+        "snapshot_safety_buffer": safety,
+        "training_frame": {
+            "path": str(output),
+            "sha256": sha256(output),
+            "bytes": output.stat().st_size,
+        },
+        "reconstruction_performed": False,
+    }
+    (training_dir / "dastan_release_import_report.json").write_text(
+        json.dumps(report, indent=2) + "\\n", encoding="utf-8"
+    )
+    return frame, report
+
+
+def load_dastan_release_player_history(dastan_root: Path, seasons: list[str]) -> pd.DataFrame:
+    """Reuse published player-match rows, including their already imported Understat stats."""
+    frame = pd.read_parquet(dastan_root / "data" / "features.parquet")
+    required = {
+        "season", "gameweek", "fixture", "fpl_code", "element", "position",
+        "team_name", "opponent_team_name", "us_opponent", "kickoff_time",
+        "minutes", "total_points", "is_home", "understat_id",
+    }
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise RuntimeError(
+            f"Dastan released feature frame cannot serve as player-match history; "
+            f"missing columns: {missing}"
+        )
+    frame = frame[frame["season"].astype(str).isin(set(seasons))].copy()
+    if frame.empty:
+        raise RuntimeError("Dastan released feature frame has no registered training seasons")
+    if frame.duplicated(["season", "gameweek", "fixture", "fpl_code"]).any():
+        raise RuntimeError("Dastan released player-match history has duplicate keys")
+    return frame
+
+
+def build_release_player_lookup(frame: pd.DataFrame, current_lookup: pd.DataFrame) -> pd.DataFrame:
+    columns = ["season", "fpl_code", "element", "player_name", "position"]
+    historical = frame[columns].drop_duplicates(["season", "fpl_code"])
+    current = current_lookup[columns].drop_duplicates(["season", "fpl_code"])
+    return pd.concat([historical, current], ignore_index=True).drop_duplicates(
+        ["season", "fpl_code"], keep="last"
+    ).sort_values(["season", "player_name", "fpl_code"], kind="mergesort").reset_index(drop=True)
+
+
 def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: str,
             workers: int = 10) -> dict:
     sys.path.insert(0, str(dastan_root))
