@@ -18,7 +18,7 @@ def fixture():
         "p10": "FWD", "p11": "FWD",
         "p12": "GK", "p13": "DEF", "p14": "MID", "p15": "FWD",
     }
-    players = [{"player_id": pid, "position": positions[pid]} for pid in ids]
+    players = [{"player_id": pid, "position": positions[pid], "expected_points": 2.0, "expected_minutes": 90.0} for pid in ids]
     candidate = {
         "portfolio_id": "candidate",
         "portfolio_role": "CANDIDATE",
@@ -65,8 +65,82 @@ def fixture():
         "portfolios": [candidate, field],
     }
 
+def research_fixture():
+    doc = fixture()
+    doc["data_status"] = "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY"
+    doc["production_eligible"] = False
+    doc["decision_weight"] = 0.0
+    doc["covar_used"] = False
+    doc["metadata"].update({
+        "forecast_snapshot_id": "m3-gw12-snapshot",
+        "model_version": "fplcat-v2",
+        "training_cutoff_utc": "2026-11-27T17:00:00Z",
+        "scenario_probability_method": "EQUAL_WEIGHT_EMPIRICAL_COMPLETE_GAMEWEEK_BLOCKS",
+        "played_status_method": "POSITIVE_MINUTES_PROXY_CARD_ONLY_UNOBSERVED",
+        "complete_historical_gameweeks": [10, 11],
+        "probability_calibrated": False,
+        "marginal_expected_points_preserved": True,
+        "minutes_mean_preserved": True,
+        "residual_bootstrap_payload_sha256": "a" * 64,
+    })
+    for scenario, gw in zip(doc["scenarios"], (10, 11)):
+        scenario["source_gameweek"] = gw
+        scenario["probability"] = 0.5
+    return doc
+
+
+
 
 class TestM4CovarFullGameweekContract(unittest.TestCase):
+    def test_accepts_research_residual_blocks_with_explicit_provenance_and_equal_weights(self):
+        doc = research_fixture()
+        result = validate_full_gameweek_document(doc)
+        self.assertEqual(result["validation_status"], "VALID_RESEARCH_RESIDUAL_BLOCK_FULL_GAMEWEEK_INPUT")
+        self.assertFalse(result["production_eligible"])
+        self.assertEqual(result["decision_weight"], 0.0)
+        self.assertFalse(result["covar_used"])
+
+    def test_rejects_calibrated_or_enabled_research_residual_scenarios(self):
+        doc = research_fixture()
+        doc["metadata"]["probability_calibrated"] = True
+        with self.assertRaisesRegex(CovarFullGameweekContractError, "uncalibrated"):
+            validate_full_gameweek_document(doc)
+        doc = research_fixture()
+        doc["covar_used"] = True
+        with self.assertRaisesRegex(CovarFullGameweekContractError, "covar_used=false"):
+            validate_full_gameweek_document(doc)
+
+    def test_rejects_unequal_or_incomplete_residual_gameweek_blocks(self):
+        doc = research_fixture()
+        doc["scenarios"][0]["probability"] = 0.4
+        doc["scenarios"][1]["probability"] = 0.6
+        with self.assertRaisesRegex(CovarFullGameweekContractError, "equal empirical weights"):
+            validate_full_gameweek_document(doc)
+        doc = research_fixture()
+        doc["scenarios"][1]["source_gameweek"] = 10
+        with self.assertRaisesRegex(CovarFullGameweekContractError, "unique"):
+            validate_full_gameweek_document(doc)
+
+    def test_rejects_residual_scenarios_that_shift_target_marginal_means(self):
+        doc = research_fixture()
+        for scenario in doc["scenarios"]:
+            for outcome in scenario["player_outcomes"]:
+                outcome["fpl_points"] += 1.0
+        with self.assertRaisesRegex(CovarFullGameweekContractError, "do not preserve target expected-points mean"):
+            validate_full_gameweek_document(doc)
+        doc = research_fixture()
+        for scenario in doc["scenarios"]:
+            for outcome in scenario["player_outcomes"]:
+                outcome["minutes"] = 80.0
+        with self.assertRaisesRegex(CovarFullGameweekContractError, "do not preserve target expected-minutes mean"):
+            validate_full_gameweek_document(doc)
+
+    def test_rejects_training_cutoff_after_forecast_as_of(self):
+        doc = research_fixture()
+        doc["metadata"]["training_cutoff_utc"] = "2026-11-27T19:00:00Z"
+        with self.assertRaisesRegex(CovarFullGameweekContractError, "cannot follow"):
+            validate_full_gameweek_document(doc)
+
     def test_accepts_complete_full_gameweek_document_and_defaults_to_regular_mode(self):
         result = validate_full_gameweek_document(fixture())
         self.assertEqual(result["mode"], "REGULAR_GW")
@@ -93,7 +167,7 @@ class TestM4CovarFullGameweekContract(unittest.TestCase):
             validate_full_gameweek_document(doc)
         doc = fixture()
         doc["data_status"] = "LIVE"
-        with self.assertRaisesRegex(CovarFullGameweekContractError, "SYNTHETIC_FULL_GAMEWEEK_ONLY"):
+        with self.assertRaisesRegex(CovarFullGameweekContractError, "data_status"):
             validate_full_gameweek_document(doc)
 
     def test_rejects_missing_player_outcome(self):

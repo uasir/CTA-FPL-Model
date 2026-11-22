@@ -2,7 +2,18 @@
 
 ## Status
 
-Design gate for the next M4 engineering increment. This document does not claim that full-Gameweek FPL scoring or automatic substitutions are implemented. The existing CoVar scorer remains a synthetic fixture-slice research prototype.
+Design gate for the next M4 engineering increment. The full-Gameweek contract, lineup resolver and portfolio scorer are implemented. In addition to the synthetic fixture, the contract now admits a narrowly defined **research-only empirical residual-block input** produced from matched conventional M3 forecast/outcome Gameweek vectors. This is not a calibrated joint fixture-state forecast and does not authorize production CoVar use.
+
+### Research residual-block path (2026-11-22)
+
+- The producer binds to an exact manager-free M3 conventional forecast snapshot and model version.
+- It samples complete historical Gameweek residual vectors only for the exact candidate/field portfolio player union. Missing player rows exclude the entire historical Gameweek block; they are never zero-filled.
+- It preserves target player expected-points means, carries paired minutes residuals, clipped to the 0–270 aggregate Gameweek range and explicit positive-minutes played flags (zero-minute card-only appearances are not observable in the aggregate panel), and retains source Gameweek IDs and observed outcome-availability timestamps.
+- The full-Gameweek builder verifies the residual payload SHA-256 and binds the scenario set to the requested season/Gameweek and private field adaptation.
+- The contract requires exact source Gameweek coverage, equal empirical weights, an explicit training cutoff, and uncalibrated probability status.
+- The lineup scorer can now evaluate candidate and anonymized field portfolios against the same residual scenarios, including automatic substitutions and captain/bench rules.
+
+This path remains a research baseline only: probability_calibrated=false, decision_weight=0, production_eligible=false, and covar_used=false. It is not evidence of forecast skill, and it does not supersede the separate M2/M4 performance gates or the CoVar eligibility gate.
 
 ## Objective
 

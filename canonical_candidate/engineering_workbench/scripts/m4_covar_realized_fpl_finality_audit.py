@@ -136,6 +136,7 @@ def audit_player_gameweek_finality(
         "status": "PASS_EXACT_MATCH" if not mismatches else "FAIL_MISMATCH",
         "finality_reconciled": not mismatches,
         "point_in_time_status": "NOT_VERIFIED_RETROSPECTIVE_FINAL_SCORING_AUDIT",
+        "outcome_available_at_utc": captured.isoformat(),
         "player_gameweek_rows_compared": len(seen),
         "official_event_live_players": len(live_by_id),
         "stat_values_compared": compared,

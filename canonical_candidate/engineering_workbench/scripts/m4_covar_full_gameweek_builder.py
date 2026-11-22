@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Compose private field portfolios, candidate lineups and outcomes into a full-GW document."""
+"""Compose private field portfolios and candidate lineups with synthetic or research residual scenarios."""
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import datetime
 from typing import Any, Mapping, Sequence
 
@@ -41,6 +43,7 @@ def build_full_gameweek_document(
     candidate_portfolios: Sequence[Mapping[str, Any]],
     field_adaptation: Mapping[str, Any] | None = None,
     mode: str = "REGULAR_GW",
+    scenario_provenance: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compose and validate one complete synthetic full-Gameweek input document.
 
@@ -56,6 +59,46 @@ def build_full_gameweek_document(
         raise CovarFullGameweekBuildError("at least one candidate portfolio is required")
     if not isinstance(scenarios, Sequence) or not scenarios:
         raise CovarFullGameweekBuildError("at least one full-Gameweek scenario is required")
+
+    data_status = "SYNTHETIC_FULL_GAMEWEEK_ONLY"
+    research_metadata: dict[str, Any] = {}
+    if scenario_provenance is not None:
+        if not isinstance(scenario_provenance, Mapping):
+            raise CovarFullGameweekBuildError("scenario_provenance must be an object")
+        if scenario_provenance.get("dataset_type") != "M4_COVAR_PLAYER_GAMEWEEK_RESIDUAL_BOOTSTRAP_RESEARCH_ONLY":
+            raise CovarFullGameweekBuildError("unsupported research scenario provenance")
+        if scenario_provenance.get("season") != season or scenario_provenance.get("target_gameweek") != int(target_gameweek):
+            raise CovarFullGameweekBuildError("residual scenario season or Gameweek differs from requested full-Gameweek document")
+        if scenario_provenance.get("probability_calibrated") is not False:
+            raise CovarFullGameweekBuildError("residual bootstrap probabilities must remain uncalibrated")
+        claimed_hash = scenario_provenance.get("payload_sha256")
+        unhashed_payload = {key: value for key, value in scenario_provenance.items() if key != "payload_sha256"}
+        canonical_payload = json.dumps(unhashed_payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+        if not isinstance(claimed_hash, str) or hashlib.sha256(canonical_payload).hexdigest() != claimed_hash:
+            raise CovarFullGameweekBuildError("residual bootstrap payload SHA-256 does not match its content")
+        if scenario_provenance.get("decision_weight") != 0.0 or scenario_provenance.get("production_eligible") is not False or scenario_provenance.get("covar_used") is not False:
+            raise CovarFullGameweekBuildError("residual scenarios must remain research-only and disabled")
+        provenance_scenarios = scenario_provenance.get("scenarios")
+        if not isinstance(provenance_scenarios, list) or list(scenarios) != provenance_scenarios:
+            raise CovarFullGameweekBuildError("scenarios must be the exact residual-bootstrap scenario rows")
+        required = ("forecast_snapshot_id", "model_version", "training_cutoff_utc",
+                    "scenario_probability_method", "complete_historical_gameweeks", "payload_sha256",
+                    "played_status_method", "players")
+        if any(not scenario_provenance.get(key) for key in required):
+            raise CovarFullGameweekBuildError("residual scenario provenance is incomplete")
+        data_status = "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY"
+        research_metadata = {
+            "forecast_snapshot_id": scenario_provenance["forecast_snapshot_id"],
+            "model_version": scenario_provenance["model_version"],
+            "training_cutoff_utc": scenario_provenance["training_cutoff_utc"],
+            "scenario_probability_method": scenario_provenance["scenario_probability_method"],
+            "complete_historical_gameweeks": scenario_provenance["complete_historical_gameweeks"],
+            "played_status_method": scenario_provenance["played_status_method"],
+            "probability_calibrated": False,
+            "marginal_expected_points_preserved": scenario_provenance.get("marginal_expected_points_preserved"),
+            "minutes_mean_preserved": scenario_provenance.get("minutes_mean_preserved"),
+            "residual_bootstrap_payload_sha256": scenario_provenance.get("payload_sha256"),
+        }
 
     portfolios: list[dict[str, Any]] = []
     for source in candidate_portfolios:
@@ -116,9 +159,36 @@ def build_full_gameweek_document(
                 raise CovarFullGameweekBuildError(f"conflicting position metadata for player {pid}")
             players_by_id[pid] = {"player_id": pid, "position": position}
 
+    if data_status == "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY":
+        residual_players = scenario_provenance["players"]
+        if not isinstance(residual_players, list):
+            raise CovarFullGameweekBuildError("residual provenance players must be a list")
+        residual_by_id = {}
+        for player in residual_players:
+            if not isinstance(player, Mapping):
+                raise CovarFullGameweekBuildError("residual provenance player rows must be objects")
+            pid = str(player.get("player_id", "")).strip()
+            if not pid or pid in residual_by_id:
+                raise CovarFullGameweekBuildError("residual provenance player IDs must be unique")
+            residual_by_id[pid] = dict(player)
+        if set(residual_by_id) != set(players_by_id):
+            raise CovarFullGameweekBuildError("residual player universe must equal candidate/field portfolio union")
+        for pid, player in residual_by_id.items():
+            if str(player.get("position", "")).upper() != players_by_id[pid]["position"]:
+                raise CovarFullGameweekBuildError(f"residual position metadata mismatch for player {pid}")
+            for field in ("expected_points", "expected_minutes"):
+                value = player.get(field)
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    raise CovarFullGameweekBuildError(f"residual player {pid} requires numeric {field}")
+                players_by_id[pid][field] = float(value)
+            team_id = player.get("team_id")
+            if isinstance(team_id, bool) or not isinstance(team_id, int) or team_id < 1:
+                raise CovarFullGameweekBuildError(f"residual player {pid} requires valid team_id")
+            players_by_id[pid]["team_id"] = team_id
+
     document = {
         "schema_version": "1.0.0",
-        "data_status": "SYNTHETIC_FULL_GAMEWEEK_ONLY",
+        "data_status": data_status,
         "scenario_scope": "FULL_GAMEWEEK",
         "mode": mode,
         "metadata": {
@@ -134,16 +204,21 @@ def build_full_gameweek_document(
                 field_metadata.get("selected_manager_count") if field_metadata is not None else 0
             ),
             "manager_entry_ids_retained": False,
+            **research_metadata,
         },
         "players": list(players_by_id.values()),
         "scenarios": [dict(row) for row in scenarios],
         "portfolios": portfolios,
+        "production_eligible": False,
+        "decision_weight": 0.0,
+        "covar_used": False,
     }
     try:
-        validate_full_gameweek_document(document)
+        validated = validate_full_gameweek_document(document)
     except (TypeError, ValueError) as exc:
         raise CovarFullGameweekBuildError(f"composed full-Gameweek document failed validation: {exc}") from exc
-    document["validation_status"] = "VALID_SYNTHETIC_FULL_GAMEWEEK_INPUT"
+    document["validation_status"] = validated["validation_status"]
     document["production_eligible"] = False
     document["decision_weight"] = 0.0
+    document["covar_used"] = False
     return document

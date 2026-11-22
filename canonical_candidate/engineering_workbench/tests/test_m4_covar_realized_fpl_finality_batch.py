@@ -67,6 +67,7 @@ class TestRealizedFplFinalityBatch(unittest.TestCase):
             result = run_finality_batch(dataset, captures, output)
             self.assertEqual(result["status"], "PASS_ALL_EVENTS")
             self.assertTrue(result["all_event_finality_reconciled"])
+            self.assertEqual(result["reports"][0]["outcome_available_at_utc"], "2026-11-21T12:00:00+00:00")
             self.assertTrue((output / "finality_batch_report.json").is_file())
 
     def test_accepts_finished_provisional_fixture_when_event_live_reconciles(self):
