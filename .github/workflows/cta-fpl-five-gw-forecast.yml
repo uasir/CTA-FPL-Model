@@ -1,0 +1,160 @@
+name: CTA five-Gameweek forecast pipeline
+
+on:
+  # The expensive forecast build runs once per PR update, not twice for both
+  # the branch push and its pull_request event. Main-branch pushes remain supported.
+  # Do not cancel an in-flight three-hour build when a follow-up commit arrives;
+  # queue the newer run so source acquisition and forecast stages can finish.
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - ".github/workflows/cta-fpl-five-gw-forecast.yml"
+      - "canonical_candidate/engineering_workbench/scripts/**"
+      - "canonical_candidate/engineering_workbench/tests/**"
+      - "canonical_candidate/engineering_workbench/config/dastan_minutes_feature_schema.json"
+      - "canonical_candidate/engineering_workbench/requirements_dastan_forecast.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-five-gw-forecast-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate five-GW pipeline code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout CTA repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: canonical_candidate/engineering_workbench/requirements_dastan_forecast.txt
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install forecast dependencies
+        run: python -m pip install -r canonical_candidate/engineering_workbench/requirements_dastan_forecast.txt
+      - name: Compile pipeline scripts
+        run: python -m compileall -q canonical_candidate/engineering_workbench/scripts
+      - name: Run forecast pipeline tests
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python -m pytest \
+            tests/test_audit_vaastav_fixture_archive.py \
+            tests/test_normalize_vaastav_fpl_archive.py \
+            tests/test_dastan_minutes_input.py \
+            tests/test_dastan_player_mapping.py \
+            tests/test_verify_source_pins.py \
+            tests/test_cta_five_gw_feature_matrix.py \
+            tests/test_dastan_minutes_inference.py \
+            tests/test_dastan_full_model_inference.py \
+            tests/test_prepare_cta_five_gw_sources.py \
+            tests/test_understat_apish_provider.py \
+            tests/test_validate_cta_forecast_bundle.py -q
+      - name: Run JavaScript tests
+        working-directory: canonical_candidate/engineering_workbench
+        run: node --test tests/js/*.test.mjs
+
+  build-five-gw-forecast:
+    name: Build current five-GW candidate forecast
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'pull_request' && github.head_ref == 'feat/cta-owned-five-gw-forecast-foundation')
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout CTA repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: canonical_candidate/engineering_workbench/requirements_dastan_forecast.txt
+      - name: Install forecast dependencies
+        run: python -m pip install -r canonical_candidate/engineering_workbench/requirements_dastan_forecast.txt
+      - name: Restore pinned raw-source cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/cta-fpl-raw
+          key: cta-fpl-raw-vaastav-d7b05b51d137bfefef4b692386d18c610975b9b9-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767
+      - name: Clone pinned Dastan reconstruction and minutes artifacts
+        run: |
+          mkdir -p .cache
+          git clone https://github.com/qazybekb/smartplayfpl-dastan.git .cache/dastan
+          git -C .cache/dastan checkout 758db9247e8b3a9a870c991064f74d8339d61cd0
+      - name: Import Dastan release; acquire current and historical feature inputs
+        env:
+          APISH_KEY: ${{ secrets.APISH_KEY }}
+          APISH_MONTHLY_CREDIT_BUDGET: "900"
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/prepare_cta_five_gw_sources.py \
+            --dastan-root .cache/dastan \
+            --raw-dir .cache/cta-fpl-raw \
+            --output-dir outputs/cta-five-gw
+      - name: Save raw-source cache after acquisition
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/cta-fpl-raw
+          key: cta-fpl-raw-vaastav-d7b05b51d137bfefef4b692386d18c610975b9b9-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767
+      - name: Build deadline-safe fixture feature matrix
+        run: |
+          GAMEWEEKS=$(python -c "import json; print(','.join(map(str, json.load(open('outputs/cta-five-gw/target_gameweeks.json'))['gameweeks'])))")
+          python canonical_candidate/engineering_workbench/scripts/build_cta_five_gw_feature_matrix.py \
+            --dastan-root .cache/dastan \
+            --canonical-player-matches outputs/cta-five-gw/canonical_player_matches.parquet \
+            --canonical-team-matches outputs/cta-five-gw/canonical_team_matches.parquet \
+            --player-mapping outputs/cta-five-gw/safe_current_player_mapping.csv \
+            --bootstrap outputs/cta-five-gw/snapshots/bootstrap-static.json \
+            --fixtures outputs/cta-five-gw/snapshots/fixtures.json \
+            --schema canonical_candidate/engineering_workbench/config/dastan_minutes_feature_schema.json \
+            --output outputs/cta-five-gw/feature_matrix.csv \
+            --report outputs/cta-five-gw/feature_matrix_report.json \
+            --target-gameweeks "$GAMEWEEKS"
+      - name: Predict expected minutes with Dastan p60 heads only
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/run_dastan_minutes_inference.py \
+            --input outputs/cta-five-gw/feature_matrix.csv \
+            --schema canonical_candidate/engineering_workbench/config/dastan_minutes_feature_schema.json \
+            --model-dir outputs/cta-five-gw/dastan_model \
+            --manifest outputs/cta-five-gw/dastan_model/artifact_manifest.json \
+            --output outputs/cta-five-gw/minutes_predictions.csv \
+            --report outputs/cta-five-gw/minutes_report.json
+      - name: Train CTA-owned candidate points models
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/train_cta_points_model.py \
+            --training-frame outputs/cta-five-gw/training/features_with_snapshots.parquet \
+            --schema canonical_candidate/engineering_workbench/config/dastan_minutes_feature_schema.json \
+            --model-dir outputs/cta-five-gw/models
+      - name: Score fixture-level, player-GW and five-GW forecasts
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/score_cta_five_gw_forecasts.py \
+            --feature-matrix outputs/cta-five-gw/feature_matrix.csv \
+            --minutes-predictions outputs/cta-five-gw/minutes_predictions.csv \
+            --schema canonical_candidate/engineering_workbench/config/dastan_minutes_feature_schema.json \
+            --source-report outputs/cta-five-gw/source_preparation_report.json \
+            --feature-report outputs/cta-five-gw/feature_matrix_report.json \
+            --minutes-report outputs/cta-five-gw/minutes_report.json \
+            --model-dir outputs/cta-five-gw/models \
+            --output-dir outputs/cta-five-gw/forecasts
+      - name: Validate snapshot and aggregate forecast contract
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/validate_cta_forecast_bundle.py \
+            --forecast-dir outputs/cta-five-gw/forecasts \
+            --output outputs/cta-five-gw/forecasts/bundle_validation_report.json
+      - name: Upload complete forecast and provenance bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-five-gw-candidate-forecast
+          path: outputs/cta-five-gw
+          if-no-files-found: error
+          retention-days: 30
