@@ -39,7 +39,7 @@ def audit_archive(
     season: str,
 ) -> dict:
     required_fixture = {"id", "event", "finished", "team_h", "team_a", "kickoff_time"}
-    required_player = {"fixture", "round", "element", "team", "opponent_team", "was_home", "minutes"}
+    required_player = {"fixture", "round", "element", "team", "opponent_team", "was_home", "minutes", "kickoff_time"}
     if not fixtures or not teams:
         raise ValueError("fixtures and teams must contain data")
     for label, rows, required in (
@@ -98,11 +98,19 @@ def audit_archive(
         fixture = fixture_by_id[fixture_id]
         home_id, away_id = fixture["team_h"].strip(), fixture["team_a"].strip()
         home_name, away_name = team_names[home_id], team_names[away_id]
-        events = {str(row.get("round", "")).strip() for row in rows}
-        kickoffs = {str(row.get("kickoff_time", "")).strip() for row in rows}
-        if events != {str(fixture.get("event", "")).strip()}:
+        events = {int(float(str(row.get("round", "")).strip())) for row in rows}
+        fixture_event = int(float(str(fixture.get("event", "")).strip()))
+        if events != {fixture_event}:
             errors.append(f"fixture {fixture_id}: player round values {sorted(events)} disagree with fixture event")
-        if kickoffs != {str(fixture.get("kickoff_time", "")).strip()}:
+        def normalized_kickoff(value):
+            from datetime import datetime, timezone
+            parsed = datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc).isoformat()
+        kickoffs = {normalized_kickoff(row.get("kickoff_time", "")) for row in rows}
+        scheduled_kickoff = normalized_kickoff(fixture.get("kickoff_time", ""))
+        if kickoffs != {scheduled_kickoff}:
             errors.append(f"fixture {fixture_id}: player kickoff values disagree with fixture schedule")
 
         sides = set()
