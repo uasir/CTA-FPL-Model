@@ -753,6 +753,11 @@ def import_dastan_release(dastan_root: Path, training_dir: Path) -> tuple[pd.Dat
     imported = copy_verified_dastan_release(dastan_root, training_dir)
     model_contract = copy_verified_dastan_model_contract(dastan_root, training_dir.parent)
     safety = apply_historical_snapshot_safety_buffer(training_dir, minutes=5)
+    for name in ("pre_deadline_ep_next.parquet", "pre_deadline_signals.parquet"):
+        imported["artifacts"][name]["post_safety_buffer_sha256"] = sha256(training_dir / name)
+        imported["artifacts"][name]["post_safety_buffer_rows"] = safety[
+            name.removesuffix(".parquet")
+        ]["rows_retained"]
     frame = dastan_data.load(check_rows=True, data_dir=training_dir)
     output = training_dir / "features_with_snapshots.parquet"
     frame.to_parquet(output, index=False)
