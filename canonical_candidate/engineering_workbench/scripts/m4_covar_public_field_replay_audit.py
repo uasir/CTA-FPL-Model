@@ -55,7 +55,7 @@ def sample_public_entries(
     page_payloads: Mapping[int, Mapping[str, Any]],
     *,
     rank_pages: Sequence[int],
-    sample_positions: Sequence[int] = (4, 24, 44),
+    sample_positions: Sequence[int] = (0, 5, 10, 15, 20, 25, 30, 35, 40, 45),
 ) -> list[dict[str, int]]:
     """Select deterministic public entries from separated Overall-league pages."""
     if not rank_pages or len(set(rank_pages)) != len(rank_pages):
@@ -286,7 +286,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--events", required=True)
     parser.add_argument("--rank-pages", default="1,200,2000,20000,100000")
-    parser.add_argument("--sample-positions", default="4,24,44")
+    parser.add_argument("--sample-positions", default="0,5,10,15,20,25,30,35,40,45")
     parser.add_argument("--min-replays", type=int, default=25)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
