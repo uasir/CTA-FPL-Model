@@ -383,7 +383,10 @@ def understat_players_needing_refresh(
     refresh = set()
     for value in player_ids:
         player_id = int(value)
-        expected_dates = expected.get(player_id, set())
+        expected_dates = {
+            pd.Timestamp(value).date() for value in expected.get(player_id, set())
+            if pd.notna(pd.to_datetime(value, errors="coerce"))
+        }
         if not expected_dates:
             continue
         json_path = json_root / f"{player_id}.json"
@@ -709,6 +712,16 @@ def import_dastan_release(dastan_root: Path, training_dir: Path) -> tuple[pd.Dat
         json.dumps(report, indent=2) + "\n", encoding="utf-8"
     )
     return frame, report
+
+
+def historical_source_seasons(training_seasons: list[str], active_season: str) -> list[str]:
+    """Return the registered historical seasons without the live season."""
+    historical = list(dict.fromkeys(str(value) for value in training_seasons))
+    if active_season in historical:
+        raise ValueError(f"Active season {active_season} overlaps historical training seasons")
+    if not historical:
+        raise ValueError("Dastan training season list is empty")
+    return historical
 
 
 def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: str,
