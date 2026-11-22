@@ -165,3 +165,19 @@ def test_opponent_history_is_anchored_to_predeadline_state_across_dgw_fixtures()
         frame, ["ar_opp_dc_allowed_3"]
     )
     assert result["ar_opp_dc_allowed_3"].tolist() == [4.0, 4.0, 7.0]
+
+
+def test_unavailable_understat_features_are_zeroed_at_inference():
+    from feature_availability import mask_unavailable_features
+
+    features = ["player_xg_1", "player_fpl_points_1", "team_xg_5"]
+    frame = pd.DataFrame([{
+        "player_xg_1": 0.8,
+        "player_fpl_points_1": 6.0,
+        "team_xg_5": 1.7,
+    }])
+    masked, unavailable = mask_unavailable_features(frame, features)
+    assert masked.loc[0, "player_xg_1"] == 0.0
+    assert masked.loc[0, "team_xg_5"] == 0.0
+    assert masked.loc[0, "player_fpl_points_1"] == 6.0
+    assert unavailable == ["player_xg_1", "team_xg_5"]
