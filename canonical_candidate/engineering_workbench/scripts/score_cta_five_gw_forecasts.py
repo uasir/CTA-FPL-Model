@@ -141,9 +141,12 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
     fixture_out.to_csv(fixture_path, index=False, lineterminator="\n")
     gw_out.to_csv(gw_path, index=False, lineterminator="\n")
     horizon_out.to_csv(horizon_path, index=False, lineterminator="\n")
-    gameweeks = sorted(pd.to_numeric(merged["gameweek"], errors="raise").astype(int).unique().tolist())
+    observed_gameweeks = sorted(pd.to_numeric(merged["gameweek"], errors="raise").astype(int).unique().tolist())
+    gameweeks = [int(value) for value in feature_report.get("target_gameweeks", [])]
     if len(gameweeks) != 5 or gameweeks != list(range(gameweeks[0], gameweeks[0] + 5)):
-        raise ValueError(f"Expected five consecutive target gameweeks, got {gameweeks}")
+        raise ValueError(f"Feature report does not declare five consecutive target gameweeks: {gameweeks}")
+    if not set(observed_gameweeks).issubset(set(gameweeks)):
+        raise ValueError(f"Forecast rows contain gameweeks outside the declared horizon: {observed_gameweeks}")
     if merged["season"].astype(str).nunique() != 1:
         raise ValueError("Forecast matrix contains more than one season")
     report = {
