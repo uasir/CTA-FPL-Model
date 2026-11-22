@@ -202,15 +202,16 @@ class TestM4CovarLineupResolver(unittest.TestCase):
         with self.assertRaisesRegex(CovarLineupResolutionError, "legal FPL formation"):
             resolve_fpl_lineup(**data)
 
-    def test_rejects_nonfinite_or_out_of_range_minutes(self):
+    def test_rejects_nonfinite_minutes_and_accepts_double_gameweek_totals(self):
         minutes = lineup()["player_minutes"]
         minutes["p2"] = float("nan")
         with self.assertRaisesRegex(CovarLineupResolutionError, "finite"):
             resolve(player_minutes=minutes)
         minutes = lineup()["player_minutes"]
-        minutes["p2"] = 121
-        with self.assertRaisesRegex(CovarLineupResolutionError, "cannot exceed 120"):
-            resolve(player_minutes=minutes)
+        minutes["p2"] = 165
+        result = resolve(player_minutes=minutes)
+        self.assertTrue(result["production_eligible"] is False)
+        self.assertEqual(result["resolved_starting_xi"][1], "p2")
 
 
 if __name__ == "__main__":
