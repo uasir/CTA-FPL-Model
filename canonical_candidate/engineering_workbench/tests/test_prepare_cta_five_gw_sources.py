@@ -6,6 +6,7 @@ from prepare_cta_five_gw_sources import (
     active_season_understat_refresh_ids,
     apply_historical_snapshot_safety_buffer,
     copy_verified_dastan_release,
+    copy_verified_dastan_model_contract,
     download_and_merge_pinned_understat_player_histories,
     load_dastan_release_player_history,
     player_elements,
@@ -338,3 +339,30 @@ def test_active_understat_refresh_only_selects_players_with_minutes_and_without_
         tmp_path, ["2026-27"], {101, 202, 303}, FakeSources,
     )
     assert selected == {101}
+
+
+def test_copy_verified_dastan_model_contract_imports_all_40_files(tmp_path: Path):
+    import hashlib
+    import json
+
+    model_source = tmp_path / "dastan" / "models"
+    model_source.mkdir(parents=True)
+    files = {}
+    for index in range(40):
+        name = f"contract_{index:02d}.json"
+        payload = f"artifact-{index}".encode()
+        (model_source / name).write_bytes(payload)
+        files[name] = {
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "bytes": len(payload),
+        }
+    (model_source / "artifact_manifest.json").write_text(
+        json.dumps({"public_version": "1.1.0", "files": files}),
+        encoding="utf-8",
+    )
+
+    report = copy_verified_dastan_model_contract(tmp_path / "dastan", tmp_path / "outputs")
+    assert report["artifact_count"] == 40
+    assert report["model_version"] == "1.1.0"
+    for name in files:
+        assert (tmp_path / "outputs" / "dastan_model" / name).is_file()
