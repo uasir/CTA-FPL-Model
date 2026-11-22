@@ -69,10 +69,9 @@ jobs:
           test "${#manager[@]}" -eq 1
           echo "conventional_run=$PWD/${conventional[0]}" >> "$GITHUB_OUTPUT"
           echo "manager_capture=$PWD/${manager[0]}" >> "$GITHUB_OUTPUT"
-          python - <<'PY'
-          import json
+          CONVENTIONAL="${conventional[0]}" MANAGER_CAPTURE="${manager[0]}" python - <<'PY'
+          import json, os
           from pathlib import Path
-          import os
           run = json.loads(Path(os.environ["CONVENTIONAL"]).read_text())
           capture = json.loads(Path(os.environ["MANAGER_CAPTURE"]).read_text())
           assert run.get("run_type") == "EXTERNAL_BENCHMARK_PERSONAL_SQUAD"
@@ -80,9 +79,6 @@ jobs:
           assert capture.get("manager_context_capture", {}).get("row_count") == 15
           print("Paired M3 recommendation and verified manager capture found.")
           PY
-        env:
-          CONVENTIONAL: ${{ steps.inputs.outputs.conventional_run }}
-          MANAGER_CAPTURE: ${{ steps.inputs.outputs.manager_capture }}
 
       - name: Run paired CTA personal and general products from the shared forecast
         run: |
