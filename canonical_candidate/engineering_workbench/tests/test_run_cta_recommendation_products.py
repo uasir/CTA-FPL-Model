@@ -273,6 +273,7 @@ def _m3_manager_capture(manager_context=None, gameweek=12):
         "manager_context_capture": {
             "team_id": 421025,
             "gameweek": gameweek,
+            "captured_at_utc": "2026-11-22T21:00:00Z",
             "identity_verified": True,
             "row_count": 15,
             "raw_sha256": "b" * 64,
@@ -390,4 +391,49 @@ def test_real_m3_schema_rejects_coverage_source_deadline_disagreement(monkeypatc
             "/unused-bundle",
             conventional_run=conventional,
             manager_context_capture=_m3_manager_capture(),
+        )
+
+
+
+def test_cta_personal_product_consumes_shared_manager_capture_without_conventional_output(monkeypatch):
+    adapted = _adapter_result()
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(adapted),
+    )
+    capture = _m3_manager_capture()
+    result = runner.run_cta_recommendation_products(
+        "/unused-bundle", manager_context_capture=capture,
+    )
+    personal = result["cta_informed_personal_squad"]
+    assert personal["product_id"] == "cta_informed_personal_squad"
+    assert personal["manager_state"]["bank"] == capture["manager_context"]["bank"]
+    assert personal["manager_state"]["free_transfers"] == capture["manager_context"]["free_transfers"]
+    diagnostic = personal["multi_gameweek_squad_diagnostic"]
+    assert diagnostic["forecast_snapshot_id"] == result["general_cta_market"]["forecast_snapshot_id"]
+    assert diagnostic["model_version"] == result["general_cta_market"]["model_version"]
+    assert diagnostic["horizon_gameweeks"] == result["target"]["gameweeks"]
+
+
+def test_cta_shared_manager_capture_rejects_wrong_target_gameweek(monkeypatch):
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(_adapter_result()),
+    )
+    with pytest.raises(runner.CTARecommendationRunError, match="capture Gameweek"):
+        runner.run_cta_recommendation_products(
+            "/unused-bundle", manager_context_capture=_m3_manager_capture(gameweek=11),
+        )
+
+
+def test_cta_shared_manager_capture_rejects_post_deadline_capture(monkeypatch):
+    monkeypatch.setattr(
+        runner, "build_cta_forecast_provider_snapshot",
+        lambda *args, **kwargs: copy.deepcopy(_adapter_result()),
+    )
+    capture = _m3_manager_capture()
+    capture["manager_context_capture"]["captured_at_utc"] = "2026-11-28T00:00:00Z"
+    with pytest.raises(runner.CTARecommendationRunError, match="not captured before"):
+        runner.run_cta_recommendation_products(
+            "/unused-bundle", manager_context_capture=capture,
         )
