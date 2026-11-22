@@ -105,6 +105,10 @@ def build_residual_bootstrap_scenarios(
         if source_type not in {"provider_forecast", "player_metadata"} or source_type in source_types:
             raise ResidualBootstrapError("target requires unique provider_forecast and player_metadata archives")
         source_types.add(source_type)
+        if not isinstance(source.get("source_url"), str) or not source["source_url"].strip():
+            raise ResidualBootstrapError(f"{source_type} source_url is required")
+        if not isinstance(source.get("raw_snapshot_id"), str) or not source["raw_snapshot_id"].strip():
+            raise ResidualBootstrapError(f"{source_type} raw_snapshot_id is required")
         captured = _time(source.get("captured_at_utc"), f"{source_type}.captured_at_utc")
         if captured > as_of:
             raise ResidualBootstrapError(f"{source_type} source was captured after target as-of")
@@ -119,9 +123,15 @@ def build_residual_bootstrap_scenarios(
         if digest != source.get("raw_sha256"):
             raise ResidualBootstrapError(f"{source_type} source SHA-256 mismatch")
         if source_type == "provider_forecast":
-            generated = _time(source.get("generated_at_utc"), "provider_forecast.generated_at_utc")
-            if generated > as_of:
-                raise ResidualBootstrapError("provider forecast was generated after target as-of")
+            try:
+                raw_provider = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ResidualBootstrapError("provider forecast raw source must be valid JSON") from exc
+            generated_value = raw_provider.get("computed_at") if isinstance(raw_provider, Mapping) else None
+            if generated_value not in (None, ""):
+                generated = _time(generated_value, "provider_forecast computed_at")
+                if generated > as_of:
+                    raise ResidualBootstrapError("provider forecast was generated after target as-of")
     if source_types != {"provider_forecast", "player_metadata"}:
         raise ResidualBootstrapError("provider_forecast and player_metadata source archives are required")
 
