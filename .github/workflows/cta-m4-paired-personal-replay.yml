@@ -127,7 +127,7 @@ jobs:
               team_id = int(element.get("team", 0) or 0)
               pos = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}.get(int(element.get("element_type", 0) or 0), "—")
               return {
-                  "name": mapping.get("player_name") or element.get("web_name") or f"Player {pid}",
+                  "name": " ".join(x for x in [element.get("first_name"), element.get("second_name")] if x) or mapping.get("player_name") or element.get("web_name") or f"Player {pid}",
                   "team": teams.get(team_id, mapping.get("team_name", "—")),
                   "position": pos,
                   "current_price": float(element.get("now_cost", 0)) / 10,
@@ -241,9 +241,10 @@ jobs:
               "decision_weight": 0,
               "production_eligible": False,
               "covar_used": False,
-              "manager_specific_report_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
-              "manager_specific_report_published": True,
+              "manager_specific_source_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+              "manager_specific_report_published": False,
               "visible_recommendation_report_sha256": hashlib.sha256(report.read_bytes()).hexdigest(),
+              "visible_recommendation_report_published": True,
           }
           if not manifest["shared_forecast_identity_verified"]:
               raise SystemExit("CTA personal and general products do not share exact forecast identity")
