@@ -63,6 +63,26 @@ python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_
 
 Optional post-lock EO can be supplied using `--eo-snapshot`. The manager context and full personal recommendation output are private manager data: do not publish them as public workflow artifacts. General CTA rankings do not depend on manager context.
 
+## Real-data replay evidence
+
+The real CTA-owned forecast archive was replayed through the recommendation runner without manager context:
+
+- Forecast source run: `45059662965` (successful).
+- Forecast artifact: `cta-five-gw-candidate-forecast`, GitHub artifact ID `14769361745`.
+- Forecast snapshot: `ee6ad9f5a78c958a4851f573d95a212479982196c608333ae92c9f45a22ce181`.
+- Season/horizon: 2026-27, GW12-GW16.
+- Forecast universe: 674 players.
+- Recommendation replay run: `45070408218` (successful).
+- Recommendation artifact: `cta-general-recommendation-preview-gw12-16`, GitHub artifact ID `14773081160`.
+
+The replay produced:
+- A five-Gameweek cumulative overall ranking and value ranking.
+- Five separate one-Gameweek general-market rankings, each with its own captaincy shortlist.
+- No squad-specific output because no manager context was supplied.
+- No EO input and no CoVar input.
+
+This is a real-data integration/replay pass, not forecast-performance validation. The output remains `EXPLORATORY_ONLY`, with zero decision weight and `production_eligible=false`, because M2 validation and independent M4 outcome evaluation remain pending.
+
 ## Tests
 
 - Adapter tests verify the candidate-only bundle, five-GW horizon, stable FPL identity mapping, provenance, optional EO rules, season consistency and exact cumulative-to-panel reconciliation.
