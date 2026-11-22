@@ -19,6 +19,10 @@ from build_conventional_squad_product import build_personal_squad_product
 from cta_forecast_recommendation_adapter import build_cta_forecast_provider_snapshot
 from general_market_engine import recommend_general_market
 from personal_squad_engine import recommend_personal_squad
+from cta_multi_gameweek_squad_evaluator import (
+    CTAMultiGameweekSquadError,
+    evaluate_cta_five_gameweek_squad,
+)
 
 
 class CTARecommendationRunError(ValueError):
@@ -49,52 +53,52 @@ def _personal_request(shared: Mapping[str, Any], panel: Mapping[str, Any],
     }
 
 
-def manager_context_from_conventional_run(
-    conventional_run: Mapping[str, Any],
+
+def manager_context_from_capture(
+    manager_context_capture: Mapping[str, Any],
     *,
-    expected_season: str,
     expected_gameweek: int,
     expected_deadline_utc: str,
 ) -> dict[str, Any]:
-    """Reuse the exact manager state from the conventional run for paired CTA comparison."""
-    if not isinstance(conventional_run, Mapping):
-        raise CTARecommendationRunError("conventional_run must be an object")
-    if conventional_run.get("run_type") != "EXTERNAL_BENCHMARK_PERSONAL_SQUAD":
-        raise CTARecommendationRunError("conventional_run must be an M3 conventional personal-squad run")
-    source = conventional_run.get("source_provenance")
-    if not isinstance(source, Mapping):
-        raise CTARecommendationRunError("conventional_run source_provenance is missing")
-    if source.get("season") != expected_season:
-        raise CTARecommendationRunError("conventional run season does not match CTA forecast season")
-    if source.get("target_gameweek") != expected_gameweek:
-        raise CTARecommendationRunError("conventional run target Gameweek does not match CTA forecast")
+    """Load the shared manager-state input directly, without consuming M3 output.
+
+    The manager capture is the common input contract for conventional and CTA
+    products. It is independently validated against the CTA target horizon.
+    """
+    if not isinstance(manager_context_capture, Mapping):
+        raise CTARecommendationRunError("manager_context_capture must be an object")
+    capture_meta = manager_context_capture.get("manager_context_capture")
+    manager = manager_context_capture.get("manager_context")
+    if not isinstance(capture_meta, Mapping) or not isinstance(manager, Mapping):
+        raise CTARecommendationRunError("manager_context_capture must contain capture metadata and manager_context")
+    if capture_meta.get("gameweek") != expected_gameweek:
+        raise CTARecommendationRunError("manager-context capture Gameweek does not match CTA forecast")
+    if capture_meta.get("identity_verified") is not True or capture_meta.get("row_count") != 15:
+        raise CTARecommendationRunError("manager-context capture does not verify the complete 15-player squad")
+    captured_at = capture_meta.get("captured_at_utc")
+    if not captured_at:
+        raise CTARecommendationRunError("manager-context capture timestamp is missing")
     try:
-        conventional_deadline = datetime.fromisoformat(
-            str(source.get("deadline_utc")).replace("Z", "+00:00")
-        )
-        cta_deadline = datetime.fromisoformat(
-            str(expected_deadline_utc).replace("Z", "+00:00")
-        )
+        captured_dt = datetime.fromisoformat(str(captured_at).replace("Z", "+00:00"))
+        deadline_dt = datetime.fromisoformat(str(expected_deadline_utc).replace("Z", "+00:00"))
     except ValueError as exc:
-        raise CTARecommendationRunError("conventional/CTA deadlines must be ISO-8601") from exc
-    if (conventional_deadline.tzinfo is None or cta_deadline.tzinfo is None
-            or conventional_deadline.astimezone(timezone.utc) != cta_deadline.astimezone(timezone.utc)):
-        raise CTARecommendationRunError("conventional run deadline does not match CTA forecast deadline")
-    manager = conventional_run.get("manager_context")
-    if not isinstance(manager, Mapping):
-        raise CTARecommendationRunError("conventional run manager_context is missing")
-    required = ("squad_snapshot", "bank", "free_transfers", "personal_risk_profile")
-    missing = [field for field in required if field not in manager]
+        raise CTARecommendationRunError("manager capture timestamp and CTA deadline must be ISO-8601") from exc
+    if captured_dt.tzinfo is None or deadline_dt.tzinfo is None:
+        raise CTARecommendationRunError("manager capture timestamp and CTA deadline must include timezone")
+    if captured_dt.astimezone(timezone.utc) >= deadline_dt.astimezone(timezone.utc):
+        raise CTARecommendationRunError("manager-context capture was not captured before the target deadline")
+    squad = manager.get("squad_snapshot")
+    if not isinstance(squad, list) or len(squad) != 15:
+        raise CTARecommendationRunError("manager-context capture must contain exactly 15 squad_snapshot rows")
+    required = ("bank", "free_transfers", "personal_risk_profile")
+    missing = [field for field in required if field not in manager or manager[field] is None]
     if missing:
-        raise CTARecommendationRunError("conventional manager_context is missing: " + ", ".join(missing))
-    recommendation = conventional_run.get("recommendation")
-    embedded = recommendation.get("manager_context") if isinstance(recommendation, Mapping) else None
-    if isinstance(embedded, Mapping):
-        for field in required:
-            if field in embedded and embedded[field] != manager[field]:
-                raise CTARecommendationRunError(
-                    f"conventional run manager context disagrees with its recommendation for {field}"
-                )
+        raise CTARecommendationRunError("manager-context capture is missing: " + ", ".join(missing))
+    xi = manager.get("starting_xi")
+    if not isinstance(xi, list) or len(xi) != 11 or not set(xi).issubset({
+        row.get("fpl_element_id") for row in squad if isinstance(row, Mapping)
+    }):
+        raise CTARecommendationRunError("manager-context capture must contain an 11-player starting_xi from its 15-player squad")
     return dict(manager)
 
 
@@ -102,7 +106,7 @@ def run_cta_recommendation_products(
     bundle_dir: str | Path,
     manager_context: Mapping[str, Any] | None = None,
     *,
-    conventional_run: Mapping[str, Any] | None = None,
+    manager_context_capture: Mapping[str, Any] | None = None,
     eo_snapshot: Mapping[str, Any] | None = None,
     now_utc: str | None = None,
 ) -> dict[str, Any]:
@@ -139,13 +143,12 @@ def run_cta_recommendation_products(
     if panel_gameweeks != gameweeks:
         raise CTARecommendationRunError("CTA Gameweek panels must match the declared ordered five-GW horizon")
     target_gw = gameweeks[0]
-    if manager_context is not None and conventional_run is not None:
-        raise CTARecommendationRunError("supply either manager_context or conventional_run, not both")
-    if conventional_run is not None:
-        timing = provider_snapshot.get("timing", {})
-        manager_context = manager_context_from_conventional_run(
-            conventional_run,
-            expected_season=str(provider_snapshot.get("season")),
+    if manager_context is not None and manager_context_capture is not None:
+        raise CTARecommendationRunError("supply one independent manager-state source")
+    timing = provider_snapshot.get("timing", {})
+    if manager_context_capture is not None:
+        manager_context = manager_context_from_capture(
+            manager_context_capture,
             expected_gameweek=target_gw,
             expected_deadline_utc=str(timing.get("deadline_utc")),
         )
@@ -235,6 +238,26 @@ def run_cta_recommendation_products(
             ],
         }
         result_personal = build_personal_squad_product(product_run)
+        # Multi-Gameweek CTA squad comparison uses all five weekly panels.
+        # It is deliberately separate from the one-GW lineup/captaincy preview.
+        try:
+            result_personal["multi_gameweek_squad_diagnostic"] = (
+                evaluate_cta_five_gameweek_squad(
+                    panels,
+                    manager_context,
+                    starting_xi_ids=list(manager_context.get("starting_xi") or personal_recommendation["current_squad_plan"]["starting_xi"]),
+                    forecast_snapshot_id=shared["forecast_snapshot_id"],
+                    model_version=shared["model_version"],
+                )
+            )
+        except CTAMultiGameweekSquadError as exc:
+            result_personal["multi_gameweek_squad_diagnostic"] = {
+                "status": "BLOCKED_REQUIRED_MANAGER_OR_FORECAST_INPUT",
+                "reason": str(exc),
+                "decision_weight": 0.0,
+                "production_eligible": False,
+                "covar_used": False,
+            }
         personal_used_first_panel = True
 
     return {
@@ -268,8 +291,8 @@ def main() -> int:
     manager_group = parser.add_mutually_exclusive_group()
     manager_group.add_argument("--manager-context", type=Path)
     manager_group.add_argument(
-        "--conventional-run", type=Path,
-        help="reuse the exact manager state from a same-GW conventional M3 run",
+        "--manager-context-capture", type=Path,
+        help="independent shared manager-state capture JSON; CTA does not consume conventional recommendation output",
     )
     parser.add_argument("--eo-snapshot", type=Path)
     parser.add_argument("--now-utc")
@@ -279,15 +302,15 @@ def main() -> int:
         json.loads(args.manager_context.read_text(encoding="utf-8"))
         if args.manager_context else None
     )
-    conventional_run = (
-        json.loads(args.conventional_run.read_text(encoding="utf-8"))
-        if args.conventional_run else None
+    manager_capture = (
+        json.loads(args.manager_context_capture.read_text(encoding="utf-8"))
+        if args.manager_context_capture else None
     )
     eo = None
     if args.eo_snapshot:
         eo = json.loads(args.eo_snapshot.read_text(encoding="utf-8"))
     result = run_cta_recommendation_products(
-        args.bundle_dir, manager, conventional_run=conventional_run,
+        args.bundle_dir, manager, manager_context_capture=manager_capture,
         eo_snapshot=eo, now_utc=args.now_utc,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -301,7 +324,7 @@ def main() -> int:
         "target_gameweek": result["target"]["target_gameweek"],
         "general_players_ranked": result["general_cta_market"]["coverage"]["filtered_players"],
         "personal_product_id": personal["product_id"],
-        "personal_product_status": personal["status"],
+        "personal_product_status": personal["product_status"],
         "personal_decision_eligibility": (
             personal.get("decision", {}).get("decision_eligibility", {}).get("status")
         ),
