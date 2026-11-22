@@ -182,8 +182,8 @@ def _reconstruct_provider_and_metadata(manifest: Mapping[str, Any],
         "target_gameweek": gw,
         "provider": {
             "name": "FPL Cat",
-            "product": "published xP",
-            "variant": "public next-gameweek JSON API",
+            "product": "projections",
+            "variant": "provider_native_xp",
             "version": "api/v1",
         },
         "timing": {
