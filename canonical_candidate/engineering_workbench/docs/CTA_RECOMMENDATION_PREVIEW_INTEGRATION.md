@@ -8,8 +8,9 @@ Connect the independently trained CTA five-Gameweek candidate forecast to both C
 
 The integration emits two distinct products:
 
-1. `general_cta_market`: squad-independent player rankings over the five-Gameweek cumulative CTA expected-points forecast.
-2. `cta_informed_personal_squad`: an optional squad-specific one-Gameweek diagnostic preview using the first target-Gameweek player forecast panel and an explicit manager squad snapshot.
+1. `general_cta_market`: squad-independent medium-term player rankings over the five-Gameweek cumulative CTA expected-points forecast.
+2. `gameweek_cta_markets`: separate squad-independent one-Gameweek rankings and captaincy shortlists for each target Gameweek.
+3. `cta_informed_personal_squad`: an optional squad-specific one-Gameweek diagnostic preview using the first target-Gameweek player forecast panel and an explicit manager squad snapshot.
 
 ## Data flow
 
@@ -22,7 +23,7 @@ The integration emits two distinct products:
 
 `run_cta_recommendation_products.py` then calls the existing deterministic recommendation engines:
 
-- `general_market_engine.recommend_general_market` receives only the shared forecast fields and filters. No manager/squad state is passed, and it can run without a manager context.
+- `general_market_engine.recommend_general_market` receives only shared forecast fields and filters. The cumulative five-GW ranking omits single-GW captaincy; each weekly panel gets its own one-GW market and captaincy shortlist. No manager/squad state is passed, and these products can run without manager context.
 - `personal_squad_engine.recommend_personal_squad` receives only the first target-Gameweek panel plus an explicit manager context. It does not receive the five-Gameweek aggregate as single-Gameweek expected points.
 - `build_personal_squad_product` wraps the squad-specific preview in the distinct `cta_informed_personal_squad` product contract.
 
@@ -65,4 +66,4 @@ Optional post-lock EO can be supplied using `--eo-snapshot`. The manager context
 ## Tests
 
 - Adapter tests verify the candidate-only bundle, five-GW horizon, stable FPL identity mapping, provenance, optional EO rules, season consistency and exact cumulative-to-panel reconciliation.
-- Runner tests verify both products are emitted with the correct horizons, general rankings run without manager context and remain invariant to changes in personal state, partial manager context is rejected, and neither output gains CoVar decision weight.
+- Runner tests verify cumulative and weekly horizons, per-Gameweek captaincy, general rankings without manager context and invariant to personal-state changes, partial manager-context rejection, and zero CoVar decision weight.
