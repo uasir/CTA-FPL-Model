@@ -19,6 +19,10 @@ from build_conventional_squad_product import build_personal_squad_product
 from cta_forecast_recommendation_adapter import build_cta_forecast_provider_snapshot
 from general_market_engine import recommend_general_market
 from personal_squad_engine import recommend_personal_squad
+from cta_multi_gameweek_squad_evaluator import (
+    CTAMultiGameweekSquadError,
+    evaluate_cta_five_gameweek_squad,
+)
 
 
 class CTARecommendationRunError(ValueError):
@@ -235,6 +239,24 @@ def run_cta_recommendation_products(
             ],
         }
         result_personal = build_personal_squad_product(product_run)
+        # Multi-Gameweek CTA squad comparison uses all five weekly panels.
+        # It is deliberately separate from the one-GW lineup/captaincy preview.
+        try:
+            result_personal["multi_gameweek_squad_diagnostic"] = (
+                evaluate_cta_five_gameweek_squad(
+                    panels,
+                    manager_context,
+                    starting_xi_ids=list(personal_recommendation["current_squad_plan"]["starting_xi"]),
+                )
+            )
+        except CTAMultiGameweekSquadError as exc:
+            result_personal["multi_gameweek_squad_diagnostic"] = {
+                "status": "BLOCKED_REQUIRED_MANAGER_OR_FORECAST_INPUT",
+                "reason": str(exc),
+                "decision_weight": 0.0,
+                "production_eligible": False,
+                "covar_used": False,
+            }
         personal_used_first_panel = True
 
     return {
