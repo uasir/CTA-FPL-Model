@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compose private field portfolios, candidate lineups and outcomes into a full-GW document."""
+"""Compose private field portfolios and candidate lineups with synthetic or research residual scenarios."""
 from __future__ import annotations
 
 import hashlib
