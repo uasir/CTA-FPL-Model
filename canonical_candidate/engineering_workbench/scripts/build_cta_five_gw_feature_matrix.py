@@ -57,7 +57,10 @@ def build_future_rows(bootstrap: dict, fixtures: list[dict], player_map: dict, c
         raise ValueError("FPL bootstrap contains no outfield/goalkeeper player records")
     missing_clubs = sorted({name for name in teams.values() if name not in club_map})
     unmapped_clubs = sorted(name for name in teams.values()
-                            if name in club_map and not club_map[name].get("understat_name"))
+                            if name in club_map and (
+            not club_map[name].get("understat_name")
+            or str(club_map[name].get("mapping_status", "mapped")).lower() != "mapped"
+        ))
     if missing_clubs or unmapped_clubs:
         raise ValueError(f"Understat club mapping incomplete: missing={missing_clubs}, unmapped={unmapped_clubs}")
 
@@ -302,7 +305,10 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
             # Dastan's two-stage inference contract: snapshot absence is already
             # -1.0; only residual NaNs are filled with 0.0.
             target[feature] = values.fillna(0.0).astype(float)
-        target["fpl_element_id"] = target["element"]
+        element_column = "element_target" if "element_target" in target.columns else "element"
+        if element_column not in target.columns:
+            raise RuntimeError(f"GW{gw}: feature builder lost FPL element identity")
+        target["fpl_element_id"] = target[element_column]
         target["fixture_id"] = target["fixture"]
         target["kickoff_time"] = pd.to_datetime(target["kickoff_time"], utc=True).astype(str)
         matrices.append(target[[
