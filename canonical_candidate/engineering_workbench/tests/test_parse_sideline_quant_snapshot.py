@@ -57,6 +57,7 @@ def make_capture(rows=None):
 def test_preserves_fixture_grain_and_native_rows():
     result = parse_sideline_quant_capture(make_capture())
     snapshot = result["canonical_snapshot"]
+    assert result["provider_source_id"] == "sideline_quant_public_next_gw"
     assert snapshot["grain"] == "player_fixture"
     assert snapshot["coverage"]["identity_resolution_status"] == "VERIFIED"
     assert len(snapshot["records"]) == 3
