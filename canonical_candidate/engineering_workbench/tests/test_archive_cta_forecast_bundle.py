@@ -175,6 +175,7 @@ def test_archives_full_provenance_verified_forecast_and_models(tmp_path):
     manifest = json.loads((snap / "archive_manifest.json").read_text())
     assert manifest["archive"]["sha256"] == hashlib.sha256(archive.read_bytes()).hexdigest()
     assert manifest["source_run"]["run_id"] == "12345"
+    assert manifest["schema_version"] == "2.0.0"
     assert manifest["provenance_hashes_verified"] is True
     with zipfile.ZipFile(archive) as z:
         names = set(z.namelist())
