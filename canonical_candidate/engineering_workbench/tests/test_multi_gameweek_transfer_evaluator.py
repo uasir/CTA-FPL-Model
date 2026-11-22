@@ -101,3 +101,27 @@ def test_hit_cost_is_subtracted_once_from_horizon_total():
     result = evaluate_multi_gameweek_transfer(request)
     assert result["transfer_cost_points"] == 4
     assert result["net_horizon_expected_points_delta"] == 13.0
+
+
+def test_bench_transfer_displacement_uses_full_horizon_not_first_week_only():
+    request = payload()
+    request["transfer_out_id"] = 7
+    result = evaluate_multi_gameweek_transfer(request)
+    # Incoming player 16 displaces the weakest starting defender over the
+    # complete horizon, even though the decision is not based on GW12 alone.
+    assert 16 in result["transfer_starting_xi_ids"]
+    assert len(result["transfer_starting_xi_ids"]) == 11
+
+
+def test_transfer_that_breaks_three_player_club_limit_is_rejected():
+    request = payload()
+    for week in request["gameweeks"]:
+        for player in week["player_forecasts"]:
+            if player["fpl_element_id"] == 16:
+                player["team_id"] = 2
+    try:
+        evaluate_multi_gameweek_transfer(request)
+    except MultiGameweekTransferError as exc:
+        assert "three-player club limit" in str(exc)
+    else:
+        raise AssertionError("expected illegal club stack transfer to fail")
