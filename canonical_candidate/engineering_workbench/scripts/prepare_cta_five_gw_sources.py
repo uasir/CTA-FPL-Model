@@ -18,7 +18,7 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -345,6 +345,40 @@ def normalize_all_fpl_archives(raw_dir: Path, output_dir: Path, seasons: list[st
     return reports
 
 
+def apply_historical_snapshot_safety_buffer(training_dir: Path, minutes: int = 5) -> dict:
+    """Drop archived snapshots captured inside the final safety buffer before deadline."""
+    reports = {}
+    for stem in ("pre_deadline_ep_next", "pre_deadline_signals"):
+        parquet_path = training_dir / f"{stem}.parquet"
+        report_path = training_dir / f"{stem}.json"
+        frame = pd.read_parquet(parquet_path)
+        required = {"snapshot_at", "deadline_time"}
+        if not required.issubset(frame.columns):
+            raise ValueError(f"{stem}: missing snapshot/deadline provenance columns")
+        captured = pd.to_datetime(frame["snapshot_at"], utc=True, errors="coerce")
+        deadline = pd.to_datetime(frame["deadline_time"], utc=True, errors="coerce")
+        if captured.isna().any() or deadline.isna().any():
+            raise ValueError(f"{stem}: invalid snapshot/deadline timestamps")
+        eligible = captured.le(deadline - pd.Timedelta(minutes=minutes))
+        before = len(frame)
+        frame = frame.loc[eligible].copy()
+        if frame.empty:
+            raise RuntimeError(f"{stem}: no rows survive the {minutes}-minute safety buffer")
+        frame.to_parquet(parquet_path, index=False)
+        sidecar = json.loads(report_path.read_text(encoding="utf-8"))
+        sidecar["rows_before_cta_safety_buffer"] = before
+        sidecar["rows"] = len(frame)
+        sidecar["cta_deadline_safety_buffer"] = {
+            "minutes": minutes,
+            "rows_retained": len(frame),
+            "rows_rejected": before - len(frame),
+            "rule": "snapshot_at <= deadline_time - safety_buffer",
+        }
+        report_path.write_text(json.dumps(sidecar, indent=2) + "\n", encoding="utf-8")
+        reports[stem] = sidecar["cta_deadline_safety_buffer"]
+    return reports
+
+
 def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: str,
             workers: int = 10) -> dict:
     sys.path.insert(0, str(dastan_root))
@@ -359,11 +393,23 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     snapshot_dir.mkdir(parents=True, exist_ok=True)
     bootstrap = fetch_json(f"{FPL_API}/bootstrap-static/")
     fixtures = fetch_json(f"{FPL_API}/fixtures/")
+    bootstrap_captured_at = datetime.now(timezone.utc)
     season = season_from_bootstrap(bootstrap)
     next_events = [int(event["id"]) for event in bootstrap.get("events", []) if event.get("is_next")]
     if len(next_events) != 1:
         raise RuntimeError(f"Expected one next FPL gameweek, got {next_events}")
     first_gw = next_events[0]
+    next_event = next(event for event in bootstrap["events"] if int(event["id"]) == first_gw)
+    deadline = datetime.fromisoformat(next_event["deadline_time"].replace("Z", "+00:00"))
+    if bootstrap_captured_at > deadline - timedelta(minutes=5):
+        raise RuntimeError("Current FPL bootstrap snapshot is inside the five-minute deadline safety buffer")
+    bootstrap["_cta_snapshot"] = {
+        "captured_at_utc": bootstrap_captured_at.isoformat(),
+        "gameweek": first_gw,
+        "deadline_time": deadline.isoformat(),
+        "safety_buffer_minutes": 5,
+        "acceptance_rule": "captured_at_utc <= deadline_time - 5 minutes",
+    }
     target_gameweeks = list(range(first_gw, first_gw + 5))
     if any(not any(int(event["id"]) == gw for event in bootstrap["events"]) for gw in target_gameweeks):
         raise RuntimeError("FPL season does not have five remaining consecutive gameweeks")
@@ -453,6 +499,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     historical_frame = build_feature_frame(historical_players, historical_teams)
     historical_frame.to_parquet(training_dir / "features.parquet", index=False)
     build_predeadline_artifacts(raw_dir, training_dir, list(dastan_data.SEASONS))
+    historical_snapshot_buffer_report = apply_historical_snapshot_safety_buffer(training_dir, minutes=5)
     training_frame = dastan_data.load(check_rows=False, data_dir=training_dir)
     training_frame.to_parquet(training_dir / "features_with_snapshots.parquet", index=False)
 
@@ -493,6 +540,8 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "source_manifest_sha256": sha256(raw_dir / "downloads.json"),
         "current_roster_snapshot": str(roster_path),
         "current_api_history": current_api_report,
+        "current_bootstrap_snapshot": bootstrap["_cta_snapshot"],
+        "historical_snapshot_safety_buffer": historical_snapshot_buffer_report,
         "fixture_archive_audits": fixture_archive_audits,
         "normalization_reports": normalization_reports,
         "canonical_player_match_rows": len(player_matches),
