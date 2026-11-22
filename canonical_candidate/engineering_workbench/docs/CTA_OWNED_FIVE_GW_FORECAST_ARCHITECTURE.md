@@ -149,7 +149,7 @@ Before M4 production use:
 
 1. Freeze this architecture and inventory the existing FPL ingestion artifacts, historical row schemas, source pins, and tests.
 2. Define a versioned CTA player-fixture training/inference schema that can produce all five target Gameweeks from a single as-of snapshot.
-3. Build the Dastan compatibility adapter: refresh player identity mappings; reproduce the ordered 286-feature input contract with deadline-safe sources; import only the four `p60` heads and minutes calibration; record upstream commit and artifact hashes.
+3. Build the Dastan compatibility adapter: run the exact-code mapping coverage audit against a pinned current-roster/mapping pair; reproduce the ordered 286-feature input contract with deadline-safe sources; import only the four `p60` heads and minutes calibration; record upstream commit and artifact hashes.
 4. Validate Dastan expected-minutes outputs against CTA's chronological, deadline-aware holdouts, including calibration, player coverage, positions and double-GW invariance. Keep the current CTA minutes heuristic as a benchmark only.
 5. Build CTA's fixture-level conditional points model and combine it with the imported minutes output; then add the five-GW snapshot builder and completeness/provenance validator.
 6. Run chronological backtests and challenger comparisons; keep the product exploratory until it passes the gates above.
