@@ -174,8 +174,13 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         pid for pid in player_ids
         if expected_multipliers[pid] != official_multipliers[pid]
     ]
+    # Final pick multipliers are the authoritative record of which squad
+    # players actually scored. The separate API automatic_subs field is kept
+    # only as a diagnostic: live captures have shown it can disagree with
+    # final picks even when every multiplier and team point reconciles.
+    automatic_substitution_match = not multiplier_mismatches
     official_automatic_subs = official.get("automatic_subs")
-    automatic_substitution_match = None
+    automatic_substitution_metadata_match = None
     automatic_substitution_mismatches: list[dict[str, Any]] = []
     if official_automatic_subs is not None and str(lineup.get("active_chip") or "").lower() != "bboost":
         if not isinstance(official_automatic_subs, list):
@@ -195,11 +200,11 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         ]
         if len(actual_pairs) != len(set(actual_pairs)):
             raise CovarFplReplayError("official automatic substitutions contain duplicate pairs")
-        automatic_substitution_match = sorted(actual_pairs) == sorted(expected_pairs)
-        if not automatic_substitution_match:
+        automatic_substitution_metadata_match = sorted(actual_pairs) == sorted(expected_pairs)
+        if not automatic_substitution_metadata_match:
             automatic_substitution_mismatches.append({
-                "expected_pairs": sorted(expected_pairs),
-                "official_pairs": sorted(actual_pairs),
+                "resolver_pairs": sorted(expected_pairs),
+                "api_metadata_pairs": sorted(actual_pairs),
             })
     official_total = sum(
         official_player_points[pid] * official_multipliers[pid]
@@ -252,6 +257,7 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         "player_points_match": not point_mismatches,
         "active_captain_match": not active_captain_mismatch,
         "official_automatic_substitution_match": automatic_substitution_match,
+        "automatic_substitution_metadata_match": automatic_substitution_metadata_match,
         "mismatched_automatic_substitutions": automatic_substitution_mismatches,
         "official_team_points_reconcile": (not team_points_mismatch) if team_points_mismatch is not None else None,
         "team_points_reconciliation_basis": team_points_reconciliation_basis,
