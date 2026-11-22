@@ -973,7 +973,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         # default downloader selects only the latest file per player; combine
         # all available requested-season files so the history is not truncated.
         tree_paths = sources._tree(fallback_raw_dir, force=False)
-        pattern = re.compile(r"^data/(20\\d\\d-\\d\\d)/understat/.+_(\\d+)\\.csv$")
+        pattern = re.compile(r"^data/(20\d\d-\d\d)/understat/.+_(\d+)\.csv$")
         wanted = set(int(value) for value in missing_players)
         requested_seasons = set(seasons)
         player_sources: dict[int, list[tuple[str, str]]] = {}
