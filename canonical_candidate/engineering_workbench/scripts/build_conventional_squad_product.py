@@ -85,3 +85,6 @@ def build_personal_squad_product(run: Mapping[str, Any]) -> dict[str, Any]:
         "excluded_context": {"field_relative_analysis": "NOT_PART_OF_CONVENTIONAL_SCORE",
                              "covar": "NOT_PART_OF_CONVENTIONAL_SCORE", "cta_model_adjustments": "NOT_APPLIED"},
     }
+
+# Backwards-compatible alias; the adapter emits distinct conventional/CTA products.
+build_conventional_squad_product = build_personal_squad_product
