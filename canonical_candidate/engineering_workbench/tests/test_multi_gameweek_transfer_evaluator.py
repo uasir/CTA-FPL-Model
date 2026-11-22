@@ -135,4 +135,4 @@ def test_negative_expected_points_are_valid_finite_fpl_forecasts():
         player["expected_points"] = -0.25
     result = evaluate_multi_gameweek_transfer(request)
     assert result["action"] == "TRANSFER"
-    assert result["weekly_comparison"][0]["hold_starting_xi_points"] < 0 or result["weekly_comparison"][0]["transfer_starting_xi_points"] > 0
+    assert result["weekly_comparison"][0]["incremental_points"] == 2.25
