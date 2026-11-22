@@ -89,3 +89,12 @@ Both components are exploratory and have decision weight zero / production eligi
 `scripts/team_exposure_correlation.py` now requires a provenance envelope when joint scenarios are supplied: scenario-set ID, matching forecast bundle/snapshot ID, matching model version, generation/capture timestamps, source URL, raw SHA-256 and exact row count. Every scenario row must bind to the same scenario set, forecast snapshot and model version and contain a complete player-point vector for the requested squad. Every Gameweek must have at least two scenarios, with consistent scenario counts across the horizon. Missing or mismatched scenario evidence fails closed; no covariance is inferred from club membership or marginal xP/EO.
 
 The current explicit cross-Gameweek independence assumption remains: within-Gameweek covariance estimates are summed across Gameweeks. TECM remains diagnostic-only with zero decision weight and production eligibility disabled. This contract does not establish scenario calibration or statistical validation.
+
+
+### Poll-implied pre-deadline EO estimator — backlog
+
+Keep the poll-implied estimate as a separate descriptive field-context estimate, never as observed LiveFPL EO:
+
+`estimated_eo_pct = current_ownership_pct + captaincy_poll_pct + triple_captain_poll_pct`
+
+The agreed assumption is that the captaincy poll includes Triple Captain voters; the Triple Captain poll percentage is added as the additional exposure contribution. Preserve poll source, capture time, sample size and coverage, and label the output `POLL_IMPLIED_EO_ESTIMATE`. It must not replace observed EO or influence conventional EV/transfer decisions. This remains an M4 backlog item pending a reliable poll source and validation of the poll interpretation.
