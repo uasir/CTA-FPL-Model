@@ -282,3 +282,44 @@ def build_team_exposure_report(
             "This diagnostic does not change transfer ranking, starting XI, captaincy or hit decisions.",
         ],
     }
+
+
+def build_team_exposure_report_from_forecast_bundle(
+    forecast_bundle: Mapping[str, Any],
+    *,
+    squad_player_ids: Sequence[int],
+    joint_scenarios: Sequence[Mapping[str, Any]] | None = None,
+    joint_scenario_provenance: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Bind a validated multi-Gameweek forecast bundle directly to TECM."""
+    if not isinstance(forecast_bundle, Mapping):
+        raise TeamExposureError("forecast_bundle must be an object")
+    bundle_id = forecast_bundle.get("forecast_bundle_id")
+    if (not isinstance(bundle_id, str) or not bundle_id.strip()
+            or forecast_bundle.get("forecast_snapshot_id") != bundle_id):
+        raise TeamExposureError("forecast bundle and snapshot IDs must match and be non-empty")
+    weeks = forecast_bundle.get("horizon_gameweeks")
+    if (not isinstance(weeks, list) or len(weeks) < 5
+            or any(isinstance(gw, bool) or not isinstance(gw, int) for gw in weeks)
+            or weeks != list(range(weeks[0], weeks[0] + len(weeks)))):
+        raise TeamExposureError("forecast bundle must contain at least five consecutive Gameweeks")
+    source_ids = forecast_bundle.get("source_snapshot_ids")
+    if (not isinstance(source_ids, list) or len(source_ids) != len(weeks)
+            or any(not isinstance(value, str) or not value.strip() for value in source_ids)
+            or len(set(source_ids)) != len(source_ids)):
+        raise TeamExposureError("forecast bundle requires one unique source snapshot ID per Gameweek")
+    rows = forecast_bundle.get("player_gameweek_forecasts")
+    if not isinstance(rows, list) or not rows:
+        raise TeamExposureError("forecast bundle player_gameweek_forecasts are required")
+    model_version = forecast_bundle.get("model_version")
+    if not isinstance(model_version, str) or not model_version.strip():
+        raise TeamExposureError("forecast bundle model_version is required")
+    return build_team_exposure_report(
+        squad_player_ids=squad_player_ids,
+        player_gameweek_forecasts=rows,
+        joint_scenarios=joint_scenarios,
+        minimum_horizon_gameweeks=5,
+        forecast_snapshot_id=bundle_id,
+        model_version=model_version,
+        joint_scenario_provenance=joint_scenario_provenance,
+    )
