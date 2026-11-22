@@ -38,6 +38,25 @@ def scale_points_per_90(points_per_90, expected_minutes) -> np.ndarray:
     return rate * minutes / 90.0
 
 
+def expected_appearance_points(p_any, p60) -> np.ndarray:
+    """Expected FPL appearance points from probabilities of any/60+ minutes."""
+    any_probability = np.asarray(p_any, dtype=np.float64)
+    sixty_probability = np.asarray(p60, dtype=np.float64)
+    if any_probability.shape != sixty_probability.shape:
+        raise ValueError("p_any and p60 arrays must have matching shapes")
+    if (
+        not np.isfinite(any_probability).all()
+        or not np.isfinite(sixty_probability).all()
+        or (any_probability < 0).any()
+        or (any_probability > 1).any()
+        or (sixty_probability < 0).any()
+        or (sixty_probability > any_probability).any()
+    ):
+        raise ValueError("minutes probabilities must satisfy 0 <= p60 <= p_any <= 1")
+    # 2 points for 60+ minutes; 1 point for 1-59 minutes.
+    return any_probability + sixty_probability
+
+
 def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
           source_report_path: Path, feature_report_path: Path,
           minutes_report_path: Path, model_dir: Path, output_dir: Path) -> dict:
@@ -105,9 +124,19 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
         expected_minutes = pd.to_numeric(
             merged.loc[subset, "expected_minutes"], errors="coerce"
         ).to_numpy(dtype=np.float64)
+        any_probability = pd.to_numeric(
+            merged.loc[subset, "p_any"], errors="coerce"
+        ).to_numpy(dtype=np.float64)
+        sixty_probability = pd.to_numeric(
+            merged.loc[subset, "p60"], errors="coerce"
+        ).to_numpy(dtype=np.float64)
+        appearance_points = expected_appearance_points(
+            any_probability, sixty_probability,
+        )
         merged.loc[subset, "cta_expected_points_per_90"] = points_per_90
-        merged.loc[subset, "cta_expected_points"] = scale_points_per_90(
-            points_per_90, expected_minutes,
+        merged.loc[subset, "cta_expected_points"] = (
+            scale_points_per_90(points_per_90, expected_minutes)
+            + appearance_points
         )
         model_hashes[position] = expected_hash
     if merged["cta_expected_points"].isna().any():
