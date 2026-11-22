@@ -48,10 +48,50 @@ def _personal_request(shared: Mapping[str, Any], panel: Mapping[str, Any],
     }
 
 
+def manager_context_from_conventional_run(
+    conventional_run: Mapping[str, Any],
+    *,
+    expected_season: str,
+    expected_gameweek: int,
+    expected_deadline_utc: str,
+) -> dict[str, Any]:
+    """Reuse the exact manager state from the conventional run for paired CTA comparison."""
+    if not isinstance(conventional_run, Mapping):
+        raise CTARecommendationRunError("conventional_run must be an object")
+    if conventional_run.get("run_type") != "EXTERNAL_BENCHMARK_PERSONAL_SQUAD":
+        raise CTARecommendationRunError("conventional_run must be an M3 conventional personal-squad run")
+    source = conventional_run.get("source_provenance")
+    if not isinstance(source, Mapping):
+        raise CTARecommendationRunError("conventional_run source_provenance is missing")
+    if source.get("season") != expected_season:
+        raise CTARecommendationRunError("conventional run season does not match CTA forecast season")
+    if source.get("target_gameweek") != expected_gameweek:
+        raise CTARecommendationRunError("conventional run target Gameweek does not match CTA forecast")
+    if source.get("deadline_utc") != expected_deadline_utc:
+        raise CTARecommendationRunError("conventional run deadline does not match CTA forecast deadline")
+    manager = conventional_run.get("manager_context")
+    if not isinstance(manager, Mapping):
+        raise CTARecommendationRunError("conventional run manager_context is missing")
+    required = ("squad_snapshot", "bank", "free_transfers", "personal_risk_profile")
+    missing = [field for field in required if field not in manager]
+    if missing:
+        raise CTARecommendationRunError("conventional manager_context is missing: " + ", ".join(missing))
+    recommendation = conventional_run.get("recommendation")
+    embedded = recommendation.get("manager_context") if isinstance(recommendation, Mapping) else None
+    if isinstance(embedded, Mapping):
+        for field in required:
+            if field in embedded and embedded[field] != manager[field]:
+                raise CTARecommendationRunError(
+                    f"conventional run manager context disagrees with its recommendation for {field}"
+                )
+    return dict(manager)
+
+
 def run_cta_recommendation_products(
     bundle_dir: str | Path,
     manager_context: Mapping[str, Any] | None = None,
     *,
+    conventional_run: Mapping[str, Any] | None = None,
     eo_snapshot: Mapping[str, Any] | None = None,
     now_utc: str | None = None,
 ) -> dict[str, Any]:
@@ -88,6 +128,16 @@ def run_cta_recommendation_products(
     if panel_gameweeks != gameweeks:
         raise CTARecommendationRunError("CTA Gameweek panels must match the declared ordered five-GW horizon")
     target_gw = gameweeks[0]
+    if manager_context is not None and conventional_run is not None:
+        raise CTARecommendationRunError("supply either manager_context or conventional_run, not both")
+    if conventional_run is not None:
+        timing = provider_snapshot.get("timing", {})
+        manager_context = manager_context_from_conventional_run(
+            conventional_run,
+            expected_season=str(provider_snapshot.get("season")),
+            expected_gameweek=target_gw,
+            expected_deadline_utc=str(timing.get("deadline_utc")),
+        )
 
     # Squad-independent product: five-GW cumulative forecast totals, no manager data.
     general_request = {
@@ -204,7 +254,12 @@ def run_cta_recommendation_products(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle-dir", type=Path, required=True)
-    parser.add_argument("--manager-context", type=Path)
+    manager_group = parser.add_mutually_exclusive_group()
+    manager_group.add_argument("--manager-context", type=Path)
+    manager_group.add_argument(
+        "--conventional-run", type=Path,
+        help="reuse the exact manager state from a same-GW conventional M3 run",
+    )
     parser.add_argument("--eo-snapshot", type=Path)
     parser.add_argument("--now-utc")
     parser.add_argument("--output", type=Path, required=True)
@@ -213,11 +268,16 @@ def main() -> int:
         json.loads(args.manager_context.read_text(encoding="utf-8"))
         if args.manager_context else None
     )
+    conventional_run = (
+        json.loads(args.conventional_run.read_text(encoding="utf-8"))
+        if args.conventional_run else None
+    )
     eo = None
     if args.eo_snapshot:
         eo = json.loads(args.eo_snapshot.read_text(encoding="utf-8"))
     result = run_cta_recommendation_products(
-        args.bundle_dir, manager, eo_snapshot=eo, now_utc=args.now_utc,
+        args.bundle_dir, manager, conventional_run=conventional_run,
+        eo_snapshot=eo, now_utc=args.now_utc,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
