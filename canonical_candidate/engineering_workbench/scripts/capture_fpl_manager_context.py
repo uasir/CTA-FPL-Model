@@ -118,7 +118,9 @@ def reconstruct_purchase_prices(
         event = row.get("event")
         if isinstance(event, bool) or not isinstance(event, int) or event < 1:
             raise CaptureError("transfer history contains an invalid event")
-        if event >= target_gameweek:
+        # Include target-Gameweek transfers already made before the capture
+        # timestamp; the FPL picks endpoint may still be unpublished pre-deadline.
+        if event > target_gameweek:
             continue
         if event in free_hit_events:
             continue
