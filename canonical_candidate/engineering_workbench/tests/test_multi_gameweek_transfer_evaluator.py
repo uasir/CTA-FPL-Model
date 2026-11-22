@@ -42,6 +42,9 @@ def bundle():
                 "expected_points": points, "expected_minutes": 80,
             })
     return {
+        "contract_version": "1.0.0",
+        "provider_source_id": "test_verified_fixture_provider",
+        "provider": {"name": "FPL Cat", "product": "published xP", "variant": "fixture xP", "version": "v2"},
         "forecast_bundle_id": "fplcat-gw12-gw16-bundle",
         "forecast_snapshot_id": "fplcat-gw12-gw16-bundle",
         "model_version": "fplcat-fixture-xp-v2",
