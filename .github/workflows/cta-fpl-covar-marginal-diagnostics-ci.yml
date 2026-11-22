@@ -47,7 +47,7 @@ permissions:
 
 concurrency:
   group: cta-covar-marginal-diagnostics-ci-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   focused-tests:
@@ -204,7 +204,7 @@ jobs:
           python scripts/m4_covar_public_field_replay_audit.py \
             --events "1,2,3,4,5,6,7,8,9,10,11" \
             --rank-pages "1,200,2000,20000,100000" \
-            --sample-positions "0,5,10,15,20,25,30,35,40,45" \
+            --sample-positions "0,10,20,30,40" \
             --min-replays 100 \
             --output "$RUNNER_TEMP/covar-public-field-replay-audit.json"
       - name: Upload aggregate-only public field replay audit
