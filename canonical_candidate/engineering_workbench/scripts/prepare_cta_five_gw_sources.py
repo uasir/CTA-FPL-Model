@@ -796,80 +796,68 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     mapping_release_report = mappings.verify_operational_release()
     operational_clubs = mappings.load_operational_clubs()
     patch_identity_resolution(mappings, sources)
+    # The historical raw match tables are not included in Dastan's released
+    # training frame. They are still required to create genuinely current,
+    # deadline-safe target features, so reuse Dastan's pinned source builder.
+    # The published training frame itself is imported below; it is not rebuilt.
+    def defer_player_fallbacks(raw_dir, missing_players, missing_team_seasons, *,
+                               force, allow_missing):
+        return parallel_understat_fallbacks(
+            raw_dir, [], missing_team_seasons,
+            force=force, allow_missing=allow_missing, workers=min(workers, 4),
+        )
+
+    sources._fetch_understat_fallbacks = defer_player_fallbacks
+    operational_clubs = mappings.load_operational_clubs()
+    dastan_features.FPL_TO_UNDERSTAT.update({
+        str(row["club_name"]): str(row["understat_name"])
+        for row in operational_clubs.to_dict("records")
+        if row.get("understat_name")
+    })
     sources.VAASTAV_COMMIT = source_commit
     sources.VAASTAV_RAW = f"https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/{source_commit}/"
     sources.VAASTAV_TREE = f"https://api.github.com/repos/vaastav/Fantasy-Premier-League/git/trees/{source_commit}?recursive=1"
 
     historical_seasons = historical_source_seasons(list(dastan_data.SEASONS), season)
     seasons = historical_seasons + [season]
-
-    # Import Dastan's published six-season player-match history and training frame.
-    # Historical Understat player CSVs are therefore not downloaded or rebuilt.
-    historical_needed_ids = sources._needed_understat_ids
-    sources._needed_understat_ids = lambda _raw_dir, _seasons: set()
-    sources._fetch_understat_fallbacks = lambda raw_dir, missing_players, missing_team_seasons, *, force, allow_missing: parallel_understat_fallbacks(
-        raw_dir, missing_players, missing_team_seasons,
-        force=force, allow_missing=allow_missing, workers=min(workers, 4),
-    )
     print(
-        f"Importing Dastan's published player history and downloading only "
-        f"the {len(historical_seasons)} historical team archives",
+        f"Downloading pinned raw match inputs needed for future feature generation; "
+        f"published Dastan training data will be imported",
         flush=True,
     )
     sources.download_sources(
         raw_dir, historical_seasons, workers=workers, force=False,
         allow_missing_understat=False,
     )
-    sources._needed_understat_ids = historical_needed_ids
+    pinned_understat_report = download_and_merge_pinned_understat_player_histories(
+        raw_dir, seasons, sources, workers=workers,
+    )
+    download_fixture_schedules(raw_dir, seasons, source_commit)
 
-    # The active season is not part of Dastan's released training frame. Build its
-    # FPL match history from the official API and fetch only its missing Understat
-    # player/team histories. Do not request historical player fallbacks.
-    download_fixture_schedules(raw_dir, historical_seasons, source_commit)
     current_api_report = refresh_current_core(raw_dir, season, bootstrap, fixtures, workers=workers)
     write_live_fixture_schedule(raw_dir, season, fixtures)
     fixture_archive_audits = audit_all_fixture_archives(raw_dir, seasons)
+    normalization_reports = normalize_all_fpl_archives(raw_dir, output_dir, seasons)
 
-    wanted_ids = sources._needed_understat_ids(raw_dir, [season])
+    team_paths = {
+        value: list((raw_dir / "vaastav" / "understat" / "teams" / value).glob("*.csv"))
+        for value in seasons
+    }
+    wanted_ids = sources._needed_understat_ids(raw_dir, seasons)
     incomplete_players = sources._incomplete_pinned_players(raw_dir, [season], wanted_ids)
-    missing_team_seasons = sources._incomplete_team_seasons(raw_dir, [season], {season: []})
-    print(
-        f"Active-season Understat refresh: {len(incomplete_players)} player histories, "
-        f"{len(missing_team_seasons)} team seasons",
-        flush=True,
-    )
+    missing_team_seasons = sources._incomplete_team_seasons(raw_dir, [season], team_paths)
     parallel_understat_fallbacks(
         raw_dir, sorted(incomplete_players), missing_team_seasons,
         force=False, allow_missing=False, workers=min(workers, 4),
     )
-
-    # The Dastan release is the authoritative historical player table; only current
-    # season player matches are assembled from live FPL + Understat inputs.
-    historical_player_matches = load_dastan_release_player_history(
-        dastan_root, historical_seasons
-    )
-    current_player_matches, _, current_player_lookup = sources.build_canonical_matches(
-        raw_dir, [season]
-    )
-    player_matches = pd.concat(
-        [historical_player_matches, current_player_matches],
-        ignore_index=True, sort=False,
-    )
-    if player_matches.duplicated(["season", "gameweek", "fixture", "fpl_code"]).any():
-        raise RuntimeError("Imported/current player-match table contains duplicate keys")
-    team_matches = sources.load_understat_team_matches(raw_dir, seasons)
-    player_lookup = build_release_player_lookup(
-        historical_player_matches, current_player_lookup
-    )
-
     manifest_path = sources.write_download_manifest(raw_dir, seasons)
     source_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     source_manifest["active_season_overrides"] = {
         "season": season,
         "captured_at_utc": datetime.now(timezone.utc).isoformat(),
         "files": {
-            f"vaastav/{season}/merged_gw.csv": "Official FPL element-summary history for current-roster players",
-            f"vaastav/{season}/players_raw.csv": "Official FPL bootstrap-static roster",
+            f"vaastav/{season}/merged_gw.csv": "Hybrid: pinned Vaastav archive plus official FPL element-summary history for current-roster players",
+            f"vaastav/{season}/players_raw.csv": "Pinned Vaastav roster extended/refreshed from official FPL bootstrap-static",
             f"vaastav/{season}/teams.csv": "Official FPL bootstrap-static team snapshot",
             f"vaastav/{season}/fixtures.csv": "Official FPL fixtures API snapshot",
         },
@@ -880,24 +868,29 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         ],
         "history_rows_from_official_api": current_api_report["api_player_fixture_rows"],
     }
-    manifest_path.write_text(json.dumps(source_manifest, indent=2) + "\n", encoding="utf-8")
+    manifest_path.write_text(json.dumps(source_manifest, indent=2) + "\\n", encoding="utf-8")
     source_manifest_copy = output_dir / "source_download_manifest.json"
     shutil.copy2(manifest_path, source_manifest_copy)
     dastan_manifest_path = dastan_root / "models" / "artifact_manifest.json"
     dastan_manifest_copy = output_dir / "dastan_artifact_manifest.json"
     shutil.copy2(dastan_manifest_path, dastan_manifest_copy)
 
-    print("Importing Dastan's released training frame and pre-deadline snapshots", flush=True)
-    training_dir = output_dir / "training"
-    training_frame, release_import_report = import_dastan_release(dastan_root, training_dir)
-
-    print("Writing canonical player/team match tables", flush=True)
+    print("Building canonical current/historical match tables for target feature generation", flush=True)
+    player_matches, team_matches, player_lookup = sources.build_canonical_matches(raw_dir, seasons)
+    if player_matches.duplicated(["season", "fixture", "fpl_code"]).any():
+        raise RuntimeError("Canonical player-match table contains duplicate season-fixture-player keys")
+    if team_matches.duplicated(["season", "understat_team", "date"]).any():
+        raise RuntimeError("Canonical team-match table contains duplicate season-team-date keys")
     player_matches_path = output_dir / "canonical_player_matches.parquet"
     team_matches_path = output_dir / "canonical_team_matches.parquet"
     lookup_path = output_dir / "canonical_player_lookup.csv"
     player_matches.to_parquet(player_matches_path, index=False)
     team_matches.to_parquet(team_matches_path, index=False)
-    player_lookup.to_csv(lookup_path, index=False, lineterminator="\n")
+    player_lookup.to_csv(lookup_path, index=False, lineterminator="\\n")
+
+    print("Importing Dastan's published training frame and pre-deadline snapshots", flush=True)
+    training_dir = output_dir / "training"
+    training_frame, release_import_report = import_dastan_release(dastan_root, training_dir)
 
     mapping_file = dastan_root / "data" / "mappings" / "current_fpl_understat_players.csv"
     mapping_df = pd.read_csv(mapping_file)
