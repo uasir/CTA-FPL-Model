@@ -133,8 +133,13 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
         raise CovarFullGameweekContractError("document must be an object")
     if document.get("schema_version") != CONTRACT_VERSION:
         raise CovarFullGameweekContractError(f"schema_version must be {CONTRACT_VERSION}")
-    if document.get("data_status") != "SYNTHETIC_FULL_GAMEWEEK_ONLY":
-        raise CovarFullGameweekContractError("only SYNTHETIC_FULL_GAMEWEEK_ONLY data is admitted")
+    data_status = document.get("data_status")
+    allowed_statuses = {
+        "SYNTHETIC_FULL_GAMEWEEK_ONLY",
+        "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY",
+    }
+    if data_status not in allowed_statuses:
+        raise CovarFullGameweekContractError("data_status must be synthetic-only or research residual-block bootstrap")
     if document.get("scenario_scope") != "FULL_GAMEWEEK":
         raise CovarFullGameweekContractError("scenario_scope must be FULL_GAMEWEEK")
     mode = document.get("mode", "REGULAR_GW")
@@ -165,6 +170,35 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
     as_of = _utc(metadata.get("as_of_utc"), "metadata.as_of_utc")
     if as_of >= deadline:
         raise CovarFullGameweekContractError("scenario inputs must be timestamped before the deadline")
+
+    research_gameweeks: set[int] = set()
+    if data_status == "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY":
+        required_research_fields = (
+            "forecast_snapshot_id", "model_version", "training_cutoff_utc",
+            "scenario_probability_method", "complete_historical_gameweeks",
+        )
+        if any(not metadata.get(key) for key in required_research_fields):
+            raise CovarFullGameweekContractError("research residual metadata and provenance are required")
+        if metadata.get("probability_calibrated") is not False:
+            raise CovarFullGameweekContractError("residual bootstrap probabilities must remain explicitly uncalibrated")
+        if metadata.get("scenario_probability_method") != "EQUAL_WEIGHT_EMPIRICAL_COMPLETE_GAMEWEEK_BLOCKS":
+            raise CovarFullGameweekContractError("unsupported research scenario probability method")
+        if metadata.get("marginal_expected_points_preserved") is not True:
+            raise CovarFullGameweekContractError("residual bootstrap must preserve target expected-points means")
+        training_cutoff = _utc(metadata["training_cutoff_utc"], "metadata.training_cutoff_utc")
+        if training_cutoff > as_of:
+            raise CovarFullGameweekContractError("training cutoff cannot follow forecast as-of")
+        source_gws = metadata.get("complete_historical_gameweeks")
+        if not isinstance(source_gws, list) or len(source_gws) < 2:
+            raise CovarFullGameweekContractError("at least two complete historical Gameweek blocks are required")
+        for value in source_gws:
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1 or value == int(metadata["target_gameweek"]):
+                raise CovarFullGameweekContractError("historical source Gameweeks must be unique positive prior Gameweeks")
+            if value in research_gameweeks:
+                raise CovarFullGameweekContractError("historical source Gameweeks must be unique")
+            research_gameweeks.add(value)
+        if document.get("production_eligible") is not False or document.get("decision_weight") != 0.0 or document.get("covar_used") is not False:
+            raise CovarFullGameweekContractError("research residual scenarios must remain non-production with zero decision weight and covar_used=false")
 
     player_by_id: dict[str, dict[str, Any]] = {}
     for row in players:
@@ -212,6 +246,13 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
         scenario_ids.add(scenario_id)
         probability = _number(scenario.get("probability"), f"scenario {scenario_id}.probability", minimum=0)
         probability_total += probability
+        if data_status == "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY":
+            source_gw = scenario.get("source_gameweek")
+            if isinstance(source_gw, bool) or not isinstance(source_gw, int) or source_gw not in research_gameweeks:
+                raise CovarFullGameweekContractError(f"scenario {scenario_id} must identify one declared historical source Gameweek")
+            expected_probability = 1.0 / len(research_gameweeks)
+            if not math.isclose(probability, expected_probability, rel_tol=0, abs_tol=1e-9):
+                raise CovarFullGameweekContractError("residual block scenarios must have equal empirical weights")
         outcomes = scenario.get("player_outcomes")
         if not isinstance(outcomes, list):
             raise CovarFullGameweekContractError(f"scenario {scenario_id}.player_outcomes must be a list")
@@ -237,15 +278,24 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
             )
     if not math.isclose(probability_total, 1.0, rel_tol=0, abs_tol=1e-9):
         raise CovarFullGameweekContractError("scenario probabilities must sum to 1")
+    if data_status == "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY":
+        observed_source_gws = {int(row["source_gameweek"]) for row in scenarios}
+        if observed_source_gws != research_gameweeks or len(scenarios) != len(research_gameweeks):
+            raise CovarFullGameweekContractError("scenario rows must cover every declared historical Gameweek exactly once")
 
     normalized = dict(document)
     normalized["mode"] = mode
     normalized["contract_version"] = CONTRACT_VERSION
-    normalized["validation_status"] = "VALID_SYNTHETIC_FULL_GAMEWEEK_INPUT"
+    normalized["validation_status"] = (
+        "VALID_RESEARCH_RESIDUAL_BLOCK_FULL_GAMEWEEK_INPUT"
+        if data_status == "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY"
+        else "VALID_SYNTHETIC_FULL_GAMEWEEK_INPUT"
+    )
     normalized["player_count"] = len(player_by_id)
     normalized["scenario_count"] = len(scenario_ids)
     normalized["portfolio_count"] = len(portfolio_ids)
     normalized["field_portfolio_count"] = len(field_weights)
     normalized["production_eligible"] = False
     normalized["decision_weight"] = 0.0
+    normalized["covar_used"] = False
     return normalized
