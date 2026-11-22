@@ -421,13 +421,7 @@ def parallel_understat_fallbacks(
     allow_missing: bool,
     workers: int = 4,
 ) -> None:
-    """Fetch missing Understat histories concurrently with isolated client sessions.
-
-    The upstream pinned downloader fetches missing player histories serially. For
-    a large historical roster this can dominate the entire forecast build. Each
-    task owns its client/session; concurrency is deliberately capped to reduce
-    provider pressure, retries are bounded, and every unresolved ID is reported.
-    """
+    """Fetch Understat histories with one warmed session per worker and bounded retries."""
     if not missing_players and not missing_team_seasons:
         return
     try:
@@ -439,32 +433,73 @@ def parallel_understat_fallbacks(
     root.mkdir(parents=True, exist_ok=True)
     player_ids = sorted(set(int(value) for value in missing_players))
     failures: list[str] = []
+    worker_state = threading.local()
+    clients: list[Any] = []
+    clients_lock = threading.Lock()
 
     def make_bounded_client():
         client = UnderstatClient()
         session = getattr(client, "session", None)
         if session is not None:
             original_request = session.request
+            headers = getattr(session, "headers", None)
+            if headers is not None:
+                headers.update({
+                    "User-Agent": (
+                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                    ),
+                    "Accept": "application/json, text/javascript, */*; q=0.01",
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Referer": "https://understat.com/",
+                    "Origin": "https://understat.com",
+                })
+
             def request_with_timeout(method, url, **kwargs):
                 if kwargs.get("timeout") is None:
                     kwargs["timeout"] = (10, 45)
                 response = original_request(method, url, **kwargs)
-                if response is not None and "understat.com" in str(url):
+                api_paths = (
+                    "getPlayerData/", "getTeamData/", "getLeagueData/", "getMatchData/",
+                )
+                if response is not None and any(path in str(url) for path in api_paths):
                     status = int(getattr(response, "status_code", 200))
                     body = str(getattr(response, "text", "") or "")
                     if status >= 400 or not body.strip() or body.lstrip().startswith("<"):
                         preview = " ".join(body[:240].split())
                         content_type = getattr(response, "headers", {}).get("Content-Type", "")
                         raise RuntimeError(
-                            "Understat returned a non-JSON/challenge response: "
+                            "Understat AJAX returned a non-JSON/challenge response: "
                             f"HTTP {status}, content-type={content_type!r}, body={preview!r}"
                         )
                 return response
 
-            # understatapi 0.7.1 sets X-Requested-With but omits browser request
-            # headers and timeouts. Preserve the public AJAX endpoint while adding
-            # ordinary browser headers and bounded connect/read times.
             session.request = request_with_timeout
+        return client
+
+    def close_worker_clients() -> None:
+        with clients_lock:
+            owned = list(clients)
+            clients.clear()
+        for client in owned:
+            try:
+                client.session.close()
+            except Exception:
+                pass
+
+    def get_worker_client():
+        client = getattr(worker_state, "client", None)
+        if client is not None:
+            return client
+        client = make_bounded_client()
+        home = client.session.get("https://understat.com/", timeout=(10, 45))
+        home.raise_for_status()
+        home_text = str(getattr(home, "text", "") or "").lower()
+        if any(token in home_text for token in ("just a moment", "access denied", "cf-chl-")):
+            raise RuntimeError("Understat homepage returned an anti-bot challenge")
+        worker_state.client = client
+        with clients_lock:
+            clients.append(client)
         return client
 
     def fetch_player(player_id: int) -> tuple[int, list | None, str | None]:
@@ -474,8 +509,23 @@ def parallel_understat_fallbacks(
         last_error = None
         for attempt in range(3):
             try:
-                with make_bounded_client() as client:
+                client = get_worker_client()
+                player_url = f"https://understat.com/player/{player_id}"
+                client.session.headers["Referer"] = player_url
+                try:
                     payload = client.player(player=str(player_id)).get_match_data()
+                except Exception as ajax_error:
+                    # The public player page embeds matchesData as a secondary
+                    # supported representation. Use it if the AJAX endpoint
+                    # responds with an empty/challenge body.
+                    page = client.session.get(player_url, timeout=(10, 45))
+                    page.raise_for_status()
+                    try:
+                        payload = client.player(player=str(player_id)).parser.get_match_data(page.text)
+                    except Exception as page_error:
+                        raise RuntimeError(
+                            f"AJAX request failed ({ajax_error}); player-page parser failed ({page_error})"
+                        ) from page_error
                 if not isinstance(payload, list):
                     raise ValueError(f"unexpected player payload type: {type(payload).__name__}")
                 return player_id, payload, None
@@ -484,18 +534,33 @@ def parallel_understat_fallbacks(
                 time.sleep(2 ** attempt)
         return player_id, None, last_error or "unknown error"
 
+    def fetch_team_season(season: str) -> tuple[str, dict | None, str | None]:
+        path = raw_dir / "understat" / "teams" / f"{season}.json"
+        if path.exists() and path.stat().st_size and not force:
+            return season, None, None
+        last_error = None
+        for attempt in range(3):
+            try:
+                with make_bounded_client() as client:
+                    home = client.session.get("https://understat.com/", timeout=(10, 45))
+                    home.raise_for_status()
+                    payload = client.league(league="EPL").get_team_data(
+                        season=season.split("-")[0]
+                    )
+                if not payload:
+                    raise ValueError("empty team payload")
+                return season, payload, None
+            except Exception as exc:
+                last_error = str(exc)
+                time.sleep(2 ** attempt)
+        return season, None, last_error or "unknown error"
+
     print(
         f"  fetching {len(player_ids):,} missing Understat player histories "
         f"with {min(max(1, workers), 4)} workers",
         flush=True,
     )
-    # Probe a few real mapped IDs before scheduling hundreds of requests. This
-    # turns a provider-wide block, parser regression, or endpoint failure into a
-    # short actionable error instead of an hour of identical retries.
-    preflight = []
-    for player_id in player_ids[:3]:
-        result = fetch_player(player_id)
-        preflight.append(result)
+    preflight = [fetch_player(player_id) for player_id in player_ids[:3]]
     successful_preflight = [item for item in preflight if item[1] is not None]
     failed_preflight = [item for item in preflight if item[2] is not None]
     for player_id, payload, error in successful_preflight:
@@ -506,6 +571,7 @@ def parallel_understat_fallbacks(
         details = "; ".join(
             f"{player_id}: {error}" for player_id, _, error in failed_preflight
         )
+        close_worker_clients()
         raise RuntimeError(
             "Understat fallback preflight failed for the first three mapped player IDs; "
             f"stopping before bulk acquisition. Errors: {details}"
@@ -515,32 +581,35 @@ def parallel_understat_fallbacks(
     failures.extend(
         f"player:{player_id}:{error}" for player_id, _, error in failed_preflight
     )
-    with ThreadPoolExecutor(max_workers=min(max(1, workers), 4)) as pool:
-        futures = {
-            pool.submit(fetch_player, player_id): player_id
-            for player_id in player_ids[3:]
-        }
-        for future in as_completed(futures):
-            player_id, payload, error = future.result()
-            completed += 1
-            if error is not None:
-                failures.append(f"player:{player_id}:{error}")
-                if len(failures) <= 10:
+    try:
+        with ThreadPoolExecutor(max_workers=min(max(1, workers), 4)) as pool:
+            futures = {
+                pool.submit(fetch_player, player_id): player_id
+                for player_id in player_ids[3:]
+            }
+            for future in as_completed(futures):
+                player_id, payload, error = future.result()
+                completed += 1
+                if error is not None:
+                    failures.append(f"player:{player_id}:{error}")
+                    if len(failures) <= 10:
+                        print(
+                            f"    Understat fallback error {len(failures)}: "
+                            f"player={player_id}; {error}",
+                            flush=True,
+                        )
+                elif payload is not None:
+                    (root / f"{player_id}.json").write_text(
+                        json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8"
+                    )
+                if completed % 25 == 0 or completed == len(player_ids):
                     print(
-                        f"    Understat fallback error {len(failures)}: "
-                        f"player={player_id}; {error}",
+                        f"    Understat player fallbacks {completed:,}/{len(player_ids):,}; "
+                        f"failed={len(failures):,}",
                         flush=True,
                     )
-            elif payload is not None:
-                (root / f"{player_id}.json").write_text(
-                    json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8"
-                )
-            if completed % 25 == 0 or completed == len(player_ids):
-                print(
-                    f"    Understat player fallbacks {completed:,}/{len(player_ids):,}; "
-                    f"failed={len(failures):,}",
-                    flush=True,
-                )
+    finally:
+        close_worker_clients()
 
     team_root = raw_dir / "understat" / "teams"
     team_root.mkdir(parents=True, exist_ok=True)
@@ -548,26 +617,13 @@ def parallel_understat_fallbacks(
         path = team_root / f"{season}.json"
         if path.exists() and path.stat().st_size and not force:
             continue
-        payload = None
-        last_error = None
-        for attempt in range(3):
-            try:
-                with make_bounded_client() as client:
-                    payload = client.league(league="EPL").get_team_data(
-                        season=season.split("-")[0]
-                    )
-                if not payload:
-                    raise ValueError("empty team payload")
-                break
-            except Exception as exc:
-                last_error = str(exc)
-                time.sleep(2 ** attempt)
-        if payload:
+        season_key, payload, error = fetch_team_season(season)
+        if payload is not None:
             path.write_text(
                 json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8"
             )
         else:
-            failures.append(f"teams:{season}:{last_error or 'unknown error'}")
+            failures.append(f"teams:{season_key}:{error or 'unknown error'}")
 
     if failures and not allow_missing:
         raise RuntimeError(
