@@ -170,3 +170,33 @@ acquired. The next ingestion step is to pin the exact upstream commits and
 file inventory, then add schema-aware normalizers for each source family.
 The verifier's unit tests have been added but have not yet been executed in a
 verified CI run.
+
+
+## 9. First canonical FPL archive normalizer
+
+CTA now has `scripts/normalize_vaastav_fpl_archive.py`, which accepts one
+season's `merged_gw.csv`, `players_raw.csv` and `teams.csv` and emits
+canonical player-match rows plus a JSON audit report.
+
+The identity chain is exact and season-scoped:
+`merged_gw.element -> players_raw.id -> players_raw.code`. The final
+`fpl_code` is the stable cross-season identity; the season-specific element
+ID is retained separately. The output grain is
+`(season, fixture_id, fpl_code)`. It validates duplicate player-fixture keys,
+duplicate roster IDs/codes, position against `element_type`, fixture and
+kickoff presence, kickoff parsing, and team/opponent references. GK is
+normalized to GKP. Display names are never used for identity matching.
+
+Only `minutes` and `total_points` are mandatory match-stat columns in this
+first adapter. Other known match-stat columns are preserved when present;
+historically unavailable columns remain blank and are listed in the report.
+This is intentional schema-variation handling, not imputation. The report
+does not claim complete player/fixture coverage: archive completeness and
+missing player-fixture combinations must be audited separately before feature
+construction.
+
+Unit tests cover stable-code identity, canonical grain, duplicate keys,
+unknown player elements, position conflicts, historical optional-column
+absence, invalid kickoff timestamps and duplicate stable codes. Tests are
+committed but have not yet been run in a verified CI environment. The
+normalizer has not yet been executed against the full upstream archive.
