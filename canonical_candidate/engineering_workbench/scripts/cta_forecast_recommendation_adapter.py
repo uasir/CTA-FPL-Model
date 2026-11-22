@@ -272,6 +272,8 @@ def build_cta_forecast_provider_snapshot(
             raise CTAForecastAdapterError(f"bootstrap element for code {code} has invalid FPL element ID")
         if isinstance(team_id, bool) or not isinstance(team_id, int) or team_id < 1:
             raise CTAForecastAdapterError(f"bootstrap element for code {code} has invalid team ID")
+        if row.get("season") != season:
+            raise CTAForecastAdapterError(f"season mismatch for FPL stable code {code}")
         if position is None or row.get("position") != position:
             raise CTAForecastAdapterError(f"position mismatch for FPL stable code {code}")
         if row.get("forecast_snapshot_id") != snapshot_id:
@@ -318,6 +320,8 @@ def build_cta_forecast_provider_snapshot(
             raise CTAForecastAdapterError(f"player-Gameweek row {index} has invalid keys") from exc
         if gw not in panels_by_gw:
             raise CTAForecastAdapterError(f"player-Gameweek row {index} is outside the five-GW horizon")
+        if row.get("season") != season:
+            raise CTAForecastAdapterError(f"season mismatch for player-Gameweek row {index}")
         if code not in seen_codes:
             raise CTAForecastAdapterError(f"player-Gameweek row {index} has no matching five-GW player total")
         if code in seen_by_gw[gw]:
@@ -351,6 +355,35 @@ def build_cta_forecast_provider_snapshot(
         {"gameweek": gw, "player_forecasts": panels_by_gw[gw]}
         for gw in gameweeks
     ]
+
+    # Reconcile the cumulative five-GW product against its five individual
+    # player-GW panels. This prevents a stale/mismatched aggregate from feeding
+    # general rankings while a different panel feeds the personal optimiser.
+    panel_totals: dict[int, dict[str, float]] = {}
+    for panel in gameweek_panels:
+        for player in panel["player_forecasts"]:
+            totals = panel_totals.setdefault(
+                player["fpl_element_id"], {"expected_points": 0.0, "expected_minutes": 0.0},
+            )
+            totals["expected_points"] += player["expected_points"]
+            totals["expected_minutes"] += player["expected_minutes"]
+    for player in players:
+        totals = panel_totals.get(player["fpl_element_id"])
+        if totals is None:
+            raise CTAForecastAdapterError(
+                f"player {player['fpl_element_id']} has no individual Gameweek forecast panel"
+            )
+        for field in ("expected_points", "expected_minutes"):
+            if not math.isclose(
+                totals[field], player[field], rel_tol=1e-7, abs_tol=1e-6,
+            ):
+                raise CTAForecastAdapterError(
+                    f"five-GW {field} does not reconcile to individual Gameweek panels "
+                    f"for player {player['fpl_element_id']}"
+                )
+    if set(panel_totals) != {player["fpl_element_id"] for player in players}:
+        raise CTAForecastAdapterError("individual Gameweek panels and five-GW player universe differ")
+
     eo_provenance = _optional_eo(players, eo_snapshot, snapshot_id, deadline)
     data_coverage = {
         "freshness_status": freshness,
