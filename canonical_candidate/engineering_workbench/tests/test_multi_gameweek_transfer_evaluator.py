@@ -117,7 +117,7 @@ def test_transfer_that_breaks_three_player_club_limit_is_rejected():
     request = payload()
     for week in request["gameweeks"]:
         for player in week["player_forecasts"]:
-            if player["fpl_element_id"] == 16:
+            if player["fpl_element_id"] in {5, 6, 7, 16}:
                 player["team_id"] = 2
     try:
         evaluate_multi_gameweek_transfer(request)
