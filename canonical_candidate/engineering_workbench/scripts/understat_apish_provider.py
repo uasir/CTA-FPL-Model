@@ -109,6 +109,8 @@ def normalize_team_history(rows: list[dict[str, Any]], team_name: str, season: s
                 value = _first(source, names)
                 if value is not None:
                     row[target] = value
+        if row.get("h_a") is None and source.get("is_home") is not None:
+            row["h_a"] = "h" if bool(source["is_home"]) else "a"
         if row.get("date") is None:
             raise ValueError(
                 f"API.SH team {team_name} {season} row lacks date; available={sorted(source)}"
