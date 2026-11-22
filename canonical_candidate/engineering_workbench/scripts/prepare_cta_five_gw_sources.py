@@ -412,7 +412,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         ],
         "history_rows_from_official_api": current_api_report["api_player_fixture_rows"],
     }
-    manifest_path.write_text(json.dumps(source_manifest, indent=2) + "\\n", encoding="utf-8")
+    manifest_path.write_text(json.dumps(source_manifest, indent=2) + "\n", encoding="utf-8")
 
     print("Building canonical player/team match tables", flush=True)
     player_matches, team_matches, player_lookup = sources.build_canonical_matches(raw_dir, seasons)
