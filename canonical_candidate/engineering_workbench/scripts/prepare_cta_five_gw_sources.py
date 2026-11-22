@@ -373,6 +373,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     fixtures_path.write_text(json.dumps(fixtures, indent=2) + "\n", encoding="utf-8")
 
     roster_path = write_current_roster(dastan_root, bootstrap, season)
+    mapping_release_report = mappings.verify_operational_release()
     patch_identity_resolution(mappings, sources)
     operational_clubs = mappings.load_operational_clubs()
     dastan_features.FPL_TO_UNDERSTAT.update({
@@ -498,7 +499,15 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "canonical_team_match_rows": len(team_matches),
         "historical_training_rows": len(training_frame),
         "training_features": len(json.loads((dastan_root / "models" / "feature_cols.json").read_text(encoding="utf-8"))),
+        "mapping_release_verification": mapping_release_report,
         "mapping": mapping_report,
+        "club_mapping": {
+            "total": len(operational_clubs),
+            "mapped": int(operational_clubs["understat_team_id"].notna().sum()),
+            "unmapped": operational_clubs.loc[
+                operational_clubs["understat_team_id"].isna(), "club_name"
+            ].astype(str).tolist(),
+        },
         "artifacts": {
             "bootstrap": {"path": str(bootstrap_path), "sha256": sha256(bootstrap_path)},
             "fixtures": {"path": str(fixtures_path), "sha256": sha256(fixtures_path)},
