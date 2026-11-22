@@ -101,3 +101,77 @@ def test_rejects_windows_shorter_than_five_gameweeks(tmp_path):
     build_source(source)
     with pytest.raises(HistoricalCovarianceBuildError, match="at least five"):
         build_historical_covariance_from_finality(source, tmp_path / "output", window_size=4)
+
+def refresh_panel_manifest_hash(source: Path):
+    panel = source / "covar-realized-panel" / "fpl_realized_player_gameweek.csv"
+    manifest_path = source / "covar-realized-panel" / "dataset_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["archive_artifacts"]["fpl_realized_player_gameweek.csv"] = hashlib.sha256(panel.read_bytes()).hexdigest()
+    write_json(manifest_path, manifest)
+
+
+def rewrite_panel(source: Path, rows):
+    panel = source / "covar-realized-panel" / "fpl_realized_player_gameweek.csv"
+    with panel.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["season", "gameweek", "fpl_element_id", "total_points"])
+        writer.writeheader()
+        writer.writerows(rows)
+    refresh_panel_manifest_hash(source)
+
+
+def test_rejects_panel_gameweek_outside_finality_reconciled_set(tmp_path):
+    source = tmp_path / "source"
+    build_source(source)
+    panel = source / "covar-realized-panel" / "fpl_realized_player_gameweek.csv"
+    with panel.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    rows.append({"season": "2026-27", "gameweek": "6", "fpl_element_id": "1", "total_points": "4"})
+    rewrite_panel(source, rows)
+    with pytest.raises(HistoricalCovarianceBuildError, match="outside the finality-reconciled set"):
+        build_historical_covariance_from_finality(source, tmp_path / "output", window_size=5)
+
+
+def test_rejects_panel_missing_a_finality_reconciled_gameweek(tmp_path):
+    source = tmp_path / "source"
+    build_source(source)
+    panel = source / "covar-realized-panel" / "fpl_realized_player_gameweek.csv"
+    with panel.open(newline="", encoding="utf-8") as handle:
+        rows = [row for row in csv.DictReader(handle) if row["gameweek"] != "5"]
+    rewrite_panel(source, rows)
+    with pytest.raises(HistoricalCovarianceBuildError, match="Gameweek set does not exactly match"):
+        build_historical_covariance_from_finality(source, tmp_path / "output", window_size=5)
+
+
+def test_rejects_duplicate_finality_gameweek_ids(tmp_path):
+    source = tmp_path / "source"
+    build_source(source)
+    path = source / "covar-finality-result" / "finality_batch_report.json"
+    report = json.loads(path.read_text())
+    report["reports"].append(report["reports"][-1].copy())
+    write_json(path, report)
+    with pytest.raises(HistoricalCovarianceBuildError, match="duplicate Gameweek"):
+        build_historical_covariance_from_finality(source, tmp_path / "output", window_size=5)
+
+
+def test_rejects_duplicate_player_gameweek_rows_even_with_updated_manifest_hash(tmp_path):
+    source = tmp_path / "source"
+    build_source(source)
+    panel = source / "covar-realized-panel" / "fpl_realized_player_gameweek.csv"
+    with panel.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    rows.append(rows[0].copy())
+    rewrite_panel(source, rows)
+    with pytest.raises(HistoricalCovarianceBuildError, match="duplicate player-Gameweek"):
+        build_historical_covariance_from_finality(source, tmp_path / "output", window_size=5)
+
+
+def test_rejects_non_integer_fpl_points_even_with_updated_manifest_hash(tmp_path):
+    source = tmp_path / "source"
+    build_source(source)
+    panel = source / "covar-realized-panel" / "fpl_realized_player_gameweek.csv"
+    with panel.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    rows[0]["total_points"] = "2.5"
+    rewrite_panel(source, rows)
+    with pytest.raises(HistoricalCovarianceBuildError, match="finite integer FPL points"):
+        build_historical_covariance_from_finality(source, tmp_path / "output", window_size=5)
