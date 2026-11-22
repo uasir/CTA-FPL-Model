@@ -14,6 +14,7 @@ from typing import Any, Mapping
 
 from m5_conventional_delivery_contract import validate_conventional_m5_output
 from m4_m3_optionality_adapter import attach_optional_m4_context
+from m4_m3_replay_evidence_adapter import verify_m3_replay_evidence
 
 
 def _canonical(value: Any) -> bytes:
@@ -23,10 +24,19 @@ def _canonical(value: Any) -> bytes:
 def build_conventional_delivery_report(
     conventional_output: Mapping[str, Any],
     field_context: Mapping[str, Any] | None = None,
+    m3_replay_report: Mapping[str, Any] | None = None,
+    decision_evidence: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Validate first, then attach optional field context without changing the decision."""
+    """Validate first, then attach field context and independently verify frozen M3 evidence."""
     acceptance = validate_conventional_m5_output(conventional_output)
     optionality = attach_optional_m4_context(conventional_output, field_context)
+    if (m3_replay_report is None) != (decision_evidence is None):
+        raise ValueError("M3 replay report and decision evidence must be supplied together")
+    replay_evidence = (
+        verify_m3_replay_evidence(conventional_output, m3_replay_report, decision_evidence)
+        if m3_replay_report is not None else
+        {"status": "NOT_SUPPLIED", "release_eligible": False}
+    )
 
     # The adapter returns a deep-copied original payload. Assert exact canonical
     # equality here as a second boundary at the report layer.
@@ -62,6 +72,7 @@ def build_conventional_delivery_report(
             "decision_as_of_utc": conventional_output["decision_as_of_utc"],
             "deadline_utc": conventional_output["deadline_utc"],
         },
+        "m3_replay_evidence": replay_evidence,
         "field_context": {
             "status": optionality["m4_status"],
             "withheld_reason": optionality["m4_withheld_reason"],
@@ -75,6 +86,7 @@ def build_conventional_delivery_report(
             "ev_eo_blended": False,
             "covar_decision_weight": 0,
             "field_context_can_change_recommendation": False,
+            "frozen_m3_replay_verified": replay_evidence["status"] == "VERIFIED",
         },
     }
     report["report_sha256"] = hashlib.sha256(_canonical(report)).hexdigest()
@@ -85,6 +97,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--conventional", type=Path, required=True)
     parser.add_argument("--field-context", type=Path)
+    parser.add_argument("--m3-replay-report", type=Path)
+    parser.add_argument("--decision-evidence", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -93,7 +107,17 @@ def main() -> int:
         json.loads(args.field_context.read_text(encoding="utf-8"))
         if args.field_context else None
     )
-    report = build_conventional_delivery_report(conventional, field_context)
+    replay_report = (
+        json.loads(args.m3_replay_report.read_text(encoding="utf-8"))
+        if args.m3_replay_report else None
+    )
+    decision_evidence = (
+        json.loads(args.decision_evidence.read_text(encoding="utf-8"))
+        if args.decision_evidence else None
+    )
+    report = build_conventional_delivery_report(
+        conventional, field_context, replay_report, decision_evidence,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n",
@@ -103,6 +127,7 @@ def main() -> int:
         "status": report["status"],
         "action": report["conventional"]["action"],
         "field_context_status": report["field_context"]["status"],
+        "m3_replay_evidence_status": report["m3_replay_evidence"]["status"],
         "report_sha256": report["report_sha256"],
         "release_eligible": False,
         "output": str(args.output),
