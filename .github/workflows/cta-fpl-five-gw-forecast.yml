@@ -89,6 +89,9 @@ jobs:
           git clone https://github.com/qazybekb/smartplayfpl-dastan.git .cache/dastan
           git -C .cache/dastan checkout 758db9247e8b3a9a870c991064f74d8339d61cd0
       - name: Import Dastan release; acquire current and historical feature inputs
+        env:
+          APISH_KEY: ${{ secrets.APISH_KEY }}
+          APISH_MONTHLY_CREDIT_BUDGET: "900"
         run: |
           python canonical_candidate/engineering_workbench/scripts/prepare_cta_five_gw_sources.py \
             --dastan-root .cache/dastan \
