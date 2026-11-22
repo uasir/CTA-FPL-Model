@@ -36,7 +36,7 @@ This integration is a structural and exploratory preview, not a release of CTA r
 - A five-plus-Gameweek transfer evaluation, independent forecast validation and governed M4 product promotion are still required before a decision can become eligible.
 - General CTA rankings are independent of the manager's squad and must remain invariant to personal state.
 - CTA expected points are never blended with conventional FPL Cat or Sideline Quant forecasts.
-- LiveFPL observed EO remains separate from poll-implied EO. EO is supplementary context and is not added to expected points.
+- LiveFPL observed EO remains separate from poll-implied EO. The adapter accepts only verified post-lock observed EO and labels it retrospective/descriptive; it must not be treated as information available for a pre-deadline decision or added to expected points.
 - CoVar remains excluded: zero decision weight, not production eligible and not used by either recommendation engine.
 - The conventional recommendation product remains a separate M3/M4 path.
 
