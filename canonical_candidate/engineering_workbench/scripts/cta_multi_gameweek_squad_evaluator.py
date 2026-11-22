@@ -39,6 +39,8 @@ def evaluate_cta_five_gameweek_squad(
     manager_context: Mapping[str, Any],
     *,
     starting_xi_ids: list[int] | None = None,
+    forecast_snapshot_id: str | None = None,
+    model_version: str | None = None,
     hit_cost_points: float = 4.0,
     max_alternatives: int = 20,
 ) -> dict[str, Any]:
@@ -192,8 +194,15 @@ def evaluate_cta_five_gameweek_squad(
     candidates.sort(key=lambda r: (-r["net_horizon_expected_points_delta"],
                                   -r["gross_horizon_expected_points_delta"],
                                   r["transfer_out_id"], r["transfer_in_id"]))
+    if forecast_snapshot_id is not None and (not isinstance(forecast_snapshot_id, str) or not forecast_snapshot_id.strip()):
+        raise CTAMultiGameweekSquadError("forecast_snapshot_id must be a non-empty string when supplied")
+    if model_version is not None and (not isinstance(model_version, str) or not model_version.strip()):
+        raise CTAMultiGameweekSquadError("model_version must be a non-empty string when supplied")
+
     return {
         "status": "EXPLORATORY_CTA_FIVE_GAMEWEEK_SQUAD_SWEEP",
+        "forecast_snapshot_id": forecast_snapshot_id,
+        "model_version": model_version,
         "horizon_gameweeks": weeks,
         "manager_state": {"squad_ids": owned, "starting_xi_ids": list(starting_xi_ids),
                           "bank": bank, "free_transfers": free_transfers},
