@@ -97,8 +97,9 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
         result = validate_official_replay_case(case)
         self.assertEqual(result["status"], "PASS", result)
         self.assertTrue(result["official_automatic_substitution_match"])
+        self.assertTrue(result["automatic_substitution_metadata_match"])
 
-    def test_detects_official_automatic_substitution_pair_mismatch(self):
+    def test_api_automatic_substitution_metadata_mismatch_does_not_override_final_picks(self):
         case = replay()
         case["player_outcomes"]["p2"].update({"minutes": 0, "played": False, "fpl_points": 0})
         case["official_final"]["player_total_points"]["p2"] = 0
@@ -108,8 +109,10 @@ class TestM4CovarFplReplayValidation(unittest.TestCase):
             {"element_in": "p13", "element_out": "p3", "event": 7},
         ]
         result = validate_official_replay_case(case)
-        self.assertEqual(result["status"], "FAIL")
-        self.assertFalse(result["official_automatic_substitution_match"])
+        self.assertEqual(result["status"], "PASS", result)
+        self.assertTrue(result["official_automatic_substitution_match"])
+        self.assertFalse(result["automatic_substitution_metadata_match"])
+        self.assertTrue(result["official_multiplier_match"])
 
     def test_detects_official_autosub_multiplier_mismatch(self):
         case = replay()
