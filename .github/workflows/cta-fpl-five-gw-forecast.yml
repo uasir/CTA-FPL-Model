@@ -120,6 +120,15 @@ jobs:
             --manifest outputs/cta-five-gw/dastan_model/artifact_manifest.json \
             --output outputs/cta-five-gw/minutes_predictions.csv \
             --report outputs/cta-five-gw/minutes_report.json
+      - name: Run imported Dastan full xPts model as independent benchmark
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/run_dastan_full_model_inference.py \\
+            --input outputs/cta-five-gw/feature_matrix.csv \\
+            --schema canonical_candidate/engineering_workbench/config/dastan_minutes_feature_schema.json \\
+            --dastan-root .cache/dastan \\
+            --model-dir outputs/cta-five-gw/dastan_model \\
+            --output outputs/cta-five-gw/dastan_points_benchmark.csv \\
+            --report outputs/cta-five-gw/dastan_points_benchmark_report.json
       - name: Train CTA-owned candidate points models
         run: |
           python canonical_candidate/engineering_workbench/scripts/train_cta_points_model.py \
