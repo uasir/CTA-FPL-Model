@@ -115,9 +115,21 @@ def test_parallel_understat_fallbacks_fetch_concurrently_and_write_json(tmp_path
     active = 0
     peak = 0
 
+    class FakeResponse:
+        status_code = 200
+        text = "<html><title>Understat</title></html>"
+        headers = {"Content-Type": "text/html"}
+
+        def raise_for_status(self):
+            return None
+
     class FakeSession:
         def __init__(self):
             self.headers = {}
+
+        def get(self, url, **kwargs):
+            assert kwargs.get("timeout") == (10, 45)
+            return FakeResponse()
 
         def request(self, method, url, **kwargs):
             assert kwargs.get("timeout") == (10, 45)
@@ -171,9 +183,27 @@ def test_parallel_understat_fallback_stops_on_provider_wide_preflight_failure(tm
     import pytest
     from prepare_cta_five_gw_sources import parallel_understat_fallbacks
 
+    class FakeResponse:
+        status_code = 200
+        text = "<html><title>Understat</title></html>"
+        headers = {"Content-Type": "text/html"}
+
+        def raise_for_status(self):
+            return None
+
     class FakeSession:
+        def __init__(self):
+            self.headers = {}
+
+        def get(self, url, **kwargs):
+            return FakeResponse()
+
         def request(self, method, url, **kwargs):
             raise RuntimeError("HTTP 403 from Understat")
+
+    class FakeParser:
+        def get_match_data(self, html):
+            raise ValueError("matchesData is absent")
 
     class FakeClient:
         def __init__(self):
@@ -185,11 +215,13 @@ def test_parallel_understat_fallback_stops_on_provider_wide_preflight_failure(tm
         def __exit__(self, *args):
             return False
 
+        parser = FakeParser()
+
         def player(self, player):
             return self
 
         def get_match_data(self):
-            self.session.request("GET", "https://understat.example/player")
+            self.session.request("GET", "https://understat.com/getPlayerData/101")
             return []
 
     fake_module = types.ModuleType("understatapi")
