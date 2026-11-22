@@ -4,6 +4,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from prepare_cta_five_gw_sources import (
     apply_historical_snapshot_safety_buffer,
+    copy_verified_dastan_release,
     download_and_merge_pinned_understat_player_histories,
     load_dastan_release_player_history,
     player_elements,
@@ -264,3 +265,58 @@ def test_dastan_release_history_extracts_raw_inputs_without_precomputed_features
     assert "player_fpl_points_1" not in raw.columns
     assert "team_xg_5" not in raw.columns
     assert "ar_rest_days" not in raw.columns
+
+
+def test_copy_verified_dastan_release_imports_only_verified_published_artifacts(tmp_path: Path):
+    import hashlib
+    import json
+    import pytest
+
+    release = tmp_path / "dastan" / "data"
+    training = tmp_path / "training"
+    release.mkdir(parents=True)
+    files = {
+        "features.parquet": b"published-feature-frame",
+        "pre_deadline_ep_next.parquet": b"published-ep-next",
+        "pre_deadline_signals.parquet": b"published-signals",
+    }
+    manifest_files = {}
+    for name, payload in files.items():
+        (release / name).write_bytes(payload)
+        manifest_files[name] = {
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "bytes": len(payload),
+            "rows": 3,
+            "columns": 5,
+        }
+    (release / "release_manifest.json").write_text(
+        json.dumps({"files": manifest_files}), encoding="utf-8"
+    )
+
+    report = copy_verified_dastan_release(tmp_path / "dastan", training)
+    assert set(report["artifacts"]) == set(files)
+    for name, payload in files.items():
+        assert (training / name).read_bytes() == payload
+        assert report["artifacts"][name]["sha256"] == hashlib.sha256(payload).hexdigest()
+
+    (release / "features.parquet").write_bytes(b"tampered")
+    with pytest.raises(RuntimeError, match="hash mismatch"):
+        copy_verified_dastan_release(tmp_path / "dastan", training)
+
+
+def test_snapshot_safety_buffer_creates_provenance_for_imported_artifacts(tmp_path: Path):
+    import pandas as pd
+
+    for stem in ("pre_deadline_ep_next", "pre_deadline_signals"):
+        pd.DataFrame({
+            "season": ["2026-27", "2026-27"],
+            "gameweek": [12, 12],
+            "fpl_code": [101, 202],
+            "snapshot_at": ["2026-11-01T09:54:00Z", "2026-11-01T09:57:00Z"],
+            "deadline_time": ["2026-11-01T10:00:00Z", "2026-11-01T10:00:00Z"],
+        }).to_parquet(tmp_path / f"{stem}.parquet", index=False)
+
+    report = apply_historical_snapshot_safety_buffer(tmp_path, minutes=5)
+    assert report["pre_deadline_ep_next"]["rows_retained"] == 1
+    sidecar = json.loads((tmp_path / "pre_deadline_ep_next.json").read_text())
+    assert sidecar["source"] == "imported Dastan release artifact"
