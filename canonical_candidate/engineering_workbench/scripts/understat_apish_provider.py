@@ -114,7 +114,8 @@ def normalize_team_history(rows: list[dict[str, Any]], team_name: str, season: s
                 if value is not None:
                     row[target] = value
         if row.get("h_a") is None and source.get("is_home") is not None:
-            row["h_a"] = "h" if bool(source["is_home"]) else "a"
+            home_value = str(source["is_home"]).strip().lower()
+            row["h_a"] = "h" if home_value in {"true", "1", "yes", "h", "home"} else "a"
         if row.get("h_a") is not None:
             venue = str(row["h_a"]).lower()
             if venue in {"home", "h"}:
