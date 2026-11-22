@@ -64,6 +64,8 @@ def test_summary_emits_weighted_exposure_and_co_selection_without_portfolios():
     assert result["data_status"] == "AGGREGATE_ONLY_PRE_DEADLINE_PORTFOLIO_STRUCTURE"
     assert result["metadata"]["manager_count"] == 3
     assert result["metadata"]["effective_sample_size"] == 3
+    assert result["metadata"]["not_official_eo"] is True
+    assert result["metadata"]["official_eo_source"] == "EXISTING_RANK_STRATIFIED_EO_ESTIMATOR"
     assert exposure["1"]["squad_exposure"] == pytest.approx(2 / 3)
     assert exposure["1"]["starting_xi_exposure"] == pytest.approx(2 / 3)
     assert exposure["1"]["captain_exposure"] == pytest.approx(1 / 3)
