@@ -187,6 +187,8 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
             raise CovarFullGameweekContractError("research played status must disclose the positive-minutes proxy and card-only limitation")
         if metadata.get("marginal_expected_points_preserved") is not True:
             raise CovarFullGameweekContractError("residual bootstrap must preserve target expected-points means")
+        if metadata.get("minutes_mean_preserved") is not True:
+            raise CovarFullGameweekContractError("residual bootstrap must preserve target expected-minutes means")
         payload_hash = metadata.get("residual_bootstrap_payload_sha256")
         if not isinstance(payload_hash, str) or len(payload_hash) != 64 or any(ch not in "0123456789abcdef" for ch in payload_hash.lower()):
             raise CovarFullGameweekContractError("residual bootstrap payload SHA-256 is required")
@@ -242,6 +244,8 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
 
     scenario_ids: set[str] = set()
     probability_total = 0.0
+    research_point_totals = {pid: 0.0 for pid in player_by_id}
+    research_minute_totals = {pid: 0.0 for pid in player_by_id}
     for scenario in scenarios:
         if not isinstance(scenario, Mapping):
             raise CovarFullGameweekContractError("each scenario must be an object")
@@ -278,7 +282,10 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
                 raise CovarFullGameweekContractError(f"{scenario_id}.{player_id}.played must match the disclosed positive-minutes proxy")
             if minutes > 0 and not played:
                 raise CovarFullGameweekContractError(f"{scenario_id}.{player_id} with positive minutes must be marked played")
-            _number(outcome.get("fpl_points"), f"{scenario_id}.{player_id}.fpl_points")
+            points = _number(outcome.get("fpl_points"), f"{scenario_id}.{player_id}.fpl_points")
+            if data_status == "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY":
+                research_point_totals[player_id] += points * probability
+                research_minute_totals[player_id] += minutes * probability
             outcome_by_id[player_id] = outcome
         if set(outcome_by_id) != set(player_by_id):
             missing = len(set(player_by_id) - set(outcome_by_id))
@@ -288,6 +295,13 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
     if not math.isclose(probability_total, 1.0, rel_tol=0, abs_tol=1e-9):
         raise CovarFullGameweekContractError("scenario probabilities must sum to 1")
     if data_status == "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY":
+        for pid, player in player_by_id.items():
+            target_points = _number(player.get("expected_points"), f"player {pid}.expected_points")
+            target_minutes = _number(player.get("expected_minutes"), f"player {pid}.expected_minutes", minimum=0)
+            if not math.isclose(research_point_totals[pid], target_points, rel_tol=0, abs_tol=1e-8):
+                raise CovarFullGameweekContractError(f"player {pid} residual scenarios do not preserve target expected-points mean")
+            if not math.isclose(research_minute_totals[pid], target_minutes, rel_tol=0, abs_tol=1e-8):
+                raise CovarFullGameweekContractError(f"player {pid} residual scenarios do not preserve target expected-minutes mean")
         observed_source_gw_rows = [int(row["source_gameweek"]) for row in scenarios]
         if len(set(observed_source_gw_rows)) != len(observed_source_gw_rows):
             raise CovarFullGameweekContractError("scenario source Gameweeks must be unique")
