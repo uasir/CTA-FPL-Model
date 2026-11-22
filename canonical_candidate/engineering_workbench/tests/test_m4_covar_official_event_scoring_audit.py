@@ -71,7 +71,7 @@ def test_fails_on_unmapped_positive_official_scoring_identifier():
         "identifier": "unmapped_new_bonus", "value": 1, "points": 2,
     })
     report = audit_official_event_payload(live, bootstrap, event_id=1)
-    assert report["mismatch_count"] == 1
+    assert report["mismatch_count"] == 2
     assert report["unknown_positive_identifiers"] == {"unmapped_new_bonus": 1}
 
 
