@@ -6,12 +6,13 @@ Status: **FIRST M4 PRODUCT ADAPTER IMPLEMENTED — EXPLORATORY PREVIEW ONLY**
 
 Deliver the conventional squad-specific recommendation first. It is based on one eligible, provider-labelled expected-points snapshot and the manager's explicit 15-player squad, bank, free transfers and lineup constraints.
 
-The first product exposes:
+The product exposes:
 - Hold versus one-transfer decision and ranked legal alternatives.
 - Current and proposed starting XI, legal formation, captain, vice-captain and bench order.
 - Expected starting points and transfer EV delta/hit-cost accounting.
 - Exact forecast provider, snapshot, timestamps, source hashes and player-metadata provenance.
 - Forecast quality and limitations, with exploratory status preserved.
+- Optional Team Exposure & Correlation Model (TECM) diagnostics, bound to the same forecast snapshot and covering at least five consecutive Gameweeks.
 
 ## Reusable M3-to-M4 forecast contract
 
@@ -23,7 +24,15 @@ The decision rules, squad state, budget, free-transfer count, formation constrai
 
 ## Decision isolation
 
-The conventional product uses **expected points only**. Field-relative ownership/EO, poll-implied EO, CoVar and CTA model adjustments are explicitly excluded from its score. They may appear in separate products or contextual views later, but cannot change this product's transfer action, XI or captaincy.
+The conventional product's transfer action, XI and captaincy remain **expected-points-only**. Field-relative ownership/EO, poll-implied EO, CoVar and TECM are separate context layers and cannot change the canonical EV decision.
+
+### Team Exposure & Correlation Model (TECM)
+
+The script `scripts/team_exposure_correlation.py` computes squad club/position exposure over a minimum five consecutive Gameweeks and, only when coherent joint player-point scenarios are supplied, estimates within-Gameweek player covariance. It reports defensive clean-sheet stacking (GK/DEF), attacking stacking (MID/FWD) and mixed club exposure. Club identity alone never implies a correlation coefficient.
+
+Expected points remain additive across players; a double-up is not awarded an artificial EV bonus. Stacking changes concentration and the distribution of outcomes. The TECM output is attached to M4 as diagnostic-only, must bind to the exact forecast snapshot, and is fail-closed unless `decision_weight=0`, `production_eligible=false` and additive expected-points accounting is explicit. It cannot change transfer ranking, starting XI, captaincy or hit decisions.
+
+Joint scenarios must be genuinely joint forecasts for the same Gameweek, not reconstructed from marginal xP or EO. The current horizon covariance sums within-Gameweek covariance across weeks and explicitly assumes Gameweek outcomes are independent. If joint scenarios are unavailable, M4 still reports team exposure but marks player covariance unavailable; it does not invent correlations.
 
 The engine retains its existing rules: one transfer at a time, legal budget/position/team constraints, starting-XI-first evaluation, no goalkeeper rotation transfers, and no routine bench-to-bench upgrades. The recorded risk profile is not applied because player-level variance is not validated.
 
@@ -55,4 +64,12 @@ Entry points:
 - scripts/run_fplcat_live_m4_recommendation.py — FT reconstruction, strict pre-deadline capture, frozen M3 decision and M4 conventional product
 - .github/workflows/capture-fplcat-benchmark.yml — capture, synthetic contract replay and live-manager execution
 
-The live execution remains EXPLORATORY_PREVIEW and release-ineligible. It is a one-Gameweek provider-xP decision, not a validated multi-week strategy or a CTA-informed recommendation.
+The live execution remains EXPLORATORY_PREVIEW and release-ineligible. The current live provider-xP decision path remains single-Gameweek until a valid five-plus-Gameweek forecast bundle is supplied; TECM is not fabricated from a one-Gameweek snapshot and remains diagnostic-only.
+
+## Multi-Gameweek transfer policy (M4)
+
+A transfer is an investment across at least five upcoming Gameweeks, not a one-week xP reaction. The product must compare incoming and outgoing players across the same five-plus-GW horizon, include fixture sequence and expected minutes where available, and report cumulative expected-points delta and transfer cost. A player is not sold solely because of low expected points in the immediate Gameweek or one difficult fixture. The one-Gameweek live path must not be described as satisfying this policy.
+
+## TECM implementation boundary
+
+The TECM module provides a reusable analytical contract and M4 attachment guard. Its output is optional until complete multi-Gameweek forecasts and coherent joint scenarios are captured. No forward covariance, player correlation, field joint portfolio, or transfer benefit is claimed from club stacking alone. The existing conventional and CTA-informed product identities remain separate and use the same squad constraints.
