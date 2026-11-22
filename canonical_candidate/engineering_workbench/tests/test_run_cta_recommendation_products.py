@@ -320,7 +320,7 @@ def test_cta_runner_accepts_real_m3_schema_with_paired_manager_capture(monkeypat
     assert personal["manager_state"]["free_transfers"] == 1
     diagnostic = personal["multi_gameweek_squad_diagnostic"]
     assert diagnostic["forecast_snapshot_id"] == "cta-snapshot-test"
-    assert len(diagnostic["manager_state"]["squad_snapshot"]) == 15
+    assert len(diagnostic["manager_state"]["squad_ids"]) == 15
 
 
 def test_cta_runner_blocks_real_m3_run_without_full_manager_capture(monkeypatch):
