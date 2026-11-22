@@ -61,10 +61,9 @@ def test_csv_writer_uses_real_newlines_and_round_trips(tmp_path: Path):
     path = tmp_path / "nested" / "sample.csv"
     write_csv_frame(pd.DataFrame([{"id": 1, "name": "Arsenal"}]), path)
     raw = path.read_bytes()
-    assert b"\\\\n" not in raw
-    assert b"\\n" in raw
+    assert bytes([92, 110]) not in raw
+    assert raw.count(bytes([10])) >= 2
     assert pd.read_csv(path).to_dict("records") == [{"id": 1, "name": "Arsenal"}]
-
 
 def test_live_fixture_schedule_writer_round_trips(tmp_path: Path):
     import pandas as pd
