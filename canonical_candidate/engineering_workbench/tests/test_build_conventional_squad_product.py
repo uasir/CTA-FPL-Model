@@ -6,6 +6,7 @@ import pytest
 
 from run_external_benchmark_personal_squad import run_external_benchmark_personal_squad
 from build_conventional_squad_product import (ConventionalSquadProductError, build_conventional_squad_product, build_personal_squad_product)
+from test_multi_gameweek_transfer_evaluator import request as _multi_gameweek_request
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "recommendation_requests.json").read_text())
 
@@ -134,7 +135,7 @@ def test_m4_rejects_invalid_team_exposure_context(mutation, message):
 
 
 
-def test_five_gameweek_action_requires_explicit_validated_consecutive_snapshot_evidence():
+def test_caller_supplied_validation_flags_cannot_unlock_actionable_decision():
     run = _run()
     run["multi_gameweek_decision_evidence"] = {
         "status": "VALIDATED_FOR_M4_DECISION",
@@ -145,10 +146,33 @@ def test_five_gameweek_action_requires_explicit_validated_consecutive_snapshot_e
         "decision": {"action": "HOLD", "hit_cost_points_applied": 0},
     }
     product = build_personal_squad_product(run)
-    assert product["decision"]["action"] == "HOLD"
-    assert product["decision"]["scope"] == "MULTI_GAMEWEEK_HOLD_VS_TRANSFER"
-    assert product["decision"]["decision_eligibility"]["status"] == "VALIDATED_FOR_M4_DECISION"
-    assert "one_gameweek_preview" not in product["decision"]
+    assert product["decision"]["action"] == "NOT_DECISION_ELIGIBLE"
+    assert product["decision"]["scope"] == "ONE_GAMEWEEK_DIAGNOSTIC_ONLY"
+    assert product["decision"]["decision_eligibility"]["status"] == "BLOCKED_PENDING_INDEPENDENT_MULTI_GAMEWEEK_VALIDATION"
+
+
+def test_m4_runs_five_gameweek_evaluator_but_keeps_result_diagnostic_only():
+    run = _run()
+    run["multi_gameweek_transfer_request"] = _multi_gameweek_request()
+    product = build_personal_squad_product(run)
+    diagnostic = product["multi_gameweek_diagnostic"]
+    assert diagnostic["horizon_gameweeks"] == [12, 13, 14, 15, 16]
+    assert diagnostic["action"] == "TRANSFER"
+    assert diagnostic["decision_weight"] == 0
+    assert diagnostic["production_eligible"] is False
+    assert product["decision"]["action"] == "NOT_DECISION_ELIGIBLE"
+    assert product["decision"]["scope"] == "MULTI_GAMEWEEK_DIAGNOSTIC_ONLY"
+    assert product["decision"]["best_transfer"] is None
+    assert product["decision"]["decision_eligibility"]["status"] == "BLOCKED_PENDING_INDEPENDENT_MULTI_GAMEWEEK_VALIDATION"
+
+
+def test_m4_rejects_invalid_multi_gameweek_diagnostic_input():
+    run = _run()
+    request = _multi_gameweek_request()
+    request["forecast_bundle"]["horizon_gameweeks"] = [12, 13, 14, 16, 17]
+    run["multi_gameweek_transfer_request"] = request
+    with pytest.raises(ConventionalSquadProductError, match="multi-Gameweek diagnostic rejected"):
+        build_personal_squad_product(run)
 
 
 @pytest.mark.parametrize("mutation", [
