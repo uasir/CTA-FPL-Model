@@ -211,3 +211,14 @@ Contract tests use an isolated monkeypatched synthetic capability only to exerci
 The canonical provider source identity now travels with the validated five-plus-Gameweek bundle through the transfer evaluator and manager-aware squad assembler. The evaluator rejects bundles missing the registered source ID, full provider identity, or supported canonical contract version. Its output retains provider source ID, provider identity, bundle ID, model version, contract version and per-Gameweek immutable source snapshot IDs. The manager-aware assembler carries the same provenance fields into its diagnostic envelope. The personal-squad adapter already attaches that complete diagnostic without changing its zero-decision-weight / non-production status.
 
 Regression tests assert that provenance survives both evaluator and assembler outputs and that the evaluator rejects missing source identity or contract version. These checks preserve traceability; they do not independently authenticate arbitrary caller-created bundle objects or establish forecast accuracy. The canonical bundle builder remains the boundary that enforces the actual registry eligibility gate.
+
+
+## FPL Cat Partner API five-plus-Gameweek fallback — 22 Nov 2026
+
+FPL Cat's licensed Partner API publishes up to six explicit player-Gameweek projections in one response, keyed by official FPL element ID. The partner capture adapter is scripts/capture_fpl_cat_partner_snapshot.py; it requires the FPLCAT_PARTNER_API_KEY environment variable and archives the exact provider response plus official FPL bootstrap metadata and hashes. A manual workflow is available at .github/workflows/capture-fplcat-partner-six-gw.yml; configure the repository secret only after obtaining an authorised partner key.
+
+This feed is natively player_gameweek grain. It supplies a Gameweek total for double Gameweeks, not individual fixture-level xP. The separate player_gameweek_forecast_contract.py preserves this grain and emits no fixture rows. The five-plus-Gameweek evaluator accepts this native aggregate contract but reports fixture-level transfer detail as unavailable. It never divides a double-Gameweek total across fixtures.
+
+The partner source is registered as fpl_cat_partner_projections, with six explicit Gameweeks and point-in-time metadata. Its access gate remains closed (PENDING_PARTNER_KEY_AND_LICENSE) until an authorised key/licence is confirmed and the registry is explicitly enabled. The public one-Gameweek endpoint remains unchanged and cannot satisfy this five-GW path.
+
+Limitations: provider model version is not currently disclosed in the documented response; preserve the raw response hash and computed_at as the model snapshot identity. No joint player-point scenarios are supplied by this endpoint, so forward covariance/CoVar remains unavailable. TECM can report squad club exposure only; no correlation estimate or additive xP bonus is inferred from marginal forecasts.
