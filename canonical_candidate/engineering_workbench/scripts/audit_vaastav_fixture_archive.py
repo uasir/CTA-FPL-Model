@@ -72,7 +72,9 @@ def audit_archive(
             raise ValueError(f"fixture {fixture_id}: home and away teams are identical")
 
     rows_by_fixture = defaultdict(list)
-    seen_keys = set()
+    seen_rows_by_key = {}
+    exact_duplicate_rows = 0
+    errors = []
     for index, row in enumerate(player_rows, start=2):
         fixture_id = (row.get("fixture") or "").strip()
         element = (row.get("element") or "").strip()
@@ -81,12 +83,22 @@ def audit_archive(
         if not element:
             raise ValueError(f"merged_gw row {index}: blank element ID")
         key = (fixture_id, element)
-        if key in seen_keys:
-            raise ValueError(f"merged_gw row {index}: duplicate fixture/player key {key}")
-        seen_keys.add(key)
+        previous = seen_rows_by_key.get(key)
+        if previous is not None:
+            if previous == row:
+                # Some upstream season archives contain byte-for-byte repeated
+                # player rows. They add no information and are safe to collapse.
+                exact_duplicate_rows += 1
+                continue
+            errors.append(
+                f"merged_gw row {index}: conflicting duplicate fixture/player key "
+                f"{key}; previous={previous}; duplicate={row}"
+            )
+            rows_by_fixture[fixture_id].append(row)
+            continue
+        seen_rows_by_key[key] = row
         rows_by_fixture[fixture_id].append(row)
 
-    errors = []
     kickoff_schedule_differences = []
     fixture_summaries = []
     expected_finished = {
@@ -171,7 +183,8 @@ def audit_archive(
         "fixtures_with_player_rows": len(rows_by_fixture),
         "finished_fixtures_missing_player_rows": missing_finished,
         "player_match_rows": len(player_rows),
-        "unique_fixture_player_keys": len(seen_keys),
+        "unique_fixture_player_keys": len(seen_rows_by_key),
+        "exact_duplicate_player_rows_collapsed": exact_duplicate_rows,
         "fixture_metadata_errors": errors,
         "fixture_kickoff_schedule_differences": kickoff_schedule_differences,
         "player_row_population_policy": (
