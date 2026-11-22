@@ -214,9 +214,6 @@ def evaluate_multi_gameweek_transfer_bundle(payload: Mapping[str, Any]) -> dict[
     return {
         "provider_source_id": provider_source_id,
         "provider": dict(provider),
-        "forecast_bundle_id": bundle_id,
-        "source_snapshot_ids": list(source_ids),
-        "model_version": model_version,
         "contract_version": bundle["contract_version"],
         "status": "EXPLORATORY_MULTI_GAMEWEEK_TRANSFER_COMPARISON",
         "forecast_bundle_id": bundle_id,
