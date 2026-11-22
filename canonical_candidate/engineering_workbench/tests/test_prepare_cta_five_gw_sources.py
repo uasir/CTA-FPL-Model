@@ -382,6 +382,13 @@ def test_understat_html_challenge_is_reported_before_json_parse(tmp_path, monkey
 
         def get(self, url, **kwargs):
             assert kwargs.get("timeout") == (10, 45)
+            if url == "https://understat.com/":
+                return type("HomeResponse", (), {
+                    "status_code": 200,
+                    "text": "<html><title>Understat</title></html>",
+                    "headers": {"Content-Type": "text/html"},
+                    "raise_for_status": lambda self: None,
+                })()
             return FakeResponse()
 
         def request(self, method, url, **kwargs):
