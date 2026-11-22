@@ -1,19 +1,20 @@
 # M3 Execution Charter — Benchmark-First Decision Engine
 
-**Status:** M3 ACTIVE — first provider-contract slice implemented; validation pending  
+**Status:** M3 ACTIVE — FPL Cat and Sideline Quant capture adapters implemented; live provider validation pending  
 **Started:** 2026-11-20  
 **Execution relationship:** M2 model validation continues independently in parallel. M3 does not wait for ABC/2PM promotion because its initial forecast inputs are the agreed external FPL benchmark providers.
 
 ## 1. Agreed execution decision
 
-The downstream recommendation system will be built using the actual external FPL benchmark forecasts first. Once the project's own model passes M2's validation and promotion gates, it will enter through the same canonical forecast interface and can replace or supplement benchmark inputs.
+The downstream recommendation system will be built using the two approved external FPL benchmark providers first: **FPL Cat and FPL Sideline Quant**. They remain separate provider runs; no averaging or consensus is introduced. Once the project's own CTA-FPL model passes M2's validation and promotion gates, it will enter through the same canonical forecast interface and replace the conventional provider forecasts for the CTA-informed product.
 
-This execution decision supersedes the earlier architecture wording that deferred all M3 implementation until M2 was complete. The five milestones remain distinct and controlled:
-- M1 verification continues on its separate schedule.
+This execution decision supersedes the earlier architecture wording that deferred all M3 implementation until M2 was complete. The agreed four milestones remain distinct and controlled:
+- M1 recommendation-delivery backbone verification continues on its separate schedule.
 - M2 model-layer validation continues independently.
-- M3 implementation starts now and must pass its own acceptance gates.
-- M4 begins after M3 is accepted.
-- M5 begins after M4 is accepted.
+- M3 integrates benchmark forecasts, field-relative intelligence, portfolio analysis and the decision engine; implementation proceeds now and must pass its own acceptance gates.
+- M4 releases the three separate recommendation products after M3 acceptance and its own release gates.
+
+This charter is **new M3**. It includes the former M4 field-context and portfolio-intelligence scope. The former M5 recommendation-delivery scope is **new M4**. Historical branch and file names may retain former milestone labels for traceability.
 
 M3 does not consume unvalidated ABC/CTA or 2PM outputs. M2 research status is carried as metadata and cannot affect benchmark forecast eligibility.
 
@@ -45,7 +46,7 @@ The contract:
 - validates unique forecast keys, finite numeric values, probability bounds and row-count coverage;
 - preserves coverage and missingness instead of inventing values.
 
-This means FPL Lucho served xP cannot silently become Odds xP, and Sideline Quant fixture rows cannot be treated as player-GW values without a separately specified aggregation step.
+This means provider variants remain distinct and Sideline Quant fixture rows cannot be treated as player-GW values without a separately specified aggregation step. FPLRogue, FPL Lucho and FPL Wildcard are out of scope; no adapters or forecast integrations for them will be built.
 
 
 ### M3.2 — First end-to-end personal-squad execution slice
@@ -77,6 +78,17 @@ The decision runner now requires and carries metadata-source provenance as well 
 The capture bundle now includes base64-preserved raw provider and FPL bootstrap response bytes, allowing exact byte-for-byte hash verification after archival. A manual GitHub Actions workflow, `.github/workflows/capture-fplcat-benchmark.yml`, captures the bundle and uploads it as a 90-day artifact for inspection and replay. If FPL Cat does not disclose `computed_at`, the collector now retains the snapshot with a null generation timestamp and explicit `NOT_DISCLOSED_DIAGNOSTIC_ONLY` status; the canonical contract then prevents it from entering a strict recommendation run. The collector also rejects official FPL metadata retrieved at or after the deadline.
 
 Regression tests cover missing generation timestamps and post-deadline metadata capture. The live capture has produced a real 672-row GW11 FPL Cat snapshot; a successful manager-backed recommendation run remains pending.
+
+### M3.2b — Sideline Quant live-capture and normalization adapter
+
+Added from the existing benchmark-provider implementation and retained as the second and final approved conventional provider:
+- `scripts/capture_sideline_quant_raw.py` captures the immutable raw provider JSON and official FPL bootstrap, preserving raw bytes, SHA-256 hashes, provider generation time, capture time, declared coverage and the official deadline cross-check.
+- `scripts/parse_sideline_quant_snapshot.py` preserves the native player-fixture rows and separately derives a player-Gameweek view using the provider-documented sum of fixture xP and expected minutes. It retains the native fixture snapshot, checks duplicate player-fixture keys and player identity, and carries the publisher's Gameweek distribution fields without summing them across fixtures.
+- `scripts/build_sideline_quant_provider_capture.py` builds the same M3 input envelope consumed by the existing canonical forecast adapter and personal-squad decision runner. It verifies raw-source hashes, official metadata provenance, provider identity, timestamps and the explicit aggregation contract.
+- `.github/workflows/capture-sidelinequant-benchmark.yml` captures and archives the raw feed, normalized fixture/Gameweek views, decision-ready provider envelope and metadata-only public summary.
+- Regression tests cover capture timing/deadline checks, raw archive integrity, fixture-grain preservation, explicit double-Gameweek xP aggregation, identity/duplicate checks, distribution-field consistency and canonical-envelope handoff.
+
+FPL Cat and Sideline Quant remain separate provider-specific runs. No average or consensus is created. This code integration is present; a successful live Sideline Quant artifact and provider-performance validation are separate evidence gates and are not claimed by these deterministic tests.
 
 ### M3.3b — GW1 purchase-price fallback hardening
 
@@ -145,7 +157,7 @@ A fresh live workflow execution is still required to generate the corrected post
 ### M3.1 — Provider-neutral forecast contract
 - Complete Python contract and regression tests.
 - Add equivalent JavaScript schema/parity handling only after the Python contract is stable.
-- Add provider adapters that map captured raw snapshots into the canonical contract without changing the source values.
+- Maintain the two approved provider adapters (FPL Cat and Sideline Quant) that map captured raw snapshots into the canonical contract without changing source values.
 - Support each provider variant as a distinct input.
 
 ### M3.2 — Benchmark-backed decision runs
@@ -180,7 +192,7 @@ M3 is not accepted until:
 
 Passing software tests alone does not establish forecast accuracy or guarantee rank improvement.
 
-## 6. Interfaces to M4 and M5
+## 6. Interface to new M4
 
 M3 output must expose a versioned decision object with:
 - chosen provider and exact variant;
@@ -191,8 +203,8 @@ M3 output must expose a versioned decision object with:
 - expected-points basis and limitations;
 - validation/eligibility state and warnings.
 
-M4 will later enrich this decision with the existing LiveFPL EO field reference and validated portfolio context. M5 will publish the three separate recommendation products. Neither M4 nor M5 is implemented in this M3 branch.
+Field-relative EO and validated portfolio context are part of this new M3 milestone (the former M4 scope), and remain descriptive/research-only until their own validation gates pass. New M4 (the former M5 scope) will publish the three separate recommendation products using accepted M3 outputs. The conventional-only delivery implementation is tracked separately in PR #59; CTA-informed and general CTA products remain withheld pending their validation gates.
 
 ## 7. Model transition
 
-When M2 approves ABC/CTA or 2PM, it is registered as another provider under the same canonical schema. Benchmark and project-model runs remain side-by-side during a shadow period. Replacement or supplementation requires recorded evidence and a rollback path; historical releases are never rewritten.
+When M2 approves the CTA-FPL model, it enters the same canonical forecast interface used by FPL Cat and FPL Sideline Quant. For the CTA-informed personal-squad product, the model replaces the conventional provider forecasts while reusing the exact same personal-squad recommendation pipeline and output contract. Keep model and provider runs separately traceable during shadow evaluation; replacement requires recorded evidence and a rollback path. Historical releases are never rewritten. Do not build adapters for additional external providers outside the approved FPL Cat and FPL Sideline Quant scope.

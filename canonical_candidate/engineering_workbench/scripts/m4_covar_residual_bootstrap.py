@@ -1,0 +1,378 @@
+#!/usr/bin/env python3
+"""Build a research-only joint Gameweek scenario set from matched forecast residual blocks.
+
+This producer preserves cross-player dependence by resampling complete historical
+Gameweek residual vectors. It does not infer fixture states, assume independence,
+fit a parametric distribution, or claim calibrated probabilities.
+"""
+from __future__ import annotations
+
+import base64
+import hashlib
+import json
+import math
+from datetime import datetime
+from typing import Any, Mapping, Sequence
+
+
+class ResidualBootstrapError(ValueError):
+    """Input evidence cannot support a leakage-safe residual bootstrap."""
+
+
+def _time(value: Any, label: str) -> datetime:
+    if not isinstance(value, str) or not value.strip():
+        raise ResidualBootstrapError(f"{label} must be an ISO-8601 timestamp")
+    try:
+        result = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ResidualBootstrapError(f"{label} must be an ISO-8601 timestamp") from exc
+    if result.tzinfo is None or result.utcoffset() is None:
+        raise ResidualBootstrapError(f"{label} must include a timezone")
+    return result
+
+
+def _finite(value: Any, label: str) -> float:
+    if isinstance(value, bool):
+        raise ResidualBootstrapError(f"{label} must be finite numeric")
+    try:
+        result = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ResidualBootstrapError(f"{label} must be finite numeric") from exc
+    if not math.isfinite(result):
+        raise ResidualBootstrapError(f"{label} must be finite numeric")
+    return result
+
+
+def _bounded_values_with_mean(values: Sequence[float], target_mean: float, lower: float = 0.0, upper: float = 270.0) -> list[float]:
+    """Project values onto [lower, upper] while preserving their requested mean."""
+    if not values or not lower <= target_mean <= upper:
+        raise ResidualBootstrapError("target minutes mean is outside the feasible Gameweek range")
+    target_sum = target_mean * len(values)
+    lo, hi = lower - max(values), upper - min(values)
+    for _ in range(100):
+        shift = (lo + hi) / 2.0
+        total = sum(min(upper, max(lower, value + shift)) for value in values)
+        if total < target_sum:
+            lo = shift
+        else:
+            hi = shift
+    shift = (lo + hi) / 2.0
+    adjusted = [min(upper, max(lower, value + shift)) for value in values]
+    # Remove floating-point residue without violating the bounds.
+    difference = target_sum - sum(adjusted)
+    for index in range(len(adjusted)):
+        if abs(difference) <= 1e-10:
+            break
+        capacity = (upper - adjusted[index]) if difference > 0 else (adjusted[index] - lower)
+        change = math.copysign(min(abs(difference), capacity), difference)
+        adjusted[index] += change
+        difference -= change
+    if abs(sum(adjusted) - target_sum) > 1e-8:
+        raise ResidualBootstrapError("could not preserve target expected-minutes mean within Gameweek bounds")
+    return adjusted
+
+
+def build_residual_bootstrap_scenarios(
+    target_forecast: Mapping[str, Any],
+    matched_panel: Mapping[str, Any],
+    *,
+    training_cutoff_utc: str,
+    minimum_gameweeks: int = 5,
+    target_player_ids: Sequence[int | str] | None = None,
+) -> dict[str, Any]:
+    """Create equal-weight joint scenarios from complete, prior-GW residual blocks.
+
+    Every selected historical Gameweek must contain an observed matched row for
+    every target player. Missing player-GW observations are never zero-filled.
+    Residuals are centered player-wise so supplied target expected-points means
+    remain the scenario means. Whole Gameweek vectors preserve observed
+    cross-player residual dependence.
+    """
+    if not isinstance(target_forecast, Mapping) or not isinstance(matched_panel, Mapping):
+        raise ResidualBootstrapError("target_forecast and matched_panel must be objects")
+    if target_forecast.get("bundle_type") != "M3_CONVENTIONAL_FORECAST_ONLY_COVAR_INPUT":
+        raise ResidualBootstrapError("target must be the manager-free conventional M3 forecast bundle")
+    if target_forecast.get("decision_weight") != 0.0 or target_forecast.get("production_eligible") is not False:
+        raise ResidualBootstrapError("target forecast must remain research-only")
+    privacy = target_forecast.get("privacy")
+    if not isinstance(privacy, Mapping) or any(privacy.get(key) is not False for key in (
+        "manager_identity_included", "manager_squad_included",
+        "bank_or_transfer_state_included", "frozen_decision_included",
+    )):
+        raise ResidualBootstrapError("target forecast must explicitly exclude all manager-specific data")
+    if target_forecast.get("point_in_time_status") != "M3_SOURCE_TIMESTAMPS_VALIDATED":
+        raise ResidualBootstrapError("target M3 source timestamps must be validated")
+    if matched_panel.get("dataset_type") != "MULTI_GAMEWEEK_PROSPECTIVE_CONVENTIONAL_FORECAST_OUTCOME_PANEL":
+        raise ResidualBootstrapError("unsupported matched outcome panel")
+    if matched_panel.get("cluster_unit") != "GAMEWEEK" or matched_panel.get("missing_observations_zero_filled") != 0:
+        raise ResidualBootstrapError("panel must be Gameweek-clustered and contain no zero-filled missing observations")
+    if matched_panel.get("joint_dependence_inferred_from_marginal_player_rows") is not False:
+        raise ResidualBootstrapError("panel must not infer dependence from marginal rows")
+    if target_forecast.get("season") != matched_panel.get("season"):
+        raise ResidualBootstrapError("target and historical panel seasons must match")
+
+    target_gw = target_forecast.get("target_gameweek")
+    if isinstance(target_gw, bool) or not isinstance(target_gw, int) or target_gw < 1:
+        raise ResidualBootstrapError("target_gameweek must be a positive integer")
+    if isinstance(minimum_gameweeks, bool) or not isinstance(minimum_gameweeks, int) or minimum_gameweeks < 2:
+        raise ResidualBootstrapError("minimum_gameweeks must be an integer >= 2")
+
+    as_of = _time(target_forecast.get("as_of_utc"), "target as_of_utc")
+    cutoff = _time(training_cutoff_utc, "training_cutoff_utc")
+    deadline = _time(target_forecast.get("deadline_utc"), "target deadline_utc")
+    if cutoff > as_of or as_of >= deadline:
+        raise ResidualBootstrapError("training cutoff <= forecast as-of < deadline is required")
+
+    source_archives = target_forecast.get("source_archives")
+    if not isinstance(source_archives, list) or len(source_archives) < 2:
+        raise ResidualBootstrapError("target M3 source archives are required")
+    source_types = set()
+    for source in source_archives:
+        if not isinstance(source, Mapping):
+            raise ResidualBootstrapError("target source archive rows must be objects")
+        source_type = source.get("source_type")
+        if source_type not in {"provider_forecast", "player_metadata"} or source_type in source_types:
+            raise ResidualBootstrapError("target requires unique provider_forecast and player_metadata archives")
+        source_types.add(source_type)
+        if not isinstance(source.get("source_url"), str) or not source["source_url"].strip():
+            raise ResidualBootstrapError(f"{source_type} source_url is required")
+        if not isinstance(source.get("raw_snapshot_id"), str) or not source["raw_snapshot_id"].strip():
+            raise ResidualBootstrapError(f"{source_type} raw_snapshot_id is required")
+        captured = _time(source.get("captured_at_utc"), f"{source_type}.captured_at_utc")
+        if captured > as_of:
+            raise ResidualBootstrapError(f"{source_type} source was captured after target as-of")
+        raw_b64 = source.get("raw_payload_base64")
+        if not isinstance(raw_b64, str) or not raw_b64:
+            raise ResidualBootstrapError(f"{source_type} raw source bytes are missing")
+        try:
+            raw = base64.b64decode(raw_b64, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ResidualBootstrapError(f"{source_type} raw source bytes are invalid base64") from exc
+        digest = hashlib.sha256(raw).hexdigest()
+        if digest != source.get("raw_sha256"):
+            raise ResidualBootstrapError(f"{source_type} source SHA-256 mismatch")
+        if source_type == "provider_forecast":
+            try:
+                raw_provider = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ResidualBootstrapError("provider forecast raw source must be valid JSON") from exc
+            generated_value = raw_provider.get("computed_at") if isinstance(raw_provider, Mapping) else None
+            if generated_value not in (None, ""):
+                generated = _time(generated_value, "provider_forecast computed_at")
+                if generated > as_of:
+                    raise ResidualBootstrapError("provider forecast was generated after target as-of")
+    if source_types != {"provider_forecast", "player_metadata"}:
+        raise ResidualBootstrapError("provider_forecast and player_metadata source archives are required")
+
+    snapshot_id = str(target_forecast.get("forecast_snapshot_id", "")).strip()
+    model_version = str(target_forecast.get("model_version", "")).strip()
+    if not snapshot_id or not model_version:
+        raise ResidualBootstrapError("target forecast snapshot ID and model version are required")
+    forecasts = target_forecast.get("player_forecasts")
+    metadata_rows = target_forecast.get("player_metadata")
+    if not isinstance(forecasts, list) or not forecasts:
+        raise ResidualBootstrapError("target player_forecasts must be non-empty")
+    if not isinstance(metadata_rows, list) or not metadata_rows:
+        raise ResidualBootstrapError("target player_metadata must be non-empty")
+    forecast_by_id: dict[str, dict[str, float]] = {}
+    for row in forecasts:
+        if not isinstance(row, Mapping):
+            raise ResidualBootstrapError("target player forecast rows must be objects")
+        pid = str(row.get("fpl_element_id", "")).strip()
+        if not pid.isdigit() or int(pid) < 1 or pid in forecast_by_id:
+            raise ResidualBootstrapError("target player IDs must be unique positive FPL element IDs")
+        ep = _finite(row.get("expected_points"), f"target player {pid} expected_points")
+        mins = _finite(row.get("expected_minutes"), f"target player {pid} expected_minutes")
+        if not 0 <= mins <= 270:
+            raise ResidualBootstrapError(f"target player {pid} expected_minutes must be in [0, 270] for a Gameweek aggregate")
+        forecast_by_id[pid] = {"expected_points": ep, "expected_minutes": mins}
+
+    if target_player_ids is None:
+        selected_ids = set(forecast_by_id)
+    else:
+        if not isinstance(target_player_ids, Sequence) or isinstance(target_player_ids, (str, bytes)):
+            raise ResidualBootstrapError("target_player_ids must be a sequence of FPL element IDs")
+        selected_values = [str(value).strip() for value in target_player_ids]
+        if not selected_values or any(not value.isdigit() or int(value) < 1 for value in selected_values):
+            raise ResidualBootstrapError("target_player_ids must contain positive FPL element IDs")
+        if len(set(selected_values)) != len(selected_values):
+            raise ResidualBootstrapError("target_player_ids must be unique")
+        selected_ids = set(selected_values)
+        if not selected_ids.issubset(forecast_by_id):
+            raise ResidualBootstrapError("target_player_ids contains a player missing from the M3 forecast")
+
+    metadata_by_id: dict[str, dict[str, Any]] = {}
+    for row in metadata_rows:
+        if not isinstance(row, Mapping):
+            raise ResidualBootstrapError("target player metadata rows must be objects")
+        pid = str(row.get("fpl_element_id", "")).strip()
+        if not pid.isdigit() or int(pid) < 1 or pid in metadata_by_id:
+            raise ResidualBootstrapError("target player metadata IDs must be unique positive FPL element IDs")
+        position = str(row.get("position", "")).upper()
+        if position == "GKP":
+            position = "GK"
+        if position not in {"GK", "DEF", "MID", "FWD"}:
+            raise ResidualBootstrapError(f"target player {pid} has an invalid position")
+        team_id = row.get("team_id")
+        if isinstance(team_id, bool) or not isinstance(team_id, int) or team_id < 1:
+            raise ResidualBootstrapError(f"target player {pid} has an invalid team_id")
+        metadata_by_id[pid] = {"position": position, "team_id": team_id}
+    if not selected_ids.issubset(metadata_by_id):
+        raise ResidualBootstrapError("target player metadata is incomplete for selected players")
+    target_by_id = {
+        pid: {**forecast_by_id[pid], **metadata_by_id[pid]}
+        for pid in selected_ids
+    }
+
+    clusters = matched_panel.get("gameweek_clusters")
+    rows = matched_panel.get("matched_rows")
+    if not isinstance(clusters, list) or not isinstance(rows, list) or not clusters or not rows:
+        raise ResidualBootstrapError("matched panel requires gameweek_clusters and matched_rows")
+    declared_gws = set()
+    for cluster in clusters:
+        if not isinstance(cluster, Mapping):
+            raise ResidualBootstrapError("gameweek cluster rows must be objects")
+        gw = cluster.get("gameweek")
+        if isinstance(gw, bool) or not isinstance(gw, int) or gw < 1 or gw in declared_gws:
+            raise ResidualBootstrapError("historical Gameweek IDs must be unique positive integers")
+        if gw == target_gw:
+            raise ResidualBootstrapError("target Gameweek cannot appear in historical residuals")
+        if not cluster.get("outcome_available_at_utc"):
+            raise ResidualBootstrapError("each historical cluster requires outcome_available_at_utc; finality alone does not prove availability time")
+        available = _time(cluster["outcome_available_at_utc"], f"GW{gw} outcome_available_at_utc")
+        if available >= cutoff:
+            raise ResidualBootstrapError(f"GW{gw} outcome was not available strictly before training cutoff")
+        if cluster.get("finality_status") != "PASS_EXACT_MATCH":
+            raise ResidualBootstrapError(f"GW{gw} lacks exact finality reconciliation")
+        declared_gws.add(gw)
+
+    by_gw: dict[int, dict[str, dict[str, float]]] = {gw: {} for gw in declared_gws}
+    for row in rows:
+        if not isinstance(row, Mapping):
+            raise ResidualBootstrapError("matched rows must be objects")
+        try:
+            gw = int(row.get("gameweek"))
+        except (TypeError, ValueError) as exc:
+            raise ResidualBootstrapError("matched row Gameweek must be an integer") from exc
+        pid = str(row.get("fpl_element_id", "")).strip()
+        if gw not in by_gw or not pid.isdigit() or int(pid) < 1:
+            raise ResidualBootstrapError("matched row references an undeclared Gameweek or invalid FPL element ID")
+        if pid in by_gw[gw]:
+            raise ResidualBootstrapError(f"duplicate matched player row for GW{gw}, player {pid}")
+        if row.get("finality_status") != "PASS_EXACT_MATCH":
+            raise ResidualBootstrapError(f"GW{gw} player row lacks exact finality reconciliation")
+        if row.get("model_version") != model_version:
+            raise ResidualBootstrapError("historical and target conventional model versions must match")
+        by_gw[gw][pid] = {
+            "points_residual": _finite(row.get("points_error_actual_minus_expected"), f"GW{gw} player {pid} points residual"),
+            "minutes_residual": _finite(row.get("minutes_error_actual_minus_expected"), f"GW{gw} player {pid} minutes residual"),
+        }
+
+    target_ids = set(target_by_id)
+    complete_blocks, excluded_gws = [], []
+    for gw in sorted(by_gw):
+        missing = target_ids - set(by_gw[gw])
+        if not missing:
+            complete_blocks.append(gw)
+        else:
+            excluded_gws.append({"gameweek": gw, "missing_target_player_ids": sorted(missing, key=int)})
+    if len(complete_blocks) < minimum_gameweeks:
+        raise ResidualBootstrapError(
+            f"only {len(complete_blocks)} complete Gameweek residual blocks; minimum required is {minimum_gameweeks}"
+        )
+
+    mean_residual = {
+        pid: {
+            metric: sum(by_gw[gw][pid][metric] for gw in complete_blocks) / len(complete_blocks)
+            for metric in ("points_residual", "minutes_residual")
+        }
+        for pid in target_by_id
+    }
+    scenario_minutes: dict[str, list[float]] = {}
+    raw_minutes_by_player: dict[str, list[float]] = {}
+    minutes_clipping_count = 0
+    for pid in target_by_id:
+        raw_values = [
+            target_by_id[pid]["expected_minutes"] + (
+                by_gw[gw][pid]["minutes_residual"] - mean_residual[pid]["minutes_residual"]
+            )
+            for gw in complete_blocks
+        ]
+        raw_minutes_by_player[pid] = raw_values
+        minutes_clipping_count += sum(int(value < 0.0 or value > 270.0) for value in raw_values)
+        scenario_minutes[pid] = _bounded_values_with_mean(
+            raw_values, target_by_id[pid]["expected_minutes"], 0.0, 270.0
+        )
+
+    scenarios = []
+    for scenario_index, gw in enumerate(complete_blocks):
+        outcomes = []
+        for pid in sorted(target_by_id, key=int):
+            point_residual = by_gw[gw][pid]["points_residual"] - mean_residual[pid]["points_residual"]
+            minutes = scenario_minutes[pid][scenario_index]
+            outcomes.append({
+                "player_id": pid,
+                "minutes": minutes,
+                "played": minutes > 0,
+                "fpl_points": target_by_id[pid]["expected_points"] + point_residual,
+                "residual_source_gameweek": gw,
+            })
+        scenarios.append({
+            "scenario_id": f"residual-gw-{gw}",
+            "source_gameweek": gw,
+            "probability": 1.0 / len(complete_blocks),
+            "player_outcomes": outcomes,
+        })
+
+    player_rows = [
+        {"player_id": pid, "position": target_by_id[pid]["position"],
+         "team_id": target_by_id[pid]["team_id"],
+         "expected_points": target_by_id[pid]["expected_points"],
+         "expected_minutes": target_by_id[pid]["expected_minutes"]}
+        for pid in sorted(target_by_id, key=int)
+    ]
+    minutes_mean_preserved = all(
+        math.isclose(
+            sum(next(outcome["minutes"] for outcome in scenario["player_outcomes"] if outcome["player_id"] == pid)
+                for scenario in scenarios) / len(scenarios),
+            target_by_id[pid]["expected_minutes"], rel_tol=0, abs_tol=1e-9,
+        )
+        for pid in target_by_id
+    )
+    payload = {
+        "schema_version": "1.0.0",
+        "dataset_type": "M4_COVAR_PLAYER_GAMEWEEK_RESIDUAL_BOOTSTRAP_RESEARCH_ONLY",
+        "season": target_forecast["season"],
+        "target_gameweek": target_gw,
+        "forecast_snapshot_id": snapshot_id,
+        "model_version": model_version,
+        "training_cutoff_utc": cutoff.isoformat(),
+        "as_of_utc": as_of.isoformat(),
+        "player_count": len(target_by_id),
+        "target_player_ids": sorted(target_by_id, key=int),
+        "players": player_rows,
+        "scenario_count": len(scenarios),
+        "complete_historical_gameweeks": complete_blocks,
+        "excluded_historical_gameweeks": excluded_gws,
+        "scenarios": scenarios,
+        "marginal_expected_points_preserved": True,
+        "minutes_mean_preserved": minutes_mean_preserved,
+        "minutes_clipping_count": minutes_clipping_count,
+        "played_status_method": "POSITIVE_MINUTES_PROXY_CARD_ONLY_UNOBSERVED",
+        "dependence_method": "CENTERED_WHOLE_GAMEWEEK_PLAYER_POINT_AND_MINUTES_RESIDUAL_BLOCK_BOOTSTRAP",
+        "scenario_probability_method": "EQUAL_WEIGHT_EMPIRICAL_COMPLETE_GAMEWEEK_BLOCKS",
+        "probability_calibrated": False,
+        "decision_weight": 0.0,
+        "production_eligible": False,
+        "covar_used": False,
+        "limitations": [
+            "Research baseline only; empirical probabilities are not calibrated forecasts.",
+            "Only complete historical Gameweek residual vectors covering every target player are used.",
+            "Residual dependence is conditional only through the fixed target forecast and is not a fixture-event model.",
+            "At least five clusters is a prototype floor, not evidence of statistical adequacy.",
+            "Gameweek minutes are clipped to [0, 270] for up to three fixtures; zero-minute card-only appearances cannot be recovered from aggregate player-Gameweek rows and are not modeled.",
+        ],
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    payload["payload_sha256"] = hashlib.sha256(canonical).hexdigest()
+    return payload

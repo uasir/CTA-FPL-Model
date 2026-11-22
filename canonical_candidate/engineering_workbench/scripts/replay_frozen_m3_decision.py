@@ -98,6 +98,84 @@ def _reconstruct_provider_and_metadata(manifest: Mapping[str, Any],
     provenance = manifest.get("player_metadata_provenance")
     if not isinstance(provider, Mapping) or not isinstance(provenance, Mapping):
         raise DecisionReplayError("canonical provider or player metadata is missing")
+    provider_name = provider.get("provider", {}).get("name")
+    if provider_name == "Sideline Quant":
+        from parse_sideline_quant_snapshot import parse_sideline_quant_capture
+        from build_sideline_quant_provider_capture import build_sideline_quant_provider_capture
+        from capture_sideline_quant_raw import SIDELINE_URL
+        if provider_source.get("source_url") != SIDELINE_URL.format(
+            gameweek=manifest.get("target_gameweek")
+        ):
+            raise DecisionReplayError("provider source URL is not the registered Sideline Quant endpoint")
+        try:
+            raw_capture_id = provider.get("snapshot_id", "")
+            suffix = ":player_gameweek_sum_xp"
+            if not isinstance(raw_capture_id, str) or not raw_capture_id.endswith(suffix):
+                raise DecisionReplayError("Sideline Quant snapshot ID lacks its explicit Gameweek aggregation suffix")
+            capture_id = raw_capture_id[:-len(suffix)]
+            generated = raw_provider.get("generated_at")
+            deadline = raw_provider.get("deadline")
+            captured = provider_source.get("captured_at_utc")
+            bootstrap_captured = metadata_source.get("captured_at_utc")
+            raw_capture = {
+                "capture_id": capture_id,
+                "provider": {"name": "Sideline Quant"},
+                "season": manifest.get("season"),
+                "target_gameweek": manifest.get("target_gameweek"),
+                "timing": {
+                    "generated_at_utc": generated,
+                    "captured_at_utc": captured,
+                    "deadline_utc": deadline,
+                    "official_metadata_captured_at_utc": bootstrap_captured,
+                },
+                "source": {
+                    "url": provider_source["source_url"],
+                    "raw_snapshot_id": provider_source["raw_snapshot_id"],
+                    "raw_sha256": provider_source["raw_sha256"],
+                },
+                "coverage": {
+                    "declared_row_count": raw_provider.get("n_rows"),
+                    "declared_player_count": raw_provider.get("n_players"),
+                },
+                "raw_archives": {
+                    "provider_response_base64": base64.b64encode(provider_raw).decode("ascii"),
+                    "official_fpl_bootstrap_base64": base64.b64encode(metadata_raw).decode("ascii"),
+                },
+                "official_metadata_provenance": {
+                    "source_url": metadata_source["source_url"],
+                    "raw_snapshot_id": metadata_source["raw_snapshot_id"],
+                    "raw_sha256": hashlib.sha256(metadata_raw).hexdigest(),
+                    "captured_at_utc": bootstrap_captured,
+                },
+            }
+            parsed = parse_sideline_quant_capture(raw_capture)
+            rebuilt = build_sideline_quant_provider_capture(raw_capture, parsed)
+        except DecisionReplayError:
+            raise
+        except Exception as exc:
+            raise DecisionReplayError(
+                "Sideline Quant raw forecast cannot be reconstructed through its registered parser"
+            ) from exc
+        if _canonical(dict(provider)) != _canonical(rebuilt["provider_snapshot"]):
+            raise DecisionReplayError(
+                "canonical Sideline Quant provider snapshot cannot be reconstructed from its raw archive"
+            )
+        expected_metadata_provenance = {
+            "source_url": metadata_source["source_url"],
+            "raw_snapshot_id": metadata_source["raw_snapshot_id"],
+            "raw_sha256": hashlib.sha256(metadata_raw).hexdigest(),
+            "captured_at_utc": _utc_text(bootstrap_captured, "metadata capture"),
+            "row_count": len(rebuilt["player_metadata"]),
+        }
+        if _canonical(dict(provenance)) != _canonical(expected_metadata_provenance):
+            raise DecisionReplayError("canonical player metadata provenance differs from its raw archive")
+        if _canonical(manifest.get("player_metadata")) != _canonical(rebuilt["player_metadata"]):
+            raise DecisionReplayError(
+                "canonical player metadata cannot be reconstructed from the official bootstrap"
+            )
+        return
+    if provider_name != "FPL Cat":
+        raise DecisionReplayError(f"unregistered conventional provider: {provider_name}")
     if provider_source.get("source_url") != "https://fplcat.com/api/v1/projections":
         raise DecisionReplayError("provider source URL is not the registered FPL Cat endpoint")
     if metadata_source.get("source_url") != "https://fantasy.premierleague.com/api/bootstrap-static/":

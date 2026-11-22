@@ -1,0 +1,81 @@
+name: CTA CoVar prospective forecast-to-outcome match
+
+on:
+  workflow_dispatch:
+    inputs:
+      forecast_run_id:
+        description: "Successful forecast capture workflow run ID"
+        required: true
+        type: string
+      forecast_artifact_name:
+        description: "Exact sanitized forecast artifact name"
+        required: true
+        type: string
+      finality_run_id:
+        description: "Successful realized finality audit workflow run ID"
+        required: true
+        type: string
+      finality_artifact_name:
+        description: "Exact realized evidence artifact name"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: cta-covar-forecast-outcome-match
+  cancel-in-progress: false
+
+jobs:
+  match:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout CoVar matcher
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download sanitized prospective forecast
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.forecast_artifact_name }}
+          run-id: ${{ inputs.forecast_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/forecast-input
+      - name: Download realized outcomes and finality evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.finality_artifact_name }}
+          run-id: ${{ inputs.finality_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/finality-input
+      - name: Match forecast and final official outcomes
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+          PYTHONPATH: canonical_candidate/engineering_workbench/scripts
+        run: |
+          set -euo pipefail
+          FORECAST=$(find "$RUNNER_TEMP/forecast-input" -type f -name conventional_forecast.json -print -quit)
+          GW_PANEL=$(find "$RUNNER_TEMP/finality-input" -type f -name fpl_realized_player_gameweek.csv -print -quit)
+          FIXTURE_PANEL=$(find "$RUNNER_TEMP/finality-input" -type f -name fpl_realized_player_fixture.csv -print -quit)
+          FINALITY=$(find "$RUNNER_TEMP/finality-input" -type f -name finality_batch_report.json -print -quit)
+          test -n "$FORECAST" && test -n "$GW_PANEL" && test -n "$FIXTURE_PANEL" && test -n "$FINALITY"
+          mkdir -m 700 -p "$RUNNER_TEMP/covar-matched-outcomes"
+          python canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_outcome_matcher.py \
+            --forecast "$FORECAST" \
+            --realized-gameweek "$GW_PANEL" \
+            --realized-fixtures "$FIXTURE_PANEL" \
+            --finality-report "$FINALITY" \
+            --output-dir "$RUNNER_TEMP/covar-matched-outcomes/matched"
+          chmod -R go-rwx "$RUNNER_TEMP/covar-matched-outcomes"
+      - name: Archive matched prospective forecast and outcomes
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-covar-matched-forecast-outcomes-${{ inputs.forecast_run_id }}-${{ inputs.finality_run_id }}
+          path: ${{ runner.temp }}/covar-matched-outcomes/matched/
+          if-no-files-found: error
+          retention-days: 90

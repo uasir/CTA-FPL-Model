@@ -12,8 +12,12 @@
       "live deadline-locked effective ownership capture",
       "multi-season point-in-time historical archive",
       "validated player variance and CoVar",
-      "multi-transfer and chip-aware optimisation"
-    ]
+      "multi-transfer and chip-aware optimisation",
+      "complete point-in-time archive verification and authenticated historical acquisition",
+      "joint forecast calibration and independent Gameweek-level out-of-sample utility",
+      "explicit production-policy approval for any non-zero CoVar weighting"
+    ],
+    "covar_recommendation_overlay": "RESEARCH_ONLY_INTEGRATION_ADAPTER_IMPLEMENTED"
   },
   "shared_foundation": {
     "required_forecast_metadata": [
@@ -115,7 +119,7 @@
         "high_risk",
         "sell_or_avoid"
       ],
-      "decision_policy": "Current engine ranks the supplied EV baseline and price; sampled EO is accepted only with a verified pre-deadline cohort, post-deadline picks, sample size and matching target deadline. CoVar is excluded.",
+      "decision_policy": "Current engine ranks the supplied EV baseline and price; sampled EO is accepted only with a verified pre-deadline cohort, post-deadline picks, sample size and matching target deadline. CoVar is excluded. CoVar personal-portfolio diagnostics are not consumed by general_market.",
       "invariance": "For identical forecast snapshot, model version, horizon and public filters, output is identical regardless of any manager squad or personal constraints."
     },
     "personal_squad": {
@@ -181,12 +185,33 @@
         "chip_aware_optimisation",
         "multiweek_portfolio_risk"
       ],
-      "portfolio_policy": "Evaluate moves against the whole squad and constraints, not incoming-player rank in isolation. Current v0.1 evaluates one transfer and does not use CoVar or apply an unvalidated risk profile."
+      "portfolio_policy": "A fail-closed CoVar research overlay may attach candidate-level diagnostics from explicit joint scenarios and sampled manager-pick portfolios; it cannot change transfer ranking, action, XI or captaincy. decision_weight remains zero and production_eligible remains false until all empirical gates and explicit policy approval pass."
     }
   },
   "portfolio_risk": {
     "covariance_policy": "Exploratory CoVar is excluded from production decisions until stability and out-of-sample validation gates pass.",
-    "scope": "CoVar may inform personal portfolio decisions after validation; it is not a required component of general player rankings."
+    "scope": "CoVar may inform personal portfolio decisions after validation; it is not a required component of general player rankings.",
+    "recommendation_integration": {
+      "adapter": "scripts/m4_covar_recommendation_integration.py",
+      "status": "END_TO_END_RESEARCH_ONLY_INTEGRATION_TESTED",
+      "scope": "personal_squad_only",
+      "required_field_portfolio_source": "SAMPLED_MANAGER_PICK_ROWS",
+      "requires_explicit_joint_scenarios": true,
+      "marginal_eo_may_reconstruct_joint_portfolios": false,
+      "free_hit_requires_explicit_activation": true,
+      "may_change_recommendation": false,
+      "decision_weight": 0,
+      "production_eligible": false,
+      "entry_point": "scripts/personal_squad_covar_recommendation.py::recommend_personal_squad_with_full_gameweek_covar",
+      "behavior": "Runs canonical personal_squad recommendation first; optional CoVar report is attached as research-only diagnostics.",
+      "report_adapter": "scripts/m4_covar_recommendation_report_adapter.py",
+      "metric_definitions": {
+        "candidate_variance": "Full-Gameweek candidate portfolio point variance across shared joint scenarios.",
+        "field_variance": "Field-weighted mean of individual sampled manager portfolio variances.",
+        "field_relative_upside_delta": "Candidate expected points minus weighted field expected points.",
+        "portfolio_covariance_delta": "Change in off-diagonal covariance contribution sum versus baseline portfolio."
+      }
+    }
   },
   "acceptance_tests": [
     "General mode validates and runs without any squad input.",
@@ -197,6 +222,8 @@
     "Personal mode records the squad snapshot and constraints used.",
     "Both modes record forecast snapshot, model version and horizon.",
     "Missing or unvalidated forecast fields are surfaced, not invented.",
-    "Exploratory covariance is not used as a production decision signal."
+    "Exploratory covariance is not used as a production decision signal.",
+    "Optional CoVar overlay attaches only to matching personal-squad transfer alternatives and leaves EV ranking, transfer action, XI and captaincy unchanged.",
+    "General-market recommendation path never consumes the personal-squad CoVar overlay."
   ]
 }
