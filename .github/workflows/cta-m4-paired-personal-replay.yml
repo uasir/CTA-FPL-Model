@@ -14,7 +14,7 @@ on:
       forecast_run_id:
         description: Successful CTA five-GW forecast workflow run ID
         required: true
-        default: "45059662965"
+        default: "45076102918"
         type: string
       forecast_artifact_name:
         description: Exact five-GW CTA forecast artifact name
@@ -124,7 +124,7 @@ jobs:
               "forecast_horizon_gameweeks": result["target"]["gameweeks"],
               "forecast_snapshot_id": result["target"]["forecast_snapshot_id"],
               "model_version": result["general_cta_market"]["model_version"],
-              "personal_product_status": personal.get("status"),
+              "personal_product_status": personal.get("product_status"),
               "five_gw_diagnostic_status": diagnostic.get("status"),
               "five_gw_recommended_action": diagnostic.get("recommended_action"),
               "five_gw_net_expected_points_delta": (
