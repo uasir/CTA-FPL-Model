@@ -174,10 +174,10 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         pid for pid in player_ids
         if expected_multipliers[pid] != official_multipliers[pid]
     ]
-    # Final pick multipliers are the authoritative record of which squad
-    # players actually scored. The separate API automatic_subs field is kept
-    # only as a diagnostic: live captures have shown it can disagree with
-    # final picks even when every multiplier and team point reconciles.
+    # The API adapter reverses post-autosub pick positions to recover the
+    # submitted lineup. Validate the resolver's substitutions against the
+    # official automatic_subs pairs, then independently validate final pick
+    # multipliers and player/team points.
     automatic_substitution_match = not multiplier_mismatches
     official_automatic_subs = official.get("automatic_subs")
     automatic_substitution_metadata_match = None
