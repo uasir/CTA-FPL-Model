@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import copy
 import hashlib
 import json
@@ -50,6 +51,77 @@ def field_context_for(output):
         },
         "comparison": {"covar": "DISABLED", "expected_points": "NOT_COMBINED_WITH_EO"},
     }
+
+
+def replay_evidence_for(output):
+    candidate = output["evaluation_candidate"]
+    candidate["season"] = "2026-27"
+    candidate["software_commit"] = "m3-replay-commit"
+    candidate["provider_identity"] = copy.deepcopy(output["provider_identity"])
+    candidate["provider_snapshot_id"] = output["provider_snapshot_id"]
+    candidate_state = candidate["manager_state"]
+    candidate_state["chip"] = "NONE"
+    candidate_state["formation"] = candidate_state["hold_plan"]["formation"]
+    payload = base64.b64encode(b"frozen-provider-source").decode("ascii")
+    source_time = "2026-11-20T09:59:00Z"
+    generated_time = "2026-11-20T09:30:00Z"
+    candidate["source_archives"] = [{
+        "captured_at_utc": source_time,
+        "generated_at_utc": generated_time,
+        "raw_payload_base64": payload,
+    }]
+    evidence_state = {
+        "bank": candidate_state["bank"],
+        "free_transfers": candidate_state["free_transfers"],
+        "formation": candidate_state["formation"],
+        "chip_state": candidate_state["chip"],
+        "squad_15": list(candidate_state["hold_plan"]["squad_ids"]),
+        "starting_xi": list(candidate_state["hold_plan"]["starting_xi"]),
+        "bench_order": list(candidate_state["hold_plan"]["bench_order"]),
+        "reserve_goalkeeper_id": candidate_state["hold_plan"]["reserve_goalkeeper_id"],
+        "captain_id": candidate_state["hold_plan"]["captain_id"],
+        "vice_captain_id": candidate_state["hold_plan"]["vice_captain_id"],
+    }
+    provider = copy.deepcopy(output["provider_identity"])
+    evidence = {
+        "12": {
+            "deadline_utc": output["deadline_utc"],
+            "decision_as_of_utc": output["decision_as_of_utc"],
+            "evidence_is_point_in_time": True,
+            "manager_team_id": output["manager_team_id"],
+            "target_gameweek": output["target_gameweek"],
+            "season": "2026-27",
+            "manager_state": evidence_state,
+            "provider_snapshot": {
+                "snapshot_id": output["provider_snapshot_id"],
+                "provider": provider,
+                "target_gameweek": output["target_gameweek"],
+                "season": "2026-27",
+            },
+            "sources": [{
+                "provider_id": "fpl-cat",
+                "captured_at_utc": source_time,
+                "generated_at_utc": generated_time,
+                "raw_payload_base64": payload,
+            }],
+        }
+    }
+    decision = output["frozen_decision"]
+    decision_body = {key: value for key, value in decision.items() if key != "decision_sha256"}
+    replay = {
+        "status": "PASSED",
+        "replay_type": "DETERMINISTIC_RAW_AND_CANONICAL_INPUT_REEXECUTION",
+        "manager_team_id": output["manager_team_id"],
+        "target_gameweek": output["target_gameweek"],
+        "release_eligible": False,
+        "frozen_decision_match": True,
+        "recommendation_match": True,
+        "raw_archive_hashes_verified": True,
+        "software_commit": "m3-replay-commit",
+        "decision_sha256": hashlib.sha256(canonical(decision_body)).hexdigest(),
+        "replayed_payload_sha256": hashlib.sha256(canonical(decision)).hexdigest(),
+    }
+    return replay, evidence
 
 
 class TestConventionalDeliveryReport(unittest.TestCase):
@@ -108,6 +180,51 @@ class TestConventionalDeliveryReport(unittest.TestCase):
         self.assertEqual(report["field_context"]["status"], "WITHHELD_DEGRADED_MODE")
         self.assertIn("predate M3 decision", report["field_context"]["withheld_reason"])
         self.assertEqual(report["conventional"]["action"], "TRANSFER")
+
+    def test_report_binds_to_verified_frozen_m3_replay_evidence(self):
+        output = fixture("TRANSFER")
+        replay, evidence = replay_evidence_for(output)
+        report = build_conventional_delivery_report(
+            output, m3_replay_report=replay, decision_evidence=evidence,
+        )
+        self.assertEqual(report["m3_replay_evidence"]["status"], "VERIFIED")
+        self.assertEqual(report["m3_replay_evidence"]["target_gameweek"], 12)
+        self.assertEqual(report["m3_replay_evidence"]["source_archive_count"], 1)
+        self.assertTrue(report["guardrails"]["frozen_m3_replay_verified"])
+        self.assertFalse(report["guardrails"]["release_eligible"])
+
+    def test_report_rejects_unpassed_frozen_m3_replay(self):
+        output = fixture("HOLD")
+        replay, evidence = replay_evidence_for(output)
+        replay["status"] = "FAILED"
+        with self.assertRaisesRegex(ValueError, "frozen replay did not pass"):
+            build_conventional_delivery_report(
+                output, m3_replay_report=replay, decision_evidence=evidence,
+            )
+
+    def test_report_rejects_raw_source_archive_mismatch(self):
+        output = fixture("HOLD")
+        replay, evidence = replay_evidence_for(output)
+        evidence["12"]["sources"][0]["raw_payload_base64"] = base64.b64encode(b"tampered").decode("ascii")
+        with self.assertRaisesRegex(ValueError, "raw source archives"):
+            build_conventional_delivery_report(
+                output, m3_replay_report=replay, decision_evidence=evidence,
+            )
+
+    def test_report_rejects_evidence_manager_squad_mismatch(self):
+        output = fixture("HOLD")
+        replay, evidence = replay_evidence_for(output)
+        evidence["12"]["manager_state"]["squad_15"][0] = 999
+        with self.assertRaisesRegex(ValueError, "manager squad IDs"):
+            build_conventional_delivery_report(
+                output, m3_replay_report=replay, decision_evidence=evidence,
+            )
+
+    def test_report_requires_replay_report_and_evidence_together(self):
+        output = fixture("HOLD")
+        replay, _ = replay_evidence_for(output)
+        with self.assertRaisesRegex(ValueError, "must be supplied together"):
+            build_conventional_delivery_report(output, m3_replay_report=replay)
 
     def test_report_replay_is_deterministic(self):
         output = fixture("HOLD")
