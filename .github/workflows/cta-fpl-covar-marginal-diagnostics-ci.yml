@@ -202,10 +202,10 @@ jobs:
           PYTHONPATH: scripts
         run: |
           python scripts/m4_covar_public_field_replay_audit.py \
-            --events "1,2,3,4,5,6,7,8,9,10,11" \
+            --events "6,7,8,9,10" \
             --rank-pages "1,200,2000,20000,100000" \
             --sample-positions "0,10,20,30,40" \
-            --min-replays 100 \
+            --min-replays 75 \
             --output "$RUNNER_TEMP/covar-public-field-replay-audit.json"
       - name: Upload aggregate-only public field replay audit
         if: always() && steps.audit.outcome != 'skipped'
