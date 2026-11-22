@@ -33,7 +33,7 @@ jobs:
       - name: Check out CTA implementation branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}
+          ref: feat/m4-cta-five-gw-squad-evaluator
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -72,11 +72,21 @@ jobs:
           capture = json.loads(Path(os.environ["MANAGER_CAPTURE"]).read_text())
           meta = capture.get("manager_context_capture", {})
           manager = capture.get("manager_context", {})
+          expected_squad = {8, 31, 79, 110, 115, 124, 154, 166, 183, 282, 411, 426, 497, 504, 524}
+          expected_xi = {8, 31, 79, 110, 115, 124, 154, 166, 411, 426, 504}
+          assert meta.get("team_id") == 421025, "manager ID mismatch"
+          assert meta.get("gameweek") == 12, "manager capture must target GW12"
           assert meta.get("identity_verified") is True
           assert meta.get("row_count") == 15
           assert isinstance(manager.get("squad_snapshot"), list) and len(manager["squad_snapshot"]) == 15
+          captured_ids = {row.get("fpl_element_id") for row in manager["squad_snapshot"]}
+          assert captured_ids == expected_squad, "captured squad differs from manager-confirmed GW12 squad"
           assert isinstance(manager.get("starting_xi"), list) and len(manager["starting_xi"]) == 11
-          print("Independent, verified 15-player manager-state input found; no conventional recommendation is consumed.")
+          assert set(manager["starting_xi"]) == expected_xi, "captured baseline XI differs from manager-confirmed GW12 XI"
+          assert manager.get("bank") == 1.8, "bank differs from manager-confirmed GW12 bank"
+          assert manager.get("free_transfers") == 1, "free transfers differ from manager-confirmed GW12 state"
+          assert manager.get("formation") == "4-3-3"
+          print("Manager 421025 GW12 capture exactly matches the confirmed squad, XI, bank and free transfers; no conventional recommendation is consumed.")
           PY
 
       - name: Run paired CTA personal and general products from the shared forecast
