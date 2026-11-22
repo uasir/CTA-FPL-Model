@@ -96,17 +96,21 @@ def build_manager_state(
     if isinstance(bank, bool) or not isinstance(bank, (int, float)) or bank < 0:
         raise LiveM4ReplayError("official previous-Gameweek bank is invalid")
     formation_counts = {"DEF": 0, "MID": 0, "FWD": 0}
+    starting_goalkeepers = 0
     rows = previous.get("players_in_official_pick_order")
     if not isinstance(rows, list):
         raise LiveM4ReplayError("official player metadata is missing")
     by_id = {row.get("fpl_element_id"): row for row in rows if isinstance(row, dict)}
     for player_id in xi:
         element_type = by_id.get(player_id, {}).get("element_type")
+        if element_type == 1:
+            starting_goalkeepers += 1
+            continue
         position = {2: "DEF", 3: "MID", 4: "FWD"}.get(element_type)
         if position is None:
             raise LiveM4ReplayError("official starting XI has an invalid position")
         formation_counts[position] += 1
-    if sum(formation_counts.values()) != 10 or min(formation_counts.values()) < 1:
+    if starting_goalkeepers != 1 or sum(formation_counts.values()) != 10 or min(formation_counts.values()) < 1:
         raise LiveM4ReplayError("official starting XI does not form a legal FPL formation")
     captain = previous.get("captain_id")
     vice = previous.get("vice_captain_id")
