@@ -167,8 +167,16 @@ def refresh_current_core(raw_dir: Path, season: str, bootstrap: dict, fixtures: 
 
     fixture_by_id = {int(f["id"]): f for f in fixtures}
     team_by_id = {int(t["id"]): str(t["name"]) for t in bootstrap.get("teams", [])}
-    position_by_element = {int(p["id"]): POSITIONS[int(p["element_type"])] for p in bootstrap.get("elements", [])}
-    players = list(bootstrap.get("elements", []))
+    # FPL bootstrap may also contain manager/club entities (element_type 5+).
+    # Only the four player positions belong in the player-match archive.
+    players = [
+        player for player in bootstrap.get("elements", [])
+        if int(player.get("element_type", 0)) in POSITIONS
+    ]
+    position_by_element = {
+        int(player["id"]): POSITIONS[int(player["element_type"])]
+        for player in players
+    }
     history_payloads = {}
     failures = []
 
