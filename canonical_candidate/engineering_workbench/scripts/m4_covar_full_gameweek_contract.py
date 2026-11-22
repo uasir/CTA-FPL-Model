@@ -282,8 +282,10 @@ def validate_full_gameweek_document(document: Mapping[str, Any]) -> dict[str, An
     if not math.isclose(probability_total, 1.0, rel_tol=0, abs_tol=1e-9):
         raise CovarFullGameweekContractError("scenario probabilities must sum to 1")
     if data_status == "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY":
-        observed_source_gws = {int(row["source_gameweek"]) for row in scenarios}
-        if observed_source_gws != research_gameweeks or len(scenarios) != len(research_gameweeks):
+        observed_source_gw_rows = [int(row["source_gameweek"]) for row in scenarios]
+        if len(set(observed_source_gw_rows)) != len(observed_source_gw_rows):
+            raise CovarFullGameweekContractError("scenario source Gameweeks must be unique")
+        if set(observed_source_gw_rows) != research_gameweeks or len(scenarios) != len(research_gameweeks):
             raise CovarFullGameweekContractError("scenario rows must cover every declared historical Gameweek exactly once")
 
     normalized = dict(document)
