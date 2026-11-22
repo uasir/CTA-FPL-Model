@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 import unittest
 
 from m4_covar_full_gameweek_builder import (
@@ -115,6 +117,10 @@ class TestM4CovarFullGameweekBuilder(unittest.TestCase):
             "payload_sha256": "a" * 64,
             "scenarios": scenarios,
         }
+        provenance["payload_sha256"] = hashlib.sha256(
+            json.dumps({key: value for key, value in provenance.items() if key != "payload_sha256"},
+                       sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+        ).hexdigest()
         doc = self.build(candidate=candidate, adaptation=adaptation, scenarios=scenarios,
                          scenario_provenance=provenance)
         self.assertEqual(doc["data_status"], "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY")
@@ -141,6 +147,10 @@ class TestM4CovarFullGameweekBuilder(unittest.TestCase):
             "production_eligible": False, "covar_used": False, "payload_sha256": "a" * 64,
             "scenarios": scenarios,
         }
+        provenance["payload_sha256"] = hashlib.sha256(
+            json.dumps({key: value for key, value in provenance.items() if key != "payload_sha256"},
+                       sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+        ).hexdigest()
         altered = copy.deepcopy(scenarios)
         altered[0]["player_outcomes"][0]["fpl_points"] = 99
         with self.assertRaisesRegex(CovarFullGameweekBuildError, "exact residual-bootstrap scenario rows"):
