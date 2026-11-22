@@ -35,6 +35,10 @@ jobs:
         with:
           ref: feat/m4-cta-five-gw-squad-evaluator
 
+      - name: Record checked-out CTA implementation commit
+        id: implementation
+        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -103,7 +107,7 @@ jobs:
           MANAGER_CONTEXT_ARTIFACT: ${{ inputs.manager_context_artifact_name }}
           FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
           FORECAST_ARTIFACT: ${{ inputs.forecast_artifact_name }}
-          GITHUB_SHA: ${{ github.sha }}
+          IMPLEMENTATION_COMMIT: ${{ steps.implementation.outputs.commit }}
         run: |
           python - <<'PY'
           import hashlib, json, os
@@ -118,7 +122,7 @@ jobs:
               "manager_context_source_artifact": os.environ["MANAGER_CONTEXT_ARTIFACT"],
               "cta_forecast_run_id": int(os.environ["FORECAST_RUN_ID"]),
               "cta_forecast_artifact": os.environ["FORECAST_ARTIFACT"],
-              "implementation_commit": os.environ["GITHUB_SHA"],
+              "implementation_commit": os.environ["IMPLEMENTATION_COMMIT"],
               "season": result["target"]["season"],
               "target_gameweek": result["target"]["target_gameweek"],
               "forecast_horizon_gameweeks": result["target"]["gameweeks"],
