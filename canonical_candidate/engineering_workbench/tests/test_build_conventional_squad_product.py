@@ -46,7 +46,7 @@ def test_conventional_product_exposes_ev_decision_and_source_provenance_only():
     assert product["product_id"] == "conventional_personal_squad"
     assert product["product_status"] == "EXPLORATORY_PREVIEW"
     assert product["release_eligible"] is False
-    assert product["decision"]["basis"] == "EXPECTED_POINTS_ONLY"
+    assert product["decision"]["basis"] == "CONVENTIONAL_EXPECTED_POINTS_ONLY"
     assert product["decision"]["action"] == run["recommendation"]["transfer_recommendation"]["action"]
     assert product["decision"]["current_squad_plan"] == run["recommendation"]["current_squad_plan"]
     assert product["forecast"]["provider"]["name"] == "FPL Cat"
