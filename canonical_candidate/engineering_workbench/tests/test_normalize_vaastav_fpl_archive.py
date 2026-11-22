@@ -92,6 +92,19 @@ def test_normalizer_rejects_unparseable_kickoff():
         normalize_archive(merged, roster, teams, "2026-27")
 
 
+def test_normalizer_excludes_manager_rows_without_treating_them_as_players():
+    merged, roster, teams = _inputs()
+    roster.append({"id": "99", "code": "", "element_type": "5", "team": "1", "web_name": "Manager"})
+    merged.append({
+        "element": "99", "fixture": "501", "round": "1", "position": "AM",
+        "team": "Club A", "opponent_team": "2", "kickoff_time": "2026-08-15T14:00:00Z",
+        "was_home": "True", "minutes": "90", "total_points": "3",
+    })
+    rows, report = normalize_archive(merged, roster, teams, "2026-27")
+    assert len(rows) == 2
+    assert report["excluded_non_player_rows"] == 1
+
+
 def test_normalizer_rejects_duplicate_stable_player_codes():
     merged, roster, teams = _inputs()
     roster[1]["code"] = roster[0]["code"]
