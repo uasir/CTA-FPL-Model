@@ -142,3 +142,24 @@ that Gameweek was not a Free Hit, otherwise chronological season-history
 reconstruction from GW1 picks and official transfer history. The five-GW
 evaluator requires the resulting per-player purchase_price values and blocks
 rather than approximating when they are absent.
+
+
+### Paired real-data replay input contract
+
+The M3 conventional recommendation artifact and its manager-context capture are
+separate files in the same M3 Actions artifact. The recommendation carries
+`run_type`, target season/Gameweek/deadline in its `coverage` envelope, and
+manager summary fields under `recommendation.manager_context`. The paired
+manager capture carries the complete verified 15-player `squad_snapshot`,
+purchase prices, bank, free transfers and risk profile. The CTA runner accepts
+both files together, checks their shared Gameweek and manager-summary values,
+and rejects a missing, incomplete or mismatched capture.
+
+A manually triggered workflow,
+`.github/workflows/cta-m4-paired-personal-replay.yml`, downloads the exact
+five-GW CTA artifact and paired M3 artifact, runs the personal and general
+products from the same forecast bundle, and publishes only a privacy-safe
+manifest. The manager-specific recommendation report remains ephemeral in the
+job workspace. It requires a successful M3 GW12 capture; the archived GW11
+capture is intentionally rejected because its Gameweek and deadline do not
+match the GW12–GW16 CTA forecast.
