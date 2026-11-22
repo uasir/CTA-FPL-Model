@@ -42,15 +42,22 @@ def evaluate_multi_gameweek_transfer_bundle(payload: Mapping[str, Any]) -> dict[
     if not isinstance(bundle, Mapping):
         raise MultiGameweekTransferError("forecast_bundle is required")
     bundle_id = bundle.get("forecast_bundle_id")
-    if not isinstance(bundle_id, str) or not bundle_id.strip() or bundle.get("forecast_snapshot_id") != bundle_id:
-        raise MultiGameweekTransferError("forecast bundle/snapshot ID is missing or inconsistent")
+    grain = bundle.get("forecast_grain", "player_fixture")
+    snapshot_id = bundle.get("forecast_snapshot_id")
+    if not isinstance(bundle_id, str) or not bundle_id.strip() or not isinstance(snapshot_id, str) or not snapshot_id.strip():
+        raise MultiGameweekTransferError("forecast bundle and provider snapshot IDs are required")
+    if grain == "player_fixture" and snapshot_id != bundle_id:
+        raise MultiGameweekTransferError("fixture-level forecast bundle/snapshot ID is inconsistent")
+    if grain not in {"player_fixture", "player_gameweek"}:
+        raise MultiGameweekTransferError("unsupported forecast grain")
     weeks = bundle.get("horizon_gameweeks")
     if (not isinstance(weeks, list) or len(weeks) < 5
             or any(isinstance(gw, bool) or not isinstance(gw, int) for gw in weeks)
             or weeks != list(range(weeks[0], weeks[0] + len(weeks)))):
         raise MultiGameweekTransferError("forecast bundle must contain at least five consecutive Gameweeks")
     source_ids = bundle.get("source_snapshot_ids")
-    if (not isinstance(source_ids, list) or len(source_ids) != len(weeks)
+    expected_snapshot_count = len(weeks) if grain == "player_fixture" else 1
+    if (not isinstance(source_ids, list) or len(source_ids) != expected_snapshot_count
             or any(not isinstance(value, str) or not value.strip() for value in source_ids)
             or len(set(source_ids)) != len(source_ids)):
         raise MultiGameweekTransferError("one unique immutable provider snapshot ID is required per Gameweek")
@@ -66,7 +73,8 @@ def evaluate_multi_gameweek_transfer_bundle(payload: Mapping[str, Any]) -> dict[
         for key in ("name", "product", "variant", "version")
     ):
         raise MultiGameweekTransferError("forecast bundle provider identity is required")
-    if bundle.get("contract_version") != "1.0.0":
+    expected_contract = "1.0.0" if grain == "player_fixture" else "1.0.0-player-gameweek"
+    if bundle.get("contract_version") != expected_contract:
         raise MultiGameweekTransferError("forecast bundle must come from the supported canonical contract version")
 
     squad = _ids(payload.get("squad_ids"), "squad_ids", 15)
@@ -81,8 +89,12 @@ def evaluate_multi_gameweek_transfer_bundle(payload: Mapping[str, Any]) -> dict[
     required = set(squad) | {incoming}
     player_rows = bundle.get("player_gameweek_forecasts")
     fixture_rows = bundle.get("fixture_forecasts")
-    if not isinstance(player_rows, list) or not isinstance(fixture_rows, list):
-        raise MultiGameweekTransferError("bundle player/Gameweek and fixture-level forecast rows are required")
+    if not isinstance(player_rows, list):
+        raise MultiGameweekTransferError("bundle player/Gameweek forecast rows are required")
+    if grain == "player_fixture" and not isinstance(fixture_rows, list):
+        raise MultiGameweekTransferError("fixture-level forecast rows are required for player_fixture grain")
+    if grain == "player_gameweek" and fixture_rows is not None:
+        raise MultiGameweekTransferError("player_gameweek grain must not contain fabricated fixture-level forecasts")
 
     by_week: dict[int, dict[int, dict[str, Any]]] = defaultdict(dict)
     for row in player_rows:
@@ -106,7 +118,7 @@ def evaluate_multi_gameweek_transfer_bundle(payload: Mapping[str, Any]) -> dict[
 
     fixture_totals: dict[tuple[int, int], dict[str, float]] = defaultdict(lambda: {"expected_points": 0.0, "expected_minutes": 0.0})
     fixture_keys = set()
-    for row in fixture_rows:
+    for row in fixture_rows or []:
         if not isinstance(row, Mapping):
             raise MultiGameweekTransferError("fixture_forecasts rows must be objects")
         pid, gw, fixture_id = row.get("fpl_element_id"), row.get("gameweek"), row.get("fixture_id")
@@ -127,11 +139,12 @@ def evaluate_multi_gameweek_transfer_bundle(payload: Mapping[str, Any]) -> dict[
             raise MultiGameweekTransferError(f"missing player forecasts in GW{gw}: {missing}")
         for pid in required:
             aggregate = by_week[gw][pid]
-            fixture = fixture_totals.get((pid, gw), {"expected_points": 0.0, "expected_minutes": 0.0})
-            if not math.isclose(aggregate["expected_points"], fixture["expected_points"], abs_tol=1e-5):
-                raise MultiGameweekTransferError(f"fixture xP does not reconcile to player/GW forecast for {pid}, GW{gw}")
-            if not math.isclose(aggregate["expected_minutes"], fixture["expected_minutes"], abs_tol=1e-5):
-                raise MultiGameweekTransferError(f"fixture minutes do not reconcile for {pid}, GW{gw}")
+            if grain == "player_fixture":
+                fixture = fixture_totals.get((pid, gw), {"expected_points": 0.0, "expected_minutes": 0.0})
+                if not math.isclose(aggregate["expected_points"], fixture["expected_points"], abs_tol=1e-5):
+                    raise MultiGameweekTransferError(f"fixture xP does not reconcile to player/GW forecast for {pid}, GW{gw}")
+                if not math.isclose(aggregate["expected_minutes"], fixture["expected_minutes"], abs_tol=1e-5):
+                    raise MultiGameweekTransferError(f"fixture minutes do not reconcile for {pid}, GW{gw}")
 
     first = by_week[weeks[0]]
     if first[outgoing]["position"] == "GKP":
@@ -199,7 +212,7 @@ def evaluate_multi_gameweek_transfer_bundle(payload: Mapping[str, Any]) -> dict[
             "incoming_expected_points": round(by_week[gw][incoming]["expected_points"], 6),
             "outgoing_expected_points": round(by_week[gw][outgoing]["expected_points"], 6),
         })
-        for row in fixture_rows:
+        for row in fixture_rows or []:
             if row.get("gameweek") == gw and row.get("fpl_element_id") in {outgoing, incoming, displaced_id}:
                 fixture_detail.append({
                     "gameweek": gw, "fpl_element_id": row["fpl_element_id"],
@@ -217,7 +230,7 @@ def evaluate_multi_gameweek_transfer_bundle(payload: Mapping[str, Any]) -> dict[
         "contract_version": bundle["contract_version"],
         "status": "EXPLORATORY_MULTI_GAMEWEEK_TRANSFER_COMPARISON",
         "forecast_bundle_id": bundle_id,
-        "forecast_snapshot_id": bundle_id,
+        "forecast_snapshot_id": snapshot_id,
         "model_version": model_version,
         "source_snapshot_ids": list(source_ids),
         "horizon_gameweeks": list(weeks),
@@ -230,7 +243,8 @@ def evaluate_multi_gameweek_transfer_bundle(payload: Mapping[str, Any]) -> dict[
         "hold_starting_xi_ids": list(xi),
         "transfer_starting_xi_ids": transfer_xi,
         "weekly_comparison": weekly,
-        "fixture_level_transfer_player_detail": fixture_detail,
+        "fixture_level_transfer_player_detail": fixture_detail if grain == "player_fixture" else None,
+        "forecast_grain": grain,
         "gross_horizon_expected_points_delta": round(gross, 6),
         "net_horizon_expected_points_delta": round(net, 6),
         "action": "TRANSFER" if net > 0 else "HOLD",
@@ -238,7 +252,7 @@ def evaluate_multi_gameweek_transfer_bundle(payload: Mapping[str, Any]) -> dict[
         "production_eligible": False,
         "limitations": [
             "Fixed starting-XI comparison; future lineups, captaincy, chips and multi-transfer sequences are not optimized.",
-            "Only the incoming/outgoing/displaced-player fixture rows are expanded; other XI contributions are summarized at player/Gameweek level.",
+            ("Only the incoming/outgoing/displaced-player fixture rows are expanded; other XI contributions are summarized at player/Gameweek level." if grain == "player_fixture" else "Provider supplies player-Gameweek aggregates only; fixture-level expected points, fixture-specific minutes and double-Gameweek splits are unavailable."),
             "Future price changes and transfer-flexibility option value are not modeled.",
             "TECM/CoVar is not used to alter this expected-points decision.",
             "This evaluator is not wired into the current production recommendation path.",

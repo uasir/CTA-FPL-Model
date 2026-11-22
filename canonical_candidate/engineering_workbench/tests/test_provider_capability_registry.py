@@ -7,16 +7,23 @@ from provider_capability_registry import (
     list_provider_capabilities,
     require_multi_gameweek_capture,
     validate_capture_against_registry,
+    require_player_gameweek_multi_gameweek_capture,
 )
 
 
 def test_registry_distinguishes_player_gw_and_fixture_gw_sources():
     fpl = get_provider_capability("fpl_cat_public_projections")
     sideline = get_provider_capability("sideline_quant_public_next_gw")
+    partner = get_provider_capability("fpl_cat_partner_projections")
     assert fpl["capture_grain"] == "player_gameweek"
     assert sideline["capture_grain"] == "player_fixture"
     assert sideline["fixture_ids"] is True
     assert fpl["explicit_multi_gameweek_panels"] is False
+    assert partner["capture_grain"] == "player_gameweek"
+    assert partner["max_explicit_gameweeks_per_capture"] == 6
+    assert partner["fixture_ids"] is False
+    assert partner["explicit_multi_gameweek_panels"] is True
+    assert partner["authorized_reproducible_access"] is False
     assert sideline["explicit_multi_gameweek_panels"] is False
 
 
@@ -66,10 +73,21 @@ def test_single_gw_source_cannot_self_assert_multi_gw_eligibility():
 def test_list_is_stable_and_complete_for_current_sources():
     rows = list_provider_capabilities()
     assert [row["source_id"] for row in rows] == [
-        "fpl_cat_public_projections", "sideline_quant_public_next_gw"
+        "fpl_cat_partner_projections", "fpl_cat_public_projections", "sideline_quant_public_next_gw"
     ]
 
 
 def test_minimum_horizon_cannot_be_lowered_to_bypass_policy():
     with pytest.raises(ProviderCapabilityError, match="at least five"):
         require_multi_gameweek_capture("sideline_quant_public_next_gw", required_horizon=1)
+
+
+
+def test_partner_player_gameweek_source_fails_closed_until_licensed_access_is_confirmed():
+    with pytest.raises(ProviderCapabilityError, match="PENDING_PARTNER_KEY_AND_LICENSE"):
+        require_player_gameweek_multi_gameweek_capture("fpl_cat_partner_projections")
+
+
+def test_player_gameweek_gate_cannot_be_used_for_fixture_level_bundle():
+    with pytest.raises(ProviderCapabilityError, match="not registered as eligible"):
+        require_multi_gameweek_capture("fpl_cat_partner_projections")
