@@ -61,7 +61,7 @@ python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_
   --output /path/to/private-output/cta-recommendation-previews.json
 ```
 
-Alternatively, a validated internal manager-context JSON object can be supplied directly:
+For controlled tests only, `--manager-context` can accept a validated manager-context object directly; the real-data paired replay uses the timestamped capture artifact above.
 
 Optional post-lock EO can be supplied using `--eo-snapshot`. The manager context and full personal recommendation output are private manager data: do not publish them as public workflow artifacts. General CTA rankings do not depend on manager context.
 
