@@ -52,7 +52,7 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
     minutes_report = json.loads(minutes_report_path.read_text(encoding="utf-8"))
     if manifest.get("status") != "CANDIDATE_TRAINED_M2_VALIDATION_PENDING":
         raise ValueError("CTA points model manifest is not a candidate awaiting M2 validation")
-    feature_order_hash = hashlib.sha256("\\n".join(features).encode()).hexdigest()
+    feature_order_hash = hashlib.sha256("\n".join(features).encode()).hexdigest()
     if manifest.get("feature_order_sha256") != feature_order_hash:
         raise ValueError("CTA points model feature order differs from forecast schema")
 
