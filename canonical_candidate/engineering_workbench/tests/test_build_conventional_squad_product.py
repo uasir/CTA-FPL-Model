@@ -7,7 +7,12 @@ import pytest
 from run_external_benchmark_personal_squad import run_external_benchmark_personal_squad
 from build_conventional_squad_product import (ConventionalSquadProductError, build_conventional_squad_product, build_personal_squad_product)
 from test_multi_gameweek_transfer_evaluator import request as _multi_gameweek_request
-from test_multi_gameweek_squad_request_assembler import (\n    forecast_payload as _multi_gameweek_forecast_payload,\n    manager_context as _multi_gameweek_manager_context,\n    current_player_metadata as _multi_gameweek_current_metadata,\n)\n
+from test_multi_gameweek_squad_request_assembler import (
+    forecast_payload as _multi_gameweek_forecast_payload,
+    manager_context as _multi_gameweek_manager_context,
+    current_player_metadata as _multi_gameweek_current_metadata,
+)
+
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "recommendation_requests.json").read_text())
 
 def _run():
