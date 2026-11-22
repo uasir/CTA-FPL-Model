@@ -57,6 +57,7 @@ To generate a manager-specific preview on the exact same squad/budget/transfer s
 python canonical_candidate/engineering_workbench/scripts/run_cta_recommendation_products.py \
   --bundle-dir /path/to/verified/cta-bundle \
   --conventional-run /path/to/private/conventional-m3-run.json \
+  --now-utc 2026-11-22T12:05:00Z \
   --output /path/to/private-output/cta-recommendation-previews.json
 ```
 
