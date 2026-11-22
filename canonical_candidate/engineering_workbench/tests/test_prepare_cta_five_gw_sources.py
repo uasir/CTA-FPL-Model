@@ -76,3 +76,51 @@ def test_live_fixture_schedule_writer_round_trips(tmp_path: Path):
     frame = pd.read_csv(path)
     assert frame.loc[0, "id"] == 99
     assert frame.loc[0, "event"] == 12
+
+
+def test_parallel_understat_fallbacks_fetch_concurrently_and_write_json(tmp_path, monkeypatch):
+    import json
+    import sys
+    import threading
+    import time
+    import types
+    from prepare_cta_five_gw_sources import parallel_understat_fallbacks
+
+    lock = threading.Lock()
+    active = 0
+    peak = 0
+
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def player(self, player):
+            self.player_id = int(player)
+            return self
+
+        def get_match_data(self):
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            time.sleep(0.03)
+            with lock:
+                active -= 1
+            return [{"id": self.player_id}]
+
+    fake_module = types.ModuleType("understatapi")
+    fake_module.UnderstatClient = FakeClient
+    monkeypatch.setitem(sys.modules, "understatapi", fake_module)
+
+    parallel_understat_fallbacks(
+        tmp_path, [11, 12, 13, 14, 15, 16], [],
+        force=False, allow_missing=False, workers=3,
+    )
+
+    assert 1 < peak <= 3
+    for player_id in [11, 12, 13, 14, 15, 16]:
+        path = tmp_path / "understat" / "players" / f"{player_id}.json"
+        assert json.loads(path.read_text()) == [{"id": player_id}]
