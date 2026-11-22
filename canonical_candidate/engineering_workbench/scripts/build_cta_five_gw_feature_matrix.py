@@ -209,17 +209,19 @@ def anchor_team_features_to_deadline(target: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def build_matrix(dastan_root: Path, raw_dir: Path, bootstrap_path: Path,
-                 fixtures_path: Path, schema_path: Path, output: Path,
-                 report_path: Path, target_gameweeks: list[int]) -> dict:
+def build_matrix(dastan_root: Path, canonical_player_path: Path,
+                 canonical_team_path: Path, player_mapping_path: Path,
+                 bootstrap_path: Path, fixtures_path: Path, schema_path: Path,
+                 output: Path, report_path: Path, target_gameweeks: list[int]) -> dict:
     sys.path.insert(0, str(dastan_root))
-    from dastan import data as dastan_data
-    from dastan import mappings as dastan_mappings
     from dastan.rebuild.features import build_feature_frame
-    from dastan.rebuild.sources import build_canonical_matches
 
     bootstrap = json.loads(bootstrap_path.read_text(encoding="utf-8"))
     fixtures = json.loads(fixtures_path.read_text(encoding="utf-8"))
+    player_history = pd.read_parquet(canonical_player_path)
+    team_history = pd.read_parquet(canonical_team_path)
+    if player_history.empty or team_history.empty:
+        raise ValueError("Canonical player/team match inputs must be non-empty")
     events = bootstrap.get("events", [])
     next_events = [int(event["id"]) for event in events if event.get("is_next")]
     if len(next_events) != 1:
@@ -228,7 +230,6 @@ def build_matrix(dastan_root: Path, raw_dir: Path, bootstrap_path: Path,
     if target_gameweeks != list(range(first_gw, first_gw + 5)):
         raise ValueError("Target horizon must be the next five consecutive gameweek IDs")
 
-    season = str(next(event["season"] for event in bootstrap.get("events", []) if event.get("id") == first_gw)) if False else None
     deadlines = [pd.to_datetime(event["deadline_time"], utc=True) for event in events if int(event["id"]) == first_gw]
     if not deadlines:
         raise ValueError("next event is missing deadline_time")
