@@ -18,15 +18,19 @@ on:
       expected_bank:
         description: Current manager bank in £m; required for pre-deadline fallback and official-picks cross-check
         required: true
+        default: "1.8"
       free_transfers:
         description: Confirmed free transfers available for the target Gameweek
         required: true
+        default: "1"
       starting_xi_ids:
         description: Manager-confirmed baseline starting XI element IDs for the target Gameweek (comma-separated)
         required: true
+        default: "8,31,79,110,115,124,154,166,411,426,504"
       expected_element_ids:
         description: Manager-confirmed current 15-player squad FPL element IDs for the target Gameweek (comma-separated)
         required: true
+        default: "8,31,79,110,115,124,154,166,183,282,411,426,497,504,524"
 
 permissions:
   contents: read
