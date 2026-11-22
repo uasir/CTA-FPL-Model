@@ -35,7 +35,7 @@ def test_public_manager_snapshot_preserves_official_picks_and_target_transfers()
                     "id": player_id,
                     "first_name": f"First{player_id}",
                     "second_name": f"Last{player_id}",
-                    "element_type": 1 if player_id in (1, 15, 16) else (2 if player_id <= 6 else (3 if player_id <= 11 else 4)),
+                    "element_type": 1 if player_id in (1, 12, 16) else (2 if player_id <= 6 else (3 if player_id <= 11 else 4)),
                     "team": 1 + (player_id % 5),
                 }
                 for player_id in range(1, 17)
@@ -52,7 +52,7 @@ def test_public_manager_snapshot_preserves_official_picks_and_target_transfers()
 
     previous = result["previous_gameweek_state"]
     assert previous["squad_ids"] == list(range(1, 16))
-    assert previous["starting_xi_ids"] == list(range(1, 12))
+    assert previous["starting_xi_ids"] == list(range(1, 12))\n    assert previous["outfield_bench_ids"] == [13, 14, 15]\n    assert previous["reserve_goalkeeper_id"] == 12
     assert previous["captain_id"] == 1
     assert previous["vice_captain_id"] == 2
     assert previous["bank_at_previous_deadline"] == 2.0
