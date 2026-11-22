@@ -85,7 +85,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/cta-fpl-raw
-          key: cta-fpl-raw-vaastav-d7b05b51d137bfefef4b692386d18c610975b9b9-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767
+          key: cta-fpl-raw-vaastav-d7b05b51d137bfefef4b692386d18c610975b9b9-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-understat-v1
       - name: Clone pinned Dastan reconstruction and minutes artifacts
         run: |
           mkdir -p .cache
@@ -105,7 +105,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .cache/cta-fpl-raw
-          key: cta-fpl-raw-vaastav-d7b05b51d137bfefef4b692386d18c610975b9b9-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767
+          key: cta-fpl-raw-vaastav-d7b05b51d137bfefef4b692386d18c610975b9b9-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-understat-v1
       - name: Build deadline-safe fixture feature matrix
         run: |
           GAMEWEEKS=$(python -c "import json; print(','.join(map(str, json.load(open('outputs/cta-five-gw/target_gameweeks.json'))['gameweeks'])))")
@@ -117,6 +117,7 @@ jobs:
             --bootstrap outputs/cta-five-gw/snapshots/bootstrap-static.json \
             --fixtures outputs/cta-five-gw/snapshots/fixtures.json \
             --schema canonical_candidate/engineering_workbench/config/dastan_minutes_feature_schema.json \
+            --source-report outputs/cta-five-gw/source_preparation_report.json \
             --output outputs/cta-five-gw/feature_matrix.csv \
             --report outputs/cta-five-gw/feature_matrix_report.json \
             --target-gameweeks "$GAMEWEEKS"
@@ -134,7 +135,8 @@ jobs:
           python canonical_candidate/engineering_workbench/scripts/train_cta_points_model.py \
             --training-frame outputs/cta-five-gw/training/features_with_snapshots.parquet \
             --schema canonical_candidate/engineering_workbench/config/dastan_minutes_feature_schema.json \
-            --model-dir outputs/cta-five-gw/models
+            --model-dir outputs/cta-five-gw/models \
+            --source-report outputs/cta-five-gw/source_preparation_report.json
       - name: Score fixture-level, player-GW and five-GW forecasts
         run: |
           python canonical_candidate/engineering_workbench/scripts/score_cta_five_gw_forecasts.py \
