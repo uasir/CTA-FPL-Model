@@ -71,3 +71,46 @@ This policy does not activate CoVar. Until the separate joint-forecast validatio
 - Historical/prospective decision evaluation must score the frozen horizon policy against HOLD over the same horizon, with overlapping decision windows and repeated manager/Gameweek observations handled explicitly.
 
 **Important implementation boundary:** The existing engine is a one-Gameweek optimiser. This policy records the required target behavior; it does not claim that multi-Gameweek forecasts, optimisation, or validation are already implemented. Until implementation and tests pass, current one-Gameweek outputs must be labelled exploratory and must not be presented as satisfying this policy.
+
+
+## 8. Team stacking and correlated scoring exposure
+
+Team stacking is a required part of the multi-Gameweek squad/transfer evaluation. It is not inherently good or bad: it deliberately increases exposure to shared team and match outcomes. The engine must quantify both the potential upside and the downside rather than automatically penalising multiple players from one club.
+
+### 8.1 Defensive stacks
+
+Evaluate combinations such as two or more defenders from a club with a strong clean-sheet outlook, and combinations across clubs with different fixture profiles. Defenders (and a goalkeeper, if the manager's goalkeeper-transfer constraint permits the existing pairing to be evaluated) can share clean-sheet and defensive-result exposure. A clean sheet can benefit several selected defenders simultaneously; conceding can remove clean-sheet points from multiple players at once.
+
+For each horizon Gameweek, report:
+- Club clean-sheet probability/forecast source and fixture context, where available.
+- The number of selected defenders exposed to that club's clean-sheet outcome.
+- Expected points contributed by the defensive stack and its share of squad/starting-XI expected points.
+- Shared downside if the clean sheet fails, and whether the remaining defensive picks diversify that exposure.
+
+A multi-club defensive portfolio can diversify club-specific clean-sheet risk, but must be assessed against the actual fixtures and player-level minutes/role forecasts. Do not assume Arsenal or Brighton, or any club, is permanently a strong clean-sheet pick; evaluate the relevant horizon.
+
+### 8.2 Attacking stacks
+
+Evaluate multiple attackers from the same club as shared exposure to team goals and attacking match states. A high-scoring team can create multiple routes to returns across its attackers, but individual goals, assists, bonus and minutes are not perfectly shared. The engine must distinguish:
+- Common team scoring environment and expected team goals.
+- Player-specific expected minutes, role, goal involvement and assist involvement.
+- Dependence between player outcomes conditional on the shared match state.
+- Concentration of squad points in one club/fixture and the upside/downside associated with that concentration.
+
+### 8.3 Portfolio-level treatment
+
+Where a validated joint scenario forecast is available, evaluate each legal squad/transfer path using the same scenarios and probabilities. Preserve player-point covariance and team/match-state dependence; calculate the contribution of within-club and cross-club combinations to total portfolio variance and relevant upside/tail outcomes. Do not assume independence between players from the same team, and do not equate positive correlation with a reason to avoid the stack.
+
+Before a validated joint forecast is available, use transparent descriptive exposure diagnostics only (e.g. counts, club concentration, common fixture exposure, and marginal expected-points contribution). Do not invent correlation coefficients, clean-sheet probabilities, joint probabilities or CoVar adjustments from marginal xP alone. This descriptive layer must not change conventional transfer ranking.
+
+### 8.4 Transfer decision impact
+
+Compare the incoming player's effect on the whole five-Gameweek squad portfolio, not just the incoming/outgoing pair. A transfer can be valuable because it:
+- Adds exposure to a strong defensive or attacking team environment.
+- Completes or strengthens a deliberate stack.
+- Diversifies an excessive existing club/fixture concentration.
+- Replaces an isolated player with a player whose shared team environment increases portfolio upside.
+
+The report must show the resulting stack before and after the transfer, the affected Gameweeks, the expected-points contribution, and—only when validated joint scenarios exist—the change in portfolio variance/dependence and upside/downside distribution.
+
+Team stacking is therefore an explicit portfolio dimension alongside multi-Gameweek EV, field/EO context, squad legality and transfer flexibility. It remains distinct from CoVar validation: descriptive stacking analysis can be implemented now, but probabilistic dependence adjustments remain gated by joint-forecast validation and approval.
