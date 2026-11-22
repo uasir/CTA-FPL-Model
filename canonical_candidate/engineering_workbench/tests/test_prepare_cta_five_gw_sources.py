@@ -4,6 +4,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from prepare_cta_five_gw_sources import (
     understat_players_needing_refresh,
+    historical_source_seasons,
     apply_historical_snapshot_safety_buffer,
     copy_verified_dastan_release,
     copy_verified_dastan_model_contract,
