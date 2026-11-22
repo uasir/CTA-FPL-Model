@@ -305,6 +305,7 @@ def test_copy_verified_dastan_release_imports_only_verified_published_artifacts(
 
 
 def test_snapshot_safety_buffer_creates_provenance_for_imported_artifacts(tmp_path: Path):
+    import json
     import pandas as pd
 
     for stem in ("pre_deadline_ep_next", "pre_deadline_signals"):
