@@ -236,10 +236,14 @@ def test_rejects_cta_model_binary_hash_mismatch(tmp_path):
 
 def test_rejects_actual_csv_row_count_mismatch(tmp_path):
     root = bundle(tmp_path / "bundle")
-    write_csv(root, "forecasts/fixture_forecasts.csv", [
+    output_path = write_csv(root, "forecasts/fixture_forecasts.csv", [
         {"forecast_snapshot_id": "snapshot-123", "expected_points_model_status": "CANDIDATE_NOT_VALIDATED",
          "production_eligible": False, "decision_weight": 0, "covar_used": False}
     ])
+    report_path = root / "forecasts/forecast_report.json"
+    report = json.loads(report_path.read_text())
+    report["outputs"]["fixture_forecasts"]["sha256"] = digest(output_path)
+    write_json(root, "forecasts/forecast_report.json", report)
     with pytest.raises(ValueError, match="row count does not match forecast report"):
         archive_bundle(root, tmp_path / "archive", run_id="1", commit_sha="sha",
                        run_url="https://example.test/run")
