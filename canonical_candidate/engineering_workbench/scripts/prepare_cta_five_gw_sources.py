@@ -946,25 +946,88 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     roster_path = write_current_roster(dastan_root, bootstrap, season)
     mapping_release_report = mappings.verify_operational_release()
     patch_identity_resolution(mappings, sources)
-    # Use pinned Vaastav Understat histories first. If a player or team-season
-    # history is incomplete, use API.SH's documented JSON endpoint with a local
-    # monthly credit guard; never fall back to scraping the blocked HTML endpoint.
+    # Prefer pinned Vaastav histories. API.SH is used only when its key is
+    # configured; without it, reconstruct player histories from the season files
+    # already published in the pinned Vaastav repository. Team metrics remain
+    # FPL-native unless API.SH supplies complete team-season histories.
     apish_fallback_reports = []
 
     def fetch_understat_fallbacks(
         fallback_raw_dir, missing_players, missing_team_seasons, *,
         force, allow_missing,
     ):
-        team_names = (
-            sources._epl_teams(fallback_raw_dir, missing_team_seasons)
-            if missing_team_seasons else {}
-        )
-        result = parallel_understat_fallbacks(
-            fallback_raw_dir, missing_players, missing_team_seasons,
-            force=force, allow_missing=allow_missing, workers=workers,
-            team_names_by_season=team_names,
-        )
+        if os.environ.get("APISH_KEY"):
+            team_names = (
+                sources._epl_teams(fallback_raw_dir, missing_team_seasons)
+                if missing_team_seasons else {}
+            )
+            result = parallel_understat_fallbacks(
+                fallback_raw_dir, missing_players, missing_team_seasons,
+                force=force, allow_missing=allow_missing, workers=workers,
+                team_names_by_season=team_names,
+            )
+            apish_fallback_reports.append(result)
+            return result
+
+        # The pinned Vaastav tree has season-scoped player CSVs. Dastan's
+        # default downloader selects only the latest file per player; combine
+        # all available requested-season files so the history is not truncated.
+        tree_paths = sources._tree(fallback_raw_dir, force=False)
+        pattern = re.compile(r"^data/(20\\d\\d-\\d\\d)/understat/.+_(\\d+)\\.csv$")
+        wanted = set(int(value) for value in missing_players)
+        requested_seasons = set(seasons)
+        player_sources: dict[int, list[tuple[str, str]]] = {}
+        for source in tree_paths:
+            match = pattern.match(source)
+            if not match:
+                continue
+            source_season, player_id = match.group(1), int(match.group(2))
+            if player_id in wanted and source_season in requested_seasons:
+                player_sources.setdefault(player_id, []).append((source_season, source))
+        parts_root = fallback_raw_dir / "understat" / "pinned_player_parts"
+        jobs = []
+        for player_id, entries in player_sources.items():
+            for source_season, source in entries:
+                destination = parts_root / str(player_id) / f"{source_season}.csv"
+                jobs.append((sources.VAASTAV_RAW + source, destination))
+        if jobs:
+            sources._download_many(jobs, workers=min(workers, 12), force=False)
+
+        player_root = fallback_raw_dir / "vaastav" / "understat" / "players"
+        reconstructed = 0
+        for player_id in sorted(wanted):
+            part_paths = sorted((parts_root / str(player_id)).glob("*.csv"))
+            if not part_paths:
+                continue
+            frames = []
+            for part_path in part_paths:
+                frame = pd.read_csv(part_path, low_memory=False)
+                if "season" not in frame:
+                    start_year = int(part_path.stem.split("-")[0])
+                    frame["season"] = start_year
+                frames.append(frame)
+            combined = pd.concat(frames, ignore_index=True, sort=False)
+            if "date" not in combined:
+                raise RuntimeError(f"Pinned Understat player parts lack date for ID {player_id}")
+            combined = combined.drop_duplicates(["date"], keep="last")
+            destination = player_root / f"{player_id}.csv"
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            combined.to_csv(destination, index=False, lineterminator="\\n")
+            reconstructed += 1
+
+        result = {
+            "provider": "VAASTAV_PINNED_MULTI_SEASON",
+            "status": "PASS" if reconstructed else "PARTIAL",
+            "player_histories_requested": len(wanted),
+            "player_histories_reconstructed": reconstructed,
+            "team_seasons_missing": list(missing_team_seasons),
+            "team_metrics_policy": "FPL fixture scores/standings retained; team/opp Understat feature families masked",
+            "api_sh_used": False,
+            "reason": "APISH_KEY is not configured; no paid API calls were attempted",
+        }
         apish_fallback_reports.append(result)
+        if reconstructed == 0 and wanted and not allow_missing:
+            raise RuntimeError("No pinned Understat player histories could be reconstructed")
         return result
 
     sources._fetch_understat_fallbacks = fetch_understat_fallbacks
@@ -989,11 +1052,11 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     # Understat histories for current-roster players with actual appearances.
     sources.download_sources(
         raw_dir, historical_seasons, workers=workers, force=False,
-        allow_missing_understat=False,
+        allow_missing_understat=True,
     )
     sources.download_sources(
         raw_dir, [season], workers=workers, force=False,
-        allow_missing_understat=False,
+        allow_missing_understat=True,
     )
     download_fixture_schedules(raw_dir, historical_seasons, source_commit)
 
