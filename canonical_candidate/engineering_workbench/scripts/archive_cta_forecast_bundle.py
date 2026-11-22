@@ -60,10 +60,20 @@ def archive_bundle(bundle_dir: Path, archive_root: Path, *, run_id: str,
     weeks = [int(x) for x in gameweeks]
     if weeks != list(range(weeks[0], weeks[0] + len(weeks))):
         raise ValueError("forecast Gameweeks must be consecutive")
-    row_keys = ("fixture_rows", "player_gameweek_rows", "five_gameweek_player_rows")
-    for key in row_keys:
-        if int(forecast.get(key, -1)) != int(validation.get(key, -2)):
-            raise ValueError(f"forecast and validation row counts disagree for {key}")
+    # The forecast report names its fixture grain `fixture_player_rows`, while
+    # the bundle validator uses `fixture_rows`. Compare the semantic quantity
+    # across the two versioned report schemas rather than requiring identical keys.
+    row_key_pairs = (
+        ("fixture_player_rows", "fixture_rows"),
+        ("player_gameweek_rows", "player_gameweek_rows"),
+        ("five_gameweek_player_rows", "five_gameweek_player_rows"),
+    )
+    for forecast_key, validation_key in row_key_pairs:
+        if int(forecast.get(forecast_key, -1)) != int(validation.get(validation_key, -2)):
+            raise ValueError(
+                f"forecast and validation row counts disagree: "
+                f"{forecast_key} vs {validation_key}"
+            )
     missing = [name for name in ARCHIVE_FILES if not (bundle_dir / name).is_file()]
     if missing:
         raise ValueError(f"forecast bundle is missing archive inputs: {missing}")
