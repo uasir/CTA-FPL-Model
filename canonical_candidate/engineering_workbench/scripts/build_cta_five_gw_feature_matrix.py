@@ -67,6 +67,7 @@ def build_future_rows(bootstrap: dict, fixtures: list[dict], player_map: dict, c
     selected_fixtures = [
         f for f in fixtures
         if f.get("event") is not None and int(f["event"]) in set(gameweeks)
+        and not f.get("finished") and not f.get("finished_provisional")
         and f.get("kickoff_time") and f.get("team_h") and f.get("team_a")
     ]
     if not selected_fixtures:
