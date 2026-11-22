@@ -409,6 +409,7 @@ def build_cta_forecast_provider_snapshot(
             key: value for key, value in eo_provenance.items() if key != "players_with_eo"
         })
         data_coverage["eo_players_with_coverage"] = eo_provenance["players_with_eo"]
+        data_coverage["eo_temporal_role"] = "POST_LOCK_RETROSPECTIVE_DESCRIPTIVE_ONLY"
 
     model_version = "cta-owned-xgboost:" + str(provenance["points_model_manifest_sha256"])
     shared_forecast = {
