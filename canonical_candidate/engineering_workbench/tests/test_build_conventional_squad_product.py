@@ -64,6 +64,8 @@ def test_m4_product_contract_accepts_cta_source_run_shape_without_promoting_it()
     run["release_blockers"] = ["CTA forecast validation is pending."]
     product = build_conventional_squad_product(run)
     assert product["forecast"]["source_run_type"] == "CTA_MODEL_PERSONAL_SQUAD"
+    assert product["product_id"] == "cta_informed_personal_squad"
+    assert product["decision"]["basis"] == "CTA_MODEL_EXPECTED_POINTS_ONLY"
     assert product["forecast"]["provider"]["name"] == "CTA-FPL"
     assert product["release_eligible"] is False
     assert "CTA forecast validation is pending." in product["release_blockers"]
