@@ -133,8 +133,24 @@ def evaluate_cta_five_gameweek_squad(
             or not 2 <= xi_counts["MID"] <= 5 or not 1 <= xi_counts["FWD"] <= 3):
         raise CTAMultiGameweekSquadError("baseline starting XI formation is illegal")
 
-    totals = {pid: sum(by_week[gw][pid]["expected_points"] for gw in weeks) for pid in first}
-    minutes = {pid: sum(by_week[gw][pid]["expected_minutes"] for gw in weeks) for pid in first}
+    # A transfer candidate must exist in every panel. The full CTA pool can
+    # legitimately differ by week, so never index a missing future row or
+    # silently treat a partial horizon as a five-GW total.
+    common_player_ids = set.intersection(*(set(by_week[gw]) for gw in weeks))
+    for pid in common_player_ids:
+        reference = by_week[weeks[0]][pid]
+        for gw in weeks[1:]:
+            row = by_week[gw][pid]
+            if (row["position"], row["team_id"], row["price"]) != (
+                reference["position"], reference["team_id"], reference["price"]
+            ):
+                raise CTAMultiGameweekSquadError(
+                    f"position/team/price metadata changed across horizon for player {pid}"
+                )
+    totals = {pid: sum(by_week[gw][pid]["expected_points"] for gw in weeks)
+              for pid in common_player_ids}
+    minutes = {pid: sum(by_week[gw][pid]["expected_minutes"] for gw in weeks)
+               for pid in common_player_ids}
     team_counts = {}
     for pid in owned:
         team = first[pid]["team_id"]
@@ -149,8 +165,9 @@ def evaluate_cta_five_gameweek_squad(
         budget = bank + sale
         after = dict(team_counts)
         after[old["team_id"]] -= 1
-        for incoming, new in first.items():
-            if incoming in owned or any(incoming not in by_week[gw] for gw in weeks):
+        for incoming in common_player_ids:
+            new = first[incoming]
+            if incoming in owned:
                 continue
             if new["position"] != old["position"] or new["price"] > budget + 1e-9:
                 continue
