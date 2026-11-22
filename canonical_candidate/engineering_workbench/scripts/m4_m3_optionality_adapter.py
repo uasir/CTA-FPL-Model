@@ -48,9 +48,15 @@ def _verify_m3(m3: Mapping[str, Any]) -> tuple[str, str]:
         raise M3M4OptionalityError("M3 frozen decision hash does not match its content")
     if _canonical(candidate.get("frozen_decision")) != _canonical(dict(frozen)):
         raise M3M4OptionalityError("M3 evaluation_candidate frozen decision differs from top-level decision")
-    for key in ("manager_team_id", "season", "target_gameweek", "deadline_utc"):
+    for key in ("manager_team_id", "target_gameweek", "deadline_utc"):
         if candidate.get(key) != m3.get(key):
             raise M3M4OptionalityError(f"M3 evaluation_candidate {key} differs from top-level output")
+    candidate_season = candidate.get("season")
+    top_level_season = m3.get("season")
+    if not isinstance(candidate_season, str) or not candidate_season.strip():
+        raise M3M4OptionalityError("M3 evaluation_candidate season is missing")
+    if top_level_season is not None and candidate_season != top_level_season:
+        raise M3M4OptionalityError("M3 evaluation_candidate season differs from top-level output")
     if candidate.get("as_of_utc") != m3.get("decision_as_of_utc"):
         raise M3M4OptionalityError("M3 evaluation_candidate as_of_utc differs from decision timestamp")
     return expected, hashlib.sha256(_canonical(dict(m3))).hexdigest()
@@ -70,7 +76,10 @@ def _validate_m4_against_m3(m4: Mapping[str, Any], m3: Mapping[str, Any],
         raise M3M4OptionalityError("M4 bound candidate is missing")
     if candidate.get("manager_team_id") != m3.get("manager_team_id"):
         raise M3M4OptionalityError("M4 manager ID differs from frozen M3")
-    if candidate.get("season") != m3.get("season") or candidate.get("target_gameweek") != m3.get("target_gameweek"):
+    m3_season = m3.get("season")
+    if m3_season is None:
+        m3_season = m3["evaluation_candidate"].get("season")
+    if candidate.get("season") != m3_season or candidate.get("target_gameweek") != m3.get("target_gameweek"):
         raise M3M4OptionalityError("M4 season or Gameweek differs from frozen M3")
     if candidate.get("deadline_utc") != m3.get("deadline_utc"):
         raise M3M4OptionalityError("M4 deadline differs from frozen M3")
