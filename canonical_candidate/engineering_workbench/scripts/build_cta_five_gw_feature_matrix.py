@@ -434,7 +434,7 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
             target[feature] = values.fillna(0.0).astype(float)
         # Keep current FPL-native inference aligned with CTA training: the
         # Understat-derived feature family is unavailable in this source mode.
-        target, _masked = mask_unavailable_features(target, features)
+        target, _masked = mask_unavailable_features(target, features, feature_source_mode)
         element_column = "element_target" if "element_target" in target.columns else "element"
         if element_column not in target.columns:
             raise RuntimeError(f"GW{gw}: feature builder lost FPL element identity")
@@ -496,7 +496,7 @@ def main() -> int:
         parser.error("--target-gameweeks must contain exactly five gameweek IDs")
     build_matrix(args.dastan_root, args.canonical_player_matches,
                  args.canonical_team_matches, args.player_mapping, args.bootstrap,
-                 args.fixtures, args.schema, args.output, args.report, gameweeks)
+                 args.fixtures, args.schema, args.source_report, args.output, args.report, gameweeks)
     return 0
 
 
