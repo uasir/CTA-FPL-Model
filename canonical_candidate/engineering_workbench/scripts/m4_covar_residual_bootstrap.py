@@ -154,8 +154,8 @@ def build_residual_bootstrap_scenarios(
             raise ResidualBootstrapError("target player IDs must be unique positive FPL element IDs")
         ep = _finite(row.get("expected_points"), f"target player {pid} expected_points")
         mins = _finite(row.get("expected_minutes"), f"target player {pid} expected_minutes")
-        if not 0 <= mins <= 90:
-            raise ResidualBootstrapError(f"target player {pid} expected_minutes must be in [0, 90]")
+        if not 0 <= mins <= 270:
+            raise ResidualBootstrapError(f"target player {pid} expected_minutes must be in [0, 270] for a Gameweek aggregate")
         forecast_by_id[pid] = {"expected_points": ep, "expected_minutes": mins}
 
     if target_player_ids is None:
@@ -268,7 +268,7 @@ def build_residual_bootstrap_scenarios(
             raw_minutes = target_by_id[pid]["expected_minutes"] + (
                 by_gw[gw][pid]["minutes_residual"] - mean_residual[pid]["minutes_residual"]
             )
-            minutes = min(90.0, max(0.0, raw_minutes))
+            minutes = min(270.0, max(0.0, raw_minutes))
             minutes_clipping_count += int(not math.isclose(minutes, raw_minutes, rel_tol=0, abs_tol=1e-12))
             outcomes.append({
                 "player_id": pid,
@@ -318,6 +318,7 @@ def build_residual_bootstrap_scenarios(
         "marginal_expected_points_preserved": True,
         "minutes_mean_preserved": minutes_mean_preserved,
         "minutes_clipping_count": minutes_clipping_count,
+        "played_status_method": "POSITIVE_MINUTES_PROXY_CARD_ONLY_UNOBSERVED",
         "dependence_method": "CENTERED_WHOLE_GAMEWEEK_PLAYER_POINT_AND_MINUTES_RESIDUAL_BLOCK_BOOTSTRAP",
         "scenario_probability_method": "EQUAL_WEIGHT_EMPIRICAL_COMPLETE_GAMEWEEK_BLOCKS",
         "probability_calibrated": False,
@@ -329,6 +330,7 @@ def build_residual_bootstrap_scenarios(
             "Only complete historical Gameweek residual vectors covering every target player are used.",
             "Residual dependence is conditional only through the fixed target forecast and is not a fixture-event model.",
             "At least five clusters is a prototype floor, not evidence of statistical adequacy.",
+            "Gameweek minutes are clipped to [0, 270] for up to three fixtures; zero-minute card-only appearances cannot be recovered from aggregate player-Gameweek rows and are not modeled.",
         ],
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
