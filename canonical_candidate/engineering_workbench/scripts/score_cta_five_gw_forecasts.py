@@ -24,7 +24,8 @@ def sha256(path: Path) -> str:
 
 
 def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
-          model_dir: Path, output_dir: Path) -> dict:
+          source_report_path: Path, feature_report_path: Path,
+          minutes_report_path: Path, model_dir: Path, output_dir: Path) -> dict:
     matrix = pd.read_csv(matrix_path, low_memory=False)
     minutes = pd.read_csv(minutes_path, low_memory=False)
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
@@ -46,6 +47,9 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = model_dir / "cta_points_model_manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    source_report = json.loads(source_report_path.read_text(encoding="utf-8"))
+    feature_report = json.loads(feature_report_path.read_text(encoding="utf-8"))
+    minutes_report = json.loads(minutes_report_path.read_text(encoding="utf-8"))
     if manifest.get("status") != "CANDIDATE_TRAINED_M2_VALIDATION_PENDING":
         raise ValueError("CTA points model manifest is not a candidate awaiting M2 validation")
     feature_order_hash = hashlib.sha256("\\n".join(features).encode()).hexdigest()
@@ -77,6 +81,21 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
     if merged["cta_expected_points"].isna().any():
         raise ValueError("Some fixture rows did not receive a CTA points prediction")
 
+    provenance = {
+        "source_manifest_sha256": source_report["source_manifest_sha256"],
+        "feature_matrix_sha256": sha256(matrix_path),
+        "feature_report_sha256": sha256(feature_report_path),
+        "minutes_predictions_sha256": sha256(minutes_path),
+        "minutes_report_sha256": sha256(minutes_report_path),
+        "points_model_manifest_sha256": sha256(manifest_path),
+        "feature_schema_sha256": sha256(schema_path),
+        "points_model_hashes": model_hashes,
+        "minutes_artifact_hashes": minutes_report.get("verified_artifacts", {}),
+    }
+    snapshot_id = hashlib.sha256(
+        json.dumps(provenance, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    merged["forecast_snapshot_id"] = snapshot_id
     merged["expected_points_model_status"] = "CANDIDATE_NOT_VALIDATED"
     merged["production_eligible"] = False
     merged["decision_weight"] = 0.0
@@ -84,7 +103,7 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
     fixture_fields = [
         "season", "gameweek", "fpl_code", "fpl_element_id", "fixture_id",
         "position", "team_name", "opponent_team_name", "kickoff_time",
-        "p60", "p_any", "expected_minutes", "cta_expected_points",
+        "forecast_snapshot_id", "p60", "p_any", "expected_minutes", "cta_expected_points",
         "expected_points_model_status", "production_eligible", "decision_weight", "covar_used",
     ]
     fixture_out = merged[fixture_fields].sort_values(
@@ -111,6 +130,7 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
         )
     )
     for frame in (gw_out, horizon_out):
+        frame["forecast_snapshot_id"] = snapshot_id
         frame["model_status"] = "CANDIDATE_NOT_VALIDATED"
         frame["production_eligible"] = False
         frame["decision_weight"] = 0.0
@@ -128,6 +148,9 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
         raise ValueError("Forecast matrix contains more than one season")
     report = {
         "status": "PASS_CTA_FIVE_GW_CANDIDATE_FORECAST",
+        "forecast_snapshot_id": snapshot_id,
+        "generated_at_utc": pd.Timestamp.now(tz="UTC").isoformat(),
+        "provenance": provenance,
         "season": str(merged["season"].iloc[0]),
         "gameweeks": gameweeks,
         "fixture_player_rows": len(fixture_out),
@@ -164,10 +187,15 @@ def main() -> int:
     parser.add_argument("--feature-matrix", type=Path, required=True)
     parser.add_argument("--minutes-predictions", type=Path, required=True)
     parser.add_argument("--schema", type=Path, required=True)
+    parser.add_argument("--source-report", type=Path, required=True)
+    parser.add_argument("--feature-report", type=Path, required=True)
+    parser.add_argument("--minutes-report", type=Path, required=True)
     parser.add_argument("--model-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
-    score(args.feature_matrix, args.minutes_predictions, args.schema, args.model_dir, args.output_dir)
+    score(args.feature_matrix, args.minutes_predictions, args.schema,
+          args.source_report, args.feature_report, args.minutes_report,
+          args.model_dir, args.output_dir)
     return 0
 
 
