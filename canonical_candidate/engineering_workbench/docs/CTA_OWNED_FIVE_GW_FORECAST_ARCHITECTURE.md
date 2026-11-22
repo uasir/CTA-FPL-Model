@@ -2,7 +2,7 @@
 
 **Status:** Engineering direction approved; implementation not yet production-ready  
 **Scope:** M4 conventional forecast foundation  
-**Decision:** CTA-FPL owns the primary five-Gameweek forecast pipeline. Import Dastan's released expected-minutes component as the minutes model; CTA retains ownership of the feature/data adapter, fixture-level points model, forecast snapshots, and validation. No paid forecast provider is a required runtime dependency.
+**Decision:** CTA-FPL owns the primary five-Gameweek forecast pipeline. Import Dastan's complete published data and model contract; use its released expected-minutes component, while CTA retains ownership of the current-target feature adapter, fixture-level points model, forecast snapshots, and validation. No paid forecast provider is a required runtime dependency.
 
 ## 1. Objective
 
@@ -84,6 +84,34 @@ Remaining adapter prerequisites:
   and inference.
 - Import only the four `p60_{GKP,DEF,MID,FWD}` heads and minutes calibration,
   with hashes and upstream licence notice; do not load Dastan points heads.
+
+
+## 3B. Import-first Dastan integration
+
+The pinned Dastan release already publishes the complete six-season training frame,
+both pre-deadline snapshot tables, OpenFPL benchmark data, player metadata, identity
+mapping artifacts, and a release manifest with hashes. Its model directory publishes
+a separate 40-file model contract.
+
+CTA now imports and verifies the complete published data release and all 40 model
+artifacts directly. The imported features.parquet and snapshot tables are the source
+for CTA's historical training frame; CTA no longer reconstructs those historical
+training features or re-downloads/rebuilds the historical fplcache snapshots.
+
+The imported model contract is retained in the forecast bundle with its original
+manifest and hashes. In line with the earlier model-role decision, the four Dastan
+p60 heads and minutes calibration are used for minutes inference; the Dastan points
+heads are imported and preserved as upstream artifacts but are not loaded into CTA's
+primary points model. CTA's own points model is trained from the imported published
+feature frame.
+
+**Important boundary:** the published feature frame is an engineered training
+dataset, not the complete raw player/team match archive needed to calculate new
+fixture-specific rolling features. The pinned raw-source pipeline therefore remains
+only for assembling the historical match inputs required by the current target
+feature matrix. It must not rebuild the already-published historical training frame
+or the already-published historical snapshot tables.
+
 
 ## 4. Forecast architecture
 
