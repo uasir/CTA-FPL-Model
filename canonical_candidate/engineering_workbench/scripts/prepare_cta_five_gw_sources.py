@@ -671,20 +671,17 @@ def historical_source_seasons(training_seasons: list[str], active_season: str) -
 
 
 def copy_verified_dastan_release(dastan_root: Path, training_dir: Path) -> dict:
-    """Import Dastan's published training/snapshot artifacts instead of rebuilding them."""
+    """Import every published Dastan data-release artifact after hash verification."""
     release_dir = dastan_root / "data"
     manifest_path = release_dir / "release_manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    required = (
-        "features.parquet",
-        "pre_deadline_ep_next.parquet",
-        "pre_deadline_signals.parquet",
-    )
+    files = manifest.get("files")
+    if not isinstance(files, dict) or not files:
+        raise RuntimeError("Dastan release manifest has no artifact inventory")
     copied = {}
     training_dir.mkdir(parents=True, exist_ok=True)
-    for relative in required:
+    for relative, expected in sorted(files.items()):
         source = release_dir / relative
-        expected = manifest.get("files", {}).get(relative)
         if not source.is_file() or not isinstance(expected, dict):
             raise RuntimeError(f"Dastan release artifact is missing: {relative}")
         actual_hash = sha256(source)
@@ -694,6 +691,7 @@ def copy_verified_dastan_release(dastan_root: Path, training_dir: Path) -> dict:
                 f"{actual_hash} != {expected.get('sha256')}"
             )
         destination = training_dir / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
         copied[relative] = {
             "path": str(destination),
@@ -702,10 +700,44 @@ def copy_verified_dastan_release(dastan_root: Path, training_dir: Path) -> dict:
             "rows": expected.get("rows"),
             "columns": expected.get("columns"),
         }
+    shutil.copy2(manifest_path, training_dir / "release_manifest.json")
     return {
         "release_manifest_sha256": sha256(manifest_path),
         "release_manifest_path": str(manifest_path),
         "source_commit": "758db9247e8b3a9a870c991064f74d8339d61cd0",
+        "artifact_count": len(copied),
+        "artifacts": copied,
+    }
+
+
+def copy_verified_dastan_model_contract(dastan_root: Path, output_dir: Path) -> dict:
+    """Import all 40 published Dastan model-contract files with hash verification."""
+    source_dir = dastan_root / "models"
+    manifest_path = source_dir / "artifact_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    files = manifest.get("files")
+    if not isinstance(files, dict) or len(files) != 40:
+        raise RuntimeError("Dastan model manifest does not contain its complete 40-file contract")
+    model_dir = output_dir / "dastan_model"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    copied = {}
+    for relative, expected in sorted(files.items()):
+        source = source_dir / relative
+        if not source.is_file() or not isinstance(expected, dict):
+            raise RuntimeError(f"Dastan model artifact is missing: {relative}")
+        actual_hash = sha256(source)
+        if actual_hash != expected.get("sha256") or source.stat().st_size != int(expected.get("bytes", -1)):
+            raise RuntimeError(f"Dastan model artifact integrity mismatch: {relative}")
+        destination = model_dir / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+        copied[relative] = {"sha256": sha256(destination), "bytes": destination.stat().st_size}
+    shutil.copy2(manifest_path, model_dir / "artifact_manifest.json")
+    return {
+        "model_version": manifest.get("public_version"),
+        "model_manifest_sha256": sha256(manifest_path),
+        "artifact_count": len(copied),
+        "model_dir": str(model_dir),
         "artifacts": copied,
     }
 
@@ -718,6 +750,7 @@ def import_dastan_release(dastan_root: Path, training_dir: Path) -> tuple[pd.Dat
 
     dastan_datasets.verify_release()
     imported = copy_verified_dastan_release(dastan_root, training_dir)
+    model_contract = copy_verified_dastan_model_contract(dastan_root, training_dir.parent)
     safety = apply_historical_snapshot_safety_buffer(training_dir, minutes=5)
     frame = dastan_data.load(check_rows=True, data_dir=training_dir)
     output = training_dir / "features_with_snapshots.parquet"
@@ -725,6 +758,7 @@ def import_dastan_release(dastan_root: Path, training_dir: Path) -> tuple[pd.Dat
     report = {
         "status": "PASS_IMPORTED_DASTAN_RELEASE",
         **imported,
+        "model_contract": model_contract,
         "training_rows": len(frame),
         "training_columns": len(frame.columns),
         "feature_count": len(dastan_data.shipped_features(frame)),
