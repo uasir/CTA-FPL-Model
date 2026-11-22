@@ -170,7 +170,7 @@ def test_archives_full_provenance_verified_forecast_and_models(tmp_path):
     out = tmp_path / "archive"
     archive_bundle(root, out, run_id="12345", commit_sha="deadbeef",
                    run_url="https://github.com/example/run/12345")
-    snap = out / "snapshots/2026-27/gw12-16/snapshot-123"
+    snap = out / "snapshots/2026-27/gw12-16/snapshot-123/archive-v2"
     archive = snap / "forecast_bundle.zip"
     manifest = json.loads((snap / "archive_manifest.json").read_text())
     assert manifest["archive"]["sha256"] == hashlib.sha256(archive.read_bytes()).hexdigest()
