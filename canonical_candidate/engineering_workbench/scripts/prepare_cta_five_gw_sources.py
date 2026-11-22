@@ -385,6 +385,110 @@ def apply_historical_snapshot_safety_buffer(training_dir: Path, minutes: int = 5
     return reports
 
 
+def parallel_understat_fallbacks(
+    raw_dir: Path,
+    missing_players: list[int],
+    missing_team_seasons: list[str],
+    *,
+    force: bool,
+    allow_missing: bool,
+    workers: int = 4,
+) -> None:
+    """Fetch missing Understat histories concurrently with isolated client sessions.
+
+    The upstream pinned downloader fetches missing player histories serially. For
+    a large historical roster this can dominate the entire forecast build. Each
+    task owns its client/session; concurrency is deliberately capped to reduce
+    provider pressure, retries are bounded, and every unresolved ID is reported.
+    """
+    if not missing_players and not missing_team_seasons:
+        return
+    try:
+        from understatapi import UnderstatClient
+    except ImportError as exc:
+        raise RuntimeError("Understat fallbacks are required; install requirements-data.txt") from exc
+
+    root = raw_dir / "understat" / "players"
+    root.mkdir(parents=True, exist_ok=True)
+    player_ids = sorted(set(int(value) for value in missing_players))
+    failures: list[str] = []
+
+    def fetch_player(player_id: int) -> tuple[int, list | None, str | None]:
+        path = root / f"{player_id}.json"
+        if path.exists() and path.stat().st_size and not force:
+            return player_id, None, None
+        last_error = None
+        for attempt in range(3):
+            try:
+                with UnderstatClient() as client:
+                    payload = client.player(player=str(player_id)).get_match_data()
+                if not isinstance(payload, list):
+                    raise ValueError(f"unexpected player payload type: {type(payload).__name__}")
+                return player_id, payload, None
+            except Exception as exc:
+                last_error = str(exc)
+                time.sleep(2 ** attempt)
+        return player_id, None, last_error or "unknown error"
+
+    print(
+        f"  fetching {len(player_ids):,} missing Understat player histories "
+        f"with {min(max(1, workers), 4)} workers",
+        flush=True,
+    )
+    completed = 0
+    with ThreadPoolExecutor(max_workers=min(max(1, workers), 4)) as pool:
+        futures = {pool.submit(fetch_player, player_id): player_id for player_id in player_ids}
+        for future in as_completed(futures):
+            player_id, payload, error = future.result()
+            completed += 1
+            if error is not None:
+                failures.append(f"player:{player_id}:{error}")
+            elif payload is not None:
+                (root / f"{player_id}.json").write_text(
+                    json.dumps(payload, ensure_ascii=False) + "\\n", encoding="utf-8"
+                )
+            if completed % 25 == 0 or completed == len(player_ids):
+                print(
+                    f"    Understat player fallbacks {completed:,}/{len(player_ids):,}; "
+                    f"failed={len(failures):,}",
+                    flush=True,
+                )
+
+    team_root = raw_dir / "understat" / "teams"
+    team_root.mkdir(parents=True, exist_ok=True)
+    for season in missing_team_seasons:
+        path = team_root / f"{season}.json"
+        if path.exists() and path.stat().st_size and not force:
+            continue
+        payload = None
+        last_error = None
+        for attempt in range(3):
+            try:
+                with UnderstatClient() as client:
+                    payload = client.league(league="EPL").get_team_data(
+                        season=season.split("-")[0]
+                    )
+                if not payload:
+                    raise ValueError("empty team payload")
+                break
+            except Exception as exc:
+                last_error = str(exc)
+                time.sleep(2 ** attempt)
+        if payload:
+            path.write_text(
+                json.dumps(payload, ensure_ascii=False) + "\\n", encoding="utf-8"
+            )
+        else:
+            failures.append(f"teams:{season}:{last_error or 'unknown error'}")
+
+    if failures and not allow_missing:
+        raise RuntimeError(
+            f"Understat could not resolve {len(failures)} sources: {failures[:10]}"
+        )
+    if failures:
+        print(f"  WARNING: {len(failures)} Understat fallbacks remain missing", flush=True)
+
+
 def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: str,
             workers: int = 10) -> dict:
     sys.path.insert(0, str(dastan_root))
@@ -427,6 +531,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     roster_path = write_current_roster(dastan_root, bootstrap, season)
     mapping_release_report = mappings.verify_operational_release()
     patch_identity_resolution(mappings, sources)
+    sources._fetch_understat_fallbacks = parallel_understat_fallbacks
     operational_clubs = mappings.load_operational_clubs()
     dastan_features.FPL_TO_UNDERSTAT.update({
         str(row["club_name"]): str(row["understat_name"])
