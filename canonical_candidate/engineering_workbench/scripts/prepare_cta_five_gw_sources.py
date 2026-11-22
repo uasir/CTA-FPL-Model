@@ -635,6 +635,24 @@ def copy_verified_dastan_model_contract(dastan_root: Path, output_dir: Path) -> 
     }
 
 
+def copy_dastan_operational_mappings(dastan_root: Path, output_dir: Path) -> dict:
+    """Preserve every current/operational Dastan mapping artifact with hashes."""
+    source_dir = dastan_root / "data" / "mappings"
+    destination_dir = output_dir / "dastan_mappings"
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    copied = {}
+    for source in sorted(path for path in source_dir.iterdir() if path.is_file()):
+        destination = destination_dir / source.name
+        shutil.copy2(source, destination)
+        copied[source.name] = {
+            "sha256": sha256(destination),
+            "bytes": destination.stat().st_size,
+        }
+    if not copied:
+        raise RuntimeError("Dastan operational mapping directory is empty")
+    return {"artifact_count": len(copied), "directory": str(destination_dir), "artifacts": copied}
+
+
 def import_dastan_release(dastan_root: Path, training_dir: Path) -> tuple[pd.DataFrame, dict]:
     """Verify and load the published Dastan frame and point-in-time snapshot tables."""
     sys.path.insert(0, str(dastan_root))
@@ -644,6 +662,7 @@ def import_dastan_release(dastan_root: Path, training_dir: Path) -> tuple[pd.Dat
     dastan_datasets.verify_release()
     imported = copy_verified_dastan_release(dastan_root, training_dir)
     model_contract = copy_verified_dastan_model_contract(dastan_root, training_dir.parent)
+    operational_mappings = copy_dastan_operational_mappings(dastan_root, training_dir.parent)
     safety = apply_historical_snapshot_safety_buffer(training_dir, minutes=5)
     for name in ("pre_deadline_ep_next.parquet", "pre_deadline_signals.parquet"):
         imported["artifacts"][name]["post_safety_buffer_sha256"] = sha256(training_dir / name)
@@ -657,6 +676,7 @@ def import_dastan_release(dastan_root: Path, training_dir: Path) -> tuple[pd.Dat
         "status": "PASS_IMPORTED_DASTAN_RELEASE",
         **imported,
         "model_contract": model_contract,
+        "operational_mappings": operational_mappings,
         "training_rows": len(frame),
         "training_columns": len(frame.columns),
         "feature_count": len(dastan_data.shipped_features(frame)),
