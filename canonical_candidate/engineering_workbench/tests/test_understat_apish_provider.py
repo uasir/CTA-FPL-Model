@@ -69,34 +69,56 @@ def test_player_history_imports_raw_understat_match_rows():
     assert timeout == 120
 
 
-def test_team_history_imports_raw_understat_history():
+def test_league_team_histories_imports_all_raw_understat_team_histories():
     payload = {
         "success": True,
         "credits_used": 1,
         "raw": {
-            "history": [{
-                "date": "2025-08-15 15:00:00",
-                "is_home": True,
-                "scored": 2,
-                "missed": 0,
-                "xG": 1.6,
-                "xGA": 0.4,
-                "deep": 11,
-                "deep_allowed": 3,
-                "ppda": 8.2,
-                "ppda_allowed": 12.1,
-                "pts": 3,
-            }]
+            "teams": {
+                "Arsenal": {
+                    "title": "Arsenal",
+                    "history": [{
+                        "date": "2025-08-15 15:00:00",
+                        "is_home": True,
+                        "scored": 2,
+                        "missed": 0,
+                        "xG": 1.6,
+                        "xGA": 0.4,
+                        "deep": 11,
+                        "deep_allowed": 3,
+                        "ppda": 8.2,
+                        "ppda_allowed": 12.1,
+                        "pts": 3,
+                    }],
+                },
+                "Chelsea": {
+                    "title": "Chelsea",
+                    "history": [{
+                        "date": "2025-08-15 15:00:00",
+                        "is_home": False,
+                        "scored": 0,
+                        "missed": 2,
+                        "xG": 0.4,
+                        "xGA": 1.6,
+                        "deep": 3,
+                        "deep_allowed": 11,
+                        "ppda": 12.1,
+                        "ppda_allowed": 8.2,
+                        "pts": 0,
+                    }],
+                },
+            }
         },
     }
     session = FakeSession(payload)
     client = ApiShUnderstatClient(api_key="secret", session=session)
-    rows, credits = client.team_history("Arsenal", "2025-26")
+    teams, credits = client.league_team_histories("2025-26")
     assert credits == 1
-    assert rows[0]["h_a"] == "h"
-    assert rows[0]["xG"] == 1.6
+    assert set(teams) == {"Arsenal", "Chelsea"}
+    assert teams["Arsenal"]["history"][0]["h_a"] == "h"
+    assert teams["Arsenal"]["history"][0]["xG"] == 1.6
     _url, params, _timeout = session.calls[0]
-    assert params["team"] == "Arsenal"
+    assert params["league"] == "EPL"
     assert params["season"] == 2025
 
 
