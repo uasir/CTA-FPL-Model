@@ -77,13 +77,18 @@ def evaluate_multi_gameweek_transfer(payload: Mapping[str, Any]) -> dict[str, An
         raise MultiGameweekTransferError("Gameweek panels must be consecutive and ordered")
     squad = payload.get("squad_ids")
     xi = payload.get("starting_xi_ids")
-    if not isinstance(squad, list) or len(squad) != 15 or len(set(squad)) != 15:
-        raise MultiGameweekTransferError("squad_ids must contain 15 unique player IDs")
-    if not isinstance(xi, list) or len(xi) != 11 or len(set(xi)) != 11 or not set(xi).issubset(set(squad)):
+    if (not isinstance(squad, list) or len(squad) != 15
+            or any(isinstance(p, bool) or not isinstance(p, int) or p < 1 for p in squad)
+            or len(set(squad)) != 15):
+        raise MultiGameweekTransferError("squad_ids must contain 15 unique positive integer player IDs")
+    if (not isinstance(xi, list) or len(xi) != 11
+            or any(isinstance(p, bool) or not isinstance(p, int) or p < 1 for p in xi)
+            or len(set(xi)) != 11 or not set(xi).issubset(set(squad))):
         raise MultiGameweekTransferError("starting_xi_ids must contain 11 unique players from squad_ids")
     outgoing = payload.get("transfer_out_id")
     incoming = payload.get("transfer_in_id")
-    if outgoing not in squad or incoming in squad or isinstance(incoming, bool) or not isinstance(incoming, int) or incoming < 1:
+    if (isinstance(outgoing, bool) or not isinstance(outgoing, int) or outgoing not in squad
+            or isinstance(incoming, bool) or not isinstance(incoming, int) or incoming < 1 or incoming in squad):
         raise MultiGameweekTransferError("transfer pair must remove one owned player and add one unowned player")
     first = parsed[0][1]
     if outgoing not in first or incoming not in first:
@@ -94,6 +99,14 @@ def evaluate_multi_gameweek_transfer(payload: Mapping[str, Any]) -> dict[str, An
         raise MultiGameweekTransferError("transfer must be position-for-position")
     if any(player_id not in rows for _, rows in parsed for player_id in set(squad) | {incoming}):
         raise MultiGameweekTransferError("every squad player and the incoming player must have forecasts in every Gameweek")
+    initial_team_counts: dict[int, int] = defaultdict(int)
+    for player_id in squad:
+        initial_team_counts[first[player_id]["team_id"]] += 1
+    post_team_counts = dict(initial_team_counts)
+    post_team_counts[first[outgoing]["team_id"]] -= 1
+    post_team_counts[first[incoming]["team_id"]] = post_team_counts.get(first[incoming]["team_id"], 0) + 1
+    if max(post_team_counts.values()) > 3:
+        raise MultiGameweekTransferError("transfer would exceed the three-player club limit")
 
     hit_cost = _finite_number(payload.get("hit_cost_points", 0), "hit_cost_points", non_negative=True)
     free_transfers = payload.get("free_transfers", 0)
@@ -107,10 +120,12 @@ def evaluate_multi_gameweek_transfer(payload: Mapping[str, Any]) -> dict[str, An
         eligible = [p for p in xi if first[p]["position"] == first[incoming]["position"]]
         if not eligible:
             raise MultiGameweekTransferError("no starting player shares incoming player's position")
-        weakest = min(eligible, key=lambda p: (first[p]["expected_points"], first[p]["expected_minutes"], -p))
-        if first[incoming]["expected_points"] <= first[weakest]["expected_points"]:
-            transfer_xi = list(xi)
-        else:
+        horizon_points = {
+            player_id: sum(rows[player_id]["expected_points"] for _, rows in parsed)
+            for player_id in eligible + [incoming]
+        }
+        weakest = min(eligible, key=lambda p: (horizon_points[p], p))
+        if horizon_points[incoming] > horizon_points[weakest]:
             transfer_xi[transfer_xi.index(weakest)] = incoming
 
     weekly = []
