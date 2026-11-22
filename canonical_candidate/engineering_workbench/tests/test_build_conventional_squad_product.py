@@ -192,6 +192,8 @@ def test_m4_assembles_manager_specific_multi_gameweek_transfer_sweep():
 
 def test_m4_fails_closed_when_multi_gameweek_manager_metadata_is_missing():
     run = _run()
+    run.pop("manager_context", None)
+    run.pop("current_player_metadata", None)
     run["multi_gameweek_forecast_payload"] = _multi_gameweek_forecast_payload()
     with pytest.raises(ConventionalSquadProductError, match="requires source manager_context"):
         build_personal_squad_product(run)
