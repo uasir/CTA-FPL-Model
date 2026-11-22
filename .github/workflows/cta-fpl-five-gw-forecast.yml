@@ -1,9 +1,11 @@
 name: CTA five-Gameweek forecast pipeline
 
 on:
+  # The expensive forecast build runs once per PR update, not twice for both
+  # the branch push and its pull_request event. Main-branch pushes remain supported.
   push:
     branches:
-      - feat/cta-owned-five-gw-forecast-foundation
+      - main
   pull_request:
     paths:
       - ".github/workflows/cta-fpl-five-gw-forecast.yml"
