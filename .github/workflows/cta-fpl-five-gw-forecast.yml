@@ -52,6 +52,7 @@ jobs:
             tests/test_verify_source_pins.py \
             tests/test_cta_five_gw_feature_matrix.py \
             tests/test_dastan_minutes_inference.py \
+            tests/test_dastan_full_model_inference.py \
             tests/test_prepare_cta_five_gw_sources.py \
             tests/test_validate_cta_forecast_bundle.py -q
       - name: Run JavaScript tests
@@ -122,12 +123,12 @@ jobs:
             --report outputs/cta-five-gw/minutes_report.json
       - name: Run imported Dastan full xPts model as independent benchmark
         run: |
-          python canonical_candidate/engineering_workbench/scripts/run_dastan_full_model_inference.py \\
-            --input outputs/cta-five-gw/feature_matrix.csv \\
-            --schema canonical_candidate/engineering_workbench/config/dastan_minutes_feature_schema.json \\
-            --dastan-root .cache/dastan \\
-            --model-dir outputs/cta-five-gw/dastan_model \\
-            --output outputs/cta-five-gw/dastan_points_benchmark.csv \\
+          python canonical_candidate/engineering_workbench/scripts/run_dastan_full_model_inference.py \
+            --input outputs/cta-five-gw/feature_matrix.csv \
+            --schema canonical_candidate/engineering_workbench/config/dastan_minutes_feature_schema.json \
+            --dastan-root .cache/dastan \
+            --model-dir outputs/cta-five-gw/dastan_model \
+            --output outputs/cta-five-gw/dastan_points_benchmark.csv \
             --report outputs/cta-five-gw/dastan_points_benchmark_report.json
       - name: Train CTA-owned candidate points models
         run: |
