@@ -990,7 +990,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
             "Dastan published feature data, snapshot tables, mappings and minutes artifacts are imported; raw historical match inputs are used only to build current target features; CTA continues to own its points model.",
             "Historical point-in-time snapshot artifacts are imported from the verified Dastan release and safety-filtered; no historical fplcache reconstruction is performed.",
             "Current next-GW snapshot values come only from the live official bootstrap; later target GWs receive -1 snapshot sentinels.",
-            "Only active-season player match history is assembled from the official FPL API and current Understat data; historical player matches are imported from Dastan.",
+            "Raw player/team match histories are reconstructed only to calculate new target-fixture features; the historical training frame and pre-deadline snapshots are imported directly from Dastan.",
             "Source acquisition and feature generation do not clear CTA M2 validation or production eligibility.",
         ],
     }
