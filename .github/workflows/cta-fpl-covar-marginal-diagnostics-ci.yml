@@ -1,0 +1,225 @@
+name: CTA CoVar marginal diagnostics engineering tests
+
+on:
+  push:
+    branches:
+      - feat/m4-field-portfolio-intelligence
+    paths:
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_matched_outcome_panel.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_outcome_matcher.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_marginal_diagnostics.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_recommendation_report_adapter.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_full_gameweek_scoring.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_full_gameweek_contract.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_lineup_resolver.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_historical_portfolio_overlay.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_build_historical_covariance.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_adapter.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_fetch.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_batch.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_official_event_scoring_audit.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_public_field_replay_audit.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_field_portfolio_summary.py"
+      - "canonical_candidate/engineering_workbench/scripts/capture_predeadline_field_eo.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_field_portfolio_summary.py"
+      - "canonical_candidate/engineering_workbench/tests/test_capture_predeadline_field_eo.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_public_field_replay_audit.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_official_event_scoring_audit.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_replay_validation.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_adapter.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_fetch.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_batch.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_replay_validation.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_lineup_resolver.py"
+      - ".github/workflows/cta-fpl-covar-historical-capture.yml"
+      - "canonical_candidate/engineering_workbench/scripts/personal_squad_covar_recommendation.py"
+      - "canonical_candidate/engineering_workbench/docs/M4_COVAR_IMMEDIATE_CONVENTIONAL_FORECAST_USE.md"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_matched_outcome_panel.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_forecast_outcome_matcher.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_forecast_marginal_diagnostics.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_recommendation_report_adapter.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_full_gameweek_scoring.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_full_gameweek_contract.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_historical_portfolio_overlay.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_build_historical_covariance.py"
+      - "canonical_candidate/engineering_workbench/tests/test_personal_squad_covar_recommendation.py"
+      - ".github/workflows/cta-fpl-covar-marginal-diagnostics-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-covar-marginal-diagnostics-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Compile CoVar validation modules
+        run: |
+          python -m py_compile \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_matched_outcome_panel.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_outcome_matcher.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_forecast_marginal_diagnostics.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_recommendation_report_adapter.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_full_gameweek_scoring.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_full_gameweek_contract.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_historical_portfolio_overlay.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_build_historical_covariance.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_lineup_resolver.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_replay_validation.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_adapter.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_fetch.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_batch.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_official_event_scoring_audit.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_public_field_replay_audit.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_field_portfolio_summary.py \
+            canonical_candidate/engineering_workbench/scripts/capture_predeadline_field_eo.py \
+            canonical_candidate/engineering_workbench/scripts/personal_squad_covar_recommendation.py
+      - name: Run focused CoVar validation tests
+        env:
+          PYTHONPATH: canonical_candidate/engineering_workbench/scripts
+        run: |
+          python -m pytest -q \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_matched_outcome_panel.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_forecast_outcome_matcher.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_forecast_marginal_diagnostics.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_recommendation_report_adapter.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_full_gameweek_scoring.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_full_gameweek_contract.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_historical_portfolio_overlay.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_build_historical_covariance.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_lineup_resolver.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_replay_validation.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_adapter.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_fetch.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_batch.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_official_event_scoring_audit.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_public_field_replay_audit.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_field_portfolio_summary.py \
+            canonical_candidate/engineering_workbench/tests/test_capture_predeadline_field_eo.py \
+            canonical_candidate/engineering_workbench/tests/test_personal_squad_covar_recommendation.py
+
+  private-official-fpl-replay:
+    if: github.ref == 'refs/heads/feat/m4-field-portfolio-intelligence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Capture anonymized completed-Gameweek manager replays
+        id: capture
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+          FPL_MANAGER_ENTRY_ID: "421025"
+        run: |
+          python scripts/m4_covar_fpl_api_replay_batch.py \
+            --events "1,2,3,4,5,6,7,8,9,10,11" \
+            --min-successful 5 \
+            --output "$RUNNER_TEMP/covar-official-replays.json"
+      - name: Validate lineup resolver against official final picks and points
+        id: replay-validation
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: |
+          set +e
+          python scripts/m4_covar_fpl_replay_validation.py \
+            --input "$RUNNER_TEMP/covar-official-replays.json" \
+            > "$RUNNER_TEMP/covar-replay-validation.json"
+          result=$?
+          cat "$RUNNER_TEMP/covar-replay-validation.json"
+          exit "$result"
+      - name: Upload anonymized replay evidence and validation report
+        if: always() && steps.capture.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-covar-official-replays-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/covar-official-replays.json
+            ${{ runner.temp }}/covar-replay-validation.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  official-event-scoring-audit:
+    if: github.ref == 'refs/heads/feat/m4-field-portfolio-intelligence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Reconcile event scorer with official per-fixture FPL explain data
+        id: audit
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: |
+          python scripts/m4_covar_official_event_scoring_audit.py \
+            --events "1,2,3,4,5,6,7,8,9,10,11" \
+            --output "$RUNNER_TEMP/covar-official-event-scoring-audit.json"
+      - name: Upload official event-scoring audit report
+        if: always() && steps.audit.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-covar-official-event-scoring-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/covar-official-event-scoring-audit.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  public-field-replay-stress-test:
+    if: github.ref == 'refs/heads/feat/m4-field-portfolio-intelligence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Stress-test resolver on public Overall-league manager replays
+        id: audit
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: |
+          python scripts/m4_covar_public_field_replay_audit.py \
+            --events "6,7,8,9,10" \
+            --rank-pages "1,200,2000,20000,100000" \
+            --sample-positions "0,10,20,30,40" \
+            --min-replays 75 \
+            --output "$RUNNER_TEMP/covar-public-field-replay-audit.json"
+      - name: Upload aggregate-only public field replay audit
+        if: always() && steps.audit.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-covar-public-field-replay-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/covar-public-field-replay-audit.json
+          if-no-files-found: warn
+          retention-days: 30

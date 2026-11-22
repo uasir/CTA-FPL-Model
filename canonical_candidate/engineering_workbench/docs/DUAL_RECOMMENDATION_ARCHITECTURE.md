@@ -87,7 +87,50 @@ The exploratory v0.1 evaluates one transfer at a time, with purchase-to-selling-
 
 CoVar/covariance belongs to the portfolio-risk layer; it is not a property that a squad must contain. It can inform the personal optimizer only after stability, calibration and out-of-sample utility gates pass. Current short-window historical-points covariance remains exploratory and must not influence production recommendations.
 
-General mode may optionally display validated player-pair or factor-risk context as supplementary information, but it must remain useful without CoVar and must not turn an individual player ranking into a hidden squad optimization.
+The fail-closed attachment seam is implemented in
+`scripts/m4_covar_recommendation_integration.py`. The report bridge is
+`scripts/m4_covar_recommendation_report_adapter.py`: it translates the
+full-Gameweek scorer's actual candidate/field results into metrics keyed to
+explicit transfer alternatives. The end-to-end entry point is
+`scripts/personal_squad_covar_recommendation.py`. It runs the canonical
+`recommend_personal_squad` engine first, then builds and attaches the CoVar
+overlay from the same full-Gameweek scoring run. Tests are in
+`tests/test_m4_covar_recommendation_integration.py`,
+`tests/test_m4_covar_recommendation_report_adapter.py`, and
+`tests/test_personal_squad_covar_recommendation.py`.
+
+The report bridge requires a common full-Gameweek scenario set, a baseline
+portfolio, explicit manager-pick-derived field portfolios and a caller-supplied
+mapping from every transfer alternative to the exact scored candidate portfolio.
+It derives candidate variance, weighted mean field-portfolio variance,
+candidate expected-points delta versus the weighted field, and the change in
+off-diagonal covariance contribution versus the baseline portfolio. The
+covariance delta is calculated from the scorer's variance decomposition; it is
+not approximated by a variance difference.
+
+The attachment validates snapshot/model identity and exact transfer-pair
+coverage. Its output is `ATTACHED_RESEARCH_ONLY`: `decision_weight=0`,
+`production_eligible=false`, and it cannot change transfer ranking/action,
+starting XI or captaincy. This is a real end-to-end research integration path,
+but not active CoVar recommendation weighting. No empirical evidence currently
+authorizes CoVar to alter recommendations. Any future weighting proposal
+requires real point-in-time archives, calibrated joint forecasts, independent
+Gameweek-level out-of-sample utility, and explicit production-policy approval.
+
+General mode does not consume this overlay. It may optionally display validated
+player-pair or factor-risk context as supplementary information, but it must
+remain useful without CoVar and must not turn an individual player ranking into
+a hidden squad optimization.
+
+
+
+### CoVar forecast-source decision — 2026-11-21
+
+For the current CoVar workstream, the project owner has confirmed that we will continue using **the exact conventional forecast snapshot consumed by the M3 decision run** as the player-level expected-points/minutes anchor. M3 runs `run_predeadline_m3_decision.py`, which calls `run_external_benchmark_personal_squad.py`; that path normalizes the provider snapshot, preserves provider expected-points values unchanged, joins FPL metadata, and passes the resulting records to `personal_squad_engine.py`. CoVar must bind to the same M3 `forecast_snapshot_id` and `model_version`. It must not substitute the separate exploratory official-`ep_next` baseline snapshot builder.
+
+CTA-derived features, predictions, provider panels and covariance are out of scope as CoVar forecast inputs for now. This does not remove or rewrite the separate CTA research work elsewhere in the repository.
+
+CoVar adds a separately validated portfolio uncertainty/dependence layer based on eligible realized FPL outcomes. Conventional marginal expected points alone are not a joint probability distribution; joint scenario probabilities remain research inputs until a defensible method is implemented and validated.
 
 ## 6. Separation and reproducibility
 

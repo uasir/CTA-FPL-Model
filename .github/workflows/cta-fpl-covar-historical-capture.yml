@@ -1,0 +1,80 @@
+name: Build current historical CoVar matrix from reconciled FPL outcomes
+
+on:
+  workflow_dispatch:
+    inputs:
+      finality_run_id:
+        description: Successful finality-audit workflow run ID
+        required: true
+        default: "44882707622"
+      artifact_name:
+        description: Exact realized-evidence artifact name from that run
+        required: true
+        default: "cta-covar-realized-evidence-44882707622-1"
+      window_size:
+        description: Number of latest finality-reconciled Gameweeks (minimum 5)
+        required: true
+        default: "10"
+      shrinkage:
+        description: Off-diagonal shrinkage from 0 to 1
+        required: true
+        default: "0.5"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: cta-covar-historical-matrix
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Test historical CoVar evidence builder and overlay
+        env:
+          PYTHONPATH: canonical_candidate/engineering_workbench/scripts
+        run: |
+          python -m pytest -q \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_build_historical_covariance.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_historical_portfolio_overlay.py \
+            canonical_candidate/engineering_workbench/tests/test_personal_squad_covar_recommendation.py
+      - name: Download finality-reconciled official FPL evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FINALITY_RUN_ID: ${{ inputs.finality_run_id }}
+          ARTIFACT_NAME: ${{ inputs.artifact_name }}
+        run: |
+          mkdir -p run_artifacts/covar_source
+          gh run download "$FINALITY_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$ARTIFACT_NAME" \
+            --dir run_artifacts/covar_source
+      - name: Build historical covariance matrix
+        env:
+          PYTHONPATH: canonical_candidate/engineering_workbench/scripts
+          WINDOW_SIZE: ${{ inputs.window_size }}
+          SHRINKAGE: ${{ inputs.shrinkage }}
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/m4_covar_build_historical_covariance.py \
+            --source-dir run_artifacts/covar_source \
+            --out-dir run_artifacts/covar_historical_matrix \
+            --window-size "$WINDOW_SIZE" \
+            --shrinkage "$SHRINKAGE"
+      - name: Upload manager-free historical CoVar matrix
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-covar-historical-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: run_artifacts/covar_historical_matrix/
+          if-no-files-found: error
+          retention-days: 90
