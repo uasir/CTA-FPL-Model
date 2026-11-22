@@ -419,6 +419,22 @@ def parallel_understat_fallbacks(
     player_ids = sorted(set(int(value) for value in missing_players))
     failures: list[str] = []
 
+    def make_bounded_client():
+        client = UnderstatClient()
+        session = getattr(client, "session", None)
+        if session is not None:
+            original_request = session.request
+
+            def request_with_timeout(method, url, **kwargs):
+                if kwargs.get("timeout") is None:
+                    kwargs["timeout"] = (10, 45)
+                return original_request(method, url, **kwargs)
+
+            # understatapi 0.7.1 does not set a requests timeout itself.
+            # Bound connect/read time so one stalled response cannot pin a worker.
+            session.request = request_with_timeout
+        return client
+
     def fetch_player(player_id: int) -> tuple[int, list | None, str | None]:
         path = root / f"{player_id}.json"
         if path.exists() and path.stat().st_size and not force:
@@ -426,7 +442,7 @@ def parallel_understat_fallbacks(
         last_error = None
         for attempt in range(3):
             try:
-                with UnderstatClient() as client:
+                with make_bounded_client() as client:
                     payload = client.player(player=str(player_id)).get_match_data()
                 if not isinstance(payload, list):
                     raise ValueError(f"unexpected player payload type: {type(payload).__name__}")
@@ -470,7 +486,7 @@ def parallel_understat_fallbacks(
         last_error = None
         for attempt in range(3):
             try:
-                with UnderstatClient() as client:
+                with make_bounded_client() as client:
                     payload = client.league(league="EPL").get_team_data(
                         season=season.split("-")[0]
                     )
