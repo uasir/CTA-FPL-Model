@@ -154,3 +154,28 @@ Validation:
 - Real official FPL replay: 10 completed Gameweeks passed, including 10/10 official team-score reconciliations — [run 44994911531](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994911531).
 
 The first real replay baseline is complete. The next validation priority is to expand the real sample to include actual autosubs and Double/Triple Gameweeks, then test field-sample representativeness and event-derived full-Gameweek scenario validation. Only normalized identity-field-stripped replay cases are retained in a 30-day Actions artifact; raw manager API payloads are not committed or uploaded.
+
+## 8. 2026-11-22 — Official event-scoring reconciliation
+
+A new audit consumes the official FPL per-fixture `explain` breakdown and
+compares it with the local 2026/27 event scorer. Across GW1-GW10, all 6,562
+player-fixture rows matched exactly; there were zero mismatches and zero
+unmapped positive scoring identifiers. Both the official and locally
+calculated totals summed to 9,145 points. GW11 was skipped because its official
+data was not final-scored at capture time.
+
+This validates the scorer's observed fixture-point arithmetic, including
+official bonus as an input. It does not independently calculate BPS, predict
+bonus, or establish forward forecast calibration. The sample did not contain
+Double Gameweek fixture rows; synthetic DGW tests cover separate fixture
+scoring and aggregate minutes above 120.
+
+Validation:
+- Focused CoVar + event-scoring + manager replay workflow: [run 44995259297](https://github.com/uasir/CTA-FPL-Model/actions/runs/44995259297).
+- Full engineering CI: 852 tests and 3 subtests — [run 44995259271](https://github.com/uasir/CTA-FPL-Model/actions/runs/44995259271).
+- Focused CoVar suite: 133 passed.
+
+Next priority: move from per-player/per-fixture scoring validation to full
+Gameweek portfolio scoring with actual field samples, then test sample
+representativeness and relative-score tail stability. Official bonus remains
+an input; a BPS forecast is still out of scope.
