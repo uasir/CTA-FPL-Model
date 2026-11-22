@@ -123,3 +123,15 @@ it does not optimize transfer sequences, future lineups, captaincy, chips,
 future prices, or transfer-flexibility option value. It is not an M4 promotion
 or a claim of validated performance. M2 forecast validation and M4 outcome
 evaluation remain pending.
+
+
+The five-Gameweek squad transfer assessment is sourced from the **same
+immutable CTA candidate forecast bundle** as the general CTA market. Its
+output carries the identical `forecast_snapshot_id`, `model_version`, and
+ordered five-Gameweek horizon; it does not launch or consume a second forecast.
+The result exposes `recommendation_basis=FIVE_GAMEWEEK_CUMULATIVE_EXPECTED_POINTS`
+and a diagnostic `recommended_action` (HOLD/TRANSFER). This cumulative action
+is separate from the one-Gameweek XI, bench and captaincy preview. Candidate
+transfers must have forecast rows in all five panels with stable position,
+team and price metadata; partial-horizon candidates are excluded and
+inconsistent metadata blocks evaluation.
