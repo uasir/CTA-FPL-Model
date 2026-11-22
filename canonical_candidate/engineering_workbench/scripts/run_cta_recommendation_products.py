@@ -125,9 +125,7 @@ def manager_context_from_conventional_run(
                 raise CTARecommendationRunError(
                     f"manager-context capture disagrees with conventional manager state for {field}"
                 )
-        manager = {**dict(captured_manager), **{
-            key: value for key, value in captured_manager.items()
-        }}
+        manager = dict(captured_manager)
     elif not isinstance(manager.get("squad_snapshot"), list) or len(manager["squad_snapshot"]) != 15:
         raise CTARecommendationRunError(
             "full 15-player squad_snapshot is absent; supply the paired manager-context capture artifact"
