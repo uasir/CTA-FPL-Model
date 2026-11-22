@@ -80,7 +80,7 @@ def capture_public_manager_snapshot(
             "position": row.get("position"),
             "element_type": player.get("element_type"),
             "team_id": player.get("team"),
-            "purchase_price": row.get("purchase_price", 0) / 10,
+            "purchase_price": (row["purchase_price"] / 10 if isinstance(row.get("purchase_price"), int) else None),
             "is_captain": row.get("is_captain") is True,
             "is_vice_captain": row.get("is_vice_captain") is True,
         })
@@ -128,7 +128,7 @@ def capture_public_manager_snapshot(
             "players_in_official_pick_order": enriched,
             "squad_ids": [row["fpl_element_id"] for row in enriched],
             "starting_xi_ids": [row["fpl_element_id"] for row in enriched if isinstance(row["position"], int) and row["position"] <= 11],
-            "outfield_bench_ids": [row["fpl_element_id"] for row in enriched if isinstance(row["position"], int) and 12 <= row["position"] <= 14],
+            "outfield_bench_ids": [row["fpl_element_id"] for row in enriched if isinstance(row["position"], int) and row["position"] > 11 and row["element_type"] != 1],
             "reserve_goalkeeper_id": next((row["fpl_element_id"] for row in enriched if row["element_type"] == 1 and row["position"] > 11), None),
             "captain_id": next((row["fpl_element_id"] for row in enriched if row["is_captain"]), None),
             "vice_captain_id": next((row["fpl_element_id"] for row in enriched if row["is_vice_captain"]), None),
