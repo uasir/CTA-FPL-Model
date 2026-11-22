@@ -588,6 +588,22 @@ def download_and_merge_pinned_understat_player_histories(
     return report
 
 
+def historical_source_seasons(training_seasons: list[str], active_season: str) -> list[str]:
+    """Keep the pinned historical archive downloader away from the live season.
+
+    The active season is refreshed from the official FPL API after historical
+    source acquisition. Including it in Dastan's initial completeness audit
+    makes a partial, mutable season look like an incomplete archive and can
+    trigger unnecessary per-player Understat fallback requests.
+    """
+    historical = list(dict.fromkeys(str(value) for value in training_seasons))
+    if active_season in historical:
+        raise ValueError(f"Active season {active_season} overlaps historical training seasons")
+    if not historical:
+        raise ValueError("Dastan training season list is empty")
+    return historical
+
+
 def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: str,
             workers: int = 10) -> dict:
     sys.path.insert(0, str(dastan_root))
@@ -651,12 +667,21 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     sources.VAASTAV_RAW = f"https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/{source_commit}/"
     sources.VAASTAV_TREE = f"https://api.github.com/repos/vaastav/Fantasy-Premier-League/git/trees/{source_commit}?recursive=1"
 
-    seasons = list(dastan_data.SEASONS) + [season]
-    if season in dastan_data.SEASONS:
-        raise RuntimeError(f"Live FPL season {season} overlaps Dastan's completed training seasons")
-    print(f"Downloading pinned source inputs for {seasons}", flush=True)
-    sources.download_sources(raw_dir, seasons, workers=workers, force=False, allow_missing_understat=False)
+    historical_seasons = historical_source_seasons(list(dastan_data.SEASONS), season)
+    seasons = historical_seasons + [season]
+    # Install CTA's bounded concurrent fallback BEFORE invoking Dastan's
+    # downloader. Otherwise its first completeness pass calls the upstream
+    # serial, unbounded-timeout implementation and can stall source acquisition.
     sources._fetch_understat_fallbacks = parallel_understat_fallbacks
+    print(
+        f"Downloading pinned Dastan historical inputs for {historical_seasons}; "
+        f"live season {season} will be refreshed separately",
+        flush=True,
+    )
+    sources.download_sources(
+        raw_dir, historical_seasons, workers=workers, force=False,
+        allow_missing_understat=False,
+    )
     pinned_understat_report = download_and_merge_pinned_understat_player_histories(
         raw_dir, seasons, sources, workers=workers,
     )
