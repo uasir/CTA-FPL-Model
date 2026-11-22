@@ -57,6 +57,34 @@ jobs:
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/finality-input
 
+      - name: Verify exact archived M3 forecast bundle and source hashes
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+          TARGET_ARCHIVE_PATH: ${{ inputs.target_archive_path }}
+        run: |
+          set -euo pipefail
+          case "$TARGET_ARCHIVE_PATH" in
+            /*|*..*|*\\*) echo "Unsafe archive path" >&2; exit 1 ;;
+          esac
+          ARCHIVE="$GITHUB_WORKSPACE/private-archive/$TARGET_ARCHIVE_PATH"
+          BUNDLE=$(find "$ARCHIVE" -maxdepth 1 -type f -name 'm3_covar_forecast_gw*.json' -print -quit)
+          test -n "$BUNDLE" && test -s "$ARCHIVE/archive_manifest.json"
+          python - "$BUNDLE" "$ARCHIVE/archive_manifest.json" <<'PY'
+          import json, sys
+          from pathlib import Path
+          from m3_covar_real_archive_preflight import verify_real_m3_archive
+          manifest, bundle = verify_real_m3_archive(Path(sys.argv[1]), Path(sys.argv[2]))
+          print(json.dumps({
+              "status": "M3_ARCHIVE_VERIFIED",
+              "season": bundle["season"],
+              "target_gameweek": bundle["target_gameweek"],
+              "forecast_snapshot_id": bundle["forecast_snapshot_id"],
+              "model_version": bundle["model_version"],
+              "archive_type": manifest.get("archive_type"),
+          }, indent=2))
+          PY
+
       - name: Match exact M3 snapshot to final official outcomes
         working-directory: canonical_candidate/engineering_workbench
         env:
