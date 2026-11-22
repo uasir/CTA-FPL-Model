@@ -25,6 +25,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from feature_availability import unavailable_feature_names
@@ -519,9 +520,9 @@ def parallel_understat_fallbacks(
     def fetch_teams(season: str) -> tuple[str, dict | None, str | None]:
         try:
             histories, _credits = get_client().league_team_histories(season)
-            return season, histories, None
+            return "team", season, histories, None
         except Exception as exc:
-            return season, None, str(exc)
+            return "team", season, None, str(exc)
 
     player_success = 0
     team_success = 0
@@ -590,7 +591,7 @@ def parallel_understat_fallbacks(
                         )
                         player_success += 1
                 else:
-                    season, histories, error = result
+                    _kind, season, histories, error = result
                     if error is not None:
                         failures.append(f"league:{season}:{error}")
                     elif histories is not None:
