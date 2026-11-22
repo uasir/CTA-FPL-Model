@@ -28,6 +28,7 @@ ARCHIVE_FILES = [
     "dastan_model/p60_GKP.json", "dastan_model/p60_DEF.json",
     "dastan_model/p60_MID.json", "dastan_model/p60_FWD.json",
     "training/release_manifest.json", "training/source_pins.json",
+    "dastan_minutes_feature_schema.json",
     "models/cta_points_model_manifest.json",
     "models/cta_points_GKP.json", "models/cta_points_DEF.json",
     "models/cta_points_MID.json", "models/cta_points_FWD.json",
@@ -102,6 +103,9 @@ def bundle(root: Path):
 
     feature_sha = digest(root / "feature_matrix.csv")
     minutes_sha = digest(root / "minutes_predictions.csv")
+    feature_report_sha = digest(root / "feature_matrix_report.json")
+    minutes_report_sha = digest(root / "minutes_report.json")
+    feature_schema_sha = digest(root / "dastan_minutes_feature_schema.json")
     write_json(root, "source_preparation_report.json", {
         "feature_source_mode": "FPL_PLAYER_UNDERSTAT",
         "source_manifest_sha256": source_sha,
@@ -147,10 +151,18 @@ def bundle(root: Path):
             "source_manifest_sha256": source_sha,
             "feature_matrix_sha256": feature_sha,
             "minutes_predictions_sha256": minutes_sha,
+            "feature_report_sha256": feature_report_sha,
+            "minutes_report_sha256": minutes_report_sha,
+            "feature_schema_sha256": feature_schema_sha,
             "points_model_manifest_sha256": model_manifest_sha,
             "minutes_artifact_hashes": minutes_hashes,
         },
         "decision_safeguards": safeguards,
+        "outputs": {
+            "fixture_forecasts": {"sha256": digest(root / "forecasts/fixture_forecasts.csv")},
+            "player_gameweek_forecasts": {"sha256": digest(root / "forecasts/player_gameweek_forecasts.csv")},
+            "player_five_gw_forecasts": {"sha256": digest(root / "forecasts/player_five_gw_forecasts.csv")},
+        },
     })
     write_json(root, "forecasts/bundle_validation_report.json", {
         "status": "PASS_CTA_FORECAST_BUNDLE_INTEGRITY",
@@ -184,6 +196,7 @@ def test_archives_full_provenance_verified_forecast_and_models(tmp_path):
         assert "dastan_model/p60_DEF.json" in names
         assert "snapshots/bootstrap-static.json" in names
         assert "canonical_player_lookup.csv" in names
+        assert "dastan_minutes_feature_schema.json" in names
     assert json.loads((out / "latest.json").read_text())["forecast_snapshot_id"] == "snapshot-123"
 
 
@@ -228,5 +241,14 @@ def test_rejects_actual_csv_row_count_mismatch(tmp_path):
          "production_eligible": False, "decision_weight": 0, "covar_used": False}
     ])
     with pytest.raises(ValueError, match="row count does not match forecast report"):
+        archive_bundle(root, tmp_path / "archive", run_id="1", commit_sha="sha",
+                       run_url="https://example.test/run")
+
+
+
+def test_rejects_forecast_output_hash_mismatch(tmp_path):
+    root = bundle(tmp_path / "bundle")
+    write_text(root, "forecasts/fixture_forecasts.csv", "tampered")
+    with pytest.raises(ValueError, match="fixture_forecasts output SHA-256"):
         archive_bundle(root, tmp_path / "archive", run_id="1", commit_sha="sha",
                        run_url="https://example.test/run")
