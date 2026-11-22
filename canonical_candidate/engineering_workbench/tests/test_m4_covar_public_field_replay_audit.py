@@ -27,7 +27,7 @@ def manager_payload(event, chip=None):
     } for pid in ids]}
     picks_response = {
         "entry_history": {"event": event, "points": 24, "event_transfers_cost": 0},
-        "active_chip": chip, "picks": picks,
+        "active_chip": chip, "picks": picks, "automatic_subs": [],
     }
     return bootstrap, live, picks_response
 
