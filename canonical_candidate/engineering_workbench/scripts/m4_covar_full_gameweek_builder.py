@@ -82,7 +82,8 @@ def build_full_gameweek_document(
         if not isinstance(provenance_scenarios, list) or list(scenarios) != provenance_scenarios:
             raise CovarFullGameweekBuildError("scenarios must be the exact residual-bootstrap scenario rows")
         required = ("forecast_snapshot_id", "model_version", "training_cutoff_utc",
-                    "scenario_probability_method", "complete_historical_gameweeks", "payload_sha256")
+                    "scenario_probability_method", "complete_historical_gameweeks", "payload_sha256",
+                    "played_status_method")
         if any(not scenario_provenance.get(key) for key in required):
             raise CovarFullGameweekBuildError("residual scenario provenance is incomplete")
         data_status = "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY"
@@ -92,6 +93,7 @@ def build_full_gameweek_document(
             "training_cutoff_utc": scenario_provenance["training_cutoff_utc"],
             "scenario_probability_method": scenario_provenance["scenario_probability_method"],
             "complete_historical_gameweeks": scenario_provenance["complete_historical_gameweeks"],
+            "played_status_method": scenario_provenance["played_status_method"],
             "probability_calibrated": False,
             "marginal_expected_points_preserved": scenario_provenance.get("marginal_expected_points_preserved"),
             "minutes_mean_preserved": scenario_provenance.get("minutes_mean_preserved"),
