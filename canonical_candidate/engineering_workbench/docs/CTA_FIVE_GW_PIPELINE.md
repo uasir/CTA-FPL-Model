@@ -72,10 +72,16 @@ separate fixture rows. Player, own-team and opponent-team rolling histories are
 anchored to the common FPL deadline; opponent features are separately
 re-anchored so an earlier target fixture cannot contaminate a later DGW fixture.
 
-The live official bootstrap contributes `ep_next`, status, chance-of-playing
-and news only to the immediate next Gameweek. For later target Gameweeks those
-snapshot fields use the explicit `-1.0` absence sentinel. The two-stage
-missing-value contract is preserved:
+The live official bootstrap is timestamped after both official API responses are
+captured and is rejected unless it precedes the next deadline by at least five
+minutes. The feature builder independently verifies that capture timestamp,
+target Gameweek and deadline metadata. Historical fplcache `ep_next` and
+availability artifacts are filtered by the same five-minute safety margin;
+rejected rows remain missing and are represented by the `-1.0` sentinel after
+the normal Dastan load path. The live official bootstrap contributes `ep_next`,
+status, chance-of-playing and news only to the immediate next Gameweek. For
+later target Gameweeks those snapshot fields use the explicit `-1.0` absence
+sentinel. The two-stage missing-value contract is preserved:
 
 1. Absent pre-deadline snapshot fields: `-1.0`.
 2. Residual feature NaNs at the inference boundary: `0.0`.
