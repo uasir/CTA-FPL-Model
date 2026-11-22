@@ -214,3 +214,36 @@ def test_exact_fixture_opponent_lookup_rejects_non_reciprocal_pairing():
     ])
     with pytest.raises(ValueError, match="non-reciprocal"):
         exact_fixture_opponent_lookup(teams)
+
+
+def test_cta_points_target_adapter_accepts_verified_dastan_observed_labels():
+    from train_cta_points_model import with_training_target
+
+    frame = pd.DataFrame({
+        "target_points": [6.0, 3.0, 0.0],
+        "minutes": [90, 45, 0],
+    })
+    result = with_training_target(frame)
+    assert result.loc[0, "target_points_per_90"] == 4.0
+    assert result.loc[1, "target_points_per_90"] == 4.0
+    assert np.isnan(result.loc[2, "target_points_per_90"])
+
+
+def test_cta_points_target_adapter_retains_fpl_native_column_support():
+    from train_cta_points_model import with_training_target
+
+    frame = pd.DataFrame({
+        "total_points": [8.0, 2.0],
+        "minutes": [90, 30],
+    })
+    result = with_training_target(frame)
+    assert result.loc[0, "target_points_per_90"] == 6.0
+    assert result.loc[1, "target_points_per_90"] == 3.0
+
+
+def test_cta_points_target_adapter_preserves_precomputed_target():
+    from train_cta_points_model import with_training_target
+
+    frame = pd.DataFrame({"target_points_per_90": [1.25]})
+    result = with_training_target(frame)
+    assert result.loc[0, "target_points_per_90"] == 1.25
