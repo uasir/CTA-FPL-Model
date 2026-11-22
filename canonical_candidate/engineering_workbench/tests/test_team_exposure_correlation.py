@@ -1,6 +1,6 @@
 import pytest
 
-from team_exposure_correlation import TeamExposureError, build_team_exposure_report
+from team_exposure_correlation import (\n    TeamExposureError, build_team_exposure_report,\n    build_team_exposure_report_from_forecast_bundle,\n)
 
 
 def forecasts():
@@ -166,3 +166,46 @@ def test_joint_scenario_hash_and_generation_timing_are_validated():
             model_version="fplcat-fixture-xp-v2",
             joint_scenario_provenance=provenance,
         )
+
+
+def forecast_bundle():
+    return {
+        "forecast_bundle_id": "fplcat-bundle-gw12-gw16",
+        "forecast_snapshot_id": "fplcat-bundle-gw12-gw16",
+        "model_version": "fplcat-fixture-xp-v2",
+        "horizon_gameweeks": [12, 13, 14, 15, 16],
+        "source_snapshot_ids": [f"immutable-gw{gw}" for gw in range(12, 17)],
+        "player_gameweek_forecasts": forecasts(),
+    }
+
+
+def test_verified_forecast_bundle_connects_to_tecm_without_inventing_covariance():
+    result = build_team_exposure_report_from_forecast_bundle(
+        forecast_bundle(), squad_player_ids=[1, 2, 3, 4]
+    )
+    assert result["forecast_snapshot_id"] == "fplcat-bundle-gw12-gw16"
+    assert result["model_version"] == "fplcat-fixture-xp-v2"
+    assert result["horizon_gameweeks"] == [12, 13, 14, 15, 16]
+    assert result["covariance_status"] == "NOT_AVAILABLE_NO_JOINT_SCENARIOS"
+    assert result["decision_weight"] == 0
+    assert result["production_eligible"] is False
+
+
+def test_tecm_rejects_mismatched_forecast_bundle_identity():
+    source = forecast_bundle()
+    source["forecast_snapshot_id"] = "other-snapshot"
+    with pytest.raises(TeamExposureError, match="bundle and snapshot IDs"):
+        build_team_exposure_report_from_forecast_bundle(
+            source, squad_player_ids=[1, 2, 3, 4]
+        )
+
+
+def test_tecm_bundle_adapter_accepts_provenance_bound_joint_scenarios():
+    result = build_team_exposure_report_from_forecast_bundle(
+        forecast_bundle(),
+        squad_player_ids=[1, 2, 3, 4],
+        joint_scenarios=scenarios(),
+        joint_scenario_provenance=scenario_provenance(),
+    )
+    assert result["covariance_status"] == "JOINT_SCENARIO_ESTIMATE"
+    assert result["joint_scenario_provenance"]["scenario_set_id"] == "frozen-joint-scenario-set-v1"
