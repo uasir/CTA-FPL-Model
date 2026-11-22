@@ -187,7 +187,7 @@ def anchor_team_features_to_deadline(target: pd.DataFrame) -> pd.DataFrame:
     completed matches before the deadline.
     """
     out = target.copy()
-    team_columns = [c for c in out.columns if c.startswith("team_")]
+    team_columns = [c for c in out.columns if c.startswith("team_") and pd.api.types.is_numeric_dtype(out[c])]
     status_columns = [c for c in ("status_league_rank", "status_opp_league_rank") if c in out]
     if not team_columns and not status_columns:
         return out
