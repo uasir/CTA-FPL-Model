@@ -175,9 +175,10 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         if expected_multipliers[pid] != official_multipliers[pid]
     ]
     # The API adapter reverses post-autosub pick positions to recover the
-    # submitted lineup. Validate the resolver's substitutions against the
-    # official automatic_subs pairs, then independently validate final pick
-    # multipliers and player/team points.
+    # submitted lineup. The final pick multipliers validate the actual scoring
+    # XI. automatic_subs incoming/outgoing player sets are also checked; exact
+    # pair mapping is retained as a diagnostic because multiple legal pairings
+    # can yield the same final XI when several starters are absent.
     automatic_substitution_match = not multiplier_mismatches
     official_automatic_subs = official.get("automatic_subs")
     automatic_substitution_metadata_match = None
