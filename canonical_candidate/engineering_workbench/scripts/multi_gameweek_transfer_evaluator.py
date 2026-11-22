@@ -93,6 +93,19 @@ def evaluate_multi_gameweek_transfer(payload: Mapping[str, Any]) -> dict[str, An
     first = parsed[0][1]
     if outgoing not in first or incoming not in first:
         raise MultiGameweekTransferError("first Gameweek must forecast both transfer players")
+    squad_positions = {position: 0 for position in ("GKP", "DEF", "MID", "FWD")}
+    for player_id in squad:
+        squad_positions[first[player_id]["position"]] += 1
+    if squad_positions != {"GKP": 2, "DEF": 5, "MID": 5, "FWD": 3}:
+        raise MultiGameweekTransferError("squad must contain 2 GKP, 5 DEF, 5 MID and 3 FWD")
+    xi_positions = {position: 0 for position in ("GKP", "DEF", "MID", "FWD")}
+    for player_id in xi:
+        xi_positions[first[player_id]["position"]] += 1
+    if (xi_positions["GKP"] != 1 or sum(xi_positions.values()) != 11
+            or not (3 <= xi_positions["DEF"] <= 5)
+            or not (2 <= xi_positions["MID"] <= 5)
+            or not (1 <= xi_positions["FWD"] <= 3)):
+        raise MultiGameweekTransferError("starting XI must have one goalkeeper and a legal FPL outfield formation")
     if first[outgoing]["position"] == "GKP":
         raise MultiGameweekTransferError("goalkeeper transfers are excluded by this policy")
     if first[outgoing]["position"] != first[incoming]["position"]:
