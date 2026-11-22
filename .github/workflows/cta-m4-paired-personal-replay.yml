@@ -14,7 +14,7 @@ on:
       forecast_run_id:
         description: Successful CTA five-GW forecast workflow run ID
         required: true
-        default: "45059662965"
+        default: "45076102918"
         type: string
       forecast_artifact_name:
         description: Exact five-GW CTA forecast artifact name
@@ -30,10 +30,14 @@ jobs:
   paired-replay:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out CTA implementation branch
+      - name: Check out the reviewed CTA implementation branch
         uses: actions/checkout@v4
         with:
           ref: feat/m4-cta-five-gw-squad-evaluator
+
+      - name: Record checked-out CTA implementation commit
+        id: implementation
+        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -49,7 +53,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: outputs/cta-five-gw
 
-      - name: Download the shared M3 manager-state capture (common input to both products)
+      - name: Download the shared M3 manager-state capture
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.manager_context_artifact_name }}
@@ -79,14 +83,13 @@ jobs:
           assert meta.get("identity_verified") is True
           assert meta.get("row_count") == 15
           assert isinstance(manager.get("squad_snapshot"), list) and len(manager["squad_snapshot"]) == 15
-          captured_ids = {row.get("fpl_element_id") for row in manager["squad_snapshot"]}
-          assert captured_ids == expected_squad, "captured squad differs from manager-confirmed GW12 squad"
+          assert {row.get("fpl_element_id") for row in manager["squad_snapshot"]} == expected_squad
           assert isinstance(manager.get("starting_xi"), list) and len(manager["starting_xi"]) == 11
-          assert set(manager["starting_xi"]) == expected_xi, "captured baseline XI differs from manager-confirmed GW12 XI"
-          assert manager.get("bank") == 1.8, "bank differs from manager-confirmed GW12 bank"
-          assert manager.get("free_transfers") == 1, "free transfers differ from manager-confirmed GW12 state"
+          assert set(manager["starting_xi"]) == expected_xi
+          assert manager.get("bank") == 1.8
+          assert manager.get("free_transfers") == 1
           assert manager.get("formation") == "4-3-3"
-          print("Manager 421025 GW12 capture exactly matches the confirmed squad, XI, bank and free transfers; no conventional recommendation is consumed.")
+          print("Shared manager-state capture validated; no conventional recommendation is consumed.")
           PY
 
       - name: Run paired CTA personal and general products from the shared forecast
@@ -97,18 +100,116 @@ jobs:
             --now-utc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --output outputs/paired-replay/cta-recommendation-previews.json
 
-      - name: Write privacy-safe paired replay manifest
+      - name: Render the visible personal recommendation report
+        run: |
+          python - <<'PY'
+          import csv, json
+          from pathlib import Path
+          root = Path("outputs/cta-five-gw")
+          result = json.loads(Path("outputs/paired-replay/cta-recommendation-previews.json").read_text())
+          manager_file = next(Path("outputs/manager-state").glob("manager-context-*.json"))
+          manager = json.loads(manager_file.read_text())["manager_context"]
+          diagnostic = result["cta_informed_personal_squad"].get("multi_gameweek_squad_diagnostic", {})
+          best = diagnostic.get("best_diagnostic")
+          if diagnostic.get("status") != "EXPLORATORY_CTA_FIVE_GAMEWEEK_SQUAD_SWEEP" or not best:
+              raise SystemExit("No complete five-GW squad diagnostic is available to render")
+
+          with (root / "dastan_mappings/fpl_players_current.csv").open(newline="") as stream:
+              players = {int(r["element"]): r for r in csv.DictReader(stream)}
+          bootstrap = json.loads((root / "snapshots/bootstrap-static.json").read_text())
+          teams = {int(t["id"]): t["name"] for t in bootstrap["teams"]}
+          elements = {int(e["id"]): e for e in bootstrap["elements"]}
+
+          def player(pid):
+              pid = int(pid)
+              mapping = players.get(pid, {})
+              element = elements.get(pid, {})
+              team_id = int(element.get("team", 0) or 0)
+              pos = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}.get(int(element.get("element_type", 0) or 0), "—")
+              return {
+                  "name": mapping.get("player_name") or element.get("web_name") or f"Player {pid}",
+                  "team": teams.get(team_id, mapping.get("team_name", "—")),
+                  "position": pos,
+                  "current_price": float(element.get("now_cost", 0)) / 10,
+              }
+
+          weeks = diagnostic["horizon_gameweeks"]
+          out = player(best["transfer_out_id"])
+          inc = player(best["transfer_in_id"])
+          action = diagnostic["recommended_action"]
+          delta = float(best["net_horizon_expected_points_delta"])
+          lines = [
+              f"# CTA personal squad recommendation — GW{weeks[0]}–GW{weeks[-1]}",
+              "",
+              f"**Action: {action}**",
+              "",
+              "| Transfer OUT | Transfer IN |",
+              "|---|---|",
+              f"| **{out['name']}** ({out['team']}, {out['position']}) · selling price £{best['selling_price']:.1f}m | **{inc['name']}** ({inc['team']}, {inc['position']}) · price £{best['incoming_price']:.1f}m |",
+              "",
+              f"**Projected net gain: {delta:+.5f} expected points** across five Gameweeks.",
+              "",
+              f"- Bank before transfer: £{float(manager['bank']):.1f}m",
+              f"- Bank after transfer: £{float(best['bank_after_transfer']):.1f}m",
+              f"- Free transfers available: {int(manager['free_transfers'])}",
+              f"- Hit cost applied: {float(best['hit_cost_points_applied']):.0f} points",
+              "",
+              "## Weekly projected advantage",
+              "",
+              "| Gameweek | HOLD XI xP | Transfer XI xP | Incremental xP |",
+              "|---:|---:|---:|---:|",
+          ]
+          for row in best["weekly_comparison"]:
+              lines.append(
+                  f"| GW{row['gameweek']} | {row['hold_starting_xi_expected_points']:.5f} | "
+                  f"{row['transfer_starting_xi_expected_points']:.5f} | "
+                  f"{row['incremental_expected_points']:+.5f} |"
+              )
+          lines += [
+              "",
+              "## Leading alternatives",
+              "",
+              "| Transfer | Net five-GW xP delta | Bank after |",
+              "|---|---:|---:|",
+          ]
+          for candidate in diagnostic.get("candidate_evaluations", [])[:5]:
+              o, i = player(candidate["transfer_out_id"]), player(candidate["transfer_in_id"])
+              lines.append(
+                  f"| {o['name']} → {i['name']} | "
+                  f"{candidate['net_horizon_expected_points_delta']:+.5f} | "
+                  f"£{candidate['bank_after_transfer']:.1f}m |"
+              )
+          lines += [
+              "",
+              "## Validation and limitations",
+              "",
+              "- **EXPLORATORY ONLY** — CTA M2 forecast validation and independent M4 outcome evaluation remain pending.",
+              "- Decision weight: **0**; production eligible: **no**; CoVar used: **no**.",
+              "- One transfer at a time; fixed baseline starting XI across the five-GW horizon.",
+              "- Excludes future price changes, transfer sequencing, weekly lineup/captaincy optimization and CoVar.",
+              "- Expected points are model estimates, not guaranteed returns.",
+              "",
+              f"Forecast snapshot: `{result['target']['forecast_snapshot_id']}`",
+          ]
+          report = "\n".join(lines) + "\n"
+          Path("outputs/paired-replay/recommendation-report.md").write_text(report)
+          with open(__import__("os").environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write(report + "\n")
+          PY
+
+      - name: Write paired replay manifest
         env:
           MANAGER_CONTEXT_RUN_ID: ${{ inputs.manager_context_run_id }}
           MANAGER_CONTEXT_ARTIFACT: ${{ inputs.manager_context_artifact_name }}
           FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
           FORECAST_ARTIFACT: ${{ inputs.forecast_artifact_name }}
-          GITHUB_SHA: ${{ github.sha }}
+          IMPLEMENTATION_COMMIT: ${{ steps.implementation.outputs.commit }}
         run: |
           python - <<'PY'
           import hashlib, json, os
           from pathlib import Path
           output = Path("outputs/paired-replay/cta-recommendation-previews.json")
+          report = Path("outputs/paired-replay/recommendation-report.md")
           result = json.loads(output.read_text())
           personal = result["cta_informed_personal_squad"]
           diagnostic = personal.get("multi_gameweek_squad_diagnostic", {})
@@ -118,13 +219,13 @@ jobs:
               "manager_context_source_artifact": os.environ["MANAGER_CONTEXT_ARTIFACT"],
               "cta_forecast_run_id": int(os.environ["FORECAST_RUN_ID"]),
               "cta_forecast_artifact": os.environ["FORECAST_ARTIFACT"],
-              "implementation_commit": os.environ["GITHUB_SHA"],
+              "implementation_commit": os.environ["IMPLEMENTATION_COMMIT"],
               "season": result["target"]["season"],
               "target_gameweek": result["target"]["target_gameweek"],
               "forecast_horizon_gameweeks": result["target"]["gameweeks"],
               "forecast_snapshot_id": result["target"]["forecast_snapshot_id"],
               "model_version": result["general_cta_market"]["model_version"],
-              "personal_product_status": personal.get("status"),
+              "personal_product_status": personal.get("product_status"),
               "five_gw_diagnostic_status": diagnostic.get("status"),
               "five_gw_recommended_action": diagnostic.get("recommended_action"),
               "five_gw_net_expected_points_delta": (
@@ -141,7 +242,8 @@ jobs:
               "production_eligible": False,
               "covar_used": False,
               "manager_specific_report_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
-              "manager_specific_report_published": False,
+              "manager_specific_report_published": True,
+              "visible_recommendation_report_sha256": hashlib.sha256(report.read_bytes()).hexdigest(),
           }
           if not manifest["shared_forecast_identity_verified"]:
               raise SystemExit("CTA personal and general products do not share exact forecast identity")
@@ -150,22 +252,14 @@ jobs:
           path = Path("outputs/paired-replay/paired-replay-manifest.json")
           path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
           print(json.dumps(manifest, indent=2, sort_keys=True))
-          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as handle:
-              handle.write(
-                  "## CTA personal replay with shared manager-state input\n\n"
-                  f"- Status: {manifest['five_gw_diagnostic_status']}\n"
-                  f"- Target: GW{manifest['target_gameweek']}–GW{manifest['forecast_horizon_gameweeks'][-1]}\n"
-                  f"- Shared forecast identity verified: {manifest['shared_forecast_identity_verified']}\n"
-                  f"- Diagnostic action: {manifest['five_gw_recommended_action']}\n"
-                  f"- Decision weight: 0; production eligible: false; CoVar used: false\n"
-                  "- Manager-specific report retained only in the ephemeral job workspace.\n"
-              )
           PY
 
-      - name: Upload privacy-safe paired replay manifest only
+      - name: Upload visible recommendation and paired replay manifest
         uses: actions/upload-artifact@v4
         with:
-          name: cta-m4-paired-replay-manifest-gw12-16
-          path: outputs/paired-replay/paired-replay-manifest.json
+          name: cta-m4-personal-recommendation-gw12-16
+          path: |
+            outputs/paired-replay/recommendation-report.md
+            outputs/paired-replay/paired-replay-manifest.json
           if-no-files-found: error
           retention-days: 90
