@@ -112,7 +112,7 @@ def test_rejects_unregistered_lucho_variant():
         route_provider_forecast(source)
 
 
-def test_lucho_variants_are_kept_as_distinct_registered_routes():
+def test_lucho_variants_are_kept_distinct_but_remain_diagnostic_only():
     for variant in ("served_odds_anchored_xp", "raw_model_xp", "odds_xp"):
         source = payload()
         source["provider"] = {
@@ -122,7 +122,30 @@ def test_lucho_variants_are_kept_as_distinct_registered_routes():
         }
         result = route_provider_forecast(source)
         assert result["provider"]["variant"] == variant
-        assert result["routing_status"] == "READY_FOR_RECOMMENDATION_ADAPTER"
+        assert result["routing_status"] == "DIAGNOSTIC_ONLY"
+        assert result["decision_eligible"] is False
+        assert result["routing_reason"] == "PROVIDER_NOT_APPROVED_FOR_DECISION_CAPTURE"
+
+
+@pytest.mark.parametrize(
+    ("name", "product", "variant"),
+    [
+        ("FPLRogue", "accepted_projections_release", "provider_native_xpts"),
+        ("FPL Wildcard", "projection_csv", "provider_native_xpts"),
+    ],
+)
+def test_registry_ineligible_providers_cannot_reach_recommendation_boundary(name, product, variant):
+    source = payload()
+    source["provider"] = {"name": name, "product": product, "variant": variant}
+    result = route_provider_forecast(
+        source,
+        player_metadata=[{"fpl_element_id": 1, "price": 7.0, "position": 3, "team_id": 1}],
+        as_of_utc="2026-11-20T10:00:00Z",
+    )
+    assert result["routing_status"] == "DIAGNOSTIC_ONLY"
+    assert result["decision_eligible"] is False
+    assert result["recommendation_payload"] is None
+    assert result["routing_reason"] == "PROVIDER_NOT_APPROVED_FOR_DECISION_CAPTURE"
 
 
 def test_builds_recommendation_payload_only_with_explicit_metadata_and_as_of():
