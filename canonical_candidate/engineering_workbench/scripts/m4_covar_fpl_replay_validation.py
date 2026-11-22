@@ -2,8 +2,9 @@
 """Validate normalized official FPL lineup replays against final picks.
 
 The validator is shared by the single-manager replay, aggregate-only public
-field stress-test, and synthetic full-Gameweek scoring test paths. Real
-manager-level picks are consumed in memory and are never retained in reports.
+field stress-test (rank-stratified across five Overall pages), and synthetic
+full-Gameweek scoring test paths. Real manager-level picks are consumed in
+memory and are never retained in reports.
 """
 from __future__ import annotations
 
