@@ -255,6 +255,52 @@ def refresh_current_core(raw_dir: Path, season: str, bootstrap: dict, fixtures: 
     }
 
 
+def download_fixture_schedules(raw_dir: Path, seasons: list[str], source_commit: str) -> None:
+    for season in seasons:
+        path = raw_dir / "vaastav" / season / "fixtures.csv"
+        if path.exists() and path.stat().st_size:
+            continue
+        url = f"https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/{source_commit}/data/{season}/fixtures.csv"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(fetch_bytes(url))
+
+
+def write_live_fixture_schedule(raw_dir: Path, season: str, fixtures: list[dict]) -> Path:
+    rows = [{
+        "id": int(row["id"]),
+        "event": "" if row.get("event") is None else int(row["event"]),
+        "finished": bool(row.get("finished")),
+        "team_h": int(row["team_h"]),
+        "team_a": int(row["team_a"]),
+        "kickoff_time": row.get("kickoff_time") or "",
+    } for row in fixtures]
+    path = raw_dir / "vaastav" / season / "fixtures.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_csv(path, index=False, lineterminator="\\n")
+    return path
+
+
+def audit_all_fixture_archives(raw_dir: Path, seasons: list[str]) -> dict:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from audit_vaastav_fixture_archive import audit_archive, read_csv
+    reports = {}
+    for season in seasons:
+        base = raw_dir / "vaastav" / season
+        report = audit_archive(
+            read_csv(base / "merged_gw.csv"),
+            read_csv(base / "fixtures.csv"),
+            read_csv(base / "teams.csv"),
+            season,
+        )
+        reports[season] = {
+            key: value for key, value in report.items()
+            if key != "fixture_summaries"
+        }
+        if report["status"] != "PASS_FIXTURE_ARCHIVE_AUDIT":
+            raise RuntimeError(f"{season} fixture archive audit failed: {report['fixture_metadata_errors'][:5]}")
+    return reports
+
+
 def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: str,
             workers: int = 10) -> dict:
     sys.path.insert(0, str(dastan_root))
@@ -299,8 +345,11 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         raise RuntimeError(f"Live FPL season {season} overlaps Dastan's completed training seasons")
     print(f"Downloading pinned source inputs for {seasons}", flush=True)
     sources.download_sources(raw_dir, seasons, workers=workers, force=False, allow_missing_understat=False)
+    download_fixture_schedules(raw_dir, seasons, source_commit)
 
     current_api_report = refresh_current_core(raw_dir, season, bootstrap, fixtures, workers=workers)
+    write_live_fixture_schedule(raw_dir, season, fixtures)
+    fixture_archive_audits = audit_all_fixture_archives(raw_dir, seasons)
     team_paths = {
         value: list((raw_dir / "vaastav" / "understat" / "teams" / value).glob("*.csv"))
         for value in seasons
@@ -375,6 +424,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "source_manifest_sha256": sha256(raw_dir / "downloads.json"),
         "current_roster_snapshot": str(roster_path),
         "current_api_history": current_api_report,
+        "fixture_archive_audits": fixture_archive_audits,
         "canonical_player_match_rows": len(player_matches),
         "canonical_team_match_rows": len(team_matches),
         "historical_training_rows": len(training_frame),
