@@ -6,6 +6,8 @@ from prepare_cta_five_gw_sources import (
     apply_historical_snapshot_safety_buffer,
     player_elements,
     season_from_bootstrap,
+    write_csv_frame,
+    write_live_fixture_schedule,
 )
 
 
@@ -51,3 +53,26 @@ def test_historical_snapshot_safety_buffer_rejects_captures_within_five_minutes(
     assert report["pre_deadline_ep_next"]["rows_rejected"] == 1
     filtered = pd.read_parquet(tmp_path / "pre_deadline_ep_next.parquet")
     assert filtered["fpl_code"].tolist() == [101]
+
+
+def test_csv_writer_uses_real_newlines_and_round_trips(tmp_path: Path):
+    import pandas as pd
+
+    path = tmp_path / "nested" / "sample.csv"
+    write_csv_frame(pd.DataFrame([{"id": 1, "name": "Arsenal"}]), path)
+    raw = path.read_bytes()
+    assert b"\\\\n" not in raw
+    assert b"\\n" in raw
+    assert pd.read_csv(path).to_dict("records") == [{"id": 1, "name": "Arsenal"}]
+
+
+def test_live_fixture_schedule_writer_round_trips(tmp_path: Path):
+    import pandas as pd
+
+    path = write_live_fixture_schedule(tmp_path, "2026-27", [{
+        "id": 99, "event": 12, "finished": False,
+        "team_h": 1, "team_a": 2, "kickoff_time": "2026-11-28T15:00:00Z",
+    }])
+    frame = pd.read_csv(path)
+    assert frame.loc[0, "id"] == 99
+    assert frame.loc[0, "event"] == 12
