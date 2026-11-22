@@ -121,7 +121,7 @@ def build_future_rows(bootstrap: dict, fixtures: list[dict], player_map: dict, c
                 "position": POSITIONS[int(player["element_type"])],
                 # Use Understat's canonical club names consistently throughout this
                 # feature build; retain FPL names separately in output metadata.
-                "team_name": own_us, "opponent_team_name": opp_us,
+                "team_name": own_fpl, "opponent_team_name": opp_fpl,
                 "us_opponent": opp_us, "kickoff_time": kickoff,
                 "match_date": kickoff.date().isoformat(), "is_home": is_home,
                 "understat_id": float(understat_id) if understat_id else np.nan,
@@ -217,7 +217,8 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
                  bootstrap_path: Path, fixtures_path: Path, schema_path: Path,
                  output: Path, report_path: Path, target_gameweeks: list[int]) -> dict:
     sys.path.insert(0, str(dastan_root))
-    from dastan.rebuild.features import build_feature_frame
+    from dastan.rebuild import features as dastan_features
+    build_feature_frame = dastan_features.build_feature_frame
 
     bootstrap = json.loads(bootstrap_path.read_text(encoding="utf-8"))
     fixtures = json.loads(fixtures_path.read_text(encoding="utf-8"))
@@ -257,6 +258,12 @@ def build_matrix(dastan_root: Path, canonical_player_path: Path,
     club_path = dastan_root / "data" / "mappings" / "current_fpl_understat_clubs.csv"
     clubs_map = pd.read_csv(club_path, keep_default_na=False)
     club_map = {str(row["club_name"]): row for row in clubs_map.to_dict("records")}
+    # Extend Dastan's FPL->Understat alias map from the exact operational club map.
+    dastan_features.FPL_TO_UNDERSTAT.update({
+        str(row["club_name"]): str(row["understat_name"])
+        for row in clubs_map.to_dict("records")
+        if row.get("understat_name")
+    })
 
     future_players, future_teams, coverage = build_future_rows(
         bootstrap, fixtures, player_map, club_map, season, target_gameweeks
