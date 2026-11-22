@@ -1,0 +1,41 @@
+name: Capture FPL Cat Partner Six-GW Forecast
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "FPL season label"
+        required: true
+        default: "2026-27"
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Capture licensed partner forecast
+        env:
+          FPLCAT_PARTNER_API_KEY: ${{ secrets.FPLCAT_PARTNER_API_KEY }}
+        run: |
+          test -n "$FPLCAT_PARTNER_API_KEY" || {
+            echo "Repository secret FPLCAT_PARTNER_API_KEY is not configured."
+            exit 1
+          }
+          python canonical_candidate/engineering_workbench/scripts/capture_fpl_cat_partner_snapshot.py \
+            --season "${{ inputs.season }}" \
+            --output artifacts/fplcat-partner-six-gw.json
+      - name: Upload immutable capture artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fplcat-partner-six-gw-${{ github.run_id }}
+          path: artifacts/fplcat-partner-six-gw.json
+          if-no-files-found: error
+          retention-days: 90
