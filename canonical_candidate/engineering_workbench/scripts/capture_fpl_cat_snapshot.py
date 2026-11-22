@@ -16,6 +16,11 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.request import Request, urlopen
 
+from provider_capability_registry import (
+    ProviderCapabilityError,
+    validate_capture_against_registry,
+)
+
 FPL_CAT_URL = "https://fplcat.com/api/v1/projections"
 FPL_BOOTSTRAP_URL = "https://fantasy.premierleague.com/api/bootstrap-static/"
 
@@ -140,8 +145,7 @@ def capture_fpl_cat_snapshot(
     provider_hash = hashlib.sha256(provider_raw).hexdigest()
     bootstrap_hash = hashlib.sha256(bootstrap_raw).hexdigest()
     capture_token = provider_captured.strftime("%Y%m%dT%H%M%S%fZ")
-    return {
-        "provider_snapshot": {
+    provider_snapshot = {
             "snapshot_id": f"fplcat-gw{gw}-{capture_token}",
             "season": season,
             "target_gameweek": gw,
@@ -185,7 +189,17 @@ def capture_fpl_cat_snapshot(
                 "identity_resolution_status": "VERIFIED",
                 "identity_resolution_method": "PROVIDER_PLAYER_ID_EQUALS_OFFICIAL_FPL_ELEMENT_ID",
             },
-        },
+        }
+    try:
+        validate_capture_against_registry(
+            "fpl_cat_public_projections", provider_snapshot
+        )
+    except ProviderCapabilityError as exc:
+        raise CaptureError(f"provider capability registry rejected capture: {exc}") from exc
+
+    return {
+        "provider_source_id": "fpl_cat_public_projections",
+        "provider_snapshot": provider_snapshot,
         "player_metadata": metadata,
         "raw_archives": {
             "provider_response_base64": base64.b64encode(provider_raw).decode("ascii"),
