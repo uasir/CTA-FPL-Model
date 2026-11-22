@@ -301,6 +301,38 @@ def audit_all_fixture_archives(raw_dir: Path, seasons: list[str]) -> dict:
     return reports
 
 
+def normalize_all_fpl_archives(raw_dir: Path, output_dir: Path, seasons: list[str]) -> dict:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from normalize_vaastav_fpl_archive import normalize_archive, read_csv
+    normalized_dir = output_dir / "normalized_fpl"
+    normalized_dir.mkdir(parents=True, exist_ok=True)
+    reports = {}
+    for season in seasons:
+        base = raw_dir / "vaastav" / season
+        rows, report = normalize_archive(
+            read_csv(base / "merged_gw.csv"),
+            read_csv(base / "players_raw.csv"),
+            read_csv(base / "teams.csv"),
+            season,
+        )
+        path = normalized_dir / f"{season}_player_matches.csv"
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+            writer.writeheader()
+            writer.writerows(rows)
+        reports[season] = {
+            "status": report["status"],
+            "input_rows": report["input_merged_rows"],
+            "canonical_player_rows": report["canonical_player_match_rows"],
+            "excluded_non_player_rows": report["excluded_non_player_rows"],
+            "unique_fixtures": report["unique_fixtures"],
+            "unique_gameweeks": report["unique_gameweeks"],
+            "normalized_path": str(path),
+            "normalized_sha256": sha256(path),
+        }
+    return reports
+
+
 def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: str,
             workers: int = 10) -> dict:
     sys.path.insert(0, str(dastan_root))
@@ -350,6 +382,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
     current_api_report = refresh_current_core(raw_dir, season, bootstrap, fixtures, workers=workers)
     write_live_fixture_schedule(raw_dir, season, fixtures)
     fixture_archive_audits = audit_all_fixture_archives(raw_dir, seasons)
+    normalization_reports = normalize_all_fpl_archives(raw_dir, output_dir, seasons)
     team_paths = {
         value: list((raw_dir / "vaastav" / "understat" / "teams" / value).glob("*.csv"))
         for value in seasons
@@ -425,6 +458,7 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         "current_roster_snapshot": str(roster_path),
         "current_api_history": current_api_report,
         "fixture_archive_audits": fixture_archive_audits,
+        "normalization_reports": normalization_reports,
         "canonical_player_match_rows": len(player_matches),
         "canonical_team_match_rows": len(team_matches),
         "historical_training_rows": len(training_frame),
