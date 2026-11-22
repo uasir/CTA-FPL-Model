@@ -1,0 +1,146 @@
+name: Match prospective M3 forecasts to official final outcomes
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_archive_path:
+        description: Exact manager-free M3 forecast archive directory in the private CoVar archive
+        required: true
+        default: "2026-27/gw11/source-run-44809552413"
+        type: string
+      finality_run_id:
+        description: Run containing the official finality evidence artifact for this Gameweek
+        required: true
+        default: "44882707622"
+        type: string
+      finality_artifact_name:
+        description: Exact artifact containing the finality report and realized CSV panels
+        required: true
+        default: "cta-covar-realized-evidence-44882707622-1"
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: m3-covar-match-${{ inputs.target_archive_path }}
+  cancel-in-progress: false
+
+jobs:
+  match:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out current M3 CoVar integration
+        uses: actions/checkout@v4
+
+      - name: Check out private manager-free M3 archive
+        uses: actions/checkout@v4
+        with:
+          repository: uasir/cta-fpl-covar-archive
+          token: ${{ secrets.COVAR_ARCHIVE_TOKEN }}
+          path: private-archive
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download official finality and realized-outcome evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.finality_artifact_name }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.finality_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/finality-input
+
+      - name: Match exact M3 snapshot to final official outcomes
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+          RUNNER_TEMP: ${{ runner.temp }}
+          TARGET_ARCHIVE_PATH: ${{ inputs.target_archive_path }}
+        run: |
+          set -euo pipefail
+          case "$TARGET_ARCHIVE_PATH" in
+            /*|*..*|*\\*) echo "Unsafe archive path" >&2; exit 1 ;;
+          esac
+          ARCHIVE="$GITHUB_WORKSPACE/private-archive/$TARGET_ARCHIVE_PATH"
+          BUNDLE=$(find "$ARCHIVE" -maxdepth 1 -type f -name 'm3_covar_forecast_gw*.json' -print -quit)
+          test -n "$BUNDLE"
+          test -s "$ARCHIVE/archive_manifest.json"
+          FINALITY="$RUNNER_TEMP/finality-input"
+          test -s "$FINALITY/covar-finality-result/finality_batch_report.json"
+          test -s "$FINALITY/covar-realized-panel/fpl_realized_player_gameweek.csv"
+          test -s "$FINALITY/covar-realized-panel/fpl_realized_player_fixture.csv"
+          mkdir -m 700 -p "$RUNNER_TEMP/matched-output"
+          python scripts/m4_covar_forecast_outcome_matcher.py \
+            --forecast "$BUNDLE" \
+            --realized-gameweek "$FINALITY/covar-realized-panel/fpl_realized_player_gameweek.csv" \
+            --realized-fixtures "$FINALITY/covar-realized-panel/fpl_realized_player_fixture.csv" \
+            --finality-report "$FINALITY/covar-finality-result/finality_batch_report.json" \
+            --output-dir "$RUNNER_TEMP/matched-output/per-gameweek"
+
+      - name: Verify matched archive provenance and research-only safeguards
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          python - "$RUNNER_TEMP/matched-output/per-gameweek" <<'PY'
+          import hashlib, json, sys
+          from pathlib import Path
+          root = Path(sys.argv[1])
+          manifest = json.loads((root / "match_manifest.json").read_text())
+          panel = json.loads((root / "matched_forecast_outcomes.json").read_text())
+          if manifest.get("status") != "MATCHED_RESEARCH_PANEL_CREATED":
+              raise SystemExit("Matched archive did not pass")
+          if panel.get("finality_status") != "PASS_EXACT_MATCH":
+              raise SystemExit("Official finality match is not exact")
+          if not panel.get("outcome_available_at_utc"):
+              raise SystemExit("Observed outcome availability timestamp is missing")
+          if panel.get("missing_observations_zero_filled") != 0:
+              raise SystemExit("Missing player outcomes were zero-filled")
+          if panel.get("decision_weight") != 0.0 or panel.get("production_eligible") is not False:
+              raise SystemExit("Research-only safeguards changed")
+          if manifest.get("matched_output_sha256") != hashlib.sha256((root / "matched_forecast_outcomes.json").read_bytes()).hexdigest():
+              raise SystemExit("Matched output hash mismatch")
+          print(json.dumps({
+              "status": "MATCHED_RESEARCH_PANEL_CREATED",
+              "season": panel["season"],
+              "gameweek": panel["gameweek"],
+              "forecast_snapshot_id": panel["forecast_snapshot_id"],
+              "model_version": panel["model_version"],
+              "matched_player_count": panel["matched_player_count"],
+              "outcome_available_at_utc": panel["outcome_available_at_utc"],
+              "decision_weight": 0.0,
+              "production_eligible": False,
+          }, indent=2))
+          PY
+
+      - name: Store the matched player-level archive privately
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+          TARGET_ARCHIVE_PATH: ${{ inputs.target_archive_path }}
+        run: |
+          set -euo pipefail
+          SEASON=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["season"])' "$RUNNER_TEMP/matched-output/per-gameweek/matched_forecast_outcomes.json")
+          GW=$(python -c 'import json,sys; print(int(json.load(open(sys.argv[1]))["gameweek"])' "$RUNNER_TEMP/matched-output/per-gameweek/matched_forecast_outcomes.json")
+          SOURCE_KEY=$(basename "$TARGET_ARCHIVE_PATH")
+          DEST="private-archive/matched-outcomes/$SEASON/gw$(printf '%02d' "$GW")/$SOURCE_KEY"
+          if [ -e "$DEST" ]; then
+            echo "Refusing to overwrite an existing matched archive." >&2
+            exit 1
+          fi
+          mkdir -m 700 -p "$DEST"
+          cp "$RUNNER_TEMP/matched-output/per-gameweek/matched_forecast_outcomes.json" "$DEST/"
+          cp "$RUNNER_TEMP/matched-output/per-gameweek/match_manifest.json" "$DEST/"
+          chmod 600 "$DEST"/*.json
+          cd private-archive
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "matched-outcomes/$SEASON/gw$(printf '%02d' "$GW")/$SOURCE_KEY"
+          git commit -m "Archive prospective conventional M3 matched outcomes GW$GW"
+          git push origin HEAD:main
