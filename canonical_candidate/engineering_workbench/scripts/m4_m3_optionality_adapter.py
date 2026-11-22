@@ -53,8 +53,9 @@ def _verify_m3(m3: Mapping[str, Any]) -> tuple[str, str]:
             raise M3M4OptionalityError(f"M3 evaluation_candidate {key} differs from top-level output")
     candidate_season = candidate.get("season")
     top_level_season = m3.get("season")
-    if not isinstance(candidate_season, str) or not candidate_season.strip():
-        raise M3M4OptionalityError("M3 evaluation_candidate season is missing")
+    if candidate_season is not None and (
+            not isinstance(candidate_season, str) or not candidate_season.strip()):
+        raise M3M4OptionalityError("M3 evaluation_candidate season must be a non-empty string when supplied")
     if top_level_season is not None and candidate_season != top_level_season:
         raise M3M4OptionalityError("M3 evaluation_candidate season differs from top-level output")
     if candidate.get("as_of_utc") != m3.get("decision_as_of_utc"):
