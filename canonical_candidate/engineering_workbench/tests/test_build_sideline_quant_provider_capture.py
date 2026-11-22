@@ -106,3 +106,12 @@ def test_rejects_raw_and_normalized_generation_time_mismatch():
     parsed["player_gameweek_snapshot"]["timing"]["generated_at_utc"] = "2026-11-21T16:59:00Z"
     with pytest.raises(ProviderCaptureBuildError, match="generated_at_utc differ"):
         build_sideline_quant_provider_capture(raw, parsed)
+
+def test_rejects_gw11_publication_when_normalized_capture_claims_gw12():
+    raw, parsed, _, _ = _fixtures()
+    raw["target_gameweek"] = 11
+    raw["source"]["url"] = "https://sidelinequant.com/data/gw/11/projections.json"
+    parsed["player_gameweek_snapshot"]["target_gameweek"] = 12
+    with pytest.raises(ProviderCaptureBuildError, match="raw and normalized season/Gameweek differ"):
+        build_sideline_quant_provider_capture(raw, parsed)
+
