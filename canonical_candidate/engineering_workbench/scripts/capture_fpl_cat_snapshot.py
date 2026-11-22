@@ -164,6 +164,19 @@ def capture_fpl_cat_snapshot(
                 "raw_sha256": provider_hash,
             },
             "grain": "player_gameweek",
+            "multi_gameweek_capability": {
+                "status": "NOT_SUPPORTED_BY_CAPTURE_SCHEMA",
+                "decision_eligible_for_multi_gameweek": False,
+                "available_gameweeks": [gw],
+                "available_grain": "player_gameweek",
+                "required_grain": "player_fixture",
+                "missing_fields": ["fixture_id", "explicit_future_gameweek_forecast_panel"],
+                "reason": (
+                    "This endpoint response contains one target Gameweek and player-level "
+                    "xP/minutes only; it does not provide fixture-level forecasts or explicit "
+                    "future-Gameweek forecast panels."
+                ),
+            },
             "records": records,
             "coverage": {
                 "row_count": len(records),
