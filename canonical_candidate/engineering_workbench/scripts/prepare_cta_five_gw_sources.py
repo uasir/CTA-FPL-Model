@@ -196,12 +196,18 @@ def refresh_current_core(raw_dir: Path, season: str, bootstrap: dict, fixtures: 
 
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         futures = [pool.submit(fetch_player, player) for player in players]
-        for future in as_completed(futures):
+        for index, future in enumerate(as_completed(futures), 1):
             try:
                 element, payload = future.result()
                 history_payloads[element] = payload
             except Exception as exc:
                 failures.append(str(exc))
+            if index % 50 == 0 or index == len(futures):
+                print(
+                    f"    FPL element-summary history {index:,}/{len(futures):,}; "
+                    f"failed={len(failures):,}",
+                    flush=True,
+                )
     if failures:
         raise RuntimeError(f"FPL element-summary retrieval failed for {len(failures)} players: {failures[:3]}")
 
