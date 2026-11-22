@@ -103,135 +103,113 @@ def test_live_fixture_schedule_writer_round_trips(tmp_path: Path):
     assert frame.loc[0, "event"] == 12
 
 
-def test_parallel_understat_fallbacks_fetch_concurrently_and_write_json(tmp_path, monkeypatch):
+def test_parallel_apish_import_fetches_player_and_team_histories(tmp_path, monkeypatch):
     import json
-    import sys
     import threading
     import time
-    import types
+    import understat_apish_provider as provider
     from prepare_cta_five_gw_sources import parallel_understat_fallbacks
 
+    monkeypatch.setenv("APISH_KEY", "test-key")
+    monkeypatch.setenv("APISH_MONTHLY_CREDIT_BUDGET", "900")
     lock = threading.Lock()
     active = 0
     peak = 0
 
-    class FakeResponse:
-        status_code = 200
-        text = "<html><title>Understat</title></html>"
-        headers = {"Content-Type": "text/html"}
-
-        def raise_for_status(self):
-            return None
-
     class FakeSession:
-        def __init__(self):
-            self.headers = {}
-
-        def get(self, url, **kwargs):
-            assert kwargs.get("timeout") == (10, 45)
-            return FakeResponse()
-
-        def request(self, method, url, **kwargs):
-            assert kwargs.get("timeout") == (10, 45)
+        def close(self):
             return None
 
     class FakeClient:
-        def __init__(self):
+        def __init__(self, api_key=None):
+            assert api_key == "test-key"
             self.session = FakeSession()
 
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return False
-
-        def player(self, player):
-            self.player_id = int(player)
-            return self
-
-        def get_match_data(self):
+        def player_history(self, player_id):
             nonlocal active, peak
-            self.session.request("GET", "https://understat.example/player")
             with lock:
                 active += 1
                 peak = max(peak, active)
-            time.sleep(0.03)
+            time.sleep(0.02)
             with lock:
                 active -= 1
-            return [{"id": self.player_id}]
+            return [{
+                "season": "2025",
+                "date": "2025-08-15 15:00:00",
+                "h_team": "Arsenal",
+                "a_team": "Chelsea",
+            }], 1
 
-    fake_module = types.ModuleType("understatapi")
-    fake_module.UnderstatClient = FakeClient
-    monkeypatch.setitem(sys.modules, "understatapi", fake_module)
+        def team_history(self, team_name, season):
+            return [{
+                "date": "2025-08-15 15:00:00",
+                "h_a": "h",
+                "scored": 2,
+                "missed": 0,
+                "xG": 1.5,
+                "xGA": 0.4,
+                "deep": 10,
+                "deep_allowed": 4,
+                "ppda": 8,
+                "ppda_allowed": 12,
+                "pts": 3,
+            }], 1
 
-    parallel_understat_fallbacks(
-        tmp_path, [11, 12, 13, 14, 15, 16], [],
+    monkeypatch.setattr(provider, "ApiShUnderstatClient", FakeClient)
+    report = parallel_understat_fallbacks(
+        tmp_path, [11, 12, 13, 14, 15, 16], ["2025-26"],
         force=False, allow_missing=False, workers=3,
+        team_names_by_season={"2025-26": {"Arsenal", "Chelsea"}},
     )
 
     assert 1 < peak <= 3
+    assert report["provider"] == "API.SH"
+    assert report["player_histories_fetched"] == 6
+    assert report["team_histories_fetched"] == 2
+    assert report["credits_reserved"] == 8
     for player_id in [11, 12, 13, 14, 15, 16]:
         path = tmp_path / "understat" / "players" / f"{player_id}.json"
-        assert json.loads(path.read_text()) == [{"id": player_id}]
+        assert json.loads(path.read_text())[0]["h_team"] == "Arsenal"
+    team_payload = json.loads(
+        (tmp_path / "understat" / "teams" / "2025-26.json").read_text()
+    )
+    assert set(team_payload) == {"Arsenal", "Chelsea"}
+    usage = json.loads((tmp_path / "understat" / "apish_usage.json").read_text())
+    assert usage["calls_reserved"] == 8
 
 
-def test_parallel_understat_fallback_stops_on_provider_wide_preflight_failure(tmp_path, monkeypatch):
-    import sys
-    import types
+def test_parallel_apish_preflight_stops_before_bulk_on_provider_failure(tmp_path, monkeypatch):
+    import json
     import pytest
+    import understat_apish_provider as provider
     from prepare_cta_five_gw_sources import parallel_understat_fallbacks
 
-    class FakeResponse:
-        status_code = 200
-        text = "<html><title>Understat</title></html>"
-        headers = {"Content-Type": "text/html"}
-
-        def raise_for_status(self):
-            return None
+    monkeypatch.setenv("APISH_KEY", "test-key")
+    monkeypatch.setenv("APISH_MONTHLY_CREDIT_BUDGET", "900")
 
     class FakeSession:
-        def __init__(self):
-            self.headers = {}
-
-        def get(self, url, **kwargs):
-            return FakeResponse()
-
-        def request(self, method, url, **kwargs):
-            raise RuntimeError("HTTP 403 from Understat")
-
-    class FakeParser:
-        def get_match_data(self, html):
-            raise ValueError("matchesData is absent")
+        def close(self):
+            return None
 
     class FakeClient:
-        def __init__(self):
+        def __init__(self, api_key=None):
             self.session = FakeSession()
 
-        def __enter__(self):
-            return self
+        def player_history(self, player_id):
+            raise RuntimeError("API.SH HTTP 403")
 
-        def __exit__(self, *args):
-            return False
+        def team_history(self, team_name, season):
+            raise AssertionError("team requests must not start before player preflight")
 
-        parser = FakeParser()
-
-        def player(self, player):
-            return self
-
-        def get_match_data(self):
-            self.session.request("GET", "https://understat.com/getPlayerData/101")
-            return []
-
-    fake_module = types.ModuleType("understatapi")
-    fake_module.UnderstatClient = FakeClient
-    monkeypatch.setitem(sys.modules, "understatapi", fake_module)
-
-    with pytest.raises(RuntimeError, match="preflight failed.*HTTP 403"):
+    monkeypatch.setattr(provider, "ApiShUnderstatClient", FakeClient)
+    with pytest.raises(RuntimeError, match="preflight failed.*API.SH HTTP 403"):
         parallel_understat_fallbacks(
-            tmp_path, [101, 202, 303, 404, 505], [],
+            tmp_path, [101, 202, 303, 404, 505], ["2025-26"],
             force=False, allow_missing=False, workers=4,
+            team_names_by_season={"2025-26": {"Arsenal"}},
         )
-
+    usage = json.loads((tmp_path / "understat" / "apish_usage.json").read_text())
+    assert usage["calls_reserved"] == 3
 
 
 def test_copy_verified_dastan_release_imports_only_verified_published_artifacts(tmp_path: Path):
@@ -357,70 +335,3 @@ def test_understat_refresh_only_selects_current_roster_appearances_missing_from_
     assert selected == {101, 505}
 
 
-def test_understat_html_challenge_is_reported_before_json_parse(tmp_path, monkeypatch):
-    import sys
-    import types
-    import pytest
-    from prepare_cta_five_gw_sources import parallel_understat_fallbacks
-    import prepare_cta_five_gw_sources as source_module
-
-    monkeypatch.setattr(source_module.time, "sleep", lambda _seconds: None)
-
-    class FakeResponse:
-        status_code = 200
-        text = "<html><title>Access denied</title></html>"
-        headers = {"Content-Type": "text/html"}
-
-        def raise_for_status(self):
-            return None
-
-    class FakeSession:
-        def __init__(self):
-            self.headers = {}
-
-        def get(self, url, **kwargs):
-            assert kwargs.get("timeout") == (10, 45)
-            if url == "https://understat.com/":
-                return type("HomeResponse", (), {
-                    "status_code": 200,
-                    "text": "<html><title>Understat</title></html>",
-                    "headers": {"Content-Type": "text/html"},
-                    "raise_for_status": lambda self: None,
-                })()
-            return FakeResponse()
-
-        def request(self, method, url, **kwargs):
-            assert kwargs.get("timeout") == (10, 45)
-            return FakeResponse()
-
-    class FakeParser:
-        def get_match_data(self, html):
-            raise ValueError("matchesData is absent")
-
-    class FakeClient:
-        def __init__(self):
-            self.session = FakeSession()
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return False
-
-        parser = FakeParser()
-
-        def player(self, player):
-            return self
-
-        def get_match_data(self):
-            return self.session.request("GET", "https://understat.com/getPlayerData/37")
-
-    fake_module = types.ModuleType("understatapi")
-    fake_module.UnderstatClient = FakeClient
-    monkeypatch.setitem(sys.modules, "understatapi", fake_module)
-
-    with pytest.raises(RuntimeError, match="non-JSON/challenge response"):
-        parallel_understat_fallbacks(
-            tmp_path, [37, 62, 65, 99], [],
-            force=False, allow_missing=False, workers=2,
-        )
