@@ -140,7 +140,7 @@ def test_incomplete_joint_scenario_player_vector_is_rejected():
 
 
 def test_insufficient_scenarios_in_any_gameweek_is_rejected():
-    rows = [row for row in scenarios() if not (row["gameweek"] == 14 and row["scenario_id"] == "high")]
+    rows = [row for row in scenarios() if not (row["gameweek"] == 14 and row["scenario_id"] in {"mid", "high"})]
     provenance = scenario_provenance()
     provenance["scenario_count"] = len(rows)
     with pytest.raises(TeamExposureError, match="at least two complete"):
