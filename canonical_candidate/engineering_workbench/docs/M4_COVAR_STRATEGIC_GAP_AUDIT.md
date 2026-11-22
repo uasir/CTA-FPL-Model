@@ -149,7 +149,8 @@ The historical covariance builder now independently verifies that the realized p
 This closes a source-set integrity gap; it does **not** establish point-in-time forecast validity, covariance stability, a calibrated forward joint distribution, manager-level field representativeness, or recommendation eligibility. The output remains retrospective and exploratory, with `decision_weight = 0` and `production_eligible = false`.
 
 Validation:
-- Full engineering CI: 840 tests and 3 subtests passed — [run 44994156520](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994156520).
-- Focused CoVar validation: 74 tests passed — [run 44994156529](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994156529).
+- Full engineering CI: 846 tests and 3 subtests passed — [run 44994803493](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994803493).
+- Focused CoVar validation: 127 tests passed — [run 44994803507](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994803507).
+- Real official FPL replay: 10 completed Gameweeks passed, including 10/10 official team-score reconciliations — [run 44994803507](https://github.com/uasir/CTA-FPL-Model/actions/runs/44994803507).
 
-Next validation priority: execute the private official-FPL replay harness across multiple completed Gameweeks, then proceed to empirical field-sample representativeness and event-derived full-Gameweek scenario validation. No manager-level replay data is committed or uploaded by this change.
+The first real replay baseline is complete. The next validation priority is to expand the real sample to include actual autosubs and Double/Triple Gameweeks, then test field-sample representativeness and event-derived full-Gameweek scenario validation. Only normalized identity-field-stripped replay cases are retained in a 30-day Actions artifact; raw manager API payloads are not committed or uploaded.
