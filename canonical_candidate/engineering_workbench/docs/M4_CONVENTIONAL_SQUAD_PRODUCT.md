@@ -192,3 +192,15 @@ Added `provider_capability_registry.py` as the central source of truth for captu
 The registry exposes defensive-copy lookup/list operations, capture identity-and-grain validation, and a fail-closed `require_multi_gameweek_capture` gate. The gate requires fixture-level grain, fixture IDs, explicit multi-GW panels, at least the requested five-Gameweek horizon, point-in-time capture and authorized reproducible access. Neither currently registered public source passes. Unknown sources also fail closed. Adding a future provider requires an explicit reviewed registry entry; a source cannot self-assert eligibility in its capture payload.
 
 Regression tests cover both current provider classifications, fail-closed behaviour, unknown sources, immutable registry reads, capture identity/grain mismatch and attempted self-assertion. This registry does not change the live FPL Cat one-GW route, the multi-GW forecast contract, or product actionability gates.
+
+
+## Provider registry enforcement at pipeline boundaries — 22 Nov 2026
+
+The machine-readable capability registry is now enforced in the actual capture path, not merely exposed as a helper:
+
+- FPL Cat capture validates the emitted provider identity and player_gameweek grain against fpl_cat_public_projections and includes that stable provider_source_id in the capture envelope.
+- Sideline Quant normalization validates the canonical native player_fixture snapshot against sideline_quant_public_next_gw. The derived player-Gameweek sum remains a separate, explicitly labelled view; the registry check is performed against the preserved fixture-grain source snapshot.
+- The Sideline Quant M3 capture-envelope builder repeats the source-snapshot registry check before producing its handoff artifact and carries the stable source ID forward.
+- The five-plus-Gameweek bundle builder now requires a registered provider_source_id, checks that the source has explicitly approved capabilities for the requested horizon, validates each panel provider identity and grain against that registry entry, and preserves the source ID in the resulting bundle. Both currently registered public sources are rejected for five-GW use; unknown and missing source IDs are rejected.
+
+Contract tests use an isolated monkeypatched synthetic capability only to exercise bundle aggregation logic. That synthetic provider is not registered in production and cannot pass the real registry gate. Tests separately assert that current FPL Cat and unknown sources fail the production gate. These changes do not unlock live multi-GW recommendations or alter the existing one-GW FPL Cat route.
