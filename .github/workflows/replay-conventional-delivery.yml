@@ -1,6 +1,9 @@
 name: Replay conventional delivery from archived evidence
 
 on:
+  push:
+    branches:
+      - feat/m4-conventional-delivery-current-m3
   workflow_dispatch:
     inputs:
       source_run_id:
