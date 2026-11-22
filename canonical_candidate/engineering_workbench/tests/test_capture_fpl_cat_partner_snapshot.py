@@ -20,7 +20,7 @@ def _fixtures():
                       "p_return": 0.4, "p_haul": 0.1, "p_blank": 0.5,
                       "xp_q10": 1.0, "xp_q90": 8.0, "breakdown": {"appearance": 2.0}})
     provider = {
-        "gameweeks": [{"gameweek": gw} for gw in range(12, 18)],
+        "gameweeks": list(range(12, 18)),
         "deadline": deadlines[12],
         "computed_at": "2026-11-22T05:00:00Z",
         "players": [{"id": 1, "gameweeks": weeks}],
