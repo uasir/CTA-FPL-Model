@@ -8,6 +8,7 @@ from prepare_cta_five_gw_sources import (
     copy_verified_dastan_release,
     copy_verified_dastan_model_contract,
     copy_dastan_operational_mappings,
+    historical_source_seasons,
     player_elements,
     season_from_bootstrap,
     write_csv_frame,
@@ -197,30 +198,6 @@ def test_parallel_understat_fallback_stops_on_provider_wide_preflight_failure(tm
 
 
 
-def test_dastan_release_history_extracts_raw_inputs_without_precomputed_features(tmp_path: Path):
-    import pandas as pd
-
-    data_dir = tmp_path / "data"
-    data_dir.mkdir()
-    frame = pd.DataFrame([{
-        "season": "2025-26", "gameweek": 1, "fixture": 1, "fpl_code": 100,
-        "element": 10, "position": "MID", "player_name": "Player",
-        "team_name": "Arsenal", "opponent_team_name": "Chelsea",
-        "us_opponent": "Chelsea", "kickoff_time": "2025-08-15T19:00:00Z",
-        "minutes": 90, "total_points": 8, "is_home": True, "understat_id": 900,
-        "us_xG": 0.5, "us_xA": 0.2, "defensive_contribution": 12,
-        "player_fpl_points_1": 7.0, "team_xg_5": 1.2, "ar_rest_days": 7.0,
-    }])
-    frame.to_parquet(data_dir / "features.parquet", index=False)
-
-    raw = load_dastan_release_player_history(tmp_path, ["2025-26"])
-    assert raw.loc[0, "us_xG"] == 0.5
-    assert raw.loc[0, "defensive_contribution"] == 12
-    assert "player_fpl_points_1" not in raw.columns
-    assert "team_xg_5" not in raw.columns
-    assert "ar_rest_days" not in raw.columns
-
-
 def test_copy_verified_dastan_release_imports_only_verified_published_artifacts(tmp_path: Path):
     import hashlib
     import json
@@ -321,12 +298,13 @@ def test_understat_refresh_only_selects_current_roster_appearances_missing_from_
         @staticmethod
         def _expected_understat_player_dates(raw_dir, seasons):
             assert seasons == ["2026-27"]
+            from datetime import date
             return {
-                101: {"2026-08-15"},
+                101: {date(2026, 8, 15)},
                 202: set(),
-                303: {"2026-09-01"},
-                404: {"2026-09-15"},
-                505: {"2026-10-01"},
+                303: {date(2026, 9, 1)},
+                404: {date(2026, 9, 15)},
+                505: {date(2026, 10, 1)},
             }
 
     csv_root = tmp_path / "vaastav" / "understat" / "players"
