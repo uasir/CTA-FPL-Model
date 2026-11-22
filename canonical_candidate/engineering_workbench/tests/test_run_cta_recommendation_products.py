@@ -122,5 +122,5 @@ def test_cta_runner_requires_real_manager_context(monkeypatch):
         runner, "build_cta_forecast_provider_snapshot",
         lambda *args, **kwargs: copy.deepcopy(_adapter_result()),
     )
-    with pytest.raises(runner.CTRecommendationRunError if hasattr(runner, "CTRecommendationRunError") else runner.CTARecommendationRunError):
+    with pytest.raises(runner.CTARecommendationRunError):
         runner.run_cta_recommendation_products("/unused-bundle", {})
