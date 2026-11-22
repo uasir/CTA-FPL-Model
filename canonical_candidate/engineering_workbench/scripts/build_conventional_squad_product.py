@@ -9,7 +9,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from multi_gameweek_squad_request_assembler import (\n    MultiGameweekSquadAssemblyError,\n    assemble_multi_gameweek_squad_diagnostics,\n)\nfrom multi_gameweek_transfer_evaluator import (
+from multi_gameweek_squad_request_assembler import (
+    MultiGameweekSquadAssemblyError,
+    assemble_multi_gameweek_squad_diagnostics,
+)
+from multi_gameweek_transfer_evaluator import (
     MultiGameweekTransferError,
     evaluate_multi_gameweek_transfer_bundle,
 )
