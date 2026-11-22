@@ -725,12 +725,17 @@ def import_dastan_release(dastan_root: Path, training_dir: Path) -> tuple[pd.Dat
 
 
 def load_dastan_release_player_history(dastan_root: Path, seasons: list[str]) -> pd.DataFrame:
-    """Reuse published player-match rows, including their already imported Understat stats."""
+    """Extract raw match columns from Dastan's verified release frame.
+
+    The published frame contains both raw match inputs and engineered features.
+    Keep only raw inputs here so the target builder recomputes rolling features
+    over historical plus current matches exactly once (without duplicate columns).
+    """
     frame = pd.read_parquet(dastan_root / "data" / "features.parquet")
     required = {
         "season", "gameweek", "fixture", "fpl_code", "element", "position",
-        "team_name", "opponent_team_name", "us_opponent", "kickoff_time",
-        "minutes", "total_points", "is_home", "understat_id",
+        "player_name", "team_name", "opponent_team_name", "us_opponent",
+        "kickoff_time", "minutes", "total_points", "is_home", "understat_id",
     }
     missing = sorted(required - set(frame.columns))
     if missing:
@@ -738,12 +743,36 @@ def load_dastan_release_player_history(dastan_root: Path, seasons: list[str]) ->
             f"Dastan released feature frame cannot serve as player-match history; "
             f"missing columns: {missing}"
         )
-    frame = frame[frame["season"].astype(str).isin(set(seasons))].copy()
-    if frame.empty:
-        raise RuntimeError("Dastan released feature frame has no registered training seasons")
+    expected_seasons = set(map(str, seasons))
+    actual_seasons = set(frame["season"].astype(str))
+    if actual_seasons != expected_seasons:
+        raise RuntimeError(
+            "Dastan player-history season coverage mismatch: "
+            f"expected={sorted(expected_seasons)}, actual={sorted(actual_seasons)}"
+        )
+    if len(frame) == 0:
+        raise RuntimeError("Dastan released feature frame is empty")
     if frame.duplicated(["season", "gameweek", "fixture", "fpl_code"]).any():
         raise RuntimeError("Dastan released player-match history has duplicate keys")
-    return frame
+
+    raw_optional = [
+        "match_date", "starts", "clearances_blocks_interceptions",
+        "defensive_contribution", "recoveries", "tackles", "influence",
+        "creativity", "threat", "goals_scored", "penalties_missed", "assists",
+        "goals_conceded", "own_goals", "saves", "penalties_saved",
+        "yellow_cards", "red_cards", "bps", "bonus", "us_shots", "us_xG",
+        "us_xGChain", "us_xGBuildup", "us_key_passes", "us_xA",
+        "us_team_xG", "us_team_xGA", "us_deep", "us_deep_allowed",
+        "team_h_score", "team_a_score", "expected_points_pre_deadline",
+        "value", "selected", "transfers_balance",
+    ]
+    columns = sorted(required) + [name for name in raw_optional if name in frame.columns]
+    raw = frame[columns].copy()
+    engineered_prefixes = ("player_", "team_", "opp_", "ar_", "p_any_", "p60_", "e_minutes_")
+    leaked = [name for name in raw.columns if name.startswith(engineered_prefixes)]
+    if leaked:
+        raise RuntimeError(f"Historical player-match extraction retained engineered columns: {leaked[:10]}")
+    return raw
 
 
 def build_release_player_lookup(frame: pd.DataFrame, current_lookup: pd.DataFrame) -> pd.DataFrame:
