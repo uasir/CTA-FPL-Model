@@ -54,7 +54,6 @@ def test_samples_public_entries_without_retaining_identity_in_report():
 
 def test_audits_public_manager_replays_and_emits_aggregate_only():
     bootstrap, live, picks = manager_payload(7)
-    picks["automatic_subs"] = [{"element_in": 10, "element_out": 13, "event": 7}]
     mapping = {
         f"{BASE_URL}/bootstrap-static/": bootstrap,
         f"{BASE_URL}/leagues-classic/314/standings/?page_standings=1": {
@@ -82,8 +81,11 @@ def test_counts_real_outfield_autosub_from_final_pick_multipliers():
     bootstrap, live, picks = manager_payload(7)
     live["elements"][1]["stats"].update({"minutes": 0, "total_points": 0})
     live["elements"][12]["stats"].update({"minutes": 90, "total_points": 2})
+    picks["picks"][1]["position"] = 13
     picks["picks"][1]["multiplier"] = 0
+    picks["picks"][12]["position"] = 2
     picks["picks"][12]["multiplier"] = 1
+    picks["automatic_subs"] = [{"element_in": 13, "element_out": 2, "event": 7}]
     mapping = {
         f"{BASE_URL}/bootstrap-static/": bootstrap,
         f"{BASE_URL}/leagues-classic/314/standings/?page_standings=1": {
