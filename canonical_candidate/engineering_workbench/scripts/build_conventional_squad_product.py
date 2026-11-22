@@ -51,7 +51,8 @@ def build_conventional_squad_product(run: Mapping[str, Any]) -> dict[str, Any]:
         blockers = blockers or ["Forecast source run is not release-eligible."]
     return {
         "product_contract_version": "1.0.0",
-        "product_id": "conventional_personal_squad",
+        "product_id": ("conventional_personal_squad" if run_type == "EXTERNAL_BENCHMARK_PERSONAL_SQUAD" else "cta_informed_personal_squad"),
+        "product_family": "personal_squad",
         "product_status": "EXPLORATORY_PREVIEW",
         "release_eligible": False,
         "release_blockers": blockers,
@@ -65,7 +66,7 @@ def build_conventional_squad_product(run: Mapping[str, Any]) -> dict[str, Any]:
         "manager_state": {"bank": manager.get("bank"), "free_transfers": manager.get("free_transfers"),
                           "risk_profile_recorded": manager.get("personal_risk_profile")},
         "decision": {
-            "basis": "EXPECTED_POINTS_ONLY", "action": transfer["action"],
+            "basis": ("CONVENTIONAL_EXPECTED_POINTS_ONLY" if run_type == "EXTERNAL_BENCHMARK_PERSONAL_SQUAD" else "CTA_MODEL_EXPECTED_POINTS_ONLY"), "action": transfer["action"],
             "best_transfer": transfer.get("best_candidate"),
             "transfer_alternatives": transfer.get("alternatives", []),
             "current_squad_plan": dict(current_plan), "recommended_squad_plan": dict(proposed_plan),
