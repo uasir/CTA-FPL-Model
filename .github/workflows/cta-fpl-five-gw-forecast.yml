@@ -51,7 +51,8 @@ jobs:
             tests/test_dastan_player_mapping.py \
             tests/test_verify_source_pins.py \
             tests/test_cta_five_gw_feature_matrix.py \
-            tests/test_dastan_minutes_inference.py -q
+            tests/test_dastan_minutes_inference.py \
+            tests/test_prepare_cta_five_gw_sources.py -q
       - name: Run JavaScript tests
         working-directory: canonical_candidate/engineering_workbench
         run: node --test tests/js/*.test.mjs
