@@ -17,6 +17,8 @@ on:
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_adapter.py"
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_fetch.py"
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_batch.py"
+      - "canonical_candidate/engineering_workbench/scripts/m4_covar_official_event_scoring_audit.py"
+      - "canonical_candidate/engineering_workbench/tests/test_m4_covar_official_event_scoring_audit.py"
       - "canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_replay_validation.py"
       - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_adapter.py"
       - "canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_fetch.py"
@@ -74,6 +76,7 @@ jobs:
             canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_adapter.py \
             canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_fetch.py \
             canonical_candidate/engineering_workbench/scripts/m4_covar_fpl_api_replay_batch.py \
+            canonical_candidate/engineering_workbench/scripts/m4_covar_official_event_scoring_audit.py \
             canonical_candidate/engineering_workbench/scripts/personal_squad_covar_recommendation.py
       - name: Run focused CoVar validation tests
         env:
@@ -93,6 +96,7 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_adapter.py \
             canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_fetch.py \
             canonical_candidate/engineering_workbench/tests/test_m4_covar_fpl_api_replay_batch.py \
+            canonical_candidate/engineering_workbench/tests/test_m4_covar_official_event_scoring_audit.py \
             canonical_candidate/engineering_workbench/tests/test_personal_squad_covar_recommendation.py
 
   private-official-fpl-replay:
@@ -140,5 +144,36 @@ jobs:
           path: |
             ${{ runner.temp }}/covar-official-replays.json
             ${{ runner.temp }}/covar-replay-validation.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  official-event-scoring-audit:
+    if: github.ref == 'refs/heads/feat/m4-field-portfolio-intelligence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Reconcile event scorer with official per-fixture FPL explain data
+        id: audit
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: |
+          python scripts/m4_covar_official_event_scoring_audit.py \
+            --events "1,2,3,4,5,6,7,8,9,10,11" \
+            --output "$RUNNER_TEMP/covar-official-event-scoring-audit.json"
+      - name: Upload official event-scoring audit report
+        if: always() && steps.audit.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-covar-official-event-scoring-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/covar-official-event-scoring-audit.json
           if-no-files-found: warn
           retention-days: 30
