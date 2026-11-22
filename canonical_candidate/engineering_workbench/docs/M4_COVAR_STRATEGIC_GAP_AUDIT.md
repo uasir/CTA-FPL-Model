@@ -227,9 +227,9 @@ pending.
 
 ### Validation and next work
 
-- Full engineering CI: **871 tests and 3 subtests passed** — [run 44998077270](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077270).
-- Focused CoVar validation: **155 passed** — [run 44998077310](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077310).
-- Official manager replay, public field replay and event-scoring audits: [run 44998077310](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998077310).
+- Full engineering CI: **871 tests and 3 subtests passed** — [run 44998292016](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998292016).
+- Focused CoVar validation: **155 passed** — [run 44998292049](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998292049).
+- Official manager replay, public field replay and event-scoring audits: [run 44998292049](https://github.com/uasir/CTA-FPL-Model/actions/runs/44998292049).
 
 Next: capture the first live predeadline portfolio-structure sample; quantify
 its sampling uncertainty and rank-cohort representativeness; then connect
