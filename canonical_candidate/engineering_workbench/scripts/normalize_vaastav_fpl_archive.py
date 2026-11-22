@@ -60,20 +60,24 @@ def normalize_archive(
 
     by_element: dict[str, dict[str, str]] = {}
     manager_elements: set[str] = set()
+    seen_elements: set[str] = set()
     seen_codes: set[str] = set()
     for line, player in enumerate(roster, start=2):
         element = (player.get("id") or "").strip()
         code = (player.get("code") or "").strip()
-        if not element or not code:
-            raise ValueError(f"players_raw row {line}: blank id or stable code")
-        if element in by_element:
-            raise ValueError(f"players_raw row {line}: duplicate element id {element}")
-        if code in seen_codes:
-            raise ValueError(f"players_raw row {line}: duplicate stable fpl_code {code}")
         element_type = (player.get("element_type") or "").strip()
+        if not element:
+            raise ValueError(f"players_raw row {line}: blank element id")
+        if element in seen_elements:
+            raise ValueError(f"players_raw row {line}: duplicate element id {element}")
+        seen_elements.add(element)
         if element_type in {"5", "6"}:
             manager_elements.add(element)
             continue
+        if not code:
+            raise ValueError(f"players_raw row {line}: blank stable fpl_code")
+        if code in seen_codes:
+            raise ValueError(f"players_raw row {line}: duplicate stable fpl_code {code}")
         if element_type not in POSITION_BY_ELEMENT_TYPE:
             raise ValueError(f"players_raw row {line}: unsupported element_type {element_type!r}")
         by_element[element] = player
