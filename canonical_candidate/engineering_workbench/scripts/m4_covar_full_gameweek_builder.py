@@ -75,7 +75,7 @@ def build_full_gameweek_document(
         if not isinstance(provenance_scenarios, list) or list(scenarios) != provenance_scenarios:
             raise CovarFullGameweekBuildError("scenarios must be the exact residual-bootstrap scenario rows")
         required = ("forecast_snapshot_id", "model_version", "training_cutoff_utc",
-                    "scenario_probability_method", "complete_historical_gameweeks")
+                    "scenario_probability_method", "complete_historical_gameweeks", "payload_sha256")
         if any(not scenario_provenance.get(key) for key in required):
             raise CovarFullGameweekBuildError("residual scenario provenance is incomplete")
         data_status = "RESEARCH_RESIDUAL_BLOCK_BOOTSTRAP_ONLY"
@@ -178,10 +178,10 @@ def build_full_gameweek_document(
         "covar_used": False,
     }
     try:
-        validate_full_gameweek_document(document)
+        validated = validate_full_gameweek_document(document)
     except (TypeError, ValueError) as exc:
         raise CovarFullGameweekBuildError(f"composed full-Gameweek document failed validation: {exc}") from exc
-    document["validation_status"] = validate_full_gameweek_document(document)["validation_status"]
+    document["validation_status"] = validated["validation_status"]
     document["production_eligible"] = False
     document["decision_weight"] = 0.0
     document["covar_used"] = False
