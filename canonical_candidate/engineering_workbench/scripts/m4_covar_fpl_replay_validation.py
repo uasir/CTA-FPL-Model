@@ -182,17 +182,32 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         None,
     )
     active_captain_mismatch = official_active_captain != resolution["active_captain_id"]
-    team_points_mismatch = False
     supplied_team_points = official.get("team_points")
+    team_points_reconciliation_basis = None
+    team_points_mismatch = None
     if supplied_team_points is not None:
-        team_points_mismatch = not math.isclose(
-            _finite(supplied_team_points, "official_final.team_points"),
-            official_total,
-            rel_tol=0,
-            abs_tol=1e-9,
+        reported_points = _finite(supplied_team_points, "official_final.team_points")
+        transfer_cost = _finite(
+            official.get("event_transfers_cost", 0),
+            "official_final.event_transfers_cost",
         )
+        if transfer_cost < 0 or not transfer_cost.is_integer():
+            raise CovarFplReplayError("official_final.event_transfers_cost must be a non-negative integer")
+        if math.isclose(reported_points, official_total, rel_tol=0, abs_tol=1e-9):
+            team_points_reconciliation_basis = "ENTRY_HISTORY_POINTS_MATCH"
+            team_points_mismatch = False
+        elif math.isclose(reported_points + transfer_cost, official_total, rel_tol=0, abs_tol=1e-9):
+            team_points_reconciliation_basis = "ENTRY_HISTORY_POINTS_PLUS_TRANSFER_COST_MATCH"
+            team_points_mismatch = False
+        else:
+            team_points_mismatch = True
 
-    passed = not point_mismatches and not multiplier_mismatches and not active_captain_mismatch and not team_points_mismatch
+    passed = (
+        not point_mismatches
+        and not multiplier_mismatches
+        and not active_captain_mismatch
+        and team_points_mismatch is not True
+    )
     event_id = case.get("event_id")
     if event_id is not None and (
         isinstance(event_id, bool) or not isinstance(event_id, int) or event_id < 1
@@ -207,7 +222,8 @@ def validate_official_replay_case(case: Mapping[str, Any]) -> dict[str, Any]:
         "official_multiplier_match": not multiplier_mismatches,
         "player_points_match": not point_mismatches,
         "active_captain_match": not active_captain_mismatch,
-        "official_team_points_reconcile": not team_points_mismatch,
+        "official_team_points_reconcile": (not team_points_mismatch) if team_points_mismatch is not None else None,
+        "team_points_reconciliation_basis": team_points_reconciliation_basis,
         "mismatched_player_multipliers": multiplier_mismatches,
         "mismatched_player_points": point_mismatches,
         "resolver_active_captain_id": resolution["active_captain_id"],
@@ -255,7 +271,8 @@ def validate_replay_batch(document: Mapping[str, Any]) -> dict[str, Any]:
         "multiplier_mismatch_replays": sum(not row["official_multiplier_match"] for row in results),
         "player_points_mismatch_replays": sum(not row["player_points_match"] for row in results),
         "captain_mismatch_replays": sum(not row["active_captain_match"] for row in results),
-        "team_points_reconciliation_failures": sum(not row["official_team_points_reconcile"] for row in results),
+        "team_points_reconciliation_cases": sum(row["official_team_points_reconcile"] is not None for row in results),
+        "team_points_reconciliation_failures": sum(row["official_team_points_reconcile"] is False for row in results),
         "results": results,
         "production_eligible": False,
         "decision_weight": 0.0,
