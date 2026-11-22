@@ -152,8 +152,8 @@ def resolve_fpl_lineup(
         str(pid): _finite_number(value, f"player_minutes[{pid}]", minimum=0)
         for pid, value in player_minutes.items()
     }
-    if any(value > 120 for value in minutes.values()):
-        raise CovarLineupResolutionError("player minutes cannot exceed 120")
+    # Minutes are Gameweek-aggregated. Double/Triple Gameweeks can exceed 120;
+    # fixture-level input validators enforce the per-match limit separately.
     played = {str(pid): value for pid, value in player_played.items()}
     if any(minutes[pid] > 0 and not played[pid] for pid in squad):
         raise CovarLineupResolutionError("players with positive minutes must be marked as played")
