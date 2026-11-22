@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -67,7 +68,17 @@ def manager_context_from_conventional_run(
         raise CTARecommendationRunError("conventional run season does not match CTA forecast season")
     if source.get("target_gameweek") != expected_gameweek:
         raise CTARecommendationRunError("conventional run target Gameweek does not match CTA forecast")
-    if source.get("deadline_utc") != expected_deadline_utc:
+    try:
+        conventional_deadline = datetime.fromisoformat(
+            str(source.get("deadline_utc")).replace("Z", "+00:00")
+        )
+        cta_deadline = datetime.fromisoformat(
+            str(expected_deadline_utc).replace("Z", "+00:00")
+        )
+    except ValueError as exc:
+        raise CTARecommendationRunError("conventional/CTA deadlines must be ISO-8601") from exc
+    if (conventional_deadline.tzinfo is None or cta_deadline.tzinfo is None
+            or conventional_deadline.astimezone(timezone.utc) != cta_deadline.astimezone(timezone.utc)):
         raise CTARecommendationRunError("conventional run deadline does not match CTA forecast deadline")
     manager = conventional_run.get("manager_context")
     if not isinstance(manager, Mapping):
