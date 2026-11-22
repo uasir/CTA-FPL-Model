@@ -30,22 +30,31 @@ def sha256(path: Path) -> str:
 
 
 def with_training_target(frame: pd.DataFrame) -> pd.DataFrame:
-    """Expose the FPL match outcome as CTA's explicit supervised target."""
-    if "target_points" in frame.columns:
+    """Convert observed FPL points into an appearance-conditional points/90 target."""
+    if "target_points_per_90" in frame.columns:
         return frame
-    if "total_points" not in frame.columns:
+    required = {"total_points", "minutes"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
         raise ValueError(
-            "Training frame requires target_points or Dastan/FPL total_points"
+            "Training frame requires target_points_per_90 or FPL total_points/minutes; "
+            f"missing={missing}"
         )
     out = frame.copy()
-    out["target_points"] = pd.to_numeric(out["total_points"], errors="coerce")
+    points = pd.to_numeric(out["total_points"], errors="coerce")
+    minutes = pd.to_numeric(out["minutes"], errors="coerce")
+    eligible = minutes.ge(30) & points.notna()
+    out["target_points_per_90"] = np.nan
+    out.loc[eligible, "target_points_per_90"] = (
+        points.loc[eligible] * 90.0 / minutes.loc[eligible]
+    )
     return out
 
 
 def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
                  source_path: Path) -> dict:
     frame = with_training_target(frame)
-    required = set(features) | {"season", "gameweek", "fixture", "fpl_code", "position", "target_points"}
+    required = set(features) | {"season", "gameweek", "fixture", "fpl_code", "position", "target_points_per_90"}
     missing = sorted(required - set(frame.columns))
     if missing:
         raise ValueError(f"Training frame missing required fields: {missing[:20]}")
@@ -58,15 +67,15 @@ def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
     report_positions = {}
     for position in POSITIONS:
         rows = frame[frame["position"].astype(str).eq(position)].copy()
-        rows["target_points"] = pd.to_numeric(rows["target_points"], errors="coerce")
-        rows = rows[rows["target_points"].notna()]
+        rows["target_points_per_90"] = pd.to_numeric(rows["target_points_per_90"], errors="coerce")
+        rows = rows[rows["target_points_per_90"].notna()]
         if len(rows) < 500:
             raise ValueError(f"{position}: insufficient training rows ({len(rows)})")
         train_features, applied_mask = mask_unavailable_features(rows[features], features)
         if applied_mask != masked_features:
             raise RuntimeError("Unavailable feature mask changed between position partitions")
         X = train_features.apply(pd.to_numeric, errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
-        y = rows["target_points"].to_numpy(dtype=np.float32)
+        y = rows["target_points_per_90"].to_numpy(dtype=np.float32)
         if not np.isfinite(X).all() or not np.isfinite(y).all():
             raise ValueError(f"{position}: non-finite training matrix or target")
         model = xgb.XGBRegressor(
@@ -91,6 +100,7 @@ def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
             "training_rows": len(rows),
             "seasons": sorted(rows["season"].astype(str).unique().tolist()),
             "gameweeks": sorted(pd.to_numeric(rows["gameweek"], errors="coerce").dropna().astype(int).unique().tolist()),
+            "target_points_basis": "observed FPL points scaled to a 90-minute appearance; training appearances >=30 minutes",
             "target_mean": float(np.mean(y)),
             "target_std": float(np.std(y)),
             "model_path": str(path),
@@ -98,7 +108,7 @@ def train_models(frame: pd.DataFrame, features: list[str], output_dir: Path,
         }
     report = {
         "status": "CANDIDATE_TRAINED_M2_VALIDATION_PENDING",
-        "model_family": "CTA-owned XGBoost regression, one model per FPL position",
+        "model_family": "CTA-owned XGBoost conditional points-per-90 regression, one model per FPL position; multiplied by Dastan expected minutes at scoring",
         "feature_count": len(features),
         "feature_source_mode": "FPL_NATIVE_NO_UNDERSTAT",
         "masked_unavailable_feature_count": len(masked_features),
