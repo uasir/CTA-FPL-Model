@@ -22,8 +22,11 @@ def api_payloads(chip=None):
             "is_captain": index == 10,
             "is_vice_captain": index == 11,
         })
+    official_team_points = sum(2 * row["multiplier"] for row in picks)
     return (
-        {"picks": picks, "active_chip": chip, "entry_history": {"event": 7, "points": 24, "event_transfers_cost": 0}},
+        {"picks": picks, "active_chip": chip, "entry_history": {
+            "event": 7, "points": official_team_points, "event_transfers_cost": 0,
+        }},
         {"elements": [
             {"id": pid, "stats": {
                 "minutes": 90, "yellow_cards": 0, "red_cards": 0,
