@@ -39,6 +39,26 @@ class FixtureArchiveAuditTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate fixture/player"):
             audit_archive(ROWS + [ROWS[0]], FIXTURES, TEAMS, "2026-27")
 
+    def test_revised_fixture_schedule_kickoff_is_a_warning_not_archive_failure(self):
+        rows = [dict(row) for row in ROWS]
+        for row in rows:
+            row["kickoff_time"] = "2022-02-26T15:30:00Z"
+        report = audit_archive(rows, FIXTURES, TEAMS, "2021-22")
+        self.assertEqual(report["status"], "PASS_FIXTURE_ARCHIVE_AUDIT")
+        self.assertEqual(len(report["fixture_kickoff_schedule_differences"]), 1)
+        self.assertEqual(
+            report["fixture_kickoff_schedule_differences"][0]["player_archive_kickoff_utc"],
+            "2022-02-26T15:30:00+00:00",
+        )
+
+    def test_inconsistent_player_kickoffs_for_same_fixture_still_fail(self):
+        rows = [dict(row) for row in ROWS]
+        rows[1]["kickoff_time"] = "2026-08-22T15:00:00Z"
+        report = audit_archive(rows, FIXTURES, TEAMS, "2026-27")
+        self.assertEqual(report["status"], "FAIL_FIXTURE_ARCHIVE_AUDIT")
+        self.assertTrue(any("inconsistent kickoff values" in item
+                            for item in report["fixture_metadata_errors"]))
+
     def test_team_side_mismatch_is_reported(self):
         rows = [dict(r) for r in ROWS]
         rows[0]["opponent_team"] = "1"
