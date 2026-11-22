@@ -394,7 +394,25 @@ def prepare(dastan_root: Path, raw_dir: Path, output_dir: Path, source_commit: s
         raw_dir, sorted(incomplete_players), missing_team_seasons,
         force=False, allow_missing=False,
     )
-    sources.write_download_manifest(raw_dir, seasons)
+    manifest_path = sources.write_download_manifest(raw_dir, seasons)
+    source_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    source_manifest["active_season_overrides"] = {
+        "season": season,
+        "captured_at_utc": datetime.now(timezone.utc).isoformat(),
+        "files": {
+            f"vaastav/{season}/merged_gw.csv": "Hybrid: pinned Vaastav archive plus official FPL element-summary history for current-roster players",
+            f"vaastav/{season}/players_raw.csv": "Pinned Vaastav roster extended/refreshed from official FPL bootstrap-static",
+            f"vaastav/{season}/teams.csv": "Official FPL bootstrap-static team snapshot",
+            f"vaastav/{season}/fixtures.csv": "Official FPL fixtures API snapshot",
+        },
+        "api_endpoints": [
+            f"{FPL_API}/bootstrap-static/",
+            f"{FPL_API}/fixtures/",
+            f"{FPL_API}/element-summary/{{element_id}}/",
+        ],
+        "history_rows_from_official_api": current_api_report["api_player_fixture_rows"],
+    }
+    manifest_path.write_text(json.dumps(source_manifest, indent=2) + "\\n", encoding="utf-8")
 
     print("Building canonical player/team match tables", flush=True)
     player_matches, team_matches, player_lookup = sources.build_canonical_matches(raw_dir, seasons)
