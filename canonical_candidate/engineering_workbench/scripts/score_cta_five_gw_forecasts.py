@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 
+from feature_availability import mask_unavailable_features, unavailable_feature_names
+
 IDENTITY = ["season", "gameweek", "fpl_code", "fpl_element_id", "fixture_id", "position"]
 POSITIONS = ("GKP", "DEF", "MID", "FWD")
 
@@ -52,6 +54,11 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
     minutes_report = json.loads(minutes_report_path.read_text(encoding="utf-8"))
     if manifest.get("status") != "CANDIDATE_TRAINED_M2_VALIDATION_PENDING":
         raise ValueError("CTA points model manifest is not a candidate awaiting M2 validation")
+    if manifest.get("feature_source_mode") != "FPL_NATIVE_NO_UNDERSTAT":
+        raise ValueError("CTA points model was not trained for the FPL-native feature mode")
+    expected_mask = unavailable_feature_names(features)
+    if manifest.get("masked_unavailable_features") != expected_mask:
+        raise ValueError("CTA points model unavailable-feature mask differs from scoring policy")
     feature_order_hash = hashlib.sha256("\n".join(features).encode()).hexdigest()
     if manifest.get("feature_order_sha256") != feature_order_hash:
         raise ValueError("CTA points model feature order differs from forecast schema")
@@ -72,7 +79,12 @@ def score(matrix_path: Path, minutes_path: Path, schema_path: Path,
             raise ValueError(f"CTA points model hash mismatch: {model_path.name}")
         model = xgb.XGBRegressor()
         model.load_model(str(model_path))
-        X = merged.loc[subset, features].apply(pd.to_numeric, errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+        scoring_features, applied_mask = mask_unavailable_features(
+            merged.loc[subset, features], features,
+        )
+        if applied_mask != expected_mask:
+            raise RuntimeError("Unavailable feature mask changed during scoring")
+        X = scoring_features.apply(pd.to_numeric, errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
         predictions = np.clip(model.predict(X), 0.0, None)
         if not np.isfinite(predictions).all():
             raise ValueError(f"{position}: non-finite CTA points predictions")
