@@ -201,3 +201,41 @@ def test_pinned_understat_histories_merge_all_seasons_before_fallback(tmp_path: 
     assert merged["season"].tolist() == [2023, 2024]
     assert report["pinned_season_files_downloaded"] == 2
     assert report["pinned_player_ids_merged"] == 1
+
+def test_parallel_understat_fallback_stops_on_provider_wide_preflight_failure(tmp_path, monkeypatch):
+    import sys
+    import types
+    import pytest
+    from prepare_cta_five_gw_sources import parallel_understat_fallbacks
+
+    class FakeSession:
+        def request(self, method, url, **kwargs):
+            raise RuntimeError("HTTP 403 from Understat")
+
+    class FakeClient:
+        def __init__(self):
+            self.session = FakeSession()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def player(self, player):
+            return self
+
+        def get_match_data(self):
+            self.session.request("GET", "https://understat.example/player")
+            return []
+
+    fake_module = types.ModuleType("understatapi")
+    fake_module.UnderstatClient = FakeClient
+    monkeypatch.setitem(sys.modules, "understatapi", fake_module)
+
+    with pytest.raises(RuntimeError, match="preflight failed.*HTTP 403"):
+        parallel_understat_fallbacks(
+            tmp_path, [101, 202, 303, 404, 505], [],
+            force=False, allow_missing=False, workers=4,
+        )
+
