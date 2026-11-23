@@ -117,13 +117,49 @@ def build_postmatch_state_vectors(
         team_state, player_matches
     )
 
-    # Rest and schedule congestion describe the match that has just been played;
-    # retain their pre-kickoff values rather than using the match as its own prior
-    # fixture. Opponent allowance is refreshed post-match.
+    # Reconstruct rest and schedule congestion at the actual fixture kickoff,
+    # not at the FPL Gameweek deadline. This matters for rescheduled fixtures
+    # whose kickoff can precede the deadline attached to their historical GW.
+    prematch_fixture_frame = out.copy()
+    prematch_fixture_frame["deadline_time"] = (
+        prematch_fixture_frame["kickoff_time"] - pd.Timedelta(nanoseconds=1)
+    )
+    prematch_fixture_state, prematch_fixture_report = rebuild_fixture_context(
+        prematch_fixture_frame, player_matches
+    )
     for column in PREMATCH_FIXTURE_CONTEXT:
-        if column not in out:
-            raise ValueError(f"Historical candidate is missing pre-match context {column}")
-        fixture_state[column] = out[column].to_numpy()
+        if column not in prematch_fixture_state:
+            raise ValueError(f"Pre-match reconstruction did not produce {column}")
+        fixture_state[column] = prematch_fixture_state[column].to_numpy()
+
+    # Archived EP, availability/news and market snapshots are valid match-state
+    # context only when captured safely before this fixture's kickoff. A snapshot
+    # taken after kickoff (possible when the fixture was moved) is not a pre-match
+    # input and is replaced by the established -1 missing sentinel.
+    snapshot_feature_groups = {
+        "ep_next_snapshot_at": ("ar_ep_next",),
+        "signals_snapshot_at": (
+            "sig_status_risk", "sig_chance_playing", "sig_has_news",
+        ),
+        "market_snapshot_at": ("value", "selected", "transfers_balance"),
+    }
+    snapshot_validity = {}
+    for snapshot_column, value_columns in snapshot_feature_groups.items():
+        if snapshot_column in out:
+            captured = pd.to_datetime(
+                out[snapshot_column], utc=True, errors="coerce"
+            )
+            safe = captured.notna() & captured.lt(
+                out["kickoff_time"] - pd.Timedelta(minutes=5)
+            )
+        else:
+            safe = pd.Series(False, index=out.index)
+        snapshot_validity[snapshot_column] = int(safe.sum())
+        for column in value_columns:
+            if column not in fixture_state:
+                raise ValueError(f"Historical state is missing snapshot feature {column}")
+            fixture_state.loc[~safe.to_numpy(), column] = -1.0
+
     for column in POSTMATCH_OPPONENT_CONTEXT:
         if column not in fixture_state:
             raise ValueError(f"Post-match reconstruction did not produce {column}")
@@ -156,17 +192,10 @@ def build_postmatch_state_vectors(
             "team_and_opponent_context": team_report,
             "fixture_context": fixture_report,
         },
-        "preserved_pre_match_context": [
-            *PREMATCH_FIXTURE_CONTEXT,
-            "is_home_num",
-            "value",
-            "selected",
-            "transfers_balance",
-            "ar_ep_next",
-            "sig_status_risk",
-            "sig_chance_playing",
-            "sig_has_news",
-        ],
+        "preserved_pre_match_context": ["is_home_num"],
+        "reconstructed_at_fixture_kickoff": list(PREMATCH_FIXTURE_CONTEXT),
+        "snapshot_context_valid_rows_before_kickoff": snapshot_validity,
+        "pre_match_fixture_context_report": prematch_fixture_report,
         "refreshed_post_match_context": [
             "player rolling and relevant-point windows",
             "availability history",
