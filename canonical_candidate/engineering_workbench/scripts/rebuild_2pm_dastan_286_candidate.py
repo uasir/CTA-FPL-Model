@@ -472,6 +472,11 @@ def build_candidate(
         how="left",
         validate="many_to_one",
     )
+    # Preserve reconstruction inputs for the post-match sequence stage.
+    history_matches.to_parquet(
+        output_dir / "player_matches_with_availability.parquet", index=False
+    )
+    team_matches.to_parquet(output_dir / "team_matches.parquet", index=False)
     loaded, player_history_report = rebuild_player_history_features(
         loaded, history_matches, features
     )
