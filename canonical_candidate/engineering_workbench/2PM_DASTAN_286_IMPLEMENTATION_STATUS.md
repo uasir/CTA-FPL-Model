@@ -256,3 +256,8 @@ The fixture forecast adapter and player-Gameweek aggregator now carry the offset
 A differentiable `independent_fixture_gameweek_negative_log_likelihood` now expands the fixture mixtures and computes one loss per player-Gameweek. This is the training-loss contract needed by the grouped DGW tensor format. The tests cover negative values, shifted moments/tails, training-only support selection, exact two-fixture mixture likelihood and gradients.
 
 This is a clearly labelled distributional adaptation, not the paper's original non-negative Poisson target. It remains research-only until chronological out-of-sample calibration and predictive performance can be compared against (a) the paper-faithful clipped baseline and (b) alternative signed discrete distributions. The 20-point minimum is a provisional floor policy, not a claim that the theoretical FPL lower bound is exactly -20.
+
+
+The grouped historical target builder also retains **non-appearance target fixtures** (normally zero FPL points). The five history tokens must be actual appearances, but the target outcome is not filtered by minutes. This keeps the model's target population aligned with player-point forecasting and avoids confusing a DNP zero with an appearance that earned negative points. Negative played-match points remain unchanged.
+
+For auditability, historical shards retain both the single player-Gameweek target and the underlying fixture-level labels when the supplied label grain is explicitly `player_fixture`. This is useful for support-floor selection from training-fold fixture outcomes; repeated player-Gameweek labels are never misrepresented as fixture-level scores.
