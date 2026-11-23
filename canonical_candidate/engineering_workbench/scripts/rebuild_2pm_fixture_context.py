@@ -77,29 +77,32 @@ def rebuild_fixture_context(
     ].drop_duplicates(["season", "fpl_code", "fixture"])
     if player_fixture.duplicated(["season", "fpl_code", "fixture"]).any():
         raise ValueError("Player fixture history is not unique")
-    rest_groups = {}
-    for key, group in player_fixture.groupby(["season", "fpl_code"], sort=False):
-        group = group.sort_values(["match_available_at", "kickoff_time"], kind="mergesort")
-        rest_groups[key] = (
-            group["match_available_at"].astype("int64").to_numpy(),
-            group["kickoff_time"].astype("int64").to_numpy(),
-        )
-    rest_values = np.full(len(out), 14.0, dtype=float)
-    for (season, code), indices in out.groupby(["season", "fpl_code"], sort=False).groups.items():
-        history_pair = rest_groups.get((season, code))
-        if history_pair is None:
-            continue
-        available_ns, kickoff_ns = history_pair
-        row_positions = np.asarray(list(indices), dtype=int)
-        deadlines_ns = out.loc[row_positions, "deadline_time"].astype("int64").to_numpy()
-        target_kickoffs_ns = out.loc[row_positions, "kickoff_time"].astype("int64").to_numpy()
-        positions = np.searchsorted(available_ns, deadlines_ns, side="left") - 1
-        valid = positions >= 0
-        days = np.full(len(row_positions), 14.0, dtype=float)
-        days[valid] = (
-            target_kickoffs_ns[valid] - kickoff_ns[positions[valid]]
-        ) / 86_400_000_000_000
-        rest_values[row_positions] = np.clip(days, 1.0, 14.0)
+    left_rest = out[
+        ["season", "fpl_code", "deadline_time", "kickoff_time"]
+    ].copy()
+    left_rest["_row_id"] = np.arange(len(out), dtype=int)
+    right_rest = player_fixture[
+        ["season", "fpl_code", "match_available_at", "kickoff_time"]
+    ].rename(columns={"kickoff_time": "prior_kickoff_time"})
+    left_rest = left_rest.sort_values("deadline_time", kind="mergesort")
+    right_rest = right_rest.sort_values("match_available_at", kind="mergesort")
+    rest_join = pd.merge_asof(
+        left_rest,
+        right_rest,
+        left_on="deadline_time",
+        right_on="match_available_at",
+        by=["season", "fpl_code"],
+        direction="backward",
+        allow_exact_matches=False,
+    ).sort_values("_row_id", kind="mergesort")
+    rest_days = (
+        (rest_join["kickoff_time"] - rest_join["prior_kickoff_time"])
+        .dt.total_seconds()
+        .div(86_400)
+        .clip(1, 14)
+        .fillna(14)
+    )
+    rest_values = rest_days.to_numpy(dtype=float)
     out["ar_rest_days"] = rest_values
 
     # Congestion: count the known team schedule in the 14 days up to target kickoff.
