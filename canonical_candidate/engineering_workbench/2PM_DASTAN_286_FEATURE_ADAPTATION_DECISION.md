@@ -98,7 +98,7 @@ The sequence builder must be new and independent. The legacy 2PM sequence builde
 
 ## 6A. Recommended sequence representation
 
-The recommended Dastan-input sequence adaptation is documented in `2PM_DASTAN_SEQUENCE_REPRESENTATION_PROPOSAL.md`: five previous played-fixture deadline snapshots plus one current target-fixture query token, each using the same 286-column candidate schema (six tokens × 286 features). This is an explicit adaptation of the paper's original five-match/116-feature input, not an exact reproduction.
+The recommended Dastan-input sequence adaptation is documented in `2PM_DASTAN_SEQUENCE_REPRESENTATION_PROPOSAL.md`: five previous played-fixture post-match state vectors plus one current target-fixture pre-deadline query token, each using the same 286-column candidate vocabulary (six tokens × 286 features). This requires a new Dastan-derived historical state builder; it is not a direct use of the released pre-match rows. This is an explicit adaptation of the paper's original five-match/116-feature input, not an exact reproduction.
 
 It remains a proposal and must not be implemented until the paper's 21-day rule, full deadline-safe feature rebuild, feature admission and sequence coverage have been verified.
 
