@@ -106,7 +106,7 @@ Historical input tokens require actual appearances (minutes > 0). Target outcome
 - Do not let an earlier same-Gameweek result enter a historical token whose state timestamp precedes that result's completion.
 - Fit all imputers, scalers, encoders and transformations on chronological training data only.
 - Historical state time is the later of the player match-availability timestamp and kickoff + 24 hours, plus 1 ns, so the current player and team match records are eligible under the current conservative source bounds. This is not a claim of immediate full-time availability.
-- Post-match player/team/opponent rolling features and ranks are reconstructed season by season; previous-season rolling history is excluded unless a separate identity/continuity decision admits it.
+- The five sequence-token fixtures are restricted to the target season. Player and defensive rolling feature values follow Dastan's corrected stable player_uid across seasons where an audited Understat identity exists; unmapped element fallbacks remain season-scoped. Team/rank and availability histories retain their source-defined season scope. This distinction prevents previous-season fixtures from becoming sequence tokens while preserving the 286 feature family's stable-ID semantics.
 - Preserve missingness and unavailable-source semantics; do not collapse missing into genuine zero.
 
 ## 9. Trade-offs and required checks
