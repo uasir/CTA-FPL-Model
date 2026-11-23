@@ -102,4 +102,7 @@ def test_validation_report_compares_abc_with_points_baselines():
     assert "prior5_player_points" in report["validation_baselines"]
     assert "training_mean" in report["validation_baselines"]
     assert "training_median" in report["validation_baselines"]
+    assert report["ridge_tuning"]["method"] == "EXPANDING_GAMEWEEK_FOLDS_WITHIN_OUTER_TRAINING_PERIOD"
+    assert report["ridge_tuning"]["selected_lambda"] in {0.1, 1.0, 10.0, 100.0}
+    assert not set(report["ridge_tuning"]["validation_gameweeks"]) & set(report["validation_gameweeks"])
     assert all("baseline_prior5_points" in row for row in validation)
