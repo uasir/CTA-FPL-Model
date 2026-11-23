@@ -96,7 +96,9 @@ def _features(prior_rows):
             else None
         ),
         "threat_creation_rate": key_rate,
-        "threat_reception_rate": _per90(last3, "attempts_inside_box"),
+        # 11footy attempts inside the box are shots, not receiver-level receptions.
+        # Do not relabel them as reception evidence.
+        "threat_reception_rate": None,
         "threat_realisation_rate": (
             goals3 / xg_sum3 if goals3 is not None and xg_sum3 is not None and xg_sum3 > 0 else None
         ),
@@ -110,9 +112,9 @@ def _verified_rows(rows):
     result = defaultdict(list)
     seen = set()
     for row in rows:
-        status = str(row.get("join_status") or "").strip()
-        if status != "VERIFIED_IDENTITY_AND_FIXTURE":
-            continue
+        # Input contract: verified_player_match_panel.csv from
+        # build_11footy_player_match_features.py. That builder emits only rows
+        # backed by the strict cross-provider verified crosswalk and fixture checks.
         player = str(row.get("fpl_element_id") or "").strip()
         fixture = str(row.get("fpl_fixture_id") or "").strip()
         gw = number(row.get("gameweek"))
@@ -181,7 +183,7 @@ def enrich_panel(wyscout_rows, footy_rows):
         "primary_source": "11footy historical verified player-match features",
         "supplementary_source": "Wyscout historical player-match event features",
         "lag_policy": "Only verified 11footy matches from strictly earlier FPL Gameweeks; same-GW fixtures share pre-GW history.",
-        "identity_policy": "Only join_status=VERIFIED_IDENTITY_AND_FIXTURE rows are eligible as 11footy feature evidence.",
+        "identity_policy": "Input must be the verified_player_match_panel.csv emitted by build_11footy_player_match_features.py; provisional research-only rows are not accepted.",
         "missingness_policy": "Missing values remain null; Wyscout is used only where the corresponding 11footy feature is unavailable.",
         "point_in_time_status": "RETROSPECTIVE_SOURCE_VINTAGES_NOT_VERIFIED",
         "promotion_status": "RESEARCH_ONLY_DO_NOT_PROMOTE",
