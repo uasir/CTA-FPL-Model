@@ -155,6 +155,8 @@ def build_sequences(
     if has_label:
         frame = frame.copy()
         frame[label_column] = pd.to_numeric(frame[label_column], errors="coerce")
+    if require_label and frame[label_column].isna().any():
+        raise ValueError("Labelled sequence build contains missing target points")
 
     output: list[dict[str, Any]] = []
     counts = {
@@ -293,6 +295,8 @@ def build_sequence_shards(
     if label_column:
         frame = frame.copy()
         frame[label_column] = pd.to_numeric(frame[label_column], errors="coerce")
+    if require_label and frame[label_column].isna().any():
+        raise ValueError("Labelled sequence build contains missing target points")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     tensor_buffer = np.empty((shard_size, SEQUENCE_LENGTH, len(features)), dtype=np.float32)
