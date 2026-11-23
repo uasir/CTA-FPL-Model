@@ -1,0 +1,31 @@
+name: 2PM active-season target query contract
+
+on:
+  push:
+    branches: ["feat/four-layer-2pm-transformer-evaluation"]
+    paths:
+      - canonical_candidate/engineering_workbench/scripts/build_2pm_active_target_queries.py
+      - canonical_candidate/engineering_workbench/tests/test_2pm_active_target_queries.py
+      - .github/workflows/cta-2pm-active-query-contract.yml
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install focused dependencies
+        run: python -m pip install numpy pandas pyarrow pytest
+      - name: Compile active target query builder
+        working-directory: canonical_candidate/engineering_workbench
+        run: python -m py_compile scripts/build_2pm_active_target_queries.py
+      - name: Test current-season fixture-grain query construction
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: python -m pytest -q tests/test_2pm_active_target_queries.py
