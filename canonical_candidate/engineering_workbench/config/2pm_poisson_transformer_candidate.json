@@ -1,0 +1,53 @@
+{
+  "model_name": "2PM-PoissonMixture-Transformer",
+  "architecture_version": "0.1.0",
+  "status": "RESEARCH_ONLY_IMPLEMENTATION",
+  "feature_schema": "2pm_dastan_286_schema.json",
+  "feature_count": 286,
+  "sequence_length": 6,
+  "sequence_contract": "five_previous_played_fixture_tokens_plus_target_query_token",
+  "sequence_semantics_status": "PROVISIONAL_PREMATCH_ROW_PROTOTYPE_NOT_FROZEN",
+  "input_embedding": {
+    "d_model": 256
+  },
+  "transformer_encoder": {
+    "num_layers": null,
+    "num_layers_status": "UNSPECIFIED_BY_PUBLISHED_PAPER_REQUIRES_EXPLICIT_EXPERIMENT_CONFIG",
+    "nhead": 8,
+    "dim_feedforward": 1024,
+    "activation": "gelu",
+    "norm_first": true,
+    "dropout": 0.22,
+    "positional_encoding": "sinusoidal"
+  },
+  "output_distribution": {
+    "type": "two_component_poisson_mixture",
+    "parameters": ["p", "lambda_1", "lambda_2"],
+    "lambda_transform": "softplus_plus_epsilon",
+    "canonical_point_forecast": "analytic_mixture_expectation",
+    "variance": "analytic_mixture_variance"
+  },
+  "training_reference": {
+    "batch_size": 32,
+    "max_epochs": 60,
+    "early_stopping_patience": 5,
+    "early_stopping_min_delta": 0.0001,
+    "loss": "two_component_poisson_mixture_negative_log_likelihood",
+    "rate_initialization": "TRAINING_ONLY_MLE_PENDING_IMPLEMENTATION"
+  },
+  "paper_unspecified_or_open": [
+    "selected_transformer_layer_count",
+    "gumbel_softmax_role_and_temperature",
+    "exact_sequence_pooling_or_target_token_selection",
+    "feedforward_width_and_activation",
+    "normalization_placement",
+    "component_rate_initialization_assignment"
+  ],
+  "guardrails": {
+    "production_weight": 0,
+    "production_eligible": false,
+    "training_authorized": false,
+    "feature_admission": "NOT_ADMITTED",
+    "model_evaluation": "DEFERRED_UNTIL_OFFICIAL_GAMEWEEK_SCORES"
+  }
+}
