@@ -225,3 +225,49 @@ def test_rejects_match_availability_after_conservative_team_bound():
             object(),
             FEATURES,
         )
+
+
+def test_invalidates_snapshots_captured_after_rescheduled_fixture_kickoff(monkeypatch):
+    frame = make_candidate()
+    kickoff = frame.loc[0, "kickoff_time"]
+    frame.loc[0, "deadline_time"] = kickoff + pd.Timedelta(hours=2)
+    frame.loc[0, "ep_next_snapshot_at"] = kickoff + pd.Timedelta(minutes=30)
+    frame.loc[0, "signals_snapshot_at"] = kickoff + pd.Timedelta(minutes=40)
+    frame.loc[0, "market_snapshot_at"] = kickoff + pd.Timedelta(minutes=50)
+
+    def player_rebuild(targets, history, features_module):
+        return targets.copy(), {"status": "player_rebuilt"}
+
+    def team_rebuild(targets, team_history, features_module):
+        return targets.copy(), {"status": "team_rebuilt"}
+
+    def fixture_rebuild(targets, history):
+        out = targets.copy()
+        for column in builder.PREMATCH_FIXTURE_CONTEXT:
+            out[column] = 7.0
+        for column in builder.POSTMATCH_OPPONENT_CONTEXT:
+            out[column] = 8.0
+        return out, {"status": "fixture_rebuilt"}
+
+    monkeypatch.setattr(builder, "rebuild_player_history_features", player_rebuild)
+    monkeypatch.setattr(builder, "rebuild_deadline_team_context", team_rebuild)
+    monkeypatch.setattr(builder, "rebuild_fixture_context", fixture_rebuild)
+
+    result, report = builder.build_postmatch_state_vectors(
+        frame,
+        pd.DataFrame({"season": ["2026-27"]}),
+        pd.DataFrame({"season": ["2026-27"]}),
+        object(),
+        FEATURES,
+    )
+
+    for column in (
+        "value", "selected", "transfers_balance", "ar_ep_next",
+        "sig_status_risk", "sig_chance_playing", "sig_has_news",
+    ):
+        assert result.loc[0, column] == -1.0
+    assert report["snapshot_context_valid_rows_before_kickoff"] == {
+        "ep_next_snapshot_at": 0,
+        "signals_snapshot_at": 0,
+        "market_snapshot_at": 0,
+    }
