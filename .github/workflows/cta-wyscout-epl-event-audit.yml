@@ -362,7 +362,7 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          WYS="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          WYS="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/11footy_integrated/cta_abc_historical_integrated_player_fixture_panel.csv"
           FOOTY="run_artifacts/wyscout/output/abc_11footy/verified_player_match_panel.csv"
           if [ -f "$WYS" ] && [ -f "$FOOTY" ]; then
             python canonical_candidate/engineering_workbench/scripts/build_cta_abc_historical_integrated_panel.py \
@@ -377,7 +377,7 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/11footy_integrated/cta_abc_historical_integrated_player_fixture_panel.csv"
           REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
           if [ -f "$PANEL" ] && [ -f "$REPORT" ]; then
             python canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_wyscout.py \
@@ -392,7 +392,7 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/11footy_integrated/cta_abc_historical_integrated_player_fixture_panel.csv"
           REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
           if [ -f "$PANEL" ] && [ -f "$REPORT" ]; then
             python canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py \
@@ -423,7 +423,7 @@ jobs:
         continue-on-error: true
         working-directory: canonical_candidate/engineering_workbench
         run: |
-          ABC_PANEL="../../run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          ABC_PANEL="../../run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/11footy_integrated/cta_abc_historical_integrated_player_fixture_panel.csv"
           ABC_SOURCE_REPORT="../../run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
           FPL_PANEL="$RUNNER_TEMP/cta_2pm_same_cohort/vaastav_fpl_multiseason_panel.csv"
           FPL_REPORT="$RUNNER_TEMP/cta_2pm_same_cohort/vaastav_fpl_multiseason_report.json"
