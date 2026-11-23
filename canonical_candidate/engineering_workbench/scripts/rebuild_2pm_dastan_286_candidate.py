@@ -190,6 +190,25 @@ def attach_match_availability_bounds(
         )
     return out
 
+
+def enforce_snapshot_safety_buffer(path: Path, *, minutes: int = 5) -> dict:
+    """Drop otherwise-pre-deadline snapshots captured inside the safety buffer."""
+    frame = pd.read_parquet(path)
+    captured = pd.to_datetime(frame["snapshot_at"], utc=True, errors="coerce")
+    deadline = pd.to_datetime(frame["deadline_time"], utc=True, errors="coerce")
+    age = deadline - captured
+    unsafe = captured.isna() | deadline.isna() | age.lt(pd.Timedelta(minutes=minutes))
+    removed = int(unsafe.sum())
+    safe = frame.loc[~unsafe].copy()
+    safe.to_parquet(path, index=False)
+    return {
+        "path": path.name,
+        "safety_buffer_minutes": minutes,
+        "rows_before": int(len(frame)),
+        "rows_removed": removed,
+        "rows_after": int(len(safe)),
+    }
+
 def build_candidate(
     source_root: Path,
     raw_dir: Path,
@@ -258,8 +277,14 @@ def build_candidate(
 
     print("Rebuilding provenance-checked pre-deadline FPL snapshots", flush=True)
     fplcache.build_predeadline_artifacts(raw_dir, output_dir, seasons)
+    ep_safety = enforce_snapshot_safety_buffer(
+        output_dir / "pre_deadline_ep_next.parquet", minutes=5
+    )
+    signals_safety = enforce_snapshot_safety_buffer(
+        output_dir / "pre_deadline_signals.parquet", minutes=5
+    )
     market_path, market_report = build_market_artifact(
-        raw_dir, output_dir, seasons, fplcache
+        raw_dir, output_dir, seasons, fplcache, safety_buffer_minutes=5
     )
     sources.write_download_manifest(raw_dir, seasons)
 
@@ -347,6 +372,11 @@ def build_candidate(
             "market": len(pd.read_parquet(market_path)),
         },
         "market_snapshot_report": market_report,
+        "snapshot_safety_buffer": {
+            "ep_next": ep_safety,
+            "signals": signals_safety,
+            "market": market_report.get("safety_buffer"),
+        },
         "limitations": [
             "The reconstruction uses corrected historical FPL-to-Understat assignments.",
             "The upstream feature builder's deadline assertion covers selected prefixes, not all 286 columns.",
