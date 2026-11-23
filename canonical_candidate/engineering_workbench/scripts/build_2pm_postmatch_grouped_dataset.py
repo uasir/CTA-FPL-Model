@@ -53,9 +53,18 @@ def build_dataset(
         key = f"{season.replace('/', '-')}_gw{gameweek:02d}"
         shard_dir = output_dir / "player_gameweek_tensors" / key
         report_path = output_dir / "reports" / f"{key}.json"
+        target_subset = candidate[
+            candidate["season"].astype(str).eq(season)
+            & pd.to_numeric(candidate["gameweek"], errors="coerce").eq(gameweek)
+        ].copy()
+        player_codes = set(pd.to_numeric(target_subset["fpl_code"], errors="raise").astype("int64"))
+        history_subset = postmatch[
+            postmatch["season"].astype(str).eq(season)
+            & pd.to_numeric(postmatch["fpl_code"], errors="raise").astype("int64").isin(player_codes)
+        ].copy()
         report = build_player_gameweek_sequence_tensors(
-            postmatch,
-            candidate,
+            history_subset,
+            target_subset,
             schema_path,
             shard_dir,
             report_path,
