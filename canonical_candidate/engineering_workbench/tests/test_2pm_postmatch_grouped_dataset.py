@@ -11,18 +11,20 @@ def test_grouped_dataset_builds_one_scoped_player_gameweek_at_a_time(tmp_path, m
     schema.write_text(json.dumps({"feature_count": 286, "feature_order": features}))
 
     candidate = pd.DataFrame([
-        {"season": "2024-25", "gameweek": 1, "fpl_code": 10, "fixture": "A"},
-        {"season": "2024-25", "gameweek": 1, "fpl_code": 11, "fixture": "B"},
-        {"season": "2024-25", "gameweek": 2, "fpl_code": 10, "fixture": "C"},
-        {"season": "2025-26", "gameweek": 1, "fpl_code": 10, "fixture": "D"},
+        {"season": "2024-25", "gameweek": 1, "fpl_code": 10, "fixture": "A", "forecast_target_eligible": True},
+        {"season": "2024-25", "gameweek": 1, "fpl_code": 10, "fixture": "A0", "forecast_target_eligible": False},
+        {"season": "2024-25", "gameweek": 1, "fpl_code": 11, "fixture": "B", "forecast_target_eligible": True},
+        {"season": "2024-25", "gameweek": 2, "fpl_code": 10, "fixture": "C", "forecast_target_eligible": True},
+        {"season": "2025-26", "gameweek": 1, "fpl_code": 10, "fixture": "D", "forecast_target_eligible": True},
     ])
     candidate.to_parquet(tmp_path / "candidate.parquet", index=False)
     pd.DataFrame({"player": [1]}).to_parquet(tmp_path / "players.parquet", index=False)
     pd.DataFrame({"team": [1]}).to_parquet(tmp_path / "teams.parquet", index=False)
 
     states = pd.DataFrame([
-        {"season": "2024-25", "fpl_code": 10, "state": "a"},
-        {"season": "2024-25", "fpl_code": 11, "state": "b"},
+        {"season": "2024-25", "fpl_code": 10, "fixture": "A0", "state": "started-history"},
+        {"season": "2024-25", "fpl_code": 10, "fixture": "A", "state": "a"},
+        {"season": "2024-25", "fpl_code": 11, "fixture": "B", "state": "b"},
         {"season": "2024-25", "fpl_code": 12, "state": "not-targeted"},
         {"season": "2025-26", "fpl_code": 10, "state": "other-season"},
     ])
@@ -33,10 +35,12 @@ def test_grouped_dataset_builds_one_scoped_player_gameweek_at_a_time(tmp_path, m
         "players.parquet": pd.DataFrame({"player": [1]}),
         "teams.parquet": pd.DataFrame({"team": [1]}),
     }[path.name])
-    monkeypatch.setattr(
-        grouped, "build_postmatch_state_vectors",
-        lambda *args: (states.copy(), {"rows": len(states)}),
-    )
+    postmatch_input = {}
+    def fake_postmatch_builder(candidate_frame, *args):
+        postmatch_input["candidate_rows"] = len(candidate_frame)
+        postmatch_input["history_fixtures"] = candidate_frame["fixture"].tolist()
+        return states.copy(), {"rows": len(states)}
+    monkeypatch.setattr(grouped, "build_postmatch_state_vectors", fake_postmatch_builder)
 
     calls = []
     def fake_tensor_builder(history, targets, schema_path, shard_dir, report_path, **kwargs):
@@ -63,8 +67,12 @@ def test_grouped_dataset_builds_one_scoped_player_gameweek_at_a_time(tmp_path, m
     )
 
     assert len(calls) == 3
-    assert calls[0]["history"]["fpl_code"].tolist() == [10, 11]
+    assert postmatch_input["candidate_rows"] == 5
+    assert "A0" in postmatch_input["history_fixtures"]
+    assert calls[0]["history"]["fpl_code"].tolist() == [10, 10, 11]
     assert calls[0]["targets"]["fpl_code"].tolist() == [10, 11]
+    assert "A0" not in calls[0]["targets"]["fixture"].tolist()
+    assert "started-history" in calls[0]["history"]["state"].tolist()
     assert calls[1]["history"]["fpl_code"].tolist() == [10]
     assert calls[1]["targets"]["fixture"].tolist() == ["C"]
     assert calls[2]["history"]["season"].tolist() == ["2025-26"]
