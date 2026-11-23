@@ -31,7 +31,7 @@ The current sequence builder's pre-match-row semantics remain provisional. The r
 
 The current sequence and model contract is **player-fixture**: five previous played fixtures plus one target-fixture query token, with the target label being that fixture's FPL points. A Double Gameweek therefore produces separate fixture-level forecasts for the same player and Gameweek. The forecast-record adapter preserves `player_id`, `target_gameweek` and `target_fixture_id` so those predictions cannot be confused or overwritten.
 
-The player-Gameweek aggregation needed by M3 is not implemented yet. Summing fixture expected points is straightforward, but combining predictive distributions requires an explicit dependence assumption; the sum of independent two-component Poisson mixtures is generally a four-or-more-component mixture, not another two-component mixture. Do not silently average fixture forecasts or pretend a Double Gameweek has one fixture. Keep fixture-level forecasts intact until the GW aggregation contract is specified.
+The player-Gameweek aggregation helper now exists in `scripts/two_pm_gameweek_aggregation.py`. It performs an exact convolution under the explicit `independent_fixture_scores` assumption, producing a 2^n-component Poisson mixture for n fixtures (four components for a Double Gameweek). It does not pretend the result is a two-component mixture. Cross-fixture dependence is not modelled; this assumption remains provisional and the aggregator is not yet connected to M3. Do not use it as an approved production aggregation until that dependence assumption is reviewed.
 
 ## Explicit implementation choices
 
