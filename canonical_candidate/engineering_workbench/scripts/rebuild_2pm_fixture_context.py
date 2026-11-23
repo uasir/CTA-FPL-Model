@@ -484,8 +484,9 @@ def rebuild_fixture_context(
         "team_name", "opponent_team_name",
     }
     required_history = {
-        "season", "fixture", "fpl_code", "team_name", "opponent_team_name",
-        "kickoff_time", "match_available_at", "defensive_contribution", "tackles",
+        "season", "fixture", "fpl_code", "element", "understat_id",
+        "team_name", "opponent_team_name", "kickoff_time", "match_available_at",
+        "defensive_contribution", "tackles",
     }
     missing_target = sorted(required_target - set(target_frame.columns))
     missing_history = sorted(required_history - set(player_matches.columns))
@@ -516,18 +517,35 @@ def rebuild_fixture_context(
     if fixture_rows.duplicated(["season", "fixture", "team_name"]).any():
         raise ValueError("Fixture/team context rows are not unique")
 
-    # Rest: latest player fixture available strictly before target deadline.
+    # Rest: latest player_uid fixture available strictly before target deadline.
+    # This mirrors Dastan's Understat-ID identity and season-scoped fallback.
+    hist["_player_uid"] = hist["understat_id"].where(
+        hist["understat_id"].notna(),
+        hist["element"].astype(str) + "_" + hist["season"].astype(str),
+    ).astype(str)
+    identity = hist[
+        ["season", "fixture", "fpl_code", "_player_uid"]
+    ].drop_duplicates(["season", "fixture", "fpl_code"])
+    target_identity = out[["season", "fixture", "fpl_code"]].merge(
+        identity,
+        on=["season", "fixture", "fpl_code"],
+        how="left",
+        validate="one_to_one",
+    )
+    if target_identity["_player_uid"].isna().any():
+        raise ValueError("Target rows lack Dastan player_uid identity for rest calculation")
     player_fixture = hist[
-        ["season", "fpl_code", "fixture", "kickoff_time", "match_available_at"]
-    ].drop_duplicates(["season", "fpl_code", "fixture"])
-    if player_fixture.duplicated(["season", "fpl_code", "fixture"]).any():
+        ["_player_uid", "fixture", "kickoff_time", "match_available_at"]
+    ].drop_duplicates(["_player_uid", "fixture"])
+    if player_fixture.duplicated(["_player_uid", "fixture"]).any():
         raise ValueError("Player fixture history is not unique")
     left_rest = out[
-        ["season", "fpl_code", "deadline_time", "kickoff_time"]
+        ["deadline_time", "kickoff_time"]
     ].copy()
     left_rest["_row_id"] = np.arange(len(out), dtype=int)
+    left_rest["_player_uid"] = target_identity["_player_uid"].to_numpy()
     right_rest = player_fixture[
-        ["season", "fpl_code", "match_available_at", "kickoff_time"]
+        ["_player_uid", "match_available_at", "kickoff_time"]
     ].rename(columns={"kickoff_time": "prior_kickoff_time"})
     left_rest = left_rest.sort_values("deadline_time", kind="mergesort")
     right_rest = right_rest.sort_values("match_available_at", kind="mergesort")
@@ -536,7 +554,7 @@ def rebuild_fixture_context(
         right_rest,
         left_on="deadline_time",
         right_on="match_available_at",
-        by=["season", "fpl_code"],
+        by="_player_uid",
         direction="backward",
         allow_exact_matches=False,
     ).sort_values("_row_id", kind="mergesort")
