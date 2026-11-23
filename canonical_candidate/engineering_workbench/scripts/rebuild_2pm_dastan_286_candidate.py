@@ -27,7 +27,6 @@ from rebuild_2pm_fixture_context import (
 PINNED_DASTAN_COMMIT = "758db9247e8b3a9a870c991064f74d8339d61cd0"
 KEY = ["season", "gameweek", "fpl_code"]
 MARKET_FIELDS = ["value", "selected", "transfers_balance"]
-KEY = ["season", "gameweek", "fpl_code"]
 FRAME_KEY = ["season", "gameweek", "fixture", "fpl_code"]
 
 
