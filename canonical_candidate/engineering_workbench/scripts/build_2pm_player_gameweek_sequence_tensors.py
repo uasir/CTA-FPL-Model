@@ -167,9 +167,13 @@ def build_player_gameweek_sequence_tensors(
             raise ValueError("Historical training targets require total_points or target_points")
         if label_grain not in {"player_fixture", "player_gameweek"}:
             raise ValueError("Historical training requires an explicit label_grain")
-        targets = targets[pd.to_numeric(targets["minutes"], errors="coerce").gt(0)].copy()
+        target_minutes = pd.to_numeric(targets["minutes"], errors="coerce")
+        if target_minutes.isna().any() or target_minutes.lt(0).any():
+            raise ValueError("Historical target minutes must be numeric and non-negative")
+        # Keep non-appearances as valid target outcomes (normally zero points).
+        # The five historical input tokens are separately restricted to played matches.
         if targets.empty:
-            raise ValueError("No played historical target fixtures found")
+            raise ValueError("No historical target fixtures found")
         if targets[label_column].isna().any():
             raise ValueError("Historical training target points contain missing values")
         if targets["feature_cutoff_time"].ne(targets["deadline_time"]).any():
