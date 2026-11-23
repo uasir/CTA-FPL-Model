@@ -288,6 +288,45 @@ jobs:
             echo "WARNING: one or both historical provider candidate queues are unavailable"
           fi
 
+      - name: Prepare the existing verified 11footy crosswalk and historical fixture inputs
+        if: steps.download_11footy.outcome == 'success'
+        continue-on-error: true
+        run: |
+          CROSSWALK="run_artifacts/wyscout/output/cross_provider_identity/verified_wyscout_fpl_identity_crosswalk.csv"
+          CANDIDATES="run_artifacts/wyscout/output/11footy_fpl_identity_candidates.csv"
+          if [ -f "$CROSSWALK" ] && [ -f "$CANDIDATES" ]; then
+            python canonical_candidate/engineering_workbench/scripts/prepare_abc_11footy_verified_inputs.py \
+              --candidates "$CANDIDATES" \
+              --crosswalk "$CROSSWALK" \
+              --fpl-history run_artifacts/wyscout/source/fpl_merged_gw.csv \
+              --team-list run_artifacts/wyscout/source/fpl_master_team_list.csv \
+              --out-dir run_artifacts/wyscout/output/abc_11footy_inputs
+          else
+            echo "WARNING: historical 11footy candidates or strict cross-provider crosswalk unavailable"
+          fi
+
+      - name: Build strict verified historical 11footy player-match feature panel
+        if: steps.download_11footy.outcome == 'success'
+        continue-on-error: true
+        run: |
+          INPUT="run_artifacts/wyscout/output/abc_11footy_inputs"
+          if [ -f "$INPUT/11footy_crosswalk_validation.json" ]; then
+            python canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py \
+              --database run_artifacts/wyscout/source/11footy-england.premier-league.db.xz \
+              --players-database run_artifacts/wyscout/source/11footy-players.db.xz \
+              --fpl-fixtures "$INPUT/historical_fpl_fixtures.csv" \
+              --fpl-players run_artifacts/wyscout/source/fpl_players_raw.csv \
+              --fpl-player-fixture run_artifacts/wyscout/source/fpl_merged_gw.csv \
+              --candidates "$INPUT/11footy_builder_candidates.csv" \
+              --crosswalk "$INPUT/11footy_builder_verified_crosswalk.csv" \
+              --crosswalk-validation "$INPUT/11footy_crosswalk_validation.json" \
+              --season "2017/18" \
+              --release "11footy-2026-11-10" \
+              --out-dir run_artifacts/wyscout/output/abc_11footy
+          else
+            echo "WARNING: prepared verified 11footy input contract unavailable"
+          fi
+
       - name: Build verified Wyscout-to-FPL player-match and strictly lagged research panel
         if: steps.download_11footy.outcome == 'success'
         continue-on-error: true
@@ -317,6 +356,21 @@ jobs:
               --out-dir run_artifacts/wyscout/output/verified_fpl_panel/cta_abc
           else
             echo "WARNING: verified historical Wyscout/FPL lagged panel unavailable"
+          fi
+
+      - name: Enrich historical ABC panel with 11footy-first features and Wyscout fallbacks
+        if: always()
+        continue-on-error: true
+        run: |
+          WYS="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          FOOTY="run_artifacts/wyscout/output/abc_11footy/verified_player_match_panel.csv"
+          if [ -f "$WYS" ] && [ -f "$FOOTY" ]; then
+            python canonical_candidate/engineering_workbench/scripts/build_cta_abc_historical_integrated_panel.py \
+              --wyscout-panel "$WYS" \
+              --11footy-panel "$FOOTY" \
+              --out-dir run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/11footy_integrated
+          else
+            echo "WARNING: verified 11footy panel or historical Wyscout ABC panel unavailable"
           fi
 
       - name: Evaluate standalone historical A/B/C predictor
