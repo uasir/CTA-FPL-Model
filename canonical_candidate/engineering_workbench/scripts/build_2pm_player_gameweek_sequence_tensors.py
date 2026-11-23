@@ -23,8 +23,8 @@ HISTORY_LENGTH = 5
 MAX_GAP_DAYS = 21
 
 
-def _read_parquet(path: Path) -> pd.DataFrame:
-    return pd.read_parquet(path)
+def _read_parquet(source: Path | pd.DataFrame) -> pd.DataFrame:
+    return source.copy() if isinstance(source, pd.DataFrame) else pd.read_parquet(source)
 
 
 def _prepare_features(frame: pd.DataFrame, features: list[str], label: str) -> tuple[pd.DataFrame, dict[str, Any]]:
@@ -68,8 +68,8 @@ def _label_for_group(rows: pd.DataFrame, label_column: str, label_grain: str) ->
 
 
 def build_player_gameweek_sequence_tensors(
-    postmatch_states_path: Path,
-    target_frame_path: Path,
+    postmatch_states_path: Path | pd.DataFrame,
+    target_frame_path: Path | pd.DataFrame,
     schema_path: Path,
     output_dir: Path,
     report_path: Path,
