@@ -135,7 +135,7 @@ def main() -> int:
         "production_eligible": False,
     }
     (args.out_dir / "abc_points_inference_report.json").write_text(
-        json.dumps(report, indent=2, allow_nan=False) + "\\n",
+        json.dumps(report, indent=2, allow_nan=False) + "\n",
         encoding="utf-8",
     )
     print(json.dumps(report, indent=2))
