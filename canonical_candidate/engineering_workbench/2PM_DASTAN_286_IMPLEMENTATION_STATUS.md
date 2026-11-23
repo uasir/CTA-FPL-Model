@@ -95,7 +95,7 @@ The test-only two-layer instantiation is a shape/gradient smoke test, not a sele
 
 `scripts/two_pm_forecast_records.py`
 
-- Serializes the analytic mixture parameters, expected points, variance/SD and 6+/8+/10+ probabilities.
+- Serializes player-fixture analytic mixture parameters, expected points, variance/SD and 6+/8+/10+ probabilities; includes target fixture ID as well as player and Gameweek IDs.
 - Requires player IDs, target Gameweeks, timezone-aware forecast-as-of and training-cutoff timestamps, feature-schema version and data snapshot hashes.
 - Carries quality metadata and marks every record `production_eligible=false`.
 - Contains no transfers, ownership/EO, CoVar, squad, XI, bench, captaincy or recommendation logic.
@@ -125,6 +125,8 @@ This builder is implemented but has not yet been run against the live 2026/27 so
 - Preserves existing `-1.0` missing-snapshot sentinels and genuine zeros as distinct values.
 - Builds memory-bounded float32 candidate shards without modifying the raw Parquet candidate.
 - Its focused CI contract passed, including explicit checks that NaN becomes 0.0 and `-1.0` remains unchanged.
+
+**Open downstream grain:** M3 consumes player-Gameweek forecasts, while the paper sequence is match-level. Double Gameweeks therefore create multiple fixture forecasts per player/GW. A separate, explicit GW aggregation contract is still required; the sum of independent two-component Poisson mixtures is not generally another two-component mixture. No silent averaging or fixture dropping is permitted.
 
 ### 6A. Current target-query tensor builder
 
