@@ -1,0 +1,210 @@
+{
+  "archive": {
+    "file": "forecast_bundle.zip",
+    "sha256": "90f3689f27c550d31b701783851a757bc918c3dfe433ff9189ce1b55928c24ff",
+    "size_bytes": 12112894
+  },
+  "archive_type": "CTA_FIVE_GAMEWEEK_CANDIDATE_FORECAST",
+  "bundle_validation_status": "PASS_CTA_FORECAST_BUNDLE_INTEGRITY",
+  "decision_safeguards": {
+    "covar_used": false,
+    "decision_weight": 0.0,
+    "production_eligible": false,
+    "reason": "M2 validation remains deferred; do not route candidate forecasts into recommendations",
+    "status": "EXPLORATORY_NOT_PRODUCTION"
+  },
+  "feature_matrix_sha256": "faf13b9643858894677cdff24539edb3362596f09414c3e73d8a8dad90bf2cf1",
+  "files": {
+    "canonical_player_lookup.csv": {
+      "sha256": "d8b3e7ab2bf84ff6913c5ada1cdcb15c3730aa270c556be10ef412319692e368",
+      "size_bytes": 203299
+    },
+    "canonical_player_matches.parquet": {
+      "sha256": "f13b356294af3b99d4efb44ad28ade5537f4cf99b821ccf4de035f8e409e1034",
+      "size_bytes": 7589730
+    },
+    "canonical_team_matches.parquet": {
+      "sha256": "27ba471c5e246daa92bc0305422665bdc790bb2f348f2a40ab3d501df9e5cf2c",
+      "size_bytes": 49160
+    },
+    "dastan_artifact_manifest.json": {
+      "sha256": "d8255d355f819002fe9342a7a04f4e067be7fa2e60f98e6c59ede70e82136d36",
+      "size_bytes": 7392
+    },
+    "dastan_mappings/current_fpl_understat_clubs.csv": {
+      "sha256": "3ea516e482bc6f42891cd9170c3d53f3c86c2b3c55127363d999f6f042649942",
+      "size_bytes": 1228
+    },
+    "dastan_mappings/current_fpl_understat_players.csv": {
+      "sha256": "21c461a2fc20de16de8a9299a4dab918bf1f4c126bb215f90d9e2d6f2421d71a",
+      "size_bytes": 63270
+    },
+    "dastan_mappings/current_manifest.json": {
+      "sha256": "8a194c6c976c732047c0908b6cface27519f9a3946f0614184d1d391f39a18fa",
+      "size_bytes": 1144
+    },
+    "dastan_mappings/fpl_understat_current.csv": {
+      "sha256": "98b12921e10f402cd519976d17cd5e8c16ac0a2c6728d8c32a8e3398c1d5743d",
+      "size_bytes": 58013
+    },
+    "dastan_mappings/fpl_understat_identity_audit.csv": {
+      "sha256": "1bb194d923817b58adf5f00f725d9bbec910d9d01d4050cf580bdcc03ce575f6",
+      "size_bytes": 853
+    },
+    "dastan_mappings/fpl_understat_players.csv": {
+      "sha256": "04d6f38c0b722960036db02a77625acdf08e3022c687709bd615c41ef61a8e7f",
+      "size_bytes": 86036
+    },
+    "dastan_mappings/fpl_understat_training_assignments.csv": {
+      "sha256": "3d8e22693569f1eb1cd72d49cb827b01b6d2fdb778e5b63c4a155e291f1da948",
+      "size_bytes": 117844
+    },
+    "dastan_mappings/fpl_understat_training_snapshot.csv": {
+      "sha256": "e4f31547c76c5470ce1223adc476cc1f9fc2a9a97114c656f3fbe447f8d894d6",
+      "size_bytes": 86087
+    },
+    "dastan_minutes_feature_schema.json": {
+      "sha256": "c7861a822a3426096fcc11a3d77a0b437f5c1e5dc642141e6d5f38cea9ddb3e6",
+      "size_bytes": 8862
+    },
+    "dastan_model/feature_cols.json": {
+      "sha256": "021447c478a6909f68457e9ce6c695e94328548d40f0604d3970f15ee4acce52",
+      "size_bytes": 6720
+    },
+    "dastan_model/minutes_calibration.json": {
+      "sha256": "93410cb80f99a5bac10778c1f58d576b09a04979467ebffe9cd458d79c3eafa2",
+      "size_bytes": 3385
+    },
+    "dastan_model/p60_DEF.json": {
+      "sha256": "1ac1276c61ef364c8b7a3983ad5e71412ab665444a3bdd91c3c684cd92c4097c",
+      "size_bytes": 2959939
+    },
+    "dastan_model/p60_FWD.json": {
+      "sha256": "25bb3816ad6f053260d3c18bc787d3405523a2326fc1c3de0abf696109e5002f",
+      "size_bytes": 1684096
+    },
+    "dastan_model/p60_GKP.json": {
+      "sha256": "50a6edbb5c58366b60d6dcea011f374fff092576f66583cc6321b1318d998ac2",
+      "size_bytes": 2259868
+    },
+    "dastan_model/p60_MID.json": {
+      "sha256": "b799865eaabbebf592d13db41e2a0696fe780f6ec715d7c33a5db7c6852820b5",
+      "size_bytes": 3453400
+    },
+    "feature_matrix.csv": {
+      "sha256": "faf13b9643858894677cdff24539edb3362596f09414c3e73d8a8dad90bf2cf1",
+      "size_bytes": 5749873
+    },
+    "feature_matrix_report.json": {
+      "sha256": "a1a88e9646b3e81d11606fd57ef5c98827243f45b39d0c9eb1284e68fcc684d0",
+      "size_bytes": 16996
+    },
+    "forecasts/bundle_validation_report.json": {
+      "sha256": "dfa9c25b1c0134d9979fac5c25f77fe2de58f73d73aeae56b843e495dbfac493",
+      "size_bytes": 689
+    },
+    "forecasts/fixture_forecasts.csv": {
+      "sha256": "cb7380dcbdd2478f251cbf397e88c40ace253fdb56e18c2ace45ca6a3f28bf82",
+      "size_bytes": 924941
+    },
+    "forecasts/forecast_report.json": {
+      "sha256": "402c4b57c15a94edc9e90aa2f28c0844167d2869c3ccd9c5b1faf4b16620e6f6",
+      "size_bytes": 4463
+    },
+    "forecasts/player_five_gw_forecasts.csv": {
+      "sha256": "ff2a11c3d606fb765f792c7cbe9f647d2eef0fc794980c7fcef3d20050b690e0",
+      "size_bytes": 118843
+    },
+    "forecasts/player_gameweek_forecasts.csv": {
+      "sha256": "0c9e83ee63c46fc442c79b4ff7ef30757325af5b5d3135e0d284a5830b892302",
+      "size_bytes": 587214
+    },
+    "minutes_predictions.csv": {
+      "sha256": "6718b3bad28f4ca1581aaed84f60ac7996788e57abfd06a422c234cb2479a8c5",
+      "size_bytes": 390968
+    },
+    "minutes_report.json": {
+      "sha256": "662ee1eb2eb72b494bd1eac4db8b98cf73c2c651cc684c062249e54e044df2df",
+      "size_bytes": 1621
+    },
+    "models/cta_points_DEF.json": {
+      "sha256": "3e62aacdb2ebcf4ae97d0598fc45eb71efa601143e8163e184355f20b2711f73",
+      "size_bytes": 1333630
+    },
+    "models/cta_points_FWD.json": {
+      "sha256": "9ec8f96a9e36dd2837637a088d53769531be21ade99b9638f1b75dbe3624b804",
+      "size_bytes": 1271112
+    },
+    "models/cta_points_GKP.json": {
+      "sha256": "b1354f6046caf45c7bcedfe0ab9090e24f946d2f135da895d1f04ccc0d228110",
+      "size_bytes": 1255746
+    },
+    "models/cta_points_MID.json": {
+      "sha256": "ab49042b7a0858ef84949b588abfc1d5d1e618ab4b1592327f7b772e3901c093",
+      "size_bytes": 1337163
+    },
+    "models/cta_points_model_manifest.json": {
+      "sha256": "103059e7a2027225f084eb23a59a05f108690c7fff1394afc921704a0a174fc2",
+      "size_bytes": 7698
+    },
+    "safe_current_player_mapping.csv": {
+      "sha256": "c7e09361c1945623862151b3cfc25308baf012b9d31bafa8f68007d3966be984",
+      "size_bytes": 66630
+    },
+    "snapshots/bootstrap-static.json": {
+      "sha256": "3119823f451792554cef4e246786768f017ee7a57e830db3689ef627f315ef81",
+      "size_bytes": 2537271
+    },
+    "snapshots/fixtures.json": {
+      "sha256": "e1226fdcf91820efac58c6b09c439adb72c5baa3e5efabac189ce44e719fb07d",
+      "size_bytes": 856977
+    },
+    "source_download_manifest.json": {
+      "sha256": "a0ac7e151f09b2faaf473c188c240899acaef32ab932652073edcd2f910598c9",
+      "size_bytes": 461591
+    },
+    "source_preparation_report.json": {
+      "sha256": "39601b2b37705edd9cbf30aa40a1b5036d51303d2e6010128017457604b8da61",
+      "size_bytes": 28778
+    },
+    "target_gameweeks.json": {
+      "sha256": "c157b2a0aba0e38694f9d1111ce5378d711849626e05d620ecc92074effcec2d",
+      "size_bytes": 87
+    },
+    "training/release_manifest.json": {
+      "sha256": "08111cac5252486192adfcc420c6a745f506777ab39b60297b0c3dbb7577830a",
+      "size_bytes": 2592
+    },
+    "training/source_pins.json": {
+      "sha256": "ace448af63ee190b26609d8d8735419151f8159e23aa74dd4b5fbbd4f798abc8",
+      "size_bytes": 430
+    }
+  },
+  "forecast_snapshot_id": "c39a9333da9cd5c360ae1fd933f768d8df5a87cc00c656696a3d30cb1739ecb7",
+  "forecast_status": "PASS_CTA_FIVE_GW_CANDIDATE_FORECAST",
+  "gameweeks": [
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  "model_status": "CANDIDATE_TRAINED_M2_VALIDATION_PENDING",
+  "points_model_hashes": {
+    "DEF": "3e62aacdb2ebcf4ae97d0598fc45eb71efa601143e8163e184355f20b2711f73",
+    "FWD": "9ec8f96a9e36dd2837637a088d53769531be21ade99b9638f1b75dbe3624b804",
+    "GKP": "b1354f6046caf45c7bcedfe0ab9090e24f946d2f135da895d1f04ccc0d228110",
+    "MID": "ab49042b7a0858ef84949b588abfc1d5d1e618ab4b1592327f7b772e3901c093"
+  },
+  "provenance_hashes_verified": true,
+  "schema_version": "2.0.0",
+  "season": "2026-27",
+  "source_commit": "d7b05b51d137bfefef4b692386d18c610975b9b9",
+  "source_manifest_sha256": "a0ac7e151f09b2faaf473c188c240899acaef32ab932652073edcd2f910598c9",
+  "source_mode": "FPL_PLAYER_UNDERSTAT",
+  "source_run": {
+    "commit_sha": "2c70d870639547e13442ae152944c91f9f7615cb",
+    "run_id": "45152449400",
+    "run_url": "https://github.com/uasir/CTA-FPL-Model/actions/runs/45152449400"
+  }
+}
