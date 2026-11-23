@@ -36,6 +36,9 @@ def make_candidate():
         "team_name": "Team A",
         "opponent_team_name": "Team B",
         "source_vintage_status": "RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED",
+        "ep_next_snapshot_at": kickoff - pd.Timedelta(hours=4),
+        "signals_snapshot_at": kickoff - pd.Timedelta(hours=3, minutes=30),
+        "market_snapshot_at": kickoff - pd.Timedelta(hours=3),
     }
     row.update({feature: 1.0 for feature in FEATURES})
     row.update({
@@ -53,7 +56,7 @@ def make_candidate():
 
 
 def test_builds_postmatch_state_after_all_required_match_data_is_available(monkeypatch):
-    observed = {}
+    observed = {"fixture_cutoffs": []}
 
     def player_rebuild(frame, history, features_module):
         observed["player_asof"] = frame["deadline_time"].iloc[0]
@@ -68,6 +71,7 @@ def test_builds_postmatch_state_after_all_required_match_data_is_available(monke
         return out, {"status": "team_rebuilt"}
 
     def fixture_rebuild(frame, history):
+        observed["fixture_cutoffs"].append(frame["deadline_time"].iloc[0])
         out = frame.copy()
         out["ar_rest_days"] = 999.0
         out["ar_team_matches_14d"] = 999.0
@@ -97,10 +101,12 @@ def test_builds_postmatch_state_after_all_required_match_data_is_available(monke
     assert result.loc[0, "player_assists_1"] == 11.0
     assert result.loc[0, "team_xg_1"] == 22.0
     assert result.loc[0, "ar_opp_dc_allowed_3"] == 33.0
-    # These describe the completed match's pre-kickoff context, not the next state.
-    assert result.loc[0, "ar_rest_days"] == 5.0
-    assert result.loc[0, "ar_team_matches_14d"] == 2.0
-    # Archived historical pre-kickoff snapshots remain attached to that match.
+    # Rest/congestion are rebuilt immediately before kickoff, not copied from
+    # a potentially later original Gameweek deadline.
+    assert observed["fixture_cutoffs"][-1] == pd.Timestamp("2026-08-01T11:59:59.999999999Z")
+    assert result.loc[0, "ar_rest_days"] == 999.0
+    assert result.loc[0, "ar_team_matches_14d"] == 999.0
+    # Snapshots captured safely before kickoff remain available to the token.
     assert result.loc[0, "value"] == 55.0
     assert result.loc[0, "ar_ep_next"] == 4.2
     assert report["admission_status"] == "NOT_ADMITTED"
