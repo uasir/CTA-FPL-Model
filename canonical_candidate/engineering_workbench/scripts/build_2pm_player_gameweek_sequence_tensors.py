@@ -187,6 +187,13 @@ def build_player_gameweek_sequence_tensors(
     ].copy()
     if targets.empty:
         raise ValueError(f"No {target_mode} target rows for {target_season} GW{target_gameweek}")
+    if "source_as_of_time" in targets:
+        source_as_of = pd.to_datetime(
+            targets["source_as_of_time"], utc=True, errors="coerce"
+        )
+        present = source_as_of.notna()
+        if (source_as_of.loc[present] >= targets.loc[present, "deadline_time"]).any():
+            raise ValueError("A target source snapshot was captured at/after its deadline")
     for snapshot_column in (
         "ep_next_snapshot_at", "signals_snapshot_at", "market_snapshot_at"
     ):
