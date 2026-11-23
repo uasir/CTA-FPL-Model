@@ -121,7 +121,7 @@ def test_official_deadline_marks_started_fixtures_ineligible_without_dropping_hi
     )
 
     result = attach_official_deadlines(
-        frame, tmp_path if False else None, fplcache, ["2025-26"]
+        frame, None, fplcache, ["2025-26"]
     )
 
     assert len(result) == 2
