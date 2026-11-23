@@ -12,6 +12,17 @@
 - Keep the 2PM scope to player FPL-point prediction. No transfer, squad, captaincy, ownership, EO, CoVar or recommendation logic is placed inside the forecaster.
 - The 286-column schema remains a candidate contract until feature-level admission is complete.
 
+## 286-feature post-match treatment register
+
+`2PM_DASTAN_286_FEATURE_ADMISSION_REGISTER.md` now enumerates every one of the 286 schema columns in pinned order and assigns an explicit post-match treatment, admission state and feature-specific evidence gate.
+
+The register distinguishes:
+- player, own-team, opponent, rank and availability histories that must be reconstructed at each historical token's post-match cutoff;
+- historical fixture context that remains a known pre-kickoff value (venue, rest/congestion);
+- historical pre-deadline snapshots retained as stale context (ep_next, availability/news signals and market fields).
+
+All 286 remain HOLD. This is a feature-by-feature implementation map, not admission evidence. In particular, market snapshot provenance/units/coverage, source-vintage verification, identity corrections, structural defensive-stat missingness and double-Gameweek/postponement row-level parity remain blocking gates. The 286 input contract is preserved without falsely treating every column as validated.
+
 ## Implemented repository components
 
 ### 1. Pinned feature schema
