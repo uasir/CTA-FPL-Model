@@ -180,6 +180,9 @@ def reconcile_snapshot(bootstrap: dict[str, Any], fixtures: list[dict[str, Any]]
                 for field in ("minutes_reconciliation_mismatches", "total_points_reconciliation_mismatches")
                 for item in (report or {}).get(field, [])
             }
+            mismatch_ids.update(
+                int(element_id) for element_id in (report or {}).get("summaries_missing_for_players_with_minutes", [])
+            )
             if not mismatch_ids:
                 break
             if retry_delay:
