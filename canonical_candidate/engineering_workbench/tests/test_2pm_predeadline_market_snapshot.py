@@ -3,7 +3,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from build_2pm_predeadline_market_snapshot import extract_market
+from build_2pm_predeadline_market_snapshot import (
+    extract_market,
+    filter_snapshot_safety_buffer,
+)
 
 
 def accepted_fplcache():
@@ -87,3 +90,29 @@ def test_market_snapshot_rejects_wrong_gameweek_or_deadline():
         fplcache_module=fplcache,
     )
     assert rows == []
+
+
+
+def test_five_minute_safety_buffer_drops_borderline_snapshots():
+    frame = pd.DataFrame(
+        [
+            {"fpl_code": 1, "age_hours": 4 / 60},
+            {"fpl_code": 2, "age_hours": 5 / 60},
+            {"fpl_code": 3, "age_hours": 6 / 60},
+        ]
+    )
+    safe, removed = filter_snapshot_safety_buffer(frame, safety_buffer_minutes=5)
+    assert removed == 1
+    assert safe["fpl_code"].tolist() == [2, 3]
+
+
+def test_five_minute_safety_buffer_rejects_missing_capture_age():
+    frame = pd.DataFrame(
+        [
+            {"fpl_code": 1, "age_hours": None},
+            {"fpl_code": 2, "age_hours": 7 / 60},
+        ]
+    )
+    safe, removed = filter_snapshot_safety_buffer(frame, safety_buffer_minutes=5)
+    assert removed == 1
+    assert safe["fpl_code"].tolist() == [2]
