@@ -129,7 +129,9 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
                 "rows_missing": int((~present).sum()),
                 "post_deadline_rows": int(post_deadline.sum()),
                 "median_age_hours": float(age.median()) if len(age) else None,
+                "min_age_hours": float(age.min()) if len(age) else None,
                 "max_age_hours": float(age.max()) if len(age) else None,
+                "rows_under_5m_buffer": int(age.lt(5 / 60.0).sum()),
             }
 
     defensive_coverage = {}
