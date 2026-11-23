@@ -177,12 +177,25 @@ def build_snapshot(prediction_rows: list[dict], minutes_rows: list[dict],
             raise ValueError(f"Dastan expected_minutes outside [0, 90] for {key}")
         minutes_by_key[key] = minutes
 
-    if set(prediction_by_key) != set(minutes_by_key):
-        missing_minutes = sorted(set(prediction_by_key) - set(minutes_by_key))
-        missing_points = sorted(set(minutes_by_key) - set(prediction_by_key))
+    expected_fixture_keys = {
+        (element, fixture_id)
+        for element, metadata in players.items()
+        for fixture_id, fixture_info in fixtures.items()
+        if metadata["team_id"] in {fixture_info["team_h"], fixture_info["team_a"]}
+    }
+    if set(minutes_by_key) != expected_fixture_keys:
+        missing_minutes = sorted(expected_fixture_keys - set(minutes_by_key))
+        unexpected_minutes = sorted(set(minutes_by_key) - expected_fixture_keys)
         raise ValueError(
-            f"ABC/Dastan fixture universes differ; missing minutes={missing_minutes[:10]}, "
-            f"missing ABC predictions={missing_points[:10]}"
+            "Dastan minutes do not cover the complete official FPL player-fixture universe; "
+            f"missing={missing_minutes[:10]}, unexpected={unexpected_minutes[:10]}"
+        )
+    if set(prediction_by_key) != expected_fixture_keys:
+        missing_predictions = sorted(expected_fixture_keys - set(prediction_by_key))
+        unexpected_predictions = sorted(set(prediction_by_key) - expected_fixture_keys)
+        raise ValueError(
+            "ABC predictions do not cover the complete official FPL player-fixture universe; "
+            f"missing={missing_predictions[:10]}, unexpected={unexpected_predictions[:10]}"
         )
 
     fixture_out = []
