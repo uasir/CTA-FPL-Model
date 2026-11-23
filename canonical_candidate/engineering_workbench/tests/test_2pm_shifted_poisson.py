@@ -37,9 +37,33 @@ def test_shifted_model_expected_points_variance_and_signed_nll():
     ) * output["lambda_2"]
     assert torch.allclose(output["expected_points"], count_mean - 20)
     assert output["support_lower_bound"] == -20
-    losses = poisson_mixture_negative_log_likelihood(
-        output, torch.tensor([-3.0, 0.0, 7.0]), reduction="none"
+    count_second_moment = (
+        output["p"] * (output["lambda_1"] + output["lambda_1"].square())
+        + (1.0 - output["p"]) * (
+            output["lambda_2"] + output["lambda_2"].square()
+        )
     )
+    assert torch.allclose(
+        output["variance"], count_second_moment - count_mean.square(), atol=1e-6
+    )
+    targets = torch.tensor([-3.0, 0.0, 7.0])
+    losses = poisson_mixture_negative_log_likelihood(
+        output, targets, reduction="none"
+    )
+    shifted = targets + 20
+    log_1 = (
+        torch.nn.functional.logsigmoid(output["mixture_logit"])
+        + shifted * torch.log(output["lambda_1"])
+        - output["lambda_1"]
+        - torch.lgamma(shifted + 1)
+    )
+    log_2 = (
+        torch.nn.functional.logsigmoid(-output["mixture_logit"])
+        + shifted * torch.log(output["lambda_2"])
+        - output["lambda_2"]
+        - torch.lgamma(shifted + 1)
+    )
+    assert torch.allclose(losses, -torch.logaddexp(log_1, log_2), atol=1e-6)
     assert torch.isfinite(losses).all()
     losses.mean().backward()
     assert all(
