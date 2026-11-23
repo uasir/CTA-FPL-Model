@@ -311,7 +311,7 @@ def rebuild_deadline_team_context(
 
     out = target_frame.copy().reset_index(drop=True)
     out["season"] = out["season"].astype(str)
-    out["deadline_time"] = pd.to_datetime(out["deadline_time"], utc=True, errors="coerce")
+    out["deadline_time"] = _utc_ns(out["deadline_time"])
     if out["deadline_time"].isna().any():
         raise ValueError("Target team context contains invalid deadlines")
 
@@ -517,8 +517,8 @@ def rebuild_fixture_context(
     for frame in (out, hist):
         frame["season"] = frame["season"].astype(str)
         frame["fixture"] = frame["fixture"].astype(str)
-        frame["kickoff_time"] = pd.to_datetime(frame["kickoff_time"], utc=True, errors="coerce")
-    out["deadline_time"] = pd.to_datetime(out["deadline_time"], utc=True, errors="coerce")
+        frame["kickoff_time"] = _utc_ns(frame["kickoff_time"])
+    out["deadline_time"] = _utc_ns(out["deadline_time"])
     hist["match_available_at"] = pd.to_datetime(
         hist["match_available_at"], utc=True, errors="coerce"
     )
