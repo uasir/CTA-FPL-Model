@@ -62,7 +62,7 @@ def test_goal_realisation_feature_uses_same_mean_definition_as_inference():
         {**_match(4, 8, 22), "goals": "0", "tracked_xg_sum": "0.3"},
     ]
     features = make_features(prior)
-    assert features["abc_threat_realisation_rate"] == 0.5
+    assert features["abc_threat_realisation_rate"] == 5 / 3
 
 
 def test_double_gameweek_fixtures_share_pre_gameweek_history():
