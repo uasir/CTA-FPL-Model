@@ -72,6 +72,9 @@ def test_builds_postmatch_state_after_all_required_match_data_is_available(monke
         out["ar_rest_days"] = 999.0
         out["ar_team_matches_14d"] = 999.0
         out["ar_opp_dc_allowed_3"] = 33.0
+        out["ar_opp_dc_allowed_5"] = 35.0
+        out["ar_opp_dc_allowed_10"] = 40.0
+        out["ar_opp_tackles_allowed_5"] = 12.0
         return out, {"status": "fixture_rebuilt"}
 
     monkeypatch.setattr(builder, "rebuild_player_history_features", player_rebuild)
@@ -79,7 +82,11 @@ def test_builds_postmatch_state_after_all_required_match_data_is_available(monke
     monkeypatch.setattr(builder, "rebuild_fixture_context", fixture_rebuild)
 
     result, report = builder.build_postmatch_state_vectors(
-        make_candidate(), pd.DataFrame(), pd.DataFrame(), object(), FEATURES
+        make_candidate(),
+        pd.DataFrame({"season": ["2026-27"]}),
+        pd.DataFrame({"season": ["2026-27"]}),
+        object(),
+        FEATURES,
     )
 
     expected_asof = pd.Timestamp("2026-08-02T14:00:00.000000001Z")
@@ -122,3 +129,42 @@ def test_rejects_duplicate_player_fixture_keys():
         builder.build_postmatch_state_vectors(
             frame, pd.DataFrame(), pd.DataFrame(), object(), FEATURES
         )
+
+
+
+def test_reconstruction_is_scoped_to_each_season(monkeypatch):
+    frame = make_candidate()
+    previous = make_candidate()
+    previous.loc[0, "season"] = "2025-26"
+    previous.loc[0, "fixture"] = "100"
+    frame = pd.concat([previous, frame], ignore_index=True)
+    seen_player_seasons = []
+    seen_team_seasons = []
+
+    def player_rebuild(targets, history, features_module):
+        seen_player_seasons.append(tuple(history["season"].unique()))
+        return targets.copy(), {"status": "player_rebuilt"}
+
+    def team_rebuild(targets, history, features_module):
+        seen_team_seasons.append(tuple(history["season"].unique()))
+        return targets.copy(), {"status": "team_rebuilt"}
+
+    def fixture_rebuild(targets, history):
+        out = targets.copy()
+        for column in builder.POSTMATCH_OPPONENT_CONTEXT:
+            out[column] = 1.0
+        return out, {"status": "fixture_rebuilt"}
+
+    monkeypatch.setattr(builder, "rebuild_player_history_features", player_rebuild)
+    monkeypatch.setattr(builder, "rebuild_deadline_team_context", team_rebuild)
+    monkeypatch.setattr(builder, "rebuild_fixture_context", fixture_rebuild)
+
+    player_history = pd.DataFrame({"season": ["2025-26", "2026-27"]})
+    team_history = pd.DataFrame({"season": ["2025-26", "2026-27"]})
+    result, report = builder.build_postmatch_state_vectors(
+        frame, player_history, team_history, object(), FEATURES
+    )
+    assert seen_player_seasons == [("2025-26",), ("2026-27",)]
+    assert seen_team_seasons == [("2025-26",), ("2026-27",)]
+    assert result["season"].tolist() == ["2025-26", "2026-27"]
+    assert report["cross_season_history"].startswith("excluded")
