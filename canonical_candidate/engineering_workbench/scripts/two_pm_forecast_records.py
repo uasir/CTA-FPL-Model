@@ -35,6 +35,7 @@ def build_forecast_records(
     *,
     player_ids: Sequence[int | str],
     target_gameweeks: Sequence[int],
+    target_fixture_ids: Sequence[int | str],
     forecast_as_of: str | datetime,
     training_cutoff: str | datetime,
     feature_schema_version: str,
@@ -46,8 +47,26 @@ def build_forecast_records(
     if torch is None:
         raise ImportError("PyTorch is required to serialize 2PM model outputs")
     count = len(player_ids)
-    if count == 0 or len(target_gameweeks) != count:
-        raise ValueError("player_ids and target_gameweeks must be non-empty and equal length")
+    if (
+        count == 0
+        or len(target_gameweeks) != count
+        or len(target_fixture_ids) != count
+    ):
+        raise ValueError(
+            "player_ids, target_gameweeks and target_fixture_ids must be non-empty and equal length"
+        )
+    if any(not str(fixture_id).strip() for fixture_id in target_fixture_ids):
+        raise ValueError("target_fixture_ids must be non-empty")
+    if any(int(gameweek) < 1 for gameweek in target_gameweeks):
+        raise ValueError("target_gameweeks must be positive integers")
+    identity_keys = [
+        (str(player), int(gameweek), str(fixture))
+        for player, gameweek, fixture in zip(
+            player_ids, target_gameweeks, target_fixture_ids
+        )
+    ]
+    if len(identity_keys) != len(set(identity_keys)):
+        raise ValueError("duplicate player/Gameweek/fixture forecast identities")
     if not feature_schema_version.strip() or not model_version.strip():
         raise ValueError("feature schema and model versions are required")
     if not isinstance(data_snapshot_hashes, dict) or not data_snapshot_hashes:
@@ -99,12 +118,16 @@ def build_forecast_records(
             raise ValueError("quality_metadata sequence must match forecast batch size")
 
     records = []
-    for index, (player_id, gameweek) in enumerate(zip(player_ids, target_gameweeks)):
+    for index, (player_id, gameweek, fixture_id) in enumerate(
+        zip(player_ids, target_gameweeks, target_fixture_ids)
+    ):
         records.append(
             {
                 "player_id": player_id,
                 "target_gameweek": int(gameweek),
-                "forecast_type": "analytic_two_component_poisson_mixture",
+                "target_fixture_id": fixture_id,
+                "forecast_grain": "player_fixture",
+                "forecast_type": "fixture_level_analytic_two_component_poisson_mixture",
                 "model_name": MODEL_NAME,
                 "model_version": model_version,
                 "feature_schema_version": feature_schema_version,
