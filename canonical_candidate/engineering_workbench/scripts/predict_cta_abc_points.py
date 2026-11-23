@@ -17,8 +17,39 @@ def read_csv(path: Path):
         return list(csv.DictReader(handle))
 
 
+def validate_model_payload(model_payload):
+    if not isinstance(model_payload, dict) or model_payload.get("schema_version") != "1.0":
+        raise ValueError("Unsupported or missing ABC model artifact schema_version")
+    if not str(model_payload.get("model_version") or "").strip():
+        raise ValueError("ABC model artifact is missing model_version")
+    model = model_payload.get("model")
+    if not isinstance(model, dict):
+        raise ValueError("ABC model artifact is missing its fitted model")
+    feature_order = model_payload.get("feature_order")
+    source_names = model.get("source_feature_names")
+    if not isinstance(feature_order, list) or not feature_order:
+        raise ValueError("ABC model artifact feature_order must be a non-empty list")
+    if not isinstance(source_names, list) or source_names != feature_order:
+        raise ValueError("Artifact feature_order does not match fitted model source_feature_names")
+    if len(source_names) != len(set(source_names)):
+        raise ValueError("ABC model artifact contains duplicate source features")
+    required_arrays = ("imputation_values", "means", "scales", "coefficients")
+    if any(not isinstance(model.get(name), list) for name in required_arrays):
+        raise ValueError("ABC fitted model is missing its numerical parameter arrays")
+    design_size = len(source_names) * 2
+    if len(model["imputation_values"]) != len(source_names):
+        raise ValueError("ABC imputation vector does not match source feature count")
+    if len(model["means"]) != design_size or len(model["scales"]) != design_size:
+        raise ValueError("ABC scaling vectors do not match feature and missingness-indicator design")
+    if len(model["coefficients"]) != design_size + 1:
+        raise ValueError("ABC coefficient vector does not match fitted design")
+    if model.get("missing_value_policy") != "TRAINING_MEDIAN_PLUS_MISSINGNESS_INDICATOR":
+        raise ValueError("Unsupported ABC model missing-value policy")
+    return model
+
+
 def score_rows(rows, model_payload):
-    model = model_payload["model"]
+    model = validate_model_payload(model_payload)
     model_version = model_payload["model_version"]
     seen = set()
     fixture_predictions = []
