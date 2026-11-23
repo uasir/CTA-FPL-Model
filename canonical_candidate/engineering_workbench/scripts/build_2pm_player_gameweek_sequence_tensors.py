@@ -255,7 +255,7 @@ def build_player_gameweek_sequence_tensors(
                     )
         if present.any():
             age = targets.loc[present, "deadline_time"] - captured.loc[present]
-            if age.le(pd.Timedelta(minutes=5)).any():
+            if age.lt(pd.Timedelta(minutes=5)).any():
                 raise ValueError(
                     f"{snapshot_column} violates the five-minute deadline safety buffer"
                 )
