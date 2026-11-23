@@ -63,7 +63,7 @@ def test_builds_existing_m3_contract_and_five_gw_aggregates():
 def test_rejects_prediction_without_matching_dastan_minutes():
     args = fixture_inputs()
     args[1].pop()
-    with pytest.raises(ValueError, match="fixture universes differ"):
+    with pytest.raises(ValueError, match="Dastan minutes do not cover the complete official FPL player-fixture universe"):
         build_snapshot(*args, "2026-11-23T10:00:00Z", [12, 13, 14, 15, 16])
 
 
