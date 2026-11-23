@@ -26,11 +26,15 @@ def make_row(fixture, kickoff, *, minutes=0, completed=None, gameweek=1, value=0
         "fixture": fixture,
         "fpl_code": 12345,
         "kickoff_time": kickoff.isoformat(),
-        "match_completed_at": (
+        "match_available_at": (
             completed_at.isoformat() if pd.notna(completed_at) else None
         ),
+        "completion_time_quality": (
+            "OBSERVED_COMPLETION_TIME" if pd.notna(completed_at) else "NOT_FINISHED"
+        ),
         "deadline_time": deadline.isoformat(),
-        "source_as_of_time": (deadline - pd.Timedelta(minutes=10)).isoformat(),
+        "feature_cutoff_time": deadline.isoformat(),
+        "source_vintage_status": "RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED",
         "minutes": minutes,
         "total_points": 2.0 if minutes > 0 else None,
     }
@@ -84,7 +88,7 @@ def test_builds_five_played_fixture_tokens_plus_target_query_and_keeps_label_sep
     # Both fixtures share the same official Gameweek deadline.
     for row in rows[-2:]:
         row["deadline_time"] = "2026-08-12T09:00:00+00:00"
-        row["source_as_of_time"] = "2026-08-12T08:50:00+00:00"
+        row["feature_cutoff_time"] = "2026-08-12T09:00:00+00:00"
     frame = validate_input(pd.DataFrame(rows), FEATURES, "fixture")
     sequences, report = build_sequences(frame, FEATURES, require_label=False)
 
@@ -145,7 +149,14 @@ def test_non_finite_feature_values_fail_closed():
         validate_input(pd.DataFrame(rows), FEATURES, "fixture")
 
 
-def test_post_deadline_snapshot_fails_closed():
+def test_feature_cutoff_must_equal_the_official_deadline():
+    rows = five_history_rows()
+    rows[-1]["feature_cutoff_time"] = "2026-08-03T12:00:00Z"
+    with pytest.raises(ValueError, match="must equal the official target deadline"):
+        validate_input(pd.DataFrame(rows), FEATURES, "fixture")
+
+
+def test_explicit_source_capture_at_deadline_is_rejected():
     rows = five_history_rows()
     rows[-1]["source_as_of_time"] = rows[-1]["deadline_time"]
     with pytest.raises(ValueError, match="at/after its deadline"):
