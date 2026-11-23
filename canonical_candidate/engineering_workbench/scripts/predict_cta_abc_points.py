@@ -131,6 +131,33 @@ def build_report(rows, model_payload, manifest, input_report, model_path, fixtur
             "observed_median": _percentile(observed_values, 0.50),
             "observed_max": max(observed_values) if observed_values else None,
         }
+    model = model_payload.get("model", {})
+    training_names = model.get("source_feature_names", feature_order)
+    training_means = model.get("means", [])
+    training_scales = model.get("scales", [])
+    training_domain = {}
+    for feature in feature_order:
+        if feature not in training_names:
+            continue
+        index = training_names.index(feature)
+        if index >= len(training_means) or index >= len(training_scales):
+            continue
+        mean = number(training_means[index])
+        scale = number(training_scales[index])
+        if mean is None or scale is None or scale <= 0:
+            continue
+        values = [number(row.get(feature)) for row in rows]
+        observed_values = [value for value in values if value is not None]
+        z_scores = [abs((value - mean) / scale) for value in observed_values]
+        training_domain[feature] = {
+            "training_mean": mean,
+            "training_scale": scale,
+            "current_observed_rows": len(observed_values),
+            "current_min": min(observed_values) if observed_values else None,
+            "current_max": max(observed_values) if observed_values else None,
+            "outside_training_3sd_rows": sum(value > 3.0 for value in z_scores),
+            "maximum_absolute_training_z_score": max(z_scores) if z_scores else None,
+        }
     fixture_predictions = fixture_predictions or []
     all_predictions = [float(row["expected_points"]) for row in fixture_predictions]
     eligible_predictions = [
@@ -164,6 +191,7 @@ def build_report(rows, model_payload, manifest, input_report, model_path, fixtur
         ),
         "feature_count": len(feature_order),
         "feature_coverage": coverage,
+        "training_feature_domain_diagnostics": training_domain,
         "features_with_zero_observation": [name for name, item in coverage.items() if item["observed_rows"] == 0],
         "current_wyscout_fallback_available": False,
         "current_feature_profile": "11footy current player-match evidence + official FPL lagged form; unsupported historical Wyscout features remain missing",
