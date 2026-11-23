@@ -26,8 +26,8 @@ def test_cross_provider_bridge_is_converted_to_11footy_provider_contract():
     ]
     players = [{"id": "10", "code": "123", "web_name": "Player One"}]
     teams = [
-        {"season": "2017-18", "team": "1", "team_name": "Home FC"},
-        {"season": "2017-18", "team": "2", "team_name": "Away FC"},
+        {"season": "2017-18", "team": "1.0", "team_name": "Home FC"},
+        {"season": "2017-18", "team": "2.0", "team_name": "Away FC"},
     ]
 
     candidate_rows, verified_rows, fixtures, player_rows, history_rows, validation = prepare(

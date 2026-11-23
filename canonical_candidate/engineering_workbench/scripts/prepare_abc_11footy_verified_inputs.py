@@ -35,6 +35,19 @@ def truth(value):
     return str(value or "").strip().lower() in {"1", "true", "yes"}
 
 
+def id_text(value):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        number = float(text)
+        if number.is_integer():
+            return str(int(number))
+    except (TypeError, ValueError):
+        pass
+    return text
+
+
 def prepare(candidates, crosswalk, raw_history, raw_players, teams):
     team_names = {}
     for row in teams:
@@ -42,15 +55,15 @@ def prepare(candidates, crosswalk, raw_history, raw_players, teams):
         if season and season != "2017-18":
             continue
         # Vaastav master_team_list.csv uses season, team, team_name.
-        team_id = str(row.get("team") or row.get("id") or row.get("team_id") or "").strip()
+        team_id = id_text(row.get("team") or row.get("id") or row.get("team_id"))
         name = str(row.get("team_name") or row.get("name") or "").strip()
         if team_id and name:
             team_names[team_id] = name
 
     history = []
     for row in raw_history:
-        element = row.get("element") or row.get("fpl_element_id")
-        fixture = row.get("fixture") or row.get("fixture_id")
+        element = id_text(row.get("element") or row.get("fpl_element_id"))
+        fixture = id_text(row.get("fixture") or row.get("fixture_id"))
         if not element or not fixture:
             continue
         history.append({
@@ -63,7 +76,7 @@ def prepare(candidates, crosswalk, raw_history, raw_players, teams):
             "goals_scored": row.get("goals_scored", ""),
             "assists": row.get("assists", ""),
             "was_home": row.get("was_home", ""),
-            "team": row.get("team", ""),
+            "team": id_text(row.get("team")),
             "opponent_team": row.get("opponent_team", ""),
         })
 
@@ -76,7 +89,7 @@ def prepare(candidates, crosswalk, raw_history, raw_players, teams):
             "kickoff_time": row.get("kickoff_time", ""),
             "gameweek": row.get("gameweek", ""),
             f"team_{side}_id": row.get("team", ""),
-            f"team_{side}_name": team_names.get(str(row.get("team") or ""), ""),
+            f"team_{side}_name": team_names.get(id_text(row.get("team")), ""),
         })
     fixtures = [
         item for _, item in sorted(fixture_parts.items())
@@ -121,6 +134,19 @@ def prepare(candidates, crosswalk, raw_history, raw_players, teams):
 
     validation = {
         "status": "PASS" if verified_out else "NO_VERIFIED_MAPPINGS",
+        "diagnostics": {
+            "historical_team_name_rows": len(team_names),
+            "historical_team_ids": sorted(team_names)[:25],
+            "fpl_history_rows_with_kickoff": sum(bool(str(row.get("kickoff_time") or "").strip()) for row in history),
+            "fpl_history_rows_with_team_name_match": sum(
+                id_text(row.get("team")) in team_names for row in history
+            ),
+            "unique_fpl_history_fixtures": len(fixture_parts),
+            "fixtures_with_both_team_names": sum(
+                bool(item.get("team_h_name")) and bool(item.get("team_a_name"))
+                for item in fixture_parts.values()
+            ),
+        },
         "verified_crosswalk_rows": len(verified_out),
         "verified_unique_11footy_players": len({r["provider_player_id"] for r in verified_out}),
         "verified_unique_fpl_elements": len({r["fpl_element_id"] for r in verified_out}),
