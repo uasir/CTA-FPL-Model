@@ -18,7 +18,10 @@ from typing import Iterable
 import pandas as pd
 
 from build_2pm_predeadline_market_snapshot import build_market_artifact
-from rebuild_2pm_fixture_context import rebuild_fixture_context
+from rebuild_2pm_fixture_context import (
+    rebuild_deadline_team_context,
+    rebuild_fixture_context,
+)
 
 PINNED_DASTAN_COMMIT = "758db9247e8b3a9a870c991064f74d8339d61cd0"
 KEY = ["season", "gameweek", "fpl_code"]
@@ -338,6 +341,9 @@ def build_candidate(
         how="left",
         validate="many_to_one",
     )
+    loaded, team_context_report = rebuild_deadline_team_context(
+        loaded, team_matches, features
+    )
     loaded, fixture_context_report = rebuild_fixture_context(
         loaded, history_matches
     )
@@ -405,6 +411,7 @@ def build_candidate(
         },
         "market_snapshot_report": market_report,
         "fixture_context_reconstruction": fixture_context_report,
+        "deadline_team_context_reconstruction": team_context_report,
         "snapshot_safety_buffer": {
             "ep_next": ep_safety,
             "signals": signals_safety,
@@ -413,7 +420,7 @@ def build_candidate(
         "limitations": [
             "The reconstruction uses corrected historical FPL-to-Understat assignments.",
             "The upstream feature builder's deadline assertion covers selected prefixes, not all 286 columns.",
-            "Opponent rolling features and direct rank fields still require independent deadline reconstruction.",
+            "Opponent rolling features and direct ranks are rebuilt from Understat team matches using a conservative 24-hour availability bound; source-vintage and value-parity checks remain open.",
             "Fixture-specific rest, team congestion and opponent defensive-allowance context are reconstructed after the upstream deadline anchor; their source-vintage and value-parity checks remain open.",
             "Historical source-vintage revisions are not proven by reconstructing from current archived source files.",
             "value, selected and transfers_balance are sourced from pre-deadline snapshots; unit parity against the released frame remains to be checked.",
