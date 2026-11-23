@@ -10,7 +10,7 @@ def _row(**overrides):
         "features_as_of_deadline": "2026-11-28T11:00:00Z",
         "cta_snapshot_available_as_of_deadline": "True",
         "cta_source_snapshot_as_of": "2026-11-10T12:21:18Z",
-        "identity_verified": "True", "cta_prior_matches_count": "5",
+        "identity_verified": "True", "cta_prior_matches_count": "5", "cta_prior3_matches_count": "3",
         "cta_prior3_matches_minutes_played_avg": "60",
         "cta_prior5_matches_minutes_played_avg": "50",
         "cta_prior3_matches_key_passes_avg": "1.2",
@@ -92,9 +92,10 @@ def test_reports_per90_values_with_low_minute_denominators():
         cta_prior3_matches_fouls_committed_avg="1",
     )
     rows, report = build_panel([row], _report())
-    assert rows[0]["abc_player_key_pass_rate"] == pytest.approx(270)
+    assert rows[0]["abc_player_key_pass_rate"] == ""
     diagnostic = report["per90_exposure_diagnostics"]["abc_player_key_pass_rate"]
     assert diagnostic["observed_rows"] == 1
+    assert diagnostic["largest_examples"][0]["total_prior3_exposure_minutes"] == pytest.approx(3)
     assert diagnostic["denominator_le_5_minutes_rows"] == 1
     assert diagnostic["largest_examples"][0]["numerator_prior3_avg"] == pytest.approx(3)
     assert diagnostic["largest_examples"][0]["minutes_prior3_avg"] == pytest.approx(1)
