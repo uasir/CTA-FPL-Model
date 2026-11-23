@@ -47,6 +47,11 @@ def build_target_query_tensors(
     if np.isinf(values).any():
         raise ValueError("Combined candidate contains infinite feature values")
     residual_nan_count = int(numeric.isna().sum().sum())
+    nan_counts_by_feature = {
+        column: int(numeric[column].isna().sum())
+        for column in features
+        if numeric[column].isna().any()
+    }
     sentinel_count = int(numeric.eq(-1.0).sum().sum())
     frame.loc[:, features] = numeric.fillna(0.0)
     if int(frame[features].eq(-1.0).sum().sum()) != sentinel_count:
@@ -64,6 +69,28 @@ def build_target_query_tensors(
         raise ValueError(
             f"No TARGET_QUERY rows found for {target_season} GW{target_gameweek}"
         )
+    if targets["minutes"].ne(0).any():
+        raise ValueError("TARGET_QUERY rows must have zero observed minutes")
+    if targets["target_points"].notna().any():
+        raise ValueError("TARGET_QUERY rows must not contain realized target points")
+    if targets["kickoff_time"].le(targets["deadline_time"]).any():
+        raise ValueError("TARGET_QUERY kickoff must be after its official deadline")
+    if targets["feature_cutoff_time"].ne(targets["deadline_time"]).any():
+        raise ValueError("TARGET_QUERY feature cutoff must equal the official deadline")
+    for snapshot_column in (
+        "ep_next_snapshot_at", "signals_snapshot_at", "market_snapshot_at"
+    ):
+        if snapshot_column in targets:
+            captured = pd.to_datetime(
+                targets[snapshot_column], utc=True, errors="coerce"
+            )
+            present = captured.notna()
+            if present.any():
+                age = targets.loc[present, "deadline_time"] - captured.loc[present]
+                if age.lt(pd.Timedelta(minutes=5)).any():
+                    raise ValueError(
+                        f"{snapshot_column} violates the five-minute deadline safety buffer"
+                    )
     if targets.duplicated(["season", "gameweek", "fixture_id", "fpl_code"]).any():
         raise ValueError("Target query rows contain duplicate player-fixture keys")
 
@@ -173,6 +200,7 @@ def build_target_query_tensors(
         "tensor_dtype": "float32",
         "feature_order_sha256": feature_hash,
         "residual_nan_values_imputed_to_zero": residual_nan_count,
+        "raw_nan_counts_by_feature": nan_counts_by_feature,
         "residual_nan_imputation_policy": "0.0, matching pinned Dastan model.py feature-matrix fillna(0.0)",
         "preserved_minus_one_snapshot_sentinels": sentinel_count,
         "maximum_inter_observation_gap_days": MAX_GAP_DAYS,
