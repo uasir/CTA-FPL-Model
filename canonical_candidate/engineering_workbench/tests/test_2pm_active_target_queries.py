@@ -143,7 +143,7 @@ def snapshot_artifacts(tmp_path, market_capture):
     pd.DataFrame(
         [{
             **key,
-            "value": 5.5,
+            "value": 55.0,
             "selected": 7.3,
             "transfers_balance": 60.0,
             "snapshot_at": market_capture,
@@ -169,7 +169,7 @@ def test_snapshot_join_preserves_values_and_accepts_safe_capture_times(tmp_path)
         "sig_has_news": 0.0,
     }])
     result, report = attach_snapshot_features(frame, tmp_path)
-    assert result.loc[0, "value"] == 5.5
+    assert result.loc[0, "value"] == 55.0
     assert result.loc[0, "selected"] == 7.3
     assert result.loc[0, "transfers_balance"] == 60.0
     assert result.loc[0, "ar_ep_next"] == 4.2
