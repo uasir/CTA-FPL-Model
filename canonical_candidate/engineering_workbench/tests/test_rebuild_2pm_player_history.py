@@ -93,6 +93,7 @@ def test_availability_uses_position_base_rates_when_no_prior_rows():
             "fixture": "target",
             "fpl_code": 100,
             "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+            "kickoff_time": pd.Timestamp("2026-01-10", tz="UTC"),
         }]
     )
     result, _ = rebuild_player_history_features(target, target_history, fake_features())
