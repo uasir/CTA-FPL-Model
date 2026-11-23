@@ -169,13 +169,24 @@ def build_player_gameweek_sequence_tensors(
             set(targets["target_label_grain"].dropna().astype(str).unique())
             if "target_label_grain" in targets else set()
         )
+        declared_semantics = (
+            set(targets["target_points_semantics"].dropna().astype(str).unique())
+            if "target_points_semantics" in targets else set()
+        )
+        if "target_label_grain" in targets and targets["target_label_grain"].isna().any():
+            raise ValueError("Target label-grain metadata is incomplete")
+        if "target_points_semantics" in targets and targets["target_points_semantics"].isna().any():
+            raise ValueError("Target point-semantics metadata is incomplete")
         if label_grain is None:
-            if declared_grains == {"player_fixture"}:
+            if (
+                declared_grains == {"player_fixture"}
+                and declared_semantics == {"FPL_POINTS_SCORED_IN_THIS_FIXTURE"}
+            ):
                 label_grain = "player_fixture"
             else:
                 raise ValueError(
                     "Historical training requires an explicit label_grain unless "
-                    "the target frame declares player_fixture"
+                    "the target frame carries verified player-fixture semantics"
                 )
         if label_grain not in {"player_fixture", "player_gameweek"}:
             raise ValueError("label_grain must be 'player_fixture' or 'player_gameweek'")
@@ -184,10 +195,7 @@ def build_player_gameweek_sequence_tensors(
                 f"Requested label_grain={label_grain} conflicts with target frame {declared_grains}"
             )
         if label_grain == "player_fixture" and "target_points_semantics" in targets:
-            semantics = set(
-                targets["target_points_semantics"].dropna().astype(str).unique()
-            )
-            if semantics != {"FPL_POINTS_SCORED_IN_THIS_FIXTURE"}:
+            if declared_semantics != {"FPL_POINTS_SCORED_IN_THIS_FIXTURE"}:
                 raise ValueError("Fixture-grain target semantics are not verified")
         target_minutes = pd.to_numeric(targets["minutes"], errors="coerce")
         if target_minutes.isna().any() or target_minutes.lt(0).any():
