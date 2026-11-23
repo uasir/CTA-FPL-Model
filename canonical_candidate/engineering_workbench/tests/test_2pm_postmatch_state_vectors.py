@@ -118,7 +118,7 @@ def test_rejects_non_appearance_rows():
 def test_rejects_missing_match_availability():
     frame = make_candidate()
     frame.loc[0, "match_available_at"] = pd.NaT
-    with pytest.raises(ValueError, match="valid kickoff and availability"):
+    with pytest.raises(ValueError, match="valid match data availability timestamp"):
         builder.build_postmatch_state_vectors(
             frame, pd.DataFrame(), pd.DataFrame(), object(), FEATURES
         )
