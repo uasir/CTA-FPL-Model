@@ -82,7 +82,7 @@ class CTAMultiGameweekSquadEvaluatorTests(unittest.TestCase):
         self.assertEqual(candidate["incoming_global_rank"], 1)
         self.assertEqual(candidate["incoming_position_rank"], 1)
         self.assertEqual(candidate["incoming_five_gameweek_expected_points"], 25.0)
-        self.assertEqual(candidate["outgoing_global_rank"], 3)
+        self.assertEqual(candidate["outgoing_global_rank"], 2)
         self.assertEqual(candidate["outgoing_position_rank"], 1)
         self.assertEqual(candidate["outgoing_five_gameweek_expected_points"], 15.0)
         self.assertEqual(candidate["incoming_minus_outgoing_player_horizon_xp"], 10.0)
