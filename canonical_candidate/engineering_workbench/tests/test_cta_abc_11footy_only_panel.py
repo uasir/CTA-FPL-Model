@@ -82,6 +82,25 @@ def test_target_fixture_must_follow_deadline():
         build_panel([_row(kickoff_time="2026-11-28T10:59:00Z")], _report())
 
 
+
+def test_reports_per90_values_with_low_minute_denominators():
+    row = _row(
+        cta_prior3_matches_minutes_played_avg="1",
+        cta_prior3_matches_key_passes_avg="3",
+        cta_prior3_matches_tracked_xg_sum_avg="0.5",
+        cta_prior3_matches_shots_avg="1",
+        cta_prior3_matches_fouls_committed_avg="1",
+    )
+    rows, report = build_panel([row], _report())
+    assert rows[0]["abc_player_key_pass_rate"] == pytest.approx(270)
+    diagnostic = report["per90_exposure_diagnostics"]["abc_player_key_pass_rate"]
+    assert diagnostic["observed_rows"] == 1
+    assert diagnostic["denominator_le_5_minutes_rows"] == 1
+    assert diagnostic["largest_examples"][0]["numerator_prior3_avg"] == pytest.approx(3)
+    assert diagnostic["largest_examples"][0]["minutes_prior3_avg"] == pytest.approx(1)
+    assert diagnostic["largest_examples"][0]["per90_value"] == pytest.approx(270)
+
+
 def test_source_snapshot_must_match_panel_row_snapshot():
     with pytest.raises(ValueError, match="disagrees"):
         build_panel([_row(cta_source_snapshot_as_of="2026-11-09T12:00:00Z")], _report())
