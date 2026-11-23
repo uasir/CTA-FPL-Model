@@ -121,6 +121,71 @@ def attach_official_deadlines(
     return out
 
 
+
+def attach_match_availability_bounds(
+    frame: pd.DataFrame,
+    raw_dir: Path,
+    sources_module,
+    seasons: list[str],
+    *,
+    force: bool = False,
+) -> pd.DataFrame:
+    """Attach a conservative 24-hour post-kickoff availability upper bound.
+
+    Vaastav fixture archives expose kickoff and finished status, not an exact
+    completion timestamp. The bound intentionally excludes borderline matches
+    rather than inventing an exact finish time.
+    """
+    fixture_frames = []
+    for season in seasons:
+        path = raw_dir / "vaastav" / season / "fixtures.csv"
+        if force or not path.exists() or path.stat().st_size == 0:
+            url = sources_module.VAASTAV_RAW + f"data/{season}/fixtures.csv"
+            sources_module._download(url, path, force=force)
+        fixtures = pd.read_csv(path, usecols=["id", "kickoff_time", "finished"])
+        fixtures = fixtures.rename(columns={"id": "fixture"})
+        fixtures["season"] = season
+        fixtures["kickoff_time"] = pd.to_datetime(
+            fixtures["kickoff_time"], utc=True, errors="coerce"
+        )
+        if fixtures["kickoff_time"].isna().any():
+            raise ValueError(f"{season} fixtures contain invalid kickoff timestamps")
+        finished = fixtures["finished"].astype(str).str.lower().eq("true")
+        fixtures["match_available_at"] = fixtures["kickoff_time"] + pd.Timedelta(hours=24)
+        fixtures.loc[~finished, "match_available_at"] = pd.NaT
+        fixtures["completion_time_quality"] = finished.map(
+            {
+                True: "CONSERVATIVE_24H_UPPER_BOUND",
+                False: "NOT_FINISHED",
+            }
+        )
+        fixture_frames.append(
+            fixtures[
+                [
+                    "season", "fixture", "match_available_at",
+                    "completion_time_quality",
+                ]
+            ]
+        )
+    calendar = pd.concat(fixture_frames, ignore_index=True)
+    if calendar.duplicated(["season", "fixture"]).any():
+        raise ValueError("Fixture availability calendar has duplicate season/fixture keys")
+    out = frame.merge(
+        calendar,
+        on=["season", "fixture"],
+        how="left",
+        validate="many_to_one",
+    )
+    if out["completion_time_quality"].isna().any():
+        missing = out.loc[
+            out["completion_time_quality"].isna(), ["season", "fixture"]
+        ].drop_duplicates()
+        raise ValueError(
+            "Candidate rows lack fixture completion metadata: "
+            f"{missing.head(10).to_dict('records')}"
+        )
+    return out
+
 def build_candidate(
     source_root: Path,
     raw_dir: Path,
@@ -202,6 +267,11 @@ def build_candidate(
     if len(ordered_features) != 286:
         raise RuntimeError(f"Expected 286 Dastan inputs, found {len(ordered_features)}")
     loaded = attach_official_deadlines(loaded, raw_dir, fplcache, seasons)
+    loaded = attach_match_availability_bounds(
+        loaded, raw_dir, sources, seasons, force=force
+    )
+    loaded["feature_cutoff_time"] = loaded["deadline_time"]
+    loaded["source_vintage_status"] = "RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED"
 
     ep_path = output_dir / "pre_deadline_ep_next.parquet"
     signal_path = output_dir / "pre_deadline_signals.parquet"
@@ -216,8 +286,9 @@ def build_candidate(
 
     metadata = [
         "season", "gameweek", "fixture", "fpl_code", "position",
-        "team_name", "kickoff_time", "deadline_time", "minutes",
-        "target_points", "ep_next_snapshot_at", "signals_snapshot_at",
+        "team_name", "kickoff_time", "deadline_time", "feature_cutoff_time",
+        "match_available_at", "completion_time_quality", "source_vintage_status",
+        "minutes", "target_points", "ep_next_snapshot_at", "signals_snapshot_at",
     ]
     absent = [column for column in metadata if column not in loaded.columns]
     if absent:
