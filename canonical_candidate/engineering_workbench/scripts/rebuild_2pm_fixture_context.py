@@ -60,6 +60,9 @@ def rebuild_player_history_features(
     # Fail closed rather than allowing a malformed vintage to enter any later
     # historical state. Future target fixtures may legitimately have NaT.
     observed_availability = hist["match_available_at"].notna()
+    played_rows = pd.to_numeric(hist["minutes"], errors="coerce").gt(0)
+    if hist.loc[played_rows, "match_available_at"].isna().any():
+        raise ValueError("Played player-history rows require match availability timestamps")
     if (
         hist.loc[observed_availability, "match_available_at"]
         .le(hist.loc[observed_availability, "kickoff_time"])
