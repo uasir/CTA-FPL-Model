@@ -39,7 +39,9 @@ def extract_market(
         raw_selected = player.get("selected_by_percent")
         raw_in = player.get("transfers_in_event")
         raw_out = player.get("transfers_out_event")
-        value = -1.0 if raw_price in (None, "") else float(raw_price) / 10.0
+        # Vaastav merged_gw "value" is in FPL tenths of a million, matching
+        # bootstrap-static now_cost (e.g. 55, not 5.5).
+        value = -1.0 if raw_price in (None, "") else float(raw_price)
         selected = (
             -1.0 if raw_selected in (None, "")
             else float(str(raw_selected).replace(",", ""))
@@ -132,7 +134,7 @@ def build_market_artifact(
             "rows_retained": int(len(frame)),
         },
         "fields": {
-            "value": "now_cost / 10 (FPL price in millions)",
+            "value": "now_cost unchanged (FPL tenths of £m; matches Vaastav merged_gw value units)",
             "selected": "selected_by_percent",
             "transfers_balance": "transfers_in_event - transfers_out_event",
         },
