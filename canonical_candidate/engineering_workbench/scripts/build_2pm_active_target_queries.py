@@ -419,6 +419,13 @@ def build_active_target_candidate(
     if absent:
         raise RuntimeError(f"Active candidate frame missing required columns: {absent[:20]}")
     candidate = combined[metadata + ordered_features].copy()
+    # Persist the full current-season match/schedule context so the selected
+    # post-match sequence path can rebuild played-fixture states separately
+    # from the pre-deadline TARGET_QUERY rows.
+    player_matches_path = output_dir / "player_matches_with_availability.parquet"
+    team_matches_path = output_dir / "team_matches.parquet"
+    source_player_matches.to_parquet(player_matches_path, index=False)
+    team_matches.to_parquet(team_matches_path, index=False)
     candidate["admission_status"] = "NOT_ADMITTED"
     candidate["feature_order_sha256"] = hashlib.sha256(
         "\n".join(ordered_features).encode()
@@ -445,6 +452,10 @@ def build_active_target_candidate(
         "fixture_context_reconstruction": fixture_context_report,
         "future_fixture_schedule_rows": int(len(schedule_rows)),
         "feature_order_sha256": candidate["feature_order_sha256"].iat[0],
+        "player_matches_with_availability": player_matches_path.name,
+        "player_match_context_rows": int(len(source_player_matches)),
+        "team_matches_path": team_matches_path.name,
+        "team_match_rows": int(len(team_matches)),
         "source_manifest_sha256": sha256(raw_dir / "downloads.json"),
         "snapshot_coverage": {
             "history": history_snapshot_report,
