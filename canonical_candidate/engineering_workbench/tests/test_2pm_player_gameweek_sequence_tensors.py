@@ -254,3 +254,65 @@ def test_fixture_grain_auto_detection_requires_complete_semantics_metadata(tmp_p
             target_mode="historical",
             label_grain=None,
         )
+
+
+
+def test_rejects_missing_source_as_of_timestamp_when_column_is_present(tmp_path):
+    targets = make_targets()
+    targets["source_as_of_time"] = pd.NaT
+    with pytest.raises(ValueError, match="missing or invalid capture timestamps"):
+        build(
+            tmp_path,
+            make_history(),
+            targets,
+            target_mode="historical",
+            label_grain="player_fixture",
+        )
+
+
+def test_rejects_real_market_values_without_snapshot_provenance(tmp_path):
+    targets = make_targets()
+    targets["value"] = 55.0
+    targets["selected"] = 12.5
+    targets["transfers_balance"] = 100
+    targets["market_snapshot_at"] = pd.NaT
+    with pytest.raises(ValueError, match="feature values are not all -1 sentinels"):
+        build(
+            tmp_path,
+            make_history(),
+            targets,
+            target_mode="historical",
+            label_grain="player_fixture",
+        )
+
+
+def test_accepts_missing_market_snapshot_only_with_missing_sentinels(tmp_path):
+    targets = make_targets()
+    targets["value"] = -1.0
+    targets["selected"] = -1.0
+    targets["transfers_balance"] = -1.0
+    targets["market_snapshot_at"] = pd.NaT
+    report = build(
+        tmp_path,
+        make_history(),
+        targets,
+        target_mode="historical",
+        label_grain="player_fixture",
+    )
+    assert report["counts"]["emitted"] == 1
+
+
+def test_accepts_snapshot_exactly_five_minutes_before_deadline(tmp_path):
+    targets = make_targets()
+    targets["market_snapshot_at"] = targets["deadline_time"] - pd.Timedelta(minutes=5)
+    targets["value"] = 55.0
+    targets["selected"] = 12.5
+    targets["transfers_balance"] = 100
+    report = build(
+        tmp_path,
+        make_history(),
+        targets,
+        target_mode="historical",
+        label_grain="player_fixture",
+    )
+    assert report["counts"]["emitted"] == 1
