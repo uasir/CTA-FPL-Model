@@ -101,7 +101,8 @@ jobs:
                       f"- Structural audit non-finite values: {audit.get('nonfinite_feature_values')}",
                       f"- Selected-prefix same-player/GW groups with differences: {anchor.get('groups_with_differences')}",
                       f"- Historical ep_next snapshots after deadline: {audit.get('snapshot_timestamps', {}).get('ep_next_snapshot_at', {}).get('post_deadline_rows')}",
-                      f"- Historical market snapshots after deadline: {audit.get('snapshot_timestamps', {}).get('market_snapshot_at', {}).get('post_deadline_rows')}"
+                      f"- Historical market snapshots after deadline: {audit.get('snapshot_timestamps', {}).get('market_snapshot_at', {}).get('post_deadline_rows')}",
+                      f"- Market snapshots inside five-minute safety buffer: {audit.get('snapshot_timestamps', {}).get('market_snapshot_at', {}).get('rows_under_5m_buffer')}"
                   ])
               sequence_path = Path(os.environ["SEQUENCE_REPORT_PATH"])
               if sequence_path.exists():
