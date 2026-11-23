@@ -434,6 +434,7 @@ jobs:
           retention-days: 30
 
       # Forecast report includes input feature ranges and output distribution diagnostics.
+      # Keep this audit on the shared model inference path; no standalone model training.
       # The 11footy-only panel is retained as a current-source feature adapter.
       # Do not train a disconnected 11footy-only points model: ABC inference must
       # use the shared historical 11footy-primary/Wyscout-supplementary model.
