@@ -37,7 +37,7 @@ The 286 columns were designed for a minutes model and represent engineered deadl
 - `HOLD`: evidence incomplete. This is the initial status for all 286 columns.
 - Historical market/snapshot values require deadline-specific archived vintages; current bootstrap data are not historical substitutes. A candidate rebuild adapter now sources `value`, `selected` and `transfers_balance` from accepted FPL cache snapshots with the matching official deadline and a five-minute safety buffer; unit parity and full historical coverage remain to be audited.
 - Historical FPL/Understat corrections and identity mappings require pinned source snapshots/manifests.
-- Preserve the upstream distinction between missing snapshot sentinel `-1.0`, residual NaN fill `0.0`, and genuine observed zero only where the source contract supports it.
+- Preserve the upstream distinction between missing snapshot sentinel `-1.0`, residual NaN fill `0.0`, and genuine observed zero only where the source contract supports it. The pinned Dastan training implementation confirms this two-stage behavior: `data.load()` fills absent pre-deadline snapshot joins with `-1.0`, while `model.py` applies `fillna(0.0)` to the feature matrix before fitting. The 2PM candidate pipeline must retain pre-imputation NaN/coverage diagnostics and apply the residual `0.0` fill only as an explicit, versioned tensor-preparation step; this does not turn structurally unavailable historical defensive statistics into observed zeros for admission purposes.
 - Target fixture outcomes must never enter that target's input.
 - Sequence compatibility is a separate decision from feature availability. A valid rolling feature is not automatically a valid per-match sequence token.
 
