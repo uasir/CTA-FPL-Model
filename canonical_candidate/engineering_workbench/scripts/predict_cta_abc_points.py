@@ -141,6 +141,11 @@ def write_csv(path: Path, rows, fields):
         writer.writerows(rows)
 
 
+def write_json(path: Path, payload):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path, required=True)
@@ -168,9 +173,7 @@ def main() -> int:
         gameweek_rows,
         ["fpl_element_id", "gameweek", "fixture_count", "expected_points", "research_eligible_fixture_count", "model_version"],
     )
-    (args.out_dir / "abc_current_model_forecast_report.json").write_text(
-        json.dumps(report, indent=2, allow_nan=False) + "\\n", encoding="utf-8"
-    )
+    write_json(args.out_dir / "abc_current_model_forecast_report.json", report)
     print(json.dumps(report, indent=2))
     return 0
 
