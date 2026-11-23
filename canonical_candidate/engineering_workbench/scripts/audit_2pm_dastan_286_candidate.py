@@ -15,7 +15,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-ANCHOR_PREFIXES = ("player_", "team_", "ar_", "p_any_", "p60_", "e_minutes_")
+ANCHOR_PREFIXES = ("player_", "team_", "p_any_", "p60_", "e_minutes_")
+FIXTURE_CONTEXT_FEATURES = (
+    "ar_opp_dc_allowed_3", "ar_opp_dc_allowed_5", "ar_opp_dc_allowed_10",
+    "ar_opp_tackles_allowed_5", "ar_rest_days", "ar_team_matches_14d",
+    "is_home_num",
+)
 DEFENSIVE_PREFIXES = (
     "ar_defensive_contribution_", "ar_cbit_", "ar_recoveries_", "ar_tackles_",
     "ar_dc_", "ar_opp_dc_allowed_", "ar_opp_tackles_allowed_",
@@ -64,7 +69,17 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
         }
 
     anchor_features = [
-        column for column in features if column.startswith(ANCHOR_PREFIXES)
+        column for column in features
+        if column.startswith(ANCHOR_PREFIXES)
+        or (
+            column.startswith("ar_")
+            and column not in FIXTURE_CONTEXT_FEATURES
+        )
+    ]
+    fixture_context_features = [
+        column for column in features
+        if column.startswith("opp_")
+        or column in FIXTURE_CONTEXT_FEATURES
     ]
     duplicate_players = frame[frame.duplicated(["season", "gameweek", "fpl_code"], keep=False)]
     groups_affected = 0
@@ -78,6 +93,25 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
             if differing:
                 groups_affected += 1
                 columns_affected.update(differing)
+
+    context_flattening = {
+        "groups_with_multiple_fixtures": 0,
+        "groups_where_all_context_features_are_constant": 0,
+        "constant_feature_group_counts": {column: 0 for column in fixture_context_features},
+        "checked_feature_count": len(fixture_context_features),
+        "interpretation": "Diagnostic only: fixture-specific opponent/venue/rest/congestion context may legitimately vary within one player/Gameweek. Constant values can indicate upstream deadline anchoring flattened context that should be rebuilt per target fixture.",
+    }
+    if not duplicate_players.empty and fixture_context_features:
+        for _, group in duplicate_players.groupby(
+            ["season", "gameweek", "fpl_code"], sort=False
+        ):
+            context_flattening["groups_with_multiple_fixtures"] += 1
+            counts = group[fixture_context_features].nunique(dropna=False)
+            for column in fixture_context_features:
+                if counts[column] <= 1:
+                    context_flattening["constant_feature_group_counts"][column] += 1
+            if counts.le(1).all():
+                context_flattening["groups_where_all_context_features_are_constant"] += 1
 
     snapshot_report = {}
     if "deadline_time" in frame:
@@ -127,10 +161,12 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
             "groups_with_differences": groups_affected,
             "columns_with_differences": sorted(columns_affected),
             "checked_feature_count": len(anchor_features),
-            "scope": "selected upstream prefixes only; not a full 286-feature deadline proof",
+            "scope": "player/team/availability history and non-fixture ar_ history only; not a full 286-feature deadline proof",
         },
+        "fixture_context_flattening_check": context_flattening,
         "known_unresolved_scopes": {
             "opponent_rolling_features": "not independently deadline-reconstructed",
+            "fixture_specific_ar_context": "ar_ opponent allowance, rest, team congestion and venue context may be flattened by the upstream ar_ deadline anchor and must be rebuilt per target fixture",
             "direct_league_rank_features": "not independently deadline-reconstructed",
             "market_fields": "value/selected/transfers_balance timestamp provenance not verified",
             "source_vintage": "retrospective provider revisions not verified",
