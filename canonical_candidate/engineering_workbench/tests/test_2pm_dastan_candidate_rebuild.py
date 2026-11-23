@@ -97,3 +97,35 @@ def test_fixture_availability_rejects_missing_fixture_metadata(tmp_path):
         attach_match_availability_bounds(
             frame, tmp_path, source, ["2025-26"]
         )
+
+
+def test_official_deadline_marks_started_fixtures_ineligible_without_dropping_history():
+    from rebuild_2pm_dastan_286_candidate import attach_official_deadlines
+
+    deadline = pd.Timestamp("2026-01-01T12:00:00Z")
+    fplcache = SimpleNamespace(
+        load_index=lambda raw_dir: {},
+        season_deadlines=lambda raw_dir, index, season: {1: deadline},
+    )
+    frame = pd.DataFrame(
+        [
+            {
+                "season": "2025-26", "gameweek": 1, "fixture": 101,
+                "fpl_code": 1001, "kickoff_time": deadline - pd.Timedelta(hours=1),
+            },
+            {
+                "season": "2025-26", "gameweek": 1, "fixture": 102,
+                "fpl_code": 1001, "kickoff_time": deadline + pd.Timedelta(hours=1),
+            },
+        ]
+    )
+
+    result = attach_official_deadlines(
+        frame, tmp_path if False else None, fplcache, ["2025-26"]
+    )
+
+    assert len(result) == 2
+    assert result["forecast_target_eligible"].tolist() == [False, True]
+    report = result.attrs["deadline_target_eligibility"]
+    assert report["rows_excluded_started_by_deadline"] == 1
+    assert report["rows_after"] == 1
