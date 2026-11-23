@@ -92,3 +92,28 @@ def test_forecast_report_includes_prediction_and_feature_range_diagnostics(tmp_p
     assert distribution["research_ineligible_player_fixtures"]["max"] == 5.0
     assert report["feature_coverage"]["abc_progressive_passes"]["observed_min"] == 2.0
     assert report["feature_coverage"]["abc_progressive_passes"]["observed_max"] == 2.0
+
+
+def test_forecast_report_compares_current_features_with_training_scale():
+    features = ["abc_player_key_pass_rate", "abc_progressive_passes"]
+    rows = [
+        {"fpl_element_id": "10", "gameweek": "12", "abc_player_key_pass_rate": "270", "abc_progressive_passes": ""},
+        {"fpl_element_id": "11", "gameweek": "12", "abc_player_key_pass_rate": "0.5", "abc_progressive_passes": ""},
+    ]
+    payload = {
+        "model_version": "abc-points-ridge-v1",
+        "feature_order": features,
+        "model": {
+            "source_feature_names": features,
+            "means": [1.0, 5.0],
+            "scales": [2.0, 1.0],
+        },
+    }
+    report = build_report(
+        rows, payload, {"model_sha256": "not-a-real-hash"}, {}, 
+        __import__("pathlib").Path(__file__)
+    )
+    domain = report["training_feature_domain_diagnostics"]
+    assert domain["abc_player_key_pass_rate"]["outside_training_3sd_rows"] == 1
+    assert domain["abc_player_key_pass_rate"]["maximum_absolute_training_z_score"] == 134.5
+    assert domain["abc_progressive_passes"]["current_observed_rows"] == 0
