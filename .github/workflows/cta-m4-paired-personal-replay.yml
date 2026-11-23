@@ -177,10 +177,13 @@ jobs:
           ]
           for candidate in diagnostic.get("candidate_evaluations", [])[:5]:
               o, i = player(candidate["transfer_out_id"]), player(candidate["transfer_in_id"])
+              alternative_bank = float(candidate["bank_after_transfer"])
+              if abs(alternative_bank) < 0.000001:
+                  alternative_bank = 0.0
               lines.append(
                   f"| {o['name']} → {i['name']} | "
                   f"{candidate['net_horizon_expected_points_delta']:+.5f} | "
-                  f"£{candidate['bank_after_transfer']:.1f}m |"
+                  f"£{alternative_bank:.1f}m |"
               )
           lines += [
               "",
