@@ -73,6 +73,13 @@ def build_panel(rows, source_report):
     counts = Counter()
     observed = {layer: Counter() for layer in LAYER_FEATURES}
     seen = set()
+    rate_samples = {
+        "abc_player_key_pass_rate": [],
+        "abc_player_tracked_xg_rate": [],
+        "abc_player_fouls_committed_rate": [],
+        "abc_threat_creation_rate": [],
+        "abc_attacking_involvement_rate": [],
+    }
 
     for row in rows:
         player_id = str(row.get("fpl_element_id") or "").strip()
@@ -153,6 +160,26 @@ def build_panel(rows, source_report):
             "attacking_involvement_rate": per90(involvement, minutes3),
         }
 
+        if snapshot_available:
+            rate_inputs = {
+                "abc_player_key_pass_rate": (key_passes3, minutes3),
+                "abc_player_tracked_xg_rate": (xg3, minutes3),
+                "abc_player_fouls_committed_rate": (fouls3, minutes3),
+                "abc_threat_creation_rate": (key_passes3, minutes3),
+                "abc_attacking_involvement_rate": (involvement, minutes3),
+            }
+            for feature_name, (numerator, denominator) in rate_inputs.items():
+                value = per90(numerator, denominator)
+                if value is not None:
+                    rate_samples[feature_name].append({
+                        "fpl_element_id": player_id,
+                        "fixture_id": fixture_id,
+                        "prior_matches_count": prior_count,
+                        "numerator_prior3_avg": numerator,
+                        "minutes_prior3_avg": denominator,
+                        "per90_value": value,
+                    })
+
         if not snapshot_available:
             for features in (a, b, c):
                 for name in features:
@@ -207,6 +234,16 @@ def build_panel(rows, source_report):
         "rows_with_prior_history": counts["rows_with_prior_history"],
         "analysis_eligible_rows": counts["analysis_eligible_rows"],
         "layer_feature_observed_row_counts": {layer: dict(values) for layer, values in observed.items()},
+        "per90_exposure_diagnostics": {
+            feature: {
+                "observed_rows": len(samples),
+                "denominator_le_5_minutes_rows": sum(item["minutes_prior3_avg"] <= 5 for item in samples),
+                "denominator_le_15_minutes_rows": sum(item["minutes_prior3_avg"] <= 15 for item in samples),
+                "maximum_per90_value": max((item["per90_value"] for item in samples), default=None),
+                "largest_examples": sorted(samples, key=lambda item: item["per90_value"], reverse=True)[:5],
+            }
+            for feature, samples in rate_samples.items()
+        },
         "opta_dependency": False,
         "opta_features_used": False,
         "model_training_eligible": False,
