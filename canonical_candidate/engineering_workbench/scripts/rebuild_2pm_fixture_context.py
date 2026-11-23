@@ -125,36 +125,32 @@ def rebuild_player_history_features(
     )
     values = {column: np.full(len(out), np.nan, dtype=float) for column in history_columns}
 
-    # Prepare sorted, prefix-summed player histories. Rolling windows are based on
-    # all prior player fixtures (including non-appearances), as in Dastan's source.
+    # Keep raw per-player arrays in kickoff order. At each target query we
+    # explicitly select only rows whose availability is strictly pre-deadline;
+    # this avoids assuming that a completion timestamp is a sorted prefix.
     history_groups = {}
     for uid, group in hist.groupby("_player_uid", sort=False):
-        group = group.sort_values(["match_available_at", "kickoff_time", "fixture"], kind="mergesort").reset_index(drop=True)
+        group = group.sort_values(["kickoff_time", "fixture"], kind="mergesort").reset_index(drop=True)
         available_ns = group["match_available_at"].astype("int64").to_numpy()
-        if np.any(np.diff(available_ns) < 0):
-            raise ValueError(f"Player availability timestamps are not ordered for player_uid {uid}")
-        prefixes = {}
+        player_arrays = {}
         for source in player_map:
             series = (
                 pd.to_numeric(group[source], errors="coerce")
                 if source in group else pd.Series(0.0, index=group.index)
             )
-            prefixes[source] = _prefix_mean(
-                series.fillna(0.0).to_numpy(dtype=float)
-            )
-        venue = {}
-        total_points = pd.to_numeric(group["total_points"], errors="coerce").fillna(0.0).to_numpy(dtype=float)
+            player_arrays[source] = series.fillna(0.0).to_numpy(dtype=float)
+
+        total_points = pd.to_numeric(
+            group["total_points"], errors="coerce"
+        ).fillna(0.0).to_numpy(dtype=float)
         home_values = group["is_home"].astype(bool).to_numpy()
-        for home in (False, True):
-            mask = home_values == home
-            venue_group = group.loc[mask].copy()
-            venue[home] = (
-                venue_group["match_available_at"].astype("int64").to_numpy(),
-                _prefix_mean(
-                    pd.to_numeric(venue_group["total_points"], errors="coerce")
-                    .fillna(0.0).to_numpy(dtype=float)
-                ),
+        venue = {
+            home: (
+                available_ns[home_values == home],
+                total_points[home_values == home],
             )
+            for home in (False, True)
+        }
 
         defensive_arrays = {}
         for feature, source in defensive_sources.items():
@@ -165,14 +161,9 @@ def rebuild_player_history_features(
                 pd.to_numeric(group[column], errors="coerce")
                 if column in group else pd.Series(np.nan, index=group.index)
             )
-            defensive_arrays[feature] = _prefix_mean(
-                series.to_numpy(dtype=float), ignore_nan=True
-            )
+            defensive_arrays[feature] = series.to_numpy(dtype=float)
 
-        dc = (
-            pd.to_numeric(group["defensive_contribution"], errors="coerce").to_numpy(dtype=float)
-            if "defensive_contribution" in group else np.full(len(group), np.nan)
-        )
+        dc = defensive_arrays["defensive_contribution"]
         positions = group["position"].astype(str).to_numpy()
         thresholds = np.array(
             [features_module.DC_THRESHOLD.get(position, 99) for position in positions],
@@ -186,54 +177,73 @@ def rebuild_player_history_features(
             pd.to_numeric(group["starts"], errors="coerce").to_numpy(dtype=float)
             if "starts" in group else np.full(len(group), np.nan)
         )
-        rate_prefixes = {
-            "dc_hit_rate": _prefix_mean(hit, ignore_nan=True),
-            "dc_near_rate": _prefix_mean(near, ignore_nan=True),
-            "starts": _prefix_mean(starts, ignore_nan=True),
-        }
         history_groups[str(uid)] = {
             "available_ns": available_ns,
-            "player_prefixes": prefixes,
-            "venue_prefixes": venue,
-            "defensive_prefixes": defensive_arrays,
-            "rate_prefixes": rate_prefixes,
+            "player_arrays": player_arrays,
+            "venue_arrays": venue,
+            "defensive_arrays": defensive_arrays,
+            "rate_arrays": {
+                "dc_hit_rate": hit,
+                "dc_near_rate": near,
+                "starts": starts,
+            },
         }
 
     # Availability histories are season-scoped and use the last 3/5/10 player rows.
     availability_groups = {}
     for (season, code), group in hist.groupby(["season", "fpl_code"], sort=False):
-        group = group.sort_values(["match_available_at", "kickoff_time", "fixture"], kind="mergesort")
+        group = group.sort_values(["kickoff_time", "fixture"], kind="mergesort")
+        minutes = pd.to_numeric(group["minutes"], errors="coerce")
         availability_groups[(str(season), int(code))] = {
             "available_ns": group["match_available_at"].astype("int64").to_numpy(),
-            "played": _prefix_mean(pd.to_numeric(group["minutes"], errors="coerce").gt(0).astype(float).to_numpy()),
-            "played60": _prefix_mean(pd.to_numeric(group["minutes"], errors="coerce").ge(60).astype(float).to_numpy()),
-            "minutes": _prefix_mean(pd.to_numeric(group["minutes"], errors="coerce").fillna(0.0).to_numpy(dtype=float)),
+            "played": minutes.gt(0).astype(float).to_numpy(),
+            "played60": minutes.ge(60).astype(float).to_numpy(),
+            "minutes": minutes.fillna(0.0).to_numpy(dtype=float),
         }
 
     base_rates = features_module.POSITION_BASE_RATES
+
+    def tail_mean(array: np.ndarray, indices: np.ndarray, window: int, *, ignore_nan: bool = False) -> float:
+        selected = array[indices[-window:]]
+        if not len(selected):
+            return float("nan")
+        if ignore_nan:
+            selected = selected[np.isfinite(selected)]
+            return float(selected.mean()) if len(selected) else float("nan")
+        return float(selected.mean())
+
     for row_position, row in enumerate(
         target_meta[["_player_uid", "season", "fpl_code", "position", "is_home"]].itertuples(index=False, name=None)
     ):
         uid, season, code, position, is_home = row
         deadline_ns = int(out.loc[row_position, "deadline_time"].value)
         history = history_groups[str(uid)]
-        end = int(np.searchsorted(history["available_ns"], deadline_ns, side="left"))
+        eligible = np.flatnonzero(history["available_ns"] < deadline_ns)
+
         for source, feature in player_map.items():
-            prefix = history["player_prefixes"][source]
+            array = history["player_arrays"][source]
             for window in windows:
-                values[f"player_{feature}_{window}"][row_position] = prefix(end, window)
+                values[f"player_{feature}_{window}"][row_position] = tail_mean(
+                    array, eligible, window
+                )
 
-        venue_available, venue_prefix = history["venue_prefixes"][bool(is_home)]
-        venue_end = int(np.searchsorted(venue_available, deadline_ns, side="left"))
+        venue_available, venue_values = history["venue_arrays"][bool(is_home)]
+        venue_eligible = np.flatnonzero(venue_available < deadline_ns)
         for window in windows:
-            values[f"player_relevant_fpl_points_{window}"][row_position] = venue_prefix(venue_end, window)
+            values[f"player_relevant_fpl_points_{window}"][row_position] = tail_mean(
+                venue_values, venue_eligible, window
+            )
 
-        for feature, prefix in history["defensive_prefixes"].items():
+        for feature, array in history["defensive_arrays"].items():
             for window in (3, 5, 10, 38):
-                values[f"ar_{feature}_{window}"][row_position] = prefix(end, window)
-        for feature, prefix in history["rate_prefixes"].items():
+                values[f"ar_{feature}_{window}"][row_position] = tail_mean(
+                    array, eligible, window, ignore_nan=True
+                )
+        for feature, array in history["rate_arrays"].items():
             for window in (3, 5, 10):
-                values[f"ar_{feature}_{window}"][row_position] = prefix(end, window)
+                values[f"ar_{feature}_{window}"][row_position] = tail_mean(
+                    array, eligible, window, ignore_nan=True
+                )
         values["ar_dc_ppg_5"][row_position] = (
             2.0 * values["ar_dc_hit_rate_5"][row_position]
         )
@@ -241,23 +251,23 @@ def rebuild_player_history_features(
         availability = availability_groups.get((str(season), int(code)))
         defaults = base_rates.get(str(position), base_rates.get("MID"))
         if availability is None:
-            for window in (3, 5, 10):
-                values[f"p_any_{window}"][row_position] = defaults["p_any"]
-                values[f"p60_{window}"][row_position] = defaults["p60"]
-                values[f"e_minutes_{window}"][row_position] = defaults["e_minutes"]
+            availability_eligible = np.array([], dtype=int)
+            availability_arrays = {}
         else:
-            availability_end = int(
-                np.searchsorted(availability["available_ns"], deadline_ns, side="left")
+            availability_eligible = np.flatnonzero(
+                availability["available_ns"] < deadline_ns
             )
-            for window in (3, 5, 10):
-                for source, prefix in (
-                    ("p_any", availability["played"]),
-                    ("p60", availability["played60"]),
-                    ("e_minutes", availability["minutes"]),
-                ):
-                    values[f"{source}_{window}"][row_position] = (
-                        prefix(availability_end, window)
-                        if availability_end > 0 else defaults[source]
+            availability_arrays = availability
+        for window in (3, 5, 10):
+            for source in ("p_any", "p60", "e_minutes"):
+                if not len(availability_eligible):
+                    values[f"{source}_{window}"][row_position] = defaults[source]
+                else:
+                    array = availability_arrays[
+                        {"p_any": "played", "p60": "played60", "e_minutes": "minutes"}[source]
+                    ]
+                    values[f"{source}_{window}"][row_position] = tail_mean(
+                        array, availability_eligible, window
                     )
 
     feature_frame = pd.DataFrame(values, index=out.index)
