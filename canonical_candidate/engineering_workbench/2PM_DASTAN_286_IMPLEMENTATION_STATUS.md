@@ -75,6 +75,22 @@ The sequence builder requires `feature_cutoff_time` to equal the official deadli
 
 The focused run at commit `3efe8c56e16bd0f4a69b4959689e4d6e9f7820b5` completed successfully. It includes the pre-deadline market snapshot extractor and five-minute safety-buffer tests.
 
+### 5A. Clean paper-governed Poisson-mixture model core
+
+`scripts/two_component_poisson_transformer.py`
+
+- New independent encoder-only Transformer; does not import the frozen categorical `TwoPMTransformer` or Dastan predictive model code.
+- Uses the current six-token × 286-feature candidate input contract, with an explicit final target-query token.
+- Emits the paper's mixture probability `p` and positive Poisson rates `lambda_1` / `lambda_2`.
+- Computes analytic expected points, variance and standard deviation.
+- Implements stable two-component Poisson-mixture NLL and 6+/8+/10+ style tail probabilities.
+- Implements the paper's negative-target-to-zero transformation without mutating or discarding raw target values.
+- Includes a deterministic training-target-only two-Poisson EM/MLE head-initialization candidate. The quantile seed/component ordering is documented as an adaptation; exact author initialization details remain unresolved.
+- Requires `num_layers` explicitly. The paper's selected layer count is not clearly reported; no default is inferred from the branch name.
+- The configuration marks paper-unspecified implementation choices and keeps training unauthorized.
+
+The test-only two-layer instantiation is a shape/gradient smoke test, not a selected research configuration. The model has not been trained, evaluated or connected to M3.
+
 ### 6. Active-season target query builder
 
 `scripts/build_2pm_active_target_queries.py`
