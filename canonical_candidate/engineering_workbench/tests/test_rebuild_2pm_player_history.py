@@ -81,6 +81,43 @@ def test_player_history_rebuild_excludes_matches_not_available_by_deadline():
     assert report["availability_feature_count"] == 9
 
 
+def test_rejects_match_availability_at_or_before_kickoff():
+    history = pd.DataFrame([
+        player_row(
+            "f1", "2026-01-01", "2026-01-01",
+            points=5, goals=1, minutes=90, home=True,
+            dc=12, cbit=5, recoveries=3, tackles=2, starts=1,
+        )
+    ])
+    target = pd.DataFrame([{
+        "season": "2025-26",
+        "fixture": "target",
+        "fpl_code": 100,
+        "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+        "kickoff_time": pd.Timestamp("2026-01-10", tz="UTC"),
+    }])
+    with pytest.raises(ValueError, match="strictly after kickoff"):
+        rebuild_player_history_features(target, history, fake_features())
+
+
+def test_rejects_duplicate_player_fixture_history_rows():
+    row = player_row(
+        "f1", "2026-01-01", "2026-01-02",
+        points=5, goals=1, minutes=90, home=True,
+        dc=12, cbit=5, recoveries=3, tackles=2, starts=1,
+    )
+    history = pd.DataFrame([row, row])
+    target = pd.DataFrame([{
+        "season": "2025-26",
+        "fixture": "target",
+        "fpl_code": 100,
+        "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+        "kickoff_time": pd.Timestamp("2026-01-10", tz="UTC"),
+    }])
+    with pytest.raises(ValueError, match="unique at season-fixture-player grain"):
+        rebuild_player_history_features(target, history, fake_features())
+
+
 def test_availability_uses_position_base_rates_when_no_prior_rows():
     target_history = pd.DataFrame(
         [
