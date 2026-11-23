@@ -30,7 +30,7 @@ def make_candidate():
         "fixture": "101",
         "fpl_code": 123,
         "kickoff_time": kickoff,
-        "match_available_at": kickoff + pd.Timedelta(hours=26),
+        "match_available_at": kickoff + pd.Timedelta(hours=24),
         "minutes": 90,
         "deadline_time": kickoff - pd.Timedelta(hours=3),
         "team_name": "Team A",
@@ -89,7 +89,7 @@ def test_builds_postmatch_state_after_all_required_match_data_is_available(monke
         FEATURES,
     )
 
-    expected_asof = pd.Timestamp("2026-08-02T14:00:00.000000001Z")
+    expected_asof = pd.Timestamp("2026-08-02T12:00:00.000000001Z")
     assert observed["player_asof"] == expected_asof
     assert observed["team_asof"] == expected_asof
     assert result.loc[0, "postmatch_state_as_of_time"] == expected_asof
@@ -205,3 +205,17 @@ def test_mixed_frame_excludes_nonappearances_from_historical_state_tokens(monkey
     assert len(result) == 1
     assert result.loc[0, "fixture"] == "101"
     assert report["nonappearance_rows_excluded"] == 1
+
+
+
+def test_rejects_match_availability_after_conservative_team_bound():
+    frame = make_candidate()
+    frame.loc[0, "match_available_at"] += pd.Timedelta(hours=1)
+    with pytest.raises(ValueError, match="exceeds the conservative kickoff"):
+        builder.build_postmatch_state_vectors(
+            frame,
+            pd.DataFrame({"season": ["2026-27"]}),
+            pd.DataFrame({"season": ["2026-27"]}),
+            object(),
+            FEATURES,
+        )
