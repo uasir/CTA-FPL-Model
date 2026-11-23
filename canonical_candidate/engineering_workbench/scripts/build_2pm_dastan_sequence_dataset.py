@@ -412,19 +412,33 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True, help="Canonical player-fixture candidate frame")
     parser.add_argument("--schema", type=Path, default=Path(__file__).parents[1] / "config" / "2pm_dastan_286_schema.json")
-    parser.add_argument("--out", type=Path, required=True, help="Sequence dataset CSV or Parquet")
+    parser.add_argument("--out", type=Path, help="Small sequence dataset CSV or Parquet")
+    parser.add_argument("--tensor-out-dir", type=Path, help="Memory-bounded float32 tensor shards and aligned CSV metadata")
+    parser.add_argument("--shard-size", type=int, default=10000)
     parser.add_argument("--report", type=Path, required=True, help="JSON audit report")
     parser.add_argument("--fixture-column", default="fixture", help="Input fixture ID column (default: fixture)")
     parser.add_argument("--max-gap-days", type=int, default=MAX_GAP_DAYS)
     parser.add_argument("--require-label", action="store_true")
     args = parser.parse_args()
+    if (args.out is None) == (args.tensor_out_dir is None):
+        parser.error("provide exactly one of --out or --tensor-out-dir")
 
     features, _ = load_schema(args.schema)
     frame = validate_input(read_frame(args.input), features, args.fixture_column)
-    sequences, report = build_sequences(
-        frame, features, max_gap_days=args.max_gap_days, require_label=args.require_label
-    )
-    write_frame(sequences, args.out)
+    if args.tensor_out_dir is not None:
+        report = build_sequence_shards(
+            frame,
+            features,
+            args.tensor_out_dir,
+            shard_size=args.shard_size,
+            max_gap_days=args.max_gap_days,
+            require_label=args.require_label,
+        )
+    else:
+        sequences, report = build_sequences(
+            frame, features, max_gap_days=args.max_gap_days, require_label=args.require_label
+        )
+        write_frame(sequences, args.out)
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))
