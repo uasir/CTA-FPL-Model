@@ -86,3 +86,27 @@ def test_opponent_allowance_excludes_matches_not_available_before_deadline():
     result, _ = rebuild_fixture_context(target, history)
     assert pd.isna(result.loc[0, "ar_opp_dc_allowed_3"])
     assert pd.isna(result.loc[0, "ar_opp_tackles_allowed_5"])
+
+
+
+def test_unfinished_target_fixture_is_schedule_context_not_historical_result():
+    history = pd.DataFrame(
+        [
+            row("2025-26", "prior", 100, "T", "Q", "2026-01-03", "2026-01-04", 2, 1),
+            row("2025-26", "target", 100, "T", "O", "2026-01-10", "2026-01-11", 99, 99),
+            row("2025-26", "target", 201, "O", "T", "2026-01-10", "2026-01-11", 1, 1),
+        ]
+    )
+    history.loc[history["fixture"].eq("target"), "match_available_at"] = pd.NaT
+    target = pd.DataFrame(
+        [{
+            "season": "2025-26", "gameweek": 20, "fixture": "target", "fpl_code": 100,
+            "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+            "kickoff_time": pd.Timestamp("2026-01-10", tz="UTC"),
+            "team_name": "T", "opponent_team_name": "O",
+        }]
+    )
+    result, _ = rebuild_fixture_context(target, history)
+    assert result.loc[0, "ar_rest_days"] == 7
+    assert result.loc[0, "ar_team_matches_14d"] == 2
+    assert pd.isna(result.loc[0, "ar_opp_dc_allowed_3"])
