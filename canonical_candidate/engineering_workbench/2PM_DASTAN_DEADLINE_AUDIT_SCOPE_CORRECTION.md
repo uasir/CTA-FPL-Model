@@ -47,6 +47,23 @@ Broadcasting the earliest row's `ar_*` value across a player's Gameweek may prev
 
 Other kickoff-derived fields such as `ar_rest_days` and `ar_team_matches_14d` are also subject to the question of whether their source events precede the official deadline. Equality within a player-Gameweek is not a substitute for that test.
 
+## 2.4 The upstream feature-family summary omits 12 columns
+
+The pinned `models/feature_cols.json` contains exactly 286 unique ordered inputs. The category table in upstream `docs/FEATURES.md` adds to 274, not 286:
+
+`115 + 60 + 60 + 9 + 6 + 20 + 1 + 3 = 274`.
+
+The missing 12 are present in the schema and are Dastan-engineered `ar_*` inputs:
+
+- `ar_dc_hit_rate_3/5/10` (3)
+- `ar_dc_near_rate_3/5/10` (3)
+- `ar_dc_ppg_5` (1)
+- `ar_starts_3/5/10` (3)
+- `ar_rest_days` (1)
+- `ar_team_matches_14d` (1)
+
+The 2PM admission register's 32-column engineered/context group accounts for these 12 in addition to the 20 defensive-contribution/opponent-allowance columns. This is an upstream documentation classification/count discrepancy, not evidence that the actual 286-column model schema is missing those inputs. Keep the exact schema as the count authority and retain all 12 as separate HOLD candidates pending their own semantic and temporal checks.
+
 ## 3. What is confirmed and what is not
 
 | Finding | Status |
