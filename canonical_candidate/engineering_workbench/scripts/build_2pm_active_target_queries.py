@@ -410,7 +410,7 @@ def build_active_target_candidate(
 
     metadata = [
         "season", "gameweek", "fixture", "fpl_code", "position", "team_name",
-        "kickoff_time", "deadline_time", "feature_cutoff_time", "match_available_at",
+        "opponent_team_name", "kickoff_time", "deadline_time", "feature_cutoff_time", "match_available_at",
         "completion_time_quality", "source_vintage_status", "minutes",
         "target_points", "ep_next_snapshot_at", "signals_snapshot_at",
         "market_snapshot_at", "row_role",
