@@ -96,6 +96,12 @@ The sequence builder must be new and independent. The legacy 2PM sequence builde
 
 **No sequence design is approved by this record.** The first implementation task is to resolve this design using the audited raw source tables and temporal semantics. If a defensible five-match sequence cannot be built from the Dastan representation, return with a concrete alternative for approval rather than silently changing the paper's sequence length or pretending that a single row is a five-match sequence.
 
+## 6A. Recommended sequence representation
+
+The recommended Dastan-input sequence adaptation is documented in `2PM_DASTAN_SEQUENCE_REPRESENTATION_PROPOSAL.md`: five previous played-fixture deadline snapshots plus one current target-fixture query token, each using the same 286-column candidate schema (six tokens × 286 features). This is an explicit adaptation of the paper's original five-match/116-feature input, not an exact reproduction.
+
+It remains a proposal and must not be implemented until the paper's 21-day rule, full deadline-safe feature rebuild, feature admission and sequence coverage have been verified.
+
 ## 7. Feature-by-feature admission audit
 
 Create a versioned 286-row register containing, at minimum:
