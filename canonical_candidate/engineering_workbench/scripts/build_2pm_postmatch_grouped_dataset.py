@@ -47,6 +47,12 @@ def build_dataset(
     )
     gameweek_reports = []
     total_emitted = 0
+    total_player_gameweek_groups = 0
+    total_exclusions = {
+        "insufficient_previous_played_matches": 0,
+        "postmatch_state_not_available_by_deadline": 0,
+        "gap_over_21_days": 0,
+    }
     for row in group_keys.itertuples(index=False):
         season = str(row.season)
         gameweek = int(row.gameweek)
@@ -75,7 +81,11 @@ def build_dataset(
         )
         counts = report["counts"]
         total_emitted += int(counts["emitted"])
+        total_player_gameweek_groups += int(counts["player_gameweek_groups"])
+        for reason in total_exclusions:
+            total_exclusions[reason] += int(counts[reason])
         gameweek_reports.append({
+            "player_gameweek_groups": int(counts["player_gameweek_groups"]),
             "season": season,
             "gameweek": gameweek,
             "emitted": int(counts["emitted"]),
@@ -102,8 +112,10 @@ def build_dataset(
         "target_label_grain": "player_fixture_summed_once_to_player_gameweek",
         "postmatch_state_report": postmatch_report,
         "postmatch_state_rows": int(len(postmatch)),
-        "player_gameweek_groups_considered": int(len(group_keys)),
+        "season_gameweek_groups_processed": int(len(group_keys)),
+        "player_gameweek_candidate_groups_considered": total_player_gameweek_groups,
         "player_gameweek_samples_emitted": total_emitted,
+        "player_gameweek_exclusions": total_exclusions,
         "gameweeks": gameweek_reports,
         "limitations": [
             "Candidate source vintages and all 286 feature semantics remain NOT_ADMITTED.",
