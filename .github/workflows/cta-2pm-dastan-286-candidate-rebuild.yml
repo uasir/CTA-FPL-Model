@@ -46,11 +46,27 @@ jobs:
             --seasons 2020-21,2021-22,2022-23,2023-24,2024-25,2025-26 \
             --workers 12 \
             > "$RUNNER_TEMP/2pm-dastan-rebuild.log"
+      - name: Audit candidate frame and build five-played-match tensor shards
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: |
+          python scripts/audit_2pm_dastan_286_candidate.py \
+            --input "$RUNNER_TEMP/2pm-dastan-candidate/features_286_candidate.parquet" \
+            --out "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json"
+          python scripts/build_2pm_dastan_sequence_dataset.py \
+            --input "$RUNNER_TEMP/2pm-dastan-candidate/features_286_candidate.parquet" \
+            --tensor-out-dir "$RUNNER_TEMP/2pm-dastan-candidate/sequence-tensors" \
+            --report "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_sequence_report.json" \
+            --shard-size 10000 \
+            --require-label
       - name: Publish aggregate candidate status only
         if: always()
         env:
           REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json
           LOG_PATH: ${{ runner.temp }}/2pm-dastan-rebuild.log
+          AUDIT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json
+          SEQUENCE_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_sequence_report.json
           SUMMARY_PATH: ${{ github.step_summary }}
         run: |
           python - <<'PY'
@@ -73,6 +89,25 @@ jobs:
                   "- Full player-level feature data and source files were kept runner-local; no data artifacts were uploaded.",
                   "- This is a candidate rebuild, not point-in-time admission or model training."
               ]
+              audit_path = Path(os.environ["AUDIT_PATH"])
+              if audit_path.exists():
+                  audit = json.loads(audit_path.read_text())
+                  anchor = audit.get("same_player_gameweek_upstream_anchor_check", {})
+                  lines.extend([
+                      f"- Structural audit non-finite values: {audit.get('nonfinite_feature_values')}",
+                      f"- Selected-prefix same-player/GW groups with differences: {anchor.get('groups_with_differences')}",
+                      f"- Historical ep_next snapshots after deadline: {audit.get('snapshot_timestamps', {}).get('ep_next_snapshot_at', {}).get('post_deadline_rows')}"
+                  ])
+              sequence_path = Path(os.environ["SEQUENCE_REPORT_PATH"])
+              if sequence_path.exists():
+                  sequence = json.loads(sequence_path.read_text())
+                  counts = sequence.get("counts", {})
+                  lines.extend([
+                      f"- Candidate five-played-match sequences: {counts.get('emitted')}",
+                      f"- Excluded: insufficient history={counts.get('insufficient_previous_played_matches')}, gap>{sequence.get('maximum_inter_observation_gap_days')}d={counts.get('gap_over_21_days')}",
+                      f"- Tensor shards: {len(sequence.get('shards', []))}",
+                      "- Sequence tensors are candidate-only and not admitted for model training."
+                  ])
               summary.write_text("\n".join(lines) + "\n")
           else:
               log = Path(os.environ["LOG_PATH"])
