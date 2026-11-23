@@ -331,6 +331,7 @@ def build_candidate(
         "team_name", "kickoff_time", "deadline_time", "feature_cutoff_time",
         "match_available_at", "completion_time_quality", "source_vintage_status",
         "minutes", "target_points", "ep_next_snapshot_at", "signals_snapshot_at",
+        "market_snapshot_at",
     ]
     absent = [column for column in metadata if column not in loaded.columns]
     if absent:
