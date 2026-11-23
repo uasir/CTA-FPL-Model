@@ -106,6 +106,7 @@ jobs:
                   f"- Deadline team snapshots reconstructed: {report.get('deadline_team_context_reconstruction', {}).get('team_deadline_snapshots_built')}",
                   f"- Own/opponent rolling team features rebuilt: {report.get('deadline_team_context_reconstruction', {}).get('team_feature_count')} / {report.get('deadline_team_context_reconstruction', {}).get('opponent_feature_count')}",
                   f"- Fixture-context fields rebuilt: {len(report.get('fixture_context_reconstruction', {}).get('fixture_context_columns', []))}",
+                  f"- 286-family reconstruction coverage: {report.get('reconstruction_coverage', {}).get('reconstruction_path_total')}/286",
                   "- Full player-level feature data and source files were kept runner-local; no data artifacts were uploaded.",
                   "- This is a candidate rebuild, not point-in-time admission or model training."
               ]
