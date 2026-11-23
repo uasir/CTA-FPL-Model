@@ -5,6 +5,10 @@
   "feature_schema": "2pm_dastan_286_schema.json",
   "feature_count": 286,
   "sequence_length": 6,
+  "training_sample_grain": "player_gameweek",
+  "source_target_label_grain": "player_fixture",
+  "target_points_semantics": "FPL points scored in the individual fixture; sum fixture labels once for one player-Gameweek target",
+  "target_nonappearance_policy": "retain zero-point non-appearance target fixtures; historical input tokens still require minutes > 0",
   "sequence_contract": "five_postmatch_played_fixture_state_tokens_plus_one_prematch_query_per_target_fixture_grouped_at_player_gameweek_grain",
   "sequence_semantics_status": "POSTMATCH_STATE_AND_PLAYER_GAMEWEEK_GROUPING_IMPLEMENTED_NOT_ADMITTED",
   "input_embedding": {
