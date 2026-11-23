@@ -91,3 +91,11 @@ def test_rejects_fixture_before_as_of():
     args = fixture_inputs()
     with pytest.raises(ValueError, match="not after forecast as-of"):
         build_snapshot(*args, "2026-12-12T16:00:00Z", [12, 13, 14, 15, 16])
+
+
+def test_rejects_missing_player_fixture_from_both_prediction_inputs():
+    args = fixture_inputs()
+    args[0].pop()
+    args[1].pop()
+    with pytest.raises(ValueError, match="complete official FPL player-fixture universe"):
+        build_snapshot(*args, "2026-11-23T10:00:00Z", [12, 13, 14, 15, 16])
