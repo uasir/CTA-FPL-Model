@@ -63,14 +63,18 @@ def build_postmatch_state_vectors(
         out["match_available_at"], utc=True, errors="coerce"
     )
     out["minutes"] = pd.to_numeric(out["minutes"], errors="coerce")
-    if out[["kickoff_time", "match_available_at"]].isna().any().any():
-        raise ValueError("Every post-match token requires valid kickoff and availability timestamps")
+    if out["kickoff_time"].isna().any():
+        raise ValueError("Every candidate fixture requires a valid kickoff timestamp")
     if out["minutes"].isna().any() or out["minutes"].lt(0).any():
         raise ValueError("minutes must be finite and non-negative")
     if out.duplicated(["season", "fixture", "fpl_code"]).any():
         raise ValueError("Post-match state input must be unique at season-fixture-player grain")
-    if not out["minutes"].gt(0).all():
-        raise ValueError("Post-match state vectors may only be built for actually played fixtures")
+    nonappearance_rows_excluded = int(out["minutes"].le(0).sum())
+    out = out[out["minutes"].gt(0)].copy().reset_index(drop=True)
+    if out.empty:
+        raise ValueError("No played fixture rows are available for post-match state construction")
+    if out["match_available_at"].isna().any():
+        raise ValueError("Every played fixture requires a valid match data availability timestamp")
     if out["match_available_at"].le(out["kickoff_time"]).any():
         raise ValueError("Match data availability must be strictly after kickoff")
 
@@ -182,6 +186,7 @@ def build_postmatch_state_vectors(
         "token_semantics": "286-feature state after the player and team match data are conservatively available",
         "state_as_of_rule": "max(player match_available_at, kickoff_time + 24h) + 1ns",
         "played_fixture_rows": int(len(result)),
+        "nonappearance_rows_excluded": nonappearance_rows_excluded,
         "feature_count": len(feature_order),
         "feature_order": "caller-supplied pinned 286-column schema order",
         "cross_season_history": "excluded; player and team feature histories are rebuilt season by season",
