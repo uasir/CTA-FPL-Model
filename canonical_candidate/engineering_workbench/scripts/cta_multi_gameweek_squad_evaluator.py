@@ -238,8 +238,6 @@ def evaluate_cta_five_gameweek_squad(
                 "displaced_starting_player_id": displaced,
                 "incoming_global_rank": global_rank[incoming],
                 "incoming_position_rank": position_rank[incoming],
-                "incoming_global_rank": global_rank[incoming],
-                "incoming_position_rank": position_rank[incoming],
                 "outgoing_global_rank": global_rank[outgoing],
                 "outgoing_position_rank": position_rank[outgoing],
                 "incoming_five_gameweek_expected_points": round(totals[incoming], 5),
