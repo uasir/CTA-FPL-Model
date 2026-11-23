@@ -178,11 +178,30 @@ def rebuild_deadline_team_context(
     opponent_frame.columns = [
         column.replace("team_", "opp_", 1) for column in opponent_frame.columns
     ]
-    out[own_frame.columns] = own_frame
-    out[opponent_frame.columns] = opponent_frame
-    out["status_league_rank"] = own_ranks
-    out["opp_status_league_rank"] = opponent_ranks
-    out = out.drop(columns=["_team_us", "_opponent_us"])
+    rank_frame = pd.DataFrame(
+        {
+            "status_league_rank": own_ranks,
+            "opp_status_league_rank": opponent_ranks,
+        },
+        index=out.index,
+    )
+    replaced_columns = [
+        *own_frame.columns,
+        *opponent_frame.columns,
+        "status_league_rank",
+        "opp_status_league_rank",
+        "_team_us",
+        "_opponent_us",
+    ]
+    out = pd.concat(
+        [
+            out.drop(columns=replaced_columns, errors="ignore"),
+            own_frame,
+            opponent_frame,
+            rank_frame,
+        ],
+        axis=1,
+    )
 
     report = {
         "status": "DEADLINE_TEAM_CONTEXT_REBUILT",
