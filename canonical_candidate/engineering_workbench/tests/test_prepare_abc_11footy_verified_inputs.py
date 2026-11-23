@@ -25,7 +25,10 @@ def test_cross_provider_bridge_is_converted_to_11footy_provider_contract():
          "assists": "0", "team": "2", "opponent_team": "1", "was_home": "False"},
     ]
     players = [{"id": "10", "code": "123", "web_name": "Player One"}]
-    teams = [{"id": "1", "name": "Home FC"}, {"id": "2", "name": "Away FC"}]
+    teams = [
+        {"season": "2017-18", "team": "1", "team_name": "Home FC"},
+        {"season": "2017-18", "team": "2", "team_name": "Away FC"},
+    ]
 
     candidate_rows, verified_rows, fixtures, player_rows, history_rows, validation = prepare(
         candidates, crosswalk, history, players, teams
@@ -51,7 +54,7 @@ def test_unverified_cross_provider_rows_are_not_promoted():
         [{"element": "10", "fixture": "1", "kickoff_time": "2017-08-12T14:00:00Z",
           "round": "1", "team": "1", "was_home": "True"}],
         [{"id": "10", "code": "123", "web_name": "Player One"}],
-        [{"id": "1", "name": "Home FC"}],
+        [{"season": "2017-18", "team": "1", "team_name": "Home FC"}],
     )
     assert verified_rows == []
     assert validation["status"] == "NO_VERIFIED_MAPPINGS"

@@ -38,8 +38,12 @@ def truth(value):
 def prepare(candidates, crosswalk, raw_history, raw_players, teams):
     team_names = {}
     for row in teams:
-        team_id = str(row.get("id") or row.get("team_id") or "").strip()
-        name = str(row.get("name") or row.get("team_name") or "").strip()
+        season = str(row.get("season") or "").strip().replace("/", "-")
+        if season and season != "2017-18":
+            continue
+        # Vaastav master_team_list.csv uses season, team, team_name.
+        team_id = str(row.get("team") or row.get("id") or row.get("team_id") or "").strip()
+        name = str(row.get("team_name") or row.get("name") or "").strip()
         if team_id and name:
             team_names[team_id] = name
 
