@@ -128,3 +128,19 @@ def test_inference_rejects_incomplete_model_parameter_arrays():
     }
     with pytest.raises(ValueError, match="scaling vectors"):
         score_rows([], payload)
+
+
+
+def test_research_inference_filters_unverified_rows():
+    from predict_cta_abc_points import research_eligible_rows
+    import pytest
+
+    rows = [
+        {"fpl_element_id": "10", "research_eligible_for_analysis": "true"},
+        {"fpl_element_id": "11", "research_eligible_for_analysis": "false"},
+    ]
+    assert research_eligible_rows(rows) == [rows[0]]
+    with pytest.raises(ValueError, match="No research-eligible"):
+        research_eligible_rows([rows[1]])
+    with pytest.raises(ValueError, match="must carry"):
+        research_eligible_rows([{"fpl_element_id": "10"}])

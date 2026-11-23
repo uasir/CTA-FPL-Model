@@ -106,7 +106,9 @@ def main() -> int:
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
     payload = json.loads(args.model.read_text(encoding="utf-8"))
-    fixture_rows, gameweek_rows = score_rows(read_csv(args.input_panel), payload)
+    source_rows = read_csv(args.input_panel)
+    eligible_rows = research_eligible_rows(source_rows)
+    fixture_rows, gameweek_rows = score_rows(eligible_rows, payload)
     write_csv(
         args.out_dir / "abc_fixture_points_predictions.csv",
         fixture_rows,
@@ -117,13 +119,26 @@ def main() -> int:
         gameweek_rows,
         ["fpl_element_id", "gameweek", "fixture_count", "expected_points", "model_version"],
     )
-    print(json.dumps({
-        "status": "PASS_RESEARCH_ONLY_SCORING",
+    report = {
+        "status": "PASS_RESEARCH_ONLY_INFERENCE_SMOKE_TEST",
+        "inference_purpose": "IN_SAMPLE_PIPELINE_SMOKE_TEST_NOT_PERFORMANCE_EVALUATION",
         "model_version": payload["model_version"],
+        "input_rows": len(source_rows),
+        "research_eligible_rows": len(eligible_rows),
+        "rows_excluded_for_research_ineligibility": len(source_rows) - len(eligible_rows),
         "fixture_prediction_rows": len(fixture_rows),
         "player_gameweek_forecasts": len(gameweek_rows),
+        "unique_players": len({row["fpl_element_id"] for row in gameweek_rows}),
+        "gameweeks": sorted({row["gameweek"] for row in gameweek_rows}),
         "promotion_status": "RESEARCH_ONLY_DO_NOT_PROMOTE",
-    }, indent=2))
+        "decision_weight": 0.0,
+        "production_eligible": False,
+    }
+    (args.out_dir / "abc_points_inference_report.json").write_text(
+        json.dumps(report, indent=2, allow_nan=False) + "\\n",
+        encoding="utf-8",
+    )
+    print(json.dumps(report, indent=2))
     return 0
 
 

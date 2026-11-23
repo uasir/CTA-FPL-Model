@@ -439,6 +439,16 @@ jobs:
             exit 1
           fi
 
+      - name: Smoke-test saved ABC model on verified historical panel
+        if: success()
+        run: |
+          PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/11footy_integrated/cta_abc_historical_integrated_player_fixture_panel.csv"
+          MODEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_points_model/abc_points_model.json"
+          python canonical_candidate/engineering_workbench/scripts/predict_cta_abc_points.py \
+            --model "$MODEL" \
+            --input-panel "$PANEL" \
+            --out-dir run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_points_model
+
       - name: Install CPU PyTorch for independent 2PM comparator
         if: always()
         continue-on-error: true
@@ -546,6 +556,7 @@ jobs:
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/11footy_integrated/cta_abc_historical_integrated_report.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_points_model/abc_points_model.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_points_model/abc_points_model_manifest.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_points_model/abc_points_inference_report.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_evaluation_report.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_walk_forward_report.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_vs_2pm_same_cohort_report.json
