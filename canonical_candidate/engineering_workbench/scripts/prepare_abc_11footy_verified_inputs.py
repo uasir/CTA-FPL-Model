@@ -10,8 +10,15 @@ from pathlib import Path
 
 
 def read_csv(path):
-    with Path(path).open(newline="", encoding="utf-8-sig") as handle:
-        return list(csv.DictReader(handle))
+    # The pinned Vaastav historical CSV archive includes legacy CP1252 names.
+    # Prefer UTF-8, then decode the legacy bytes without dropping identity text.
+    for encoding in ("utf-8-sig", "cp1252"):
+        try:
+            with Path(path).open(newline="", encoding=encoding) as handle:
+                return list(csv.DictReader(handle))
+        except UnicodeDecodeError:
+            continue
+    raise UnicodeError(f"Could not decode historical CSV: {path}")
 
 
 def write_csv(path, rows, fallback_fields):

@@ -56,3 +56,12 @@ def test_unverified_cross_provider_rows_are_not_promoted():
     assert verified_rows == []
     assert validation["status"] == "NO_VERIFIED_MAPPINGS"
     assert fixtures == []
+
+
+def test_read_csv_supports_legacy_cp1252_names(tmp_path):
+    from prepare_abc_11footy_verified_inputs import read_csv
+
+    source = tmp_path / "legacy.csv"
+    source.write_bytes(b"name,value\\nAndre\\xe9,1\\n")
+    rows = read_csv(source)
+    assert rows == [{"name": "Andreé", "value": "1"}]
