@@ -53,7 +53,7 @@ def test_player_history_rebuild_excludes_matches_not_available_by_deadline():
             player_row("f2", "2026-01-05", "2026-01-06", points=0, goals=0, minutes=0, home=False, dc=8, cbit=1, recoveries=1, tackles=0, starts=0),
             # Kicked off before target, but the conservative completion bound is after deadline.
             player_row("f3", "2026-01-08", "2026-01-10", points=99, goals=9, minutes=90, home=True, dc=30, cbit=9, recoveries=9, tackles=9, starts=1),
-            player_row("target", "2026-01-10", "2026-01-11", points=5, goals=1, minutes=90, home=True, dc=15, cbit=4, recoveries=2, tackles=2, starts=1),
+            player_row("target", "2026-01-10", "2026-01-11", points=5, goals=1, minutes=0, home=True, dc=15, cbit=4, recoveries=2, tackles=2, starts=0),
         ]
     )
     target = pd.DataFrame(
