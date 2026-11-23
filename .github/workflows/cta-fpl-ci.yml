@@ -8,6 +8,8 @@ on:
       - .github/workflows/cta-fpl-ci.yml
       - .github/workflows/cta-fpl-retrospective-finality.yml
       - .github/workflows/cta-fpl-covar-realized-finality.yml
+      - .github/workflows/cta-fpl-m3-covar-real-archive-preflight.yml
+      - .github/workflows/cta-fpl-m3-covar-match-prospective-evidence.yml
       - .github/workflows/cta-fpl-ingestion.yml
       - .github/workflows/cta-fpl-eo-capture.yml
       - .github/workflows/cta-fpl-predeadline-field-eo.yml
