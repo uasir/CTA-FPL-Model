@@ -11,6 +11,7 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py
       - canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py
       - canonical_candidate/engineering_workbench/tests/test_rebuild_2pm_fixture_context.py
+      - canonical_candidate/engineering_workbench/tests/test_rebuild_2pm_team_context.py
       - canonical_candidate/engineering_workbench/tests/test_2pm_predeadline_market_snapshot.py
       - canonical_candidate/engineering_workbench/tests/test_2pm_dastan_sequence_dataset.py
       - canonical_candidate/engineering_workbench/tests/test_2pm_dastan_candidate_rebuild.py
@@ -56,4 +57,5 @@ jobs:
             tests/test_2pm_dastan_candidate_rebuild.py \
             tests/test_audit_2pm_dastan_286_candidate.py \
             tests/test_2pm_predeadline_market_snapshot.py \
-            tests/test_rebuild_2pm_fixture_context.py
+            tests/test_rebuild_2pm_fixture_context.py \
+            tests/test_rebuild_2pm_team_context.py
