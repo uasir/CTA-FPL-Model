@@ -93,41 +93,85 @@ def build_postmatch_state_vectors(
         raise ValueError("Historical fixture rows require their original official deadline")
     out["deadline_time"] = state_as_of
 
-    player_state, player_report = rebuild_player_history_features(
-        out, player_matches, features_module
-    )
-    team_state, team_report = rebuild_deadline_team_context(
-        player_state, team_matches, features_module
-    )
-    fixture_state, fixture_report = rebuild_fixture_context(
-        team_state, player_matches
-    )
+    if "season" not in player_matches or "season" not in team_matches:
+        raise ValueError("Player and team source histories must carry season keys")
+    player_source = player_matches.copy()
+    team_source = team_matches.copy()
+    player_source["season"] = player_source["season"].astype(str)
+    team_source["season"] = team_source["season"].astype(str)
+    out["_source_row_order"] = np.arange(len(out), dtype=int)
 
-    # Rest and schedule congestion describe the match that has just been played;
-    # they are pre-kickoff context and must not be recomputed using that match as
-    # its own previous fixture. Opponent allowance is a state statistic and is
-    # deliberately refreshed to include the completed match.
-    for column in PREMATCH_FIXTURE_CONTEXT:
-        if column not in out:
-            raise ValueError(f"Historical candidate is missing pre-match context {column}")
-        fixture_state[column] = out[column].to_numpy()
-    for column in POSTMATCH_OPPONENT_CONTEXT:
-        if column not in fixture_state:
-            raise ValueError(f"Post-match reconstruction did not produce {column}")
+    # Rebuild each season independently. This prevents an Understat ID shared
+    # across seasons from silently importing prior-season player rolling history.
+    state_parts = []
+    reconstruction_reports = {}
+    for season, season_targets in out.groupby("season", sort=False):
+        season_player_history = player_source[
+            player_source["season"].eq(str(season))
+        ].copy()
+        season_team_history = team_source[
+            team_source["season"].eq(str(season))
+        ].copy()
+        if season_player_history.empty or season_team_history.empty:
+            raise ValueError(f"Missing player or team history for season {season}")
 
-    # Snapshot-valued fields are retained from the archived pre-kickoff snapshot
-    # attached to this historical fixture; all rolling families above are rebuilt
-    # at the post-match state time.
-    for column in feature_order:
-        if column not in fixture_state:
-            raise ValueError(f"Post-match state is missing feature {column}")
+        player_state, player_report = rebuild_player_history_features(
+            season_targets, season_player_history, features_module
+        )
+        team_state, team_report = rebuild_deadline_team_context(
+            player_state, season_team_history, features_module
+        )
+        fixture_state, fixture_report = rebuild_fixture_context(
+            team_state, season_player_history
+        )
 
-    result = fixture_state.copy()
-    result["match_available_at"] = out["match_available_at"]
-    result["postmatch_state_as_of_time"] = state_as_of
-    result["original_fixture_deadline_time"] = out["original_fixture_deadline_time"]
-    result["postmatch_state_semantics"] = "AFTER_MATCH_DATA_AVAILABLE_CONSERVATIVE"
-    result["postmatch_source_vintage_status"] = out["source_vintage_status"].astype(str)
+        # Rest and schedule congestion describe the match that has just been
+        # played; retain their pre-kickoff values rather than using the match as
+        # its own prior fixture. Opponent allowance is refreshed post-match.
+        for column in PREMATCH_FIXTURE_CONTEXT:
+            if column not in season_targets:
+                raise ValueError(
+                    f"Historical candidate is missing pre-match context {column}"
+                )
+            fixture_state[column] = season_targets[column].to_numpy()
+        for column in POSTMATCH_OPPONENT_CONTEXT:
+            if column not in fixture_state:
+                raise ValueError(f"Post-match reconstruction did not produce {column}")
+
+        for column in feature_order:
+            if column not in fixture_state:
+                raise ValueError(f"Post-match state is missing feature {column}")
+
+        fixture_state["match_available_at"] = season_targets["match_available_at"].to_numpy()
+        fixture_state["postmatch_state_as_of_time"] = season_targets[
+            "postmatch_state_as_of_time"
+        ].to_numpy()
+        fixture_state["original_fixture_deadline_time"] = season_targets[
+            "original_fixture_deadline_time"
+        ].to_numpy()
+        fixture_state["postmatch_state_semantics"] = (
+            "AFTER_MATCH_DATA_AVAILABLE_CONSERVATIVE"
+        )
+        fixture_state["postmatch_source_vintage_status"] = (
+            season_targets["source_vintage_status"].astype(str).to_numpy()
+        )
+        fixture_state["_source_row_order"] = season_targets[
+            "_source_row_order"
+        ].to_numpy()
+        state_parts.append(fixture_state)
+        reconstruction_reports[str(season)] = {
+            "player_history": player_report,
+            "team_and_opponent_context": team_report,
+            "fixture_context": fixture_report,
+            "source_history_scope": "same_season_only",
+        }
+
+    result = (
+        pd.concat(state_parts, ignore_index=True)
+        .sort_values("_source_row_order", kind="mergesort")
+        .drop(columns="_source_row_order")
+        .reset_index(drop=True)
+    )
 
     report = {
         "status": "POSTMATCH_STATE_VECTORS_RECONSTRUCTED",
@@ -137,11 +181,8 @@ def build_postmatch_state_vectors(
         "played_fixture_rows": int(len(result)),
         "feature_count": len(feature_order),
         "feature_order": "caller-supplied pinned 286-column schema order",
-        "reconstruction_reports": {
-            "player_history": player_report,
-            "team_and_opponent_context": team_report,
-            "fixture_context": fixture_report,
-        },
+        "cross_season_history": "excluded; player and team feature histories are rebuilt season by season",
+        "reconstruction_reports": reconstruction_reports,
         "preserved_pre_match_context": [
             *PREMATCH_FIXTURE_CONTEXT,
             "is_home_num",
