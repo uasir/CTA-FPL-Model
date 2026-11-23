@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
+import numpy as np
 import pandas as pd
 
 from build_2pm_predeadline_market_snapshot import build_market_artifact
