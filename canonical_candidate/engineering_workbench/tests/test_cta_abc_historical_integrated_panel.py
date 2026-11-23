@@ -46,11 +46,17 @@ def test_11footy_is_primary_and_wyscout_fills_unavailable_features():
 
 
 def test_same_gameweek_features_are_never_used():
-    rows, _ = enrich_panel([_wys(gameweek="3")], [_footy(1, 101), _footy(2, 102), _footy(3, 103)])
+    # The target-GW row has an extreme value; it must not alter its own features.
+    rows, _ = enrich_panel(
+        [_wys(gameweek="3")],
+        [_footy(1, 101), _footy(2, 102), _footy(3, 103, key_passes="200")],
+    )
     assert rows[0]["abc_player_key_pass_rate"] == pytest.approx(2.0)
-    rows, _ = enrich_panel([_wys(gameweek="2")], [_footy(1, 101), _footy(2, 102)])
-    # One prior match is insufficient to expose an empty 11footy statistic window?
-    assert rows[0]["abc_player_key_pass_rate"] == pytest.approx(2.0)
+    earlier_rows, _ = enrich_panel(
+        [_wys(gameweek="2")],
+        [_footy(1, 101), _footy(2, 102, key_passes="200")],
+    )
+    assert earlier_rows[0]["abc_player_key_pass_rate"] == pytest.approx(2.0)
 
 
 def test_unverified_11footy_rows_never_contribute():
