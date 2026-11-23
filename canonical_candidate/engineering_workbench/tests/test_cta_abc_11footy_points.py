@@ -95,7 +95,7 @@ def test_validation_report_compares_abc_with_points_baselines():
         "abc_recent_key_pass_trend": 0.0, "abc_recent_xg_trend": 0.0,
         "abc_player_fouls_committed_rate": 1.0, "abc_minutes_trend": 0.0,
         "abc_attacking_involvement": 4.0, "abc_threat_creation_rate": 1.5,
-        "abc_threat_reception_rate": 2.0, "abc_threat_realisation_rate": 0.0,
+        "abc_threat_reception_rate": None, "abc_threat_realisation_rate": 0.0,
         "abc_attacking_involvement_rate": 5.0,
     }]
     _, _, report, validation = run(training, upcoming, holdout_gameweeks=2)
@@ -106,3 +106,9 @@ def test_validation_report_compares_abc_with_points_baselines():
     assert report["ridge_tuning"]["selected_lambda"] in {0.1, 1.0, 10.0, 100.0}
     assert not set(report["ridge_tuning"]["validation_gameweeks"]) & set(report["validation_gameweeks"])
     assert all("baseline_prior5_points" in row for row in validation)
+
+
+def test_11footy_points_model_does_not_treat_box_shots_as_receptions():
+    from build_cta_abc_11footy_points import FEATURES
+
+    assert "abc_threat_reception_rate" not in FEATURES

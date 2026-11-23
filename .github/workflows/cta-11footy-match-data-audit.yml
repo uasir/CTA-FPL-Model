@@ -380,6 +380,7 @@ jobs:
             run_artifacts/11footy/output/abc_11footy_points/abc_11footy_points_report.json
             run_artifacts/11footy/output/abc_11footy_points/abc_11footy_points_validation.csv
             run_artifacts/11footy/output/abc_11footy_points/abc_11footy_points_model.json
+            run_artifacts/11footy/output/abc_11footy_only/cta_abc_current_inference_panel_report.json
           retention-days: 30
 
       - name: Publish aggregate-only 11footy-only ABC summary
