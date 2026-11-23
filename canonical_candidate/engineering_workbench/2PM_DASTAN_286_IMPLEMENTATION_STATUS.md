@@ -53,16 +53,25 @@ The historical token is the Dastan 286-feature snapshot captured before that his
 
 The sequence builder requires an input frame carrying `match_completed_at` and `source_as_of_time`. The current corrected-identity candidate rebuild does not yet establish those fields at the required row-level granularity. The source-to-sequence handoff is therefore still open; do not feed the candidate artifact into the sequence builder by fabricating timestamps.
 
-### 4. Focused CI
+### 4. Candidate structural audit
+
+`scripts/audit_2pm_dastan_286_candidate.py`
+
+- Checks the exact 286-column order, numeric/finite values, player-fixture key uniqueness and non-overlapping feature-family totals.
+- Reports per-season finite coverage, `-1` sentinel counts, genuine zero counts, defensive-family value coverage, and pre-deadline snapshot age/post-deadline counts.
+- Checks same-player/Gameweek invariance only for the upstream anchored prefixes.
+- Explicitly reports opponent rolling, direct rank, market timestamp and historical source-vintage limitations; it does not label them safe.
+
+### 5. Focused CI
 
 `.github/workflows/cta-2pm-dastan-sequence-contract.yml`
 
-- Compiles both new scripts.
-- Tests the 286-column schema, sequence construction, same-deadline Double Gameweek handling, no-padding rule, 21-day gap, non-finite feature rejection, post-deadline snapshot rejection, and corrected historical identity mapping.
+- Compiles all three new scripts.
+- Tests the 286-column schema, sequence construction, same-deadline Double Gameweek handling, no-padding rule, 21-day gap, non-finite feature rejection, post-deadline snapshot rejection, corrected historical identity mapping, candidate schema/coverage checks and feature-family count reconciliation.
 
-The latest focused run at commit `8fe5d539d11cc5bdd700b23ce617509eb23145a7` completed successfully.
+The focused run at commit `54cabd862affa2ae0ad867652602eb324c8fbfd7` completed successfully.
 
-### 5. Candidate rebuild workflow
+### 6. Candidate rebuild workflow
 
 `.github/workflows/cta-2pm-dastan-286-candidate-rebuild.yml`
 
