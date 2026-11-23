@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 from collections import defaultdict
@@ -33,6 +34,14 @@ def number(value):
 def read_csv(path):
     with Path(path).open(newline="", encoding="utf-8-sig") as handle:
         return list(csv.DictReader(handle))
+
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def write_csv(path, rows):
@@ -199,7 +208,13 @@ def main():
     args = parser.parse_args()
     rows, report = enrich_panel(read_csv(args.wyscout_panel), read_csv(args.footy_panel))
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    write_csv(args.out_dir / "cta_abc_historical_integrated_player_fixture_panel.csv", rows)
+    panel_path = args.out_dir / "cta_abc_historical_integrated_player_fixture_panel.csv"
+    write_csv(panel_path, rows)
+    report["input_hashes"] = {
+        "wyscout_abc_panel_sha256": sha256(args.wyscout_panel),
+        "verified_11footy_player_match_panel_sha256": sha256(args.footy_panel),
+    }
+    report["integrated_panel_sha256"] = sha256(panel_path)
     (args.out_dir / "cta_abc_historical_integrated_report.json").write_text(
         json.dumps(report, indent=2, allow_nan=False), encoding="utf-8"
     )
