@@ -47,7 +47,8 @@ def test_grouped_dataset_builds_one_scoped_player_gameweek_at_a_time(tmp_path, m
         })
         return {
             "counts": {
-                "emitted": 1,
+                "emitted": int(targets["fpl_code"].nunique()),
+                "player_gameweek_groups": int(targets["fpl_code"].nunique()),
                 "insufficient_previous_played_matches": 0,
                 "postmatch_state_not_available_by_deadline": 0,
                 "gap_over_21_days": 0,
@@ -69,7 +70,14 @@ def test_grouped_dataset_builds_one_scoped_player_gameweek_at_a_time(tmp_path, m
     assert calls[2]["history"]["season"].tolist() == ["2025-26"]
     assert [c["kwargs"]["target_gameweek"] for c in calls] == [1, 2, 1]
     assert all(c["kwargs"]["target_mode"] == "historical" for c in calls)
-    assert report["player_gameweek_samples_emitted"] == 3
+    assert report["season_gameweek_groups_processed"] == 3
+    assert report["player_gameweek_candidate_groups_considered"] == 4
+    assert report["player_gameweek_samples_emitted"] == 4
+    assert report["player_gameweek_exclusions"] == {
+        "insufficient_previous_played_matches": 0,
+        "postmatch_state_not_available_by_deadline": 0,
+        "gap_over_21_days": 0,
+    }
     assert report["admission_status"] == "NOT_ADMITTED"
     assert report["training_authorized"] is False
     assert (tmp_path / "out" / "postmatch_states.parquet").exists()
