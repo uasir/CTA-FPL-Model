@@ -83,6 +83,7 @@ def validate_input(frame: pd.DataFrame, features: list[str], fixture_column: str
         raise ValueError("At least one feature snapshot was captured at/after its deadline")
     if (out["deadline_time"] > out["kickoff_time"]).any():
         raise ValueError("A target deadline occurs after its fixture kickoff")
+    out["minutes"] = pd.to_numeric(out["minutes"], errors="coerce")
     played_without_completion = out["minutes"].gt(0) & out["match_completed_at"].isna()
     if played_without_completion.any():
         raise ValueError("Played fixtures require match_completed_at")
