@@ -66,6 +66,7 @@ The sequence builder requires `feature_cutoff_time` to equal the official deadli
 
 - Checks the exact 286-column order, numeric/finite values, player-fixture key uniqueness and non-overlapping feature-family totals.
 - Reports per-season finite coverage, `-1` sentinel counts, genuine zero counts, defensive-family value coverage, and pre-deadline `ep_next`, signal and market snapshot age/post-deadline counts.
+- Enforces the exact 286 schema-family counts and a separate 286/286 reconstruction-path count before writing the candidate artifact.
 - Reports player-history, fixture-context and deadline team-context reconstruction separately; these remain candidate values until source-vintage and value-parity checks are admitted.
 - Checks same-player/Gameweek invariance for player/team/availability history and separately diagnoses fixture-context flattening in `opp_*`, opponent defensive allowance, rest, congestion and venue fields.
 - Explicitly reports opponent rolling, direct rank, market timestamp and historical source-vintage limitations; it does not label them safe.
