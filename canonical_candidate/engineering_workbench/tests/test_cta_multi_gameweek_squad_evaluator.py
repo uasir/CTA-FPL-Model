@@ -78,7 +78,7 @@ class CTAMultiGameweekSquadEvaluatorTests(unittest.TestCase):
     def test_transfer_candidates_expose_incoming_global_and_position_ranks(self):
         panels, manager, xi = fixture_inputs()
         result = evaluate_cta_five_gameweek_squad(panels, manager, starting_xi_ids=xi)
-        candidate = next(row for row in result["candidate_evaluations"] if row["transfer_in_id"] == 16)
+        candidate = next(row for row in result["candidate_evaluations"] if row["transfer_in_id"] == 16 and row["transfer_out_id"] == 8)
         self.assertEqual(candidate["incoming_global_rank"], 1)
         self.assertEqual(candidate["incoming_position_rank"], 1)
         self.assertEqual(candidate["incoming_five_gameweek_expected_points"], 25.0)
