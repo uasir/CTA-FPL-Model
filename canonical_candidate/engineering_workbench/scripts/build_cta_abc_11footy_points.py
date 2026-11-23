@@ -168,7 +168,36 @@ def run(training_rows, upcoming_rows, ridge_lambda=10.0, holdout_gameweeks=4):
     if len(train) < len(features) + 2 or not features:
         raise ValueError("Insufficient verified historical rows or observed 11footy features")
 
-    validation_model = fit_ridge(train, "target_fpl_total_points", features, ridge_lambda)
+    # Tune regularisation only inside the outer training period using
+    # expanding-window Gameweek folds. The final GW7-GW10 holdout remains unseen.
+    candidate_lambdas = sorted({0.1, 1.0, 10.0, 100.0, float(ridge_lambda)})
+    tuning_predictions = {value: [] for value in candidate_lambdas}
+    tuning_folds = []
+    for validation_gw_number in train_gws[3:]:
+        inner_train = [r for r in train if int(r["gameweek"]) < validation_gw_number]
+        inner_test = [r for r in train if int(r["gameweek"]) == validation_gw_number]
+        if len(inner_train) < len(features) + 2 or not inner_test:
+            continue
+        tuning_folds.append(validation_gw_number)
+        for candidate_lambda in candidate_lambdas:
+            inner_model = fit_ridge(inner_train, "target_fpl_total_points", features, candidate_lambda)
+            tuning_predictions[candidate_lambda].extend(
+                {**row, "predicted_points": predict(inner_model, row)} for row in inner_test
+            )
+    tuning_scores = []
+    for candidate_lambda in candidate_lambdas:
+        grouped = aggregate(tuning_predictions[candidate_lambda])
+        actual_inner = [row["actual_points"] for row in grouped]
+        predicted_inner = [row["predicted_points"] for row in grouped]
+        if grouped:
+            tuning_scores.append({
+                "ridge_lambda": candidate_lambda,
+                "mae": mae(actual_inner, predicted_inner),
+                "rmse": rmse(actual_inner, predicted_inner),
+                "player_gameweeks": len(grouped),
+            })
+    selected_lambda = min(tuning_scores, key=lambda item: (item["mae"], item["rmse"]))["ridge_lambda"] if tuning_scores else float(ridge_lambda)
+    validation_model = fit_ridge(train, "target_fpl_total_points", features, selected_lambda)
     validation_fixture = [{**row, "predicted_points": predict(validation_model, row)} for row in test]
     validation_gw = aggregate(validation_fixture)
     actual = [r["actual_points"] for r in validation_gw]
@@ -181,7 +210,7 @@ def run(training_rows, upcoming_rows, ridge_lambda=10.0, holdout_gameweeks=4):
     training_median_baseline = (ordered_targets[mid] if len(ordered_targets) % 2
                                 else (ordered_targets[mid - 1] + ordered_targets[mid]) / 2.0)
 
-    final_model = fit_ridge(training_rows, "target_fpl_total_points", features, ridge_lambda)
+    final_model = fit_ridge(training_rows, "target_fpl_total_points", features, selected_lambda)
     forecast_fixture = []
     for row in upcoming_rows:
         if not str(row.get("fpl_element_id") or "").strip():
@@ -208,7 +237,7 @@ def run(training_rows, upcoming_rows, ridge_lambda=10.0, holdout_gameweeks=4):
 
     report = {
         "status": "EXPLORATORY_FORECAST_BUILT",
-        "model_version": "abc-11footy-ridge-v0.2",
+        "model_version": "abc-11footy-ridge-v0.3",
         "target": "Official FPL total_points per player-fixture, aggregated to player-Gameweek",
         "provider": "11footy verified player-match features only",
         "feature_names": features,
@@ -232,7 +261,14 @@ def run(training_rows, upcoming_rows, ridge_lambda=10.0, holdout_gameweeks=4):
                 "rmse": rmse(actual, [training_median_baseline] * len(actual)),
             },
         },
-        "ridge_lambda": ridge_lambda,
+        "ridge_lambda": selected_lambda,
+        "ridge_tuning": {
+            "method": "EXPANDING_GAMEWEEK_FOLDS_WITHIN_OUTER_TRAINING_PERIOD",
+            "validation_gameweeks": tuning_folds,
+            "candidate_scores": tuning_scores,
+            "selected_lambda": selected_lambda,
+            "fallback_lambda_used": not bool(tuning_scores),
+        },
         "training_rows_source_vintage": "RETROSPECTIVE_NOT_POINT_IN_TIME_VERIFIED",
         "identity_policy": "Only VERIFIED_IDENTITY_AND_FIXTURE rows enter training.",
         "feature_policy": "Features use only verified player matches from earlier Gameweeks; all fixtures in one Gameweek share the same pre-Gameweek feature history. Training and inference use the same A/B/C feature definitions; missing values use training-only medians plus missingness indicators.",
