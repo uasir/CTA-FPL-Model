@@ -1,8 +1,12 @@
 # 2PM — Dastan 286-Feature Sequence Representation Proposal
 
 **Date:** 2026-11-23  
-**Status:** Recommended adaptation design; not yet frozen or implemented  
+**Status:** Recommended adaptation design; not frozen. A separate pre-match-row candidate prototype exists for pipeline testing.  
 **Governing references:** Wiechno, Duch and Bartosik (2026); `2PM_DASTAN_286_FEATURE_ADAPTATION_DECISION.md`; `2PM_DASTAN_SOURCE_SEMANTICS_AUDIT.md`.
+
+## Implementation note
+
+The current candidate sequence builder uses five previous played-fixture rows from the released Dastan pre-match frame plus the target fixture's pre-deadline query row. It emits six-token float32 shards with aligned metadata. This is deliberately only a pipeline prototype: it does **not** implement the proposed historical post-match state vectors. Do not train on or freeze this prototype until the semantic choice, feature-level deadline audit, identity/coverage checks and sequence suitability are cleared.
 
 ## 1. Problem and paper interpretation
 
