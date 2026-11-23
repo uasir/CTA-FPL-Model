@@ -18,6 +18,7 @@ from typing import Iterable
 import pandas as pd
 
 from build_2pm_predeadline_market_snapshot import build_market_artifact
+from rebuild_2pm_fixture_context import rebuild_fixture_context
 
 PINNED_DASTAN_COMMIT = "758db9247e8b3a9a870c991064f74d8339d61cd0"
 KEY = ["season", "gameweek", "fpl_code"]
@@ -310,6 +311,36 @@ def build_candidate(
     loaded = attach_match_availability_bounds(
         loaded, raw_dir, sources, seasons, force=force
     )
+    # Restore canonical fixture identity/context from the raw player-match table.
+    # The upstream release frame may have anchored ar_* values across a DGW;
+    # rebuild the six fixture-specific context fields after that anchor.
+    fixture_context = player_matches[
+        ["season", "fixture", "fpl_code", "team_name", "opponent_team_name"]
+    ].copy()
+    fixture_context["season"] = fixture_context["season"].astype(str)
+    fixture_context["fixture"] = fixture_context["fixture"].astype(str)
+    if fixture_context.duplicated(["season", "fixture", "fpl_code"]).any():
+        raise ValueError("Canonical player fixture context contains duplicate keys")
+    loaded = loaded.drop(
+        columns=["team_name", "opponent_team_name"], errors="ignore"
+    ).merge(
+        fixture_context,
+        on=["season", "fixture", "fpl_code"],
+        how="left",
+        validate="one_to_one",
+    )
+    fixture_availability = loaded[
+        ["season", "fixture", "match_available_at"]
+    ].drop_duplicates(["season", "fixture"])
+    history_matches = player_matches.merge(
+        fixture_availability,
+        on=["season", "fixture"],
+        how="left",
+        validate="many_to_one",
+    )
+    loaded, fixture_context_report = rebuild_fixture_context(
+        loaded, history_matches
+    )
     # Rehash after adding fixture calendars so the manifest covers every input.
     sources.write_download_manifest(raw_dir, seasons)
     loaded["feature_cutoff_time"] = loaded["deadline_time"]
@@ -373,6 +404,7 @@ def build_candidate(
             "market": len(pd.read_parquet(market_path)),
         },
         "market_snapshot_report": market_report,
+        "fixture_context_reconstruction": fixture_context_report,
         "snapshot_safety_buffer": {
             "ep_next": ep_safety,
             "signals": signals_safety,
@@ -382,8 +414,9 @@ def build_candidate(
             "The reconstruction uses corrected historical FPL-to-Understat assignments.",
             "The upstream feature builder's deadline assertion covers selected prefixes, not all 286 columns.",
             "Opponent rolling features and direct rank fields still require independent deadline reconstruction.",
+            "Fixture-specific rest, team congestion and opponent defensive-allowance context are reconstructed after the upstream deadline anchor; their source-vintage and value-parity checks remain open.",
             "Historical source-vintage revisions are not proven by reconstructing from current archived source files.",
-            "value, selected and transfers_balance still require independent historical pre-deadline provenance.",
+            "value, selected and transfers_balance are sourced from pre-deadline snapshots; unit parity against the released frame remains to be checked.",
             "Defensive-stat structural absence before 2025/26 remains subject to season-level coverage admission.",
             "The output is a candidate data artifact only; no training or M3/M4 integration is performed.",
         ],
