@@ -73,8 +73,8 @@ def test_write_json_emits_parseable_json_with_real_newline(tmp_path):
 def test_forecast_report_includes_prediction_and_feature_range_diagnostics(tmp_path):
     features = ["fpl_total_points_prior_3_avg", "abc_progressive_passes"]
     rows = [
-        {"fpl_total_points_prior_3_avg": "4", "abc_progressive_passes": "2"},
-        {"fpl_total_points_prior_3_avg": "6", "abc_progressive_passes": ""},
+        {"fpl_element_id": "10", "gameweek": "12", "fpl_total_points_prior_3_avg": "4", "abc_progressive_passes": "2"},
+        {"fpl_element_id": "11", "gameweek": "12", "fpl_total_points_prior_3_avg": "6", "abc_progressive_passes": ""},
     ]
     payload = {"model_version": "abc-points-ridge-v1", "feature_order": features}
     manifest = {"model_family": "Ridge", "model_sha256": "not-a-real-hash"}
