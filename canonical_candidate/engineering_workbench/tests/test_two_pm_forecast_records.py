@@ -20,6 +20,7 @@ def test_forecast_record_preserves_distribution_and_provenance_without_decision_
         output,
         player_ids=[1001, 1002],
         target_gameweeks=[12, 12],
+        target_fixture_ids=[9001, 9002],
         forecast_as_of="2026-11-23T10:00:00Z",
         training_cutoff="2026-11-01T00:00:00Z",
         feature_schema_version="dastan-286-candidate-v1",
@@ -37,6 +38,8 @@ def test_forecast_record_preserves_distribution_and_provenance_without_decision_
         assert field in record
     assert record["probability_6_plus"] >= record["probability_8_plus"]
     assert record["probability_8_plus"] >= record["probability_10_plus"]
+    assert record["target_fixture_id"] == 9001
+    assert record["forecast_grain"] == "player_fixture"
     assert record["production_eligible"] is False
     assert "transfer" not in record
     assert "captain" not in record
@@ -57,6 +60,7 @@ def test_forecast_record_rejects_post_forecast_training_cutoff_and_bad_batch():
         output=output,
         player_ids=[1001],
         target_gameweeks=[12],
+        target_fixture_ids=[9001],
         feature_schema_version="schema-v1",
         data_snapshot_hashes={"features": "a" * 64},
     )
