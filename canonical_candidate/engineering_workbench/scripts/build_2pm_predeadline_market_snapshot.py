@@ -72,6 +72,8 @@ def build_market_artifact(
     output_dir: Path,
     seasons: list[str],
     fplcache_module,
+    *,
+    safety_buffer_minutes: int = 5,
 ) -> tuple[Path, dict[str, Any]]:
     frame, season_report = fplcache_module._build_one(
         raw_dir,
@@ -86,6 +88,12 @@ def build_market_artifact(
         raise ValueError("Pre-deadline market artifact has duplicate player/Gameweek keys")
     if frame["snapshot_at"].ge(frame["deadline_time"]).any():
         raise ValueError("Pre-deadline market artifact contains post-deadline snapshots")
+    frame["age_hours"] = pd.to_numeric(frame["age_hours"], errors="coerce")
+    unsafe = frame["age_hours"].lt(safety_buffer_minutes / 60.0)
+    removed_for_buffer = int(unsafe.sum())
+    frame = frame.loc[~unsafe].copy()
+    if frame.empty:
+        raise RuntimeError("No market snapshots remain after the five-minute safety buffer")
     for column in MARKET_FIELDS:
         frame[column] = pd.to_numeric(frame[column], errors="coerce")
     if not frame[MARKET_FIELDS].notna().all().all():
@@ -108,7 +116,12 @@ def build_market_artifact(
             for season, rows in frame.groupby("season", sort=True)
         },
         "source": "Randdalf/fplcache",
-        "acceptance": "target is_next + matching official deadline + snapshot strictly before deadline",
+        "acceptance": "target is_next + matching official deadline + snapshot at least safety_buffer_minutes before deadline",
+        "safety_buffer": {
+            "minutes": safety_buffer_minutes,
+            "rows_removed": removed_for_buffer,
+            "rows_retained": int(len(frame)),
+        },
         "fields": {
             "value": "now_cost / 10 (FPL price in millions)",
             "selected": "selected_by_percent",
