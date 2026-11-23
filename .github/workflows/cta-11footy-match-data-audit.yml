@@ -346,6 +346,28 @@ jobs:
             --11footy-source-report run_artifacts/11footy/output/11footy_lagged_verified_upcoming_report.json \
             --out-dir run_artifacts/11footy/output/abc_11footy_only
 
+      - name: Train ABC on verified 11footy history and forecast upcoming FPL points
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/build_cta_abc_11footy_points.py \
+            --historical-panel ../../run_artifacts/11footy/output/verified_player_match_panel.csv \
+            --upcoming-panel ../../run_artifacts/11footy/output/abc_11footy_only/cta_abc_11footy_only_panel.csv \
+            --out-dir ../../run_artifacts/11footy/output/abc_11footy_points
+
+      - name: Upload exploratory ABC 11footy points forecast
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: abc-11footy-points-forecast
+          path: |
+            run_artifacts/11footy/output/abc_11footy_points/abc_11footy_points_forecast.csv
+            run_artifacts/11footy/output/abc_11footy_points/abc_11footy_points_report.json
+            run_artifacts/11footy/output/abc_11footy_points/abc_11footy_points_validation.csv
+            run_artifacts/11footy/output/abc_11footy_points/abc_11footy_points_model.json
+          retention-days: 30
+
       - name: Publish aggregate-only 11footy-only ABC summary
         if: always()
         run: |
