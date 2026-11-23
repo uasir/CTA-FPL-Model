@@ -46,6 +46,14 @@ The current model has a shared temporal encoder with two categorical heads: five
 
 **Preserve this implementation and its historical results as a baseline.** Do not silently change its semantics or overwrite its artifacts when introducing the paper-governed implementation.
 
+### 3.1 New paper-governed model core
+
+A separate clean module now exists at `scripts/two_component_poisson_transformer.py`. It implements the encoder-only Transformer, the three-parameter two-component Poisson-mixture head, analytic expectation/variance, stable mixture NLL, threshold-tail probabilities, paper target transformation, and a training-target-only EM/MLE initialization candidate.
+
+The legacy categorical model above remains a baseline only. The new module does not import it or Dastan model code. The new module's focused PyTorch contract tests have passed. It has not been trained or evaluated, and it does not yet include a training loop, full artifact lifecycle or M3 adapter.
+
+The new implementation uses the candidate six-token × 286-feature adaptation. The paper's original five-token × 116-feature input remains the published-paper fact; the Dastan input and target-query token are explicit project adaptations. The selected encoder layer count remains unresolved and must be passed explicitly to the constructor.
+
 ## 4. Paper-governed data contract
 
 ### 4.1 Forecasting observation
