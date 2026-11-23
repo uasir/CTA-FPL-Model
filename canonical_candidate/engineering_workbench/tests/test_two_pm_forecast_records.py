@@ -14,6 +14,7 @@ def test_forecast_record_preserves_distribution_and_provenance_without_decision_
         nhead=4,
         dim_feedforward=32,
         dropout=0.0,
+        support_shift=20,
     )
     output = model(torch.randn(2, 6, 8))
     records = build_forecast_records(
@@ -40,6 +41,8 @@ def test_forecast_record_preserves_distribution_and_provenance_without_decision_
     assert record["probability_8_plus"] >= record["probability_10_plus"]
     assert record["target_fixture_id"] == 9001
     assert record["forecast_grain"] == "player_fixture"
+    assert record["support_shift"] == 20
+    assert record["support_lower_bound"] == -20
     assert record["production_eligible"] is False
     assert "transfer" not in record
     assert "captain" not in record
