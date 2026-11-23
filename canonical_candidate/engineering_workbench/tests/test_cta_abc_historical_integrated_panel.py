@@ -87,3 +87,18 @@ def test_output_marks_research_only_and_preserves_wyscout_values():
     assert rows[0]["abc_supplementary_feature_source"] == "Wyscout"
     assert report["point_in_time_status"] == "RETROSPECTIVE_SOURCE_VINTAGES_NOT_VERIFIED"
     assert rows[0]["abc_progressive_passes"] == pytest.approx(2.5)
+
+
+def test_low_11footy_exposure_rate_stays_missing_instead_of_wyscout_fallback():
+    rows, _ = enrich_panel(
+        [_wys(abc_player_key_pass_rate="0.8")],
+        [
+            _footy(1, 101, minutes_played="10", key_passes="2"),
+            _footy(2, 102, minutes_played="10", key_passes="2"),
+            _footy(3, 103, minutes_played="10", key_passes="2"),
+        ],
+    )
+    row = rows[0]
+    sources = json.loads(row["abc_feature_sources"])
+    assert row["abc_player_key_pass_rate"] == ""
+    assert sources["player_key_pass_rate"] == "MISSING_LOW_11FOOTY_EXPOSURE"
