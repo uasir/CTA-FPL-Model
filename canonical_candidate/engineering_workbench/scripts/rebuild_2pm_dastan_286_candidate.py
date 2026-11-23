@@ -634,6 +634,7 @@ def build_candidate(
     metadata = [
         "season", "gameweek", "fixture", "fpl_code", "position",
         "team_name", "opponent_team_name", "kickoff_time", "deadline_time", "feature_cutoff_time",
+        "forecast_target_eligible",
         "match_available_at", "completion_time_quality", "source_vintage_status",
         "minutes", "target_points", "ep_next_snapshot_at", "signals_snapshot_at",
         "market_snapshot_at",
