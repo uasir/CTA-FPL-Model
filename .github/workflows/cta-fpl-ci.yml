@@ -205,5 +205,6 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_cta_abc_11footy_only_panel.py \
+            tests/test_cta_abc_11footy_points.py \
             tests/test_cta_abc_player_fixture_panel.py \
             tests/test_decision_quality_and_layers.py
