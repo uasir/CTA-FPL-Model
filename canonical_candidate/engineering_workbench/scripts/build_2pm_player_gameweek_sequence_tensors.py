@@ -332,6 +332,13 @@ def build_player_gameweek_sequence_tensors(
             "target_points": (
                 float(label_buffer[sample_index]) if target_mode == "historical" else None
             ),
+            "fixture_target_points": (
+                json.dumps(
+                    pd.to_numeric(group[label_column], errors="raise").astype(float).tolist()
+                )
+                if target_mode == "historical" and label_grain == "player_fixture"
+                else None
+            ),
             "label_grain": label_grain,
         })
         in_shard += 1
