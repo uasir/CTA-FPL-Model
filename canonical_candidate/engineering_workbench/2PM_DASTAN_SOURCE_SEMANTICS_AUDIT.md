@@ -227,3 +227,14 @@ The pinned release manifest records a six-season frame ending in 2025/26 (163,07
 - Training, evaluation and production: **not started / not authorized**.
 
 **Gate:** `DASTAN_286_ADAPTATION_AUDIT_IN_PROGRESS`.
+
+
+## 2026-11-23 verification — target label grain
+
+The pinned upstream Dastan documentation at `758db9247e8b3a9a870c991064f74d8339d61cd0` confirms:
+
+- the training frame is one row per player per fixture;
+- `target_points` is the FPL points scored in that individual fixture;
+- the modelling/evaluation decision grain is player-Gameweek, with Double Gameweek fixture scores summed before scoring.
+
+Accordingly, the 2PM candidate rebuild now stamps `target_label_grain=player_fixture` and `target_points_semantics=FPL_POINTS_SCORED_IN_THIS_FIXTURE`. The grouped sequence builder uses this verified declaration to sum fixture outcomes once into one player-Gameweek target. It rejects a conflicting explicit grain. This resolves the pinned Dastan label-grain question; it does not remove the need to verify row-level target coverage, non-appearance zero labels and fixture completeness in the actual rebuilt parquet.
