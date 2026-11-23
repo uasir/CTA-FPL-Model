@@ -32,22 +32,6 @@ def _utc_ns(series: pd.Series) -> pd.Series:
 
 
 
-def _prefix_mean(values: np.ndarray, *, ignore_nan: bool = False):
-    values = np.asarray(values, dtype=float)
-    valid = np.isfinite(values) if ignore_nan else np.ones(len(values), dtype=bool)
-    sums = np.concatenate(([0.0], np.cumsum(np.where(valid, values, 0.0))))
-    counts = np.concatenate(([0], np.cumsum(valid.astype(np.int64))))
-
-    def mean(end: int, window: int) -> float:
-        start = max(0, end - window)
-        count = int(counts[end] - counts[start])
-        if count == 0:
-            return float("nan")
-        return float((sums[end] - sums[start]) / count)
-
-    return mean
-
-
 def rebuild_player_history_features(
     target_frame: pd.DataFrame,
     player_matches: pd.DataFrame,
