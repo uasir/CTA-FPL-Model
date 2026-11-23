@@ -8,6 +8,7 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py
       - canonical_candidate/engineering_workbench/scripts/audit_2pm_dastan_286_candidate.py
       - canonical_candidate/engineering_workbench/scripts/build_2pm_dastan_sequence_dataset.py
+      - canonical_candidate/engineering_workbench/scripts/prepare_2pm_candidate_tensors.py
       - .github/workflows/cta-2pm-dastan-286-candidate-rebuild.yml
   workflow_dispatch:
 
@@ -35,6 +36,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Restore pinned Dastan raw-source cache
+        id: raw-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/2pm-dastan-raw
+          key: 2pm-dastan-raw-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
+          restore-keys: |
+            2pm-dastan-raw-${{ hashFiles('dastan-source/data/source_pins.json') }}-
       - name: Install data reconstruction dependencies
         run: |
           python -m pip install --upgrade pip
@@ -49,7 +58,7 @@ jobs:
             --seasons 2020-21,2021-22,2022-23,2023-24,2024-25,2025-26 \
             --workers 12 \
             > "$RUNNER_TEMP/2pm-dastan-rebuild.log"
-      - name: Audit candidate frame and build five-played-match tensor shards
+      - name: Audit candidate frame and prepare five-played-match tensor shards
         working-directory: canonical_candidate/engineering_workbench
         env:
           PYTHONPATH: scripts
@@ -57,10 +66,10 @@ jobs:
           python scripts/audit_2pm_dastan_286_candidate.py \
             --input "$RUNNER_TEMP/2pm-dastan-candidate/features_286_candidate.parquet" \
             --out "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json"
-          python scripts/build_2pm_dastan_sequence_dataset.py \
+          python scripts/prepare_2pm_candidate_tensors.py \
             --input "$RUNNER_TEMP/2pm-dastan-candidate/features_286_candidate.parquet" \
             --tensor-out-dir "$RUNNER_TEMP/2pm-dastan-candidate/sequence-tensors" \
-            --report "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_sequence_report.json" \
+            --report "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_tensor_preparation_report.json" \
             --shard-size 10000 \
             --require-label
       - name: Publish aggregate candidate status only
@@ -69,7 +78,7 @@ jobs:
           REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json
           LOG_PATH: ${{ runner.temp }}/2pm-dastan-rebuild.log
           AUDIT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json
-          SEQUENCE_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_sequence_report.json
+          TENSOR_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_tensor_preparation_report.json
           SUMMARY_PATH: ${{ runner.temp }}/2pm-dastan-step-summary.md
         run: |
           python - <<'PY'
@@ -104,11 +113,14 @@ jobs:
                       f"- Historical market snapshots after deadline: {audit.get('snapshot_timestamps', {}).get('market_snapshot_at', {}).get('post_deadline_rows')}",
                       f"- Market snapshots inside five-minute safety buffer: {audit.get('snapshot_timestamps', {}).get('market_snapshot_at', {}).get('rows_under_5m_buffer')}"
                   ])
-              sequence_path = Path(os.environ["SEQUENCE_REPORT_PATH"])
-              if sequence_path.exists():
-                  sequence = json.loads(sequence_path.read_text())
+              tensor_path = Path(os.environ["TENSOR_REPORT_PATH"])
+              if tensor_path.exists():
+                  tensor = json.loads(tensor_path.read_text())
+                  sequence = tensor.get("sequence_report", {})
                   counts = sequence.get("counts", {})
                   lines.extend([
+                      f"- Raw residual NaN values imputed to 0.0: {tensor.get('residual_nan_values_imputed_to_zero')}",
+                      f"- Preserved -1 snapshot sentinels: {tensor.get('preserved_minus_one_snapshot_sentinels')}",
                       f"- Candidate five-played-match sequences: {counts.get('emitted')}",
                       f"- Excluded: insufficient history={counts.get('insufficient_previous_played_matches')}, gap>{sequence.get('maximum_inter_observation_gap_days')}d={counts.get('gap_over_21_days')}",
                       f"- Tensor shards: {len(sequence.get('shards', []))}",
@@ -121,3 +133,9 @@ jobs:
               summary.write_text("## 2PM Dastan 286 candidate rebuild\n\nRebuild did not produce a candidate report.\n\n```text\n" + tail + "\n```\n")
           PY
           cat "$RUNNER_TEMP/2pm-dastan-step-summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Save pinned Dastan raw-source cache
+        if: always() && steps.raw-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/2pm-dastan-raw
+          key: 2pm-dastan-raw-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
