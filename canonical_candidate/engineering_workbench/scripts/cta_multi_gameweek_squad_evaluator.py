@@ -151,6 +151,41 @@ def evaluate_cta_five_gameweek_squad(
               for pid in common_player_ids}
     minutes = {pid: sum(by_week[gw][pid]["expected_minutes"] for gw in weeks)
                for pid in common_player_ids}
+    # Global market value is deliberately cross-position: all players are
+    # ranked on the same five-GW cumulative xP horizon. Position ranks are
+    # supplied alongside it, never used to filter the global ranking.
+    global_order = sorted(
+        common_player_ids,
+        key=lambda pid: (-totals[pid], -minutes[pid], pid),
+    )
+    global_rank = {pid: index + 1 for index, pid in enumerate(global_order)}
+    position_orders = {
+        pos: [pid for pid in global_order if first[pid]["position"] == pos]
+        for pos in POSITIONS
+    }
+    position_rank = {
+        pid: index + 1
+        for pos in POSITIONS
+        for index, pid in enumerate(position_orders[pos])
+    }
+    market_rankings = []
+    market_size = len(global_order)
+    for pid in global_order:
+        row = first[pid]
+        market_rankings.append({
+            "fpl_element_id": pid,
+            "position": row["position"],
+            "team_id": row["team_id"],
+            "price": round(row["price"], 2),
+            "five_gameweek_expected_points": round(totals[pid], 5),
+            "five_gameweek_expected_minutes": round(minutes[pid], 2),
+            "expected_points_per_million": round(totals[pid] / row["price"], 5) if row["price"] > 0 else None,
+            "global_rank": global_rank[pid],
+            "global_percentile": round((market_size - global_rank[pid]) / max(market_size - 1, 1), 5),
+            "position_rank": position_rank[pid],
+            "position_pool_size": len(position_orders[row["position"]]),
+        })
+
     team_counts = {}
     for pid in owned:
         team = first[pid]["team_id"]
@@ -201,6 +236,9 @@ def evaluate_cta_five_gameweek_squad(
                 "selling_price": round(sale, 2), "incoming_price": round(new["price"], 2),
                 "bank_after_transfer": round(budget - new["price"], 2),
                 "displaced_starting_player_id": displaced,
+                "incoming_global_rank": global_rank[incoming],
+                "incoming_position_rank": position_rank[incoming],
+                "incoming_five_gameweek_expected_points": round(totals[incoming], 5),
                 "post_transfer_starting_xi_ids": post_xi,
                 "weekly_comparison": weekly,
                 "gross_horizon_expected_points_delta": round(gross, 5),
@@ -227,6 +265,9 @@ def evaluate_cta_five_gameweek_squad(
                           "bank": bank, "free_transfers": free_transfers},
         "hold_starting_xi_expected_points": round(sum(totals[pid] for pid in starting_xi_ids), 5),
         "candidate_count": len(candidates),
+        "global_player_value_basis": "CROSS_POSITION_FIVE_GAMEWEEK_CUMULATIVE_EXPECTED_POINTS",
+        "global_player_pool_size": market_size,
+        "global_player_value_rankings": market_rankings,
         "best_diagnostic": candidates[0] if candidates else None,
         "candidate_evaluations": candidates[:max_alternatives],
         "decision_weight": 0.0,
