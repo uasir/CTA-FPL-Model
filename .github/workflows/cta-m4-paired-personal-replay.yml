@@ -1,6 +1,9 @@
 name: CTA M4 paired personal replay
 
 on:
+  push:
+    branches:
+      - feat/m4-global-player-value-layer
   workflow_dispatch:
     inputs:
       manager_context_run_id:
@@ -47,18 +50,18 @@ jobs:
       - name: Download the exact five-GW CTA forecast bundle
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.forecast_artifact_name }}
+          name: ${{ inputs.forecast_artifact_name || 'cta-five-gw-candidate-forecast' }}
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.forecast_run_id }}
+          run-id: ${{ inputs.forecast_run_id || '45078708036' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: outputs/cta-five-gw
 
       - name: Download the shared M3 manager-state capture
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.manager_context_artifact_name }}
+          name: ${{ inputs.manager_context_artifact_name || 'fplcat-manager-context-12-45076380380' }}
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.manager_context_run_id }}
+          run-id: ${{ inputs.manager_context_run_id || '45076380380' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: outputs/manager-state
 
@@ -162,6 +165,8 @@ jobs:
                   f"- Bank after transfer: £{bank_after:.1f}m",
                   f"- Free transfers available: {int(manager['free_transfers'])}",
                   f"- Hit cost applied: {float(best['hit_cost_points_applied']):.0f} points",
+                  f"- Global market rank: OUT #{best['outgoing_global_rank']} (position #{best['outgoing_position_rank']}); IN #{best['incoming_global_rank']} (position #{best['incoming_position_rank']}).",
+                  f"- Incoming minus outgoing player-level five-GW xP: {best['incoming_minus_outgoing_player_horizon_xp']:+.2f}. The recommendation's net gain above is the separate marginal starting-XI impact.",
               ]
           else:
               lines += [
@@ -214,18 +219,41 @@ jobs:
                       f"{candidate['net_horizon_expected_points_delta']:+.5f} | "
                       f"£{alternative_bank:.1f}m |"
                   )
+          rankings = diagnostic.get("global_player_value_rankings", [])
+          if rankings:
+              lines += [
+                  "",
+                  "## Global player value — all positions",
+                  "",
+                  "Players are ranked together across GKP, DEF, MID and FWD by cumulative five-GW expected points. Position rank is shown separately; it does not restrict the global comparison. xP per £m is a secondary efficiency measure, not a replacement for absolute projected value.",
+                  "",
+                  "| Global rank | Player | Pos. rank | Five-GW xP | xP/£m |",
+                  "|---:|---|---:|---:|---:|",
+              ]
+              for row in rankings[:10]:
+                  details = player(row["fpl_element_id"])
+                  efficiency = row.get("expected_points_per_million")
+                  efficiency_text = f"{efficiency:.2f}" if efficiency is not None else "—"
+                  lines.append(
+                      f"| {row['global_rank']} | {details['name']} ({details['team']}, {row['position']}) | "
+                      f"{row['position_rank']}/{row['position_pool_size']} | "
+                      f"{row['five_gameweek_expected_points']:.2f} | {efficiency_text} |"
+                  )
           report = "\n".join(lines) + "\n"
           Path("outputs/paired-replay/recommendation-report.md").write_text(report)
           with open(__import__("os").environ["GITHUB_STEP_SUMMARY"], "a") as summary:
               summary.write(report + "\n")
+          print("VISIBLE_RECOMMENDATION_REPORT_BEGIN")
+          print(report)
+          print("VISIBLE_RECOMMENDATION_REPORT_END")
           PY
 
       - name: Write paired replay manifest
         env:
-          MANAGER_CONTEXT_RUN_ID: ${{ inputs.manager_context_run_id }}
-          MANAGER_CONTEXT_ARTIFACT: ${{ inputs.manager_context_artifact_name }}
-          FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
-          FORECAST_ARTIFACT: ${{ inputs.forecast_artifact_name }}
+          MANAGER_CONTEXT_RUN_ID: ${{ inputs.manager_context_run_id || '45076380380' }}
+          MANAGER_CONTEXT_ARTIFACT: ${{ inputs.manager_context_artifact_name || 'fplcat-manager-context-12-45076380380' }}
+          FORECAST_RUN_ID: ${{ inputs.forecast_run_id || '45078708036' }}
+          FORECAST_ARTIFACT: ${{ inputs.forecast_artifact_name || 'cta-five-gw-candidate-forecast' }}
           IMPLEMENTATION_COMMIT: ${{ steps.implementation.outputs.commit }}
         run: |
           python - <<'PY'
@@ -251,6 +279,12 @@ jobs:
               "personal_product_status": personal.get("product_status"),
               "five_gw_diagnostic_status": diagnostic.get("status"),
               "five_gw_recommended_action": diagnostic.get("recommended_action"),
+              "global_player_value_basis": diagnostic.get("global_player_value_basis"),
+              "global_player_pool_size": diagnostic.get("global_player_pool_size"),
+              "global_player_value_top_player_id": (
+                  diagnostic.get("global_player_value_rankings", [{}])[0].get("fpl_element_id")
+                  if diagnostic.get("global_player_value_rankings") else None
+              ),
               "five_gw_net_expected_points_delta": (
                   diagnostic.get("best_diagnostic", {}).get("net_horizon_expected_points_delta")
                   if diagnostic.get("best_diagnostic") else None

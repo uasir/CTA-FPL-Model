@@ -54,6 +54,39 @@ class CTAMultiGameweekSquadEvaluatorTests(unittest.TestCase):
         self.assertEqual(result["decision_weight"], 0)
         self.assertFalse(result["covar_used"])
 
+    def test_global_value_ranks_all_positions_on_same_five_week_horizon(self):
+        panels, manager, xi = fixture_inputs()
+        # Make a defender the strongest global player, ahead of the best MID.
+        for panel in panels:
+            for row in panel["player_forecasts"]:
+                if row["fpl_element_id"] == 3:
+                    row["expected_points"] = 8.0
+        result = evaluate_cta_five_gameweek_squad(panels, manager, starting_xi_ids=xi)
+        rankings = result["global_player_value_rankings"]
+        self.assertEqual(result["global_player_value_basis"], "CROSS_POSITION_FIVE_GAMEWEEK_CUMULATIVE_EXPECTED_POINTS")
+        self.assertEqual(result["global_player_pool_size"], len(rankings))
+        self.assertEqual(rankings[0]["fpl_element_id"], 3)
+        self.assertEqual(rankings[0]["position"], "DEF")
+        self.assertEqual(rankings[0]["global_rank"], 1)
+        self.assertEqual(rankings[0]["position_rank"], 1)
+        midfielder = next(row for row in rankings if row["fpl_element_id"] == 8)
+        self.assertGreater(midfielder["global_rank"], 1)
+        self.assertEqual(midfielder["position_rank"], 2)
+        self.assertEqual(midfielder["position_pool_size"], 6)
+        self.assertTrue(all(row["global_rank"] == i for i, row in enumerate(rankings, start=1)))
+
+    def test_transfer_candidates_expose_incoming_global_and_position_ranks(self):
+        panels, manager, xi = fixture_inputs()
+        result = evaluate_cta_five_gameweek_squad(panels, manager, starting_xi_ids=xi)
+        candidate = next(row for row in result["candidate_evaluations"] if row["transfer_in_id"] == 16 and row["transfer_out_id"] == 8)
+        self.assertEqual(candidate["incoming_global_rank"], 1)
+        self.assertEqual(candidate["incoming_position_rank"], 1)
+        self.assertEqual(candidate["incoming_five_gameweek_expected_points"], 25.0)
+        self.assertEqual(candidate["outgoing_global_rank"], 2)
+        self.assertEqual(candidate["outgoing_position_rank"], 2)
+        self.assertEqual(candidate["outgoing_five_gameweek_expected_points"], 15.0)
+        self.assertEqual(candidate["incoming_minus_outgoing_player_horizon_xp"], 10.0)
+
     def test_rejects_incomplete_five_week_horizon(self):
         panels, manager, xi = fixture_inputs()
         with self.assertRaises(CTAMultiGameweekSquadError):
