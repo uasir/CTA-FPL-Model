@@ -515,6 +515,11 @@ def build_candidate(
     if absent:
         raise RuntimeError(f"Candidate output is missing metadata columns: {absent}")
     candidate = loaded[metadata + ordered_features].copy()
+    # The pinned Dastan contract is one player-fixture row and target_points is
+    # the points scored in that fixture. The 2PM dataset later sums these once
+    # to obtain the single player-Gameweek training label.
+    candidate["target_label_grain"] = "player_fixture"
+    candidate["target_points_semantics"] = "FPL_POINTS_SCORED_IN_THIS_FIXTURE"
     candidate["identity_mapping_sha256"] = corrected_map_sha
     candidate["source_manifest_sha256"] = sha256(raw_dir / "downloads.json")
     candidate["source_vintage_status"] = "RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED"
@@ -538,6 +543,8 @@ def build_candidate(
         "seasons": seasons,
         "candidate_rows": len(candidate),
         "candidate_feature_count": len(ordered_features),
+        "target_label_grain": "player_fixture",
+        "target_points_semantics": "FPL_POINTS_SCORED_IN_THIS_FIXTURE",
         "feature_order_sha256": hashlib.sha256(
             "\n".join(ordered_features).encode("utf-8")
         ).hexdigest(),
