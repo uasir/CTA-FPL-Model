@@ -144,12 +144,17 @@ def build_sequences(
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     if max_gap_days <= 0:
         raise ValueError("max_gap_days must be positive")
-    has_label = "total_points" in frame.columns
+    label_column = (
+        "total_points" if "total_points" in frame.columns
+        else "target_points" if "target_points" in frame.columns
+        else None
+    )
+    has_label = label_column is not None
     if require_label and not has_label:
-        raise ValueError("total_points is required for a labelled training dataset")
+        raise ValueError("total_points or target_points is required for a labelled training dataset")
     if has_label:
         frame = frame.copy()
-        frame["total_points"] = pd.to_numeric(frame["total_points"], errors="coerce")
+        frame[label_column] = pd.to_numeric(frame[label_column], errors="coerce")
 
     output: list[dict[str, Any]] = []
     counts = {
@@ -210,8 +215,8 @@ def build_sequences(
         for feature in features:
             record[f"token_05__{feature}"] = float(getattr(target, feature))
         record["target_points"] = (
-            float(target.total_points)
-            if has_label and pd.notna(target.total_points)
+            float(getattr(target, label_column))
+            if has_label and pd.notna(getattr(target, label_column))
             else None
         )
         output.append(record)
@@ -242,6 +247,7 @@ def build_sequences(
         "maximum_inter_observation_gap_days": max_gap_days,
         "feature_count_per_token": len(features),
         "sequence_length": SEQUENCE_LENGTH,
+        "label_column": label_column,
         "feature_order_sha256": hashlib.sha256("\n".join(features).encode("utf-8")).hexdigest(),
         "counts": counts,
         "source_vintage_status_counts": {
