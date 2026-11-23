@@ -14,6 +14,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_11footy_only_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_cta_abc_11footy_points.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_abc_11footy_points.py
       - canonical_candidate/engineering_workbench/tests/test_cta_abc_11footy_only_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_baseline_forecast_snapshot.py
@@ -54,6 +56,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py
       - canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py
+      - canonical_candidate/engineering_workbench/scripts/build_cta_abc_11footy_points.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_abc_11footy_points.py
       - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_player_match_features.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_ingestion.py
