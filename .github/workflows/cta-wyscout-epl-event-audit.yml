@@ -1,4 +1,5 @@
 name: CTA Wyscout EPL 2017/18 event-data audit
+# Also validates the historical 11footy-first ABC points pipeline and research model package.
 
 on:
   pull_request:
