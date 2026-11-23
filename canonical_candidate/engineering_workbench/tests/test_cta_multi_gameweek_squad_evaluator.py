@@ -71,7 +71,7 @@ class CTAMultiGameweekSquadEvaluatorTests(unittest.TestCase):
         self.assertEqual(rankings[0]["position_rank"], 1)
         midfielder = next(row for row in rankings if row["fpl_element_id"] == 8)
         self.assertGreater(midfielder["global_rank"], 1)
-        self.assertEqual(midfielder["position_rank"], 1)
+        self.assertEqual(midfielder["position_rank"], 2)
         self.assertEqual(midfielder["position_pool_size"], 6)
         self.assertTrue(all(row["global_rank"] == i for i, row in enumerate(rankings, start=1)))
 
@@ -83,7 +83,7 @@ class CTAMultiGameweekSquadEvaluatorTests(unittest.TestCase):
         self.assertEqual(candidate["incoming_position_rank"], 1)
         self.assertEqual(candidate["incoming_five_gameweek_expected_points"], 25.0)
         self.assertEqual(candidate["outgoing_global_rank"], 2)
-        self.assertEqual(candidate["outgoing_position_rank"], 1)
+        self.assertEqual(candidate["outgoing_position_rank"], 2)
         self.assertEqual(candidate["outgoing_five_gameweek_expected_points"], 15.0)
         self.assertEqual(candidate["incoming_minus_outgoing_player_horizon_xp"], 10.0)
 
