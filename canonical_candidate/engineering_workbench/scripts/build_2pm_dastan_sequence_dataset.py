@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 
 IDENTITY = ("season", "gameweek", "fixture_id", "fpl_code")
-TIME_COLUMNS = ("kickoff_time", "match_completed_at", "deadline_time", "source_as_of_time")
+TIME_COLUMNS = ("kickoff_time", "match_available_at", "deadline_time", "feature_cutoff_time")
 MAX_GAP_DAYS = 21
 HISTORY_LENGTH = 5
 SEQUENCE_LENGTH = HISTORY_LENGTH + 1
@@ -55,7 +55,8 @@ def write_frame(frame: pd.DataFrame, path: Path) -> None:
 
 def validate_input(frame: pd.DataFrame, features: list[str], fixture_column: str) -> pd.DataFrame:
     required = (set(IDENTITY) - {"fixture_id"}) | set(TIME_COLUMNS) | {
-        fixture_column, "minutes", *features
+        fixture_column, "minutes", "completion_time_quality",
+        "source_vintage_status", *features
     }
     missing = sorted(required - set(frame.columns))
     if missing:
@@ -72,27 +73,36 @@ def validate_input(frame: pd.DataFrame, features: list[str], fixture_column: str
         raise ValueError(f"Duplicate player-fixture keys: {examples}")
 
     out = frame.copy()
-    for column in ("kickoff_time", "deadline_time", "source_as_of_time"):
+    for column in ("kickoff_time", "deadline_time", "feature_cutoff_time"):
         out[column] = pd.to_datetime(out[column], utc=True, errors="coerce")
         if out[column].isna().any():
             raise ValueError(f"{column} contains missing or invalid timestamps")
-    out["match_completed_at"] = pd.to_datetime(
-        out["match_completed_at"], utc=True, errors="coerce"
+    out["match_available_at"] = pd.to_datetime(
+        out["match_available_at"], utc=True, errors="coerce"
     )
-    if (out["source_as_of_time"] >= out["deadline_time"]).any():
-        raise ValueError("At least one feature snapshot was captured at/after its deadline")
+    if not out["feature_cutoff_time"].equals(out["deadline_time"]):
+        raise ValueError("feature_cutoff_time must equal the official target deadline")
     if (out["deadline_time"] > out["kickoff_time"]).any():
         raise ValueError("A target deadline occurs after its fixture kickoff")
     out["minutes"] = pd.to_numeric(out["minutes"], errors="coerce")
-    played_without_completion = out["minutes"].gt(0) & out["match_completed_at"].isna()
-    if played_without_completion.any():
-        raise ValueError("Played fixtures require match_completed_at")
-    completed_before_kickoff = (
-        out["match_completed_at"].notna()
-        & out["match_completed_at"].lt(out["kickoff_time"])
+    played_without_availability = out["minutes"].gt(0) & out["match_available_at"].isna()
+    if played_without_availability.any():
+        raise ValueError("Played fixtures require match_available_at")
+    available_before_kickoff = (
+        out["match_available_at"].notna()
+        & out["match_available_at"].lt(out["kickoff_time"])
     )
-    if completed_before_kickoff.any():
-        raise ValueError("match_completed_at precedes kickoff_time")
+    if available_before_kickoff.any():
+        raise ValueError("match_available_at precedes kickoff_time")
+    if out["completion_time_quality"].isna().any() or out["source_vintage_status"].isna().any():
+        raise ValueError("Completion-time quality and source-vintage status must be explicit")
+    if "source_as_of_time" in out:
+        out["source_as_of_time"] = pd.to_datetime(
+            out["source_as_of_time"], utc=True, errors="coerce"
+        )
+        present = out["source_as_of_time"].notna()
+        if (out.loc[present, "source_as_of_time"] >= out.loc[present, "deadline_time"]).any():
+            raise ValueError("A captured source snapshot is at/after its deadline")
 
     for column in ["minutes", *features]:
         out[column] = pd.to_numeric(out[column], errors="coerce")
@@ -110,7 +120,7 @@ def validate_input(frame: pd.DataFrame, features: list[str], fixture_column: str
     if out["minutes"].isna().any() or (out["minutes"] < 0).any():
         raise ValueError("minutes must be numeric, non-null and non-negative")
     return out.sort_values(
-        ["fpl_code", "match_completed_at", "kickoff_time", "fixture_id"],
+        ["fpl_code", "match_available_at", "kickoff_time", "fixture_id"],
         kind="mergesort",
     ).reset_index(drop=True)
 
@@ -145,11 +155,11 @@ def build_sequences(
         player_rows = grouped[target.fpl_code]
         history = player_rows[
             (player_rows["minutes"] > 0)
-            & (player_rows["match_completed_at"] < target_deadline)
+            & (player_rows["match_available_at"] < target_deadline)
             & (player_rows["kickoff_time"] < target_kickoff)
             & (player_rows["fixture_id"].astype(str) != str(target.fixture_id))
         ].sort_values(
-            ["match_completed_at", "kickoff_time", "fixture_id"], kind="mergesort"
+            ["match_available_at", "kickoff_time", "fixture_id"], kind="mergesort"
         ).tail(HISTORY_LENGTH)
         if len(history) < HISTORY_LENGTH:
             counts["insufficient_previous_played_matches"] += 1
@@ -172,8 +182,8 @@ def build_sequences(
             "target_kickoff_time": target_kickoff.isoformat(),
             "target_deadline_time": target_deadline.isoformat(),
             "history_fixture_ids": json.dumps(history["fixture_id"].astype(str).tolist()),
-            "history_match_completed_at": json.dumps(
-                [value.isoformat() for value in history["match_completed_at"]]
+            "history_match_available_at": json.dumps(
+                [value.isoformat() for value in history["match_available_at"]]
             ),
             "sequence_gap_days": json.dumps([round(value, 6) for value in gaps]),
             "sequence_length": SEQUENCE_LENGTH,
@@ -195,7 +205,7 @@ def build_sequences(
     columns = [
         "season", "gameweek", "fixture_id", "fpl_code",
         "target_kickoff_time", "target_deadline_time",
-        "history_fixture_ids", "history_match_completed_at",
+        "history_fixture_ids", "history_match_available_at",
         "sequence_gap_days", "sequence_length", "feature_count_per_token",
         *[
             f"token_{token:02d}__{feature}"
@@ -209,16 +219,21 @@ def build_sequences(
         "status": "CANDIDATE_SEQUENCE_DATASET",
         "admission_status": "NOT_ADMITTED",
         "sequence_definition": "five_previous_played_fixtures_plus_target_query",
-        "historical_token_semantics": "286-feature snapshot for the historical fixture, captured before that fixture deadline",
-        "target_token_semantics": "286-feature snapshot captured strictly before the target Gameweek deadline",
-        "history_eligibility": "minutes > 0 and match_completed_at < target deadline",
+        "historical_token_semantics": "286-feature snapshot cut off at the historical fixture's official deadline; source vintage remains separately flagged",
+        "target_token_semantics": "286-feature candidate snapshot with feature_cutoff_time equal to the target Gameweek deadline",
+        "history_eligibility": "minutes > 0 and conservative/observed match_available_at < target deadline",
         "maximum_inter_observation_gap_days": max_gap_days,
         "feature_count_per_token": len(features),
         "sequence_length": SEQUENCE_LENGTH,
         "feature_order_sha256": hashlib.sha256("\n".join(features).encode("utf-8")).hexdigest(),
         "counts": counts,
+        "source_vintage_status_counts": {
+            str(key): int(value)
+            for key, value in frame["source_vintage_status"].value_counts(dropna=False).items()
+        },
         "limitations": [
-            "A structurally valid sequence does not prove each feature's underlying source events were available by the recorded snapshot timestamp.",
+            "feature_cutoff_time identifies the official deadline cutoff; it is not a source capture timestamp.",
+            "A structurally valid sequence does not prove each feature's underlying source events were available by the recorded deadline cutoff.",
             "All 286 features remain subject to the independent feature-admission register.",
             "Historical source-vintage, identity, rights and season-coverage gates remain open.",
             "Target points are labels only and are not included in any token.",
