@@ -209,7 +209,7 @@ The pinned release manifest records a six-season frame ending in 2025/26 (163,07
 2. Prioritise R1–R4 before feature admission or sequence design.
 3. Build the new 2PM input adapter independently; do not import Dastan's model/data loader or model preprocessing.
 4. Keep target points and minutes labels separate from the 286 input columns.
-5. Resolve whether the 2PM sequence tokens can be reconstructed from point-in-time-safe Dastan features. The existing player-fixture snapshots are not themselves five raw match vectors.
+5. Execute and audit the selected post-match 2PM state reconstruction. The existing player-fixture snapshots are not themselves five raw match vectors; the new builder reconstructs historical post-match states but still requires full-data temporal and source-vintage validation.
 6. If a feature is not safe or available, exclude/rebuild it with a versioned schema change and report the new feature count. Do not force all 286 through.
 
 ## 7. Current status
@@ -222,7 +222,7 @@ The pinned release manifest records a six-season frame ending in 2025/26 (163,07
 - Historical player identity corrections: **two errors confirmed in immutable release mapping; corrected-map rebuild not run**.
 - Current 2026/27 feature rows: **absent from pinned six-season release; current-season build required**.
 - Defensive feature season coverage: **source-documented; row-level audit not run**.
-- Sequence-token design: **unresolved**.
+- Sequence-token design: **selected — five same-season post-match played-fixture states plus a strictly pre-deadline target query; candidate implementation added, full-data validation pending**.
 - 2PM schema admission: **not approved**.
 - Training, evaluation and production: **not started / not authorized**.
 
