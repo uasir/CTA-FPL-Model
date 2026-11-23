@@ -14,6 +14,11 @@ on:
       - canonical_candidate/engineering_workbench/config/cta_core_parity_contract.json
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
+      - canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py
+      - canonical_candidate/engineering_workbench/scripts/prepare_abc_11footy_verified_inputs.py
+      - canonical_candidate/engineering_workbench/scripts/build_cta_abc_historical_integrated_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_prepare_abc_11footy_verified_inputs.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_abc_historical_integrated_panel.py
       - canonical_candidate/engineering_workbench/scripts/verify_cross_provider_fpl_identity.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py
