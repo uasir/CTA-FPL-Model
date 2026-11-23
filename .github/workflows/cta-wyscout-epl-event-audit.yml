@@ -20,6 +20,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/train_cta_abc_points_model.py
       - canonical_candidate/engineering_workbench/scripts/predict_cta_abc_points.py
       - canonical_candidate/engineering_workbench/tests/test_cta_abc_points_model.py
+      - canonical_candidate/engineering_workbench/scripts/build_cta_abc_m3_forecast_snapshot.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_abc_m3_forecast_snapshot.py
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_historical_integrated_panel.py
       - canonical_candidate/engineering_workbench/tests/test_prepare_abc_11footy_verified_inputs.py
       - canonical_candidate/engineering_workbench/tests/test_cta_abc_historical_integrated_panel.py
@@ -138,7 +140,8 @@ jobs:
           python -m pytest -q \
             tests/test_cta_abc_historical_integrated_panel.py \
             tests/test_prepare_abc_11footy_verified_inputs.py \
-            tests/test_cta_abc_points_model.py
+            tests/test_cta_abc_points_model.py \
+            tests/test_cta_abc_m3_forecast_snapshot.py
 
       - name: Run Wyscout and 11footy identity resolver unit tests
         run: |
