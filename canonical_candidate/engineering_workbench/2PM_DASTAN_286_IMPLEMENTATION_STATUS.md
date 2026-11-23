@@ -104,6 +104,17 @@ The test-only two-layer instantiation is a shape/gradient smoke test, not a sele
 
 This builder is implemented but has not yet been run against the live 2026/27 source snapshot. The six completed-season historical candidate and the current-season target query are separate artifacts; they must be joined deliberately for current inference sequences.
 
+### 6B. Candidate tensor preparation
+
+`scripts/prepare_2pm_candidate_tensors.py`
+
+- Audits per-feature residual NaN counts before imputation.
+- Rejects infinite feature values.
+- Applies the pinned Dastan model preprocessing rule: residual NaN → 0.0.
+- Preserves existing `-1.0` missing-snapshot sentinels and genuine zeros as distinct values.
+- Builds memory-bounded float32 candidate shards without modifying the raw Parquet candidate.
+- Its focused CI contract passed, including explicit checks that NaN becomes 0.0 and `-1.0` remains unchanged.
+
 ### 6A. Current target-query tensor builder
 
 `scripts/build_2pm_target_query_tensors.py`
