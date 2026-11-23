@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 
 from build_2pm_predeadline_market_snapshot import (
