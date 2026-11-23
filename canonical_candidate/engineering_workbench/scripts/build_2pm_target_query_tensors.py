@@ -129,8 +129,9 @@ def build_target_query_tensors(
         tensor_buffer[in_shard, :HISTORY_LENGTH, :] = history[features].to_numpy(
             dtype=np.float32
         )
-        tensor_buffer[in_shard, HISTORY_LENGTH, :] = target[features].to_numpy(
-            dtype=np.float32
+        tensor_buffer[in_shard, HISTORY_LENGTH, :] = np.asarray(
+            [getattr(target, feature) for feature in features],
+            dtype=np.float32,
         )
         metadata_rows.append(
             {
