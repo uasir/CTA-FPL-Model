@@ -40,6 +40,8 @@ def test_candidate_audit_checks_schema_snapshots_and_only_claims_selected_anchor
     assert report["duplicate_player_fixture_keys"] == 0
     assert report["nonfinite_feature_values"] == 0
     assert report["same_player_gameweek_upstream_anchor_check"]["groups_with_differences"] == 0
+    assert report["fixture_context_flattening_check"]["groups_with_multiple_fixtures"] == 1
+    assert report["fixture_context_flattening_check"]["groups_where_all_context_features_are_constant"] == 0
     assert report["snapshot_timestamps"]["ep_next_snapshot_at"]["post_deadline_rows"] == 0
     assert report["defensive_feature_coverage"]["2025-26"]["columns"] > 0
     assert report["admission_status"] == "NOT_ADMITTED"
