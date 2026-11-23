@@ -94,7 +94,7 @@ This is different from Dastan's existing per-player/Gameweek deadline anchoring.
 
 The prediction/training sample grain is **one player-Gameweek**. Each target fixture in that Gameweek has its own pre-deadline query token, while all fixture queries share the same five post-match historical tokens. The stored tensor shape is [player_gameweek, target_fixture, 6, 286]; a fixture mask identifies real queries.
 
-A Double Gameweek therefore creates one player-Gameweek sample, two target-fixture queries and one Gameweek label. If verified labels are fixture-grain, sum the fixture outcomes once. If the source repeats the full Gameweek total on each fixture row, deduplicate the identical values; never sum duplicate Gameweek totals. The builder requires the label grain to be stated explicitly.
+A Double Gameweek therefore creates one player-Gameweek sample, two target-fixture queries and one Gameweek label. The pinned Dastan contract at revision 758db9247e8b3a9a870c991064f74d8339d61cd0 explicitly defines one row per player-fixture and target_points as points scored in that fixture. Therefore the 2PM Dastan path sums the two fixture labels once to create the single Gameweek target. The candidate builder stamps this label grain and the sequence builder rejects conflicting declarations. Other providers must declare their own label grain; repeated full-Gameweek labels must be deduplicated, never summed.
 
 Historical input tokens require actual appearances (minutes > 0). Target outcomes are not filtered by appearance: a non-appearance remains a target outcome (normally zero points). Negative points from an actual appearance are preserved.
 
@@ -145,7 +145,7 @@ The user selected post-match historical states as the governing sequence semanti
 The two new builders and associated contract tests are present in the feature branch. The focused CI workflow includes them, but its latest run has not yet been independently verified. The pre-match sequence prototype remains a reference control only.
 
 The design is selected but **not frozen or admitted**. The remaining gates are:
-- verify target-label grain and fixture-level versus Gameweek-level target_points semantics from the pinned source;
+- retain the pinned Dastan fixture-label declaration and validate that rebuilt candidate rows preserve it;
 - run the complete post-match reconstruction against historical source artifacts;
 - complete the independent feature-by-feature point-in-time and source-vintage audit;
 - verify exact historical match availability and the 21-day rule;
