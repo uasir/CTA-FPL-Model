@@ -123,3 +123,68 @@ def test_refuses_fixture_before_official_deadline():
             now=now,
             features_module=DummyFeatures,
         )
+
+
+
+def snapshot_artifacts(tmp_path, market_capture):
+    key = {"season": "2026-27", "gameweek": 12, "fpl_code": 1001}
+    pd.DataFrame(
+        [{**key, "ep_next": 4.2, "snapshot_at": "2026-11-27T10:00:00Z"}]
+    ).to_parquet(tmp_path / "pre_deadline_ep_next.parquet", index=False)
+    pd.DataFrame(
+        [{
+            **key,
+            "sig_status_risk": 0.0,
+            "sig_chance_playing": 100.0,
+            "sig_has_news": 0.0,
+            "snapshot_at": "2026-11-27T10:00:00Z",
+        }]
+    ).to_parquet(tmp_path / "pre_deadline_signals.parquet", index=False)
+    pd.DataFrame(
+        [{
+            **key,
+            "value": 5.5,
+            "selected": 7.3,
+            "transfers_balance": 60.0,
+            "snapshot_at": market_capture,
+        }]
+    ).to_parquet(tmp_path / "pre_deadline_market.parquet", index=False)
+
+
+def test_snapshot_join_preserves_values_and_accepts_safe_capture_times(tmp_path):
+    from build_2pm_active_target_queries import attach_snapshot_features
+
+    snapshot_artifacts(tmp_path, "2026-11-27T10:00:00Z")
+    frame = pd.DataFrame([{
+        "season": "2026-27",
+        "gameweek": 12,
+        "fpl_code": 1001,
+        "deadline_time": pd.Timestamp("2026-11-27T11:00:00Z"),
+        "value": 4.0,
+        "selected": 1.0,
+        "transfers_balance": 0.0,
+        "ar_ep_next": 0.0,
+        "sig_status_risk": 0.0,
+        "sig_chance_playing": 0.0,
+        "sig_has_news": 0.0,
+    }])
+    result, report = attach_snapshot_features(frame, tmp_path)
+    assert result.loc[0, "value"] == 5.5
+    assert result.loc[0, "selected"] == 7.3
+    assert result.loc[0, "transfers_balance"] == 60.0
+    assert result.loc[0, "ar_ep_next"] == 4.2
+    assert report["snapshot_coverage"]["market_snapshot_at"] == 1
+
+
+def test_snapshot_join_rejects_market_capture_inside_safety_buffer(tmp_path):
+    from build_2pm_active_target_queries import attach_snapshot_features
+
+    snapshot_artifacts(tmp_path, "2026-11-27T10:58:00Z")
+    frame = pd.DataFrame([{
+        "season": "2026-27",
+        "gameweek": 12,
+        "fpl_code": 1001,
+        "deadline_time": pd.Timestamp("2026-11-27T11:00:00Z"),
+    }])
+    with pytest.raises(RuntimeError, match="five-minute safety buffer"):
+        attach_snapshot_features(frame, tmp_path)
