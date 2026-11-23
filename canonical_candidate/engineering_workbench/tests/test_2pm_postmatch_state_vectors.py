@@ -93,6 +93,7 @@ def test_builds_postmatch_state_after_all_required_match_data_is_available(monke
     assert observed["player_asof"] == expected_asof
     assert observed["team_asof"] == expected_asof
     assert result.loc[0, "postmatch_state_as_of_time"] == expected_asof
+    assert result.loc[0, "deadline_time"] == pd.Timestamp("2026-08-01T09:00:00Z")
     assert result.loc[0, "player_assists_1"] == 11.0
     assert result.loc[0, "team_xg_1"] == 22.0
     assert result.loc[0, "ar_opp_dc_allowed_3"] == 33.0
