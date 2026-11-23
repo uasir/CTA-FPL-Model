@@ -174,7 +174,7 @@ def run(training_rows, upcoming_rows, ridge_lambda=10.0, holdout_gameweeks=4):
     candidate_lambdas = sorted({0.1, 1.0, 10.0, 100.0, float(ridge_lambda)})
     tuning_predictions = {value: [] for value in candidate_lambdas}
     tuning_folds = []
-    for validation_gw_number in train_gws[3:]:
+    for validation_gw_number in train_gws[2:]:
         inner_train = [r for r in train if int(r["gameweek"]) < validation_gw_number]
         inner_test = [r for r in train if int(r["gameweek"]) == validation_gw_number]
         if len(inner_train) < len(features) + 2 or not inner_test:
