@@ -133,7 +133,7 @@ def test_rejects_duplicate_player_fixture_keys():
 
 
 
-def test_reconstruction_is_scoped_to_each_season(monkeypatch):
+def test_postmatch_player_history_receives_corrected_cross_season_identity_history(monkeypatch):
     frame = make_candidate()
     previous = make_candidate()
     previous.loc[0, "season"] = "2025-26"
@@ -165,10 +165,10 @@ def test_reconstruction_is_scoped_to_each_season(monkeypatch):
     result, report = builder.build_postmatch_state_vectors(
         frame, player_history, team_history, object(), FEATURES
     )
-    assert seen_player_seasons == [("2025-26",), ("2026-27",)]
-    assert seen_team_seasons == [("2025-26",), ("2026-27",)]
+    assert seen_player_seasons == [("2025-26", "2026-27")]
+    assert seen_team_seasons == [("2025-26", "2026-27")]
     assert result["season"].tolist() == ["2025-26", "2026-27"]
-    assert report["cross_season_history"].startswith("excluded")
+    assert report["cross_season_history"].startswith("corrected stable player_uid")
 
 
 
