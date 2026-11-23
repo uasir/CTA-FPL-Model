@@ -185,3 +185,27 @@ The first full rebuild run is being executed separately. Its outcome must be rea
 - The model remains research-only, production weight 0, and `production_eligible=false`.
 - M2 forecast evaluation and M4 recommendation-product evaluation remain deferred until the upcoming Gameweek's official scores are available.
 - No PR merge is performed without explicit approval.
+
+
+## 2026-11-23 decision update — post-match historical state is governing
+
+The governing 2PM sequence choice is now **five post-match historical state vectors plus a strictly pre-deadline target query**. The earlier six-token pre-match-row implementation remains a reference prototype only; it is not the selected historical-token semantics.
+
+A new candidate builder has been added:
+
+- `scripts/build_2pm_postmatch_state_vectors.py`
+- `tests/test_2pm_postmatch_state_vectors.py`
+
+The builder reconstructs player rolling/availability/defensive history, own-team/opponent rolling features and league ranks at a common conservative post-match state timestamp. It uses:
+
+`max(player match_available_at, kickoff_time + 24h) + 1ns`
+
+This timestamp ensures the just-completed player and team match data are eligible under the existing strict-before-cutoff reconstruction functions. It does not claim that the data were available immediately at full time.
+
+The builder deliberately preserves the completed fixture's pre-kickoff context (`ar_rest_days`, `ar_team_matches_14d`, venue) and the archived pre-kickoff market/projection/news snapshot fields (`value`, `selected`, `transfers_balance`, `ar_ep_next`, `sig_*`). It refreshes player/team rolling state, ranks and opponent defensive allowance after the match. The target query remains a separate, strictly pre-deadline object.
+
+The new contract tests verify post-match timestamp anchoring, feature-family refresh, retention of pre-match contextual/snapshot values, and rejection of non-appearances, missing availability timestamps and duplicate player-fixture keys. The focused 2PM workflow now compiles and runs this new contract.
+
+**Not yet complete:** this is the post-match state-vector reconstruction layer, not the final sequence tensor or training implementation. The downstream sequence builder still needs to consume these post-match vectors, enforce the agreed five-previous-played-match and 21-day rules, prevent unverified cross-season history, and emit one target Gameweek training sample rather than duplicate a full Gameweek label across DGW fixture rows. The current target-query inference path also still emits fixture-level queries; DGW training must aggregate fixture distributions against one player-Gameweek label.
+
+All vectors remain `NOT_ADMITTED`. Historical source-vintage/rights checks, 286-feature admission, row-level temporal validation, model training and M2/M4 evaluation gates remain unchanged.
