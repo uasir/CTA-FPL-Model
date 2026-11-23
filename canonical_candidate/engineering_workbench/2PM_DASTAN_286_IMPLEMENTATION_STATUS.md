@@ -31,7 +31,7 @@
 - Replaces the two known incorrect historical Understat assignments with the evidence-backed corrected mapping while preserving the historical player/Gameweek assignment intervals.
 - Uses the Dastan operational mapping resolver only for an explicitly requested active season.
 - Rebuilds the candidate feature frame and pre-deadline `ep_next`, availability and market snapshot artifacts.
-- Replaces unvintaged historical price, ownership and transfer-balance values with `now_cost / 10`, `selected_by_percent` and `transfers_in_event - transfers_out_event` from snapshots accepted only when the target GW is `is_next`, the deadline matches, and capture is at least five minutes before the deadline.
+- Replaces unvintaged historical price, ownership and transfer-balance values with `now_cost` unchanged in native FPL tenths-of-a-million units, `selected_by_percent` and `transfers_in_event - transfers_out_event` from snapshots accepted only when the target GW is `is_next`, the deadline matches, and capture is at least five minutes before the deadline.
 - Independently rebuilds all 115 player rolling features, all 9 availability features and 26 defensive/player-history engineered features using only player fixtures available before each target deadline. The rolling semantics retain Dastan's all-fixture player windows; the separate sequence builder still requires five previous appearances.
 - Rebuilds all 60 own-team rolling features, all 60 opponent rolling features and both direct league-rank fields per target deadline from Understat team-match history. Historical matches are admitted only when their conservative 24-hour post-kickoff availability bound is strictly before the deadline.
 - Rebuilds six fixture-specific `ar_*` context features per target fixture: rest days, team congestion and opponent defensive-contribution/tackle allowance. These are recomputed after Dastan's player/Gameweek anchor so distinct fixtures in a Double Gameweek retain their own context.
@@ -40,7 +40,7 @@
 - Attaches the official FPL Gameweek deadline calendar.
 - Writes the exact 286 ordered inputs, identity/source hashes, snapshot timestamps, feature cutoff, fixture-availability quality and explicit non-admission status.
 
-The output is deliberately labelled `RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED` and `UPSTREAM_PREFIX_ASSERTION_ONLY_NOT_FULL_FRAME_VERIFIED`. Dastan's upstream anchor/assertion does not independently prove all 286 values were available at the official deadline. In particular, opponent rolling features, direct ranks and fixture-specific `ar_opp_*` / rest / congestion context still need independent reconstruction. The historical `value`, `selected` and `transfers_balance` columns are now replaced by accepted pre-deadline fplcache snapshots; unit parity against the released Dastan values still needs checking.
+The output is deliberately labelled `RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED` and `INDEPENDENT_286_FEATURE_RECONSTRUCTION_NOT_SOURCE_VINTAGE_ADMITTED`. The pipeline now independently rebuilds the 115 player rolling features, 9 availability features, 26 defensive/player-history features, 60 own-team rolling features, 60 opponent rolling features, both direct ranks and all six fixture-specific context features. It also uses accepted pre-deadline `ep_next`, `sig_*` and market snapshots. A fail-closed contract checks the exact 286 schema-family counts and that all 286 columns have an explicit reconstruction path. This does not yet prove historical source vintages: match availability still uses a conservative 24-hour upper bound, and retrospective-field parity is diagnostic rather than proof of what was known at the historical deadline. The price feature now preserves native `now_cost` units unchanged; the parity audit is used to detect any remaining unit or vintage mismatch.
 
 ### 3. Five-previous-played-fixture sequence builder
 
@@ -69,16 +69,16 @@ The sequence builder requires `feature_cutoff_time` to equal the official deadli
 - Enforces the exact 286 schema-family counts and a separate 286/286 reconstruction-path count before writing the candidate artifact.
 - Reports player-history, fixture-context and deadline team-context reconstruction separately; these remain candidate values until source-vintage and value-parity checks are admitted.
 - Checks same-player/Gameweek invariance for player/team/availability history and separately diagnoses fixture-context flattening in `opp_*`, opponent defensive allowance, rest, congestion and venue fields.
-- Explicitly reports opponent rolling, direct rank, market timestamp and historical source-vintage limitations; it does not label them safe.
+- Reports the independent reconstruction coverage for opponent rolling, direct ranks, market snapshots and fixture-specific context, while keeping source-vintage and value-parity admission open.
 
 ### 5. Focused CI
 
 `.github/workflows/cta-2pm-dastan-sequence-contract.yml`
 
 - Compiles all three new scripts.
-- Tests the 286-column schema, sequence construction, same-deadline Double Gameweek handling, no-padding rule, 21-day gap, non-finite feature rejection, post-deadline snapshot rejection, corrected historical identity mapping, candidate schema/coverage checks and feature-family count reconciliation.
+- Tests the 286-column schema, player/team/opponent/fixture-context reconstruction, deadline exclusions, same-deadline Double Gameweek handling, no-padding rule, 21-day gap, non-finite feature rejection, post-deadline snapshot rejection, market unit parity, corrected historical identity mapping, candidate schema/coverage checks and feature-family count reconciliation.
 
-The focused run at commit `3efe8c56e16bd0f4a69b4959689e4d6e9f7820b5` completed successfully. It includes the pre-deadline market snapshot extractor and five-minute safety-buffer tests.
+The latest focused run at commit `3e7c66ac4a4d3f9a808f511ac37219d0b85bd94c` completed successfully. It includes the player-history and availability reconstruction tests, team/opponent rolling and rank tests, fixture-context deadline tests, market snapshot and unit-parity tests, exact 286-family coverage, and the sequence contract.
 
 ### 5A. Clean paper-governed Poisson-mixture model core
 
