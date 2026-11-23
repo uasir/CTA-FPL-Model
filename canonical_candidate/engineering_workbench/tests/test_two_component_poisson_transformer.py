@@ -5,7 +5,10 @@ torch = pytest.importorskip("torch")
 
 from two_component_poisson_transformer import (
     PaperTwoComponentPoissonTransformer,
+    fit_training_poisson_mixture_mle,
+    initialize_mixture_head_from_training_targets,
     poisson_mixture_negative_log_likelihood,
+    poisson_mixture_tail_probability,
     prepare_paper_targets,
 )
 
@@ -106,3 +109,67 @@ def test_num_layers_is_explicit_not_assumed_from_branch_name():
         PaperTwoComponentPoissonTransformer(
             feature_count=4, sequence_length=6
         )
+
+
+
+def test_mixture_tail_probability_matches_direct_poisson_sum():
+    model = PaperTwoComponentPoissonTransformer(
+        feature_count=2,
+        sequence_length=6,
+        num_layers=1,
+        d_model=16,
+        nhead=4,
+        dim_feedforward=32,
+        dropout=0.0,
+    )
+    output = model(torch.randn(3, 6, 2))
+    for threshold in (6, 8, 10):
+        tail = poisson_mixture_tail_probability(output, threshold)
+        support = torch.arange(threshold, dtype=output["lambda_1"].dtype)
+        pmf_1 = torch.exp(
+            -output["lambda_1"].unsqueeze(-1)
+            + support * torch.log(output["lambda_1"].unsqueeze(-1))
+            - torch.lgamma(support + 1)
+        )
+        pmf_2 = torch.exp(
+            -output["lambda_2"].unsqueeze(-1)
+            + support * torch.log(output["lambda_2"].unsqueeze(-1))
+            - torch.lgamma(support + 1)
+        )
+        direct = (
+            output["p"] * (1 - pmf_1.sum(-1))
+            + (1 - output["p"]) * (1 - pmf_2.sum(-1))
+        )
+        assert torch.allclose(tail, direct, atol=1e-6)
+
+
+def test_training_only_em_mle_initialization_is_valid_and_sets_head_biases():
+    training_targets = [0, 0, 1, 1, 2, 3, 5, 7, 9, 12, 15]
+    fitted = fit_training_poisson_mixture_mle(training_targets)
+    assert fitted["training_rows"] == len(training_targets)
+    assert 0 < fitted["p"] < 1
+    assert fitted["lambda_1"] > 0
+    assert fitted["lambda_2"] > 0
+    assert fitted["initialization"] == "training_only_quantile_seeded_two_poisson_em_mle"
+
+    model = PaperTwoComponentPoissonTransformer(
+        feature_count=3,
+        sequence_length=6,
+        num_layers=1,
+        d_model=16,
+        nhead=4,
+        dim_feedforward=32,
+    )
+    report = initialize_mixture_head_from_training_targets(model, training_targets)
+    output = model(torch.zeros(1, 6, 3))
+    assert report["training_rows"] == len(training_targets)
+    assert 0 < output["p"].item() < 1
+    assert output["lambda_1"].item() > 0
+    assert output["lambda_2"].item() > 0
+
+
+def test_training_mle_rejects_validation_style_invalid_values():
+    with pytest.raises(ValueError, match="non-negative integer"):
+        fit_training_poisson_mixture_mle([0, 1, -1])
+    with pytest.raises(ValueError, match="non-negative integer"):
+        fit_training_poisson_mixture_mle([0, 1.5, 2])
