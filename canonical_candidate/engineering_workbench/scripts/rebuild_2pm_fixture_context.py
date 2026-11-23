@@ -129,8 +129,10 @@ def rebuild_player_history_features(
     # all prior player fixtures (including non-appearances), as in Dastan's source.
     history_groups = {}
     for uid, group in hist.groupby("_player_uid", sort=False):
-        group = group.sort_values(["kickoff_time", "fixture"], kind="mergesort").reset_index(drop=True)
+        group = group.sort_values(["match_available_at", "kickoff_time", "fixture"], kind="mergesort").reset_index(drop=True)
         available_ns = group["match_available_at"].astype("int64").to_numpy()
+        if np.any(np.diff(available_ns) < 0):
+            raise ValueError(f"Player availability timestamps are not ordered for player_uid {uid}")
         prefixes = {}
         for source in player_map:
             series = (
@@ -200,7 +202,7 @@ def rebuild_player_history_features(
     # Availability histories are season-scoped and use the last 3/5/10 player rows.
     availability_groups = {}
     for (season, code), group in hist.groupby(["season", "fpl_code"], sort=False):
-        group = group.sort_values(["kickoff_time", "fixture"], kind="mergesort")
+        group = group.sort_values(["match_available_at", "kickoff_time", "fixture"], kind="mergesort")
         availability_groups[(str(season), int(code))] = {
             "available_ns": group["match_available_at"].astype("int64").to_numpy(),
             "played": _prefix_mean(pd.to_numeric(group["minutes"], errors="coerce").gt(0).astype(float).to_numpy()),
