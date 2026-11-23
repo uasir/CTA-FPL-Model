@@ -146,3 +146,18 @@ These fields can be evaluated for a clearly labelled adaptation, but must not be
 - 2PM model implementation: **NOT STARTED**.
 
 **Gate: `FEATURE_ACQUISITION_INVENTORY_INCOMPLETE`.** This is a source audit and acquisition plan only; it does not authorize schema freeze, model implementation, training, data promotion or production use.
+
+
+## 9. Provider repository follow-up — player-match Opta availability
+
+A follow-up inspection of the pinned upstream repository `imadeddine-belkat/Premier-League-Stats@f0f3d40f803c69bc7fac48d0748b49175e2d08ce` clarifies an important distinction:
+
+- Its README documents a planned `players_match_stats/{Season}_players_match_stats.csv` product with player-match granularity and says it would contain per-90 contributions, ratings, carries and duels keyed by `matchId` + `playerId`.
+- The repository includes a merger script, `pl_scraper/merge_season_player_match_stats.py`, which can merge such files **if they exist**.
+- However, `pl_scraper/main.py` explicitly comments `RUN_MERGE_PLAYER_MATCH_STATS = True  # _merged/players_match_stats (no scraper feeds it yet)`.
+- The main scraper currently runs team-match stats, squads and player-season stats. No player-match scraper is wired into that pipeline.
+- The pinned repository tree inspected for the 2026/27 integration contained no player-match CSV output.
+
+**Updated conclusion:** the upstream repository advertises a player-match file layout and has dormant merge support, but the inspected pinned version does not provide an active scraper/data feed that populates it. This is not an acquired player-match dataset. It is a potential upstream development/access lead only. We should ask the provider maintainer whether a separate player-match data feed exists or is planned, and whether the documented columns can be supplied for the seasons we need.
+
+This strengthens, rather than changes, the acquisition gate: current integrated Opta data still does not contain verified player-level per-match event rows.
