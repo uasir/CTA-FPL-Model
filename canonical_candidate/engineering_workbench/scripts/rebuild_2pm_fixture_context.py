@@ -54,8 +54,9 @@ def rebuild_player_history_features(
         frame["kickoff_time"] = _utc_ns(frame["kickoff_time"])
     out["deadline_time"] = _utc_ns(out["deadline_time"])
     hist["match_available_at"] = _utc_ns(hist["match_available_at"])
-    if out["deadline_time"].isna().any() or hist[["kickoff_time", "match_available_at"]].isna().any().any():
+    if out["deadline_time"].isna().any() or hist["kickoff_time"].isna().any():
         raise ValueError("Player history/target contains invalid timestamps")
+    # Future target fixtures legitimately have no completion availability yet.
 
     # Match Dastan's player_uid construction exactly: Understat ID where mapped,
     # otherwise season-scoped FPL element ID.
@@ -121,6 +122,7 @@ def rebuild_player_history_features(
     for uid, group in hist.groupby("_player_uid", sort=False):
         group = group.sort_values(["kickoff_time", "fixture"], kind="mergesort").reset_index(drop=True)
         available_ns = group["match_available_at"].astype("int64").to_numpy()
+        available_ns[group["match_available_at"].isna().to_numpy()] = np.iinfo(np.int64).max
         player_arrays = {}
         for source in player_map:
             series = (
@@ -184,7 +186,11 @@ def rebuild_player_history_features(
         group = group.sort_values(["kickoff_time", "fixture"], kind="mergesort")
         minutes = pd.to_numeric(group["minutes"], errors="coerce")
         availability_groups[(str(season), int(code))] = {
-            "available_ns": group["match_available_at"].astype("int64").to_numpy(),
+            "available_ns": np.where(
+                group["match_available_at"].notna().to_numpy(),
+                group["match_available_at"].astype("int64").to_numpy(),
+                np.iinfo(np.int64).max,
+            ),
             "played": minutes.gt(0).astype(float).to_numpy(),
             "played60": minutes.ge(60).astype(float).to_numpy(),
             "minutes": minutes.fillna(0.0).to_numpy(dtype=float),
@@ -506,8 +512,9 @@ def rebuild_fixture_context(
     hist["match_available_at"] = _utc_ns(hist["match_available_at"])
     if out[["kickoff_time", "deadline_time"]].isna().any().any():
         raise ValueError("Target context contains invalid kickoff/deadline timestamps")
-    if hist[["kickoff_time", "match_available_at"]].isna().any().any():
-        raise ValueError("Historical context contains invalid kickoff/availability timestamps")
+    if hist["kickoff_time"].isna().any():
+        raise ValueError("Historical context contains invalid kickoff timestamps")
+    # NaT availability is expected for future target fixtures in the active season.
 
     fixture_rows = hist[
         ["season", "fixture", "team_name", "opponent_team_name",
@@ -536,6 +543,7 @@ def rebuild_fixture_context(
     player_fixture = hist[
         ["_player_uid", "fixture", "kickoff_time", "match_available_at"]
     ].drop_duplicates(["_player_uid", "fixture"])
+    player_fixture = player_fixture[player_fixture["match_available_at"].notna()]
     if player_fixture.duplicated(["_player_uid", "fixture"]).any():
         raise ValueError("Player fixture history is not unique")
     left_rest = out[
@@ -588,7 +596,10 @@ def rebuild_fixture_context(
     # Attribute each team's DC/tackles to the opponent that conceded them.
     dc = pd.to_numeric(hist["defensive_contribution"], errors="coerce").fillna(0.0)
     tackles = pd.to_numeric(hist["tackles"], errors="coerce").fillna(0.0)
-    stat_frame = hist.assign(_dc=dc, _tackles=tackles)
+    stat_frame = hist.loc[hist["match_available_at"].notna()].assign(
+        _dc=dc.loc[hist["match_available_at"].notna()],
+        _tackles=tackles.loc[hist["match_available_at"].notna()],
+    )
     allowed = (
         stat_frame.groupby(
             ["season", "fixture", "opponent_team_name", "kickoff_time", "match_available_at"],
