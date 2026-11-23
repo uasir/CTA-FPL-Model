@@ -144,16 +144,17 @@ if nn is not None:
             lambda_1 = F.softplus(raw[:, 1]) + self.epsilon
             lambda_2 = F.softplus(raw[:, 2]) + self.epsilon
 
-            expected_points = (
+            count_expectation = (
                 mixture_probability * lambda_1
                 + (1.0 - mixture_probability) * lambda_2
-                - self.support_shift
             )
+            expected_points = count_expectation - self.support_shift
             second_moment = (
                 mixture_probability * (lambda_1 + lambda_1.square())
                 + (1.0 - mixture_probability) * (lambda_2 + lambda_2.square())
             )
-            variance = (second_moment - expected_points.square()).clamp_min(0.0)
+            # A constant support shift changes the mean, not the variance.
+            variance = (second_moment - count_expectation.square()).clamp_min(0.0)
 
             return {
                 "mixture_logit": mixture_logit,
