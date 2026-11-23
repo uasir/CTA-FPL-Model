@@ -214,7 +214,7 @@ def prepare_paper_targets(raw_targets):
     """
     if torch is None:
         raise ImportError("PyTorch is required for target preparation")
-    raw = torch.as_tensor(raw_targets)
+    raw = torch.as_tensor(raw_targets, dtype=torch.float32)
     if not torch.isfinite(raw).all():
         raise ValueError("raw target points must be finite")
     if not torch.equal(raw, torch.round(raw)):
