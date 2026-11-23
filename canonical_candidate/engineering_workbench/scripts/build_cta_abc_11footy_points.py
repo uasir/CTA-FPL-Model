@@ -164,6 +164,7 @@ def run(training_rows, upcoming_rows, ridge_lambda=10.0, holdout_gameweeks=4):
     holdout = set(gameweeks[-holdout_gameweeks:])
     train = [r for r in training_rows if int(r["gameweek"]) not in holdout]
     test = [r for r in training_rows if int(r["gameweek"]) in holdout]
+    train_gws = sorted({int(r["gameweek"]) for r in train})
     features = [name for name in FEATURES if any(optional_number(r.get(name)) is not None for r in train)]
     if len(train) < len(features) + 2 or not features:
         raise ValueError("Insufficient verified historical rows or observed 11footy features")
