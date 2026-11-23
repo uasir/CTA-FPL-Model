@@ -17,6 +17,18 @@ def read_csv(path: Path):
         return list(csv.DictReader(handle))
 
 
+def research_eligible_rows(rows):
+    if not rows or any("research_eligible_for_analysis" not in row for row in rows):
+        raise ValueError("Historical/current ABC inference input must carry research_eligible_for_analysis")
+    eligible = [
+        row for row in rows
+        if str(row.get("research_eligible_for_analysis") or "").strip().lower() in {"true", "1", "yes"}
+    ]
+    if not eligible:
+        raise ValueError("No research-eligible verified ABC rows are available for inference")
+    return eligible
+
+
 def validate_model_payload(model_payload):
     if not isinstance(model_payload, dict) or model_payload.get("schema_version") != "1.0":
         raise ValueError("Unsupported or missing ABC model artifact schema_version")
