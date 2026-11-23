@@ -52,6 +52,9 @@ def aggregate_fixture_forecasts_to_gameweek(
     if len(fixture_ids) != len(set(fixture_ids)):
         raise ValueError("duplicate fixture forecasts found for one player/Gameweek")
 
+    support_shifts = [int(record.get("support_shift", 0)) for record in records]
+    if any(shift < 0 for shift in support_shifts) or len(set(support_shifts)) != 1:
+        raise ValueError("fixture forecasts must share one non-negative support_shift")
     invariant_fields = (
         "model_name", "model_version", "feature_schema_version",
         "forecast_as_of", "training_cutoff", "data_snapshot_hashes",
