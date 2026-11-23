@@ -74,7 +74,11 @@ Therefore:
 4. Do not assume all 286 columns are available in every historical deadline vintage.
 5. Do not treat a row's player-fixture grain as proof that it is an actual player appearance.
 
-## 5. Sequence representation — mandatory design gate
+## 5. Source-semantics audit and high-priority risks
+
+The pinned upstream source-code inspection is recorded in `2PM_DASTAN_SOURCE_SEMANTICS_AUDIT.md`. It identifies potential double-Gameweek leakage in the unanchored `opp_*` and standalone rank fields, unverified timestamp semantics for `value`/`selected`/`transfers_balance`, historical Understat identity corrections, and season-limited defensive-stat coverage. These are mandatory admission checks; none is considered cleared by the existence of the released feature frame.
+
+## 6. Sequence representation — mandatory design gate
 
 The paper's five previous played matches are observations in a temporal sequence. Dastan's 286-column rows are deadline snapshots for target player-fixtures. Those are not interchangeable objects.
 
@@ -92,7 +96,7 @@ The sequence builder must be new and independent. The legacy 2PM sequence builde
 
 **No sequence design is approved by this record.** The first implementation task is to resolve this design using the audited raw source tables and temporal semantics. If a defensible five-match sequence cannot be built from the Dastan representation, return with a concrete alternative for approval rather than silently changing the paper's sequence length or pretending that a single row is a five-match sequence.
 
-## 6. Feature-by-feature admission audit
+## 7. Feature-by-feature admission audit
 
 Create a versioned 286-row register containing, at minimum:
 
@@ -120,7 +124,7 @@ Pay particular attention to these groups:
 - **League ranks and rest/congestion:** reconstruct strictly from information available before the target fixture and validate the exact upstream definitions.
 - **Missing values:** preserve the upstream two-stage semantics—snapshot absence sentinel `-1.0`, then residual NaN fill `0.0`—only where source provenance proves that those semantics apply. Do not globally impute all unavailable features to zero.
 
-## 7. Data and rights constraints
+## 8. Data and rights constraints
 
 The upstream Dastan repository's MIT software licence does not grant rights to the underlying FPL, Understat or other provider datasets. The relevant source terms, retention rights and model-training permissions must be checked separately.
 
@@ -133,7 +137,7 @@ The historical frame's existence does not by itself prove:
 
 Keep source hashes, acquisition manifests, feature-schema version and row-level provenance with every training snapshot.
 
-## 8. Build order and gates
+## 9. Build order and gates
 
 1. Pin the exact 286-column schema and source inventory.
 2. Recover the canonical Dastan raw player-match, team-match, mapping and pre-deadline snapshot source contracts.
@@ -146,7 +150,7 @@ Keep source hashes, acquisition manifests, feature-schema version and row-level 
 
 Until these gates are passed, the state is `DASTAN_286_ADAPTATION_AUDIT_IN_PROGRESS`; no training, production use, data promotion or M3 integration is authorized.
 
-## 9. Boundaries unchanged
+## 10. Boundaries unchanged
 
 - The 2PM model predicts player FPL points only.
 - M3 remains the integrated decision engine; M4 owns recommendation products.
@@ -156,6 +160,6 @@ Until these gates are passed, the state is `DASTAN_286_ADAPTATION_AUDIT_IN_PROGR
 - Do not merge PRs without explicit user approval.
 - M2 forecast evaluation and M4 recommendation-product evaluation remain deferred until the upcoming Gameweek's official scores are available.
 
-## 10. Governing decision
+## 11. Governing decision
 
 Use Dastan's 286-feature contract as the candidate input foundation for a clearly labelled 2PM architecture adaptation. Preserve the paper's two-component Poisson-mixture Transformer core. Complete the feature and sequence audits before freezing the schema or implementing training. Do not reuse Dastan's predictive models or the legacy 2PM implementation.
