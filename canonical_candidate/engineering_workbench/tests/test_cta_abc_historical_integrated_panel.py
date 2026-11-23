@@ -63,9 +63,9 @@ def test_only_verified_panel_contract_is_accepted_and_rows_are_lagged():
     rows, report = enrich_panel(
         [_wys()],
         [
-            _footy(1, 101, key_passes="99"),
+            _footy(1, 101, key_passes="0", tracked_xg_sum="0", shots="0"),
             _footy(2, 102, key_passes="0", tracked_xg_sum="0", shots="0"),
-            _footy(3, 103, key_passes="0", tracked_xg_sum="0", shots="0"),
+            _footy(4, 104, key_passes="99"),
         ],
     )
     assert rows[0]["abc_player_key_pass_rate"] == pytest.approx(0.0)
