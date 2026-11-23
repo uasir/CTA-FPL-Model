@@ -209,3 +209,30 @@ The new contract tests verify post-match timestamp anchoring, feature-family ref
 **Not yet complete:** this is the post-match state-vector reconstruction layer, not the final sequence tensor or training implementation. The downstream sequence builder still needs to consume these post-match vectors, enforce the agreed five-previous-played-match and 21-day rules, prevent unverified cross-season history, and emit one target Gameweek training sample rather than duplicate a full Gameweek label across DGW fixture rows. The current target-query inference path also still emits fixture-level queries; DGW training must aggregate fixture distributions against one player-Gameweek label.
 
 All vectors remain `NOT_ADMITTED`. Historical source-vintage/rights checks, 286-feature admission, row-level temporal validation, model training and M2/M4 evaluation gates remain unchanged.
+
+
+## 2026-11-23 continuation — player-Gameweek sequence grouping
+
+A second sequence layer has been added:
+
+- `scripts/build_2pm_player_gameweek_sequence_tensors.py`
+- `tests/test_2pm_player_gameweek_sequence_tensors.py`
+
+It consumes the post-match state vectors for historical context and the original pre-deadline 286-feature rows for target fixture queries. It creates one sample per `(season, gameweek, fpl_code)`, with a separate six-token input for each target fixture:
+
+- tensor shape: `[player_gameweek, target_fixture, 6, 286]`;
+- each fixture query shares the same five eligible post-match history tokens;
+- each target fixture retains its own opponent/home-away/deadline snapshot;
+- the fixture mask distinguishes real target queries from padding;
+- historical tokens are restricted to the same season and must have `postmatch_state_as_of_time < target deadline`;
+- the 21-day gap rule is applied from the five historical match kickoffs to the first target fixture kickoff.
+
+For a Double Gameweek, the dataset now represents **one player-Gameweek sample with two fixture queries and one Gameweek label**. The training label grain must be supplied explicitly:
+- `player_fixture`: sum the verified fixture-level points once to form the Gameweek total;
+- `player_gameweek`: require the same Gameweek total on every fixture row and deduplicate it, never sum duplicates.
+
+The builder preserves negative integer points. It does not clip or reclassify them. Inference mode emits the same grouped fixture-query structure with no realized target label.
+
+The intended model call is to flatten the player-Gameweek and fixture axes, run the existing six-token encoder independently for each fixture query, reshape the per-fixture mixture outputs, then aggregate them to one Gameweek distribution before computing one player-Gameweek loss. This prevents training the same full-GW label twice for a Double Gameweek. The exact generalized-mixture likelihood and cross-fixture dependence treatment remain to be implemented and validated.
+
+The focused workflow now includes the post-match state and grouped player-Gameweek sequence contracts. Its latest status has not yet been independently verified; no test-pass claim is made.
