@@ -79,8 +79,8 @@ jobs:
             tests/test_rebuild_2pm_team_context.py \
             tests/test_rebuild_2pm_player_history.py \
             tests/test_2pm_postmatch_state_vectors.py \
-            tests/test_2pm_player_gameweek_sequence_tensors.py \\
-            tests/test_two_component_poisson_transformer.py \\
-            tests/test_2pm_shifted_poisson.py \\
-            tests/test_two_pm_forecast_records.py \\
+            tests/test_2pm_player_gameweek_sequence_tensors.py \
+            tests/test_two_component_poisson_transformer.py \
+            tests/test_2pm_shifted_poisson.py \
+            tests/test_two_pm_forecast_records.py \
             tests/test_two_pm_gameweek_aggregation.py
