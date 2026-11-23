@@ -1,12 +1,12 @@
 # 2PM — Dastan 286-Feature Sequence Representation Proposal
 
 **Date:** 2026-11-23  
-**Status:** Recommended adaptation design; not frozen. A separate pre-match-row candidate prototype exists for pipeline testing.  
+**Status:** Selected governing adaptation; implementation underway. Post-match state and player-Gameweek grouping builders exist, but data admission and sequence freeze remain open.  
 **Governing references:** Wiechno, Duch and Bartosik (2026); `2PM_DASTAN_286_FEATURE_ADAPTATION_DECISION.md`; `2PM_DASTAN_SOURCE_SEMANTICS_AUDIT.md`.
 
 ## Implementation note
 
-The current candidate sequence builder uses five previous played-fixture rows from the released Dastan pre-match frame plus the target fixture's pre-deadline query row. It emits six-token float32 shards with aligned metadata. This is deliberately only a pipeline prototype: it does **not** implement the proposed historical post-match state vectors. Do not train on or freeze this prototype until the semantic choice, feature-level deadline audit, identity/coverage checks and sequence suitability are cleared.
+The original six-token pre-match-row builder remains a reference prototype only. The selected implementation now has a post-match 286-state reconstruction layer and a grouped player-Gameweek sequence tensor builder. The new path has not yet been run against the complete historical artifacts or admitted for training. Do not train on or freeze any candidate tensor until feature-level deadline, source-vintage, identity/coverage and label-grain checks are cleared.
 
 ## 1. Problem and paper interpretation
 
@@ -60,12 +60,12 @@ The 286 feature names remain the candidate column vocabulary, but each feature m
 | Player/team/opponent rolling statistics | Recomputed through the historical match's completion, including that match | Recomputed using only matches completed before target deadline |
 | Availability history | Updated through the historical match | Uses only prior appearances before target deadline |
 | Defensive contribution/CBIT/recovery/tackle rolling features | Updated through the historical match where the statistic is collected | Uses only completed prior matches before target deadline |
-| League rank and opponent rank | Historical fixture's pre-match rank, unless a separate post-match rank is explicitly defined and versioned | Reconstructed from standings before target deadline |
+| League rank and opponent rank | Recomputed from standings after the historical match data become available | Reconstructed from standings before target deadline |
 | Opponent and home/away context | Historical fixture context | Current target fixture context |
 | Price, selected %, transfer balance | Historical fixture's valid pre-match snapshot | Archived target-deadline snapshot only |
 | `ep_next` and `sig_*` | Snapshot accepted before the historical fixture's Gameweek deadline | Snapshot accepted before the target Gameweek deadline |
-| Rest/congestion | Historical state through that fixture's completion; include only competitions covered by the chosen source definition | Reconstructed strictly before target deadline |
-| Target points and other outcome labels | Historical match result may contribute only through explicitly defined rolling features after completion; never copied as an unlabelled raw target column | Excluded entirely from inputs |
+| Rest/congestion | Retain the historical fixture's pre-kickoff rest and known-schedule congestion context | Reconstructed strictly before target deadline |
+| Target points and other outcome labels | Historical match result contributes through explicitly rebuilt rolling state after completion; never copied as an unlabelled raw target column | Excluded entirely from inputs |
 
 The exact 286-column definitions, units, source lineage and missingness rules remain governed by the feature admission register. If a feature has no defensible historical-state and target-query semantics, it must be excluded or separately redesigned; do not force the same number of columns by fabricating values.
 
@@ -97,6 +97,8 @@ This is different from Dastan's existing per-player/Gameweek deadline anchoring.
 - No result after the target deadline can enter the target query token.
 - Do not let an earlier same-Gameweek result enter a historical token whose state timestamp precedes that result's completion.
 - Fit all imputers, scalers, encoders and transformations on chronological training data only.
+- Historical state time is the later of the player match-availability timestamp and kickoff + 24 hours, plus 1 ns, so the current player and team match records are eligible under the current conservative source bounds. This is not a claim of immediate full-time availability.
+- Post-match player/team/opponent rolling features and ranks are reconstructed season by season; previous-season rolling history is excluded unless a separate identity/continuity decision admits it.
 - Preserve missingness and unavailable-source semantics; do not collapse missing into genuine zero.
 
 ## 9. Trade-offs and required checks
@@ -123,10 +125,23 @@ Before accepting the design:
 
 ## 11. Decision status
 
-This is the recommended sequence representation for the Dastan-input adaptation, but it remains a proposal until:
-- the paper's gap rule is checked precisely;
-- historical post-match feature-state semantics are defined for all admitted columns;
-- the full deadline-safe target feature rebuild is established;
-- feature admission and sequence coverage are measured.
+The user selected post-match historical states as the governing sequence semantics. The current implementation path is:
 
-No sequence builder or model code is authorized by this proposal.
+1. reconstruct one 286-feature post-match state for each actually played historical fixture;
+2. retain the completed fixture's pre-kickoff context and archived pre-kickoff snapshots while refreshing player/team/opponent/availability/defensive rolling state and post-match ranks;
+3. use the five most recent same-season played-match states, with the 21-day gap rule;
+4. append one strictly pre-deadline target query per target fixture;
+5. group all target fixtures into one player-Gameweek sample and train/evaluate against one correctly grained Gameweek label;
+6. use a signed shifted two-component Poisson mixture candidate so negative points are not clipped.
+
+The two new builders and associated contract tests are present in the feature branch. The focused CI workflow includes them, but its latest run has not yet been independently verified. The pre-match sequence prototype remains a reference control only.
+
+The design is selected but **not frozen or admitted**. The remaining gates are:
+- verify target-label grain and fixture-level versus Gameweek-level target_points semantics from the pinned source;
+- run the complete post-match reconstruction against historical source artifacts;
+- complete the independent feature-by-feature point-in-time and source-vintage audit;
+- verify exact historical match availability and the 21-day rule;
+- quantify season coverage, identity continuity and missingness;
+- validate the shifted-Poisson support floor and compare signed-distribution alternatives.
+
+No model training, feature admission, production promotion or M3/M4 integration is authorized by this design update.
