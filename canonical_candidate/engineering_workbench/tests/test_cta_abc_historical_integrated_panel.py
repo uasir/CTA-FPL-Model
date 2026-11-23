@@ -54,9 +54,15 @@ def test_same_gameweek_features_are_never_used():
 
 
 def test_unverified_11footy_rows_never_contribute():
-    bad = _footy(1, 101, join_status="PENDING_RESEARCH_ONLY")
-    rows, report = enrich_panel([_wys()], [bad, _footy(2, 102), _footy(3, 103)])
-    assert rows[0]["abc_player_key_pass_rate"] == pytest.approx(0.8)
+    bad = _footy(1, 101, join_status="PENDING_RESEARCH_ONLY", key_passes="99")
+    rows, report = enrich_panel([
+        _wys()
+    ], [
+        bad,
+        _footy(2, 102, key_passes="0", tracked_xg_sum="0", shots="0"),
+        _footy(3, 103, key_passes="0", tracked_xg_sum="0", shots="0"),
+    ])
+    assert rows[0]["abc_player_key_pass_rate"] == pytest.approx(0.0)
     assert report["verified_11footy_player_match_rows"] == 2
 
 
