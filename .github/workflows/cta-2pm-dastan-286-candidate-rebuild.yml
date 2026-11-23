@@ -46,15 +46,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/2pm-dastan-raw
-          key: 2pm-dastan-raw-v2-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
+          key: 2pm-dastan-raw-v3-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
           restore-keys: |
-            2pm-dastan-raw-${{ hashFiles('dastan-source/data/source_pins.json') }}-
+            2pm-dastan-raw-v3-${{ hashFiles('dastan-source/data/source_pins.json') }}-
       - name: Install data reconstruction dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install numpy pandas pyarrow understatapi==0.7.1
       - name: Rebuild six-season corrected-identity 286-feature candidate
         working-directory: canonical_candidate/engineering_workbench
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           python scripts/rebuild_2pm_dastan_286_candidate.py \
             --dastan-root "$GITHUB_WORKSPACE/dastan-source" \
@@ -101,6 +103,7 @@ jobs:
                   f"- Status: **{report.get('status')}**",
                   f"- Admission: **{report.get('admission_status')}**",
                   f"- Candidate rows: {report.get('candidate_rows')}",
+                  f"- Player-fixture rows excluded from forecast targets as already started: {report.get('deadline_target_eligibility', {}).get('rows_excluded_started_by_deadline')}",
                   f"- Feature count: {report.get('candidate_feature_count')}",
                   f"- Seasons: {', '.join(report.get('seasons', []))}",
                   f"- Feature-order SHA-256: `{report.get('feature_order_sha256')}`",
@@ -154,4 +157,4 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/2pm-dastan-raw
-          key: 2pm-dastan-raw-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
+          key: 2pm-dastan-raw-v3-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
