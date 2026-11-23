@@ -29,6 +29,29 @@ def research_eligible_rows(rows):
     return eligible
 
 
+def inference_rows(rows):
+    """Retain the full official FPL player-fixture cohort for scoring.
+
+    Provider identity/history eligibility controls whether ABC evidence may be
+    used, not whether a real FPL player can receive a forecast. Rows without
+    eligible 11footy evidence are scored from available FPL-history inputs and
+    the model's explicit missing-value policy.
+    """
+    if not rows or any("research_eligible_for_analysis" not in row for row in rows):
+        raise ValueError("ABC inference input must carry research_eligible_for_analysis")
+    seen = set()
+    for row in rows:
+        player = str(row.get("fpl_element_id") or "").strip()
+        fixture = str(row.get("fpl_fixture_id") or row.get("fixture_id") or "").strip()
+        if not player or not fixture:
+            raise ValueError("Full-cohort inference requires FPL player and fixture identities")
+        key = (player, fixture)
+        if key in seen:
+            raise ValueError(f"Duplicate inference player-fixture key: {key}")
+        seen.add(key)
+    return rows
+
+
 def validate_model_payload(model_payload):
     if not isinstance(model_payload, dict) or model_payload.get("schema_version") != "1.0":
         raise ValueError("Unsupported or missing ABC model artifact schema_version")
@@ -66,6 +89,7 @@ def score_rows(rows, model_payload):
     seen = set()
     fixture_predictions = []
     grouped = defaultdict(list)
+    grouped_eligibility = defaultdict(list)
     for row in rows:
         player = str(row.get("fpl_element_id") or "").strip()
         fixture = str(row.get("fpl_fixture_id") or row.get("fixture_id") or "").strip()
@@ -85,9 +109,12 @@ def score_rows(rows, model_payload):
             "fpl_fixture_id": fixture,
             "expected_points": predicted,
             "model_version": model_version,
+            "abc_evidence_eligible": str(row.get("research_eligible_for_analysis") or "").strip().lower() in {"true", "1", "yes"},
+            "prediction_basis": "ABC_AND_FPL_HISTORY" if str(row.get("research_eligible_for_analysis") or "").strip().lower() in {"true", "1", "yes"} else "FPL_HISTORY_WITH_MISSING_ABC_EVIDENCE",
         }
         fixture_predictions.append(item)
         grouped[(player, int(float(gameweek)))].append(predicted)
+        grouped_eligibility[(player, int(float(gameweek)))].append(item["abc_evidence_eligible"])
 
     gameweek_forecasts = []
     for (player, gameweek), predictions in sorted(
@@ -99,6 +126,7 @@ def score_rows(rows, model_payload):
             "fixture_count": len(predictions),
             "expected_points": math.fsum(predictions),
             "model_version": model_version,
+            "abc_evidence_eligible": all(grouped_eligibility[(player, gameweek)]),
         })
     return fixture_predictions, gameweek_forecasts
 
@@ -119,25 +147,26 @@ def main() -> int:
     args = parser.parse_args()
     payload = json.loads(args.model.read_text(encoding="utf-8"))
     source_rows = read_csv(args.input_panel)
-    eligible_rows = research_eligible_rows(source_rows)
-    fixture_rows, gameweek_rows = score_rows(eligible_rows, payload)
+    forecast_rows = inference_rows(source_rows)
+    fixture_rows, gameweek_rows = score_rows(forecast_rows, payload)
     write_csv(
         args.out_dir / "abc_fixture_points_predictions.csv",
         fixture_rows,
-        ["fpl_element_id", "gameweek", "fpl_fixture_id", "expected_points", "model_version"],
+        ["fpl_element_id", "gameweek", "fpl_fixture_id", "expected_points", "model_version", "abc_evidence_eligible", "prediction_basis"],
     )
     write_csv(
         args.out_dir / "abc_player_gameweek_points_forecasts.csv",
         gameweek_rows,
-        ["fpl_element_id", "gameweek", "fixture_count", "expected_points", "model_version"],
+        ["fpl_element_id", "gameweek", "fixture_count", "expected_points", "model_version", "abc_evidence_eligible"],
     )
     report = {
         "status": "PASS_RESEARCH_ONLY_INFERENCE_SMOKE_TEST",
         "inference_purpose": "IN_SAMPLE_PIPELINE_SMOKE_TEST_NOT_PERFORMANCE_EVALUATION",
         "model_version": payload["model_version"],
         "input_rows": len(source_rows),
-        "research_eligible_rows": len(eligible_rows),
-        "rows_excluded_for_research_ineligibility": len(source_rows) - len(eligible_rows),
+        "research_eligible_rows": sum(1 for row in forecast_rows if str(row.get("research_eligible_for_analysis") or "").strip().lower() in {"true", "1", "yes"}),
+        "research_ineligible_rows_scored_from_available_fpl_history": sum(1 for row in forecast_rows if str(row.get("research_eligible_for_analysis") or "").strip().lower() not in {"true", "1", "yes"}),
+        "rows_excluded_for_research_ineligibility": 0,
         "fixture_prediction_rows": len(fixture_rows),
         "player_gameweek_forecasts": len(gameweek_rows),
         "unique_players": len({row["fpl_element_id"] for row in gameweek_rows}),
