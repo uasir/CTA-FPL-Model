@@ -1,0 +1,51 @@
+from prepare_abc_11footy_verified_inputs import prepare
+
+
+def test_cross_provider_bridge_is_converted_to_11footy_provider_contract():
+    candidates = [{
+        "season": "2017/18", "provider_player_id": "501",
+        "candidate_fpl_element_id": "10",
+    }]
+    crosswalk = [{
+        "season": "2017/18",
+        "corroborating_provider_player_id": "501",
+        "corroborating_provider_player_name": "Player One",
+        "corroborating_provider_birth_date": "1990-01-01",
+        "fpl_element_id": "10",
+        "fpl_player_code": "123",
+        "verification_status": "VERIFIED_CROSS_PROVIDER_IDENTITY_AND_FPL_HISTORY",
+        "verification_method": "strict test",
+    }]
+    history = [
+        {"fixture": "1", "kickoff_time": "2017-08-12T14:00:00Z", "round": "1",
+         "team": "1", "opponent_team": "2", "was_home": "True"},
+        {"fixture": "1", "kickoff_time": "2017-08-12T14:00:00Z", "round": "1",
+         "team": "2", "opponent_team": "1", "was_home": "False"},
+    ]
+    teams = [{"id": "1", "name": "Home FC"}, {"id": "2", "name": "Away FC"}]
+
+    candidate_rows, verified_rows, fixtures, validation = prepare(
+        candidates, crosswalk, history, teams
+    )
+
+    assert candidate_rows[0]["fpl_element_id"] == "10"
+    assert verified_rows[0]["provider"] == "11footy"
+    assert verified_rows[0]["provider_player_id"] == "501"
+    assert verified_rows[0]["verification_status"] == "verified"
+    assert validation["status"] == "PASS"
+    assert len(fixtures) == 1
+    assert fixtures[0]["team_h_name"] == "Home FC"
+    assert fixtures[0]["team_a_name"] == "Away FC"
+
+
+def test_unverified_cross_provider_rows_are_not_promoted():
+    _, verified_rows, fixtures, validation = prepare(
+        [],
+        [{"verification_status": "NOT_VERIFIED"}],
+        [{"fixture": "1", "kickoff_time": "2017-08-12T14:00:00Z",
+          "round": "1", "team": "1", "was_home": "True"}],
+        [{"id": "1", "name": "Home FC"}],
+    )
+    assert verified_rows == []
+    assert validation["status"] == "NO_VERIFIED_MAPPINGS"
+    assert fixtures == []
