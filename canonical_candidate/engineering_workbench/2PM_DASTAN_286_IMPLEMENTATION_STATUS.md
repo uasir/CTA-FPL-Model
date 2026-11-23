@@ -31,7 +31,8 @@
 - Replaces the two known incorrect historical Understat assignments with the evidence-backed corrected mapping while preserving the historical player/Gameweek assignment intervals.
 - Uses the Dastan operational mapping resolver only for an explicitly requested active season.
 - Rebuilds the candidate feature frame and pre-deadline `ep_next`, availability and market snapshot artifacts.
-- Replaces unvintaged historical price, ownership and transfer-balance values with `now_cost / 10`, `selected_by_percent` and `transfers_in_event - transfers_out_event` from snapshots accepted only when the target GW is `is_next`, the deadline matches, and capture precedes the deadline.
+- Replaces unvintaged historical price, ownership and transfer-balance values with `now_cost / 10`, `selected_by_percent` and `transfers_in_event - transfers_out_event` from snapshots accepted only when the target GW is `is_next`, the deadline matches, and capture is at least five minutes before the deadline.
+- Applies the same five-minute safety buffer to the `ep_next` and availability snapshot artifacts; rows inside the buffer are removed and become the explicit `-1` missing-snapshot sentinel.
 - Downloads the pinned season fixture calendars and attaches a conservative 24-hour post-kickoff availability upper bound for fixtures marked finished. This is explicitly not an exact finish timestamp and excludes borderline matches rather than guessing.
 - Attaches the official FPL Gameweek deadline calendar.
 - Downloads the pinned season fixture calendars and attaches a conservative 24-hour post-kickoff availability upper bound for fixtures marked finished. This is explicitly not represented as an exact finish timestamp; it errs toward excluding borderline prior matches.
@@ -63,7 +64,7 @@ The sequence builder requires `feature_cutoff_time` to equal the official deadli
 
 - Checks the exact 286-column order, numeric/finite values, player-fixture key uniqueness and non-overlapping feature-family totals.
 - Reports per-season finite coverage, `-1` sentinel counts, genuine zero counts, defensive-family value coverage, and pre-deadline `ep_next`, signal and market snapshot age/post-deadline counts.
-- Checks same-player/Gameweek invariance only for the upstream anchored prefixes.
+- Checks same-player/Gameweek invariance for player/team/availability history and separately diagnoses fixture-context flattening in `opp_*`, opponent defensive allowance, rest, congestion and venue fields.
 - Explicitly reports opponent rolling, direct rank, market timestamp and historical source-vintage limitations; it does not label them safe.
 
 ### 5. Focused CI
