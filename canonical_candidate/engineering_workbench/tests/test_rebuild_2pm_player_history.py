@@ -61,6 +61,7 @@ def test_player_history_rebuild_excludes_matches_not_available_by_deadline():
             "fixture": "target",
             "fpl_code": 100,
             "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+            "kickoff_time": pd.Timestamp("2026-01-10", tz="UTC"),
         }]
     )
     result, report = rebuild_player_history_features(target, history, fake_features())
