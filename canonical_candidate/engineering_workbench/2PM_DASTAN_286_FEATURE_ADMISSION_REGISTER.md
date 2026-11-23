@@ -2,7 +2,7 @@
 
 **Status:** Initial schema inventory; all feature admissions on hold  
 **Schema version:** `1.0.0`  
-**Schema component:** `dastan_p60_minutes_adapter` (Dastan minutes-model adapter; 2PM does not reuse its predictor)  
+**Schema component:** `dastan_286_candidate_input` (2PM candidate adaptation; 2PM does not reuse the Dastan predictor)  
 **Source schema commit:** `78b06b80a9adfa96b5b7691296b70b10512ee0e3`  
 **Schema blob:** `053f499332f7e6eab6e7046bf4f0e847e3b57d1f`  
 **Upstream Dastan reconstruction commit:** `758db9247e8b3a9a870c991064f74d8339d61cd0`  
@@ -35,7 +35,7 @@ The 286 columns were designed for a minutes model and represent engineered deadl
 - `ADMIT`: exact definition and source lineage verified; point-in-time availability, rights, coverage, leakage and sequence use cleared.
 - `EXCLUDE`: feature is inappropriate or cannot be made safe for the approved 2PM representation; preserve rationale.
 - `HOLD`: evidence incomplete. This is the initial status for all 286 columns.
-- Historical market/snapshot values require deadline-specific archived vintages; current bootstrap data are not historical substitutes.
+- Historical market/snapshot values require deadline-specific archived vintages; current bootstrap data are not historical substitutes. A candidate rebuild adapter now sources `value`, `selected` and `transfers_balance` from accepted FPL cache snapshots with the matching official deadline and a five-minute safety buffer; unit parity and full historical coverage remain to be audited.
 - Historical FPL/Understat corrections and identity mappings require pinned source snapshots/manifests.
 - Preserve the upstream distinction between missing snapshot sentinel `-1.0`, residual NaN fill `0.0`, and genuine observed zero only where the source contract supports it.
 - Target fixture outcomes must never enter that target's input.
