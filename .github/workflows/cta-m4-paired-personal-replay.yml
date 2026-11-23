@@ -14,7 +14,7 @@ on:
       forecast_run_id:
         description: Successful CTA five-GW forecast workflow run ID
         required: true
-        default: "45076102918"
+        default: "45078708036"
         type: string
       forecast_artifact_name:
         description: Exact five-GW CTA forecast artifact name
