@@ -107,3 +107,54 @@ def test_excludes_target_without_five_prior_played_matches(tmp_path):
     )
     assert report["counts"]["emitted"] == 0
     assert report["counts"]["insufficient_previous_played_matches"] == 1
+
+
+
+def test_rejects_target_query_with_realized_points(tmp_path):
+    history_path = tmp_path / "historical.parquet"
+    active_path = tmp_path / "active.parquet"
+    schema_path = tmp_path / "schema.json"
+    make_history_rows().to_parquet(history_path, index=False)
+    target = make_target_row()
+    target.loc[0, "target_points"] = 6.0
+    target.to_parquet(active_path, index=False)
+    schema_path.write_text(json.dumps({
+        "feature_count": 286,
+        "feature_order": FEATURES,
+    }))
+    import pytest
+    with pytest.raises(ValueError, match="must not contain realized target points"):
+        build_target_query_tensors(
+            history_path,
+            active_path,
+            schema_path,
+            tmp_path / "tensors",
+            tmp_path / "report.json",
+            target_season="2026-27",
+            target_gameweek=12,
+        )
+
+
+def test_rejects_target_snapshot_inside_five_minute_buffer(tmp_path):
+    history_path = tmp_path / "historical.parquet"
+    active_path = tmp_path / "active.parquet"
+    schema_path = tmp_path / "schema.json"
+    make_history_rows().to_parquet(history_path, index=False)
+    target = make_target_row()
+    target["market_snapshot_at"] = pd.Timestamp("2026-08-05T08:59:00Z")
+    target.to_parquet(active_path, index=False)
+    schema_path.write_text(json.dumps({
+        "feature_count": 286,
+        "feature_order": FEATURES,
+    }))
+    import pytest
+    with pytest.raises(ValueError, match="five-minute deadline safety buffer"):
+        build_target_query_tensors(
+            history_path,
+            active_path,
+            schema_path,
+            tmp_path / "tensors",
+            tmp_path / "report.json",
+            target_season="2026-27",
+            target_gameweek=12,
+        )
