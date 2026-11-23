@@ -112,6 +112,14 @@ def build_player_gameweek_sequence_tensors(
 
     history["season"] = history["season"].astype(str)
     targets["season"] = targets["season"].astype(str)
+    for frame, label in ((history, "history"), (targets, "target")):
+        frame["fpl_code"] = pd.to_numeric(frame["fpl_code"], errors="coerce")
+        frame["gameweek"] = pd.to_numeric(frame["gameweek"], errors="coerce")
+        if frame[["fpl_code", "gameweek"]].isna().any().any():
+            raise ValueError(f"{label} player/Gameweek keys must be numeric and non-null")
+        frame["fpl_code"] = frame["fpl_code"].astype("int64")
+        frame["gameweek"] = frame["gameweek"].astype("int64")
+        frame["fixture"] = frame["fixture"].astype(str)
     for frame, columns in (
         (history, ["kickoff_time", "match_available_at", "postmatch_state_as_of_time"]),
         (targets, ["kickoff_time", "deadline_time", "feature_cutoff_time"]),
@@ -174,6 +182,20 @@ def build_player_gameweek_sequence_tensors(
     ].copy()
     if targets.empty:
         raise ValueError(f"No {target_mode} target rows for {target_season} GW{target_gameweek}")
+    for snapshot_column in (
+        "ep_next_snapshot_at", "signals_snapshot_at", "market_snapshot_at"
+    ):
+        if snapshot_column in targets:
+            captured = pd.to_datetime(
+                targets[snapshot_column], utc=True, errors="coerce"
+            )
+            present = captured.notna()
+            if present.any():
+                age = targets.loc[present, "deadline_time"] - captured.loc[present]
+                if age.lt(pd.Timedelta(minutes=5)).any():
+                    raise ValueError(
+                        f"{snapshot_column} violates the five-minute deadline safety buffer"
+                    )
     if targets.duplicated([*GROUP_KEYS, "fixture"]).any():
         raise ValueError("Target frame contains duplicate player-Gameweek-fixture rows")
 
