@@ -30,7 +30,7 @@ def test_merge_builds_pre_deadline_fpl_baselines_and_excludes_target_gw():
     assert len(rows) == 2
     assert rows[0]["fpl_total_points_prior_3_avg"] == 6.0
     assert rows[0]["fpl_total_points_prior_5_avg"] == 5.5
-    assert rows[0]["fpl_minutes_prior_3_avg"] == 66.6666666667
+    assert abs(rows[0]["fpl_minutes_prior_3_avg"] - 66.6666666667) < 1e-8
     assert rows[0]["fpl_minutes_prior_5_avg"] == 72.5
     assert report["baseline_complete_rows"] == 2
     assert report["point_in_time_status"].startswith("CURRENT_SNAPSHOT_FETCHED_PRE_DEADLINE")
