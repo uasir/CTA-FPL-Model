@@ -25,10 +25,13 @@
     "positional_encoding": "sinusoidal"
   },
   "input_preprocessing": {
-    "residual_nan_imputation": 0.0,
+    "residual_nan_imputation": "TRAINING_FOLD_ONLY_FEATURE_MEDIAN",
+    "residual_nan_imputation_status": "REQUIRES_IMPLEMENTATION_IN_CHRONOLOGICAL_TRAINER",
+    "all_missing_feature_in_training_fold": "FAIL_CLOSED; FEATURE_REQUIRES_ADMISSION_REVIEW",
     "snapshot_missing_sentinel": -1.0,
     "pre_imputation_missingness_audit_required": true,
-    "feature_scaling": "UNRESOLVED_NOT_ASSUMED"
+    "feature_scaling": "UNRESOLVED_NOT_ASSUMED",
+    "feature_scaling_status": "MUST_BE_FIT_ON_TRAINING_FOLD_ONLY; NO_GLOBAL_OR_VALIDATION_FIT"
   },
   "output_distribution": {
     "type": "shifted_two_component_poisson_mixture",
