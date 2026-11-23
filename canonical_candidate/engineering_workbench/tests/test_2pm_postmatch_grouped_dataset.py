@@ -73,7 +73,7 @@ def test_grouped_dataset_builds_one_scoped_player_gameweek_at_a_time(tmp_path, m
     assert calls[0]["targets"]["fpl_code"].tolist() == [10, 11]
     assert "A0" not in calls[0]["targets"]["fixture"].tolist()
     assert "started-history" in calls[0]["history"]["state"].tolist()
-    assert calls[1]["history"]["fpl_code"].tolist() == [10]
+    assert calls[1]["history"]["fpl_code"].tolist() == [10, 10]
     assert calls[1]["targets"]["fixture"].tolist() == ["C"]
     assert calls[2]["history"]["season"].tolist() == ["2025-26"]
     assert [c["kwargs"]["target_gameweek"] for c in calls] == [1, 2, 1]
