@@ -1,7 +1,12 @@
 import pandas as pd
 import pytest
 
-from rebuild_2pm_dastan_286_candidate import corrected_assignments
+from types import SimpleNamespace
+
+from rebuild_2pm_dastan_286_candidate import (
+    attach_match_availability_bounds,
+    corrected_assignments,
+)
 
 
 def test_corrected_identity_assignments_preserve_historical_gameweek_intervals():
@@ -49,4 +54,46 @@ def test_corrected_identity_function_refuses_active_seasons():
     with pytest.raises(ValueError, match="Active-season assignments"):
         corrected_assignments(
             training, corrected, ["2026-27"], ["2020-21", "2025-26"]
+        )
+
+
+
+def test_fixture_availability_uses_conservative_upper_bound_and_finished_flag(tmp_path):
+    season_dir = tmp_path / "vaastav" / "2025-26"
+    season_dir.mkdir(parents=True)
+    pd.DataFrame(
+        [
+            {"id": 11, "kickoff_time": "2026-01-01T12:00:00Z", "finished": True},
+            {"id": 12, "kickoff_time": "2026-01-03T12:00:00Z", "finished": False},
+        ]
+    ).to_csv(season_dir / "fixtures.csv", index=False)
+    source = SimpleNamespace(VAASTAV_RAW="https://example.invalid/")
+    frame = pd.DataFrame(
+        [
+            {"season": "2025-26", "fixture": 11},
+            {"season": "2025-26", "fixture": 12},
+        ]
+    )
+    result = attach_match_availability_bounds(
+        frame, tmp_path, source, ["2025-26"]
+    )
+    assert result.loc[0, "match_available_at"] == pd.Timestamp("2026-01-02T12:00:00Z")
+    assert pd.isna(result.loc[1, "match_available_at"])
+    assert result["completion_time_quality"].tolist() == [
+        "CONSERVATIVE_24H_UPPER_BOUND",
+        "NOT_FINISHED",
+    ]
+
+
+def test_fixture_availability_rejects_missing_fixture_metadata(tmp_path):
+    season_dir = tmp_path / "vaastav" / "2025-26"
+    season_dir.mkdir(parents=True)
+    pd.DataFrame(
+        [{"id": 11, "kickoff_time": "2026-01-01T12:00:00Z", "finished": True}]
+    ).to_csv(season_dir / "fixtures.csv", index=False)
+    source = SimpleNamespace(VAASTAV_RAW="https://example.invalid/")
+    frame = pd.DataFrame([{"season": "2025-26", "fixture": 999}])
+    with pytest.raises(ValueError, match="lack fixture completion metadata"):
+        attach_match_availability_bounds(
+            frame, tmp_path, source, ["2025-26"]
         )
