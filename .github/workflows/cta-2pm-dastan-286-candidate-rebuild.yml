@@ -5,6 +5,7 @@ on:
     branches: ["feat/four-layer-2pm-transformer-evaluation"]
     paths:
       - canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py
+      - canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py
       - canonical_candidate/engineering_workbench/scripts/audit_2pm_dastan_286_candidate.py
       - canonical_candidate/engineering_workbench/scripts/build_2pm_dastan_sequence_dataset.py
       - .github/workflows/cta-2pm-dastan-286-candidate-rebuild.yml
@@ -88,6 +89,7 @@ jobs:
                   f"- Seasons: {', '.join(report.get('seasons', []))}",
                   f"- Feature-order SHA-256: `{report.get('feature_order_sha256')}`",
                   f"- Candidate SHA-256: `{report.get('candidate_sha256')}`",
+                  f"- Accepted pre-deadline market snapshot rows: {report.get('pre_deadline_snapshot_rows', {}).get('market')}"
                   "- Full player-level feature data and source files were kept runner-local; no data artifacts were uploaded.",
                   "- This is a candidate rebuild, not point-in-time admission or model training."
               ]
@@ -98,7 +100,8 @@ jobs:
                   lines.extend([
                       f"- Structural audit non-finite values: {audit.get('nonfinite_feature_values')}",
                       f"- Selected-prefix same-player/GW groups with differences: {anchor.get('groups_with_differences')}",
-                      f"- Historical ep_next snapshots after deadline: {audit.get('snapshot_timestamps', {}).get('ep_next_snapshot_at', {}).get('post_deadline_rows')}"
+                      f"- Historical ep_next snapshots after deadline: {audit.get('snapshot_timestamps', {}).get('ep_next_snapshot_at', {}).get('post_deadline_rows')}",
+                      f"- Historical market snapshots after deadline: {audit.get('snapshot_timestamps', {}).get('market_snapshot_at', {}).get('post_deadline_rows')}"
                   ])
               sequence_path = Path(os.environ["SEQUENCE_REPORT_PATH"])
               if sequence_path.exists():
