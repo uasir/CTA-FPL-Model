@@ -36,7 +36,7 @@ def test_11footy_point_forecast_runs_and_aggregates_gameweek():
             rows.append(row)
     training = build_training_rows(rows)
     upcoming = [{
-        "fpl_element_id": "10", "gameweek": "12", "fixture_id": "100",
+        "fpl_element_id": "10", "gameweek": "12", "fixture_id": "100", "research_eligible_for_analysis": True,
         "abc_player_key_pass_rate": 1.5, "abc_player_tracked_xg_rate": 0.15,
         "abc_recent_key_pass_trend": 0.0, "abc_recent_xg_trend": 0.0,
         "abc_player_fouls_committed_rate": 1.0, "abc_minutes_trend": 0.0,
