@@ -99,7 +99,7 @@ jobs:
               f"- Insufficient history: {counts.get('insufficient_previous_played_matches')}",
               f"- Post-match states unavailable by deadline: {counts.get('postmatch_state_not_available_by_deadline')}",
               f"- Sequence gaps over 21 days: {counts.get('gap_over_21_days')}",
-              f"- Current source-vintage status: {query.get('limitations', [])}",
+              "- Active-season historical source vintages are retrospective, not archived at original deadlines.",
               "- Full player-level tensors and candidate data remained runner-local.",
               "- No model training or point forecasts were produced.",
           ]
