@@ -99,17 +99,21 @@ def build_forecast_records(
         raise ValueError("Poisson rates must be strictly positive")
     if (vectors["variance"] < 0).any() or (vectors["standard_deviation"] < 0).any():
         raise ValueError("predictive variance and standard deviation must be non-negative")
-    expected = (
+    support_shift = int(output.get("support_shift", 0))
+    if support_shift < 0:
+        raise ValueError("support_shift must be non-negative")
+    count_expectation = (
         vectors["p"] * vectors["lambda_1"]
         + (1.0 - vectors["p"]) * vectors["lambda_2"]
     )
+    expected = count_expectation - support_shift
     second_moment = (
         vectors["p"] * (vectors["lambda_1"] + vectors["lambda_1"].square())
         + (1.0 - vectors["p"]) * (
             vectors["lambda_2"] + vectors["lambda_2"].square()
         )
     )
-    variance = (second_moment - expected.square()).clamp_min(0.0)
+    variance = (second_moment - count_expectation.square()).clamp_min(0.0)
     if not torch.allclose(vectors["expected_points"], expected, rtol=1e-5, atol=1e-6):
         raise ValueError("expected_points disagrees with mixture parameters")
     if not torch.allclose(vectors["variance"], variance, rtol=1e-5, atol=1e-6):
@@ -146,7 +150,7 @@ def build_forecast_records(
                 "target_gameweek": int(gameweek),
                 "target_fixture_id": fixture_id,
                 "forecast_grain": "player_fixture",
-                "forecast_type": "fixture_level_analytic_two_component_poisson_mixture",
+                "forecast_type": "fixture_level_analytic_shifted_two_component_poisson_mixture",
                 "model_name": MODEL_NAME,
                 "model_version": model_version,
                 "feature_schema_version": feature_schema_version,
@@ -156,6 +160,8 @@ def build_forecast_records(
                 "p": float(vectors["p"][index]),
                 "lambda_1": float(vectors["lambda_1"][index]),
                 "lambda_2": float(vectors["lambda_2"][index]),
+                "support_shift": support_shift,
+                "support_lower_bound": -support_shift,
                 "expected_points": float(vectors["expected_points"][index]),
                 "variance": float(vectors["variance"][index]),
                 "standard_deviation": float(vectors["standard_deviation"][index]),
