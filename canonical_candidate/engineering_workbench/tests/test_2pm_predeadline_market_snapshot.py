@@ -2,13 +2,13 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pandas as pd
-import pandas as pd
 import pytest
 
 from build_2pm_predeadline_market_snapshot import (
     extract_market,
     filter_snapshot_safety_buffer,
 )
+from rebuild_2pm_dastan_286_candidate import audit_market_value_parity
 
 
 def accepted_fplcache():
