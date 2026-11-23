@@ -41,6 +41,10 @@ The 286 columns were designed for a minutes model and represent engineered deadl
 - Target fixture outcomes must never enter that target's input.
 - Sequence compatibility is a separate decision from feature availability. A valid rolling feature is not automatically a valid per-match sequence token.
 
+## Related source-semantics audit
+
+See `2PM_DASTAN_SOURCE_SEMANTICS_AUDIT.md` for the pinned source-code findings and mandatory temporal/identity checks. In particular, the upstream deadline-anchor routine does not include `opp_*`, `status_league_rank` or `opp_status_league_rank` in its anchored prefix set; these remain high-priority HOLD items pending row-level double-Gameweek tests.
+
 ## Feature-level register
 
 | # | Exact schema column | Family | Preliminary source | Initial audit concern | 2PM admission |
