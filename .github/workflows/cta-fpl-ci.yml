@@ -49,8 +49,8 @@ jobs:
       - name: Run canonical Python feature-core tests
         working-directory: canonical_candidate
         run: python -m unittest discover -s tests -v
-      - name: Install pytest
-        run: python -m pip install pytest numpy
+      - name: Install engineering test dependencies
+        run: python -m pip install pytest numpy pandas pyarrow
       - name: Run engineering tests
         working-directory: canonical_candidate/engineering_workbench
         env:
