@@ -71,8 +71,7 @@ def make_features(prior_rows):
     p3, p5 = prior_rows[-3:], prior_rows[-5:]
     kp3, kp5 = mean(p3, "key_passes"), mean(p5, "key_passes")
     xg3, xg5 = mean(p3, "tracked_xg_sum"), mean(p5, "tracked_xg_sum")
-    shots3, goals3 = mean(p3, "shots"), total(p3, "goals")
-    xg_sum3 = total(p3, "tracked_xg_sum")
+    shots3, goals3 = mean(p3, "shots"), mean(p3, "goals")
     key_rate, xg_rate = per90(p3, "key_passes"), per90(p3, "tracked_xg_sum")
     involvement = kp3 + shots3 if kp3 is not None and shots3 is not None else None
     minutes3, minutes5 = mean(p3, "minutes_played"), mean(p5, "minutes_played")
@@ -105,19 +104,31 @@ def build_training_rows(panel):
 
     output = []
     for player_id, matches in by_player.items():
-        matches.sort(key=lambda item: (item[0], str(item[1].get("fpl_fixture_id") or "")))
-        prior = []
+        matches.sort(key=lambda item: (int(float(item[1]["gameweek"])), item[0], str(item[1].get("fpl_fixture_id") or "")))
+        by_gameweek = defaultdict(list)
         for kickoff, row in matches:
+            by_gameweek[int(float(row["gameweek"]))].append((kickoff, row))
+        prior = []
+        for gameweek in sorted(by_gameweek):
+            current_fixtures = by_gameweek[gameweek]
+            # Every fixture in a Gameweek receives the same pre-Gameweek history.
+            # Earlier kickoffs from the same Gameweek must never leak into later
+            # fixtures because FPL decisions are made before the Gameweek starts.
             if len(prior) >= 3:
-                output.append({
-                    **make_features(prior),
-                    "fpl_element_id": player_id,
-                    "fixture_id": row.get("fpl_fixture_id", ""),
-                    "gameweek": int(float(row["gameweek"])),
-                    "kickoff_time_utc": kickoff.isoformat(),
-                    "target_fpl_total_points": float(row["fpl_total_points"]),
-                })
-            prior.append(row)
+                features = make_features(prior)
+                prior_points = mean(prior[-5:], "fpl_total_points")
+                for kickoff, row in current_fixtures:
+                    output.append({
+                        **features,
+                        "fpl_element_id": player_id,
+                        "fixture_id": row.get("fpl_fixture_id", ""),
+                        "gameweek": gameweek,
+                        "kickoff_time_utc": kickoff.isoformat(),
+                        "target_fpl_total_points": float(row["fpl_total_points"]),
+                        # Evaluation-only FPL-history baseline; never a model input.
+                        "baseline_prior5_points_per_fixture": prior_points,
+                    })
+            prior.extend(row for _, row in current_fixtures)
     return sorted(output, key=lambda row: (row["gameweek"], row["kickoff_time_utc"], row["fpl_element_id"]))
 
 
@@ -131,6 +142,8 @@ def aggregate(records):
         "fixture_count": len(rows),
         "actual_points": sum(float(r["target_fpl_total_points"]) for r in rows),
         "predicted_points": sum(float(r["predicted_points"]) for r in rows),
+        "baseline_prior5_points": sum(float(r["baseline_prior5_points_per_fixture"]) for r in rows
+                                      if optional_number(r.get("baseline_prior5_points_per_fixture")) is not None),
     } for (player_id, gw), rows in sorted(groups.items(), key=lambda item: (item[0][1], item[0][0]))]
 
 
@@ -161,6 +174,13 @@ def run(training_rows, upcoming_rows, ridge_lambda=10.0, holdout_gameweeks=4):
     actual = [r["actual_points"] for r in validation_gw]
     predicted = [r["predicted_points"] for r in validation_gw]
 
+    baseline_train_targets = [float(r["target_fpl_total_points"]) for r in train]
+    training_mean_baseline = sum(baseline_train_targets) / len(baseline_train_targets)
+    ordered_targets = sorted(baseline_train_targets)
+    mid = len(ordered_targets) // 2
+    training_median_baseline = (ordered_targets[mid] if len(ordered_targets) % 2
+                                else (ordered_targets[mid - 1] + ordered_targets[mid]) / 2.0)
+
     final_model = fit_ridge(training_rows, "target_fpl_total_points", features, ridge_lambda)
     forecast_fixture = []
     for row in upcoming_rows:
@@ -188,7 +208,7 @@ def run(training_rows, upcoming_rows, ridge_lambda=10.0, holdout_gameweeks=4):
 
     report = {
         "status": "EXPLORATORY_FORECAST_BUILT",
-        "model_version": "abc-11footy-ridge-v0.1",
+        "model_version": "abc-11footy-ridge-v0.2",
         "target": "Official FPL total_points per player-fixture, aggregated to player-Gameweek",
         "provider": "11footy verified player-match features only",
         "feature_names": features,
@@ -198,10 +218,24 @@ def run(training_rows, upcoming_rows, ridge_lambda=10.0, holdout_gameweeks=4):
         "validation_player_gameweeks": len(validation_gw),
         "validation_mae": mae(actual, predicted),
         "validation_rmse": rmse(actual, predicted),
+        "validation_baselines": {
+            "prior5_player_points": {
+                "mae": mae(actual, [r["baseline_prior5_points"] for r in validation_gw]),
+                "rmse": rmse(actual, [r["baseline_prior5_points"] for r in validation_gw]),
+            },
+            "training_mean": {
+                "mae": mae(actual, [training_mean_baseline] * len(actual)),
+                "rmse": rmse(actual, [training_mean_baseline] * len(actual)),
+            },
+            "training_median": {
+                "mae": mae(actual, [training_median_baseline] * len(actual)),
+                "rmse": rmse(actual, [training_median_baseline] * len(actual)),
+            },
+        },
         "ridge_lambda": ridge_lambda,
         "training_rows_source_vintage": "RETROSPECTIVE_NOT_POINT_IN_TIME_VERIFIED",
         "identity_policy": "Only VERIFIED_IDENTITY_AND_FIXTURE rows enter training.",
-        "feature_policy": "Features use only earlier verified player matches; missing values use training-fold medians plus missingness indicators.",
+        "feature_policy": "Features use only verified player matches from earlier Gameweeks; all fixtures in one Gameweek share the same pre-Gameweek feature history. Training and inference use the same A/B/C feature definitions; missing values use training-only medians plus missingness indicators.",
         "forecast_rows": len(forecasts),
         "forecast_gameweeks": sorted({r["gameweek"] for r in forecasts}),
         "promotion_status": "RESEARCH_ONLY_DO_NOT_PROMOTE",
