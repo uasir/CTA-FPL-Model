@@ -77,6 +77,12 @@ def build_postmatch_state_vectors(
         raise ValueError("Every played fixture requires a valid match data availability timestamp")
     if out["match_available_at"].le(out["kickoff_time"]).any():
         raise ValueError("Match data availability must be strictly after kickoff")
+    conservative_team_bound = out["kickoff_time"] + pd.Timedelta(hours=24)
+    if out["match_available_at"].gt(conservative_team_bound).any():
+        raise ValueError(
+            "Player match availability exceeds the conservative kickoff + 24h team-data bound; "
+            "reconstruct source availability before building post-match states"
+        )
 
     # Existing team reconstruction uses a conservative kickoff + 24h bound.
     team_source_available_at = out["kickoff_time"] + pd.Timedelta(hours=24)
@@ -139,6 +145,7 @@ def build_postmatch_state_vectors(
         "admission_status": "NOT_ADMITTED",
         "token_semantics": "286-feature state after the player and team match data are conservatively available",
         "state_as_of_rule": "max(player match_available_at, kickoff_time + 24h) + 1ns",
+        "future_fixture_guard": "player match availability may not exceed kickoff + 24h; later-kickoff player/team fixtures therefore cannot enter an earlier post-match state under the conservative source bounds",
         "played_fixture_rows": int(len(result)),
         "nonappearance_rows_excluded": nonappearance_rows_excluded,
         "feature_count": len(feature_order),
