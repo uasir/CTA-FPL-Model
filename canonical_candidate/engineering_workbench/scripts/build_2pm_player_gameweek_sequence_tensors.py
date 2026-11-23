@@ -165,8 +165,30 @@ def build_player_gameweek_sequence_tensors(
         label_column = label_candidates[0] if label_candidates else None
         if label_column is None:
             raise ValueError("Historical training targets require total_points or target_points")
+        declared_grains = (
+            set(targets["target_label_grain"].dropna().astype(str).unique())
+            if "target_label_grain" in targets else set()
+        )
+        if label_grain is None:
+            if declared_grains == {"player_fixture"}:
+                label_grain = "player_fixture"
+            else:
+                raise ValueError(
+                    "Historical training requires an explicit label_grain unless "
+                    "the target frame declares player_fixture"
+                )
         if label_grain not in {"player_fixture", "player_gameweek"}:
-            raise ValueError("Historical training requires an explicit label_grain")
+            raise ValueError("label_grain must be 'player_fixture' or 'player_gameweek'")
+        if declared_grains and declared_grains != {label_grain}:
+            raise ValueError(
+                f"Requested label_grain={label_grain} conflicts with target frame {declared_grains}"
+            )
+        if label_grain == "player_fixture" and "target_points_semantics" in targets:
+            semantics = set(
+                targets["target_points_semantics"].dropna().astype(str).unique()
+            )
+            if semantics != {"FPL_POINTS_SCORED_IN_THIS_FIXTURE"}:
+                raise ValueError("Fixture-grain target semantics are not verified")
         target_minutes = pd.to_numeric(targets["minutes"], errors="coerce")
         if target_minutes.isna().any() or target_minutes.lt(0).any():
             raise ValueError("Historical target minutes must be numeric and non-negative")
