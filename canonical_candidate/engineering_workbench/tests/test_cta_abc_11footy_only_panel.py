@@ -94,7 +94,9 @@ def test_reports_per90_values_with_low_minute_denominators():
     rows, report = build_panel([row], _report())
     assert rows[0]["abc_player_key_pass_rate"] == ""
     diagnostic = report["per90_exposure_diagnostics"]["abc_player_key_pass_rate"]
-    assert diagnostic["observed_rows"] == 1
+    assert diagnostic["raw_rate_observed_rows"] == 1
+    assert diagnostic["used_as_model_feature_rows"] == 0
+    assert diagnostic["suppressed_low_exposure_rows"] == 1
     assert diagnostic["largest_examples"][0]["total_prior3_exposure_minutes"] == pytest.approx(3)
     assert diagnostic["denominator_le_5_minutes_rows"] == 1
     assert diagnostic["largest_examples"][0]["numerator_prior3_avg"] == pytest.approx(3)
