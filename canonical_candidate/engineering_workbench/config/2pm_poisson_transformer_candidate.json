@@ -1,12 +1,12 @@
 {
   "model_name": "2PM-PoissonMixture-Transformer",
-  "architecture_version": "0.1.0",
+  "architecture_version": "0.2.0",
   "status": "RESEARCH_ONLY_IMPLEMENTATION",
   "feature_schema": "2pm_dastan_286_schema.json",
   "feature_count": 286,
   "sequence_length": 6,
-  "sequence_contract": "five_previous_played_fixture_tokens_plus_target_query_token",
-  "sequence_semantics_status": "PROVISIONAL_PREMATCH_ROW_PROTOTYPE_NOT_FROZEN",
+  "sequence_contract": "five_postmatch_played_fixture_state_tokens_plus_one_prematch_query_per_target_fixture_grouped_at_player_gameweek_grain",
+  "sequence_semantics_status": "POSTMATCH_STATE_AND_PLAYER_GAMEWEEK_GROUPING_IMPLEMENTED_NOT_ADMITTED",
   "input_embedding": {
     "d_model": 256
   },
@@ -27,18 +27,23 @@
     "feature_scaling": "UNRESOLVED_NOT_ASSUMED"
   },
   "output_distribution": {
-    "type": "two_component_poisson_mixture",
-    "parameters": ["p", "lambda_1", "lambda_2"],
+    "type": "shifted_two_component_poisson_mixture",
+    "parameters": ["p", "lambda_1", "lambda_2", "support_shift"],
     "lambda_transform": "softplus_plus_epsilon",
-    "canonical_point_forecast": "analytic_mixture_expectation",
-    "variance": "analytic_mixture_variance"
+    "support": "integer_points_from_minus_support_shift_to_positive_infinity",
+    "negative_points": "preserved_without_clipping; target counts are points + support_shift",
+    "support_shift_policy": "selected_using_training_fold_targets_only; minimum 20 points plus 5-point safety margin beyond observed training minimum",
+    "below_support_policy": "fail_closed_if_any_validation_test_or_inference_label_is_below_configured_floor",
+    "canonical_point_forecast": "p*lambda_1 + (1-p)*lambda_2 - support_shift",
+    "variance": "two_component_poisson_mixture_count_variance_unchanged_by_constant_shift",
+    "double_gameweek": "exact_2_to_fixture_count_component_convolution_under_explicit_independent_fixture_score_assumption; one player_gameweek likelihood"
   },
   "training_reference": {
     "batch_size": 32,
     "max_epochs": 60,
     "early_stopping_patience": 5,
     "early_stopping_min_delta": 0.0001,
-    "loss": "two_component_poisson_mixture_negative_log_likelihood",
+    "loss": "shifted_two_component_poisson_mixture_nll_for_single_fixtures; exact_2_to_fixture_count_aggregate_nll_for_player_gameweek_samples",
     "rate_initialization": "training_only_quantile_seeded_two_poisson_em_mle_candidate_exact_author_initialization_unresolved"
   },
   "paper_unspecified_or_open": [
@@ -54,6 +59,7 @@
     "production_eligible": false,
     "training_authorized": false,
     "feature_admission": "NOT_ADMITTED",
-    "model_evaluation": "DEFERRED_UNTIL_OFFICIAL_GAMEWEEK_SCORES"
+    "model_evaluation": "DEFERRED_UNTIL_OFFICIAL_GAMEWEEK_SCORES",
+    "negative_points": "PRESERVED_SHIFTED_POISSON_CANDIDATE_NOT_YET_VALIDATED"
   }
 }
