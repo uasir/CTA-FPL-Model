@@ -65,8 +65,27 @@ def aggregate_fixture_forecasts_to_gameweek(
         p = float(record["p"])
         lambda_1 = float(record["lambda_1"])
         lambda_2 = float(record["lambda_2"])
-        if not (0.0 < p < 1.0) or lambda_1 <= 0 or lambda_2 <= 0:
-            raise ValueError("fixture mixture parameters must be valid")
+        if (
+            not all(math.isfinite(value) for value in (p, lambda_1, lambda_2))
+            or not (0.0 < p < 1.0)
+            or lambda_1 <= 0
+            or lambda_2 <= 0
+        ):
+            raise ValueError("fixture mixture parameters must be finite and valid")
+        expected = p * lambda_1 + (1.0 - p) * lambda_2
+        second_moment = (
+            p * (lambda_1 + lambda_1 * lambda_1)
+            + (1.0 - p) * (lambda_2 + lambda_2 * lambda_2)
+        )
+        variance = max(0.0, second_moment - expected * expected)
+        if not math.isclose(
+            expected, float(record["expected_points"]), rel_tol=1e-5, abs_tol=1e-6
+        ):
+            raise ValueError("fixture expected_points disagrees with mixture parameters")
+        if not math.isclose(
+            variance, float(record["variance"]), rel_tol=1e-5, abs_tol=1e-6
+        ):
+            raise ValueError("fixture variance disagrees with mixture parameters")
         expanded = []
         for weight, rate_sum in components:
             expanded.append((weight * p, rate_sum + lambda_1))
