@@ -59,6 +59,7 @@ def extract_market(
                 "transfers_balance": transfers_balance,
                 "snapshot_at": captured_at,
                 "deadline_time": deadline,
+                "age_hours": (deadline - captured_at).total_seconds() / 3600,
                 "source": "Randdalf/fplcache",
                 "snapshot_path": source_path,
             }
