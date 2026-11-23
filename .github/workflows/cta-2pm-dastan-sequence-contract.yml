@@ -63,5 +63,5 @@ jobs:
             tests/test_2pm_predeadline_market_snapshot.py \
             tests/test_rebuild_2pm_fixture_context.py \
             tests/test_rebuild_2pm_team_context.py \
-            tests/test_rebuild_2pm_player_history.py \\
+            tests/test_rebuild_2pm_player_history.py \
             tests/test_2pm_postmatch_state_vectors.py
