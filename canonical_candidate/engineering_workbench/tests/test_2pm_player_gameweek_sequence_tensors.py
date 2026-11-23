@@ -108,6 +108,8 @@ def test_double_gameweek_is_one_player_gameweek_sample_with_two_fixture_queries(
     assert tensor[0, 1, 5, 0] == 89.0
     # Negative fixture points are preserved; the GW label is their sum.
     assert labels.tolist() == [2.0]
+    metadata = pd.read_csv(tmp_path / "tensors" / "metadata_player_gw_00000.csv")
+    assert json.loads(metadata.loc[0, "fixture_target_points"]) == [3.0, -1.0]
 
 
 def test_gameweek_grain_label_is_deduplicated_not_summed(tmp_path):
