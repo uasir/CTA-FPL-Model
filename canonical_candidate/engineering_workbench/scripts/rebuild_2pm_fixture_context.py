@@ -25,6 +25,13 @@ CONTEXT_COLUMNS = [
 
 
 
+
+def _utc_ns(series: pd.Series) -> pd.Series:
+    """Normalize timestamps to nanosecond UTC so int64 comparisons share units."""
+    return pd.to_datetime(series, utc=True, errors="coerce").astype("datetime64[ns, UTC]")
+
+
+
 def _prefix_mean(values: np.ndarray, *, ignore_nan: bool = False):
     values = np.asarray(values, dtype=float)
     valid = np.isfinite(values) if ignore_nan else np.ones(len(values), dtype=bool)
@@ -60,11 +67,9 @@ def rebuild_player_history_features(
     for frame in (out, hist):
         frame["season"] = frame["season"].astype(str)
         frame["fixture"] = frame["fixture"].astype(str)
-        frame["kickoff_time"] = pd.to_datetime(frame["kickoff_time"], utc=True, errors="coerce")
-    out["deadline_time"] = pd.to_datetime(out["deadline_time"], utc=True, errors="coerce")
-    hist["match_available_at"] = pd.to_datetime(
-        hist["match_available_at"], utc=True, errors="coerce"
-    )
+        frame["kickoff_time"] = _utc_ns(frame["kickoff_time"])
+    out["deadline_time"] = _utc_ns(out["deadline_time"])
+    hist["match_available_at"] = _utc_ns(hist["match_available_at"])
     if out["deadline_time"].isna().any() or hist[["kickoff_time", "match_available_at"]].isna().any().any():
         raise ValueError("Player history/target contains invalid timestamps")
 
@@ -312,7 +317,7 @@ def rebuild_deadline_team_context(
 
     teams = features_module._prepare_team_matches(team_matches)
     teams = features_module.build_opponent_lookup(teams)
-    teams["date"] = pd.to_datetime(teams["date"], utc=True, errors="coerce")
+    teams["date"] = _utc_ns(teams["date"])
     if teams["date"].isna().any():
         raise ValueError("Understat team matches contain invalid dates")
     teams["match_available_at"] = teams["date"] + pd.Timedelta(hours=24)
