@@ -96,6 +96,16 @@ def validate_input(frame: pd.DataFrame, features: list[str], fixture_column: str
         raise ValueError("match_available_at precedes kickoff_time")
     if out["completion_time_quality"].isna().any() or out["source_vintage_status"].isna().any():
         raise ValueError("Completion-time quality and source-vintage status must be explicit")
+    allowed_completion_quality = {
+        "OBSERVED_COMPLETION_TIME",
+        "CONSERVATIVE_24H_UPPER_BOUND",
+        "NOT_FINISHED",
+    }
+    unexpected_quality = sorted(
+        set(out["completion_time_quality"].astype(str)) - allowed_completion_quality
+    )
+    if unexpected_quality:
+        raise ValueError(f"Unknown completion-time quality values: {unexpected_quality}")
     if "source_as_of_time" in out:
         out["source_as_of_time"] = pd.to_datetime(
             out["source_as_of_time"], utc=True, errors="coerce"
@@ -181,7 +191,12 @@ def build_sequences(
             "fpl_code": int(target.fpl_code),
             "target_kickoff_time": target_kickoff.isoformat(),
             "target_deadline_time": target_deadline.isoformat(),
+            "target_completion_time_quality": str(target.completion_time_quality),
+            "source_vintage_status": str(target.source_vintage_status),
             "history_fixture_ids": json.dumps(history["fixture_id"].astype(str).tolist()),
+            "history_completion_time_quality": json.dumps(
+                history["completion_time_quality"].astype(str).tolist()
+            ),
             "history_match_available_at": json.dumps(
                 [value.isoformat() for value in history["match_available_at"]]
             ),
@@ -205,7 +220,9 @@ def build_sequences(
     columns = [
         "season", "gameweek", "fixture_id", "fpl_code",
         "target_kickoff_time", "target_deadline_time",
+        "target_completion_time_quality", "source_vintage_status",
         "history_fixture_ids", "history_match_available_at",
+        "history_completion_time_quality",
         "sequence_gap_days", "sequence_length", "feature_count_per_token",
         *[
             f"token_{token:02d}__{feature}"
@@ -230,6 +247,10 @@ def build_sequences(
         "source_vintage_status_counts": {
             str(key): int(value)
             for key, value in frame["source_vintage_status"].value_counts(dropna=False).items()
+        },
+        "completion_time_quality_counts": {
+            str(key): int(value)
+            for key, value in frame["completion_time_quality"].value_counts(dropna=False).items()
         },
         "limitations": [
             "feature_cutoff_time identifies the official deadline cutoff; it is not a source capture timestamp.",
