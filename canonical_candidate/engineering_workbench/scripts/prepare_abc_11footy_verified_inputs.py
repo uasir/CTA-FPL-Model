@@ -83,14 +83,25 @@ def prepare(candidates, crosswalk, raw_history, raw_players, teams):
     fixture_parts = defaultdict(dict)
     for row in history:
         fixture = str(row["fixture_id"])
-        side = "h" if truth(row.get("was_home")) else "a"
-        fixture_parts[fixture].update({
+        is_home = truth(row.get("was_home"))
+        own_side, opponent_side = ("h", "a") if is_home else ("a", "h")
+        own_id = id_text(row.get("team"))
+        opponent_id = id_text(row.get("opponent_team"))
+        item = fixture_parts[fixture]
+        item.update({
             "fixture_id": fixture,
             "kickoff_time": row.get("kickoff_time", ""),
             "gameweek": row.get("gameweek", ""),
-            f"team_{side}_id": row.get("team", ""),
-            f"team_{side}_name": team_names.get(id_text(row.get("team")), ""),
         })
+        # Prefer the player's own team when supplied; the opposite-side rows'
+        # opponent_team field independently reconstructs either side when the
+        # archive's team field is absent or not an integer ID.
+        if own_id in team_names:
+            item[f"team_{own_side}_id"] = own_id
+            item[f"team_{own_side}_name"] = team_names[own_id]
+        if opponent_id in team_names:
+            item[f"team_{opponent_side}_id"] = opponent_id
+            item[f"team_{opponent_side}_name"] = team_names[opponent_id]
     fixtures = [
         item for _, item in sorted(fixture_parts.items())
         if item.get("team_h_name") and item.get("team_a_name") and item.get("kickoff_time")
@@ -140,6 +151,9 @@ def prepare(candidates, crosswalk, raw_history, raw_players, teams):
             "fpl_history_rows_with_kickoff": sum(bool(str(row.get("kickoff_time") or "").strip()) for row in history),
             "fpl_history_rows_with_team_name_match": sum(
                 id_text(row.get("team")) in team_names for row in history
+            ),
+            "fpl_history_rows_with_opponent_team_name_match": sum(
+                id_text(row.get("opponent_team")) in team_names for row in history
             ),
             "unique_fpl_history_fixtures": len(fixture_parts),
             "fixtures_with_both_team_names": sum(

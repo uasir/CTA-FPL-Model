@@ -19,10 +19,10 @@ def test_cross_provider_bridge_is_converted_to_11footy_provider_contract():
     history = [
         {"element": "10", "fixture": "1", "kickoff_time": "2017-08-12T14:00:00Z",
          "round": "1", "minutes": "90", "total_points": "6", "goals_scored": "1",
-         "assists": "0", "team": "1", "opponent_team": "2", "was_home": "True"},
+         "assists": "0", "opponent_team": "2", "was_home": "True"},
         {"element": "11", "fixture": "1", "kickoff_time": "2017-08-12T14:00:00Z",
          "round": "1", "minutes": "90", "total_points": "2", "goals_scored": "0",
-         "assists": "0", "team": "2", "opponent_team": "1", "was_home": "False"},
+         "assists": "0", "opponent_team": "1", "was_home": "False"},
     ]
     players = [{"id": "10", "code": "123", "web_name": "Player One"}]
     teams = [
@@ -52,7 +52,7 @@ def test_unverified_cross_provider_rows_are_not_promoted():
         [],
         [{"verification_status": "NOT_VERIFIED"}],
         [{"element": "10", "fixture": "1", "kickoff_time": "2017-08-12T14:00:00Z",
-          "round": "1", "team": "1", "was_home": "True"}],
+          "round": "1", "opponent_team": "2", "was_home": "True"}],
         [{"id": "10", "code": "123", "web_name": "Player One"}],
         [{"season": "2017-18", "team": "1", "team_name": "Home FC"}],
     )
