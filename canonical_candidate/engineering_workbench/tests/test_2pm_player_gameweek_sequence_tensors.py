@@ -209,3 +209,34 @@ def test_rejects_target_source_capture_at_deadline(tmp_path):
             target_mode="historical",
             label_grain="player_fixture",
         )
+
+
+
+def test_pinned_dastan_metadata_selects_fixture_grain_and_sums_once(tmp_path):
+    targets = make_targets(points=(4.0, 2.0))
+    targets["target_label_grain"] = "player_fixture"
+    targets["target_points_semantics"] = "FPL_POINTS_SCORED_IN_THIS_FIXTURE"
+    report = build(
+        tmp_path,
+        make_history(),
+        targets,
+        target_mode="historical",
+        label_grain=None,
+    )
+    assert report["label_grain"] == "player_fixture"
+    labels = np.load(tmp_path / "tensors" / "y_player_gw_00000.npy")
+    assert labels.tolist() == [6.0]
+
+
+def test_explicit_label_grain_cannot_override_pinned_dastan_metadata(tmp_path):
+    targets = make_targets(points=(4.0, 2.0))
+    targets["target_label_grain"] = "player_fixture"
+    targets["target_points_semantics"] = "FPL_POINTS_SCORED_IN_THIS_FIXTURE"
+    with pytest.raises(ValueError, match="conflicts with target frame"):
+        build(
+            tmp_path,
+            make_history(),
+            targets,
+            target_mode="historical",
+            label_grain="player_gameweek",
+        )
