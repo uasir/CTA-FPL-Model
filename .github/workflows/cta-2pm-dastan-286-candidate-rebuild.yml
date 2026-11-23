@@ -6,6 +6,7 @@ on:
     paths:
       - canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py
       - canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py
+      - canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py
       - canonical_candidate/engineering_workbench/scripts/audit_2pm_dastan_286_candidate.py
       - canonical_candidate/engineering_workbench/scripts/build_2pm_dastan_sequence_dataset.py
       - canonical_candidate/engineering_workbench/scripts/prepare_2pm_candidate_tensors.py
