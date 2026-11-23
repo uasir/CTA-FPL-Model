@@ -1,7 +1,7 @@
 # 2PM Transformer — Dastan 286-Feature Adaptation Decision
 
 **Decision date:** 2026-11-23  
-**Status:** Approved input-foundation direction; feature and sequence gates remain open  
+**Status:** Approved candidate input-foundation direction; feature admission and sequence-token semantics remain open; candidate pipeline implementation in progress  
 **Model:** Independent, paper-first 2PM player-points forecaster  
 **Governing paper:** Wiechno, Duch and Bartosik (2026), *Modeling Fantasy Premier League Player Performance with a Two-Component Poisson Mixture Transformer*, ICAART 2026, DOI: 10.5220/0014358000004052.
 
@@ -94,13 +94,13 @@ Before implementing the 2PM sequence builder, establish and document:
 
 The sequence builder must be new and independent. The legacy 2PM sequence builder is frozen and prohibited. The existing Dastan/CTA five-Gameweek feature builder is not automatically reusable as a historical five-played-match sequence builder.
 
-**No sequence design is approved by this record.** The first implementation task is to resolve this design using the audited raw source tables and temporal semantics. If a defensible five-match sequence cannot be built from the Dastan representation, return with a concrete alternative for approval rather than silently changing the paper's sequence length or pretending that a single row is a five-match sequence.
+A candidate-only implementation now exists for five previous played-fixture rows plus a target-fixture query token, with a 21-day gap limit and float32 tensor shards. This is a working engineering prototype, not a frozen sequence design or an admission decision. It currently uses each historical fixture's recorded 286-feature pre-match snapshot as its token. That differs from the post-match historical state-vector proposal below; do not treat the prototype's token semantics as settled. The feature and sequence gates remain open, and no model training is authorized until they are resolved.
 
 ## 6A. Recommended sequence representation
 
-The recommended Dastan-input sequence adaptation is documented in `2PM_DASTAN_SEQUENCE_REPRESENTATION_PROPOSAL.md`: five previous played-fixture post-match state vectors plus one current target-fixture pre-deadline query token, each using the same 286-column candidate vocabulary (six tokens × 286 features). This requires a new Dastan-derived historical state builder; it is not a direct use of the released pre-match rows. This is an explicit adaptation of the paper's original five-match/116-feature input, not an exact reproduction.
+The recommended sequence adaptation remains five previous played-fixture post-match state vectors plus one current target-fixture pre-deadline query token, each using the same 286-column candidate vocabulary (six tokens × 286 features). This requires a new Dastan-derived historical state builder; it is not a direct use of the released pre-match rows. This is an explicit adaptation of the paper's original five-match/116-feature input, not an exact reproduction.
 
-It remains a proposal and must not be implemented until the paper's 21-day rule, full deadline-safe feature rebuild, feature admission and sequence coverage have been verified.
+The current pre-match-row sequence prototype is intentionally separate from that proposal. Before model training, compare both token semantics against the feature definitions, source availability and leakage audit, then retain or replace the prototype under a versioned sequence contract.
 
 ## 7. Feature-by-feature admission audit
 
