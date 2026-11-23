@@ -63,7 +63,7 @@ jobs:
             --seasons 2020-21,2021-22,2022-23,2023-24,2024-25,2025-26 \
             --workers 12 \
             > "$RUNNER_TEMP/2pm-dastan-rebuild.log"
-      - name: Audit candidate frame and prepare five-played-match tensor shards
+      - name: Audit candidate frame and build post-match player-Gameweek tensors
         working-directory: canonical_candidate/engineering_workbench
         env:
           PYTHONPATH: scripts
@@ -130,7 +130,9 @@ jobs:
                   tensor = json.loads(tensor_path.read_text())
                   lines.extend([
                       f"- Post-match state rows: {tensor.get('postmatch_state_rows')}",
-                      f"- Player-Gameweek groups considered: {tensor.get('player_gameweek_groups_considered')}",
+                      f"- Season/Gameweek groups processed: {tensor.get('season_gameweek_groups_processed')}",
+                  f"- Player-Gameweek candidate groups considered: {tensor.get('player_gameweek_candidate_groups_considered')}",
+                  f"- Player-Gameweek exclusion counts: {tensor.get('player_gameweek_exclusions')}",
                       f"- Five-match sequence samples emitted: {tensor.get('player_gameweek_samples_emitted')}",
                       f"- Grouped tensor build admission: {tensor.get('admission_status')}",
                       "- Tensors use five post-match played-fixture states plus one pre-deadline query per target fixture.",
