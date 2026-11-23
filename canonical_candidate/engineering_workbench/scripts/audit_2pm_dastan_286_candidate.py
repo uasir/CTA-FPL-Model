@@ -71,6 +71,7 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
     anchor_features = [
         column for column in features
         if column.startswith(ANCHOR_PREFIXES)
+        or column == "status_league_rank"
         or (
             column.startswith("ar_")
             and column not in FIXTURE_CONTEXT_FEATURES
