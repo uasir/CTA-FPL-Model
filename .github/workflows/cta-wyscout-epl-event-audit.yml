@@ -16,6 +16,9 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py
       - canonical_candidate/engineering_workbench/scripts/prepare_abc_11footy_verified_inputs.py
+      - canonical_candidate/engineering_workbench/scripts/train_cta_abc_points_model.py
+      - canonical_candidate/engineering_workbench/scripts/predict_cta_abc_points.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_abc_points_model.py
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_historical_integrated_panel.py
       - canonical_candidate/engineering_workbench/tests/test_prepare_abc_11footy_verified_inputs.py
       - canonical_candidate/engineering_workbench/tests/test_cta_abc_historical_integrated_panel.py
