@@ -5,6 +5,7 @@ on:
     branches: ["feat/four-layer-2pm-transformer-evaluation"]
     paths:
       - canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json
+      - canonical_candidate/engineering_workbench/config/2pm_poisson_transformer_candidate.json
       - canonical_candidate/engineering_workbench/scripts/build_2pm_dastan_sequence_dataset.py
       - canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py
       - canonical_candidate/engineering_workbench/scripts/audit_2pm_dastan_286_candidate.py
