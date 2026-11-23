@@ -36,6 +36,7 @@ def test_candidate_audit_checks_schema_snapshots_and_only_claims_selected_anchor
     )
     report = audit_frame(frame, FEATURES)
     assert report["feature_count"] == 286
+    assert sum(report["feature_family_counts"].values()) == 286
     assert report["duplicate_player_fixture_keys"] == 0
     assert report["nonfinite_feature_values"] == 0
     assert report["same_player_gameweek_upstream_anchor_check"]["groups_with_differences"] == 0
