@@ -271,10 +271,10 @@ def main() -> int:
     write_csv(args.out_dir/"fpl_players.csv",PLAYER_FIELDS,player_rows)
     write_csv(args.out_dir/"fpl_fixtures.csv",FIXTURE_FIELDS,fixture_rows)
     write_csv(args.out_dir/"fpl_player_fixture.csv",MATCH_FIELDS,match_rows)
-    (args.out_dir/"ingestion_report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     fetched_at=datetime.now(timezone.utc)
     report["capture_started_at_utc"]=capture_started_at.isoformat()
     report["capture_completed_at_utc"]=fetched_at.isoformat()
+    (args.out_dir/"ingestion_report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     future_events=[]
     for event in bootstrap.get("events",[]):
         if not event.get("deadline_time"): continue
