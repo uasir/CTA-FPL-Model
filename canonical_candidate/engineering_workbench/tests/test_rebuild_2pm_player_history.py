@@ -77,7 +77,7 @@ def test_player_history_rebuild_excludes_matches_not_available_by_deadline():
     assert row["ar_cbit_3"] == 3.0
     assert row["ar_dc_hit_rate_3"] == 0.5
     assert row["ar_starts_3"] == 0.5
-    assert report["player_rolling_feature_count"] == 10
+    assert report["player_rolling_feature_count"] == 15
     assert report["availability_feature_count"] == 9
 
 
