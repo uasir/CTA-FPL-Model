@@ -111,8 +111,13 @@ jobs:
           manager = json.loads(manager_file.read_text())["manager_context"]
           diagnostic = result["cta_informed_personal_squad"].get("multi_gameweek_squad_diagnostic", {})
           best = diagnostic.get("best_diagnostic")
-          if diagnostic.get("status") != "EXPLORATORY_CTA_FIVE_GAMEWEEK_SQUAD_SWEEP" or not best:
+          if diagnostic.get("status") != "EXPLORATORY_CTA_FIVE_GAMEWEEK_SQUAD_SWEEP":
               raise SystemExit("No complete five-GW squad diagnostic is available to render")
+          action = diagnostic.get("recommended_action")
+          if action not in {"HOLD", "TRANSFER"}:
+              raise SystemExit(f"Unsupported five-GW recommendation action: {action!r}")
+          if action == "TRANSFER" and not best:
+              raise SystemExit("TRANSFER action has no best transfer diagnostic")
 
           with (root / "dastan_mappings/fpl_players_current.csv").open(newline="") as stream:
               players = {int(r["element"]): r for r in csv.DictReader(stream)}
@@ -134,69 +139,81 @@ jobs:
               }
 
           weeks = diagnostic["horizon_gameweeks"]
-          bank_after = float(best["bank_after_transfer"])
-          if abs(bank_after) < 0.000001:
-              bank_after = 0.0
-          out = player(best["transfer_out_id"])
-          inc = player(best["transfer_in_id"])
-          action = diagnostic["recommended_action"]
-          delta = float(best["net_horizon_expected_points_delta"])
           lines = [
               f"# CTA personal squad recommendation — GW{weeks[0]}–GW{weeks[-1]}",
               "",
               f"**Action: {action}**",
               "",
-              "| Transfer OUT | Transfer IN |",
-              "|---|---|",
-              f"| **{out['name']}** ({out['team']}, {out['position']}) · selling price £{best['selling_price']:.1f}m | **{inc['name']}** ({inc['team']}, {inc['position']}) · price £{best['incoming_price']:.1f}m |",
-              "",
-              f"**Projected net gain: {delta:+.5f} expected points** across five Gameweeks.",
-              "",
-              f"- Bank before transfer: £{float(manager['bank']):.1f}m",
-              f"- Bank after transfer: £{bank_after:.1f}m",
-              f"- Free transfers available: {int(manager['free_transfers'])}",
-              f"- Hit cost applied: {float(best['hit_cost_points_applied']):.0f} points",
-              "",
-              "## Weekly projected advantage",
-              "",
-              "| Gameweek | HOLD XI xP | Transfer XI xP | Incremental xP |",
-              "|---:|---:|---:|---:|",
           ]
-          for row in best["weekly_comparison"]:
-              lines.append(
-                  f"| GW{row['gameweek']} | {row['hold_starting_xi_expected_points']:.5f} | "
-                  f"{row['transfer_starting_xi_expected_points']:.5f} | "
-                  f"{row['incremental_expected_points']:+.5f} |"
-              )
-          lines += [
-              "",
-              "## Leading alternatives",
-              "",
-              "| Transfer | Net five-GW xP delta | Bank after |",
-              "|---|---:|---:|",
-          ]
-          for candidate in diagnostic.get("candidate_evaluations", [])[:5]:
-              o, i = player(candidate["transfer_out_id"]), player(candidate["transfer_in_id"])
-              alternative_bank = float(candidate["bank_after_transfer"])
-              if abs(alternative_bank) < 0.000001:
-                  alternative_bank = 0.0
-              lines.append(
-                  f"| {o['name']} → {i['name']} | "
-                  f"{candidate['net_horizon_expected_points_delta']:+.5f} | "
-                  f"£{alternative_bank:.1f}m |"
-              )
-          lines += [
-              "",
-              "## Validation and limitations",
-              "",
-              "- **EXPLORATORY ONLY** — CTA M2 forecast validation and independent M4 outcome evaluation remain pending.",
-              "- Decision weight: **0**; production eligible: **no**; CoVar used: **no**.",
-              "- One transfer at a time; fixed baseline starting XI across the five-GW horizon.",
-              "- Excludes future price changes, transfer sequencing, weekly lineup/captaincy optimization and CoVar.",
-              "- Expected points are model estimates, not guaranteed returns.",
-              "",
-              f"Forecast snapshot: `{result['target']['forecast_snapshot_id']}`",
-          ]
+          if action == "TRANSFER":
+              bank_after = float(best["bank_after_transfer"])
+              if abs(bank_after) < 0.000001:
+                  bank_after = 0.0
+              out = player(best["transfer_out_id"])
+              inc = player(best["transfer_in_id"])
+              delta = float(best["net_horizon_expected_points_delta"])
+              lines += [
+                  f"| **{out['name']}** ({out['team']}, {out['position']}) · selling price £{best['selling_price']:.1f}m | **{inc['name']}** ({inc['team']}, {inc['position']}) · price £{best['incoming_price']:.1f}m |",
+                  "|---|---|",
+                  "",
+                  f"**Projected net gain: {delta:+.5f} expected points** across five Gameweeks.",
+                  "",
+                  f"- Bank before transfer: £{float(manager['bank']):.1f}m",
+                  f"- Bank after transfer: £{bank_after:.1f}m",
+                  f"- Free transfers available: {int(manager['free_transfers'])}",
+                  f"- Hit cost applied: {float(best['hit_cost_points_applied']):.0f} points",
+              ]
+          else:
+              lines += [
+                  "**Recommendation: make no transfer. Keep the current squad.**",
+                  "",
+                  f"- Bank: £{float(manager['bank']):.1f}m",
+                  f"- Free transfers available: {int(manager['free_transfers'])}",
+              ]
+              if best:
+                  out = player(best["transfer_out_id"])
+                  inc = player(best["transfer_in_id"])
+                  lines += [
+                      "",
+                      f"Best transfer considered but **not recommended**: {out['name']} → {inc['name']} "
+                      f"({float(best['net_horizon_expected_points_delta']):+.5f} net xP versus HOLD).",
+                  ]
+              else:
+                  lines += ["", "No legal affordable single-transfer candidates were available."]
+          if best:
+              lines += [
+                  "",
+                  "## Weekly projected comparison",
+                  "",
+                  "| Gameweek | HOLD XI xP | Transfer XI xP | Incremental xP |",
+                  "|---:|---:|---:|---:|",
+              ]
+              for row in best["weekly_comparison"]:
+                  lines.append(
+                      f"| GW{row['gameweek']} | {row['hold_starting_xi_expected_points']:.5f} | "
+                      f"{row['transfer_starting_xi_expected_points']:.5f} | "
+                      f"{row['incremental_expected_points']:+.5f} |"
+                  )
+          candidates = diagnostic.get("candidate_evaluations", [])
+          alternatives = candidates[1:6] if action == "TRANSFER" else candidates[:5]
+          if alternatives:
+              lines += [
+                  "",
+                  "## Leading alternatives" if action == "TRANSFER" else "## Other transfers considered (not recommended)",
+                  "",
+                  "| Transfer | Net five-GW xP delta | Bank after |",
+                  "|---|---:|---:|",
+              ]
+              for candidate in alternatives:
+                  o, i = player(candidate["transfer_out_id"]), player(candidate["transfer_in_id"])
+                  alternative_bank = float(candidate["bank_after_transfer"])
+                  if abs(alternative_bank) < 0.000001:
+                      alternative_bank = 0.0
+                  lines.append(
+                      f"| {o['name']} → {i['name']} | "
+                      f"{candidate['net_horizon_expected_points_delta']:+.5f} | "
+                      f"£{alternative_bank:.1f}m |"
+                  )
           report = "\n".join(lines) + "\n"
           Path("outputs/paired-replay/recommendation-report.md").write_text(report)
           with open(__import__("os").environ["GITHUB_STEP_SUMMARY"], "a") as summary:
