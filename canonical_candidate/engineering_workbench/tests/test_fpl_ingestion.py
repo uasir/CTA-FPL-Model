@@ -81,7 +81,7 @@ class FPLIngestionTests(unittest.TestCase):
         self.assertEqual(len(report["consistency_capture_attempts"]), 2)
         self.assertEqual(report["consistency_capture_attempts"][0]["total_points_mismatch_count"], 1)
         self.assertEqual(report["consistency_capture_attempts"][1]["total_points_mismatch_count"], 0)
-        self.assertEqual(fetch.call_args_list[2].args[0],
+        self.assertEqual(fetch.call_args_list[0].args[0],
                          "https://fantasy.premierleague.com/api/element-summary/10/")
 
     def test_reconcile_snapshot_keeps_persistent_mismatch_blocked(self):
@@ -100,7 +100,7 @@ class FPLIngestionTests(unittest.TestCase):
 
     def test_reconcile_snapshot_retries_missing_summary_for_player_with_minutes(self):
         with patch("fetch_fpl_official_api.fetch_json", side_effect=[
-            self.bootstrap, self.fixtures, self.summaries[10], self.bootstrap, self.fixtures
+            self.summaries[10], self.bootstrap, self.fixtures
         ]):
             _, _, summaries, _, _, _, report = reconcile_snapshot(
                 self.bootstrap, self.fixtures, {}, "2026-27",
