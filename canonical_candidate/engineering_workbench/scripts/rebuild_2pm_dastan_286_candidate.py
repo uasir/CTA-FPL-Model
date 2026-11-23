@@ -151,7 +151,10 @@ def build_candidate(
     def resolver(requested_seasons: list[str]) -> pd.DataFrame:
         requested = set(map(str, requested_seasons))
         hist = corrected_assignments(
-            training_assignments, corrected_mapping, requested, completed
+            training_assignments,
+            corrected_mapping,
+            requested & set(completed),
+            completed,
         )
         if active:
             active_rows = original_resolver(sorted(requested - set(completed)))
