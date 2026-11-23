@@ -102,6 +102,18 @@ The test-only two-layer instantiation is a shape/gradient smoke test, not a sele
 
 The adapter is a model-to-forecast-record boundary only. M3 integration remains pending the actual M3 contract review and model validation.
 
+### 5C. Player-Gameweek aggregation helper
+
+`scripts/two_pm_gameweek_aggregation.py`
+
+- Converts one or more player-fixture mixture forecasts into a player-Gameweek distribution under an explicitly required independence assumption.
+- Preserves the exact sum as a generalized `2^n`-component Poisson mixture (two components for one fixture, four for a Double Gameweek).
+- Produces GW-level expected points, variance, standard deviation and 6+/8+/10+ probabilities.
+- Keeps the fixture-level forecasts in the output and marks the result research-only.
+- Focused tests passed for single-fixture and Double Gameweek cases.
+
+Cross-fixture dependence is not modelled. This is a mathematically exact convolution only under independent fixture-score draws; it remains a provisional aggregation assumption and is not yet an approved M3 integration.
+
 ### 6. Active-season target query builder
 
 `scripts/build_2pm_active_target_queries.py`
