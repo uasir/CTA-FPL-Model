@@ -134,7 +134,9 @@ if nn is not None:
             raw = self.mixture_head(target_context)
 
             mixture_logit = raw[:, 0]
-            mixture_probability = torch.sigmoid(mixture_logit)
+            mixture_probability = torch.sigmoid(mixture_logit).clamp(
+                self.epsilon, 1.0 - self.epsilon
+            )
             lambda_1 = F.softplus(raw[:, 1]) + self.epsilon
             lambda_2 = F.softplus(raw[:, 2]) + self.epsilon
 
