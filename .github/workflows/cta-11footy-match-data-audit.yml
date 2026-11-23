@@ -16,6 +16,11 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_11footy_only_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_11footy_points.py
       - canonical_candidate/engineering_workbench/scripts/merge_cta_abc_fpl_baseline_features.py
+      - canonical_candidate/engineering_workbench/scripts/predict_cta_abc_points.py
+      - canonical_candidate/engineering_workbench/tests/test_predict_cta_abc_points.py
+      - canonical_candidate/engineering_workbench/scripts/merge_cta_abc_fpl_baseline_features.py
+      - canonical_candidate/engineering_workbench/scripts/predict_cta_abc_points.py
+      - canonical_candidate/engineering_workbench/tests/test_predict_cta_abc_points.py
       - canonical_candidate/engineering_workbench/tests/test_cta_abc_11footy_points.py
       - canonical_candidate/engineering_workbench/tests/test_merge_cta_abc_fpl_baseline_features.py
       - canonical_candidate/engineering_workbench/tests/test_cta_abc_11footy_only_panel.py
@@ -71,6 +76,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: cta-11footy-pl-data-audit
@@ -359,6 +365,73 @@ jobs:
             --fpl-lagged-training run_artifacts/fpl_official/fpl_lagged_training.csv \
             --source-metadata run_artifacts/fpl_official/source_metadata.json \
             --out-dir run_artifacts/11footy/output/abc_11footy_only
+
+      - name: Locate latest successful historical ABC model package
+        id: abc_model_run
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          repo = os.environ["GITHUB_REPOSITORY"]
+          branch = "feat/abc-historical-11footy-wyscout-integration"
+          url = f"https://api.github.com/repos/{repo}/actions/workflows/cta-wyscout-epl-event-audit.yml/runs?branch={branch}&status=success&per_page=20"
+          request = urllib.request.Request(url, headers={
+              "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          })
+          with urllib.request.urlopen(request) as response:
+              runs = json.load(response)["workflow_runs"]
+          for run in runs:
+              artifacts_url = f"https://api.github.com/repos/{repo}/actions/runs/{run['id']}/artifacts?per_page=100"
+              request = urllib.request.Request(artifacts_url, headers={
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "Accept": "application/vnd.github+json",
+              })
+              with urllib.request.urlopen(request) as response:
+                  artifacts = json.load(response)["artifacts"]
+              if any(a["name"] == "cta-wyscout-abc-research" and not a["expired"] for a in artifacts):
+                  with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+                      output.write(f"run_id={run['id']}\\n")
+                  print(json.dumps({"status": "FOUND", "run_id": run["id"], "head_sha": run["head_sha"]}))
+                  break
+          else:
+              raise SystemExit("No successful historical ABC model artifact found")
+          PY
+
+      - name: Download historical ABC model package
+        uses: actions/download-artifact@v4
+        with:
+          name: cta-wyscout-abc-research
+          run-id: ${{ steps.abc_model_run.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: uasir/CTA-FPL-Model
+          path: run_artifacts/abc_historical_model
+
+      - name: Score current upcoming ABC panel with historical points model
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/predict_cta_abc_points.py \
+            --model ../../run_artifacts/abc_historical_model/abc_points_model/abc_points_model.json \
+            --model-manifest ../../run_artifacts/abc_historical_model/abc_points_model/abc_points_model_manifest.json \
+            --input-panel ../../run_artifacts/11footy/output/abc_11footy_only/cta_abc_current_inference_panel.csv \
+            --input-report ../../run_artifacts/11footy/output/abc_11footy_only/cta_abc_current_inference_panel_report.json \
+            --out-dir ../../run_artifacts/11footy/output/abc_historical_model_forecast
+
+      - name: Upload research-only current ABC model forecast
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: abc-historical-model-current-forecast
+          path: |
+            run_artifacts/11footy/output/abc_historical_model_forecast/abc_fixture_points_predictions.csv
+            run_artifacts/11footy/output/abc_historical_model_forecast/abc_player_gameweek_points_forecasts.csv
+            run_artifacts/11footy/output/abc_historical_model_forecast/abc_current_model_forecast_report.json
+            run_artifacts/11footy/output/abc_11footy_only/cta_abc_current_inference_panel_report.json
+          retention-days: 30
 
       - name: Train ABC on verified 11footy history and forecast upcoming FPL points
         working-directory: canonical_candidate/engineering_workbench
