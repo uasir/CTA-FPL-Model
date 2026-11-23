@@ -443,11 +443,16 @@ def build_candidate(
     # Restore canonical fixture identity/context from the raw player-match table.
     # The upstream release frame may have anchored ar_* values across a DGW;
     # rebuild the six fixture-specific context fields after that anchor.
-    fixture_context = player_matches[
+    context_matches = player_matches.copy()
+    for key_frame in (loaded, context_matches):
+        key_frame["season"] = key_frame["season"].astype(str)
+        key_frame["fixture"] = key_frame["fixture"].astype(str)
+        key_frame["fpl_code"] = pd.to_numeric(
+            key_frame["fpl_code"], errors="raise"
+        ).astype("int64")
+    fixture_context = context_matches[
         ["season", "fixture", "fpl_code", "team_name", "opponent_team_name"]
     ].copy()
-    fixture_context["season"] = fixture_context["season"].astype(str)
-    fixture_context["fixture"] = fixture_context["fixture"].astype(str)
     if fixture_context.duplicated(["season", "fixture", "fpl_code"]).any():
         raise ValueError("Canonical player fixture context contains duplicate keys")
     loaded = loaded.drop(
@@ -461,7 +466,7 @@ def build_candidate(
     fixture_availability = loaded[
         ["season", "fixture", "match_available_at"]
     ].drop_duplicates(["season", "fixture"])
-    history_matches = player_matches.merge(
+    history_matches = context_matches.merge(
         fixture_availability,
         on=["season", "fixture"],
         how="left",
