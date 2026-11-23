@@ -10,6 +10,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/audit_2pm_dastan_286_candidate.py
       - canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py
       - canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py
+      - canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_state_vectors.py
+      - canonical_candidate/engineering_workbench/tests/test_2pm_postmatch_state_vectors.py
       - canonical_candidate/engineering_workbench/tests/test_rebuild_2pm_fixture_context.py
       - canonical_candidate/engineering_workbench/tests/test_rebuild_2pm_team_context.py
       - canonical_candidate/engineering_workbench/tests/test_rebuild_2pm_player_history.py
@@ -48,6 +50,7 @@ jobs:
           python -m py_compile scripts/audit_2pm_dastan_286_candidate.py
           python -m py_compile scripts/build_2pm_predeadline_market_snapshot.py
           python -m py_compile scripts/rebuild_2pm_fixture_context.py
+          python -m py_compile scripts/build_2pm_postmatch_state_vectors.py
       - name: Run Dastan 286 reconstruction-adapter and sequence tests
         working-directory: canonical_candidate/engineering_workbench
         env:
@@ -60,4 +63,5 @@ jobs:
             tests/test_2pm_predeadline_market_snapshot.py \
             tests/test_rebuild_2pm_fixture_context.py \
             tests/test_rebuild_2pm_team_context.py \
-            tests/test_rebuild_2pm_player_history.py
+            tests/test_rebuild_2pm_player_history.py \\
+            tests/test_2pm_postmatch_state_vectors.py
