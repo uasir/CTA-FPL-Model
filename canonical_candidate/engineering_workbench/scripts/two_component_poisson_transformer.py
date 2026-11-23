@@ -413,7 +413,12 @@ def select_training_support_shift(
     minimum_shift: int = 20,
     safety_margin: int = 5,
 ) -> int:
-    """Choose a finite lower-support offset from training-fold labels only."""
+    """Choose the lower-support offset from training-fold fixture labels only.
+
+    Do not pass repeated player-Gameweek totals as if they were fixture labels.
+    If only GW-grain labels are available, use the configured minimum shift and
+    fail closed if a later target falls below the resulting aggregate support.
+    """
     import numpy as np
 
     values = np.asarray(training_targets, dtype=np.float64).reshape(-1)
