@@ -134,6 +134,9 @@ jobs:
               }
 
           weeks = diagnostic["horizon_gameweeks"]
+          bank_after = float(best["bank_after_transfer"])
+          if abs(bank_after) < 0.000001:
+              bank_after = 0.0
           out = player(best["transfer_out_id"])
           inc = player(best["transfer_in_id"])
           action = diagnostic["recommended_action"]
@@ -150,7 +153,7 @@ jobs:
               f"**Projected net gain: {delta:+.5f} expected points** across five Gameweeks.",
               "",
               f"- Bank before transfer: £{float(manager['bank']):.1f}m",
-              f"- Bank after transfer: £{float(best['bank_after_transfer']):.1f}m",
+              f"- Bank after transfer: £{bank_after:.1f}m",
               f"- Free transfers available: {int(manager['free_transfers'])}",
               f"- Hit cost applied: {float(best['hit_cost_points_applied']):.0f} points",
               "",
