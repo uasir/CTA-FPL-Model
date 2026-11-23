@@ -1,4 +1,5 @@
 name: CTA FPL engineering CI
+# Keep the visible M4 paired replay workflow included in CI path filtering.
 
 on:
   workflow_dispatch:
