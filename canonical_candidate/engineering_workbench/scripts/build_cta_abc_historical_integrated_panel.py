@@ -69,7 +69,11 @@ def _sum(rows, field):
 def _per90(rows, field):
     total = _sum(rows, field)
     minutes = _sum(rows, "minutes_played")
-    return total * 90.0 / minutes if total is not None and minutes and minutes > 0 else None
+    # Require one full-match equivalent of exposure across the prior three
+    # verified player matches. Do not clip unstable rates; mark them missing.
+    if total is None or minutes is None or minutes < 90:
+        return None
+    return total * 90.0 / minutes
 
 
 def _difference(a, b):
