@@ -16,7 +16,9 @@ The module implements:
 - A three-parameter output head: mixture logit, `lambda_1` and `lambda_2`.
 - Sigmoid mixture probability and positive Poisson rates via softplus.
 - Analytic mixture expected points and variance.
+- Mixture tail probabilities for arbitrary non-negative integer thresholds (including 6+, 8+ and 10+).
 - Numerically stable mixture negative log-likelihood using log-sigmoid, log-add-exp and `lgamma(y + 1)`.
+- A deterministic, training-target-only two-Poisson EM/MLE initialization candidate for the mixture head; its quantile seed and component ordering are explicit adaptations, not a claimed exact reproduction of an unspecified author routine.
 - The paper's negative-points-to-zero target transformation as a separate function that returns a transformation mask and never mutates raw scores.
 
 ## Input adaptation
@@ -37,8 +39,7 @@ The test suite instantiates a two-layer model only as a small shape/gradient smo
 
 ## Not yet implemented
 
-- Training-only MLE initialization for the two Poisson rates.
-- Full training loop and chronological split integration.
+- Full training loop and chronological split integration; the rate initialization helper exists but is not yet wired into a training pipeline.
 - Sequence-token semantic freeze and full 286-feature admission.
 - Residual-NaN tensor preparation under the pinned Dastan preprocessing policy.
 - Threshold survival probabilities and the final M3 forecast adapter.
