@@ -32,7 +32,7 @@
     "lambda_transform": "softplus_plus_epsilon",
     "support": "integer_points_from_minus_support_shift_to_positive_infinity",
     "negative_points": "preserved_without_clipping; target counts are points + support_shift",
-    "support_shift_policy": "selected_using_training_fold_targets_only; minimum 20 points plus 5-point safety margin beyond observed training minimum",
+    "support_shift_policy": "fixture-level training-fold labels only: max(20, abs(minimum_negative_points)+5); if only repeated player-Gameweek labels exist, use 20 and fail closed below support",
     "below_support_policy": "fail_closed_if_any_validation_test_or_inference_label_is_below_configured_floor",
     "canonical_point_forecast": "p*lambda_1 + (1-p)*lambda_2 - support_shift",
     "variance": "two_component_poisson_mixture_count_variance_unchanged_by_constant_shift",
