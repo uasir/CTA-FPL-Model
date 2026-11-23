@@ -1,9 +1,10 @@
 """Rebuild a corrected-identity Dastan 286-feature candidate for 2PM.
 
-This deliberately reuses the pinned Dastan *feature construction* code and public
-source acquisition, never its minutes predictor or weights. The output remains an
-unadmitted candidate: the upstream deadline assertion covers only selected feature
-prefixes, and retrospective source vintages are not equivalent to archived values.
+This reuses the pinned Dastan source acquisition, schema and feature definitions,
+never its minutes predictor or weights. All 286 feature families are independently
+reconstructed or joined from accepted deadline snapshots. The output remains an
+unadmitted candidate because historical source vintages and exact match-completion
+times are not fully proven.
 """
 from __future__ import annotations
 
@@ -426,7 +427,7 @@ def build_candidate(
     candidate["identity_mapping_sha256"] = corrected_map_sha
     candidate["source_manifest_sha256"] = sha256(raw_dir / "downloads.json")
     candidate["source_vintage_status"] = "RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED"
-    candidate["deadline_status"] = "UPSTREAM_PREFIX_ASSERTION_ONLY_NOT_FULL_FRAME_VERIFIED"
+    candidate["deadline_status"] = "INDEPENDENT_286_FEATURE_RECONSTRUCTION_NOT_SOURCE_VINTAGE_ADMITTED"
     candidate["admission_status"] = "NOT_ADMITTED"
     candidate_path = output_dir / "features_286_candidate.parquet"
     candidate.to_parquet(candidate_path, index=False)
@@ -470,12 +471,12 @@ def build_candidate(
         },
         "limitations": [
             "The reconstruction uses corrected historical FPL-to-Understat assignments.",
-            "The upstream feature builder's deadline assertion covers selected prefixes, not all 286 columns.",
+            "The upstream deadline assertion is not treated as proof; all 286 feature families are independently reconstructed or joined from accepted pre-deadline snapshots, but historical source vintages and exact completion timestamps remain unadmitted.",
             "Opponent rolling features and direct ranks are rebuilt from Understat team matches using a conservative 24-hour availability bound; source-vintage and value-parity checks remain open.",
             "Player rolling, availability and defensive-history features are independently recomputed using only fixtures available before each target deadline; source-vintage and value-parity checks remain open.",
             "Fixture-specific rest, team congestion and opponent defensive-allowance context are reconstructed after the upstream deadline anchor; their source-vintage and value-parity checks remain open.",
             "Historical source-vintage revisions are not proven by reconstructing from current archived source files.",
-            "value, selected and transfers_balance are sourced from pre-deadline snapshots; unit parity against the released frame remains to be checked.",
+            "value, selected and transfers_balance are sourced from pre-deadline snapshots; retrospective-field parity is reported as a diagnostic, not treated as proof of historical snapshot vintage.",
             "Defensive-stat structural absence before 2025/26 remains subject to season-level coverage admission.",
             "The output is a candidate data artifact only; no training or M3/M4 integration is performed.",
         ],
