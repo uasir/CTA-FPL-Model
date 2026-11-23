@@ -270,6 +270,8 @@ def build_candidate(
     loaded = attach_match_availability_bounds(
         loaded, raw_dir, sources, seasons, force=force
     )
+    # Rehash after adding fixture calendars so the manifest covers every input.
+    sources.write_download_manifest(raw_dir, seasons)
     loaded["feature_cutoff_time"] = loaded["deadline_time"]
     loaded["source_vintage_status"] = "RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED"
 
