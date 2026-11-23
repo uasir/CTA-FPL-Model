@@ -231,8 +231,14 @@ def build_candidate(
     candidate_path = output_dir / "features_286_candidate.parquet"
     candidate.to_parquet(candidate_path, index=False)
 
+    source_pins = json.loads((data.DATA / "source_pins.json").read_text())
     report = {
         "status": "DASTAN_286_CANDIDATE_REBUILT",
+        "source_pins_reviewed_at": source_pins.get("reviewed_at"),
+        "source_pins": {
+            "vaastav": source_pins.get("vaastav"),
+            "fplcache": source_pins.get("fplcache"),
+        },
         "admission_status": "NOT_ADMITTED",
         "model": "2PM",
         "upstream_repository": "qazybekb/smartplayfpl-dastan",
