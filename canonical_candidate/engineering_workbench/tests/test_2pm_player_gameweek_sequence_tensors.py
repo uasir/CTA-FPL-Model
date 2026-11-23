@@ -173,3 +173,23 @@ def test_rejects_dgw_target_fixtures_with_different_deadlines(tmp_path):
             target_mode="historical",
             label_grain="player_fixture",
         )
+
+
+
+def test_nonappearance_target_fixture_is_retained_with_zero_points(tmp_path):
+    targets = make_targets(points=(3.0, 0.0))
+    targets.loc[1, "minutes"] = 0
+    report = build(
+        tmp_path,
+        make_history(),
+        targets,
+        target_mode="historical",
+        label_grain="player_fixture",
+    )
+    assert report["counts"]["emitted"] == 1
+    metadata = pd.read_csv(
+        tmp_path / "tensors" / "metadata_player_gw_00000.csv"
+    )
+    assert metadata.loc[0, "fixture_count"] == 2
+    labels = np.load(tmp_path / "tensors" / "y_player_gw_00000.npy")
+    assert labels.tolist() == [3.0]
