@@ -67,7 +67,7 @@ jobs:
           LOG_PATH: ${{ runner.temp }}/2pm-dastan-rebuild.log
           AUDIT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json
           SEQUENCE_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_sequence_report.json
-          SUMMARY_PATH: ${{ github.step_summary }}
+          SUMMARY_PATH: ${{ runner.temp }}/2pm-dastan-step-summary.md
         run: |
           python - <<'PY'
           import json
@@ -114,3 +114,4 @@ jobs:
               tail = "\n".join(log.read_text(errors="replace").splitlines()[-30:]) if log.exists() else "No rebuild log was produced."
               summary.write_text("## 2PM Dastan 286 candidate rebuild\n\nRebuild did not produce a candidate report.\n\n```text\n" + tail + "\n```\n")
           PY
+          cat "$RUNNER_TEMP/2pm-dastan-step-summary.md" >> "$GITHUB_STEP_SUMMARY"
