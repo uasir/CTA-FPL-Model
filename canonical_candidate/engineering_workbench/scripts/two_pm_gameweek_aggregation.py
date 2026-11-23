@@ -1,0 +1,138 @@
+"""Aggregate fixture-level 2PM distributions to an FPL player-Gameweek forecast.
+
+The only implemented aggregation assumption is explicit conditional independence of
+fixture scores. The resulting sum is a 2^n-component Poisson mixture, not generally
+a two-component mixture. This module does not make squad or portfolio decisions.
+"""
+from __future__ import annotations
+
+import math
+from typing import Any, Sequence
+
+
+def _poisson_tail(rate: float, threshold: int) -> float:
+    if threshold <= 0:
+        return 1.0
+    cdf_below = sum(
+        math.exp(-rate + points * math.log(rate) - math.lgamma(points + 1.0))
+        for points in range(threshold)
+    )
+    return min(1.0, max(0.0, 1.0 - cdf_below))
+
+
+def aggregate_fixture_forecasts_to_gameweek(
+    fixture_records: Sequence[dict[str, Any]],
+    *,
+    dependence_assumption: str,
+) -> dict[str, Any]:
+    """Convolve fixture-level mixture distributions under an explicit assumption."""
+    if dependence_assumption != "independent_fixture_scores":
+        raise ValueError(
+            "dependence_assumption must explicitly be 'independent_fixture_scores'"
+        )
+    records = list(fixture_records)
+    if not records:
+        raise ValueError("at least one fixture forecast is required")
+
+    required = {
+        "player_id", "target_gameweek", "target_fixture_id", "model_name",
+        "model_version", "feature_schema_version", "forecast_as_of",
+        "training_cutoff", "data_snapshot_hashes", "p", "lambda_1",
+        "lambda_2", "expected_points", "variance", "standard_deviation",
+    }
+    for index, record in enumerate(records):
+        missing = sorted(required - set(record))
+        if missing:
+            raise ValueError(f"fixture forecast {index} missing fields: {missing}")
+    player_ids = {str(record["player_id"]) for record in records}
+    gameweeks = {int(record["target_gameweek"]) for record in records}
+    if len(player_ids) != 1 or len(gameweeks) != 1:
+        raise ValueError("all fixture forecasts must belong to one player and Gameweek")
+    fixture_ids = [str(record["target_fixture_id"]) for record in records]
+    if len(fixture_ids) != len(set(fixture_ids)):
+        raise ValueError("duplicate fixture forecasts found for one player/Gameweek")
+
+    invariant_fields = (
+        "model_name", "model_version", "feature_schema_version",
+        "forecast_as_of", "training_cutoff", "data_snapshot_hashes",
+    )
+    for field in invariant_fields:
+        if any(record[field] != records[0][field] for record in records[1:]):
+            raise ValueError(f"fixture forecasts disagree on {field}")
+
+    components: list[tuple[float, float]] = [(1.0, 0.0)]
+    for record in records:
+        p = float(record["p"])
+        lambda_1 = float(record["lambda_1"])
+        lambda_2 = float(record["lambda_2"])
+        if not (0.0 < p < 1.0) or lambda_1 <= 0 or lambda_2 <= 0:
+            raise ValueError("fixture mixture parameters must be valid")
+        expanded = []
+        for weight, rate_sum in components:
+            expanded.append((weight * p, rate_sum + lambda_1))
+            expanded.append((weight * (1.0 - p), rate_sum + lambda_2))
+        components = expanded
+
+    total_weight = sum(weight for weight, _ in components)
+    components = [
+        (weight / total_weight, rate)
+        for weight, rate in components
+    ]
+    expected_points = sum(weight * rate for weight, rate in components)
+    second_moment = sum(
+        weight * (rate + rate * rate) for weight, rate in components
+    )
+    variance = max(0.0, second_moment - expected_points * expected_points)
+
+    return {
+        "player_id": records[0]["player_id"],
+        "target_gameweek": int(records[0]["target_gameweek"]),
+        "target_fixture_ids": [record["target_fixture_id"] for record in records],
+        "forecast_grain": "player_gameweek",
+        "forecast_type": "independent_sum_of_fixture_poisson_mixtures",
+        "aggregation_assumption": dependence_assumption,
+        "fixture_count": len(records),
+        "model_name": records[0]["model_name"],
+        "model_version": records[0]["model_version"],
+        "feature_schema_version": records[0]["feature_schema_version"],
+        "forecast_as_of": records[0]["forecast_as_of"],
+        "training_cutoff": records[0]["training_cutoff"],
+        "data_snapshot_hashes": records[0]["data_snapshot_hashes"],
+        "expected_points": expected_points,
+        "variance": variance,
+        "standard_deviation": math.sqrt(variance),
+        "probability_6_plus": sum(
+            weight * _poisson_tail(rate, 6) for weight, rate in components
+        ),
+        "probability_8_plus": sum(
+            weight * _poisson_tail(rate, 8) for weight, rate in components
+        ),
+        "probability_10_plus": sum(
+            weight * _poisson_tail(rate, 10) for weight, rate in components
+        ),
+        "mixture_components": [
+            {"weight": weight, "lambda": rate}
+            for weight, rate in components
+        ],
+        "fixture_forecasts": [
+            {
+                "fixture_id": record["target_fixture_id"],
+                "p": float(record["p"]),
+                "lambda_1": float(record["lambda_1"]),
+                "lambda_2": float(record["lambda_2"]),
+                "expected_points": float(record["expected_points"]),
+                "variance": float(record["variance"]),
+            }
+            for record in records
+        ],
+        "quality_metadata": {
+            "fixture_quality": [
+                record.get("quality_metadata", {}) for record in records
+            ],
+            "distribution_note": (
+                "Exact convolution under independent fixture-score draws; "
+                "cross-fixture dependence is not modelled."
+            ),
+        },
+        "production_eligible": False,
+    }
