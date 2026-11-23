@@ -50,18 +50,18 @@ jobs:
       - name: Download the exact five-GW CTA forecast bundle
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.forecast_artifact_name }}
+          name: ${{ inputs.forecast_artifact_name || 'cta-five-gw-candidate-forecast' }}
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.forecast_run_id }}
+          run-id: ${{ inputs.forecast_run_id || '45078708036' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: outputs/cta-five-gw
 
       - name: Download the shared M3 manager-state capture
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.manager_context_artifact_name }}
+          name: ${{ inputs.manager_context_artifact_name || 'fplcat-manager-context-12-45076380380' }}
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.manager_context_run_id }}
+          run-id: ${{ inputs.manager_context_run_id || '45076380380' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: outputs/manager-state
 
@@ -247,10 +247,10 @@ jobs:
 
       - name: Write paired replay manifest
         env:
-          MANAGER_CONTEXT_RUN_ID: ${{ inputs.manager_context_run_id }}
-          MANAGER_CONTEXT_ARTIFACT: ${{ inputs.manager_context_artifact_name }}
-          FORECAST_RUN_ID: ${{ inputs.forecast_run_id }}
-          FORECAST_ARTIFACT: ${{ inputs.forecast_artifact_name }}
+          MANAGER_CONTEXT_RUN_ID: ${{ inputs.manager_context_run_id || '45076380380' }}
+          MANAGER_CONTEXT_ARTIFACT: ${{ inputs.manager_context_artifact_name || 'fplcat-manager-context-12-45076380380' }}
+          FORECAST_RUN_ID: ${{ inputs.forecast_run_id || '45078708036' }}
+          FORECAST_ARTIFACT: ${{ inputs.forecast_artifact_name || 'cta-five-gw-candidate-forecast' }}
           IMPLEMENTATION_COMMIT: ${{ steps.implementation.outputs.commit }}
         run: |
           python - <<'PY'
