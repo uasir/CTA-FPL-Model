@@ -433,6 +433,7 @@ jobs:
             run_artifacts/11footy/output/abc_11footy_only/cta_abc_current_inference_panel_report.json
           retention-days: 30
 
+      # Forecast report includes input feature ranges and output distribution diagnostics.
       # The 11footy-only panel is retained as a current-source feature adapter.
       # Do not train a disconnected 11footy-only points model: ABC inference must
       # use the shared historical 11footy-primary/Wyscout-supplementary model.
