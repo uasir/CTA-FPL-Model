@@ -206,7 +206,7 @@ The builder deliberately preserves the completed fixture's pre-kickoff context (
 
 The new contract tests verify post-match timestamp anchoring, feature-family refresh, retention of pre-match contextual/snapshot values, and rejection of non-appearances, missing availability timestamps and duplicate player-fixture keys. The focused 2PM workflow now compiles and runs this new contract.
 
-**Not yet complete:** this is the post-match state-vector reconstruction layer, not the final sequence tensor or training implementation. The downstream sequence builder still needs to consume these post-match vectors, enforce the agreed five-previous-played-match and 21-day rules, prevent unverified cross-season history, and emit one target Gameweek training sample rather than duplicate a full Gameweek label across DGW fixture rows. The current target-query inference path also still emits fixture-level queries; DGW training must aggregate fixture distributions against one player-Gameweek label.
+**Not yet complete:** this is the post-match state-vector reconstruction layer, not the final sequence tensor or training implementation. The initial post-match and grouped player-Gameweek builders now implement these contracts. They remain candidate implementations pending full historical-data execution, temporal/source admission and CI verification.
 
 All vectors remain `NOT_ADMITTED`. Historical source-vintage/rights checks, 286-feature admission, row-level temporal validation, model training and M2/M4 evaluation gates remain unchanged.
 
@@ -227,13 +227,13 @@ It consumes the post-match state vectors for historical context and the original
 - historical tokens are restricted to the same season and must have `postmatch_state_as_of_time < target deadline`;
 - the 21-day gap rule is applied from the five historical match kickoffs to the first target fixture kickoff.
 
-For a Double Gameweek, the dataset now represents **one player-Gameweek sample with two fixture queries and one Gameweek label**. The training label grain must be supplied explicitly:
-- `player_fixture`: sum the verified fixture-level points once to form the Gameweek total;
+For a Double Gameweek, the dataset now represents **one player-Gameweek sample with two fixture queries and one Gameweek label**. The pinned Dastan source contract has now been checked directly at revision `758db9247e8b3a9a870c991064f74d8339d61cd0`: one row per player-fixture, with `target_points` defined as points scored in that fixture. The candidate builder stamps this metadata and the grouped builder infers `player_fixture` only from that verified declaration. Other providers still require an explicit grain:
+- `player_fixture`: sum fixture-level points once to form the Gameweek total;
 - `player_gameweek`: require the same Gameweek total on every fixture row and deduplicate it, never sum duplicates.
 
 The builder preserves negative integer points. It does not clip or reclassify them. Inference mode emits the same grouped fixture-query structure with no realized target label.
 
-The intended model call is to flatten the player-Gameweek and fixture axes, run the existing six-token encoder independently for each fixture query, reshape the per-fixture mixture outputs, then aggregate them to one Gameweek distribution before computing one player-Gameweek loss. This prevents training the same full-GW label twice for a Double Gameweek. The exact generalized-mixture likelihood and cross-fixture dependence treatment remain to be implemented and validated.
+The intended model call is to flatten the player-Gameweek and fixture axes, run the existing six-token encoder independently for each fixture query, reshape the per-fixture mixture outputs, then aggregate them to one Gameweek distribution before computing one player-Gameweek loss. This prevents training the same full-GW label twice for a Double Gameweek. The differentiable exact generalized-mixture likelihood is implemented. Cross-fixture independence is an explicit provisional assumption and still requires calibration/sensitivity testing.
 
 The focused workflow now includes the post-match state and grouped player-Gameweek sequence contracts. Its latest status has not yet been independently verified; no test-pass claim is made.
 
@@ -249,7 +249,7 @@ The primary research candidate no longer clips negative player points to zero. A
 - the likelihood uses `observed_points + support_shift`, and rejects labels below the configured support floor;
 - the original `prepare_paper_targets` negative-to-zero transformation remains available only as a paper-faithful benchmark, not the primary signed-score path.
 
-The support offset is not selected from validation or test data. The candidate policy chooses it from each training fold only: at least 20 points, or five points below the most negative training label if that requires a larger offset. Any validation/test label below the frozen floor fails closed and requires a new training-fold configuration; it is not clipped.
+The support offset is not selected from validation or test data. The candidate policy chooses it from each training fold only: at least 20 points, or five points below the most negative verified fixture-level training label if that requires a larger offset. If only repeated Gameweek labels exist, use the minimum 20-point offset and fail closed below its aggregate support. Any validation/test label below the frozen floor fails closed and requires a new training-fold configuration; it is not clipped.
 
 The fixture forecast adapter and player-Gameweek aggregator now carry the offset. Under the explicit independent-fixture assumption, a Gameweek with F fixtures has aggregate lower support `-F * support_shift`, a `2^F)-component Poisson mixture, and one signed Gameweek forecast.
 
