@@ -8,6 +8,7 @@ feature and sequence admission gates remain separate from this model module.
 from __future__ import annotations
 
 from typing import Any
+import math
 
 try:
     import torch
@@ -204,6 +205,147 @@ def poisson_mixture_negative_log_likelihood(
     if reduction == "sum":
         return losses.sum()
     return losses
+
+
+def poisson_mixture_tail_probability(
+    output: dict[str, Any], threshold: int
+):
+    """Return P(Y >= threshold) under the two-component Poisson mixture."""
+    if torch is None:
+        raise ImportError("PyTorch is required for mixture tail probabilities")
+    if int(threshold) != threshold or threshold < 0:
+        raise ValueError("threshold must be a non-negative integer")
+    if threshold == 0:
+        return torch.ones_like(output["lambda_1"])
+    rates = [output["lambda_1"], output["lambda_2"]]
+    tails = []
+    support = torch.arange(
+        int(threshold),
+        dtype=output["lambda_1"].dtype,
+        device=output["lambda_1"].device,
+    )
+    for rate in rates:
+        log_pmf = (
+            -rate.unsqueeze(-1)
+            + support * torch.log(rate.unsqueeze(-1))
+            - torch.lgamma(support + 1.0)
+        )
+        cdf_below = torch.exp(log_pmf).sum(dim=-1).clamp(0.0, 1.0)
+        tails.append((1.0 - cdf_below).clamp(0.0, 1.0))
+    return output["p"] * tails[0] + (1.0 - output["p"]) * tails[1]
+
+
+def fit_training_poisson_mixture_mle(
+    training_targets,
+    *,
+    max_iter: int = 500,
+    tolerance: float = 1e-9,
+    epsilon: float = 1e-6,
+) -> dict[str, float | int]:
+    """Fit a two-Poisson mixture by EM using the supplied training labels only.
+
+    This is a transparent candidate implementation of the paper's training-only
+    MLE initialization. Deterministic quantile partitioning seeds EM; it is not
+    claimed to reproduce an unspecified author initialization routine exactly.
+    """
+    import numpy as np
+
+    values = np.asarray(training_targets, dtype=np.float64).reshape(-1)
+    if values.size == 0 or not np.isfinite(values).all():
+        raise ValueError("training_targets must be a non-empty finite array")
+    if (values < 0).any() or not np.equal(values, np.round(values)).all():
+        raise ValueError("training_targets must be non-negative integer points")
+    if max_iter <= 0 or tolerance <= 0 or epsilon <= 0:
+        raise ValueError("max_iter, tolerance and epsilon must be positive")
+
+    split = float(np.median(values))
+    lower = values[values <= split]
+    upper = values[values > split]
+    if lower.size == 0 or upper.size == 0:
+        mean = max(float(values.mean()), epsilon)
+        lambda_1 = mean
+        lambda_2 = max(float(values.mean() + values.std()), epsilon)
+        p = 0.5
+    else:
+        lambda_1 = max(float(lower.mean()), epsilon)
+        lambda_2 = max(float(upper.mean()), epsilon)
+        p = float(lower.size / values.size)
+
+    log_factorial = np.asarray(
+        [math.lgamma(float(value) + 1.0) for value in values],
+        dtype=np.float64,
+    )
+    iterations = 0
+    for iterations in range(1, max_iter + 1):
+        log_1 = (
+            np.log(max(p, epsilon))
+            + values * np.log(lambda_1)
+            - lambda_1
+            - log_factorial
+        )
+        log_2 = (
+            np.log(max(1.0 - p, epsilon))
+            + values * np.log(lambda_2)
+            - lambda_2
+            - log_factorial
+        )
+        normalizer = np.logaddexp(log_1, log_2)
+        responsibility_1 = np.exp(log_1 - normalizer)
+        responsibility_2 = 1.0 - responsibility_1
+        weight_1 = max(float(responsibility_1.sum()), epsilon)
+        weight_2 = max(float(responsibility_2.sum()), epsilon)
+        next_p = float(np.clip(responsibility_1.mean(), epsilon, 1.0 - epsilon))
+        next_lambda_1 = max(
+            float(np.dot(responsibility_1, values) / weight_1), epsilon
+        )
+        next_lambda_2 = max(
+            float(np.dot(responsibility_2, values) / weight_2), epsilon
+        )
+        change = max(
+            abs(next_p - p),
+            abs(next_lambda_1 - lambda_1),
+            abs(next_lambda_2 - lambda_2),
+        )
+        p, lambda_1, lambda_2 = next_p, next_lambda_1, next_lambda_2
+        if change < tolerance:
+            break
+
+    return {
+        "p": float(p),
+        "lambda_1": float(lambda_1),
+        "lambda_2": float(lambda_2),
+        "iterations": int(iterations),
+        "training_rows": int(values.size),
+        "converged": bool(iterations < max_iter or change < tolerance),
+        "initialization": "training_only_quantile_seeded_two_poisson_em_mle",
+    }
+
+
+def initialize_mixture_head_from_training_targets(
+    model,
+    training_targets,
+    *,
+    max_iter: int = 500,
+    tolerance: float = 1e-9,
+) -> dict[str, float | int]:
+    """Initialize output-head biases from a training-only two-Poisson EM fit."""
+    if torch is None:
+        raise ImportError("PyTorch is required for model initialization")
+    fitted = fit_training_poisson_mixture_mle(
+        training_targets, max_iter=max_iter, tolerance=tolerance,
+        epsilon=model.epsilon,
+    )
+    p = min(max(float(fitted["p"]), model.epsilon), 1.0 - model.epsilon)
+    lambda_1 = max(float(fitted["lambda_1"]) - model.epsilon, model.epsilon)
+    lambda_2 = max(float(fitted["lambda_2"]) - model.epsilon, model.epsilon)
+    inverse_softplus_1 = math.log(math.expm1(lambda_1))
+    inverse_softplus_2 = math.log(math.expm1(lambda_2))
+    with torch.no_grad():
+        model.mixture_head.bias[0] = math.log(p / (1.0 - p))
+        model.mixture_head.bias[1] = inverse_softplus_1
+        model.mixture_head.bias[2] = inverse_softplus_2
+    fitted["initialization"] = "training_only_quantile_seeded_two_poisson_em_mle"
+    return fitted
 
 
 def prepare_paper_targets(raw_targets):
