@@ -270,3 +270,8 @@ A model-side batch adapter, `forward_player_gameweek_batch`, now accepts the gro
 
 
 The post-match state builder now also fails closed if a played row's player-data availability exceeds the conservative kickoff + 24-hour team-data bound. This keeps the state timestamp from drifting far enough to admit a later-kickoff fixture under the same availability rule. The guard is a source-contract check, not a substitute for row-level validation of the archived availability metadata.
+
+
+Target-query provenance validation was hardened in the grouped player-Gameweek builder. If a general `source_as_of_time` column is supplied, every row must have a valid timestamp strictly before the deadline. If individual ep_next, availability/news or market snapshot timestamps are supplied, malformed timestamps are rejected; missing timestamps are accepted only when the corresponding feature values are all the explicit `-1` missing-snapshot sentinels; present timestamps must meet the five-minute safety buffer. Exactly five minutes before deadline is accepted. Tests cover missing general capture time, unvintaged real market values, valid missing sentinels and the five-minute boundary.
+
+The latest focused-test commit has no reported commit-status checks available through the repository connection. These tests have been added to the existing focused workflow, but execution remains unverified.
