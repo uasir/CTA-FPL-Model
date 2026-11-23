@@ -27,6 +27,12 @@ The candidate input is six tokens × 286 features: five previous played-fixture 
 
 The current sequence builder's pre-match-row semantics remain provisional. The recommended post-match historical-state representation is still an open design decision. The model accepts the tensor contract; it does not certify the underlying features or token semantics.
 
+## Forecast grain and Double Gameweek boundary
+
+The current sequence and model contract is **player-fixture**: five previous played fixtures plus one target-fixture query token, with the target label being that fixture's FPL points. A Double Gameweek therefore produces separate fixture-level forecasts for the same player and Gameweek. The forecast-record adapter preserves `player_id`, `target_gameweek` and `target_fixture_id` so those predictions cannot be confused or overwritten.
+
+The player-Gameweek aggregation needed by M3 is not implemented yet. Summing fixture expected points is straightforward, but combining predictive distributions requires an explicit dependence assumption; the sum of independent two-component Poisson mixtures is generally a four-or-more-component mixture, not another two-component mixture. Do not silently average fixture forecasts or pretend a Double Gameweek has one fixture. Keep fixture-level forecasts intact until the GW aggregation contract is specified.
+
 ## Explicit implementation choices
 
 - Embedding width 256, eight attention heads and dropout 0.22 follow the paper's reported tuned configuration.
