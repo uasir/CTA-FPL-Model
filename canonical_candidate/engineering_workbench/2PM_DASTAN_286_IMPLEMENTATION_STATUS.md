@@ -236,3 +236,23 @@ The builder preserves negative integer points. It does not clip or reclassify th
 The intended model call is to flatten the player-Gameweek and fixture axes, run the existing six-token encoder independently for each fixture query, reshape the per-fixture mixture outputs, then aggregate them to one Gameweek distribution before computing one player-Gameweek loss. This prevents training the same full-GW label twice for a Double Gameweek. The exact generalized-mixture likelihood and cross-fixture dependence treatment remain to be implemented and validated.
 
 The focused workflow now includes the post-match state and grouped player-Gameweek sequence contracts. Its latest status has not yet been independently verified; no test-pass claim is made.
+
+
+## 2026-11-23 continuation — preserve negative FPL points with a shifted mixture
+
+The primary research candidate no longer clips negative player points to zero. A signed-score adaptation has been added to `two_component_poisson_transformer.py`:
+
+- the model retains the two-component Poisson mixture and predicts a non-negative latent count;
+- the observed FPL point value is represented as `count - support_shift`;
+- fixture expected points are `p*lambda_1 + (1-p)*lambda_2 - support_shift`;
+- the constant shift leaves the mixture variance unchanged;
+- the likelihood uses `observed_points + support_shift`, and rejects labels below the configured support floor;
+- the original `prepare_paper_targets` negative-to-zero transformation remains available only as a paper-faithful benchmark, not the primary signed-score path.
+
+The support offset is not selected from validation or test data. The candidate policy chooses it from each training fold only: at least 20 points, or five points below the most negative training label if that requires a larger offset. Any validation/test label below the frozen floor fails closed and requires a new training-fold configuration; it is not clipped.
+
+The fixture forecast adapter and player-Gameweek aggregator now carry the offset. Under the explicit independent-fixture assumption, a Gameweek with F fixtures has aggregate lower support `-F * support_shift`, a `2^F)-component Poisson mixture, and one signed Gameweek forecast.
+
+A differentiable `independent_fixture_gameweek_negative_log_likelihood` now expands the fixture mixtures and computes one loss per player-Gameweek. This is the training-loss contract needed by the grouped DGW tensor format. The tests cover negative values, shifted moments/tails, training-only support selection, exact two-fixture mixture likelihood and gradients.
+
+This is a clearly labelled distributional adaptation, not the paper's original non-negative Poisson target. It remains research-only until chronological out-of-sample calibration and predictive performance can be compared against (a) the paper-faithful clipped baseline and (b) alternative signed discrete distributions. The 20-point minimum is a provisional floor policy, not a claim that the theoretical FPL lower bound is exactly -20.
