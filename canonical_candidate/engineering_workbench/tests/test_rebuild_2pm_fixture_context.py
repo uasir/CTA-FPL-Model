@@ -8,6 +8,8 @@ def row(season, fixture, code, team, opponent, kickoff, available, dc, tackles):
         "season": season,
         "fixture": fixture,
         "fpl_code": code,
+        "element": code,
+        "understat_id": code * 10,
         "team_name": team,
         "opponent_team_name": opponent,
         "kickoff_time": pd.Timestamp(kickoff, tz="UTC"),
