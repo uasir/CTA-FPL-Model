@@ -243,6 +243,9 @@ jobs:
           Path("outputs/paired-replay/recommendation-report.md").write_text(report)
           with open(__import__("os").environ["GITHUB_STEP_SUMMARY"], "a") as summary:
               summary.write(report + "\n")
+          print("VISIBLE_RECOMMENDATION_REPORT_BEGIN")
+          print(report)
+          print("VISIBLE_RECOMMENDATION_REPORT_END")
           PY
 
       - name: Write paired replay manifest
