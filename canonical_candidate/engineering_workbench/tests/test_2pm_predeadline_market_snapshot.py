@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pandas as pd
+import pandas as pd
 import pytest
 
 from build_2pm_predeadline_market_snapshot import (
@@ -117,3 +118,27 @@ def test_five_minute_safety_buffer_rejects_missing_capture_age():
     safe, removed = filter_snapshot_safety_buffer(frame, safety_buffer_minutes=5)
     assert removed == 1
     assert safe["fpl_code"].tolist() == [2]
+
+
+
+def test_market_value_parity_audit_detects_native_price_unit_mismatch(tmp_path):
+    market_path = tmp_path / "market.parquet"
+    pd.DataFrame(
+        [{
+            "season": "2025-26", "gameweek": 20, "fpl_code": 123,
+            "value": 55.0, "selected": 7.3, "transfers_balance": 60.0,
+        }]
+    ).to_parquet(market_path, index=False)
+    source = pd.DataFrame(
+        [{
+            "season": "2025-26", "gameweek": 20, "fpl_code": 123,
+            "value": 55.0, "selected": 7.3, "transfers_balance": 60.0,
+        }]
+    )
+    report = audit_market_value_parity(source, market_path)
+    assert report["fields"]["value"]["exact_match_rate"] == 1.0
+
+    source.loc[0, "value"] = 5.5
+    report = audit_market_value_parity(source, market_path)
+    assert report["fields"]["value"]["exact_match_rate"] == 0.0
+    assert report["fields"]["value"]["mean_absolute_difference"] == 49.5
