@@ -142,7 +142,7 @@ def test_rejects_duplicate_player_fixture_history_rows():
 def test_availability_uses_position_base_rates_when_no_prior_rows():
     target_history = pd.DataFrame(
         [
-            player_row("target", "2026-01-10", "2026-01-11", points=5, goals=1, minutes=90, home=True, dc=15, cbit=4, recoveries=2, tackles=2, starts=1),
+            player_row("target", "2026-01-10", "2026-01-11", points=0, goals=0, minutes=0, home=True, dc=0, cbit=0, recoveries=0, tackles=0, starts=0),
         ]
     )
     target_history["match_available_at"] = pd.NaT
