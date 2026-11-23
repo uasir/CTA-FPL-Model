@@ -109,7 +109,7 @@ def test_builds_postmatch_state_after_all_required_match_data_is_available(monke
 def test_rejects_non_appearance_rows():
     frame = make_candidate()
     frame.loc[0, "minutes"] = 0
-    with pytest.raises(ValueError, match="actually played fixtures"):
+    with pytest.raises(ValueError, match="No played fixture rows"):
         builder.build_postmatch_state_vectors(
             frame, pd.DataFrame(), pd.DataFrame(), object(), FEATURES
         )
@@ -169,3 +169,39 @@ def test_reconstruction_is_scoped_to_each_season(monkeypatch):
     assert seen_team_seasons == [("2025-26",), ("2026-27",)]
     assert result["season"].tolist() == ["2025-26", "2026-27"]
     assert report["cross_season_history"].startswith("excluded")
+
+
+
+def test_mixed_frame_excludes_nonappearances_from_historical_state_tokens(monkeypatch):
+    frame = make_candidate()
+    dnp = make_candidate()
+    dnp.loc[0, "fixture"] = "102"
+    dnp.loc[0, "minutes"] = 0
+    dnp.loc[0, "match_available_at"] = pd.NaT
+    frame = pd.concat([frame, dnp], ignore_index=True)
+
+    def player_rebuild(targets, history, features_module):
+        return targets.copy(), {"status": "player_rebuilt"}
+
+    def team_rebuild(targets, history, features_module):
+        return targets.copy(), {"status": "team_rebuilt"}
+
+    def fixture_rebuild(targets, history):
+        out = targets.copy()
+        for column in builder.POSTMATCH_OPPONENT_CONTEXT:
+            out[column] = 1.0
+        return out, {"status": "fixture_rebuilt"}
+
+    monkeypatch.setattr(builder, "rebuild_player_history_features", player_rebuild)
+    monkeypatch.setattr(builder, "rebuild_deadline_team_context", team_rebuild)
+    monkeypatch.setattr(builder, "rebuild_fixture_context", fixture_rebuild)
+    result, report = builder.build_postmatch_state_vectors(
+        frame,
+        pd.DataFrame({"season": ["2026-27"]}),
+        pd.DataFrame({"season": ["2026-27"]}),
+        object(),
+        FEATURES,
+    )
+    assert len(result) == 1
+    assert result.loc[0, "fixture"] == "101"
+    assert report["nonappearance_rows_excluded"] == 1
