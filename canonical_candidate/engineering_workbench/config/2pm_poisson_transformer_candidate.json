@@ -39,7 +39,7 @@
     "early_stopping_patience": 5,
     "early_stopping_min_delta": 0.0001,
     "loss": "two_component_poisson_mixture_negative_log_likelihood",
-    "rate_initialization": "TRAINING_ONLY_MLE_PENDING_IMPLEMENTATION"
+    "rate_initialization": "training_only_quantile_seeded_two_poisson_em_mle_candidate_exact_author_initialization_unresolved"
   },
   "paper_unspecified_or_open": [
     "selected_transformer_layer_count",
