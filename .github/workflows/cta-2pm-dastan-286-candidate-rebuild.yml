@@ -10,6 +10,7 @@ on:
       - canonical_candidate/engineering_workbench/scripts/audit_2pm_dastan_286_candidate.py
       - canonical_candidate/engineering_workbench/scripts/build_2pm_dastan_sequence_dataset.py
       - canonical_candidate/engineering_workbench/scripts/prepare_2pm_candidate_tensors.py
+      - canonical_candidate/engineering_workbench/scripts/prepare_2pm_candidate_tensors.py
       - .github/workflows/cta-2pm-dastan-286-candidate-rebuild.yml
   workflow_dispatch:
 
@@ -125,6 +126,8 @@ jobs:
                       f"- Candidate five-played-match sequences: {counts.get('emitted')}",
                       f"- Excluded: insufficient history={counts.get('insufficient_previous_played_matches')}, gap>{sequence.get('maximum_inter_observation_gap_days')}d={counts.get('gap_over_21_days')}",
                       f"- Tensor shards: {len(sequence.get('shards', []))}",
+                      f"- Residual NaNs imputed to 0.0: {preparation.get('residual_nan_values_imputed_to_zero')}",
+                      f"- Preserved -1 snapshot sentinels: {preparation.get('preserved_minus_one_snapshot_sentinels')}",
                       "- Sequence tensors are candidate-only and not admitted for model training."
                   ])
               summary.write_text("\n".join(lines) + "\n")
