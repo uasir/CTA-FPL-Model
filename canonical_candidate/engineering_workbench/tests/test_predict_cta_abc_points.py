@@ -1,4 +1,6 @@
-from predict_cta_abc_points import build_report, score_rows
+import json
+
+from predict_cta_abc_points import build_report, score_rows, write_json
 from train_fpl_exploratory_ridge import fit_ridge
 
 
@@ -58,3 +60,11 @@ def test_forecast_report_flags_missing_wyscout_features_and_research_only():
     assert report["production_eligible"] is False
     assert report["current_wyscout_fallback_available"] is False
     assert report["features_with_zero_observation"] == ["abc_progressive_passes"]
+
+
+def test_write_json_emits_parseable_json_with_real_newline(tmp_path):
+    path = tmp_path / "report.json"
+    write_json(path, {"status": "PASS", "rows": 12})
+    raw = path.read_text(encoding="utf-8")
+    assert raw.endswith("\n")
+    assert json.loads(raw) == {"status": "PASS", "rows": 12}
