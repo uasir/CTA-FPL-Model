@@ -448,6 +448,7 @@ jobs:
             --model "$MODEL" \
             --input-panel "$PANEL" \
             --out-dir run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_points_model
+          python -m json.tool run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_points_model/abc_points_inference_report.json >/dev/null
 
       - name: Install CPU PyTorch for independent 2PM comparator
         if: always()
