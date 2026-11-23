@@ -67,6 +67,16 @@ def extract_market(
     return rows
 
 
+
+def filter_snapshot_safety_buffer(
+    frame: pd.DataFrame, *, safety_buffer_minutes: int = 5
+) -> tuple[pd.DataFrame, int]:
+    if safety_buffer_minutes < 0:
+        raise ValueError("safety_buffer_minutes cannot be negative")
+    age = pd.to_numeric(frame["age_hours"], errors="coerce")
+    unsafe = age.isna() | age.lt(safety_buffer_minutes / 60.0)
+    return frame.loc[~unsafe].copy(), int(unsafe.sum())
+
 def build_market_artifact(
     raw_dir: Path,
     output_dir: Path,
@@ -88,10 +98,9 @@ def build_market_artifact(
         raise ValueError("Pre-deadline market artifact has duplicate player/Gameweek keys")
     if frame["snapshot_at"].ge(frame["deadline_time"]).any():
         raise ValueError("Pre-deadline market artifact contains post-deadline snapshots")
-    frame["age_hours"] = pd.to_numeric(frame["age_hours"], errors="coerce")
-    unsafe = frame["age_hours"].lt(safety_buffer_minutes / 60.0)
-    removed_for_buffer = int(unsafe.sum())
-    frame = frame.loc[~unsafe].copy()
+    frame, removed_for_buffer = filter_snapshot_safety_buffer(
+        frame, safety_buffer_minutes=safety_buffer_minutes
+    )
     if frame.empty:
         raise RuntimeError("No market snapshots remain after the five-minute safety buffer")
     for column in MARKET_FIELDS:
