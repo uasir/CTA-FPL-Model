@@ -58,6 +58,20 @@ def per90(value, minutes):
     return value * 90.0 / minutes
 
 
+def exposure_aware_per90(value, minutes_avg, prior_match_count):
+    """Return a per-90 rate only after at least 90 minutes of recent exposure.
+
+    The rolling averages are over the previous three verified player matches;
+    multiplying the average minutes by that window's actual row count recovers
+    total exposure. Low-exposure rates remain missing rather than being clipped.
+    """
+    if minutes_avg is None or prior_match_count <= 0:
+        return None
+    if minutes_avg * prior_match_count < 90:
+        return None
+    return per90(value, minutes_avg)
+
+
 def coverage(features):
     return {name: "OBSERVED" if value is not None else "MISSING"
             for name, value in features.items()}
@@ -103,6 +117,7 @@ def build_panel(rows, source_report):
         snapshot_available = truth(row.get("cta_snapshot_available_as_of_deadline")) and source_as_of <= deadline
         identity_verified = truth(row.get("identity_verified"))
         prior_count = int(number(row.get("cta_prior_matches_count")) or 0)
+        prior3_count = int(number(row.get("cta_prior3_matches_count")) or 0)
 
         minutes3, minutes5 = prior(row, "minutes_played", 3), prior(row, "minutes_played", 5)
         key_passes3, key_passes5 = prior(row, "key_passes", 3), prior(row, "key_passes", 5)
@@ -122,8 +137,8 @@ def build_panel(rows, source_report):
             "recent_action_trend": None,
             "team_final_third_entries": None,
             "team_successful_dribbles": None,
-            "player_key_pass_rate": per90(key_passes3, minutes3),
-            "player_tracked_xg_rate": per90(xg3, minutes3),
+            "player_key_pass_rate": exposure_aware_per90(key_passes3, minutes3, prior3_count),
+            "player_tracked_xg_rate": exposure_aware_per90(xg3, minutes3, prior3_count),
             "recent_key_pass_trend": key_passes3 - key_passes5 if key_passes3 is not None and key_passes5 is not None else None,
             "recent_xg_trend": xg3 - xg5 if xg3 is not None and xg5 is not None else None,
         }
@@ -144,20 +159,20 @@ def build_panel(rows, source_report):
             "team_recoveries": None,
             "team_duels_won": None,
             "opponent_box_attempts_allowed": None,
-            "player_fouls_committed_rate": per90(fouls3, minutes3),
+            "player_fouls_committed_rate": exposure_aware_per90(fouls3, minutes3, prior3_count),
         }
         # C: player involvement, threat and minutes stability from prior matches.
         c = {
             "role_stability": None,
             "minutes_trend": minutes3 - minutes5 if minutes3 is not None and minutes5 is not None else None,
             "attacking_involvement": involvement,
-            "threat_creation_rate": per90(key_passes3, minutes3),
+            "threat_creation_rate": exposure_aware_per90(key_passes3, minutes3, prior3_count),
             # 11footy attempts_inside_box are shot attempts, not receptions.
             # Keep receiver-level threat evidence missing rather than relabel it.
             "threat_reception_rate": None,
             "threat_realisation_rate": goals3 / xg3 if goals3 is not None and xg3 is not None and xg3 > 0 else None,
             "contextual_threat_score": None,
-            "attacking_involvement_rate": per90(involvement, minutes3),
+            "attacking_involvement_rate": exposure_aware_per90(involvement, minutes3, prior3_count),
         }
 
         if snapshot_available:
@@ -175,6 +190,8 @@ def build_panel(rows, source_report):
                         "fpl_element_id": player_id,
                         "fixture_id": fixture_id,
                         "prior_matches_count": prior_count,
+                        "prior3_matches_count": prior3_count,
+                        "total_prior3_exposure_minutes": (denominator * prior3_count) if denominator is not None else None,
                         "numerator_prior3_avg": numerator,
                         "minutes_prior3_avg": denominator,
                         "per90_value": value,
