@@ -65,7 +65,7 @@ def coverage(features):
 
 def build_panel(rows, source_report):
     source_as_of = parse_time(
-        source_report.get("source_built_at") or source_report.get("source_built_at_utc"),
+        source_report.get("source_built_at") or source_report.get("source_built_at_utc") or source_report.get("source_snapshot_as_of"),
         "11footy source_built_at",
     )
     source_hashes = source_report.get("source_hashes", {})
