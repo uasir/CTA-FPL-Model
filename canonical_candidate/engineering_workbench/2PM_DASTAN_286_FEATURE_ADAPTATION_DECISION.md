@@ -76,7 +76,7 @@ Therefore:
 
 ## 5. Source-semantics audit and high-priority risks
 
-The pinned upstream source-code inspection is recorded in `2PM_DASTAN_SOURCE_SEMANTICS_AUDIT.md`. It identifies potential double-Gameweek leakage in the unanchored `opp_*` and standalone rank fields, unverified timestamp semantics for `value`/`selected`/`transfers_balance`, historical Understat identity corrections, and season-limited defensive-stat coverage. These are mandatory admission checks; none is considered cleared by the existence of the released feature frame.
+The pinned upstream source-code inspection is recorded in `2PM_DASTAN_SOURCE_SEMANTICS_AUDIT.md`. A critical refinement is now confirmed: Dastan's `assert_deadline_anchored` checks only selected prefixes and excludes all `opp_*` columns and the direct rank columns; its per-player/Gameweek anchor is not an independent proof that every feature was reconstructed at the official deadline. The wider kickoff-relative team/opponent/defensive-allowance/congestion families also require event-level reconstruction. This is a structural guarantee gap, not yet a quantified row-level leak. It identifies potential double-Gameweek leakage in the unanchored `opp_*` and standalone rank fields, unverified timestamp semantics for `value`/`selected`/`transfers_balance`, historical Understat identity corrections, and season-limited defensive-stat coverage. These are mandatory admission checks; none is considered cleared by the existence of the released feature frame.
 
 ## 6. Sequence representation — mandatory design gate
 
