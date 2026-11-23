@@ -8,7 +8,10 @@ from build_2pm_predeadline_market_snapshot import (
     extract_market,
     filter_snapshot_safety_buffer,
 )
-from rebuild_2pm_dastan_286_candidate import audit_market_value_parity
+from rebuild_2pm_dastan_286_candidate import (
+    audit_market_value_parity,
+    validate_reconstruction_coverage,
+)
 
 
 def accepted_fplcache():
@@ -142,3 +145,48 @@ def test_market_value_parity_audit_detects_native_price_unit_mismatch(tmp_path):
     report = audit_market_value_parity(source, market_path)
     assert report["fields"]["value"]["exact_match_rate"] == 0.0
     assert report["fields"]["value"]["mean_absolute_difference"] == 49.5
+
+
+
+def test_286_feature_family_coverage_requires_every_reconstruction_path():
+    features = (
+        [f"player_feature_{i}" for i in range(115)]
+        + [f"team_feature_{i}" for i in range(60)]
+        + [f"opp_feature_{i}" for i in range(60)]
+        + ["opp_status_league_rank"]
+        + [f"p_any_{i}" for i in range(3)]
+        + [f"p60_{i}" for i in range(3)]
+        + [f"e_minutes_{i}" for i in range(3)]
+        + [f"ar_feature_{i}" for i in range(32)]
+        + ["ar_ep_next", "is_home_num", "status_league_rank", "value", "selected", "transfers_balance"]
+        + ["sig_status_risk", "sig_chance_playing", "sig_has_news"]
+    )
+    player_report = {
+        "player_rolling_feature_count": 115,
+        "availability_feature_count": 9,
+        "defensive_player_history_feature_count": 26,
+    }
+    team_report = {
+        "team_feature_count": 60,
+        "opponent_feature_count": 60,
+        "direct_rank_columns": ["status_league_rank", "opp_status_league_rank"],
+    }
+    fixture_report = {"fixture_context_columns": [f"context_{i}" for i in range(6)]}
+    report = validate_reconstruction_coverage(
+        features,
+        player_report,
+        team_report,
+        fixture_report,
+        pd.DataFrame(columns=features),
+    )
+    assert len(features) == 286
+    assert report["reconstruction_path_total"] == 286
+    team_report["team_feature_count"] = 59
+    with pytest.raises(RuntimeError, match="cover 285/286"):
+        validate_reconstruction_coverage(
+            features,
+            player_report,
+            team_report,
+            fixture_report,
+            pd.DataFrame(columns=features),
+        )
