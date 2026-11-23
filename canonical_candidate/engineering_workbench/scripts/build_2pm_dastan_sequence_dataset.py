@@ -268,6 +268,146 @@ def build_sequences(
     }
 
 
+
+def build_sequence_shards(
+    frame: pd.DataFrame,
+    features: list[str],
+    output_dir: Path,
+    *,
+    shard_size: int = 10000,
+    max_gap_days: int = MAX_GAP_DAYS,
+    require_label: bool = False,
+) -> dict[str, Any]:
+    """Write memory-bounded float32 sequence tensors and aligned CSV metadata."""
+    if shard_size <= 0:
+        raise ValueError("shard_size must be positive")
+    if max_gap_days <= 0:
+        raise ValueError("max_gap_days must be positive")
+    label_column = (
+        "total_points" if "total_points" in frame.columns
+        else "target_points" if "target_points" in frame.columns
+        else None
+    )
+    if require_label and label_column is None:
+        raise ValueError("total_points or target_points is required for a labelled training dataset")
+    if label_column:
+        frame = frame.copy()
+        frame[label_column] = pd.to_numeric(frame[label_column], errors="coerce")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    tensor_buffer = np.empty((shard_size, SEQUENCE_LENGTH, len(features)), dtype=np.float32)
+    metadata_rows: list[dict[str, Any]] = []
+    shard_files = []
+    in_shard = 0
+    shard_index = 0
+    counts = {
+        "target_rows": int(len(frame)),
+        "emitted": 0,
+        "insufficient_previous_played_matches": 0,
+        "gap_over_21_days": 0,
+    }
+    grouped = {key: rows for key, rows in frame.groupby("fpl_code", sort=False)}
+
+    def flush() -> None:
+        nonlocal in_shard, shard_index, metadata_rows
+        if not in_shard:
+            return
+        tensor_name = f"X_{shard_index:05d}.npy"
+        metadata_name = f"metadata_{shard_index:05d}.csv"
+        np.save(output_dir / tensor_name, tensor_buffer[:in_shard])
+        pd.DataFrame(metadata_rows).to_csv(output_dir / metadata_name, index=False)
+        shard_files.append(
+            {"tensor": tensor_name, "metadata": metadata_name, "samples": in_shard}
+        )
+        shard_index += 1
+        in_shard = 0
+        metadata_rows = []
+
+    for target in frame.itertuples(index=False):
+        target_deadline = target.deadline_time
+        target_kickoff = target.kickoff_time
+        player_rows = grouped[target.fpl_code]
+        history = player_rows[
+            (player_rows["minutes"] > 0)
+            & (player_rows["match_available_at"] < target_deadline)
+            & (player_rows["kickoff_time"] < target_kickoff)
+            & (player_rows["fixture_id"].astype(str) != str(target.fixture_id))
+        ].sort_values(
+            ["match_available_at", "kickoff_time", "fixture_id"], kind="mergesort"
+        ).tail(HISTORY_LENGTH)
+        if len(history) < HISTORY_LENGTH:
+            counts["insufficient_previous_played_matches"] += 1
+            continue
+        observation_times = list(history["kickoff_time"]) + [target_kickoff]
+        gaps = [
+            (observation_times[i] - observation_times[i - 1]).total_seconds() / 86400
+            for i in range(1, len(observation_times))
+        ]
+        if any(gap <= 0 or gap > max_gap_days for gap in gaps):
+            counts["gap_over_21_days"] += 1
+            continue
+
+        tensor_buffer[in_shard, :HISTORY_LENGTH, :] = history[features].to_numpy(dtype=np.float32)
+        tensor_buffer[in_shard, HISTORY_LENGTH, :] = np.asarray(
+            [getattr(target, feature) for feature in features], dtype=np.float32
+        )
+        metadata_rows.append(
+            {
+                "season": str(target.season),
+                "gameweek": int(target.gameweek),
+                "fixture_id": str(target.fixture_id),
+                "fpl_code": int(target.fpl_code),
+                "target_kickoff_time": target_kickoff.isoformat(),
+                "target_deadline_time": target_deadline.isoformat(),
+                "target_points": (
+                    float(getattr(target, label_column))
+                    if label_column and pd.notna(getattr(target, label_column))
+                    else None
+                ),
+                "source_vintage_status": str(target.source_vintage_status),
+                "target_completion_time_quality": str(target.completion_time_quality),
+                "history_fixture_ids": json.dumps(history["fixture_id"].astype(str).tolist()),
+                "history_match_available_at": json.dumps(
+                    [value.isoformat() for value in history["match_available_at"]]
+                ),
+                "history_completion_time_quality": json.dumps(
+                    history["completion_time_quality"].astype(str).tolist()
+                ),
+                "sequence_gap_days": json.dumps([round(value, 6) for value in gaps]),
+            }
+        )
+        in_shard += 1
+        counts["emitted"] += 1
+        if in_shard == shard_size:
+            flush()
+    flush()
+
+    return {
+        "status": "CANDIDATE_SEQUENCE_TENSORS",
+        "admission_status": "NOT_ADMITTED",
+        "sequence_definition": "five_previous_played_fixtures_plus_target_query",
+        "sequence_shape": [SEQUENCE_LENGTH, len(features)],
+        "tensor_dtype": "float32",
+        "label_column": label_column,
+        "feature_order_sha256": hashlib.sha256("\n".join(features).encode("utf-8")).hexdigest(),
+        "maximum_inter_observation_gap_days": max_gap_days,
+        "counts": counts,
+        "source_vintage_status_counts": {
+            str(key): int(value)
+            for key, value in frame["source_vintage_status"].value_counts(dropna=False).items()
+        },
+        "completion_time_quality_counts": {
+            str(key): int(value)
+            for key, value in frame["completion_time_quality"].value_counts(dropna=False).items()
+        },
+        "shards": shard_files,
+        "limitations": [
+            "feature_cutoff_time is the official deadline cutoff, not a source capture timestamp.",
+            "Conservative fixture availability bounds can exclude borderline prior matches.",
+            "Candidate feature values remain subject to independent point-in-time and source-vintage admission.",
+        ],
+    }
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True, help="Canonical player-fixture candidate frame")
