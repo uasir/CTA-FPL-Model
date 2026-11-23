@@ -267,3 +267,6 @@ The post-match builder uses corrected stable Understat player identity history a
 
 
 A model-side batch adapter, `forward_player_gameweek_batch`, now accepts the grouped tensor shape `[B, F, 6, 286]`, flattens the player-Gameweek/fixture axes for the Transformer, reshapes the per-fixture mixture outputs, sums fixture expected points and variances under the declared independence assumption, and returns one exact aggregate NLL per player-Gameweek when labels are supplied. This connects the grouped dataset to the model without introducing fixture-grain duplicate training labels.
+
+
+The post-match state builder now also fails closed if a played row's player-data availability exceeds the conservative kickoff + 24-hour team-data bound. This keeps the state timestamp from drifting far enough to admit a later-kickoff fixture under the same availability rule. The guard is a source-contract check, not a substitute for row-level validation of the archived availability metadata.
