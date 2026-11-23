@@ -61,7 +61,7 @@ Important constraints:
 - The 286-column contract was designed for a minutes model. Its feature schema and data representation may be audited and adapted; its predictive model is not reused.
 - All 286 columns are candidates, not automatically approved 2PM predictors. Each must pass semantic, point-in-time, target-leakage, coverage, rights, missingness and sequence-compatibility checks.
 - The paper's five-previous-played-match and maximum 21-day sequence principles remain the reference. The mapping from Dastan's deadline snapshots to sequence tokens is an open design gate and must not be assumed solved by the existence of 286 columns.
-- The exact feature and sequence audit, schema-freeze criteria and build order are specified in `2PM_DASTAN_286_FEATURE_ADAPTATION_DECISION.md`.
+- The exact feature admission, source-semantics, dataset/identity freshness, and sequence design records are: `2PM_DASTAN_286_FEATURE_ADAPTATION_DECISION.md`, `2PM_DASTAN_286_FEATURE_ADMISSION_REGISTER.md`, `2PM_DASTAN_SOURCE_SEMANTICS_AUDIT.md`, `2PM_DASTAN_DATASET_AND_IDENTITY_READINESS.md`, and `2PM_DASTAN_SEQUENCE_REPRESENTATION_PROPOSAL.md`. These records collectively define the schema-freeze criteria and build order; the sequence representation remains a proposal.
 
 Do not claim exact paper reproduction. The project must label the resulting system as a Dastan-input adaptation of the paper's two-component Poisson-mixture Transformer.
 
