@@ -532,3 +532,65 @@ def independent_fixture_gameweek_negative_log_likelihood(
     if reduction == "sum":
         return losses.sum()
     return losses
+
+
+def forward_player_gameweek_batch(
+    model,
+    inputs,
+    fixture_mask,
+    targets=None,
+) -> dict[str, Any]:
+    """Run one Transformer query per fixture and aggregate to player-Gameweek grain.
+
+    inputs: [batch, target_fixture, 6, 286]
+    fixture_mask: [batch, target_fixture]
+    targets: optional signed player-Gameweek point totals [batch]
+
+    The model is evaluated independently for each fixture query using the same
+    five post-match history tokens. Fixture mixture outputs are then reshaped;
+    expected points and variances are summed under the explicit independent-
+    fixture assumption. When targets are supplied, one exact aggregate NLL is
+    returned per player-Gameweek.
+    """
+    if torch is None:
+        raise ImportError("PyTorch is required for player-Gameweek forward passes")
+    values = torch.as_tensor(inputs, dtype=torch.float32)
+    if values.ndim != 4:
+        raise ValueError("inputs must have [batch, fixture, sequence, feature] shape")
+    batch_size, fixture_count, sequence_length, feature_count = values.shape
+    if sequence_length != model.sequence_length or feature_count != model.feature_count:
+        raise ValueError("input sequence/feature dimensions do not match the model")
+    mask = torch.as_tensor(fixture_mask, dtype=torch.bool, device=values.device)
+    if mask.shape != (batch_size, fixture_count) or not mask.any(dim=1).all():
+        raise ValueError("fixture_mask must select at least one fixture per player-Gameweek")
+
+    flat = values.reshape(batch_size * fixture_count, sequence_length, feature_count)
+    flat_output = model(flat)
+    fixture_output = {
+        "p": flat_output["p"].reshape(batch_size, fixture_count),
+        "lambda_1": flat_output["lambda_1"].reshape(batch_size, fixture_count),
+        "lambda_2": flat_output["lambda_2"].reshape(batch_size, fixture_count),
+        "support_shift": int(flat_output["support_shift"]),
+    }
+    fixture_expected = flat_output["expected_points"].reshape(batch_size, fixture_count)
+    fixture_variance = flat_output["variance"].reshape(batch_size, fixture_count)
+    gameweek_expected = (fixture_expected * mask.to(fixture_expected.dtype)).sum(dim=1)
+    gameweek_variance = (fixture_variance * mask.to(fixture_variance.dtype)).sum(dim=1)
+
+    result = {
+        "fixture_output": fixture_output,
+        "fixture_expected_points": fixture_expected,
+        "fixture_variance": fixture_variance,
+        "fixture_mask": mask,
+        "expected_points": gameweek_expected,
+        "variance": gameweek_variance,
+        "standard_deviation": torch.sqrt(gameweek_variance.clamp_min(0.0)),
+        "dependence_assumption": "independent_fixture_scores",
+    }
+    if targets is not None:
+        per_sample_nll = independent_fixture_gameweek_negative_log_likelihood(
+            fixture_output, targets, mask, reduction="none"
+        )
+        result["nll_per_player_gameweek"] = per_sample_nll
+        result["loss"] = per_sample_nll.mean()
+    return result
