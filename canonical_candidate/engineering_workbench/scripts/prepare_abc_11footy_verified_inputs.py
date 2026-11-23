@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare the existing cross-provider bridge for the verified 11footy panel builder."""
+"""Prepare existing verified cross-provider evidence for the historical 11footy panel builder."""
 from __future__ import annotations
 
 import argparse
@@ -28,7 +28,7 @@ def truth(value):
     return str(value or "").strip().lower() in {"1", "true", "yes"}
 
 
-def prepare(candidates, crosswalk, history, teams):
+def prepare(candidates, crosswalk, raw_history, raw_players, teams):
     team_names = {}
     for row in teams:
         team_id = str(row.get("id") or row.get("team_id") or "").strip()
@@ -36,24 +36,51 @@ def prepare(candidates, crosswalk, history, teams):
         if team_id and name:
             team_names[team_id] = name
 
-    fixture_parts = defaultdict(dict)
-    for row in history:
-        fixture = str(row.get("fixture") or row.get("fixture_id") or "").strip()
-        if not fixture:
+    history = []
+    for row in raw_history:
+        element = row.get("element") or row.get("fpl_element_id")
+        fixture = row.get("fixture") or row.get("fixture_id")
+        if not element or not fixture:
             continue
-        side = "home" if truth(row.get("was_home")) else "away"
-        fixture_parts[fixture].update({
+        history.append({
+            "fpl_element_id": element,
             "fixture_id": fixture,
             "kickoff_time": row.get("kickoff_time", ""),
             "gameweek": row.get("round") or row.get("gameweek") or "",
+            "minutes": row.get("minutes", ""),
+            "total_points": row.get("total_points", ""),
+            "goals_scored": row.get("goals_scored", ""),
+            "assists": row.get("assists", ""),
+            "was_home": row.get("was_home", ""),
+            "team": row.get("team", ""),
+            "opponent_team": row.get("opponent_team", ""),
+        })
+
+    fixture_parts = defaultdict(dict)
+    for row in history:
+        fixture = str(row["fixture_id"])
+        side = "h" if truth(row.get("was_home")) else "a"
+        fixture_parts[fixture].update({
+            "fixture_id": fixture,
+            "kickoff_time": row.get("kickoff_time", ""),
+            "gameweek": row.get("gameweek", ""),
             f"team_{side}_id": row.get("team", ""),
             f"team_{side}_name": team_names.get(str(row.get("team") or ""), ""),
         })
+    fixtures = [
+        item for _, item in sorted(fixture_parts.items())
+        if item.get("team_h_name") and item.get("team_a_name") and item.get("kickoff_time")
+    ]
 
-    fixtures = []
-    for fixture_id, item in sorted(fixture_parts.items()):
-        if item.get("team_h_name") and item.get("team_a_name") and item.get("kickoff_time"):
-            fixtures.append(item)
+    normalized_players = []
+    for row in raw_players:
+        element = row.get("id") or row.get("fpl_element_id")
+        if element:
+            normalized_players.append({
+                "fpl_element_id": element,
+                "fpl_player_code": row.get("code") or row.get("fpl_player_code") or "",
+                "web_name": row.get("web_name") or row.get("web_name", ""),
+            })
 
     candidate_out = []
     for row in candidates:
@@ -89,7 +116,7 @@ def prepare(candidates, crosswalk, history, teams):
         "source": "Existing strict Wyscout–11footy–FPL cross-provider verified bridge",
         "transformation": "Cross-provider corroborating 11footy player IDs mapped into the existing 11footy builder's provider-player crosswalk contract",
     }
-    return candidate_out, verified_out, fixtures, validation
+    return candidate_out, verified_out, fixtures, normalized_players, history, validation
 
 
 def main():
@@ -97,12 +124,13 @@ def main():
     parser.add_argument("--candidates", type=Path, required=True)
     parser.add_argument("--crosswalk", type=Path, required=True)
     parser.add_argument("--fpl-history", type=Path, required=True)
+    parser.add_argument("--fpl-players", type=Path, required=True)
     parser.add_argument("--team-list", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     args = parser.parse_args()
-    candidates, crosswalk, fixtures, validation = prepare(
+    candidates, crosswalk, fixtures, players, history, validation = prepare(
         read_csv(args.candidates), read_csv(args.crosswalk),
-        read_csv(args.fpl_history), read_csv(args.team_list),
+        read_csv(args.fpl_history), read_csv(args.fpl_players), read_csv(args.team_list),
     )
     args.out_dir.mkdir(parents=True, exist_ok=True)
     write_csv(args.out_dir / "11footy_builder_candidates.csv", candidates,
@@ -111,10 +139,17 @@ def main():
               ["season", "competition_id", "provider", "provider_player_id", "fpl_element_id", "verification_status"])
     write_csv(args.out_dir / "historical_fpl_fixtures.csv", fixtures,
               ["fixture_id", "kickoff_time", "gameweek", "team_h_id", "team_h_name", "team_a_id", "team_a_name"])
+    write_csv(args.out_dir / "historical_fpl_players.csv", players,
+              ["fpl_element_id", "fpl_player_code", "web_name"])
+    write_csv(args.out_dir / "historical_fpl_player_fixture.csv", history,
+              ["fpl_element_id", "fixture_id", "minutes", "total_points", "goals_scored", "assists", "was_home"])
     (args.out_dir / "11footy_crosswalk_validation.json").write_text(
         json.dumps(validation, indent=2), encoding="utf-8"
     )
-    print(json.dumps({**validation, "candidate_rows": len(candidates), "fixture_rows": len(fixtures)}, indent=2))
+    print(json.dumps({
+        **validation, "candidate_rows": len(candidates), "fixture_rows": len(fixtures),
+        "fpl_player_rows": len(players), "fpl_player_fixture_rows": len(history),
+    }, indent=2))
     return 0 if fixtures and validation["status"] == "PASS" else 2
 
 
