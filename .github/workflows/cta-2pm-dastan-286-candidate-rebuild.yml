@@ -1,0 +1,81 @@
+name: 2PM Dastan 286 corrected-identity candidate rebuild
+
+on:
+  push:
+    branches: ["feat/four-layer-2pm-transformer-evaluation"]
+    paths:
+      - canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py
+      - .github/workflows/cta-2pm-dastan-286-candidate-rebuild.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-2pm-dastan-286-candidate-rebuild
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Check out pinned Dastan source
+        uses: actions/checkout@v4
+        with:
+          repository: qazybekb/smartplayfpl-dastan
+          ref: 758db9247e8b3a9a870c991064f74d8339d61cd0
+          path: dastan-source
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install data reconstruction dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pandas pyarrow understatapi==0.7.1
+      - name: Rebuild six-season corrected-identity 286-feature candidate
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/rebuild_2pm_dastan_286_candidate.py \
+            --dastan-root "$GITHUB_WORKSPACE/dastan-source" \
+            --raw-dir "$RUNNER_TEMP/2pm-dastan-raw" \
+            --output-dir "$RUNNER_TEMP/2pm-dastan-candidate" \
+            --seasons 2020-21,2021-22,2022-23,2023-24,2024-25,2025-26 \
+            --workers 12 \
+            > "$RUNNER_TEMP/2pm-dastan-rebuild.log"
+      - name: Publish aggregate candidate status only
+        if: always()
+        env:
+          REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json
+          LOG_PATH: ${{ runner.temp }}/2pm-dastan-rebuild.log
+          SUMMARY_PATH: ${{ github.step_summary }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          summary = Path(os.environ["SUMMARY_PATH"])
+          report_path = Path(os.environ["REPORT_PATH"])
+          if report_path.exists():
+              report = json.loads(report_path.read_text())
+              lines = [
+                  "## 2PM Dastan 286 candidate rebuild",
+                  f"- Status: **{report.get('status')}**",
+                  f"- Admission: **{report.get('admission_status')}**",
+                  f"- Candidate rows: {report.get('candidate_rows')}",
+                  f"- Feature count: {report.get('candidate_feature_count')}",
+                  f"- Seasons: {', '.join(report.get('seasons', []))}",
+                  f"- Feature-order SHA-256: `{report.get('feature_order_sha256')}`",
+                  f"- Candidate SHA-256: `{report.get('candidate_sha256')}`",
+                  "- Full player-level feature data and source files were kept runner-local; no data artifacts were uploaded.",
+                  "- This is a candidate rebuild, not point-in-time admission or model training."
+              ]
+              summary.write_text("\n".join(lines) + "\n")
+          else:
+              log = Path(os.environ["LOG_PATH"])
+              tail = "\n".join(log.read_text(errors="replace").splitlines()[-30:]) if log.exists() else "No rebuild log was produced."
+              summary.write_text("## 2PM Dastan 286 candidate rebuild\n\nRebuild did not produce a candidate report.\n\n```text\n" + tail + "\n```\n")
+          PY
