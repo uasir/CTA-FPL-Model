@@ -99,6 +99,25 @@ def build_forecast_records(
         raise ValueError("Poisson rates must be strictly positive")
     if (vectors["variance"] < 0).any() or (vectors["standard_deviation"] < 0).any():
         raise ValueError("predictive variance and standard deviation must be non-negative")
+    expected = (
+        vectors["p"] * vectors["lambda_1"]
+        + (1.0 - vectors["p"]) * vectors["lambda_2"]
+    )
+    second_moment = (
+        vectors["p"] * (vectors["lambda_1"] + vectors["lambda_1"].square())
+        + (1.0 - vectors["p"]) * (
+            vectors["lambda_2"] + vectors["lambda_2"].square()
+        )
+    )
+    variance = (second_moment - expected.square()).clamp_min(0.0)
+    if not torch.allclose(vectors["expected_points"], expected, rtol=1e-5, atol=1e-6):
+        raise ValueError("expected_points disagrees with mixture parameters")
+    if not torch.allclose(vectors["variance"], variance, rtol=1e-5, atol=1e-6):
+        raise ValueError("variance disagrees with mixture parameters")
+    if not torch.allclose(
+        vectors["standard_deviation"], torch.sqrt(variance), rtol=1e-5, atol=1e-6
+    ):
+        raise ValueError("standard_deviation disagrees with mixture variance")
 
     tails = {
         threshold: poisson_mixture_tail_probability(output, threshold)
