@@ -128,6 +128,63 @@ Until passed, all 60 `opp_*` columns remain `HOLD`.
 
 **Required test:** publish per-feature/per-season coverage and missingness tables; confirm exact introduction dates and source semantics; preserve unavailable/not-collected states.
 
+## 4A. Critical refinement — the released frame's deadline invariant is narrower than the prose suggests
+
+A deeper inspection of the pinned implementation reveals a structural gap in the deadline guarantee.
+
+The Dastan documentation says every fixture in a Gameweek should carry information available at the common deadline. However, the actual implementation:
+
+- computes player, team, opponent and rank statistics in kickoff order;
+- shifts rolling histories by one kickoff;
+- then calls `anchor_to_deadline`;
+- but `HISTORY_PREFIXES` includes only `player_`, `team_`, `ar_`, `cx_`, `p_any_`, `p60_` and `e_minutes_`;
+- deliberately excludes every `opp_*` feature;
+- does not include the direct `status_league_rank` or `opp_status_league_rank` columns.
+
+The assertion `assert_deadline_anchored` uses the same prefix list. It therefore proves equality only for those selected prefixes within each player's Gameweek; it does not prove that all 286 inputs are deadline-safe.
+
+More importantly, even a prefixed history can be too late for the FPL deadline when a player's first row/fixture in a Gameweek occurs after another relevant match in that same Gameweek. The anchor selects the earliest row for that player, not a globally reconstructed history at the official Gameweek deadline.
+
+### Consequence
+
+This is a **confirmed structural weakness in the deadline guarantee**, but the number of affected player-fixture rows and the actual feature-value contamination have not been measured from the parquet release. Do not describe it as a quantified leak until the row-level reconstruction is run.
+
+The affected candidate scope is broader than the original R1/R2 list:
+
+| Feature scope | Why it needs a deadline reconstruction |
+|---|---|
+| All 60 `opp_*` rolling columns | Explicitly excluded from the anchor routine; later opponent kickoffs can include earlier same-Gameweek results. |
+| `status_league_rank`, `opp_status_league_rank` | Direct ranks are outside the anchor prefix and are calculated from standings before each kickoff date. |
+| `team_*` rolling columns | Anchor is per player/Gameweek, not a direct team/deadline snapshot; players whose first row occurs after an earlier same-Gameweek team fixture require testing. |
+| `ar_opp_dc_allowed_*`, `ar_opp_tackles_allowed_*` | Computed from opponent defensive results in kickoff order; the per-player anchor is not proof that all contributing opponent matches predate the deadline. |
+| `ar_team_matches_14d` and `ar_rest_days` | Built from fixture kickoffs; test whether any contributing fixture occurred after the target Gameweek deadline. |
+| Other `ar_*`, `player_*`, `p_any_*`, `p60_*`, `e_minutes_*` | The per-player earliest-row anchor is useful but must be checked against official deadline and actual source event times, especially for incomplete player histories, transfers and fixture edge cases. |
+
+### Existing test coverage observed
+
+The pinned `tests/test_rebuild.py` covers mapping corrections, league-rank tie ordering, pre-deadline snapshot acceptance and a source-download path. It does not contain a test that independently reconstructs all 286 feature values as of each target Gameweek deadline. The runtime assertion in `dastan/data.py` is not a substitute for that test because its column selector excludes `opp_*` and direct rank fields.
+
+## 4B. Required full-frame deadline reconstruction
+
+The correct 2PM admission test must be independent of Dastan's existing `anchor_to_deadline` function.
+
+For each target season/Gameweek:
+
+1. Resolve the official FPL deadline timestamp from the archived FPL event calendar, not from the target fixture kickoff.
+2. For every feature row, reconstruct all historical source events using only records whose event completion timestamp is strictly before that deadline.
+3. Recompute player, own-team and opponent rolling features from those eligible events. Preserve each target fixture's opponent/home-away context, but compute the opponent's form using only pre-deadline matches.
+4. Recompute league ranks from standings accumulated strictly before the deadline, not before each target fixture kickoff.
+5. Recompute opponent defensive allowance and congestion/rest context using only events completed before the deadline.
+6. Recompute historical availability and player histories with stable identity assignments and explicit transfer/season boundaries.
+7. Compare the independently reconstructed vector to the released 286-vector, feature by feature and row by row.
+8. Report, by season/Gameweek/feature: affected rows, total rows, affected percentage, maximum/mean absolute difference, missingness changes and exact source events responsible.
+9. Test all 6,958 multi-fixture player-Gameweeks plus single-fixture player rows whose team/opponent has another fixture earlier in the same Gameweek. Do not limit the audit to players with two target fixtures.
+10. Include postponed/rescheduled fixtures, simultaneous kickoffs, double Gameweeks, blanks, player transfers, season boundaries and source timestamp timezone handling.
+
+The canonical raw inputs can be reconstructed using the pinned Dastan source pipeline (Vaastav FPL histories and Understat player/team matches). The release manifest pins `features.parquet` at 38,697,486 bytes with SHA-256 `dcf8411d458e7b99b15472975280cf855e15de22070022fad6fce0f76f3f299c`; the pinned release reports 163,072 player-fixture rows and 304 total columns. The raw source rebuild is needed to identify contributing event rows; comparing only values within a player's Gameweek cannot establish deadline safety.
+
+**Do not implement a blanket “take first row per player/Gameweek” repair for all feature families.** Recompute the feature families from event-level sources at the official deadline. This retains fixture-specific opponent identity while preventing post-deadline form from entering the feature vector.
+
 ## 5. Additional modelling and data risks
 
 - The 286-feature contract was tuned for a minutes prediction task. It is not evidence that the same feature set is optimal or correctly represented for FPL points.
@@ -150,7 +207,7 @@ Until passed, all 60 `opp_*` columns remain `HOLD`.
 - Exact 286 ordered column inventory: **verified against pinned schema**.
 - Source construction families: **inspected**.
 - Upstream lagging and selected deadline safeguards: **confirmed in code**.
-- Opponent/rank double-Gameweek leakage: **potential risk; row-level test not run**.
+- Opponent/rank and kickoff-relative context deadline safety: **structural guarantee gap confirmed in source; affected rows/values not quantified**.
 - Market-field pre-deadline timestamps: **not verified**.
 - Historical player identity corrections: **documented; 2PM crosswalk audit not run**.
 - Defensive feature season coverage: **source-documented; row-level audit not run**.
