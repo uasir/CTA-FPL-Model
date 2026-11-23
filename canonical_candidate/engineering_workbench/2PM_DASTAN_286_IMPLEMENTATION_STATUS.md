@@ -91,6 +91,17 @@ The focused run at commit `3efe8c56e16bd0f4a69b4959689e4d6e9f7820b5` completed s
 
 The test-only two-layer instantiation is a shape/gradient smoke test, not a selected research configuration. The model has not been trained, evaluated or connected to M3.
 
+### 5B. Player-level forecast record adapter
+
+`scripts/two_pm_forecast_records.py`
+
+- Serializes the analytic mixture parameters, expected points, variance/SD and 6+/8+/10+ probabilities.
+- Requires player IDs, target Gameweeks, timezone-aware forecast-as-of and training-cutoff timestamps, feature-schema version and data snapshot hashes.
+- Carries quality metadata and marks every record `production_eligible=false`.
+- Contains no transfers, ownership/EO, CoVar, squad, XI, bench, captaincy or recommendation logic.
+
+The adapter is a model-to-forecast-record boundary only. M3 integration remains pending the actual M3 contract review and model validation.
+
 ### 6. Active-season target query builder
 
 `scripts/build_2pm_active_target_queries.py`
