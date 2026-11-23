@@ -19,8 +19,9 @@ def _wys(**overrides):
 
 
 def _footy(gw, fixture, **overrides):
+    # Schema emitted by build_11footy_player_match_features.py:
+    # verified_player_match_panel.csv contains only strict verified rows.
     row = {
-        "join_status": "VERIFIED_IDENTITY_AND_FIXTURE",
         "fpl_element_id": "10", "fpl_fixture_id": str(fixture),
         "gameweek": str(gw), "match_kickoff_utc": f"2017-08-{gw:02d}T15:00:00Z",
         "minutes_played": "90", "key_passes": "2", "tracked_xg_sum": "0.2",
@@ -46,7 +47,6 @@ def test_11footy_is_primary_and_wyscout_fills_unavailable_features():
 
 
 def test_same_gameweek_features_are_never_used():
-    # The target-GW row has an extreme value; it must not alter its own features.
     rows, _ = enrich_panel(
         [_wys(gameweek="3")],
         [_footy(1, 101), _footy(2, 102), _footy(3, 103, key_passes="200")],
@@ -59,17 +59,17 @@ def test_same_gameweek_features_are_never_used():
     assert earlier_rows[0]["abc_player_key_pass_rate"] == pytest.approx(2.0)
 
 
-def test_unverified_11footy_rows_never_contribute():
-    bad = _footy(1, 101, join_status="PENDING_RESEARCH_ONLY", key_passes="99")
-    rows, report = enrich_panel([
-        _wys()
-    ], [
-        bad,
-        _footy(2, 102, key_passes="0", tracked_xg_sum="0", shots="0"),
-        _footy(3, 103, key_passes="0", tracked_xg_sum="0", shots="0"),
-    ])
+def test_only_verified_panel_contract_is_accepted_and_rows_are_lagged():
+    rows, report = enrich_panel(
+        [_wys()],
+        [
+            _footy(1, 101, key_passes="99"),
+            _footy(2, 102, key_passes="0", tracked_xg_sum="0", shots="0"),
+            _footy(3, 103, key_passes="0", tracked_xg_sum="0", shots="0"),
+        ],
+    )
     assert rows[0]["abc_player_key_pass_rate"] == pytest.approx(0.0)
-    assert report["verified_11footy_player_match_rows"] == 2
+    assert report["verified_11footy_player_match_rows"] == 3
 
 
 def test_duplicate_verified_player_fixture_is_rejected():
