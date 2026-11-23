@@ -104,6 +104,19 @@ The test-only two-layer instantiation is a shape/gradient smoke test, not a sele
 
 This builder is implemented but has not yet been run against the live 2026/27 source snapshot. The six completed-season historical candidate and the current-season target query are separate artifacts; they must be joined deliberately for current inference sequences.
 
+### 6A. Current target-query tensor builder
+
+`scripts/build_2pm_target_query_tensors.py`
+
+- Combines the six-season historical candidate with the active-season candidate.
+- Uses active `TARGET_QUERY` rows only as inference targets; historical played rows provide sequence context.
+- Emits exactly five previous played-fixture tokens plus one target-query token, requiring five prior appearances and enforcing the 21-day maximum gap.
+- Preserves Double Gameweek target fixtures as separate player-fixture inference examples.
+- Applies the explicit residual-NaN-to-zero tensor preparation policy while preserving `-1` snapshot sentinels and reporting the raw missingness count.
+- A focused CI contract passed for target-only emission and insufficient-history exclusion.
+
+This builder is implemented but depends on both the six-season historical candidate and a successful active-season query build. No current-season inference tensors have yet been produced.
+
 ### 6. Candidate rebuild workflow
 
 `.github/workflows/cta-2pm-dastan-286-candidate-rebuild.yml`
