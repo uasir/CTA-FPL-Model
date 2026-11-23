@@ -15,10 +15,10 @@ FEATURES, _ = load_schema(ROOT / "config" / "2pm_dastan_286_schema.json")
 
 
 def make_row(fixture, kickoff, *, minutes=0, completed=None, gameweek=1, value=0.0):
-    kickoff = pd.Timestamp(kickoff, tz="UTC")
+    kickoff = pd.to_datetime(kickoff, utc=True)
     deadline = kickoff - pd.Timedelta(hours=3)
     completed_at = (
-        pd.Timestamp(completed, tz="UTC") if completed is not None else pd.NaT
+        pd.to_datetime(completed, utc=True) if completed is not None else pd.NaT
     )
     row = {
         "season": "2026-27",
@@ -107,7 +107,7 @@ def test_insufficient_history_is_not_padded_or_silently_used():
 def test_gap_over_21_days_is_rejected():
     rows = []
     for i in range(5):
-        kickoff = pd.Timestamp("2026-07-01T12:00:00Z") + pd.Timedelta(days=7 * i)
+        kickoff = pd.to_datetime(\n            ["2026-07-01T12:00:00Z", "2026-07-08T12:00:00Z",\n             "2026-07-30T12:00:00Z", "2026-07-31T12:00:00Z",\n             "2026-08-01T12:00:00Z"][i], utc=True\n        )
         rows.append(
             make_row(
                 f"H{i}",
@@ -117,7 +117,7 @@ def test_gap_over_21_days_is_rejected():
                 value=float(i),
             )
         )
-    target_kickoff = pd.Timestamp("2026-08-10T12:00:00Z")
+    target_kickoff = pd.Timestamp("2026-08-02T12:00:00Z")
     rows.append(make_row("TARGET", target_kickoff.isoformat()))
     frame = validate_input(pd.DataFrame(rows), FEATURES, "fixture")
     sequences, report = build_sequences(frame, FEATURES)
