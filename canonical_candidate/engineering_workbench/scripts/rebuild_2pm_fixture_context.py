@@ -114,7 +114,15 @@ def rebuild_player_history_features(
         for kind in ("dc_hit_rate", "dc_near_rate", "starts")
         for window in (3, 5, 10)
     ]
-    history_columns = player_columns + relevant_columns + defensive_columns + rate_columns + ["ar_dc_ppg_5"]
+    availability_columns = [
+        f"{prefix}_{window}"
+        for prefix in ("p_any", "p60", "e_minutes")
+        for window in (3, 5, 10)
+    ]
+    history_columns = (
+        player_columns + relevant_columns + defensive_columns + rate_columns
+        + ["ar_dc_ppg_5"] + availability_columns
+    )
     values = {column: np.full(len(out), np.nan, dtype=float) for column in history_columns}
 
     # Prepare sorted, prefix-summed player histories. Rolling windows are based on
