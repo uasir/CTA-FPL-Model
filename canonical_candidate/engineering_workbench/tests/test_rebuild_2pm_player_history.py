@@ -87,6 +87,7 @@ def test_availability_uses_position_base_rates_when_no_prior_rows():
             player_row("target", "2026-01-10", "2026-01-11", points=5, goals=1, minutes=90, home=True, dc=15, cbit=4, recoveries=2, tackles=2, starts=1),
         ]
     )
+    target_history["match_available_at"] = pd.NaT
     target = pd.DataFrame(
         [{
             "season": "2025-26",
