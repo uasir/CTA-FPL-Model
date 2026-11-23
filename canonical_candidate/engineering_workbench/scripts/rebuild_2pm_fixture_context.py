@@ -148,7 +148,13 @@ def rebuild_player_history_features(
                 pd.to_numeric(group[source], errors="coerce")
                 if source in group else pd.Series(0.0, index=group.index)
             )
-            player_arrays[source] = series.fillna(0.0).to_numpy(dtype=float)
+            # Missing Understat match rows are not zero performance. Preserve them
+            # so the training-fold imputer can distinguish missing history from a
+            # genuine zero; FPL-sourced fields retain their documented zero fill.
+            if source.startswith("us_"):
+                player_arrays[source] = series.to_numpy(dtype=float)
+            else:
+                player_arrays[source] = series.fillna(0.0).to_numpy(dtype=float)
 
         total_points = pd.to_numeric(
             group["total_points"], errors="coerce"
@@ -238,7 +244,7 @@ def rebuild_player_history_features(
             array = history["player_arrays"][source]
             for window in windows:
                 values[f"player_{feature}_{window}"][row_position] = tail_mean(
-                    array, eligible, window
+                    array, eligible, window, ignore_nan=source.startswith("us_")
                 )
 
         venue_available, venue_values = history["venue_arrays"][bool(is_home)]

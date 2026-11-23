@@ -39,9 +39,11 @@ def _prepare_features(frame: pd.DataFrame, features: list[str], label: str) -> t
         for name in features if numeric[name].isna().any()
     }
     out = frame.copy()
-    out.loc[:, features] = numeric.fillna(0.0)
+    # Keep missing feature values intact in the research tensors. They must be
+    # imputed from each chronological training fold only, never globally here.
+    out.loc[:, features] = numeric
     return out, {
-        "residual_nan_values_imputed_to_zero": int(numeric.isna().sum().sum()),
+        "residual_nan_values_preserved_for_fold_imputation": int(numeric.isna().sum().sum()),
         "raw_nan_counts_by_feature": nan_by_feature,
         "preserved_minus_one_sentinels": int(numeric.eq(-1.0).sum().sum()),
     }

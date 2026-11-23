@@ -259,6 +259,41 @@ def audit_market_value_parity(
     return report
 
 
+def audit_understat_player_coverage(player_matches: pd.DataFrame) -> dict:
+    """Measure actual Understat match-row coverage before any missing-value fill."""
+    metrics = ["us_minutes", "us_goals", "us_assists", "us_shots", "us_key_passes", "us_xG", "us_xA", "us_npg", "us_npxG", "us_xGChain", "us_xGBuildup"]
+    mapped = player_matches["understat_id"].notna()
+    played = pd.to_numeric(player_matches["minutes"], errors="coerce").gt(0)
+    eligible = player_matches.loc[mapped & played].copy()
+    coverage = {}
+    for column in metrics:
+        if column not in eligible:
+            coverage[column] = {"non_missing_rows": 0, "missing_rows": int(len(eligible)), "coverage_rate": 0.0 if len(eligible) else None}
+            continue
+        observed = pd.to_numeric(eligible[column], errors="coerce").notna()
+        coverage[column] = {
+            "non_missing_rows": int(observed.sum()),
+            "missing_rows": int((~observed).sum()),
+            "coverage_rate": float(observed.mean()) if len(observed) else None,
+        }
+    if len(eligible) and "us_xG" in eligible:
+        by_player = eligible.groupby("understat_id")["us_xG"].apply(
+            lambda values: pd.to_numeric(values, errors="coerce").notna().any()
+        )
+        no_history = by_player.index[~by_player].astype(int).tolist()
+    else:
+        no_history = []
+    return {
+        "mapped_played_player_fixture_rows": int(len(eligible)),
+        "unmapped_played_player_fixture_rows": int((played & ~mapped).sum()),
+        "mapped_player_ids_with_played_rows": int(eligible["understat_id"].nunique()) if len(eligible) else 0,
+        "mapped_player_ids_with_no_xG_history": int(len(no_history)),
+        "mapped_player_ids_with_no_xG_history_sample": no_history[:25],
+        "metric_coverage": coverage,
+        "policy": "Missing Understat values remain missing; they are not converted to zero and require training-fold-only imputation.",
+    }
+
+
 def validate_reconstruction_coverage(
     ordered_features: list[str],
     player_report: dict,
@@ -398,6 +433,7 @@ def build_candidate(
     player_matches, team_matches, player_lookup = sources.build_canonical_matches(
         raw_dir, seasons
     )
+    understat_player_coverage = audit_understat_player_coverage(player_matches)
     feature_frame = features.build_feature_frame(player_matches, team_matches)
     feature_path = output_dir / "features.parquet"
     feature_frame.to_parquet(feature_path, index=False)
@@ -565,6 +601,7 @@ def build_candidate(
         "market_snapshot_report": market_report,
         "market_value_parity_audit": market_parity_report,
         "fixture_context_reconstruction": fixture_context_report,
+        "understat_player_coverage": understat_player_coverage,
         "player_history_reconstruction": player_history_report,
         "deadline_team_context_reconstruction": team_context_report,
         "reconstruction_coverage": reconstruction_coverage,

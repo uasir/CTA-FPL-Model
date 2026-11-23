@@ -46,7 +46,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/2pm-dastan-raw
-          key: 2pm-dastan-raw-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
+          key: 2pm-dastan-raw-v2-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
           restore-keys: |
             2pm-dastan-raw-${{ hashFiles('dastan-source/data/source_pins.json') }}-
       - name: Install data reconstruction dependencies
@@ -62,6 +62,7 @@ jobs:
             --output-dir "$RUNNER_TEMP/2pm-dastan-candidate" \
             --seasons 2020-21,2021-22,2022-23,2023-24,2024-25,2025-26 \
             --workers 12 \
+            --allow-missing-understat \
             > "$RUNNER_TEMP/2pm-dastan-rebuild.log"
       - name: Audit candidate frame and build post-match player-Gameweek tensors
         working-directory: canonical_candidate/engineering_workbench
@@ -106,6 +107,9 @@ jobs:
                   f"- Candidate SHA-256: `{report.get('candidate_sha256')}`",
                   f"- Accepted pre-deadline market snapshot rows: {report.get('pre_deadline_snapshot_rows', {}).get('market')}",
                   f"- Market retrospective parity rows compared: {report.get('market_value_parity_audit', {}).get('rows_compared')}",
+                  f"- Understat mapped played rows: {report.get('understat_player_coverage', {}).get('mapped_played_player_fixture_rows')}",
+                  f"- Understat player IDs with no xG history: {report.get('understat_player_coverage', {}).get('mapped_player_ids_with_no_xG_history')}",
+                  f"- Understat xG row coverage: {report.get('understat_player_coverage', {}).get('metric_coverage', {}).get('us_xG', {}).get('coverage_rate')}",
                   f"- Player rolling/availability/defensive features rebuilt: {report.get('player_history_reconstruction', {}).get('player_rolling_feature_count')} / {report.get('player_history_reconstruction', {}).get('availability_feature_count')} / {report.get('player_history_reconstruction', {}).get('defensive_player_history_feature_count')}",
                   f"- Deadline team snapshots reconstructed: {report.get('deadline_team_context_reconstruction', {}).get('team_deadline_snapshots_built')}",
                   f"- Own/opponent rolling team features rebuilt: {report.get('deadline_team_context_reconstruction', {}).get('team_feature_count')} / {report.get('deadline_team_context_reconstruction', {}).get('opponent_feature_count')}",
