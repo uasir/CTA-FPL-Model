@@ -135,12 +135,19 @@ The existing 34-match StatsBomb benchmark is an engineering/parity benchmark, no
 
 The shared CTA architecture documentation describes a published Dastan training frame of approximately 163,072 player-fixture rows and 286 ordered features, with associated historical snapshots and model artifacts.
 
-This is a potentially useful shared data asset for separate audit, but it is not the paper's 116-feature schema. Before any reuse, establish:
-- Whether each row is genuinely one actual player-match observation or another fixture/round grain.
-- Which of the 286 fields are directly observed, derived, aggregated or target-adjacent.
-- Exact feature definitions, source provenance, timestamps and missingness semantics.
-- Whether the historical rows support the paper's 21-day sequence rule and pre-deadline availability.
-- Whether the required historical FPL point targets and their transformations can be independently verified.
+The upstream Dastan release was inspected directly at pinned commit `758db9247e8b3a9a870c991064f74d8339d61cd0`, including `dastan/data.py`, `data/release_manifest.json`, `data/season_registry.json`, `docs/FEATURES.md` and `docs/DATA.md`.
+
+The source documentation establishes:
+- `features.parquet` contains 163,072 rows and 304 columns, with 286 ordered model feature columns.
+- Each row is one player per fixture, across six EPL seasons: 2020/21 through 2025/26.
+- The feature composition includes 115 player rolling features, 60 team rolling features, 60 opponent rolling features, and availability/snapshot-derived families.
+- The rolling player/team/opponent features are engineered history windows (OpenFPL-derived), not 116 raw per-match feature vectors.
+- The dataset's target columns include player-fixture points/minutes-related labels. Its history is deadline-anchored, with a specific safeguard that broadcasts the earliest fixture's pre-deadline history across all fixtures in the same Gameweek to prevent double-GW leakage.
+- The release is EPL-only and does not reproduce the paper's 2017/18–2024/25 six-league source coverage.
+
+This resolves the row-grain question: Dastan rows are player-fixture rows, but the 286 predictors are deadline-anchored engineered rolling features. They are **not** equivalent to the paper's five consecutive player-match observations, each represented by 116 per-match features. The Dastan frame therefore cannot be passed directly into 2PM or treated as its input sequence.
+
+It may still be useful as an independently audited source of some historical player-fixture labels or derived feature provenance, subject to the exact data rights, field-level definitions, and transformation audit. The release documentation says its FPL/Understat source data remain subject to their respective terms; the upstream code licence does not grant rights to those source datasets.
 
 No Dastan model code, weights, points heads, preprocessing or feature order is automatically part of the new 2PM implementation. The clean-slate charter permits only independently audited shared data assets and generic infrastructure.
 
