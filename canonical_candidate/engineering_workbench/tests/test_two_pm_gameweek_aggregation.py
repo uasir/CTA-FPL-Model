@@ -84,3 +84,14 @@ def test_aggregation_requires_explicit_assumption_and_consistent_identity():
             [fixture_record(9001), fixture_record(9001)],
             dependence_assumption="independent_fixture_scores",
         )
+
+
+
+def test_aggregation_rejects_inconsistent_fixture_distribution_summary():
+    bad = fixture_record(9001)
+    bad["expected_points"] += 1.0
+    with pytest.raises(ValueError, match="expected_points disagrees"):
+        aggregate_fixture_forecasts_to_gameweek(
+            [bad],
+            dependence_assumption="independent_fixture_scores",
+        )
