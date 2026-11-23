@@ -214,6 +214,26 @@ jobs:
                       f"{candidate['net_horizon_expected_points_delta']:+.5f} | "
                       f"£{alternative_bank:.1f}m |"
                   )
+          rankings = diagnostic.get("global_player_value_rankings", [])
+          if rankings:
+              lines += [
+                  "",
+                  "## Global player value — all positions",
+                  "",
+                  "Players are ranked together across GKP, DEF, MID and FWD by cumulative five-GW expected points. Position rank is shown separately; it does not restrict the global comparison. xP per £m is a secondary efficiency measure, not a replacement for absolute projected value.",
+                  "",
+                  "| Global rank | Player | Pos. rank | Five-GW xP | xP/£m |",
+                  "|---:|---|---:|---:|---:|",
+              ]
+              for row in rankings[:10]:
+                  details = player(row["fpl_element_id"])
+                  efficiency = row.get("expected_points_per_million")
+                  efficiency_text = f"{efficiency:.2f}" if efficiency is not None else "—"
+                  lines.append(
+                      f"| {row['global_rank']} | {details['name']} ({details['team']}, {row['position']}) | "
+                      f"{row['position_rank']}/{row['position_pool_size']} | "
+                      f"{row['five_gameweek_expected_points']:.2f} | {efficiency_text} |"
+                  )
           report = "\n".join(lines) + "\n"
           Path("outputs/paired-replay/recommendation-report.md").write_text(report)
           with open(__import__("os").environ["GITHUB_STEP_SUMMARY"], "a") as summary:
@@ -251,6 +271,12 @@ jobs:
               "personal_product_status": personal.get("product_status"),
               "five_gw_diagnostic_status": diagnostic.get("status"),
               "five_gw_recommended_action": diagnostic.get("recommended_action"),
+              "global_player_value_basis": diagnostic.get("global_player_value_basis"),
+              "global_player_pool_size": diagnostic.get("global_player_pool_size"),
+              "global_player_value_top_player_id": (
+                  diagnostic.get("global_player_value_rankings", [{}])[0].get("fpl_element_id")
+                  if diagnostic.get("global_player_value_rankings") else None
+              ),
               "five_gw_net_expected_points_delta": (
                   diagnostic.get("best_diagnostic", {}).get("net_horizon_expected_points_delta")
                   if diagnostic.get("best_diagnostic") else None
