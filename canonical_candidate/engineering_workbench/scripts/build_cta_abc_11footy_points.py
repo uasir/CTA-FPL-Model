@@ -63,8 +63,8 @@ def total(rows, key):
 
 
 def per90(rows, key):
-    numerator, minutes = total(rows, key), total(rows, "minutes_played")
-    return numerator * 90.0 / minutes if numerator is not None and minutes and minutes > 0 else None
+    value, minutes = mean(rows, key), mean(rows, "minutes_played")
+    return value * 90.0 / minutes if value is not None and minutes and minutes > 0 else None
 
 
 def make_features(prior_rows):
@@ -87,7 +87,7 @@ def make_features(prior_rows):
         "abc_attacking_involvement": involvement,
         "abc_threat_creation_rate": key_rate,
         "abc_threat_reception_rate": per90(p3, "attempts_inside_box"),
-        "abc_threat_realisation_rate": goals3 / xg_sum3 if goals3 is not None and xg_sum3 is not None and xg_sum3 > 0 else None,
+        "abc_threat_realisation_rate": goals3 / xg3 if goals3 is not None and xg3 is not None and xg3 > 0 else None,
         "abc_attacking_involvement_rate": key_rate + shots_rate if key_rate is not None and shots_rate is not None else None,
     }
 
@@ -165,6 +165,8 @@ def run(training_rows, upcoming_rows, ridge_lambda=10.0, holdout_gameweeks=4):
     forecast_fixture = []
     for row in upcoming_rows:
         if not str(row.get("fpl_element_id") or "").strip():
+            continue
+        if str(row.get("research_eligible_for_analysis")).strip().lower() not in {"true", "1", "yes"}:
             continue
         if any(optional_number(row.get(name)) is None for name in features):
             # Missing values are allowed and handled by training-only imputation.
