@@ -240,3 +240,17 @@ def test_explicit_label_grain_cannot_override_pinned_dastan_metadata(tmp_path):
             target_mode="historical",
             label_grain="player_gameweek",
         )
+
+
+
+def test_fixture_grain_auto_detection_requires_complete_semantics_metadata(tmp_path):
+    targets = make_targets()
+    targets["target_label_grain"] = "player_fixture"
+    with pytest.raises(ValueError, match="explicit label_grain"):
+        build(
+            tmp_path,
+            make_history(),
+            targets,
+            target_mode="historical",
+            label_grain=None,
+        )
