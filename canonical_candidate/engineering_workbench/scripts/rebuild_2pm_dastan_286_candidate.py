@@ -126,8 +126,48 @@ def attach_official_deadlines(
     out["deadline_time"] = pd.to_datetime(out["deadline_time"], utc=True, errors="coerce")
     if out["kickoff_time"].isna().any() or out["deadline_time"].isna().any():
         raise ValueError("Candidate frame has invalid kickoff/deadline timestamps")
-    if out["deadline_time"].ge(out["kickoff_time"]).any():
-        raise ValueError("Official deadline is not before every target fixture kickoff")
+
+    # Rescheduled historical fixtures can remain attached to their original FPL
+    # Gameweek even when their eventual kickoff is at/before that Gameweek's
+    # deadline. Such a fixture is not a valid forecast target at that deadline.
+    # Exclude it from the target frame, but retain the full player_matches archive
+    # separately for post-match history reconstruction.
+    already_started = out["kickoff_time"].le(out["deadline_time"])
+    excluded = out.loc[
+        already_started,
+        [
+            column for column in (
+                "season", "gameweek", "fixture", "fpl_code",
+                "kickoff_time", "deadline_time",
+            ) if column in out.columns
+        ],
+    ].copy()
+    report = {
+        "rows_before": int(len(out)),
+        "rows_excluded_started_by_deadline": int(already_started.sum()),
+        "rows_after": int((~already_started).sum()),
+        "excluded_player_gameweek_groups": int(
+            excluded[["season", "gameweek", "fpl_code"]].drop_duplicates().shape[0]
+        ) if len(excluded) else 0,
+        "excluded_fixture_groups": int(
+            excluded[["season", "gameweek", "fixture"]].drop_duplicates().shape[0]
+        ) if len(excluded) else 0,
+        "excluded_sample": (
+            excluded.head(20).astype({
+                column: "string" for column in ("season", "fixture", "fpl_code")
+                if column in excluded.columns
+            }).to_dict("records")
+            if len(excluded) else []
+        ),
+        "policy": "Only fixtures kicking off strictly after the official Gameweek deadline remain forecast targets; the full match archive is retained for history reconstruction.",
+    }
+    out = out.loc[~already_started].copy()
+    if out.empty:
+        raise ValueError(
+            "No forecast-eligible player fixtures remain after excluding fixtures "
+            "that started by their official Gameweek deadline"
+        )
+    out.attrs["deadline_target_eligibility"] = report
     return out
 
 
@@ -473,6 +513,7 @@ def build_candidate(
     if len(ordered_features) != 286:
         raise RuntimeError(f"Expected 286 Dastan inputs, found {len(ordered_features)}")
     loaded = attach_official_deadlines(loaded, raw_dir, fplcache, seasons)
+    deadline_target_eligibility = loaded.attrs.get("deadline_target_eligibility", {})
     loaded = attach_match_availability_bounds(
         loaded, raw_dir, sources, seasons, force=force
     )
@@ -593,6 +634,7 @@ def build_candidate(
         "source_manifest_sha256": sha256(raw_dir / "downloads.json"),
         "candidate_sha256": sha256(candidate_path),
         "deadline_calendar_rows": int(candidate[KEY[:2]].drop_duplicates().shape[0]),
+        "deadline_target_eligibility": deadline_target_eligibility,
         "pre_deadline_snapshot_rows": {
             "ep_next": len(pd.read_parquet(ep_path)),
             "signals": len(pd.read_parquet(signal_path)),
