@@ -412,6 +412,21 @@ jobs:
             exit 1
           fi
 
+      - name: Train reusable ABC FPL points model candidate
+        if: success()
+        run: |
+          PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/11footy_integrated/cta_abc_historical_integrated_player_fixture_panel.csv"
+          REPORT="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/11footy_integrated/cta_abc_historical_integrated_report.json"
+          if [ -f "$PANEL" ] && [ -f "$REPORT" ]; then
+            python canonical_candidate/engineering_workbench/scripts/train_cta_abc_points_model.py \
+              --abc-panel "$PANEL" \
+              --source-report "$REPORT" \
+              --out-dir run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_points_model
+          else
+            echo "ERROR: enriched ABC panel or source report unavailable for reusable points-model training" >&2
+            exit 1
+          fi
+
       - name: Install CPU PyTorch for independent 2PM comparator
         if: always()
         continue-on-error: true
@@ -517,6 +532,8 @@ jobs:
           path: |
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_integration_report.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/11footy_integrated/cta_abc_historical_integrated_report.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_points_model/abc_points_model.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_points_model/abc_points_model_manifest.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_evaluation_report.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_walk_forward_report.json
             run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_vs_2pm_same_cohort_report.json
