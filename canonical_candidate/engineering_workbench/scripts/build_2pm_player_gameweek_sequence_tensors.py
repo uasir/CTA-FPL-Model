@@ -430,7 +430,7 @@ def build_player_gameweek_sequence_tensors(
         "counts": counts,
         "shards": shards,
         "limitations": [
-            "The player-Gameweek training label grain must be explicitly verified as fixture-level or Gameweek-level before training.",
+            "Pinned Dastan labels are verified fixture-level; other providers must supply explicit label-grain and point-semantics metadata before training.",
             "Fixture-score aggregation requires a declared cross-fixture dependence model; independent convolution is provisional.",
             "All 286 features and post-match state vintages remain NOT_ADMITTED pending the independent admission audit.",
             "No model training or M3/M4 integration is performed.",
