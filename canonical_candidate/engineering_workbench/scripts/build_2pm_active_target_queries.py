@@ -23,6 +23,12 @@ from rebuild_2pm_dastan_286_candidate import (
     attach_official_deadlines,
     load_dastan_package,
     sha256,
+    validate_reconstruction_coverage,
+)
+from rebuild_2pm_fixture_context import (
+    rebuild_deadline_team_context,
+    rebuild_fixture_context,
+    rebuild_player_history_features,
 )
 
 KEY = ["season", "gameweek", "fpl_code"]
@@ -304,6 +310,42 @@ def build_active_target_candidate(
     if len(ordered_features) != 286:
         raise RuntimeError(f"Expected 286 model features, got {len(ordered_features)}")
 
+    # Reconstruct the complete 286 frame with the same deadline-safe adapters as
+    # the completed-season pipeline. Include target roster rows in the source
+    # calendar with NOT_FINISHED/NaT availability; they contribute schedule
+    # context and identity, never historical match results.
+    source_player_matches = pd.concat(
+        [player_matches, target_fixture_rows],
+        ignore_index=True,
+        sort=False,
+    )
+    source_player_matches = attach_match_availability_bounds(
+        source_player_matches, raw_dir, sources, [season]
+    )
+    combined = pd.concat([history, queries], ignore_index=True, sort=False)
+    for key_frame in (combined, source_player_matches):
+        key_frame["season"] = key_frame["season"].astype(str)
+        key_frame["fixture"] = key_frame["fixture"].astype(str)
+        key_frame["fpl_code"] = pd.to_numeric(
+            key_frame["fpl_code"], errors="raise"
+        ).astype("int64")
+    combined, player_history_report = rebuild_player_history_features(
+        combined, source_player_matches, features
+    )
+    combined, team_context_report = rebuild_deadline_team_context(
+        combined, team_matches, features
+    )
+    combined, fixture_context_report = rebuild_fixture_context(
+        combined, source_player_matches
+    )
+    reconstruction_coverage = validate_reconstruction_coverage(
+        ordered_features,
+        player_history_report,
+        team_context_report,
+        fixture_context_report,
+        combined,
+    )
+
     metadata = [
         "season", "gameweek", "fixture", "fpl_code", "position", "team_name",
         "kickoff_time", "deadline_time", "feature_cutoff_time", "match_available_at",
@@ -311,7 +353,6 @@ def build_active_target_candidate(
         "target_points", "ep_next_snapshot_at", "signals_snapshot_at",
         "market_snapshot_at", "row_role",
     ]
-    combined = pd.concat([history, queries], ignore_index=True, sort=False)
     absent = [column for column in metadata + ordered_features if column not in combined]
     if absent:
         raise RuntimeError(f"Active candidate frame missing required columns: {absent[:20]}")
@@ -336,6 +377,10 @@ def build_active_target_candidate(
         "target_query_player_fixture_rows": int(len(queries)),
         "target_fixture_count": int(queries["fixture"].nunique()),
         "feature_count": len(ordered_features),
+        "reconstruction_coverage": reconstruction_coverage,
+        "player_history_reconstruction": player_history_report,
+        "deadline_team_context_reconstruction": team_context_report,
+        "fixture_context_reconstruction": fixture_context_report,
         "feature_order_sha256": candidate["feature_order_sha256"].iat[0],
         "source_manifest_sha256": sha256(raw_dir / "downloads.json"),
         "snapshot_coverage": {
@@ -358,7 +403,8 @@ def build_active_target_candidate(
             ),
         },
         "limitations": [
-            "Candidate only; all 286 feature admission gates remain open.",
+            "Candidate only; all 286 feature source-vintage and value-parity admission gates remain open.",
+            "All 286 feature families are independently reconstructed or joined from accepted deadline snapshots, but current-season historical source vintages are not archived at their original deadlines.",
             "Historical active-season rows are rebuilt from current archived sources, not exact historical source vintages.",
             "Target queries are refused once any fixture in the target Gameweek has started.",
             "Target-specific queries are built one fixture at a time to avoid flattening distinct Double Gameweek opponent context.",
