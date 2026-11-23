@@ -20,6 +20,7 @@ def make_candidate_row(fixture, opp_value=0.0):
         "deadline_time": "2026-01-01T10:00:00Z",
         "ep_next_snapshot_at": "2026-01-01T08:00:00Z",
         "signals_snapshot_at": "2026-01-01T08:30:00Z",
+        "market_snapshot_at": "2026-01-01T08:15:00Z",
     }
     row.update({feature: 0.0 for feature in FEATURES})
     row["opp_xg_1"] = opp_value
@@ -43,6 +44,7 @@ def test_candidate_audit_checks_schema_snapshots_and_only_claims_selected_anchor
     assert report["fixture_context_flattening_check"]["groups_with_multiple_fixtures"] == 1
     assert report["fixture_context_flattening_check"]["groups_where_all_context_features_are_constant"] == 0
     assert report["snapshot_timestamps"]["ep_next_snapshot_at"]["post_deadline_rows"] == 0
+    assert report["snapshot_timestamps"]["market_snapshot_at"]["post_deadline_rows"] == 0
     assert report["defensive_feature_coverage"]["2025-26"]["columns"] > 0
     assert report["admission_status"] == "NOT_ADMITTED"
 
