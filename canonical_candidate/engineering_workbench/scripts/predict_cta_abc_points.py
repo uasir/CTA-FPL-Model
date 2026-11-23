@@ -62,6 +62,7 @@ def score_rows(rows, model_payload):
             "expected_points": predicted,
             "model_version": model_version,
             "research_eligible_for_analysis": row.get("research_eligible_for_analysis", ""),
+            "prediction_basis": "ABC_AND_FPL_HISTORY" if str(row.get("research_eligible_for_analysis", "")).strip().lower() in {"true", "1", "yes"} else "FPL_HISTORY_WITH_MISSING_ABC_EVIDENCE",
             "identity_verified": row.get("identity_verified", ""),
             "cta_snapshot_available_as_of_deadline": row.get("cta_snapshot_available_as_of_deadline", ""),
         }
@@ -189,6 +190,10 @@ def build_report(rows, model_payload, manifest, input_report, model_path, fixtur
             str(row.get("research_eligible_for_analysis", "")).strip().lower() in {"true", "1", "yes"}
             for row in rows
         ),
+        "prediction_basis_counts": {
+            "ABC_AND_FPL_HISTORY": sum(1 for row in fixture_predictions if row.get("prediction_basis") == "ABC_AND_FPL_HISTORY"),
+            "FPL_HISTORY_WITH_MISSING_ABC_EVIDENCE": sum(1 for row in fixture_predictions if row.get("prediction_basis") == "FPL_HISTORY_WITH_MISSING_ABC_EVIDENCE"),
+        },
         "feature_count": len(feature_order),
         "feature_coverage": coverage,
         "training_feature_domain_diagnostics": training_domain,
@@ -242,7 +247,7 @@ def main() -> int:
     write_csv(
         args.out_dir / "abc_fixture_points_predictions.csv",
         fixture_rows,
-        ["fpl_element_id", "gameweek", "fpl_fixture_id", "expected_points", "model_version", "research_eligible_for_analysis", "identity_verified", "cta_snapshot_available_as_of_deadline"],
+        ["fpl_element_id", "gameweek", "fpl_fixture_id", "expected_points", "model_version", "research_eligible_for_analysis", "prediction_basis", "identity_verified", "cta_snapshot_available_as_of_deadline"],
     )
     write_csv(
         args.out_dir / "abc_player_gameweek_points_forecasts.csv",
