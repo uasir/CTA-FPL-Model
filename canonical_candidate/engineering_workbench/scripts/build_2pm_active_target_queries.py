@@ -190,6 +190,59 @@ def attach_snapshot_features(
     }
 
 
+
+def build_future_fixture_schedule_rows(
+    fixtures: pd.DataFrame,
+    teams: pd.DataFrame,
+    *,
+    season: str,
+    now: pd.Timestamp,
+) -> pd.DataFrame:
+    """Create schedule-only team/fixture rows for upcoming fixtures.
+
+    These rows have no player identity or match results and a NaT availability
+    timestamp. They are used only for fixture-count context, never as history.
+    """
+    team_names = teams.set_index("id")["name"].to_dict()
+    now = pd.Timestamp(now)
+    now = now.tz_localize("UTC") if now.tzinfo is None else now.tz_convert("UTC")
+    rows = []
+    for fixture in fixtures.to_dict("records"):
+        kickoff = pd.to_datetime(fixture.get("kickoff_time"), utc=True, errors="coerce")
+        if pd.isna(kickoff) or kickoff <= now:
+            continue
+        home = team_names.get(int(fixture["team_h"]))
+        away = team_names.get(int(fixture["team_a"]))
+        if not home or not away:
+            raise ValueError(f"Future fixture {fixture.get('id')} has unmapped FPL teams")
+        for team_name, opponent_name, is_home in (
+            (home, away, True),
+            (away, home, False),
+        ):
+            rows.append(
+                {
+                    "season": str(season),
+                    "fixture": str(fixture["id"]),
+                    "fpl_code": -1,
+                    "element": -1,
+                    "understat_id": np.nan,
+                    "position": "MID",
+                    "is_home": is_home,
+                    "team_name": team_name,
+                    "opponent_team_name": opponent_name,
+                    "kickoff_time": kickoff,
+                    "match_available_at": pd.NaT,
+                    "minutes": 0.0,
+                    "total_points": 0.0,
+                    "defensive_contribution": np.nan,
+                    "clearances_blocks_interceptions": np.nan,
+                    "recoveries": np.nan,
+                    "tackles": np.nan,
+                    "starts": np.nan,
+                }
+            )
+    return pd.DataFrame(rows)
+
 def build_active_target_candidate(
     dastan_root: Path,
     raw_dir: Path,
@@ -322,6 +375,15 @@ def build_active_target_candidate(
     source_player_matches = attach_match_availability_bounds(
         source_player_matches, raw_dir, sources, [season]
     )
+    schedule_rows = build_future_fixture_schedule_rows(
+        fixtures, teams, season=season, now=now
+    )
+    if not schedule_rows.empty:
+        source_player_matches = pd.concat(
+            [source_player_matches, schedule_rows],
+            ignore_index=True,
+            sort=False,
+        )
     combined = pd.concat([history, queries], ignore_index=True, sort=False)
     for key_frame in (combined, source_player_matches):
         key_frame["season"] = key_frame["season"].astype(str)
@@ -381,6 +443,7 @@ def build_active_target_candidate(
         "player_history_reconstruction": player_history_report,
         "deadline_team_context_reconstruction": team_context_report,
         "fixture_context_reconstruction": fixture_context_report,
+        "future_fixture_schedule_rows": int(len(schedule_rows)),
         "feature_order_sha256": candidate["feature_order_sha256"].iat[0],
         "source_manifest_sha256": sha256(raw_dir / "downloads.json"),
         "snapshot_coverage": {
