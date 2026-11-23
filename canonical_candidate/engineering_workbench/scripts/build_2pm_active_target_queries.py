@@ -169,6 +169,13 @@ def attach_snapshot_features(
     ]
     for column in snapshot_columns:
         result[column] = pd.to_datetime(result[column], utc=True, errors="coerce")
+        present = result[column].notna()
+        if present.any():
+            age = result.loc[present, "deadline_time"] - result.loc[present, column]
+            if age.lt(pd.Timedelta(minutes=5)).any():
+                raise RuntimeError(f"{column} contains a snapshot inside the five-minute safety buffer")
+            if age.le(pd.Timedelta(0)).any():
+                raise RuntimeError(f"{column} contains a post-deadline snapshot")
     return result, {
         "rows": int(len(result)),
         "snapshot_coverage": {
