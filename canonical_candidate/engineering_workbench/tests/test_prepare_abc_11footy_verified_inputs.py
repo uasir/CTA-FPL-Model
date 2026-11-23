@@ -62,6 +62,6 @@ def test_read_csv_supports_legacy_cp1252_names(tmp_path):
     from prepare_abc_11footy_verified_inputs import read_csv
 
     source = tmp_path / "legacy.csv"
-    source.write_bytes(b"name,value\\nAndre\\xe9,1\\n")
+    source.write_bytes(bytes([110, 97, 109, 101, 44, 118, 97, 108, 117, 101, 10, 65, 110, 100, 114, 101, 233, 44, 49, 10]))
     rows = read_csv(source)
     assert rows == [{"name": "Andreé", "value": "1"}]
