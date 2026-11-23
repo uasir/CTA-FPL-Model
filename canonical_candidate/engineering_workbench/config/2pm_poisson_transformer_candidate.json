@@ -20,6 +20,12 @@
     "dropout": 0.22,
     "positional_encoding": "sinusoidal"
   },
+  "input_preprocessing": {
+    "residual_nan_imputation": 0.0,
+    "snapshot_missing_sentinel": -1.0,
+    "pre_imputation_missingness_audit_required": true,
+    "feature_scaling": "UNRESOLVED_NOT_ASSUMED"
+  },
   "output_distribution": {
     "type": "two_component_poisson_mixture",
     "parameters": ["p", "lambda_1", "lambda_2"],
