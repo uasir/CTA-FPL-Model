@@ -54,7 +54,7 @@ def write_frame(frame: pd.DataFrame, path: Path) -> None:
 
 
 def validate_input(frame: pd.DataFrame, features: list[str], fixture_column: str) -> pd.DataFrame:
-    required = set(IDENTITY) | set(TIME_COLUMNS) | {
+    required = (set(IDENTITY) - {"fixture_id"}) | set(TIME_COLUMNS) | {
         fixture_column, "minutes", *features
     }
     missing = sorted(required - set(frame.columns))
@@ -72,15 +72,25 @@ def validate_input(frame: pd.DataFrame, features: list[str], fixture_column: str
         raise ValueError(f"Duplicate player-fixture keys: {examples}")
 
     out = frame.copy()
-    for column in TIME_COLUMNS:
+    for column in ("kickoff_time", "deadline_time", "source_as_of_time"):
         out[column] = pd.to_datetime(out[column], utc=True, errors="coerce")
         if out[column].isna().any():
             raise ValueError(f"{column} contains missing or invalid timestamps")
+    out["match_completed_at"] = pd.to_datetime(
+        out["match_completed_at"], utc=True, errors="coerce"
+    )
     if (out["source_as_of_time"] >= out["deadline_time"]).any():
         raise ValueError("At least one feature snapshot was captured at/after its deadline")
     if (out["deadline_time"] > out["kickoff_time"]).any():
         raise ValueError("A target deadline occurs after its fixture kickoff")
-    if (out["match_completed_at"] < out["kickoff_time"]).any():
+    played_without_completion = out["minutes"].gt(0) & out["match_completed_at"].isna()
+    if played_without_completion.any():
+        raise ValueError("Played fixtures require match_completed_at")
+    completed_before_kickoff = (
+        out["match_completed_at"].notna()
+        & out["match_completed_at"].lt(out["kickoff_time"])
+    )
+    if completed_before_kickoff.any():
         raise ValueError("match_completed_at precedes kickoff_time")
 
     for column in ["minutes", *features]:
