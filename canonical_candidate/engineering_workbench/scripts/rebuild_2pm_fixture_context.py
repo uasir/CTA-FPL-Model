@@ -140,7 +140,7 @@ def rebuild_player_history_features(
     history_groups = {}
     for uid, group in hist.groupby("_player_uid", sort=False):
         group = group.sort_values(["kickoff_time", "fixture"], kind="mergesort").reset_index(drop=True)
-        available_ns = group["match_available_at"].astype("int64").to_numpy()
+        available_ns = group["match_available_at"].astype("int64").to_numpy(copy=True)
         available_ns[group["match_available_at"].isna().to_numpy()] = np.iinfo(np.int64).max
         player_arrays = {}
         for source in player_map:
