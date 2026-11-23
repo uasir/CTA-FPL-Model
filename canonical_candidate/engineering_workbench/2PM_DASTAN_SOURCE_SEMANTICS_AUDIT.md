@@ -193,6 +193,16 @@ The canonical raw inputs can be reconstructed using the pinned Dastan source pip
 - The upstream documentation reports that some candidate feature families were rejected for the minutes model. Those experiments do not establish whether a feature helps or harms a points model.
 - Source code MIT licences do not grant rights to FPL or Understat source data. Underlying terms and training/retention permission remain separate gates.
 
+## 5A. Historical identity policy and source-release freshness
+
+The pinned upstream `data/mappings/README.md` makes an important distinction: its immutable training assignment table retains two incorrect historical Understat identities for exact Dastan reproduction. The evidence-backed corrected map replaces FPL code 437688 (Lewis Richardson → Lewis Richards; Understat 9082 → 9216) and FPL code 515501 (Álvaro Fernández goalkeeper → Álvaro Fernández Carreras defender; Understat 5191 → 10576).
+
+The upstream `assignments_for_seasons()` function uses the immutable training assignments for already released seasons. Therefore, using the upstream canonical rebuild unchanged would preserve these identity errors. For 2PM, rebuild historical player/Understat joins using a new versioned assignment table derived from the corrected mapping and the documented historical intervals. Do not patch only the two final feature rows: the corrected identity changes the player's grouped rolling history and potentially every subsequent feature row.
+
+The corrected map has 1,563 unique Understat IDs across 1,564 FPL codes; one shared ID is documented as two FPL spellings of Kaine Kesler-Hayden. Treat that documented alias/shared-ID case explicitly.
+
+The pinned release manifest records a six-season frame ending in 2025/26 (163,072 rows; 304 total columns). The pinned 2026/27 roster mapping is a separate snapshot and does not provide 2026/27 player-fixture features. The upstream mapping README reports 518/577 mapped in that particular captured roster; this is not current coverage as of 2026-11-23. A refreshed, hashed current roster/mapping and a separate 2026/27 feature build are required for current-season inference.
+
 ## 6. 2PM implications
 
 1. Retain the exact 286 ordered schema as the audit inventory, not as an approved immutable input list.
@@ -209,7 +219,8 @@ The canonical raw inputs can be reconstructed using the pinned Dastan source pip
 - Upstream lagging and selected deadline safeguards: **confirmed in code**.
 - Opponent/rank and kickoff-relative context deadline safety: **structural guarantee gap confirmed in source; affected rows/values not quantified**.
 - Market-field pre-deadline timestamps: **not verified**.
-- Historical player identity corrections: **documented; 2PM crosswalk audit not run**.
+- Historical player identity corrections: **two errors confirmed in immutable release mapping; corrected-map rebuild not run**.
+- Current 2026/27 feature rows: **absent from pinned six-season release; current-season build required**.
 - Defensive feature season coverage: **source-documented; row-level audit not run**.
 - Sequence-token design: **unresolved**.
 - 2PM schema admission: **not approved**.
