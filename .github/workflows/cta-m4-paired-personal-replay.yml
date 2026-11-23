@@ -162,6 +162,8 @@ jobs:
                   f"- Bank after transfer: £{bank_after:.1f}m",
                   f"- Free transfers available: {int(manager['free_transfers'])}",
                   f"- Hit cost applied: {float(best['hit_cost_points_applied']):.0f} points",
+                  f"- Global market rank: OUT #{best['outgoing_global_rank']} (position #{best['outgoing_position_rank']}); IN #{best['incoming_global_rank']} (position #{best['incoming_position_rank']}).",
+                  f"- Incoming minus outgoing player-level five-GW xP: {best['incoming_minus_outgoing_player_horizon_xp']:+.2f}. The recommendation's net gain above is the separate marginal starting-XI impact.",
               ]
           else:
               lines += [
