@@ -31,6 +31,7 @@
 - Replaces the two known incorrect historical Understat assignments with the evidence-backed corrected mapping while preserving the historical player/Gameweek assignment intervals.
 - Uses the Dastan operational mapping resolver only for an explicitly requested active season.
 - Rebuilds the candidate feature frame and pre-deadline `ep_next` / availability snapshot artifacts.
+- Downloads the pinned season fixture calendars and attaches a conservative 24-hour post-kickoff availability upper bound for fixtures marked finished. This is explicitly not an exact finish timestamp and excludes borderline matches rather than guessing.
 - Attaches the official FPL Gameweek deadline calendar.
 - Downloads the pinned season fixture calendars and attaches a conservative 24-hour post-kickoff availability upper bound for fixtures marked finished. This is explicitly not represented as an exact finish timestamp; it errs toward excluding borderline prior matches.
 - Writes the exact 286 ordered inputs, identity/source hashes, snapshot timestamps, feature cutoff, fixture-availability quality and explicit non-admission status.
@@ -48,6 +49,7 @@ The output is deliberately labelled `RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED` 
 - Enforces the paper's 21-day maximum gap between consecutive observation kickoffs, including the target fixture.
 - Produces six tokens: five historical Dastan feature snapshots and one target-fixture query snapshot.
 - Keeps target points as a separate label, never as an input feature.
+- Supports memory-bounded float32 tensor shards with aligned metadata CSVs, avoiding a single oversized wide DataFrame.
 - Handles a Double Gameweek by reusing the same deadline-eligible history for both target fixtures; a match completed after the shared deadline cannot enter either target sequence.
 
 The historical token is the Dastan 286-feature snapshot captured before that historical fixture's own deadline. The latest prior match's completed result is represented in the target token through its lagged Dastan history features. This is the current sequence adaptation; it is not the paper's original 116-feature raw-match representation.
@@ -77,7 +79,8 @@ The focused run at commit `795ed096e5df6c4abfd6bef16874ff7ccc6741e1` completed s
 `.github/workflows/cta-2pm-dastan-286-candidate-rebuild.yml`
 
 - Checks out the pinned Dastan source and rebuilds the six completed seasons (2020/21–2025/26).
-- Keeps raw player-level source data and feature artifacts on the ephemeral runner; only aggregate candidate status is written to the workflow summary.
+- Runs the 286 structural audit and builds five-played-match candidate tensor shards after reconstruction.
+- Keeps raw player-level source data, candidate feature frames and tensor shards on the ephemeral runner; only aggregate candidate status is written to the workflow summary.
 - Does not train the 2PM model or promote data.
 
 The first full rebuild run is being executed separately. Its outcome must be read from the workflow before reporting candidate row coverage or feature-build success.
