@@ -221,23 +221,44 @@ def build_player_gameweek_sequence_tensors(
         source_as_of = pd.to_datetime(
             targets["source_as_of_time"], utc=True, errors="coerce"
         )
-        present = source_as_of.notna()
-        if (source_as_of.loc[present] >= targets.loc[present, "deadline_time"]).any():
+        if source_as_of.isna().any():
+            raise ValueError("source_as_of_time contains missing or invalid capture timestamps")
+        if source_as_of.ge(targets["deadline_time"]).any():
             raise ValueError("A target source snapshot was captured at/after its deadline")
-    for snapshot_column in (
-        "ep_next_snapshot_at", "signals_snapshot_at", "market_snapshot_at"
-    ):
-        if snapshot_column in targets:
-            captured = pd.to_datetime(
-                targets[snapshot_column], utc=True, errors="coerce"
-            )
-            present = captured.notna()
-            if present.any():
-                age = targets.loc[present, "deadline_time"] - captured.loc[present]
-                if age.lt(pd.Timedelta(minutes=5)).any():
+    snapshot_value_groups = {
+        "ep_next_snapshot_at": ("ar_ep_next",),
+        "signals_snapshot_at": ("sig_status_risk", "sig_chance_playing", "sig_has_news"),
+        "market_snapshot_at": ("value", "selected", "transfers_balance"),
+    }
+    for snapshot_column, value_columns in snapshot_value_groups.items():
+        if snapshot_column not in targets:
+            continue
+        captured = pd.to_datetime(
+            targets[snapshot_column], utc=True, errors="coerce"
+        )
+        invalid = targets[snapshot_column].notna() & captured.isna()
+        if invalid.any():
+            raise ValueError(f"{snapshot_column} contains invalid capture timestamps")
+        present = captured.notna()
+        missing_capture = ~present
+        if missing_capture.any():
+            available_values = [name for name in value_columns if name in targets]
+            if available_values:
+                values = targets.loc[missing_capture, available_values].apply(
+                    pd.to_numeric, errors="coerce"
+                )
+                # -1 is the explicit missing-snapshot sentinel in the pinned
+                # candidate schema. Real values without provenance are rejected.
+                if not values.eq(-1.0).all(axis=None):
                     raise ValueError(
-                        f"{snapshot_column} violates the five-minute deadline safety buffer"
+                        f"{snapshot_column} is missing while its feature values are not all -1 sentinels"
                     )
+        if present.any():
+            age = targets.loc[present, "deadline_time"] - captured.loc[present]
+            if age.le(pd.Timedelta(minutes=5)).any():
+                raise ValueError(
+                    f"{snapshot_column} violates the five-minute deadline safety buffer"
+                )
     if targets.duplicated([*GROUP_KEYS, "fixture"]).any():
         raise ValueError("Target frame contains duplicate player-Gameweek-fixture rows")
 
