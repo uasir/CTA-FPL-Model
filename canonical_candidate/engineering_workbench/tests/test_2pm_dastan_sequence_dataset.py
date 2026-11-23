@@ -107,7 +107,16 @@ def test_insufficient_history_is_not_padded_or_silently_used():
 def test_gap_over_21_days_is_rejected():
     rows = []
     for i in range(5):
-        kickoff = pd.to_datetime(\n            ["2026-07-01T12:00:00Z", "2026-07-08T12:00:00Z",\n             "2026-07-30T12:00:00Z", "2026-07-31T12:00:00Z",\n             "2026-08-01T12:00:00Z"][i], utc=True\n        )
+        kickoff = pd.to_datetime(
+            [
+                "2026-07-01T12:00:00Z",
+                "2026-07-08T12:00:00Z",
+                "2026-07-30T12:00:00Z",
+                "2026-07-31T12:00:00Z",
+                "2026-08-01T12:00:00Z",
+            ][i],
+            utc=True,
+        )
         rows.append(
             make_row(
                 f"H{i}",
