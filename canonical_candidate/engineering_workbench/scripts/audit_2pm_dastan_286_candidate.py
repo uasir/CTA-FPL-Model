@@ -48,7 +48,7 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
         "availability": sum(column.startswith(("p_any_", "p60_", "e_minutes_")) for column in features),
         "ar_": sum(column.startswith("ar_") for column in features),
         "snapshots": sum(column.startswith("sig_") for column in features) + int("ar_ep_next" in features),
-        "flat_context": sum(column in {"is_home_num", "status_league_rank", "opp_status_league_rank", *MARKET_FEATURES} for column in features),
+        "flat_context": sum(column in {"is_home_num", "status_league_rank", *MARKET_FEATURES} for column in features),
     }
 
     season_coverage = {}
