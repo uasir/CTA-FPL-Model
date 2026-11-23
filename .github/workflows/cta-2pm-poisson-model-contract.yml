@@ -6,8 +6,10 @@ on:
     paths:
       - canonical_candidate/engineering_workbench/scripts/two_component_poisson_transformer.py
       - canonical_candidate/engineering_workbench/scripts/two_pm_forecast_records.py
+      - canonical_candidate/engineering_workbench/scripts/two_pm_gameweek_aggregation.py
       - canonical_candidate/engineering_workbench/tests/test_two_component_poisson_transformer.py
       - canonical_candidate/engineering_workbench/tests/test_two_pm_forecast_records.py
+      - canonical_candidate/engineering_workbench/tests/test_two_pm_gameweek_aggregation.py
       - canonical_candidate/engineering_workbench/config/2pm_poisson_transformer_candidate.json
       - .github/workflows/cta-2pm-poisson-model-contract.yml
 
