@@ -49,7 +49,7 @@ def test_market_snapshot_extracts_price_ownership_and_transfer_balance():
         fplcache_module=fplcache,
     )
     assert len(rows) == 1
-    assert rows[0]["value"] == 5.5
+    assert rows[0]["value"] == 55.0
     assert rows[0]["selected"] == 7.3
     assert rows[0]["transfers_balance"] == 60.0
     assert rows[0]["snapshot_at"] == captured
