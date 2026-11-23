@@ -21,9 +21,9 @@ The immutable release registry ends at 2025/26. It does **not** contain 2026/27 
 
 ## 2. Current-roster mapping is a separate population
 
-The pinned upstream mapping README reports 518 of 577 players mapped in its captured 2026/27 roster. These figures describe that specific roster/mapping snapshot, not the global operational registry and not current coverage on 2026-11-23.
+The pinned upstream mapping documents disagree: `docs/DATA.md` reports 627/654, while `data/mappings/README.md` still says 518/577. Direct counting of the pinned `data/mappings/fpl_understat_current.csv` (SHA-256/blob evidence recorded in `2PM_DASTAN_FEATURE_POINT_IN_TIME_AUDIT.md`) gives 654 rows: 626 `mapped`, 1 `shared_understat_id`, and 27 `unmapped`. Effective mapped coverage is therefore 627/654 when the documented shared-ID case is counted as mapped. The README's 518/577 statement is stale for this exact pinned roster snapshot.
 
-Do not copy the 518/577 figure into a current-season readiness report without fetching and hashing the exact current roster and operational mapping files. The existing CTA project source inventory also notes that different upstream mapping snapshots have reported different active-roster totals. Always calculate:
+This is a captured 2026/27 roster mapping, not a live count on 2026-11-23 and not a 2026/27 player-fixture feature frame. Always recalculate and hash the exact roster/mapping files for a new build. Also calculate:
 - total active roster players;
 - mapped players;
 - unmapped players;
