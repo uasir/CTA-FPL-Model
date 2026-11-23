@@ -209,13 +209,13 @@ def poisson_mixture_negative_log_likelihood(
     log_factorial = torch.lgamma(shifted_y + 1.0)
     log_component_1 = (
         F.logsigmoid(output["mixture_logit"])
-        + y * torch.log(output["lambda_1"])
+        + shifted_y * torch.log(output["lambda_1"])
         - output["lambda_1"]
         - log_factorial
     )
     log_component_2 = (
         F.logsigmoid(-output["mixture_logit"])
-        + y * torch.log(output["lambda_2"])
+        + shifted_y * torch.log(output["lambda_2"])
         - output["lambda_2"]
         - log_factorial
     )
