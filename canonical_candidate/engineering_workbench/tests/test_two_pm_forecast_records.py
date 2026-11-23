@@ -76,3 +76,28 @@ def test_forecast_record_rejects_post_forecast_training_cutoff_and_bad_batch():
             forecast_as_of="2026-11-03T00:00:00Z",
             training_cutoff="2026-11-02T00:00:00Z",
         )
+
+
+
+def test_forecast_record_rejects_inconsistent_analytic_moments():
+    model = PaperTwoComponentPoissonTransformer(
+        feature_count=4,
+        sequence_length=6,
+        num_layers=1,
+        d_model=16,
+        nhead=4,
+        dim_feedforward=32,
+    )
+    output = model(torch.randn(1, 6, 4))
+    output["expected_points"] = output["expected_points"] + 1.0
+    with pytest.raises(ValueError, match="expected_points disagrees"):
+        build_forecast_records(
+            output,
+            player_ids=[1001],
+            target_gameweeks=[12],
+            target_fixture_ids=[9001],
+            forecast_as_of="2026-11-03T00:00:00Z",
+            training_cutoff="2026-11-02T00:00:00Z",
+            feature_schema_version="schema-v1",
+            data_snapshot_hashes={"features": "a" * 64},
+        )
