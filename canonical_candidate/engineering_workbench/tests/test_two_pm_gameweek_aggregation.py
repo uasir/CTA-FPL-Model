@@ -5,19 +5,20 @@ import pytest
 from two_pm_gameweek_aggregation import aggregate_fixture_forecasts_to_gameweek
 
 
-def fixture_record(fixture_id, player=1001, gameweek=12, p=0.7, l1=4.0, l2=1.0):
-    expected = p * l1 + (1 - p) * l2
+def fixture_record(fixture_id, player=1001, gameweek=12, p=0.7, l1=4.0, l2=1.0, support_shift=0):
+    count_expected = p * l1 + (1 - p) * l2
+    expected = count_expected - support_shift
     variance = (
         p * (l1 + l1 * l1)
         + (1 - p) * (l2 + l2 * l2)
-        - expected * expected
+        - count_expected * count_expected
     )
     return {
         "player_id": player,
         "target_gameweek": gameweek,
         "target_fixture_id": fixture_id,
         "model_name": "2PM-PoissonMixture-Transformer",
-        "model_version": "0.1.0",
+        "model_version": "0.2.0",
         "feature_schema_version": "dastan-286-v1",
         "forecast_as_of": "2026-11-23T10:00:00+00:00",
         "training_cutoff": "2026-11-01T00:00:00+00:00",
@@ -25,6 +26,7 @@ def fixture_record(fixture_id, player=1001, gameweek=12, p=0.7, l1=4.0, l2=1.0):
         "p": p,
         "lambda_1": l1,
         "lambda_2": l2,
+        "support_shift": support_shift,
         "expected_points": expected,
         "variance": variance,
         "standard_deviation": math.sqrt(max(0, variance)),
@@ -93,5 +95,30 @@ def test_aggregation_rejects_inconsistent_fixture_distribution_summary():
     with pytest.raises(ValueError, match="expected_points disagrees"):
         aggregate_fixture_forecasts_to_gameweek(
             [bad],
+            dependence_assumption="independent_fixture_scores",
+        )
+
+
+
+def test_shifted_fixture_mixtures_aggregate_signed_points_and_support():
+    first = fixture_record(9001, p=0.7, l1=25.0, l2=21.0, support_shift=20)
+    second = fixture_record(9002, p=0.6, l1=23.0, l2=22.0, support_shift=20)
+    result = aggregate_fixture_forecasts_to_gameweek(
+        [first, second],
+        dependence_assumption="independent_fixture_scores",
+    )
+    assert math.isclose(result["expected_points"], first["expected_points"] + second["expected_points"])
+    assert result["support_shift"] == 40
+    assert result["support_lower_bound"] == -40
+    assert result["forecast_type"] == "independent_sum_of_fixture_shifted_poisson_mixtures"
+    assert result["probability_6_plus"] >= result["probability_8_plus"]
+
+
+def test_shifted_fixture_aggregation_rejects_inconsistent_support_offsets():
+    first = fixture_record(9001, support_shift=20)
+    second = fixture_record(9002, support_shift=21)
+    with pytest.raises(ValueError, match="share one"):
+        aggregate_fixture_forecasts_to_gameweek(
+            [first, second],
             dependence_assumption="independent_fixture_scores",
         )
