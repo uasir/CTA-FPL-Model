@@ -32,7 +32,19 @@ def build_dataset(
     candidate = pd.read_parquet(candidate_path)
     player_matches = pd.read_parquet(player_matches_path)
     team_matches = pd.read_parquet(team_matches_path)
+    if "forecast_target_eligible" not in candidate:
+        raise ValueError(
+            "Candidate frame lacks forecast_target_eligible; rebuild with the "
+            "deadline-aware target/history split"
+        )
+    target_candidate = candidate[
+        candidate["forecast_target_eligible"].fillna(False).astype(bool)
+    ].copy()
+    if target_candidate.empty:
+        raise ValueError("No forecast-eligible historical player-fixture targets remain")
 
+    # Build historical post-match states from the complete fixture archive,
+    # not just fixtures eligible as targets at their original FPL deadline.
     postmatch, postmatch_report = build_postmatch_state_vectors(
         candidate, player_matches, team_matches, features_module, features
     )
@@ -41,7 +53,7 @@ def build_dataset(
     postmatch.to_parquet(states_path, index=False)
 
     group_keys = (
-        candidate[["season", "gameweek"]]
+        target_candidate[["season", "gameweek"]]
         .drop_duplicates()
         .sort_values(["season", "gameweek"], kind="mergesort")
     )
@@ -59,9 +71,9 @@ def build_dataset(
         key = f"{season.replace('/', '-')}_gw{gameweek:02d}"
         shard_dir = output_dir / "player_gameweek_tensors" / key
         report_path = output_dir / "reports" / f"{key}.json"
-        target_subset = candidate[
-            candidate["season"].astype(str).eq(season)
-            & pd.to_numeric(candidate["gameweek"], errors="coerce").eq(gameweek)
+        target_subset = target_candidate[
+            target_candidate["season"].astype(str).eq(season)
+            & pd.to_numeric(target_candidate["gameweek"], errors="coerce").eq(gameweek)
         ].copy()
         player_codes = set(pd.to_numeric(target_subset["fpl_code"], errors="raise").astype("int64"))
         history_subset = postmatch[
@@ -118,6 +130,8 @@ def build_dataset(
         "player_gameweek_exclusions": total_exclusions,
         "gameweeks": gameweek_reports,
         "limitations": [
+            "All played historical fixtures are retained for post-match tokens, including fixtures not eligible as targets at their original FPL deadline.",
+            "Only fixtures kicking off strictly after their official Gameweek deadline are used as forecast targets.",
             "Candidate source vintages and all 286 feature semantics remain NOT_ADMITTED.",
             "The 21-day sequence eligibility rule is enforced by the grouped tensor builder.",
             "No model training, inference, or M3/M4 integration is performed.",
