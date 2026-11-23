@@ -299,6 +299,7 @@ jobs:
               --candidates "$CANDIDATES" \
               --crosswalk "$CROSSWALK" \
               --fpl-history run_artifacts/wyscout/source/fpl_merged_gw.csv \
+              --fpl-players run_artifacts/wyscout/source/fpl_players_raw.csv \
               --team-list run_artifacts/wyscout/source/fpl_master_team_list.csv \
               --out-dir run_artifacts/wyscout/output/abc_11footy_inputs
           else
@@ -315,8 +316,8 @@ jobs:
               --database run_artifacts/wyscout/source/11footy-england.premier-league.db.xz \
               --players-database run_artifacts/wyscout/source/11footy-players.db.xz \
               --fpl-fixtures "$INPUT/historical_fpl_fixtures.csv" \
-              --fpl-players run_artifacts/wyscout/source/fpl_players_raw.csv \
-              --fpl-player-fixture run_artifacts/wyscout/source/fpl_merged_gw.csv \
+              --fpl-players "$INPUT/historical_fpl_players.csv" \
+              --fpl-player-fixture "$INPUT/historical_fpl_player_fixture.csv" \
               --candidates "$INPUT/11footy_builder_candidates.csv" \
               --crosswalk "$INPUT/11footy_builder_verified_crosswalk.csv" \
               --crosswalk-validation "$INPUT/11footy_crosswalk_validation.json" \
