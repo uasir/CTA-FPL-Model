@@ -72,12 +72,16 @@ def aggregate_fixture_forecasts_to_gameweek(
             or lambda_2 <= 0
         ):
             raise ValueError("fixture mixture parameters must be finite and valid")
-        expected = p * lambda_1 + (1.0 - p) * lambda_2
+        support_shift = int(record.get("support_shift", 0))
+        if support_shift < 0:
+            raise ValueError("fixture support_shift must be non-negative")
+        count_expectation = p * lambda_1 + (1.0 - p) * lambda_2
+        expected = count_expectation - support_shift
         second_moment = (
             p * (lambda_1 + lambda_1 * lambda_1)
             + (1.0 - p) * (lambda_2 + lambda_2 * lambda_2)
         )
-        variance = max(0.0, second_moment - expected * expected)
+        variance = max(0.0, second_moment - count_expectation * count_expectation)
         if not math.isclose(
             expected, float(record["expected_points"]), rel_tol=1e-5, abs_tol=1e-6
         ):
@@ -97,20 +101,24 @@ def aggregate_fixture_forecasts_to_gameweek(
         (weight / total_weight, rate)
         for weight, rate in components
     ]
-    expected_points = sum(weight * rate for weight, rate in components)
+    total_support_shift = sum(int(record.get("support_shift", 0)) for record in records)
+    count_expectation = sum(weight * rate for weight, rate in components)
+    expected_points = count_expectation - total_support_shift
     second_moment = sum(
         weight * (rate + rate * rate) for weight, rate in components
     )
-    variance = max(0.0, second_moment - expected_points * expected_points)
+    variance = max(0.0, second_moment - count_expectation * count_expectation)
 
     return {
         "player_id": records[0]["player_id"],
         "target_gameweek": int(records[0]["target_gameweek"]),
         "target_fixture_ids": [record["target_fixture_id"] for record in records],
         "forecast_grain": "player_gameweek",
-        "forecast_type": "independent_sum_of_fixture_poisson_mixtures",
+        "forecast_type": "independent_sum_of_fixture_shifted_poisson_mixtures",
         "aggregation_assumption": dependence_assumption,
         "fixture_count": len(records),
+        "support_shift": total_support_shift,
+        "support_lower_bound": -total_support_shift,
         "model_name": records[0]["model_name"],
         "model_version": records[0]["model_version"],
         "feature_schema_version": records[0]["feature_schema_version"],
@@ -121,13 +129,13 @@ def aggregate_fixture_forecasts_to_gameweek(
         "variance": variance,
         "standard_deviation": math.sqrt(variance),
         "probability_6_plus": sum(
-            weight * _poisson_tail(rate, 6) for weight, rate in components
+            weight * _poisson_tail(rate, 6 + total_support_shift) for weight, rate in components
         ),
         "probability_8_plus": sum(
-            weight * _poisson_tail(rate, 8) for weight, rate in components
+            weight * _poisson_tail(rate, 8 + total_support_shift) for weight, rate in components
         ),
         "probability_10_plus": sum(
-            weight * _poisson_tail(rate, 10) for weight, rate in components
+            weight * _poisson_tail(rate, 10 + total_support_shift) for weight, rate in components
         ),
         "mixture_components": [
             {"weight": weight, "lambda": rate}
@@ -139,6 +147,7 @@ def aggregate_fixture_forecasts_to_gameweek(
                 "p": float(record["p"]),
                 "lambda_1": float(record["lambda_1"]),
                 "lambda_2": float(record["lambda_2"]),
+                "support_shift": int(record.get("support_shift", 0)),
                 "expected_points": float(record["expected_points"]),
                 "variance": float(record["variance"]),
             }
