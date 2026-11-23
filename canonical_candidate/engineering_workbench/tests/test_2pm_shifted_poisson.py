@@ -4,6 +4,7 @@ torch = pytest.importorskip("torch")
 from two_component_poisson_transformer import (
     PaperTwoComponentPoissonTransformer,
     fit_training_poisson_mixture_mle,
+    forward_player_gameweek_batch,
     independent_fixture_gameweek_negative_log_likelihood,
     poisson_mixture_negative_log_likelihood,
     poisson_mixture_tail_probability,
@@ -173,3 +174,34 @@ def test_single_fixture_gameweek_loss_matches_fixture_nll():
         target,
     )
     assert torch.allclose(gameweek_loss, fixture_loss, atol=1e-6)
+
+
+
+def test_grouped_player_gameweek_forward_flattens_queries_and_returns_one_loss():
+    model = PaperTwoComponentPoissonTransformer(
+        feature_count=4,
+        sequence_length=6,
+        num_layers=1,
+        d_model=16,
+        nhead=4,
+        dim_feedforward=32,
+        dropout=0.0,
+        support_shift=20,
+    )
+    inputs = torch.randn(2, 2, 6, 4)
+    mask = torch.tensor([[True, True], [True, False]])
+    targets = torch.tensor([-4.0, 5.0])
+    result = forward_player_gameweek_batch(model, inputs, mask, targets)
+    assert result["fixture_output"]["p"].shape == (2, 2)
+    assert result["expected_points"].shape == (2,)
+    assert result["nll_per_player_gameweek"].shape == (2,)
+    expected = (
+        result["fixture_expected_points"] * mask.to(torch.float32)
+    ).sum(dim=1)
+    variance = (
+        result["fixture_variance"] * mask.to(torch.float32)
+    ).sum(dim=1)
+    assert torch.allclose(result["expected_points"], expected)
+    assert torch.allclose(result["variance"], variance)
+    result["loss"].backward()
+    assert any(parameter.grad is not None for parameter in model.parameters())
