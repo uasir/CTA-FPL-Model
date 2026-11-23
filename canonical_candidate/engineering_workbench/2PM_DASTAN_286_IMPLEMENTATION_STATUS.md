@@ -32,7 +32,8 @@
 - Uses the Dastan operational mapping resolver only for an explicitly requested active season.
 - Rebuilds the candidate feature frame and pre-deadline `ep_next` / availability snapshot artifacts.
 - Attaches the official FPL Gameweek deadline calendar.
-- Writes the exact 286 ordered inputs, identity/source hashes, snapshot timestamps and explicit non-admission status.
+- Downloads the pinned season fixture calendars and attaches a conservative 24-hour post-kickoff availability upper bound for fixtures marked finished. This is explicitly not represented as an exact finish timestamp; it errs toward excluding borderline prior matches.
+- Writes the exact 286 ordered inputs, identity/source hashes, snapshot timestamps, feature cutoff, fixture-availability quality and explicit non-admission status.
 
 The output is deliberately labelled `RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED` and `UPSTREAM_PREFIX_ASSERTION_ONLY_NOT_FULL_FRAME_VERIFIED`. Dastan's upstream anchor/assertion does not independently prove all 286 values were available at the official deadline. In particular, opponent rolling features, direct ranks, and historical `value` / `selected` / `transfers_balance` still need independent reconstruction or timestamp evidence.
 
@@ -51,7 +52,7 @@ The output is deliberately labelled `RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED` 
 
 The historical token is the Dastan 286-feature snapshot captured before that historical fixture's own deadline. The latest prior match's completed result is represented in the target token through its lagged Dastan history features. This is the current sequence adaptation; it is not the paper's original 116-feature raw-match representation.
 
-The sequence builder requires an input frame carrying `match_completed_at` and `source_as_of_time`. The current corrected-identity candidate rebuild does not yet establish those fields at the required row-level granularity. The source-to-sequence handoff is therefore still open; do not feed the candidate artifact into the sequence builder by fabricating timestamps.
+The sequence builder requires `feature_cutoff_time` to equal the official deadline, an explicit `source_vintage_status`, and a per-fixture `match_available_at` plus its quality label. It accepts an observed completion timestamp or the conservative 24-hour upper bound. An optional `source_as_of_time`, when present, must be strictly pre-deadline. The corrected-identity candidate builder now emits the required structural fields, so candidate sequences can be built without inventing timestamps; they remain `NOT_ADMITTED` while the underlying 286-feature source-vintage audit is open.
 
 ### 4. Candidate structural audit
 
@@ -69,7 +70,7 @@ The sequence builder requires an input frame carrying `match_completed_at` and `
 - Compiles all three new scripts.
 - Tests the 286-column schema, sequence construction, same-deadline Double Gameweek handling, no-padding rule, 21-day gap, non-finite feature rejection, post-deadline snapshot rejection, corrected historical identity mapping, candidate schema/coverage checks and feature-family count reconciliation.
 
-The focused run at commit `54cabd862affa2ae0ad867652602eb324c8fbfd7` completed successfully.
+The focused run at commit `795ed096e5df6c4abfd6bef16874ff7ccc6741e1` completed successfully.
 
 ### 6. Candidate rebuild workflow
 
@@ -84,12 +85,12 @@ The first full rebuild run is being executed separately. Its outcome must be rea
 ## Immediate engineering continuation
 
 1. Complete and inspect the six-season corrected-identity candidate rebuild.
-2. Add an independent fixture-completion-time adapter and a source-vintage manifest; do not infer or fabricate completion/capture timestamps.
+2. Inspect the conservative fixture-availability calendar coverage and retain its explicit upper-bound quality; obtain exact finish/capture times only where an authoritative source provides them.
 3. Independently reconstruct all 286 feature families at each official Gameweek deadline, not just Dastan's selected prefix anchor.
 4. Rebuild opponent rolling values, direct league ranks, team context, defensive-allowance and congestion features from only pre-deadline completed matches.
 5. Replace historical market fields with deadline-verified snapshots or hold them out of the admitted schema.
 6. Quantify defensive-feature coverage by season and preserve structural missingness.
-7. Produce a sequence-ready frame with verified `match_completed_at` and `source_as_of_time`, then run the five-played-match builder on that frame.
+7. Run the five-played-match builder on the candidate frame, then repeat it only after full feature-level deadline admission; preserve candidate and admitted sequence artifacts separately.
 
 ## Guardrails
 
