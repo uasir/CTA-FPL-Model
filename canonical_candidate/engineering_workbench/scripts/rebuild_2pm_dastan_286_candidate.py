@@ -213,6 +213,49 @@ def enforce_snapshot_safety_buffer(path: Path, *, minutes: int = 5) -> dict:
         "rows_after": int(len(safe)),
     }
 
+
+def audit_market_value_parity(
+    player_matches: pd.DataFrame,
+    market_path: Path,
+) -> dict:
+    """Compare archived retrospective FPL fields with accepted deadline snapshots."""
+    market = pd.read_parquet(market_path)[KEY + MARKET_FIELDS]
+    source_columns = [column for column in MARKET_FIELDS if column in player_matches]
+    if len(source_columns) != len(MARKET_FIELDS):
+        return {
+            "status": "INCOMPLETE_SOURCE_FIELDS",
+            "missing_source_fields": sorted(set(MARKET_FIELDS) - set(source_columns)),
+        }
+    source = player_matches[KEY + MARKET_FIELDS].copy()
+    source["season"] = source["season"].astype(str)
+    market["season"] = market["season"].astype(str)
+    joined = source.merge(
+        market, on=KEY, how="inner", suffixes=("_retrospective", "_snapshot"),
+        validate="many_to_one",
+    )
+    report = {"rows_compared": int(len(joined)), "fields": {}}
+    for column in MARKET_FIELDS:
+        left = pd.to_numeric(joined[f"{column}_retrospective"], errors="coerce")
+        right = pd.to_numeric(joined[f"{column}_snapshot"], errors="coerce")
+        valid = left.notna() & right.notna()
+        difference = (left[valid] - right[valid]).abs()
+        report["fields"][column] = {
+            "valid_pairs": int(valid.sum()),
+            "exact_match_rows": int(np.isclose(left[valid], right[valid], atol=1e-6).sum()),
+            "exact_match_rate": (
+                float(np.isclose(left[valid], right[valid], atol=1e-6).mean())
+                if valid.any() else None
+            ),
+            "mean_absolute_difference": float(difference.mean()) if len(difference) else None,
+            "median_absolute_difference": float(difference.median()) if len(difference) else None,
+            "p95_absolute_difference": float(difference.quantile(0.95)) if len(difference) else None,
+        }
+    report["interpretation"] = (
+        "Comparison only; retrospective Vaastav values are not treated as deadline-safe truth. "
+        "Use differences to detect unit mismatches and snapshot-vintage drift."
+    )
+    return report
+
 def build_candidate(
     source_root: Path,
     raw_dir: Path,
@@ -290,6 +333,8 @@ def build_candidate(
     market_path, market_report = build_market_artifact(
         raw_dir, output_dir, seasons, fplcache, safety_buffer_minutes=5
     )
+    market_parity_report = audit_market_value_parity(player_matches, market_path)
+    market_report["retrospective_field_parity_audit"] = market_parity_report
     sources.write_download_manifest(raw_dir, seasons)
 
     # Reuse only Dastan's documented snapshot joins and missing-snapshot sentinel;
@@ -410,6 +455,7 @@ def build_candidate(
             "market": len(pd.read_parquet(market_path)),
         },
         "market_snapshot_report": market_report,
+        "market_value_parity_audit": market_parity_report,
         "fixture_context_reconstruction": fixture_context_report,
         "deadline_team_context_reconstruction": team_context_report,
         "snapshot_safety_buffer": {
