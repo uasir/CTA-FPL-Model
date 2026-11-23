@@ -1,5 +1,7 @@
 import unittest
-from fetch_fpl_official_api import build_tables, infer_season
+from copy import deepcopy
+from unittest.mock import patch
+from fetch_fpl_official_api import build_tables, infer_season, reconcile_snapshot
 
 class FPLIngestionTests(unittest.TestCase):
     def setUp(self):
@@ -62,5 +64,37 @@ class FPLIngestionTests(unittest.TestCase):
         _,_,_,report=build_tables(self.bootstrap,self.fixtures,bad,"2026-27")
         self.assertEqual(report["status"],"BLOCKED")
         self.assertEqual(report["orphan_fixture_rows"][0]["fixture_id"],999)
+
+
+    def test_reconcile_snapshot_refreshes_mismatched_player_summary(self):
+        stale = deepcopy(self.summaries)
+        stale[10]["history"][0]["total_points"] = 5
+        with patch("fetch_fpl_official_api.fetch_json", side_effect=[
+            self.bootstrap, self.fixtures, self.summaries[10], self.bootstrap, self.fixtures
+        ]) as fetch:
+            _, _, summaries, _, _, _, report = reconcile_snapshot(
+                self.bootstrap, self.fixtures, stale, "2026-27",
+                max_retries=1, retry_delay=0,
+            )
+        self.assertEqual(report["status"], "PASS")
+        self.assertEqual(summaries[10]["history"][0]["total_points"], 6)
+        self.assertEqual(len(report["consistency_capture_attempts"]), 2)
+        self.assertEqual(report["consistency_capture_attempts"][0]["total_points_mismatch_count"], 1)
+        self.assertEqual(report["consistency_capture_attempts"][1]["total_points_mismatch_count"], 0)
+        self.assertEqual(fetch.call_args_list[2].args[0],
+                         "https://fantasy.premierleague.com/api/element-summary/10/")
+
+    def test_reconcile_snapshot_keeps_persistent_mismatch_blocked(self):
+        stale = deepcopy(self.summaries)
+        stale[10]["history"][0]["total_points"] = 5
+        with patch("fetch_fpl_official_api.fetch_json", side_effect=[
+            self.bootstrap, self.fixtures, stale[10], self.bootstrap, self.fixtures
+        ]):
+            _, _, _, _, _, _, report = reconcile_snapshot(
+                self.bootstrap, self.fixtures, stale, "2026-27",
+                max_retries=1, retry_delay=0,
+            )
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertEqual(report["total_points_reconciliation_mismatches"][0]["delta"], 1)
 
 if __name__=="__main__": unittest.main()
