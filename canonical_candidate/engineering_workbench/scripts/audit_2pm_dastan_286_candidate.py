@@ -117,7 +117,7 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
     snapshot_report = {}
     if "deadline_time" in frame:
         deadline = pd.to_datetime(frame["deadline_time"], utc=True, errors="coerce")
-        for column in ("ep_next_snapshot_at", "signals_snapshot_at"):
+        for column in ("ep_next_snapshot_at", "signals_snapshot_at", "market_snapshot_at"):
             if column not in frame:
                 continue
             captured = pd.to_datetime(frame[column], utc=True, errors="coerce")
