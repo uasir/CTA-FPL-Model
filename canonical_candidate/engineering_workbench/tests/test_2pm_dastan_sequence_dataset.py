@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from build_2pm_dastan_sequence_dataset import (
+    build_sequence_shards,
     build_sequences,
     load_schema,
     validate_input,
@@ -161,3 +162,36 @@ def test_explicit_source_capture_at_deadline_is_rejected():
     rows[-1]["source_as_of_time"] = rows[-1]["deadline_time"]
     with pytest.raises(ValueError, match="at/after its deadline"):
         validate_input(pd.DataFrame(rows), FEATURES, "fixture")
+
+
+
+def test_memory_bounded_tensor_shards_preserve_six_token_shape_and_metadata(tmp_path):
+    rows = five_history_rows()
+    target_kickoff = pd.Timestamp("2026-08-12T12:00:00Z")
+    rows.append(
+        make_row(
+            "TARGET",
+            target_kickoff.isoformat(),
+            value=88.0,
+        )
+    )
+    frame = validate_input(pd.DataFrame(rows), FEATURES, "fixture")
+    report = build_sequence_shards(
+        frame, FEATURES, tmp_path / "sequence-shards", shard_size=1
+    )
+    assert report["counts"]["emitted"] == 1
+    assert report["sequence_shape"] == [6, 286]
+    assert report["tensor_dtype"] == "float32"
+    tensor = __import__("numpy").load(
+        tmp_path / "sequence-shards" / "X_00000.npy"
+    )
+    assert tensor.shape == (1, 6, 286)
+    assert tensor.dtype == "float32"
+    assert tensor[0, 0, 0] == 1.0
+    assert tensor[0, 4, 0] == 5.0
+    assert tensor[0, 5, 0] == 88.0
+    metadata = pd.read_csv(
+        tmp_path / "sequence-shards" / "metadata_00000.csv"
+    )
+    assert metadata.loc[0, "fixture_id"] == "TARGET"
+    assert metadata.loc[0, "source_vintage_status"] == "RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED"
