@@ -142,6 +142,9 @@ def build_postmatch_state_vectors(
             if column not in fixture_state:
                 raise ValueError(f"Post-match state is missing feature {column}")
 
+        fixture_state["deadline_time"] = season_targets[
+            "original_fixture_deadline_time"
+        ].to_numpy()
         fixture_state["match_available_at"] = season_targets["match_available_at"].to_numpy()
         fixture_state["postmatch_state_as_of_time"] = season_targets[
             "postmatch_state_as_of_time"
