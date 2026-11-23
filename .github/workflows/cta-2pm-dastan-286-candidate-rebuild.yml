@@ -102,6 +102,7 @@ jobs:
                   f"- Candidate SHA-256: `{report.get('candidate_sha256')}`",
                   f"- Accepted pre-deadline market snapshot rows: {report.get('pre_deadline_snapshot_rows', {}).get('market')}",
                   f"- Market retrospective parity rows compared: {report.get('market_value_parity_audit', {}).get('rows_compared')}",
+                  f"- Player rolling/availability/defensive features rebuilt: {report.get('player_history_reconstruction', {}).get('player_rolling_feature_count')} / {report.get('player_history_reconstruction', {}).get('availability_feature_count')} / {report.get('player_history_reconstruction', {}).get('defensive_player_history_feature_count')}",
                   f"- Deadline team snapshots reconstructed: {report.get('deadline_team_context_reconstruction', {}).get('team_deadline_snapshots_built')}",
                   f"- Own/opponent rolling team features rebuilt: {report.get('deadline_team_context_reconstruction', {}).get('team_feature_count')} / {report.get('deadline_team_context_reconstruction', {}).get('opponent_feature_count')}",
                   f"- Fixture-context fields rebuilt: {len(report.get('fixture_context_reconstruction', {}).get('fixture_context_columns', []))}",
