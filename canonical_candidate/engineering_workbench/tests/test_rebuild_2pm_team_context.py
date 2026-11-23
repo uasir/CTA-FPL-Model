@@ -1,0 +1,99 @@
+from types import SimpleNamespace
+
+import pandas as pd
+
+from rebuild_2pm_fixture_context import rebuild_deadline_team_context
+
+
+WINDOWS = [1, 3, 5, 10, 38]
+TEAM_FEATURES = {
+    "scored": "goals_scored",
+    "missed": "goals_conceded",
+    "league_rank": "league_rank",
+    "opp_league_rank": "opponent_league_rank",
+    "xG": "xg",
+    "deep_allowed": "deep_allowed",
+    "ppda_allowed_att": "ppda_allowed_att",
+    "ppda_allowed_def": "ppda_allowed_def",
+    "xGA": "xga",
+    "deep": "deep",
+    "ppda_att": "ppda_att",
+    "ppda_def": "ppda_def",
+}
+
+
+def match(season, date, team, opponent, scored, missed, xg=1.0):
+    return {
+        "season": season,
+        "date": pd.Timestamp(date, tz="UTC"),
+        "understat_team": team,
+        "opponent": opponent,
+        "is_home": 1.0,
+        "scored": scored,
+        "missed": missed,
+        "pts": 3 if scored > missed else 1 if scored == missed else 0,
+        "xG": xg,
+        "xGA": 1.0,
+        "deep": 5.0,
+        "deep_allowed": 4.0,
+        "ppda_att": 8.0,
+        "ppda_def": 9.0,
+        "ppda_allowed_att": 10.0,
+        "ppda_allowed_def": 11.0,
+    }
+
+
+def fake_features():
+    return SimpleNamespace(
+        _prepare_team_matches=lambda frame: frame.copy(),
+        build_opponent_lookup=lambda frame: frame.copy(),
+        compute_league_ranks=lambda frame: {
+            (str(row.understat_team), str(row.season), row.date.strftime("%Y-%m-%d %H:%M")): 5
+            for row in frame.itertuples()
+        },
+        fpl_to_understat=lambda value: value,
+        TEAM_FEATURES=TEAM_FEATURES,
+        WINDOWS=WINDOWS,
+    )
+
+
+def test_deadline_team_context_uses_only_completed_matches_and_target_opponent():
+    team_matches = pd.DataFrame(
+        [
+            # Prior completed matches.
+            match("2025-26", "2026-01-01", "T", "Q", 2, 0, 2.0),
+            match("2025-26", "2026-01-02", "O", "A", 1, 1, 1.2),
+            match("2025-26", "2026-01-03", "P", "C", 0, 2, 0.5),
+            # Future same-Gameweek target results must not enter deadline features.
+            match("2025-26", "2026-01-10", "T", "O", 9, 0, 5.0),
+            match("2025-26", "2026-01-10", "O", "T", 0, 9, 0.1),
+            match("2025-26", "2026-01-14", "T", "P", 8, 0, 4.0),
+            match("2025-26", "2026-01-14", "P", "T", 0, 8, 0.1),
+        ]
+    )
+    target = pd.DataFrame(
+        [
+            {
+                "season": "2025-26", "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+                "team_name": "T", "opponent_team_name": "O",
+            },
+            {
+                "season": "2025-26", "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+                "team_name": "T", "opponent_team_name": "P",
+            },
+        ]
+    )
+    result, report = rebuild_deadline_team_context(
+        target, team_matches, fake_features()
+    )
+    first, second = result.iloc[0], result.iloc[1]
+    assert first["team_goals_scored_1"] == 2.0
+    assert second["team_goals_scored_1"] == 2.0
+    assert first["opp_goals_scored_1"] == 1.0
+    assert second["opp_goals_scored_1"] == 0.0
+    assert first["team_xg_1"] == 2.0
+    assert second["opp_xg_1"] == 0.5
+    assert first["status_league_rank"] == second["status_league_rank"]
+    assert first["opp_status_league_rank"] != second["opp_status_league_rank"]
+    assert report["team_feature_count"] == 60
+    assert report["opponent_feature_count"] == 60
