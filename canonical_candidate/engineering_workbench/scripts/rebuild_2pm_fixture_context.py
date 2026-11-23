@@ -519,9 +519,7 @@ def rebuild_fixture_context(
         frame["fixture"] = frame["fixture"].astype(str)
         frame["kickoff_time"] = _utc_ns(frame["kickoff_time"])
     out["deadline_time"] = _utc_ns(out["deadline_time"])
-    hist["match_available_at"] = pd.to_datetime(
-        hist["match_available_at"], utc=True, errors="coerce"
-    )
+    hist["match_available_at"] = _utc_ns(hist["match_available_at"])
     if out[["kickoff_time", "deadline_time"]].isna().any().any():
         raise ValueError("Target context contains invalid kickoff/deadline timestamps")
     if hist[["kickoff_time", "match_available_at"]].isna().any().any():
