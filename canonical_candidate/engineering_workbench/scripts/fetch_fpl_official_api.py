@@ -155,6 +155,74 @@ def build_tables(bootstrap: dict[str,Any], fixtures: list[dict[str,Any]], summar
     }
     return player_rows,fixture_rows,match_rows,report
 
+def reconcile_snapshot(bootstrap: dict[str, Any], fixtures: list[dict[str, Any]],
+                        summaries: dict[int, dict[str, Any]], season: str,
+                        max_retries: int = 2, retry_delay: float = 0.25):
+    """Refresh inconsistent FPL summary snapshots without weakening reconciliation.
+
+    After the initial per-player summary batch, refresh bootstrap-static and
+    fixtures. If aggregate minutes/points disagree, refresh only the affected
+    element-summary endpoints, then refresh bootstrap-static/fixtures again.
+    Persistent mismatches remain BLOCKED; no points or minutes are adjusted.
+    """
+    if max_retries < 0:
+        raise ValueError("max_retries must be non-negative")
+    current_summaries = dict(summaries)
+    attempts = []
+    current_bootstrap, current_fixtures = bootstrap, fixtures
+    player_rows = fixture_rows = match_rows = report = None
+
+    for attempt in range(max_retries + 1):
+        refresh_errors = []
+        if attempt > 0:
+            mismatch_ids = {
+                int(item["fpl_element_id"])
+                for field in ("minutes_reconciliation_mismatches", "total_points_reconciliation_mismatches")
+                for item in (report or {}).get(field, [])
+            }
+            if not mismatch_ids:
+                break
+            if retry_delay:
+                time.sleep(retry_delay)
+            for element_id in sorted(mismatch_ids):
+                try:
+                    current_summaries[element_id] = fetch_json(
+                        f"{BASE_URL}/element-summary/{element_id}/"
+                    )
+                except Exception as exc:
+                    refresh_errors.append({"fpl_element_id": element_id, "error": str(exc)})
+            current_bootstrap = fetch_json(f"{BASE_URL}/bootstrap-static/")
+            current_fixtures = fetch_json(f"{BASE_URL}/fixtures/")
+            if infer_season(current_bootstrap.get("events", [])) != season:
+                raise ValueError("FPL season changed during consistency retry")
+
+        player_rows, fixture_rows, match_rows, report = build_tables(
+            current_bootstrap, current_fixtures, current_summaries, season
+        )
+        attempts.append({
+            "attempt": attempt + 1,
+            "status": report["status"],
+            "minutes_mismatch_count": len(report["minutes_reconciliation_mismatches"]),
+            "total_points_mismatch_count": len(report["total_points_reconciliation_mismatches"]),
+            "refreshed_summary_errors": refresh_errors,
+        })
+        if report["status"] == "PASS":
+            break
+
+    report["consistency_capture_attempts"] = attempts
+    report["consistency_retry_limit"] = max_retries
+    report["consistency_retry_policy"] = (
+        "Refresh only player summaries whose aggregate minutes/points disagree, "
+        "then refresh bootstrap-static and fixtures; persistent mismatches remain BLOCKED."
+    )
+    report["summary_refresh_errors"] = [
+        error for attempt in attempts for error in attempt["refreshed_summary_errors"]
+    ]
+    if report["summary_refresh_errors"]:
+        report["status"] = "BLOCKED"
+    return current_bootstrap, current_fixtures, current_summaries, player_rows, fixture_rows, match_rows, report
+
+
 def write_csv(path:Path, fields:list[str], rows:list[dict[str,Any]]) -> None:
     with path.open("w",newline="",encoding="utf-8") as handle:
         writer=csv.DictWriter(handle,fieldnames=fields,extrasaction="ignore"); writer.writeheader(); writer.writerows(rows)
@@ -164,9 +232,13 @@ def main() -> int:
     parser.add_argument("--out-dir",type=Path,required=True)
     parser.add_argument("--workers",type=int,default=2)
     parser.add_argument("--delay",type=float,default=0.15)
+    parser.add_argument("--consistency-retries",type=int,default=2)
     args=parser.parse_args()
     if args.workers<1 or args.workers>4: parser.error("--workers must be between 1 and 4")
+    if args.consistency_retries<0 or args.consistency_retries>5:
+        parser.error("--consistency-retries must be between 0 and 5")
     args.out_dir.mkdir(parents=True,exist_ok=True)
+    capture_started_at=datetime.now(timezone.utc)
     bootstrap_url=f"{BASE_URL}/bootstrap-static/"; fixtures_url=f"{BASE_URL}/fixtures/"
     bootstrap=fetch_json(bootstrap_url); fixtures=fetch_json(fixtures_url)
     season=infer_season(bootstrap.get("events",[])); players=bootstrap.get("elements",[])
@@ -183,9 +255,17 @@ def main() -> int:
                 key,value=future.result(); summaries[key]=value
             except Exception as exc:
                 errors.append({"fpl_element_id":element_id,"error":str(exc)})
-    player_rows,fixture_rows,match_rows,report=build_tables(bootstrap,fixtures,summaries,season)
-    report["summary_fetch_errors"]=errors; report["summary_fetch_count"]=len(summaries); report["summary_fetch_expected"]=len(targets); report["players_with_history_count"]=sum(bool(x.get("history")) for x in summaries.values())
-    if errors: report["status"]="BLOCKED"
+
+    (bootstrap,fixtures,summaries,player_rows,fixture_rows,match_rows,report) = reconcile_snapshot(
+        bootstrap, fixtures, summaries, season,
+        max_retries=args.consistency_retries,
+    )
+    report["summary_fetch_errors"]=errors
+    report["summary_fetch_count"]=len(summaries)
+    report["summary_fetch_expected"]=len(targets)
+    report["players_with_history_count"]=sum(bool(x.get("history")) for x in summaries.values())
+    if errors:
+        report["status"]="BLOCKED"
     (args.out_dir/"bootstrap-static.json").write_text(json.dumps(bootstrap,indent=2),encoding="utf-8")
     (args.out_dir/"fixtures.json").write_text(json.dumps(fixtures,indent=2),encoding="utf-8")
     write_csv(args.out_dir/"fpl_players.csv",PLAYER_FIELDS,player_rows)
@@ -193,6 +273,8 @@ def main() -> int:
     write_csv(args.out_dir/"fpl_player_fixture.csv",MATCH_FIELDS,match_rows)
     (args.out_dir/"ingestion_report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     fetched_at=datetime.now(timezone.utc)
+    report["capture_started_at_utc"]=capture_started_at.isoformat()
+    report["capture_completed_at_utc"]=fetched_at.isoformat()
     future_events=[]
     for event in bootstrap.get("events",[]):
         if not event.get("deadline_time"): continue
@@ -215,19 +297,21 @@ def main() -> int:
               "snapshot_timing":snapshot_timing,
               "point_in_time_status":"CURRENT_CAPTURE_ONLY_HISTORICAL_VINTAGE_UNVERIFIED",
               "source_snapshot_id":source_snapshot_id,
-"pipeline_git_commit":os.environ.get("GITHUB_SHA"),
-"workflow_run_id":os.environ.get("GITHUB_RUN_ID"),
-"workflow_ref":os.environ.get("GITHUB_WORKFLOW_REF"),
-"ingestion_script_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+              "pipeline_git_commit":os.environ.get("GITHUB_SHA"),
+              "workflow_run_id":os.environ.get("GITHUB_RUN_ID"),
+              "workflow_ref":os.environ.get("GITHUB_WORKFLOW_REF"),
+              "ingestion_script_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
               "next_deadline_event_id":next_event[1].get("id") if next_event else None,
               "next_deadline_time_utc":next_event[0].isoformat() if next_event else None,
-              "hours_until_next_deadline":round(hours_to_deadline,3) if hours_to_deadline is not None else None,"bootstrap_url":bootstrap_url,"fixtures_url":fixtures_url,
+              "hours_until_next_deadline":round(hours_to_deadline,3) if hours_to_deadline is not None else None,
+              "bootstrap_url":bootstrap_url,"fixtures_url":fixtures_url,
               "bootstrap_sha256":bootstrap_hash,"fixtures_sha256":fixtures_hash,
               "element_summaries_sha256":summaries_hash,
               "normalized_players_sha256":file_digest(args.out_dir/"fpl_players.csv"),
               "normalized_fixtures_sha256":file_digest(args.out_dir/"fpl_fixtures.csv"),
               "normalized_player_fixture_sha256":file_digest(args.out_dir/"fpl_player_fixture.csv"),
-              "summary_endpoint":f"{BASE_URL}/element-summary/{{element_id}}/","summary_fetch_count":len(summaries),"summary_fetch_errors":len(errors)}
+              "summary_endpoint":f"{BASE_URL}/element-summary/{{element_id}}/",
+              "summary_fetch_count":len(summaries),"summary_fetch_errors":len(errors)}
     (args.out_dir/"source_metadata.json").write_text(json.dumps(metadata,indent=2),encoding="utf-8")
     print(json.dumps(report,indent=2))
     return 0 if report["status"]=="PASS" else 2
