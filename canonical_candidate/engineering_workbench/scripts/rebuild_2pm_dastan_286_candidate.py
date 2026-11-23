@@ -258,6 +258,85 @@ def audit_market_value_parity(
     )
     return report
 
+
+def validate_reconstruction_coverage(
+    ordered_features: list[str],
+    player_report: dict,
+    team_report: dict,
+    fixture_report: dict,
+    frame: pd.DataFrame,
+) -> dict:
+    """Fail closed unless all 286 schema columns have a reconstruction path."""
+    feature_set = set(ordered_features)
+    actual = {
+        "player": sum(column.startswith("player_") for column in ordered_features),
+        "team": sum(column.startswith("team_") for column in ordered_features),
+        "opponent": sum(column.startswith("opp_") for column in ordered_features),
+        "availability": sum(
+            column.startswith(("p_any_", "p60_", "e_minutes_"))
+            for column in ordered_features
+        ),
+        "ar_engineered": sum(
+            column.startswith("ar_") and column != "ar_ep_next"
+            for column in ordered_features
+        ),
+        "ar_ep_next": int("ar_ep_next" in feature_set),
+        "flat_context": sum(
+            column in feature_set
+            for column in (
+                "is_home_num", "status_league_rank", "value",
+                "selected", "transfers_balance",
+            )
+        ),
+        "signals": sum(column.startswith("sig_") for column in ordered_features),
+    }
+    expected = {
+        "player": 115,
+        "team": 60,
+        "opponent": 61,
+        "availability": 9,
+        "ar_engineered": 32,
+        "ar_ep_next": 1,
+        "flat_context": 5,
+        "signals": 3,
+    }
+    if actual != expected:
+        raise RuntimeError(
+            f"286 feature schema family mismatch: expected {expected}, got {actual}"
+        )
+    missing_columns = [column for column in ordered_features if column not in frame]
+    if missing_columns:
+        raise RuntimeError(f"Reconstructed frame missing schema columns: {missing_columns}")
+
+    implemented = {
+        "player_rolling": int(player_report.get("player_rolling_feature_count", 0)),
+        "availability": int(player_report.get("availability_feature_count", 0)),
+        "defensive_player_history": int(
+            player_report.get("defensive_player_history_feature_count", 0)
+        ),
+        "team_rolling": int(team_report.get("team_feature_count", 0)),
+        "opponent_rolling": int(team_report.get("opponent_feature_count", 0)),
+        "direct_ranks": len(team_report.get("direct_rank_columns", [])),
+        "fixture_context": len(fixture_report.get("fixture_context_columns", [])),
+        "ar_ep_next": 1,
+        "signals": 3,
+        "market_fields": len(MARKET_FIELDS),
+        "home_context": 1,
+    }
+    reconstructed_total = sum(implemented.values())
+    if reconstructed_total != 286:
+        raise RuntimeError(
+            f"Independent reconstruction paths cover {reconstructed_total}/286 features: {implemented}"
+        )
+    return {
+        "status": "ALL_286_FEATURE_FAMILIES_HAVE_RECONSTRUCTION_PATHS",
+        "schema_family_counts": actual,
+        "expected_schema_family_counts": expected,
+        "reconstruction_path_counts": implemented,
+        "reconstruction_path_total": reconstructed_total,
+        "admission_status": "NOT_ADMITTED_SOURCE_VINTAGE_AND_PARITY_REMAIN_OPEN",
+    }
+
 def build_candidate(
     source_root: Path,
     raw_dir: Path,
@@ -397,6 +476,13 @@ def build_candidate(
     loaded, fixture_context_report = rebuild_fixture_context(
         loaded, history_matches
     )
+    reconstruction_coverage = validate_reconstruction_coverage(
+        ordered_features,
+        player_history_report,
+        team_context_report,
+        fixture_context_report,
+        loaded,
+    )
     # Rehash after adding fixture calendars so the manifest covers every input.
     sources.write_download_manifest(raw_dir, seasons)
     loaded["feature_cutoff_time"] = loaded["deadline_time"]
@@ -464,6 +550,7 @@ def build_candidate(
         "fixture_context_reconstruction": fixture_context_report,
         "player_history_reconstruction": player_history_report,
         "deadline_team_context_reconstruction": team_context_report,
+        "reconstruction_coverage": reconstruction_coverage,
         "snapshot_safety_buffer": {
             "ep_next": ep_safety,
             "signals": signals_safety,
