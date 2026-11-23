@@ -1,6 +1,9 @@
 name: CTA M4 paired personal replay
 
 on:
+  push:
+    branches:
+      - feat/m4-global-player-value-layer
   workflow_dispatch:
     inputs:
       manager_context_run_id:
