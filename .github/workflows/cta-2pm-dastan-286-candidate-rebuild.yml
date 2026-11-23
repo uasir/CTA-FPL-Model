@@ -68,19 +68,20 @@ jobs:
           python scripts/audit_2pm_dastan_286_candidate.py \
             --input "$RUNNER_TEMP/2pm-dastan-candidate/features_286_candidate.parquet" \
             --out "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json"
-          python scripts/prepare_2pm_candidate_tensors.py \
-            --input "$RUNNER_TEMP/2pm-dastan-candidate/features_286_candidate.parquet" \
-            --tensor-out-dir "$RUNNER_TEMP/2pm-dastan-candidate/sequence-tensors" \
-            --report "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_tensor_preparation_report.json" \
-            --shard-size 10000 \
-            --require-label
+          python scripts/build_2pm_postmatch_grouped_dataset.py \
+            --dastan-root "$GITHUB_WORKSPACE/dastan-source" \
+            --candidate "$RUNNER_TEMP/2pm-dastan-candidate/features_286_candidate.parquet" \
+            --player-matches "$RUNNER_TEMP/2pm-dastan-candidate/player_matches_with_availability.parquet" \
+            --team-matches "$RUNNER_TEMP/2pm-dastan-candidate/team_matches.parquet" \
+            --output-dir "$RUNNER_TEMP/2pm-dastan-candidate/postmatch-grouped-dataset" \
+            > "$RUNNER_TEMP/2pm-dastan-candidate/postmatch_grouped_dataset_report.json"
       - name: Publish aggregate candidate status only
         if: always()
         env:
           REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json
           LOG_PATH: ${{ runner.temp }}/2pm-dastan-rebuild.log
           AUDIT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json
-          TENSOR_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_tensor_preparation_report.json
+          TENSOR_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/postmatch-grouped-dataset/postmatch_grouped_dataset_report.json
           SUMMARY_PATH: ${{ runner.temp }}/2pm-dastan-step-summary.md
         run: |
           python - <<'PY'
@@ -124,17 +125,13 @@ jobs:
               tensor_path = Path(os.environ["TENSOR_REPORT_PATH"])
               if tensor_path.exists():
                   tensor = json.loads(tensor_path.read_text())
-                  sequence = tensor.get("sequence_report", {})
-                  counts = sequence.get("counts", {})
                   lines.extend([
-                      f"- Raw residual NaN values imputed to 0.0: {tensor.get('residual_nan_values_imputed_to_zero')}",
-                      f"- Preserved -1 snapshot sentinels: {tensor.get('preserved_minus_one_snapshot_sentinels')}",
-                      f"- Candidate five-played-match sequences: {counts.get('emitted')}",
-                      f"- Excluded: insufficient history={counts.get('insufficient_previous_played_matches')}, gap>{sequence.get('maximum_inter_observation_gap_days')}d={counts.get('gap_over_21_days')}",
-                      f"- Tensor shards: {len(sequence.get('shards', []))}",
-                      f"- Residual NaNs imputed to 0.0: {preparation.get('residual_nan_values_imputed_to_zero')}",
-                      f"- Preserved -1 snapshot sentinels: {preparation.get('preserved_minus_one_snapshot_sentinels')}",
-                      "- Sequence tensors are candidate-only and not admitted for model training."
+                      f"- Post-match state rows: {tensor.get('postmatch_state_rows')}",
+                      f"- Player-Gameweek groups considered: {tensor.get('player_gameweek_groups_considered')}",
+                      f"- Five-match sequence samples emitted: {tensor.get('player_gameweek_samples_emitted')}",
+                      f"- Grouped tensor build admission: {tensor.get('admission_status')}",
+                      "- Tensors use five post-match played-fixture states plus one pre-deadline query per target fixture.",
+                      "- Candidate sequences are not admitted for model training."
                   ])
               summary.write_text("\n".join(lines) + "\n")
           else:
