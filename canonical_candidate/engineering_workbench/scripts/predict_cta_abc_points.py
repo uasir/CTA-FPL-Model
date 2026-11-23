@@ -89,17 +89,65 @@ def score_rows(rows, model_payload):
 
 
 
-def build_report(rows, model_payload, manifest, input_report, model_path):
+def _percentile(values, percentile):
+    if not values:
+        return None
+    ordered = sorted(values)
+    position = (len(ordered) - 1) * percentile
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return ordered[lower]
+    weight = position - lower
+    return ordered[lower] * (1.0 - weight) + ordered[upper] * weight
+
+
+def _distribution(values):
+    if not values:
+        return {"count": 0, "min": None, "p05": None, "median": None, "p95": None, "max": None, "negative_count": 0}
+    return {
+        "count": len(values),
+        "min": min(values),
+        "p05": _percentile(values, 0.05),
+        "median": _percentile(values, 0.50),
+        "p95": _percentile(values, 0.95),
+        "max": max(values),
+        "negative_count": sum(value < 0 for value in values),
+    }
+
+
+def build_report(rows, model_payload, manifest, input_report, model_path, fixture_predictions=None):
     feature_order = model_payload["feature_order"]
     coverage = {}
     for feature in feature_order:
-        observed = sum(number(row.get(feature)) is not None for row in rows)
+        values = [number(row.get(feature)) for row in rows]
+        observed_values = [value for value in values if value is not None]
+        observed = len(observed_values)
         coverage[feature] = {
             "observed_rows": observed,
             "missing_rows": len(rows) - observed,
             "observed_pct": (observed / len(rows) * 100.0) if rows else 0.0,
+            "observed_min": min(observed_values) if observed_values else None,
+            "observed_median": _percentile(observed_values, 0.50),
+            "observed_max": max(observed_values) if observed_values else None,
         }
+    fixture_predictions = fixture_predictions or []
+    all_predictions = [float(row["expected_points"]) for row in fixture_predictions]
+    eligible_predictions = [
+        float(row["expected_points"]) for row in fixture_predictions
+        if str(row.get("research_eligible_for_analysis", "")).strip().lower() in {"true", "1", "yes"}
+    ]
+    ineligible_predictions = [
+        float(row["expected_points"]) for row in fixture_predictions
+        if str(row.get("research_eligible_for_analysis", "")).strip().lower() not in {"true", "1", "yes"}
+    ]
     return {
+        "prediction_distribution": {
+            "all_scored_player_fixtures": _distribution(all_predictions),
+            "research_eligible_player_fixtures": _distribution(eligible_predictions),
+            "research_ineligible_player_fixtures": _distribution(ineligible_predictions),
+            "warning": "Distribution diagnostics only; no clipping or calibration is applied.",
+        },
         "status": "PASS_RESEARCH_ONLY_CURRENT_INFERENCE" if rows else "NO_FORECAST_ROWS",
         "model_version": model_payload["model_version"],
         "model_family": manifest.get("model_family"),
@@ -162,7 +210,7 @@ def main() -> int:
     if manifest.get("model_version") != payload.get("model_version"):
         raise ValueError("Model JSON and manifest versions do not match")
     fixture_rows, gameweek_rows = score_rows(read_csv(args.input_panel), payload)
-    report = build_report(read_csv(args.input_panel), payload, manifest, input_report, args.model)
+    report = build_report(read_csv(args.input_panel), payload, manifest, input_report, args.model, fixture_rows)
     write_csv(
         args.out_dir / "abc_fixture_points_predictions.csv",
         fixture_rows,
