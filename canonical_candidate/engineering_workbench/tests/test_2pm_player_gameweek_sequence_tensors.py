@@ -195,3 +195,17 @@ def test_nonappearance_target_fixture_is_retained_with_zero_points(tmp_path):
     assert metadata.loc[0, "fixture_count"] == 2
     labels = np.load(tmp_path / "tensors" / "y_player_gw_00000.npy")
     assert labels.tolist() == [3.0]
+
+
+
+def test_rejects_target_source_capture_at_deadline(tmp_path):
+    targets = make_targets()
+    targets["source_as_of_time"] = targets["deadline_time"]
+    with pytest.raises(ValueError, match="captured at/after its deadline"):
+        build(
+            tmp_path,
+            make_history(),
+            targets,
+            target_mode="historical",
+            label_grain="player_fixture",
+        )
