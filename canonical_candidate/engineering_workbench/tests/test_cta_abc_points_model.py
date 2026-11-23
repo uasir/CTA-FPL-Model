@@ -144,3 +144,62 @@ def test_research_inference_filters_unverified_rows():
         research_eligible_rows([rows[1]])
     with pytest.raises(ValueError, match="must carry"):
         research_eligible_rows([{"fpl_element_id": "10"}])
+
+
+
+def test_full_fpl_cohort_is_scored_without_claiming_missing_abc_evidence():
+    from predict_cta_abc_points import inference_rows
+    rows = [
+        {
+            "fpl_element_id": "10", "gameweek": "12", "fixture_id": "A",
+            "research_eligible_for_analysis": "true",
+        },
+        {
+            "fpl_element_id": "11", "gameweek": "12", "fixture_id": "B",
+            "research_eligible_for_analysis": "false",
+        },
+    ]
+    assert inference_rows(rows) == rows
+
+
+def test_full_cohort_prediction_labels_abc_evidence_basis():
+    from predict_cta_abc_points import score_rows
+    from train_fpl_exploratory_ridge import fit_ridge
+    rows = _rows()
+    features = [
+        "fpl_total_points_prior_3_avg", "fpl_total_points_prior_5_avg",
+        "fpl_minutes_prior_3_avg", "fpl_minutes_prior_5_avg",
+        "abc_player_key_pass_rate",
+    ]
+    model = fit_ridge(rows, "target_fpl_total_points", features, 1.0)
+    payload = {
+        "schema_version": "1.0", "model_version": "test",
+        "feature_order": features, "model": model,
+    }
+    forecast_rows = [
+        {
+            "fpl_element_id": "10", "gameweek": "12", "fixture_id": "A",
+            "research_eligible_for_analysis": "true",
+            "fpl_total_points_prior_3_avg": "4",
+            "fpl_total_points_prior_5_avg": "3",
+            "fpl_minutes_prior_3_avg": "80",
+            "fpl_minutes_prior_5_avg": "75",
+            "abc_player_key_pass_rate": "0.5",
+        },
+        {
+            "fpl_element_id": "11", "gameweek": "12", "fixture_id": "B",
+            "research_eligible_for_analysis": "false",
+            "fpl_total_points_prior_3_avg": "2",
+            "fpl_total_points_prior_5_avg": "1",
+            "fpl_minutes_prior_3_avg": "45",
+            "fpl_minutes_prior_5_avg": "40",
+            "abc_player_key_pass_rate": "",
+        },
+    ]
+    fixtures, gameweeks = score_rows(forecast_rows, payload)
+    assert len(fixtures) == 2
+    assert fixtures[0]["prediction_basis"] == "ABC_AND_FPL_HISTORY"
+    assert fixtures[1]["prediction_basis"] == "FPL_HISTORY_WITH_MISSING_ABC_EVIDENCE"
+    assert fixtures[1]["abc_evidence_eligible"] is False
+    assert gameweeks[0]["abc_evidence_eligible"] is True
+    assert gameweeks[1]["abc_evidence_eligible"] is False
