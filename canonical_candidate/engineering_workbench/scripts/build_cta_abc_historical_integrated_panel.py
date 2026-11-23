@@ -93,7 +93,9 @@ def _features(prior_rows):
     key_rate = _per90(last3, "key_passes")
     xg_rate = _per90(last3, "tracked_xg_sum")
     shot_rate = _per90(last3, "shots")
+    recent_minutes = _sum(last3, "minutes_played")
     return {
+        "_11footy_per90_exposure_sufficient": recent_minutes is not None and recent_minutes >= 90,
         # A — 11footy directly observed player actions and tracked xG.
         "player_key_pass_rate": key_rate,
         "player_tracked_xg_rate": xg_rate,
@@ -166,10 +168,24 @@ def enrich_panel(wyscout_rows, footy_rows):
                 column = f"abc_{name}"
                 footy_value = number(derived.get(name))
                 wys_value = number(base.get(column))
+                exposure_gated_rate = name in {
+                    "player_key_pass_rate", "player_tracked_xg_rate",
+                    "player_fouls_committed_rate", "threat_creation_rate",
+                    "attacking_involvement_rate",
+                }
+                low_11footy_exposure = (
+                    derived.get("_11footy_per90_exposure_sufficient") is False
+                )
                 if footy_value is not None:
                     record[column] = footy_value
                     feature_sources[name] = "11footy"
                     source_counts[name] += 1
+                elif low_11footy_exposure and exposure_gated_rate:
+                    # A low-exposure 11footy rate is not a provider-data gap;
+                    # keep it missing instead of masking the weakness with fallback.
+                    record[column] = ""
+                    feature_sources[name] = "MISSING_LOW_11FOOTY_EXPOSURE"
+                    missing_counts[name] += 1
                 elif wys_value is not None:
                     record[column] = wys_value
                     feature_sources[name] = "wyscout"
