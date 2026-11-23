@@ -81,6 +81,10 @@ def test_builds_five_played_fixture_tokens_plus_target_query_and_keeps_label_sep
     rows.append(
         make_row("DGW-LATE", dgw_late.isoformat(), gameweek=6, value=77.0)
     )
+    # Both fixtures share the same official Gameweek deadline.
+    for row in rows[-2:]:
+        row["deadline_time"] = "2026-08-12T09:00:00+00:00"
+        row["source_as_of_time"] = "2026-08-12T08:50:00+00:00"
     frame = validate_input(pd.DataFrame(rows), FEATURES, "fixture")
     sequences, report = build_sequences(frame, FEATURES, require_label=False)
 
