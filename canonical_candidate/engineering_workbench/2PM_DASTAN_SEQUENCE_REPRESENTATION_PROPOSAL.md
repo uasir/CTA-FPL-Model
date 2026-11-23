@@ -90,6 +90,14 @@ For two historical fixtures in the same Gameweek:
 
 This is different from Dastan's existing per-player/Gameweek deadline anchoring. The new builder must preserve event-time ordering for historical match states while separately constructing the current target vector at the common target deadline.
 
+## 7A. Target grain, Double Gameweeks and appearance outcomes
+
+The prediction/training sample grain is **one player-Gameweek**. Each target fixture in that Gameweek has its own pre-deadline query token, while all fixture queries share the same five post-match historical tokens. The stored tensor shape is [player_gameweek, target_fixture, 6, 286]; a fixture mask identifies real queries.
+
+A Double Gameweek therefore creates one player-Gameweek sample, two target-fixture queries and one Gameweek label. If verified labels are fixture-grain, sum the fixture outcomes once. If the source repeats the full Gameweek total on each fixture row, deduplicate the identical values; never sum duplicate Gameweek totals. The builder requires the label grain to be stated explicitly.
+
+Historical input tokens require actual appearances (minutes > 0). Target outcomes are not filtered by appearance: a non-appearance remains a target outcome (normally zero points). Negative points from an actual appearance are preserved.
+
 ## 8. Leakage and label separation
 
 - The target fixture's `total_points`, minutes, goals, assists, bonus, cards and other outcome fields are labels/evaluation metadata only.
