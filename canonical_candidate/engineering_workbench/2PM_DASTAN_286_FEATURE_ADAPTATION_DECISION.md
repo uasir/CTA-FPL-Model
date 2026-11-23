@@ -124,7 +124,13 @@ Pay particular attention to these groups:
 - **League ranks and rest/congestion:** reconstruct strictly from information available before the target fixture and validate the exact upstream definitions.
 - **Missing values:** preserve the upstream two-stage semantics—snapshot absence sentinel `-1.0`, then residual NaN fill `0.0`—only where source provenance proves that those semantics apply. Do not globally impute all unavailable features to zero.
 
-## 8. Data and rights constraints
+## 8. Dataset freshness and player identity
+
+The pinned six-season Dastan release ends in 2025/26 and does not contain 2026/27 player-fixture feature rows. Its 2026/27 roster/mapping snapshot is separate and must be refreshed and hashed before current-season use.
+
+The immutable historical assignments used to reproduce Dastan retain two documented incorrect Understat identities. The 2PM rebuild must apply the evidence-backed corrected mapping to the historical assignment intervals and rebuild player rolling histories; it must not reuse the frozen assignments unchanged or merely patch final feature rows. The exact evidence and requirements are in `2PM_DASTAN_DATASET_AND_IDENTITY_READINESS.md`.
+
+## 9. Data and rights constraints
 
 The upstream Dastan repository's MIT software licence does not grant rights to the underlying FPL, Understat or other provider datasets. The relevant source terms, retention rights and model-training permissions must be checked separately.
 
@@ -137,11 +143,11 @@ The historical frame's existence does not by itself prove:
 
 Keep source hashes, acquisition manifests, feature-schema version and row-level provenance with every training snapshot.
 
-## 9. Build order and gates
+## 10. Build order and gates
 
 1. Pin the exact 286-column schema and source inventory.
-2. Recover the canonical Dastan raw player-match, team-match, mapping and pre-deadline snapshot source contracts.
-3. Build the 286-row semantic and point-in-time admission register.
+2. Recover the canonical Dastan raw player-match, team-match and pre-deadline snapshot source contracts; build a corrected historical identity assignment table and refresh current-season mappings.
+3. Build a corrected-identity historical candidate frame and a separately pinned 2026/27 candidate frame; build the 286-row semantic and point-in-time admission register.
 4. Resolve sequence-token construction and the five-played-match/21-day policy.
 5. Establish lawful historical target labels and source rights.
 6. Freeze a versioned 2PM adaptation schema only after the above gates pass.
@@ -150,7 +156,7 @@ Keep source hashes, acquisition manifests, feature-schema version and row-level 
 
 Until these gates are passed, the state is `DASTAN_286_ADAPTATION_AUDIT_IN_PROGRESS`; no training, production use, data promotion or M3 integration is authorized.
 
-## 10. Boundaries unchanged
+## 11. Boundaries unchanged
 
 - The 2PM model predicts player FPL points only.
 - M3 remains the integrated decision engine; M4 owns recommendation products.
@@ -160,6 +166,6 @@ Until these gates are passed, the state is `DASTAN_286_ADAPTATION_AUDIT_IN_PROGR
 - Do not merge PRs without explicit user approval.
 - M2 forecast evaluation and M4 recommendation-product evaluation remain deferred until the upcoming Gameweek's official scores are available.
 
-## 11. Governing decision
+## 12. Governing decision
 
 Use Dastan's 286-feature contract as the candidate input foundation for a clearly labelled 2PM architecture adaptation. Preserve the paper's two-component Poisson-mixture Transformer core. Complete the feature and sequence audits before freezing the schema or implementing training. Do not reuse Dastan's predictive models or the legacy 2PM implementation.
