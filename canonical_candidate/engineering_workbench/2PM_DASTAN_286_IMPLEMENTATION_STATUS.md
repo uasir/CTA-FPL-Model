@@ -264,3 +264,6 @@ For auditability, historical shards retain both the single player-Gameweek targe
 
 
 The post-match builder uses corrected stable Understat player identity history across seasons where a verified mapping exists, matching the Dastan 286 player/defensive rolling-feature semantics. The five sequence-token fixtures themselves remain restricted to the target season. Team/rank and availability feature histories retain their source-defined season scope. This separates cross-season rolling context from cross-season sequence-token selection.
+
+
+A model-side batch adapter, `forward_player_gameweek_batch`, now accepts the grouped tensor shape `[B, F, 6, 286]`, flattens the player-Gameweek/fixture axes for the Transformer, reshapes the per-fixture mixture outputs, sums fixture expected points and variances under the declared independence assumption, and returns one exact aggregate NLL per player-Gameweek when labels are supplied. This connects the grouped dataset to the model without introducing fixture-grain duplicate training labels.
