@@ -74,7 +74,7 @@ The sequence builder requires `feature_cutoff_time` to equal the official deadli
 - Compiles all three new scripts.
 - Tests the 286-column schema, sequence construction, same-deadline Double Gameweek handling, no-padding rule, 21-day gap, non-finite feature rejection, post-deadline snapshot rejection, corrected historical identity mapping, candidate schema/coverage checks and feature-family count reconciliation.
 
-The focused run at commit `795ed096e5df6c4abfd6bef16874ff7ccc6741e1` completed successfully.
+The focused run at commit `3efe8c56e16bd0f4a69b4959689e4d6e9f7820b5` completed successfully. It includes the pre-deadline market snapshot extractor and five-minute safety-buffer tests.
 
 ### 6. Candidate rebuild workflow
 
