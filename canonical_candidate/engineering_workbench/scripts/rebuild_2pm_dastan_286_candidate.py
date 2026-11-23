@@ -17,6 +17,8 @@ from typing import Iterable
 
 import pandas as pd
 
+from build_2pm_predeadline_market_snapshot import build_market_artifact
+
 PINNED_DASTAN_COMMIT = "758db9247e8b3a9a870c991064f74d8339d61cd0"
 KEY = ["season", "gameweek", "fpl_code"]
 FRAME_KEY = ["season", "gameweek", "fixture", "fpl_code"]
@@ -254,6 +256,9 @@ def build_candidate(
 
     print("Rebuilding provenance-checked pre-deadline FPL snapshots", flush=True)
     fplcache.build_predeadline_artifacts(raw_dir, output_dir, seasons)
+    market_path, market_report = build_market_artifact(
+        raw_dir, output_dir, seasons, fplcache
+    )
     sources.write_download_manifest(raw_dir, seasons)
 
     # Reuse only Dastan's documented snapshot joins and missing-snapshot sentinel;
@@ -263,6 +268,14 @@ def build_candidate(
         check_rows=False,
         data_dir=output_dir,
     )
+    market = pd.read_parquet(market_path)[
+        KEY + MARKET_FIELDS + ["snapshot_at"]
+    ].rename(columns={"snapshot_at": "market_snapshot_at"})
+    loaded = loaded.drop(columns=MARKET_FIELDS, errors="ignore").merge(
+        market, on=KEY, how="left", validate="many_to_one"
+    )
+    for column in MARKET_FIELDS:
+        loaded[column] = pd.to_numeric(loaded[column], errors="coerce").fillna(-1.0)
     ordered_features = data.shipped_features(loaded)
     if len(ordered_features) != 286:
         raise RuntimeError(f"Expected 286 Dastan inputs, found {len(ordered_features)}")
@@ -329,7 +342,9 @@ def build_candidate(
         "pre_deadline_snapshot_rows": {
             "ep_next": len(pd.read_parquet(ep_path)),
             "signals": len(pd.read_parquet(signal_path)),
+            "market": len(pd.read_parquet(market_path)),
         },
+        "market_snapshot_report": market_report,
         "limitations": [
             "The reconstruction uses corrected historical FPL-to-Understat assignments.",
             "The upstream feature builder's deadline assertion covers selected prefixes, not all 286 columns.",
