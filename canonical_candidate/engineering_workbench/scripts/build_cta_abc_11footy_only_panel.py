@@ -195,6 +195,8 @@ def build_panel(rows, source_report):
                         "numerator_prior3_avg": numerator,
                         "minutes_prior3_avg": denominator,
                         "per90_value": value,
+                        "used_as_model_feature": (denominator * prior3_count) >= 90 if denominator is not None else False,
+                        "suppressed_for_low_exposure": (denominator * prior3_count) < 90 if denominator is not None else True,
                     })
 
         if not snapshot_available:
@@ -253,7 +255,9 @@ def build_panel(rows, source_report):
         "layer_feature_observed_row_counts": {layer: dict(values) for layer, values in observed.items()},
         "per90_exposure_diagnostics": {
             feature: {
-                "observed_rows": len(samples),
+                "raw_rate_observed_rows": len(samples),
+                "used_as_model_feature_rows": sum(bool(item["used_as_model_feature"]) for item in samples),
+                "suppressed_low_exposure_rows": sum(bool(item["suppressed_for_low_exposure"]) for item in samples),
                 "denominator_le_5_minutes_rows": sum(item["minutes_prior3_avg"] <= 5 for item in samples),
                 "denominator_le_15_minutes_rows": sum(item["minutes_prior3_avg"] <= 15 for item in samples),
                 "maximum_per90_value": max((item["per90_value"] for item in samples), default=None),
