@@ -70,7 +70,7 @@ class FPLIngestionTests(unittest.TestCase):
         stale = deepcopy(self.summaries)
         stale[10]["history"][0]["total_points"] = 5
         with patch("fetch_fpl_official_api.fetch_json", side_effect=[
-            self.bootstrap, self.fixtures, self.summaries[10], self.bootstrap, self.fixtures
+            self.summaries[10], self.bootstrap, self.fixtures
         ]) as fetch:
             _, _, summaries, _, _, _, report = reconcile_snapshot(
                 self.bootstrap, self.fixtures, stale, "2026-27",
@@ -88,7 +88,7 @@ class FPLIngestionTests(unittest.TestCase):
         stale = deepcopy(self.summaries)
         stale[10]["history"][0]["total_points"] = 5
         with patch("fetch_fpl_official_api.fetch_json", side_effect=[
-            self.bootstrap, self.fixtures, stale[10], self.bootstrap, self.fixtures
+            stale[10], self.bootstrap, self.fixtures
         ]):
             _, _, _, _, _, _, report = reconcile_snapshot(
                 self.bootstrap, self.fixtures, stale, "2026-27",
