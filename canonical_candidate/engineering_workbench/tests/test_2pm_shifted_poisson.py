@@ -110,8 +110,8 @@ def test_gameweek_loss_aggregates_two_fixture_mixtures_once_and_backpropagates()
         output, target, mask
     )
     # Four components; the aggregate target is shifted once by 20 per fixture.
-    rates = torch.tensor([39.0, 35.0, 45.0, 41.0])
-    weights = torch.tensor([0.24, 0.36, 0.16, 0.24])
+    rates = torch.tensor([39.0, 45.0, 35.0, 41.0])
+    weights = torch.tensor([0.24, 0.16, 0.36, 0.24])
     shifted_target = 35.0
     log_probs = (
         torch.log(weights)
