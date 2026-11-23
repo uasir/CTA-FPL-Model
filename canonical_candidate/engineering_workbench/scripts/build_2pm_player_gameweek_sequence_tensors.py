@@ -148,8 +148,9 @@ def build_player_gameweek_sequence_tensors(
         if targets.empty:
             raise ValueError("No TARGET_QUERY rows found")
         label_column = None
-        if "target_points" in targets and targets["target_points"].notna().any():
-            raise ValueError("Inference target queries must not contain realized points")
+        for label_name in ("target_points", "total_points"):
+            if label_name in targets and targets[label_name].notna().any():
+                raise ValueError("Inference target queries must not contain realized points")
         if targets["kickoff_time"].le(targets["deadline_time"]).any():
             raise ValueError("Every inference fixture must start after its deadline")
         if targets["feature_cutoff_time"].ne(targets["deadline_time"]).any():
@@ -157,11 +158,11 @@ def build_player_gameweek_sequence_tensors(
         if label_grain is not None:
             raise ValueError("Inference mode does not accept a target label grain")
     else:
-        label_column = (
-            "total_points" if "total_points" in targets
-            else "target_points" if "target_points" in targets
-            else None
-        )
+        label_candidates = [
+            name for name in ("total_points", "target_points")
+            if name in targets and targets[name].notna().any()
+        ]
+        label_column = label_candidates[0] if label_candidates else None
         if label_column is None:
             raise ValueError("Historical training targets require total_points or target_points")
         if label_grain not in {"player_fixture", "player_gameweek"}:
@@ -270,15 +271,20 @@ def build_player_gameweek_sequence_tensors(
         if player_history is None:
             counts["insufficient_previous_played_matches"] += 1
             continue
-        eligible = player_history[
-            player_history["postmatch_state_as_of_time"].lt(deadline)
-            & player_history["kickoff_time"].lt(first_kickoff)
+        prior_played = player_history[
+            player_history["kickoff_time"].lt(first_kickoff)
+        ]
+        eligible = prior_played[
+            prior_played["postmatch_state_as_of_time"].lt(deadline)
         ].sort_values(
             ["postmatch_state_as_of_time", "kickoff_time", "fixture"],
             kind="mergesort",
         ).tail(HISTORY_LENGTH)
         if len(eligible) < HISTORY_LENGTH:
-            counts["insufficient_previous_played_matches"] += 1
+            if len(prior_played) >= HISTORY_LENGTH:
+                counts["postmatch_state_not_available_by_deadline"] += 1
+            else:
+                counts["insufficient_previous_played_matches"] += 1
             continue
         if eligible["postmatch_state_as_of_time"].ge(deadline).any():
             counts["postmatch_state_not_available_by_deadline"] += 1
