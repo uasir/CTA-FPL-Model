@@ -13,6 +13,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/validate_provider_identity_crosswalk.py
       - canonical_candidate/engineering_workbench/scripts/fetch_fpl_official_api.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py
+      - canonical_candidate/engineering_workbench/scripts/build_cta_abc_11footy_only_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_abc_11footy_only_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_baseline_forecast_snapshot.py
       - canonical_candidate/engineering_workbench/scripts/run_fpl_personal_squad_scale_smoke_test.py
@@ -27,6 +29,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_lagged_verified_features.py
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_player_fixture_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_cta_abc_11footy_only_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_abc_11footy_only_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_opta_lagged_team_features.py
       - canonical_candidate/engineering_workbench/scripts/cta_four_layer_pipeline.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_lagged_verified_features.py
@@ -335,6 +339,47 @@ jobs:
           }, indent=2))
           PY
 
+      - name: Build independent 11footy-only ABC panel
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/build_cta_abc_11footy_only_panel.py \
+            --11footy-lagged run_artifacts/11footy/output/11footy_lagged_verified_upcoming_features.csv \
+            --11footy-source-report run_artifacts/11footy/output/11footy_lagged_verified_upcoming_report.json \
+            --out-dir run_artifacts/11footy/output/abc_11footy_only
+
+      - name: Publish aggregate-only 11footy-only ABC summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = Path("run_artifacts/11footy/output/abc_11footy_only/cta_abc_11footy_only_report.json")
+          target = Path("run_artifacts/fpl_official/cta_abc_11footy_only_summary.json")
+          target.parent.mkdir(parents=True, exist_ok=True)
+          if source.exists():
+              report = json.loads(source.read_text())
+              keys = (
+                  "status", "provider", "rows", "verified_identity_rows",
+                  "snapshot_available_rows", "rows_with_prior_history",
+                  "analysis_eligible_rows", "layer_feature_observed_row_counts",
+                  "opta_dependency", "opta_features_used", "model_training_eligible",
+                  "prediction_validation", "point_in_time_status", "identity_policy",
+                  "deadline_policy", "missingness_policy", "scope_limitation",
+                  "provider_attribution", "source_hashes"
+              )
+              safe = {key: report.get(key) for key in keys}
+          else:
+              safe = {
+                  "status": "ABC_11FOOTY_ONLY_PANEL_BUILD_UNAVAILABLE",
+                  "opta_dependency": False,
+                  "opta_features_used": False,
+                  "model_training_eligible": False,
+                  "prediction_validation": "NOT_EVALUATED"
+              }
+          safe["publication_policy"] = "Aggregate-only summary; player-level ABC panel remains runner-local."
+          target.write_text(json.dumps(safe, indent=2))
+          print(json.dumps(safe, indent=2))
+          PY
+
       - name: Aggregate leakage-safe FPL player-gameweek rows
         run: |
           python canonical_candidate/engineering_workbench/scripts/aggregate_fpl_gameweek_rows.py \
@@ -576,6 +621,7 @@ jobs:
             run_artifacts/fpl_official/fpl_lagged_training_report.json
             run_artifacts/fpl_official/11footy_lagged_verified_upcoming_summary.json
             run_artifacts/fpl_official/cta_abc_integration_summary.json
+            run_artifacts/fpl_official/cta_abc_11footy_only_summary.json
             run_artifacts/fpl_official/cta_decision_summary.json
           if-no-files-found: warn
           retention-days: 90
