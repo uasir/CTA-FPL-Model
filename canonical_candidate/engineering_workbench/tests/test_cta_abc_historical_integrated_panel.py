@@ -44,6 +44,9 @@ def test_11footy_is_primary_and_wyscout_fills_unavailable_features():
     assert sources["progressive_passes"] == "wyscout"
     assert report["feature_values_from_11footy"]["player_key_pass_rate"] == 1
     assert report["feature_values_fallback_to_wyscout"]["progressive_passes"] == 1
+    assert report["feature_values_missing_after_fallback"]["dangerous_receipts"] == 1
+    assert report["verified_11footy_unique_players"] == 1
+    assert report["verified_11footy_unique_fpl_fixtures"] == 3
 
 
 def test_same_gameweek_features_are_never_used():

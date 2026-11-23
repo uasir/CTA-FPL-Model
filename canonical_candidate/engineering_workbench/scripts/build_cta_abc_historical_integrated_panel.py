@@ -144,6 +144,7 @@ def enrich_panel(wyscout_rows, footy_rows):
     output = []
     source_counts = defaultdict(int)
     fallback_counts = defaultdict(int)
+    missing_counts = defaultdict(int)
     eligible = 0
     for base in wyscout_rows:
         player = str(base.get("fpl_element_id") or "").strip()
@@ -172,6 +173,7 @@ def enrich_panel(wyscout_rows, footy_rows):
                 else:
                     record[column] = ""
                     feature_sources[name] = "MISSING"
+                    missing_counts[name] += 1
         # Keep all original Wyscout provenance and append feature-level source attribution.
         record["abc_feature_sources"] = json.dumps(feature_sources, sort_keys=True)
         record["abc_primary_feature_source"] = "11footy"
@@ -182,13 +184,19 @@ def enrich_panel(wyscout_rows, footy_rows):
         ).strip().lower() in {"true", "1", "yes"}
         eligible += int(record["research_eligible_for_model"])
         output.append(record)
+    verified_rows = [row for player_rows in history.values() for _, row in player_rows]
     report = {
         "status": "PASS_FEATURE_ENRICHMENT" if output else "NO_ROWS",
         "rows": len(output),
         "research_eligible_for_model_rows": eligible,
-        "verified_11footy_player_match_rows": sum(len(v) for v in history.values()),
+        "verified_11footy_player_match_rows": len(verified_rows),
+        "verified_11footy_unique_players": len(history),
+        "verified_11footy_unique_fpl_fixtures": len({
+            str(row.get("fpl_fixture_id") or "") for row in verified_rows
+        }),
         "feature_values_from_11footy": dict(source_counts),
         "feature_values_fallback_to_wyscout": dict(fallback_counts),
+        "feature_values_missing_after_fallback": dict(missing_counts),
         "primary_source": "11footy historical verified player-match features",
         "supplementary_source": "Wyscout historical player-match event features",
         "lag_policy": "Only verified 11footy matches from strictly earlier FPL Gameweeks; same-GW fixtures share pre-GW history.",
