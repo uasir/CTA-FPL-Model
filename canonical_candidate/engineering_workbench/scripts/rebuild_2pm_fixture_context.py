@@ -56,6 +56,22 @@ def rebuild_player_history_features(
     hist["match_available_at"] = _utc_ns(hist["match_available_at"])
     if out["deadline_time"].isna().any() or hist["kickoff_time"].isna().any():
         raise ValueError("Player history/target contains invalid timestamps")
+    # A source timestamp at or before kickoff cannot represent post-match data.
+    # Fail closed rather than allowing a malformed vintage to enter any later
+    # historical state. Future target fixtures may legitimately have NaT.
+    observed_availability = hist["match_available_at"].notna()
+    if (
+        hist.loc[observed_availability, "match_available_at"]
+        .le(hist.loc[observed_availability, "kickoff_time"])
+        .any()
+    ):
+        raise ValueError("Player match availability must be strictly after kickoff")
+    duplicate_keys = hist.duplicated(["season", "fixture", "fpl_code"], keep=False)
+    if duplicate_keys.any():
+        raise ValueError(
+            "Player history must be unique at season-fixture-player grain; "
+            "duplicate source rows cannot be silently collapsed"
+        )
     # Future target fixtures legitimately have no completion availability yet.
 
     # Match Dastan's player_uid construction exactly: Understat ID where mapped,
