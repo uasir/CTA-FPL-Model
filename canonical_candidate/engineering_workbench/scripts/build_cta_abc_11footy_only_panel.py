@@ -101,7 +101,6 @@ def build_panel(rows, source_report):
         key_passes3, key_passes5 = prior(row, "key_passes", 3), prior(row, "key_passes", 5)
         xg3, xg5 = prior(row, "tracked_xg_sum", 3), prior(row, "tracked_xg_sum", 5)
         shots3 = prior(row, "shots", 3)
-        attempts_box3 = prior(row, "attempts_inside_box", 3)
         goals3 = prior(row, "goals", 3)
         fouls3 = prior(row, "fouls_committed", 3)
         involvement = key_passes3 + shots3 if key_passes3 is not None and shots3 is not None else None
@@ -146,7 +145,9 @@ def build_panel(rows, source_report):
             "minutes_trend": minutes3 - minutes5 if minutes3 is not None and minutes5 is not None else None,
             "attacking_involvement": involvement,
             "threat_creation_rate": per90(key_passes3, minutes3),
-            "threat_reception_rate": per90(attempts_box3, minutes3),
+            # 11footy attempts_inside_box are shot attempts, not receptions.
+            # Keep receiver-level threat evidence missing rather than relabel it.
+            "threat_reception_rate": None,
             "threat_realisation_rate": goals3 / xg3 if goals3 is not None and xg3 is not None and xg3 > 0 else None,
             "contextual_threat_score": None,
             "attacking_involvement_rate": per90(involvement, minutes3),

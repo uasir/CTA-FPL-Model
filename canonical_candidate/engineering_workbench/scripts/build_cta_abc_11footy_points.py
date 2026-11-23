@@ -22,7 +22,7 @@ FEATURES = (
     "abc_recent_key_pass_trend", "abc_recent_xg_trend",
     "abc_player_fouls_committed_rate", "abc_minutes_trend",
     "abc_attacking_involvement", "abc_threat_creation_rate",
-    "abc_threat_reception_rate", "abc_threat_realisation_rate",
+    "abc_threat_realisation_rate",
     "abc_attacking_involvement_rate",
 )
 
@@ -85,7 +85,6 @@ def make_features(prior_rows):
         "abc_minutes_trend": minutes3 - minutes5 if minutes3 is not None and minutes5 is not None else None,
         "abc_attacking_involvement": involvement,
         "abc_threat_creation_rate": key_rate,
-        "abc_threat_reception_rate": per90(p3, "attempts_inside_box"),
         "abc_threat_realisation_rate": goals3 / xg3 if goals3 is not None and xg3 is not None and xg3 > 0 else None,
         "abc_attacking_involvement_rate": key_rate + shots_rate if key_rate is not None and shots_rate is not None else None,
     }

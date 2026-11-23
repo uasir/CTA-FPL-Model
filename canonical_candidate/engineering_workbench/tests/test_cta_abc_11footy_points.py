@@ -43,7 +43,7 @@ def test_11footy_point_forecast_runs_and_aggregates_gameweek():
         "abc_recent_key_pass_trend": 0.0, "abc_recent_xg_trend": 0.0,
         "abc_player_fouls_committed_rate": 1.0, "abc_minutes_trend": 0.0,
         "abc_attacking_involvement": 4.0, "abc_threat_creation_rate": 1.5,
-        "abc_threat_reception_rate": 2.0, "abc_threat_realisation_rate": 0.0,
+        "abc_threat_reception_rate": None, "abc_threat_realisation_rate": 0.0,
         "abc_attacking_involvement_rate": 5.0,
     }]
     model, forecasts, report, validation = run(training, upcoming, holdout_gameweeks=2)

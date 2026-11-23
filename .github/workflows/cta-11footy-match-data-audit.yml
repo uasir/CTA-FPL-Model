@@ -15,7 +15,9 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_11footy_player_match_features.py
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_11footy_only_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_cta_abc_11footy_points.py
+      - canonical_candidate/engineering_workbench/scripts/merge_cta_abc_fpl_baseline_features.py
       - canonical_candidate/engineering_workbench/tests/test_cta_abc_11footy_points.py
+      - canonical_candidate/engineering_workbench/tests/test_merge_cta_abc_fpl_baseline_features.py
       - canonical_candidate/engineering_workbench/tests/test_cta_abc_11footy_only_panel.py
       - canonical_candidate/engineering_workbench/scripts/build_fpl_lagged_features.py
       - canonical_candidate/engineering_workbench/tests/test_fpl_baseline_forecast_snapshot.py
@@ -348,6 +350,14 @@ jobs:
           python canonical_candidate/engineering_workbench/scripts/build_cta_abc_11footy_only_panel.py \
             --11footy-lagged run_artifacts/11footy/output/11footy_lagged_verified_upcoming_features.csv \
             --11footy-source-report run_artifacts/11footy/output/11footy_lagged_verified_upcoming_report.json \
+            --out-dir run_artifacts/11footy/output/abc_11footy_only
+
+      - name: Attach leakage-safe official FPL form features to upcoming ABC panel
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/merge_cta_abc_fpl_baseline_features.py \
+            --abc-panel run_artifacts/11footy/output/abc_11footy_only/cta_abc_11footy_only_panel.csv \
+            --fpl-lagged-training run_artifacts/fpl_official/fpl_lagged_training.csv \
+            --source-metadata run_artifacts/fpl_official/source_metadata.json \
             --out-dir run_artifacts/11footy/output/abc_11footy_only
 
       - name: Train ABC on verified 11footy history and forecast upcoming FPL points
