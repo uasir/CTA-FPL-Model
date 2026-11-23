@@ -195,11 +195,15 @@ def poisson_mixture_negative_log_likelihood(
     if support_shift < 0:
         raise ValueError("support_shift must be non-negative")
     if (y < -support_shift).any():
+        if support_shift == 0:
+            raise ValueError("Poisson targets must be non-negative when support_shift=0")
         raise ValueError(
             f"targets fall below the configured Poisson support floor {-support_shift}"
         )
     if not torch.equal(y, torch.round(y)):
-        raise ValueError("Poisson targets must be integer-valued")
+        if support_shift == 0:
+            raise ValueError("Poisson targets must be non-negative integer-valued")
+        raise ValueError("shifted-Poisson targets must be integer-valued")
     shifted_y = y + support_shift
 
     log_factorial = torch.lgamma(shifted_y + 1.0)
@@ -275,8 +279,12 @@ def fit_training_poisson_mixture_mle(
     if int(support_shift) != support_shift or support_shift < 0:
         raise ValueError("support_shift must be a non-negative integer")
     if not np.equal(raw_values, np.round(raw_values)).all():
+        if support_shift == 0:
+            raise ValueError("training_targets must be non-negative integer points")
         raise ValueError("training_targets must be integer-valued points")
     if (raw_values < -support_shift).any():
+        if support_shift == 0:
+            raise ValueError("training_targets must be non-negative integer points")
         raise ValueError("training targets fall below the configured shifted-Poisson support")
     values = raw_values + int(support_shift)
     if max_iter <= 0 or tolerance <= 0 or epsilon <= 0:
