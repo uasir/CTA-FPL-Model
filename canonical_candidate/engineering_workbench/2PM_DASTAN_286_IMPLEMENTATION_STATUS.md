@@ -27,11 +27,13 @@
 `scripts/rebuild_2pm_dastan_286_candidate.py`
 
 - Requires the exact pinned Dastan source checkout.
-- Reuses Dastan's public-source acquisition and feature-construction code, not its predictor, weights or model preprocessing.
+- Reuses Dastan's public-source acquisition and feature-construction code, not its predictor or weights. The documented residual-NaN-to-zero tensor preprocessing is applied only after raw candidate missingness is audited.
 - Replaces the two known incorrect historical Understat assignments with the evidence-backed corrected mapping while preserving the historical player/Gameweek assignment intervals.
 - Uses the Dastan operational mapping resolver only for an explicitly requested active season.
 - Rebuilds the candidate feature frame and pre-deadline `ep_next`, availability and market snapshot artifacts.
 - Replaces unvintaged historical price, ownership and transfer-balance values with `now_cost / 10`, `selected_by_percent` and `transfers_in_event - transfers_out_event` from snapshots accepted only when the target GW is `is_next`, the deadline matches, and capture is at least five minutes before the deadline.
+- Rebuilds all 60 own-team rolling features, all 60 opponent rolling features and both direct league-rank fields per target deadline from Understat team-match history. Historical matches are admitted only when their conservative 24-hour post-kickoff availability bound is strictly before the deadline.
+- Rebuilds six fixture-specific `ar_*` context features per target fixture: rest days, team congestion and opponent defensive-contribution/tackle allowance. These are recomputed after Dastan's player/Gameweek anchor so distinct fixtures in a Double Gameweek retain their own context.
 - Applies the same five-minute safety buffer to the `ep_next` and availability snapshot artifacts; rows inside the buffer are removed and become the explicit `-1` missing-snapshot sentinel.
 - Downloads the pinned season fixture calendars and attaches a conservative 24-hour post-kickoff availability upper bound for fixtures marked finished. This is explicitly not an exact finish timestamp and excludes borderline matches rather than guessing.
 - Attaches the official FPL Gameweek deadline calendar.
@@ -63,6 +65,7 @@ The sequence builder requires `feature_cutoff_time` to equal the official deadli
 
 - Checks the exact 286-column order, numeric/finite values, player-fixture key uniqueness and non-overlapping feature-family totals.
 - Reports per-season finite coverage, `-1` sentinel counts, genuine zero counts, defensive-family value coverage, and pre-deadline `ep_next`, signal and market snapshot age/post-deadline counts.
+- Reports fixture-context reconstruction and deadline team-context reconstruction separately; these remain candidate values until source-vintage and value-parity checks are admitted.
 - Checks same-player/Gameweek invariance for player/team/availability history and separately diagnoses fixture-context flattening in `opp_*`, opponent defensive allowance, rest, congestion and venue fields.
 - Explicitly reports opponent rolling, direct rank, market timestamp and historical source-vintage limitations; it does not label them safe.
 
@@ -158,7 +161,7 @@ This builder is implemented but depends on both the six-season historical candid
 `.github/workflows/cta-2pm-dastan-286-candidate-rebuild.yml`
 
 - Checks out the pinned Dastan source and rebuilds the six completed seasons (2020/21–2025/26).
-- Runs the 286 structural audit and builds five-played-match candidate tensor shards after reconstruction.
+- Runs the 286 structural audit, audits raw residual missingness, applies the documented residual-NaN-to-zero tensor preparation while preserving -1 sentinels, and builds five-played-match candidate tensor shards after reconstruction.
 - Keeps raw player-level source data, candidate feature frames and tensor shards on the ephemeral runner; only aggregate candidate status is written to the workflow summary.
 - Does not train the 2PM model or promote data.
 
@@ -168,9 +171,8 @@ The first full rebuild run is being executed separately. Its outcome must be rea
 
 1. Complete and inspect the six-season corrected-identity candidate rebuild.
 2. Inspect the conservative fixture-availability calendar coverage and retain its explicit upper-bound quality; obtain exact finish/capture times only where an authoritative source provides them.
-3. Independently reconstruct all 286 feature families at each official Gameweek deadline, not just Dastan's selected prefix anchor.
-4. Rebuild opponent rolling values, direct league ranks, team context, defensive-allowance and congestion features from only pre-deadline completed matches.
-5. Verify historical market snapshot coverage, field-unit parity and capture-vintage quality; exclude unresolved rows/features from admission rather than silently substituting retrospective values.
+3. Complete feature-by-feature point-in-time admission across all 286 columns; the rebuilt team/opponent, direct-rank and fixture-context values still require source-vintage and parity checks.
+4. Verify historical market snapshot coverage, field-unit parity and capture-vintage quality; exclude unresolved rows/features from admission rather than silently substituting retrospective values.
 6. Quantify defensive-feature coverage by season and preserve structural missingness.
 7. Run the active-season target query builder for an upcoming, not-yet-started 2026/27 Gameweek; join its current-season history and target queries to the six-season historical candidate before constructing current inference sequences. Keep candidate and admitted sequence artifacts separate.
 
