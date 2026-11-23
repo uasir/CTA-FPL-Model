@@ -11,8 +11,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import Iterable
 
@@ -94,6 +99,47 @@ def load_dastan_package(source_root: Path):
     sys.path.insert(0, str(source_root))
     from dastan import data, mappings  # noqa: E402
     from dastan.rebuild import features, fplcache, sources  # noqa: E402
+
+    # The runner's anonymous GitHub API quota is shared and can be exhausted by
+    # concurrent CI. Use the workflow's read-only GITHUB_TOKEN for pinned tree
+    # endpoints; raw source downloads remain pinned to the same commits.
+    def authenticated_get(url: str, timeout: int = 90, retries: int = 4) -> bytes:
+        token = os.environ.get("GITHUB_TOKEN")
+        if not token:
+            raise RuntimeError(
+                "GITHUB_TOKEN is required to retrieve pinned GitHub source trees "
+                "without relying on the shared anonymous API rate limit"
+            )
+        quoted = urllib.parse.quote(url, safe=":/?&=%")
+        last_error = None
+        for attempt in range(retries):
+            request = urllib.request.Request(
+                quoted,
+                headers={
+                    "User-Agent": "2pm-pinned-data-rebuild/1.0",
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                },
+            )
+            try:
+                return urllib.request.urlopen(request, timeout=timeout).read()
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
+                    raise
+                last_error = exc
+                if exc.code not in (403, 429, 500, 502, 503, 504):
+                    raise
+            except (urllib.error.URLError, TimeoutError) as exc:
+                last_error = exc
+            if attempt + 1 < retries:
+                time.sleep(2 ** attempt)
+        raise RuntimeError(
+            f"Authenticated GitHub GET failed after {retries} attempts: "
+            f"{quoted} ({last_error})"
+        )
+
+    sources._get = authenticated_get
+    fplcache._get = authenticated_get
     return data, mappings, features, fplcache, sources
 
 
@@ -161,12 +207,11 @@ def attach_official_deadlines(
         ),
         "policy": "Only fixtures kicking off strictly after the official Gameweek deadline remain forecast targets; the full match archive is retained for history reconstruction.",
     }
-    out = out.loc[~already_started].copy()
-    if out.empty:
-        raise ValueError(
-            "No forecast-eligible player fixtures remain after excluding fixtures "
-            "that started by their official Gameweek deadline"
-        )
+    # Keep every fixture row in the historical archive. The downstream dataset
+    # builder uses this flag only to select valid forecast targets; post-match
+    # sequence tokens still need played fixtures that were rescheduled before
+    # their assigned Gameweek deadline.
+    out["forecast_target_eligible"] = ~already_started
     out.attrs["deadline_target_eligibility"] = report
     return out
 
