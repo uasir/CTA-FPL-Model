@@ -75,6 +75,19 @@ The sequence builder requires `feature_cutoff_time` to equal the official deadli
 
 The focused run at commit `3efe8c56e16bd0f4a69b4959689e4d6e9f7820b5` completed successfully. It includes the pre-deadline market snapshot extractor and five-minute safety-buffer tests.
 
+### 6. Active-season target query builder
+
+`scripts/build_2pm_active_target_queries.py`
+
+- Uses the pinned Dastan source builder with the checked-in current operational player/club mapping.
+- Selects the official pre-deadline FPL snapshot only when it marks the requested Gameweek as `is_next`, matches the official deadline and falls within a five-minute-to-30-hour capture window.
+- Builds one target-fixture query at a time, preserving fixture-specific opponent/home-away context for Double Gameweeks rather than flattening all target fixtures into one player/Gameweek row.
+- Produces current-season historical player-fixture rows plus target-query rows, joins pre-deadline `ep_next`, availability signals and market fields, and marks all outputs `NOT_ADMITTED`.
+- Refuses to build if any fixture in the requested Gameweek has already started. It does not use a post-deadline partial-Gameweek history to construct an ostensibly pre-deadline query.
+- A focused CI contract tests player-fixture grain, mapping behavior, Double Gameweek context and deadline/start-time refusals.
+
+This builder is implemented but has not yet been run against the live 2026/27 source snapshot. The six completed-season historical candidate and the current-season target query are separate artifacts; they must be joined deliberately for current inference sequences.
+
 ### 6. Candidate rebuild workflow
 
 `.github/workflows/cta-2pm-dastan-286-candidate-rebuild.yml`
@@ -94,7 +107,7 @@ The first full rebuild run is being executed separately. Its outcome must be rea
 4. Rebuild opponent rolling values, direct league ranks, team context, defensive-allowance and congestion features from only pre-deadline completed matches.
 5. Verify historical market snapshot coverage, field-unit parity and capture-vintage quality; exclude unresolved rows/features from admission rather than silently substituting retrospective values.
 6. Quantify defensive-feature coverage by season and preserve structural missingness.
-7. Build separate historical training sequences and current-season target-fixture query sequences. The current six-season reconstruction contains labelled historical rows only; 2026/27 target-fixture query generation is a distinct outstanding deliverable. Keep candidate and admitted sequence artifacts separate.
+7. Run the active-season target query builder for an upcoming, not-yet-started 2026/27 Gameweek; join its current-season history and target queries to the six-season historical candidate before constructing current inference sequences. Keep candidate and admitted sequence artifacts separate.
 
 ## Guardrails
 
