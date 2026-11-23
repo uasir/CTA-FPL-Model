@@ -68,3 +68,27 @@ def test_write_json_emits_parseable_json_with_real_newline(tmp_path):
     raw = path.read_text(encoding="utf-8")
     assert raw.endswith("\n")
     assert json.loads(raw) == {"status": "PASS", "rows": 12}
+
+
+def test_forecast_report_includes_prediction_and_feature_range_diagnostics(tmp_path):
+    features = ["fpl_total_points_prior_3_avg", "abc_progressive_passes"]
+    rows = [
+        {"fpl_total_points_prior_3_avg": "4", "abc_progressive_passes": "2"},
+        {"fpl_total_points_prior_3_avg": "6", "abc_progressive_passes": ""},
+    ]
+    payload = {"model_version": "abc-points-ridge-v1", "feature_order": features}
+    manifest = {"model_family": "Ridge", "model_sha256": "not-a-real-hash"}
+    predictions = [
+        {"expected_points": -3.0, "research_eligible_for_analysis": "true"},
+        {"expected_points": 5.0, "research_eligible_for_analysis": "false"},
+    ]
+    report = build_report(
+        rows, payload, manifest, {}, __import__("pathlib").Path(__file__), predictions
+    )
+    distribution = report["prediction_distribution"]
+    assert distribution["all_scored_player_fixtures"]["count"] == 2
+    assert distribution["all_scored_player_fixtures"]["negative_count"] == 1
+    assert distribution["research_eligible_player_fixtures"]["min"] == -3.0
+    assert distribution["research_ineligible_player_fixtures"]["max"] == 5.0
+    assert report["feature_coverage"]["abc_progressive_passes"]["observed_min"] == 2.0
+    assert report["feature_coverage"]["abc_progressive_passes"]["observed_max"] == 2.0
