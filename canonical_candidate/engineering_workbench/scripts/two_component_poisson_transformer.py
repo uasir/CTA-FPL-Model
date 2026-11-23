@@ -478,6 +478,14 @@ def independent_fixture_gameweek_negative_log_likelihood(
         support_shift = int(fixture_output.get("support_shift", 0))
     if int(support_shift) != support_shift or support_shift < 0:
         raise ValueError("support_shift must be a non-negative integer")
+    if "support_shift" in fixture_output and int(fixture_output["support_shift"]) != int(support_shift):
+        raise ValueError("explicit support_shift disagrees with fixture model outputs")
+    if not torch.isfinite(p).all() or (p <= 0).any() or (p >= 1).any():
+        raise ValueError("fixture mixture probabilities must be finite and in (0, 1)")
+    if not torch.isfinite(lambda_1).all() or not torch.isfinite(lambda_2).all():
+        raise ValueError("fixture Poisson rates must be finite")
+    if (lambda_1 <= 0).any() or (lambda_2 <= 0).any():
+        raise ValueError("fixture Poisson rates must be positive")
 
     sample_losses = []
     for batch_index in range(p.shape[0]):
