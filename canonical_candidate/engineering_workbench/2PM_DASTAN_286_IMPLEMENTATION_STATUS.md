@@ -30,13 +30,14 @@
 - Reuses Dastan's public-source acquisition and feature-construction code, not its predictor, weights or model preprocessing.
 - Replaces the two known incorrect historical Understat assignments with the evidence-backed corrected mapping while preserving the historical player/Gameweek assignment intervals.
 - Uses the Dastan operational mapping resolver only for an explicitly requested active season.
-- Rebuilds the candidate feature frame and pre-deadline `ep_next` / availability snapshot artifacts.
+- Rebuilds the candidate feature frame and pre-deadline `ep_next`, availability and market snapshot artifacts.
+- Replaces unvintaged historical price, ownership and transfer-balance values with `now_cost / 10`, `selected_by_percent` and `transfers_in_event - transfers_out_event` from snapshots accepted only when the target GW is `is_next`, the deadline matches, and capture precedes the deadline.
 - Downloads the pinned season fixture calendars and attaches a conservative 24-hour post-kickoff availability upper bound for fixtures marked finished. This is explicitly not an exact finish timestamp and excludes borderline matches rather than guessing.
 - Attaches the official FPL Gameweek deadline calendar.
 - Downloads the pinned season fixture calendars and attaches a conservative 24-hour post-kickoff availability upper bound for fixtures marked finished. This is explicitly not represented as an exact finish timestamp; it errs toward excluding borderline prior matches.
 - Writes the exact 286 ordered inputs, identity/source hashes, snapshot timestamps, feature cutoff, fixture-availability quality and explicit non-admission status.
 
-The output is deliberately labelled `RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED` and `UPSTREAM_PREFIX_ASSERTION_ONLY_NOT_FULL_FRAME_VERIFIED`. Dastan's upstream anchor/assertion does not independently prove all 286 values were available at the official deadline. In particular, opponent rolling features, direct ranks, and historical `value` / `selected` / `transfers_balance` still need independent reconstruction or timestamp evidence.
+The output is deliberately labelled `RETROSPECTIVE_SOURCE_VINTAGE_NOT_VERIFIED` and `UPSTREAM_PREFIX_ASSERTION_ONLY_NOT_FULL_FRAME_VERIFIED`. Dastan's upstream anchor/assertion does not independently prove all 286 values were available at the official deadline. In particular, opponent rolling features, direct ranks and fixture-specific `ar_opp_*` / rest / congestion context still need independent reconstruction. The historical `value`, `selected` and `transfers_balance` columns are now replaced by accepted pre-deadline fplcache snapshots; unit parity against the released Dastan values still needs checking.
 
 ### 3. Five-previous-played-fixture sequence builder
 
@@ -61,7 +62,7 @@ The sequence builder requires `feature_cutoff_time` to equal the official deadli
 `scripts/audit_2pm_dastan_286_candidate.py`
 
 - Checks the exact 286-column order, numeric/finite values, player-fixture key uniqueness and non-overlapping feature-family totals.
-- Reports per-season finite coverage, `-1` sentinel counts, genuine zero counts, defensive-family value coverage, and pre-deadline snapshot age/post-deadline counts.
+- Reports per-season finite coverage, `-1` sentinel counts, genuine zero counts, defensive-family value coverage, and pre-deadline `ep_next`, signal and market snapshot age/post-deadline counts.
 - Checks same-player/Gameweek invariance only for the upstream anchored prefixes.
 - Explicitly reports opponent rolling, direct rank, market timestamp and historical source-vintage limitations; it does not label them safe.
 
