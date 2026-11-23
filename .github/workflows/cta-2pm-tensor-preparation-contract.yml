@@ -1,0 +1,31 @@
+name: 2PM candidate tensor preparation contract
+
+on:
+  push:
+    branches: ["feat/four-layer-2pm-transformer-evaluation"]
+    paths:
+      - canonical_candidate/engineering_workbench/scripts/prepare_2pm_candidate_tensors.py
+      - canonical_candidate/engineering_workbench/tests/test_prepare_2pm_candidate_tensors.py
+      - .github/workflows/cta-2pm-tensor-preparation-contract.yml
+
+permissions:
+  contents: read
+
+jobs:
+  tensor-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install focused dependencies
+        run: python -m pip install numpy pandas pyarrow pytest
+      - name: Compile candidate tensor preparation
+        working-directory: canonical_candidate/engineering_workbench
+        run: python -m py_compile scripts/prepare_2pm_candidate_tensors.py
+      - name: Test residual-NaN policy and sequence tensor output
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: python -m pytest -q tests/test_prepare_2pm_candidate_tensors.py
