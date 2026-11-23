@@ -24,6 +24,248 @@ CONTEXT_COLUMNS = [
 
 
 
+
+def _prefix_mean(values: np.ndarray, *, ignore_nan: bool = False):
+    values = np.asarray(values, dtype=float)
+    valid = np.isfinite(values) if ignore_nan else np.ones(len(values), dtype=bool)
+    sums = np.concatenate(([0.0], np.cumsum(np.where(valid, values, 0.0))))
+    counts = np.concatenate(([0], np.cumsum(valid.astype(np.int64))))
+
+    def mean(end: int, window: int) -> float:
+        start = max(0, end - window)
+        count = int(counts[end] - counts[start])
+        if count == 0:
+            return float("nan")
+        return float((sums[end] - sums[start]) / count)
+
+    return mean
+
+
+def rebuild_player_history_features(
+    target_frame: pd.DataFrame,
+    player_matches: pd.DataFrame,
+    features_module,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Recompute player rolling, availability and defensive-history inputs at deadline."""
+    required_history = {
+        "season", "fixture", "fpl_code", "element", "understat_id", "position",
+        "is_home", "kickoff_time", "match_available_at", "minutes", "total_points",
+    }
+    missing = sorted(required_history - set(player_matches.columns))
+    if missing:
+        raise ValueError(f"Player history missing identity/source columns: {missing}")
+
+    out = target_frame.copy().reset_index(drop=True)
+    hist = player_matches.copy()
+    for frame in (out, hist):
+        frame["season"] = frame["season"].astype(str)
+        frame["fixture"] = frame["fixture"].astype(str)
+        frame["kickoff_time"] = pd.to_datetime(frame["kickoff_time"], utc=True, errors="coerce")
+    out["deadline_time"] = pd.to_datetime(out["deadline_time"], utc=True, errors="coerce")
+    hist["match_available_at"] = pd.to_datetime(
+        hist["match_available_at"], utc=True, errors="coerce"
+    )
+    if out["deadline_time"].isna().any() or hist[["kickoff_time", "match_available_at"]].isna().any().any():
+        raise ValueError("Player history/target contains invalid timestamps")
+
+    # Match Dastan's player_uid construction exactly: Understat ID where mapped,
+    # otherwise season-scoped FPL element ID.
+    hist["_player_uid"] = hist["understat_id"].where(
+        hist["understat_id"].notna(),
+        hist["element"].astype(str) + "_" + hist["season"].astype(str),
+    ).astype(str)
+    identity = hist[
+        ["season", "fixture", "fpl_code", "element", "understat_id", "position", "is_home", "_player_uid"]
+    ].drop_duplicates(["season", "fixture", "fpl_code"])
+    if identity.duplicated(["season", "fixture", "fpl_code"]).any():
+        raise ValueError("Player identity rows are not unique at player-fixture grain")
+    target_meta = out[["season", "fixture", "fpl_code"]].merge(
+        identity,
+        on=["season", "fixture", "fpl_code"],
+        how="left",
+        validate="one_to_one",
+    )
+    if target_meta["_player_uid"].isna().any():
+        raise ValueError("Target rows lack canonical player identity")
+
+    windows = list(features_module.WINDOWS)
+    player_map = dict(features_module.PLAYER_FEATURES)
+    player_columns = [
+        f"player_{feature}_{window}"
+        for feature in player_map.values()
+        for window in windows
+    ]
+    relevant_columns = [
+        f"player_relevant_fpl_points_{window}" for window in windows
+    ]
+    defensive_sources = {
+        "defensive_contribution": "defensive_contribution",
+        "cbit": "clearances_blocks_interceptions",
+        "recoveries": "recoveries",
+        "tackles": "tackles",
+    }
+    defensive_columns = [
+        f"ar_{feature}_{window}"
+        for feature in defensive_sources
+        for window in (3, 5, 10, 38)
+    ]
+    rate_columns = [
+        f"ar_{kind}_{window}"
+        for kind in ("dc_hit_rate", "dc_near_rate", "starts")
+        for window in (3, 5, 10)
+    ]
+    history_columns = player_columns + relevant_columns + defensive_columns + rate_columns + ["ar_dc_ppg_5"]
+    values = {column: np.full(len(out), np.nan, dtype=float) for column in history_columns}
+
+    # Prepare sorted, prefix-summed player histories. Rolling windows are based on
+    # all prior player fixtures (including non-appearances), as in Dastan's source.
+    history_groups = {}
+    for uid, group in hist.groupby("_player_uid", sort=False):
+        group = group.sort_values(["kickoff_time", "fixture"], kind="mergesort").reset_index(drop=True)
+        available_ns = group["match_available_at"].astype("int64").to_numpy()
+        prefixes = {}
+        for source in player_map:
+            series = (
+                pd.to_numeric(group[source], errors="coerce")
+                if source in group else pd.Series(0.0, index=group.index)
+            )
+            prefixes[source] = _prefix_mean(
+                series.fillna(0.0).to_numpy(dtype=float)
+            )
+        venue = {}
+        total_points = pd.to_numeric(group["total_points"], errors="coerce").fillna(0.0).to_numpy(dtype=float)
+        home_values = group["is_home"].astype(bool).to_numpy()
+        for home in (False, True):
+            mask = home_values == home
+            venue_group = group.loc[mask].copy()
+            venue[home] = (
+                venue_group["match_available_at"].astype("int64").to_numpy(),
+                _prefix_mean(
+                    pd.to_numeric(venue_group["total_points"], errors="coerce")
+                    .fillna(0.0).to_numpy(dtype=float)
+                ),
+            )
+
+        defensive_arrays = {}
+        for feature, source in defensive_sources.items():
+            column = source
+            if feature == "cbit" and column not in group and "cbit" in group:
+                column = "cbit"
+            series = (
+                pd.to_numeric(group[column], errors="coerce")
+                if column in group else pd.Series(np.nan, index=group.index)
+            )
+            defensive_arrays[feature] = _prefix_mean(
+                series.to_numpy(dtype=float), ignore_nan=True
+            )
+
+        dc = (
+            pd.to_numeric(group["defensive_contribution"], errors="coerce").to_numpy(dtype=float)
+            if "defensive_contribution" in group else np.full(len(group), np.nan)
+        )
+        positions = group["position"].astype(str).to_numpy()
+        thresholds = np.array(
+            [features_module.DC_THRESHOLD.get(position, 99) for position in positions],
+            dtype=float,
+        )
+        hit = (dc >= thresholds).astype(float)
+        near = ((dc >= thresholds - 3) & (dc < thresholds)).astype(float)
+        hit[~np.isfinite(dc)] = np.nan
+        near[~np.isfinite(dc)] = np.nan
+        starts = (
+            pd.to_numeric(group["starts"], errors="coerce").to_numpy(dtype=float)
+            if "starts" in group else np.full(len(group), np.nan)
+        )
+        rate_prefixes = {
+            "dc_hit_rate": _prefix_mean(hit, ignore_nan=True),
+            "dc_near_rate": _prefix_mean(near, ignore_nan=True),
+            "starts": _prefix_mean(starts, ignore_nan=True),
+        }
+        history_groups[str(uid)] = {
+            "available_ns": available_ns,
+            "player_prefixes": prefixes,
+            "venue_prefixes": venue,
+            "defensive_prefixes": defensive_arrays,
+            "rate_prefixes": rate_prefixes,
+        }
+
+    # Availability histories are season-scoped and use the last 3/5/10 player rows.
+    availability_groups = {}
+    for (season, code), group in hist.groupby(["season", "fpl_code"], sort=False):
+        group = group.sort_values(["kickoff_time", "fixture"], kind="mergesort")
+        availability_groups[(str(season), int(code))] = {
+            "available_ns": group["match_available_at"].astype("int64").to_numpy(),
+            "played": _prefix_mean(pd.to_numeric(group["minutes"], errors="coerce").gt(0).astype(float).to_numpy()),
+            "played60": _prefix_mean(pd.to_numeric(group["minutes"], errors="coerce").ge(60).astype(float).to_numpy()),
+            "minutes": _prefix_mean(pd.to_numeric(group["minutes"], errors="coerce").fillna(0.0).to_numpy(dtype=float)),
+        }
+
+    base_rates = features_module.POSITION_BASE_RATES
+    for row_position, row in enumerate(
+        target_meta[["_player_uid", "season", "fpl_code", "position", "is_home"]].itertuples(index=False, name=None)
+    ):
+        uid, season, code, position, is_home = row
+        deadline_ns = int(out.loc[row_position, "deadline_time"].value)
+        history = history_groups[str(uid)]
+        end = int(np.searchsorted(history["available_ns"], deadline_ns, side="left"))
+        for source, feature in player_map.items():
+            prefix = history["player_prefixes"][source]
+            for window in windows:
+                values[f"player_{feature}_{window}"][row_position] = prefix(end, window)
+
+        venue_available, venue_prefix = history["venue_prefixes"][bool(is_home)]
+        venue_end = int(np.searchsorted(venue_available, deadline_ns, side="left"))
+        for window in windows:
+            values[f"player_relevant_fpl_points_{window}"][row_position] = venue_prefix(venue_end, window)
+
+        for feature, prefix in history["defensive_prefixes"].items():
+            for window in (3, 5, 10, 38):
+                values[f"ar_{feature}_{window}"][row_position] = prefix(end, window)
+        for feature, prefix in history["rate_prefixes"].items():
+            for window in (3, 5, 10):
+                values[f"ar_{feature}_{window}"][row_position] = prefix(end, window)
+        values["ar_dc_ppg_5"][row_position] = (
+            2.0 * values["ar_dc_hit_rate_5"][row_position]
+        )
+
+        availability = availability_groups.get((str(season), int(code)))
+        defaults = base_rates.get(str(position), base_rates.get("MID"))
+        if availability is None:
+            for window in (3, 5, 10):
+                values[f"p_any_{window}"][row_position] = defaults["p_any"]
+                values[f"p60_{window}"][row_position] = defaults["p60"]
+                values[f"e_minutes_{window}"][row_position] = defaults["e_minutes"]
+        else:
+            availability_end = int(
+                np.searchsorted(availability["available_ns"], deadline_ns, side="left")
+            )
+            for window in (3, 5, 10):
+                for source, prefix in (
+                    ("p_any", availability["played"]),
+                    ("p60", availability["played60"]),
+                    ("e_minutes", availability["minutes"]),
+                ):
+                    values[f"{source}_{window}"][row_position] = (
+                        prefix(availability_end, window)
+                        if availability_end > 0 else defaults[source]
+                    )
+
+    feature_frame = pd.DataFrame(values, index=out.index)
+    out = pd.concat([out.drop(columns=feature_frame.columns, errors="ignore"), feature_frame], axis=1)
+    report = {
+        "status": "PLAYER_HISTORY_REBUILT",
+        "target_rows": int(len(out)),
+        "player_rolling_feature_count": len(player_columns) + len(relevant_columns),
+        "availability_feature_count": 9,
+        "defensive_player_history_feature_count": len(defensive_columns) + len(rate_columns) + 1,
+        "history_identity": "Dastan player_uid: Understat ID where mapped, else element_id + season",
+        "rolling_window_semantics": "previous player fixture rows before deadline; player rolling features include non-appearance rows, while sequence tokens separately require minutes > 0",
+        "availability_semantics": "previous season-scoped FPL player fixture rows before deadline; position-specific base rates when no history",
+        "defensive_history_semantics": "previous player_uid fixture rows before deadline; NaN source values are ignored by rolling means",
+        "admission_status": "NOT_ADMITTED",
+    }
+    return out, report
+
 def rebuild_deadline_team_context(
     target_frame: pd.DataFrame,
     team_matches: pd.DataFrame,
