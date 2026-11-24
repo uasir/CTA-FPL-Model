@@ -99,7 +99,7 @@ jobs:
           seasons = ["2022-23", "2023-24", "2024-25", "2025-26"]
           report["defensive_source_coverage"] = audit_defensive_source_coverage(raw_dir, seasons, matches)
           report["defensive_source_coverage_audit_mode"] = "CACHED_RAW_SOURCE_AND_EXISTING_PLAYER_MATCHES_NO_REBUILD"
-          (candidate_dir / "2pm_dastan_286_candidate_report.json").write_text(json.dumps(report, indent=2) + "\\n")
+          (candidate_dir / "2pm_dastan_286_candidate_report.json").write_text(json.dumps(report, indent=2) + "\n")
           print(json.dumps(report["defensive_source_coverage"], indent=2))
           PY
       - name: Enforce official-deadline snapshot safety on candidate features
