@@ -115,11 +115,6 @@ def audit_dataset(dataset_dir: Path) -> dict:
     }
     if samples != expected["player_gameweek_samples_emitted"]:
         raise ValueError(f"Emitted sample count mismatch: shards={samples}, report={expected['player_gameweek_samples_emitted']}")
-    if valid_fixtures != sum(
-        int(v.get("emitted", 0)) * 0 + 0 for v in []
-    ):
-        # Fixture slots are independently reconciled against every metadata row above.
-        pass
     return {
         "status": "PASS",
         "admission_status": "NOT_ADMITTED",
