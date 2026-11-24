@@ -31,7 +31,7 @@ OPPONENT_FEATURES = {
 }
 META_COLUMNS = ("season", "gameweek", "fpl_code", "target_deadline_time", "fixture_ids")
 SOURCE_COLUMNS = (
-    "fixture", "fpl_code", "team", "opponent_team", "kickoff_time",
+    "fixture", "element", "team", "opponent_team", "kickoff_time",
     "defensive_contribution", "clearances_blocks_interceptions", "recoveries", "tackles",
 )
 FIXTURE_COLUMNS = ("id", "kickoff_time", "finished")
@@ -114,7 +114,7 @@ def audit_history_depth(
 
     source = pd.read_csv(source_path, usecols=list(SOURCE_COLUMNS))
     source["fixture"] = source["fixture"].astype(str)
-    source["fpl_code"] = pd.to_numeric(source["fpl_code"], errors="raise").astype(int)
+    source["fpl_code"] = pd.to_numeric(source["element"], errors="raise").astype(int)
     source["team"] = pd.to_numeric(source["team"], errors="coerce")
     source["opponent_team"] = pd.to_numeric(source["opponent_team"], errors="coerce")
     source["kickoff_time"] = pd.to_datetime(source["kickoff_time"], utc=True, errors="coerce")
