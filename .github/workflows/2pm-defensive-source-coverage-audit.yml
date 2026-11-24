@@ -88,6 +88,13 @@ jobs:
             --metadata-dir "${RUNNER_TEMP}/defensive-audit-inputs/metadata_2025-26" \
             --output "${RUNNER_TEMP}/defensive-labelled-gw-coverage.json" \
             > "${RUNNER_TEMP}/defensive-labelled-gw-coverage.log"
+          python canonical_candidate/engineering_workbench/scripts/audit_2pm_defensive_history_depth.py \
+            --source source-2025-26/data/2025-26/gws/merged_gw.csv \
+            --fixtures source-2025-26/data/2025-26/fixtures.csv \
+            --metadata-dir "${RUNNER_TEMP}/defensive-audit-inputs/metadata_2025-26" \
+            --output "${RUNNER_TEMP}/defensive-history-depth.json" \
+            --detail-output "${RUNNER_TEMP}/defensive-history-depth.csv" \
+            > "${RUNNER_TEMP}/defensive-history-depth.log"
       - name: Publish aggregate coverage without exposing target scores
         if: always()
         env:
@@ -145,6 +152,21 @@ jobs:
                   f"- Gameweeks represented: {labels['gameweek_count']}",
                   "- Candidate cutoffs are descriptive only; training remains unauthorized.",
               ])
+          depth_path = p.parent / "defensive-history-depth.json"
+          if depth_path.exists():
+              depth = json.loads(depth_path.read_text())
+              lines.extend([
+                  "## 2025/26 defensive history depth",
+                  f"- Player-Gameweek samples: {depth['player_gameweek_samples']}",
+                  f"- Target fixture queries: {depth['target_fixture_queries']}",
+                  "- Full-window coverage by defensive feature:",
+              ])
+              for feature, stats in depth["feature_depth"].items():
+                  lines.append(
+                      f"  - {feature}: full={stats['full_window_rows']}/{stats['rows']}, "
+                      f"finite depth median={stats['median_finite_observations']}, "
+                      f"range={stats['min_finite_observations']}–{stats['max_finite_observations']}"
+                  )
           Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines) + "\n")
           PY
       - name: Upload source coverage audit
@@ -158,5 +180,7 @@ jobs:
             ${{ runner.temp }}/defensive-audit-inputs/input_manifest.json
             ${{ runner.temp }}/defensive-warmup-audit.json
             ${{ runner.temp }}/defensive-labelled-gw-coverage.json
+            ${{ runner.temp }}/defensive-history-depth.json
+            ${{ runner.temp }}/defensive-history-depth.csv
           if-no-files-found: warn
           retention-days: 30
