@@ -12,8 +12,8 @@ import pandas as pd
 REQUIRED = ("season", "gameweek", "fpl_code", "target_points")
 
 
-def audit_metadata(metadata_dir: Path, *, min_train_gameweeks: int = 10,
-                   min_validation_gameweeks: int = 4) -> dict[str, Any]:
+def audit_metadata(metadata_dir: Path, *, min_train_gameweeks: int = 1,
+                   min_validation_gameweeks: int = 1) -> dict[str, Any]:
     paths = sorted(metadata_dir.rglob("metadata_player_gw_*.csv"))
     if not paths:
         raise FileNotFoundError(f"No metadata_player_gw_*.csv files under {metadata_dir}")
@@ -87,8 +87,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--metadata-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--min-training-gameweeks", type=int, default=10)
-    parser.add_argument("--min-validation-gameweeks", type=int, default=4)
+    parser.add_argument("--min-training-gameweeks", type=int, default=1)
+    parser.add_argument("--min-validation-gameweeks", type=int, default=1)
     args = parser.parse_args()
     report = audit_metadata(
         args.metadata_dir,
