@@ -49,7 +49,7 @@ def prepare_inputs(
     features = derive_defensive_features(schema)
 
     # Explicit projection prevents target_points/total_points from being loaded.
-    columns = [*IDENTITY_COLUMNS, *features]
+    columns = [*IDENTITY_COLUMNS, "element", *features]
     frame = pd.read_parquet(postmatch_path, columns=columns)
     frame["season"] = frame["season"].astype(str)
     selected = frame.loc[frame["season"].eq("2025-26"), columns].copy()
@@ -61,6 +61,13 @@ def prepare_inputs(
     output_dir.mkdir(parents=True, exist_ok=True)
     candidate_path = output_dir / "postmatch_states_2025-26_defensive_only.parquet"
     selected.to_parquet(candidate_path, index=False)
+    crosswalk = selected[["fpl_code", "element"]].drop_duplicates().copy()
+    crosswalk["fpl_code"] = pd.to_numeric(crosswalk["fpl_code"], errors="raise").astype(int)
+    crosswalk["element"] = pd.to_numeric(crosswalk["element"], errors="raise").astype(int)
+    if crosswalk.groupby("fpl_code")["element"].nunique().gt(1).any():
+        raise ValueError("2025/26 fpl_code-to-element identity crosswalk is not one-to-one")
+    crosswalk_path = output_dir / "player_identity_crosswalk.csv"
+    crosswalk.to_csv(crosswalk_path, index=False)
 
     metadata_dir = output_dir / "metadata_2025-26"
     metadata_dir.mkdir(parents=True, exist_ok=True)
@@ -85,6 +92,8 @@ def prepare_inputs(
         "selected_season": "2025-26",
         "defensive_feature_count": len(features),
         "postmatch_rows_selected": int(len(selected)),
+        "identity_crosswalk_rows": int(len(crosswalk)),
+        "identity_crosswalk_file": crosswalk_path.name,
         "postmatch_columns_read": columns,
         "target_points_loaded_for_warmup": False,
         "total_points_loaded_for_warmup": False,
