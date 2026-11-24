@@ -283,9 +283,12 @@ def attach_match_availability_bounds(
     out = frame.copy()
     out["season"] = out["season"].astype(str)
     out["fixture"] = out["fixture"].astype(str)
-    out["candidate_kickoff_time"] = pd.to_datetime(
-        out["kickoff_time"], utc=True, errors="coerce"
-    )
+    if "kickoff_time" in out:
+        out["candidate_kickoff_time"] = pd.to_datetime(
+            out["kickoff_time"], utc=True, errors="coerce"
+        )
+    else:
+        out["candidate_kickoff_time"] = pd.NaT
     out = out.merge(
         calendar,
         on=["season", "fixture"],
@@ -303,7 +306,10 @@ def attach_match_availability_bounds(
     if out["calendar_kickoff_time"].isna().any():
         raise ValueError("Canonical fixture calendar contains missing kickoff timestamps")
     out["kickoff_time"] = out["calendar_kickoff_time"]
-    mismatch = out["candidate_kickoff_time"].ne(out["calendar_kickoff_time"])
+    mismatch = (
+        out["candidate_kickoff_time"].notna()
+        & out["candidate_kickoff_time"].ne(out["calendar_kickoff_time"])
+    )
     report = {
         "calendar_authority": "pinned Vaastav fixture kickoff_time",
         "rows_with_candidate_kickoff_mismatch": int(mismatch.sum()),
