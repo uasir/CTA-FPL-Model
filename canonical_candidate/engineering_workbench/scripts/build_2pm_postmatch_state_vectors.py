@@ -78,10 +78,29 @@ def build_postmatch_state_vectors(
     if out["match_available_at"].le(out["kickoff_time"]).any():
         raise ValueError("Match data availability must be strictly after kickoff")
     conservative_team_bound = out["kickoff_time"] + pd.Timedelta(hours=24)
-    if out["match_available_at"].gt(conservative_team_bound).any():
+    availability_overrun = out["match_available_at"].gt(conservative_team_bound)
+    if availability_overrun.any():
+        diagnostic_columns = [
+            column for column in (
+                "season", "fixture", "fpl_code", "kickoff_time",
+                "match_available_at", "completion_time_quality",
+            ) if column in out.columns
+        ]
+        diagnostic = out.loc[availability_overrun, diagnostic_columns].copy()
+        diagnostic["allowed_available_at"] = conservative_team_bound.loc[
+            availability_overrun
+        ]
+        diagnostic["overrun_hours"] = (
+            diagnostic["match_available_at"] - diagnostic["allowed_available_at"]
+        ).dt.total_seconds() / 3600.0
         raise ValueError(
-            "Player match availability exceeds the conservative kickoff + 24h team-data bound; "
-            "reconstruct source availability before building post-match states"
+            "Player match availability exceeds the conservative kickoff + 24h "
+            "team-data bound for "
+            f"{int(availability_overrun.sum())} played rows; maximum overrun "
+            f"{diagnostic['overrun_hours'].max():.6f} hours; examples: "
+            f"{diagnostic.head(10).to_dict('records')}. "
+            "Reconcile fixture kickoff and source-availability provenance; do not "
+            "extend the bound or synthesize earlier availability."
         )
 
     # Existing team reconstruction uses a conservative kickoff + 24h bound.
