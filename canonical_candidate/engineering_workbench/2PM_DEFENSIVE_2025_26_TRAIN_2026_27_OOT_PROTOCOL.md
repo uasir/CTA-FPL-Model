@@ -46,6 +46,13 @@ Although the 2025/26 source has all four defensive fields, rolling windows for t
 
 Do not choose the policy by looking at 2026/27 outcomes. Do not drop rows selectively from only one arm.
 
+## Implemented audit utilities
+
+- `scripts/prepare_2pm_defensive_feature_arms.py` derives the exact 27 defensive columns from the pinned 286-feature schema and emits matched 259-feature baseline / 286-feature enhanced manifests. It fails closed if the schema or defensive count changes.
+- `scripts/audit_2pm_defensive_warmup.py` reads only 2025/26 identity and defensive-feature columns from a candidate Parquet file. It reports missingness, zeros, nonzeros, first finite Gameweeks, and complete-block coverage by GW. It does not read target labels and does not choose a warm-up cutoff.
+- `scripts/audit_2pm_2025_26_labelled_gw_coverage.py` reads only 2025/26 player-Gameweek metadata and target labels to validate finite integer labels and report sample counts by GW plus possible chronological cutoffs. It does not compute score distributions or select a cutoff. Its candidate cutoffs are descriptive; the final split remains a documented decision after reviewing the counts.
+- Unit tests for these utilities are included in the defensive audit workflow. Passing unit tests do not substitute for running the source audit or inspecting the real candidate artifact.
+
 ## Required gates before training
 
 ### A. Source coverage and vintage
