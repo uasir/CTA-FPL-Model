@@ -419,6 +419,65 @@ def audit_market_value_parity(
     return report
 
 
+def audit_defensive_source_coverage(
+    raw_dir: Path,
+    seasons: list[str],
+    player_matches: pd.DataFrame,
+) -> dict:
+    """Verify defensive feature availability against each pinned raw season file."""
+    source_fields = [
+        "defensive_contribution",
+        "clearances_blocks_interceptions",
+        "recoveries",
+        "tackles",
+    ]
+    report = {}
+    for season in seasons:
+        source_path = raw_dir / "vaastav" / season / "merged_gw.csv"
+        if not source_path.exists() or source_path.stat().st_size == 0:
+            raise FileNotFoundError(
+                f"Pinned Vaastav merged_gw.csv is missing for {season}: {source_path}"
+            )
+        source_columns = set(pd.read_csv(source_path, nrows=0).columns)
+        rows = player_matches[player_matches["season"].astype(str).eq(str(season))]
+        played = rows[pd.to_numeric(rows["minutes"], errors="coerce").gt(0)]
+        fields = {}
+        for field in source_fields:
+            present = field in source_columns
+            values = (
+                pd.to_numeric(played[field], errors="coerce")
+                if present and field in played
+                else pd.Series(np.nan, index=played.index, dtype=float)
+            )
+            fields[field] = {
+                "source_column_present": bool(present),
+                "played_rows": int(len(played)),
+                "finite_values": int(values.notna().sum()),
+                "missing_values": int(values.isna().sum()),
+                "observed_zero_values": int(values.eq(0.0).sum()),
+                "observed_nonzero_values": int((values.notna() & values.ne(0.0)).sum()),
+            }
+        report[str(season)] = {
+            "source_file": str(source_path.name),
+            "source_file_sha256": sha256(source_path),
+            "source_column_audit": fields,
+        }
+    return {
+        "source_repository": "vaastav/Fantasy-Premier-League",
+        "source_commit": "8c97b2adb123863c3dd581e730f1360e89815ac2",
+        "source_file": "data/{season}/gws/merged_gw.csv",
+        "fields": source_fields,
+        "seasons": report,
+        "interpretation": (
+            "A missing source column is structural source absence for that pinned "
+            "season file; a present column with missing row values is incomplete "
+            "observation coverage, not an observed zero. Finite zero and nonzero "
+            "values are counted separately. This audit establishes column/row "
+            "availability only, not historical publication vintage or feature admission."
+        ),
+    }
+
+
 def audit_understat_player_coverage(player_matches: pd.DataFrame) -> dict:
     """Measure actual Understat match-row coverage before any missing-value fill."""
     metrics = ["us_minutes", "us_goals", "us_assists", "us_shots", "us_key_passes", "us_xG", "us_xA", "us_npg", "us_npxG", "us_xGChain", "us_xGBuildup"]
@@ -594,7 +653,7 @@ def build_candidate(
         raw_dir, seasons
     )
     understat_player_coverage = audit_understat_player_coverage(player_matches)
-    feature_frame = features.build_feature_frame(player_matches, team_matches)
+    defensive_source_coverage = audit_defensive_source_coverage(\n        raw_dir, seasons, player_matches\n    )\n    feature_frame = features.build_feature_frame(player_matches, team_matches)
     feature_path = output_dir / "features.parquet"
     feature_frame.to_parquet(feature_path, index=False)
     player_lookup.to_csv(output_dir / "players.csv", index=False)
@@ -786,7 +845,7 @@ def build_candidate(
         "market_snapshot_report": market_report,
         "market_value_parity_audit": market_parity_report,
         "fixture_context_reconstruction": fixture_context_report,
-        "understat_player_coverage": understat_player_coverage,
+        "understat_player_coverage": understat_player_coverage,\n        "defensive_source_coverage": defensive_source_coverage,
         "player_history_reconstruction": player_history_report,
         "deadline_team_context_reconstruction": team_context_report,
         "reconstruction_coverage": reconstruction_coverage,
