@@ -49,7 +49,7 @@ def prepare_inputs(
     features = derive_defensive_features(schema)
 
     # Explicit projection prevents target_points/total_points from being loaded.
-    columns = [*IDENTITY_COLUMNS, *features]
+    columns = [*IDENTITY_COLUMNS, "fixture", *features]
     frame = pd.read_parquet(postmatch_path, columns=columns)
     frame["season"] = frame["season"].astype(str)
     selected = frame.loc[frame["season"].eq("2025-26"), columns].copy()
