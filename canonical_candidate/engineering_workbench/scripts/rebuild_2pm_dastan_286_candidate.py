@@ -653,7 +653,10 @@ def build_candidate(
         raw_dir, seasons
     )
     understat_player_coverage = audit_understat_player_coverage(player_matches)
-    defensive_source_coverage = audit_defensive_source_coverage(\n        raw_dir, seasons, player_matches\n    )\n    feature_frame = features.build_feature_frame(player_matches, team_matches)
+    defensive_source_coverage = audit_defensive_source_coverage(
+        raw_dir, seasons, player_matches
+    )
+    feature_frame = features.build_feature_frame(player_matches, team_matches)
     feature_path = output_dir / "features.parquet"
     feature_frame.to_parquet(feature_path, index=False)
     player_lookup.to_csv(output_dir / "players.csv", index=False)
