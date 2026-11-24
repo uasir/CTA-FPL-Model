@@ -35,11 +35,19 @@ jobs:
           key: 2pm-dastan-raw-v3-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
           restore-keys: |
             2pm-dastan-raw-v3-${{ hashFiles('dastan-source/data/source_pins.json') }}-
+      - name: Restore completed six-season candidate cache
+        id: candidate-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/2pm-dastan-candidate
+          key: 2pm-dastan-candidate-v1-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/**', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
       - name: Install data reconstruction dependencies
+        if: steps.candidate-cache.outputs.cache-hit != 'true'
         run: |
           python -m pip install --upgrade pip
           python -m pip install numpy pandas pyarrow understatapi==0.7.1
       - name: Rebuild six-season corrected-identity 286-feature candidate
+        if: steps.candidate-cache.outputs.cache-hit != 'true'
         working-directory: canonical_candidate/engineering_workbench
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -52,6 +60,12 @@ jobs:
             --workers 12 \
             --allow-missing-understat \
             > "$RUNNER_TEMP/2pm-dastan-rebuild.log"
+      - name: Save completed candidate for downstream-only reruns
+        if: success() && steps.candidate-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/2pm-dastan-candidate
+          key: 2pm-dastan-candidate-v1-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/**', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
       - name: Audit candidate frame and build post-match player-Gameweek tensors
         working-directory: canonical_candidate/engineering_workbench
         env:
