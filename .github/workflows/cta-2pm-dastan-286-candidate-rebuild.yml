@@ -98,6 +98,9 @@ jobs:
             --team-matches "$RUNNER_TEMP/2pm-dastan-candidate/team_matches.parquet" \
             --output-dir "$RUNNER_TEMP/2pm-dastan-candidate/postmatch-grouped-dataset" \
             > "$RUNNER_TEMP/2pm-dastan-candidate/postmatch_grouped_dataset_report.json"
+          python scripts/audit_2pm_grouped_tensor_artifacts.py \\
+            --dataset-dir "$RUNNER_TEMP/2pm-dastan-candidate/postmatch-grouped-dataset" \\
+            --out "$RUNNER_TEMP/2pm-dastan-candidate/postmatch-grouped-dataset/tensor_artifact_integrity_audit.json"
       - name: Publish aggregate candidate status only
         if: always()
         env:
@@ -106,6 +109,7 @@ jobs:
           AUDIT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json
           SNAPSHOT_SANITIZATION_PATH: ${{ runner.temp }}/2pm-dastan-candidate/snapshot_provenance_sanitization.json
           TENSOR_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/postmatch-grouped-dataset/postmatch_grouped_dataset_report.json
+          TENSOR_AUDIT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/postmatch-grouped-dataset/tensor_artifact_integrity_audit.json
           SUMMARY_PATH: ${{ runner.temp }}/2pm-dastan-step-summary.md
         run: |
           python - <<'PY'
@@ -171,6 +175,14 @@ jobs:
                       f"- Grouped tensor build admission: {tensor.get('admission_status')}",
                       "- Tensors use five post-match played-fixture states plus one pre-deadline query per target fixture.",
                       "- Candidate sequences are not admitted for model training."
+                  ])
+              tensor_audit_path = Path(os.environ["TENSOR_AUDIT_PATH"])
+              if tensor_audit_path.exists():
+                  tensor_audit = json.loads(tensor_audit_path.read_text())
+                  lines.extend([
+                      f"- Tensor artifact integrity audit: **{tensor_audit.get('status')}**",
+                      f"- Audited tensor samples / valid fixture queries: {tensor_audit.get('samples')} / {tensor_audit.get('valid_fixture_queries')}",
+                      f"- Preserved feature NaN rate (fold-only imputation required): {tensor_audit.get('nan_feature_rate')}",
                   ])
               summary.write_text("\n".join(lines) + "\n")
           else:
