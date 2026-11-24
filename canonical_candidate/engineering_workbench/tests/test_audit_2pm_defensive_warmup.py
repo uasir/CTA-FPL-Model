@@ -30,7 +30,7 @@ class DefensiveWarmupAuditTests(unittest.TestCase):
         features = make_features()
         rows = []
         for gw, player, value in [(1, 10, None), (1, 11, 0.0), (2, 10, 2.0), (2, 11, 0.0)]:
-            row = {"season": "2025-26", "gameweek": gw, "fpl_code": player}
+            row = {"season": "2025-26", "gameweek": gw, "fpl_code": player, "fixture": f"fx-{gw}-{player}"}
             row.update({name: value for name in features})
             rows.append(row)
         report = audit_frame(pd.DataFrame(rows), features)
@@ -43,7 +43,7 @@ class DefensiveWarmupAuditTests(unittest.TestCase):
 
     def test_rejects_non_2025_26_rows(self):
         features = make_features()
-        row = {"season": "2026-27", "gameweek": 1, "fpl_code": 10}
+        row = {"season": "2026-27", "gameweek": 1, "fpl_code": 10, "fixture": "fx-1"}
         row.update({name: 0.0 for name in features})
         with self.assertRaisesRegex(ValueError, "only 2025-26"):
             audit_frame(pd.DataFrame([row]), features)
