@@ -752,7 +752,7 @@ def main() -> None:
         allow_missing_understat=args.allow_missing_understat,
         include_active_season=args.include_active_season,
     )
-    print(json.dumps(report, indent=2))
+    print(json.dumps(report, indent=2, default=_json_default))
 
 
 if __name__ == "__main__":
