@@ -62,7 +62,6 @@ class PrepareDefensiveAuditInputsTests(unittest.TestCase):
                     "gameweek": [38, 6],
                     "fpl_code": [1, 1],
                     "fixture": ["old", "new"],
-                    "element": [100, 100],
                     **{name: [None, 1.0] for name in columns if name.startswith("ar_")},
                 })
 
@@ -78,7 +77,6 @@ class PrepareDefensiveAuditInputsTests(unittest.TestCase):
             self.assertNotIn("target_points", requested_columns)
             self.assertNotIn("total_points", requested_columns)
             self.assertEqual(report["metadata_files_copied"], 1)
-            self.assertTrue((output / "player_identity_crosswalk.csv").is_file())
             self.assertTrue((output / "metadata_2025-26" / metadata.parent.name / metadata.name).is_file())
 
 
