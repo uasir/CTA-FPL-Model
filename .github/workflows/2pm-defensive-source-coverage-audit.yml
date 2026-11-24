@@ -43,7 +43,11 @@ jobs:
           COMMIT_2026_27: 7ca01d3821a68ced454cd1f2195be40ed697629b
           COMMIT_DATE_2026_27: "2026-11-24T19:03:03Z"
         run: |
-          python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_audit_2pm_defensive_source_snapshots.py' -v
+          python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_*defensive*.py' -v
+          python canonical_candidate/engineering_workbench/scripts/prepare_2pm_defensive_feature_arms.py \
+            --schema canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json \
+            --output "$RUNNER_TEMP/defensive_feature_arms.json" \
+            > "$RUNNER_TEMP/defensive_feature_arms.log"
           python canonical_candidate/engineering_workbench/scripts/audit_2pm_defensive_source_snapshots.py \
             --source-2025-26 source-2025-26/data/2025-26/gws/merged_gw.csv \
             --source-2026-27 source-2026-27/data/2026-27/gws/merged_gw.csv \
@@ -83,6 +87,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: 2pm-defensive-source-coverage-audit
-          path: ${{ runner.temp }}/defensive_source_coverage.json
+          path: |
+            \${{ runner.temp }}/defensive_source_coverage.json
+            \${{ runner.temp }}/defensive_feature_arms.json
           if-no-files-found: warn
           retention-days: 30
