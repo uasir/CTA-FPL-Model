@@ -273,8 +273,8 @@ def build_point_in_time_target_candidate(
         key_frame["season"] = key_frame["season"].astype(str)
         key_frame["fixture"] = key_frame["fixture"].astype(str)
         key_frame["fpl_code"] = pd.to_numeric(
-            key_frame["fpl_code"], errors="raise"
-        ).astype("int64")
+            key_frame["fpl_code"], errors="coerce"
+        ).astype("Int64")
 
     combined, player_history_report = rebuild_player_history_features(
         combined, source_player_matches, features
