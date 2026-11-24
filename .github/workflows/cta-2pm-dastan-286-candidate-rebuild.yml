@@ -2,6 +2,12 @@ name: 2PM Dastan 286 corrected-identity candidate rebuild
 
 on:
   workflow_dispatch:
+    inputs:
+      rebuild_candidate:
+        description: "Rebuild the six-season candidate from raw sources (normally leave false)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -41,13 +47,18 @@ jobs:
         with:
           path: ${{ runner.temp }}/2pm-dastan-candidate
           key: 2pm-dastan-candidate-v1-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
+      - name: Require explicit approval before an expensive six-season rebuild
+        if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate != true
+        run: |
+          echo "::error::No reusable candidate cache exists. Refusing to start the six-season rebuild because rebuild_candidate was not explicitly enabled."
+          exit 1
       - name: Install data reconstruction dependencies
-        if: steps.candidate-cache.outputs.cache-hit != 'true'
+        if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate == true
         run: |
           python -m pip install --upgrade pip
           python -m pip install numpy pandas pyarrow understatapi==0.7.1
       - name: Rebuild six-season corrected-identity 286-feature candidate
-        if: steps.candidate-cache.outputs.cache-hit != 'true'
+        if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate == true
         working-directory: canonical_candidate/engineering_workbench
         env:
           GITHUB_TOKEN: ${{ github.token }}
