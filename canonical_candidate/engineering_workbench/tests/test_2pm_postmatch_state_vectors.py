@@ -217,7 +217,10 @@ def test_mixed_frame_excludes_nonappearances_from_historical_state_tokens(monkey
 def test_rejects_match_availability_after_conservative_team_bound():
     frame = make_candidate()
     frame.loc[0, "match_available_at"] += pd.Timedelta(hours=1)
-    with pytest.raises(ValueError, match="exceeds the conservative kickoff"):
+    with pytest.raises(
+        ValueError,
+        match="exceeds the conservative kickoff.*maximum overrun 1.000000 hours.*overrun_hours",
+    ):
         builder.build_postmatch_state_vectors(
             frame,
             pd.DataFrame({"season": ["2026-27"]}),
