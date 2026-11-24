@@ -44,7 +44,7 @@ FPLCACHE_REPO = "Randdalf/fplcache"
 
 MERGED_GW_REPAIR_LOG: list[dict[str, Any]] = []
 CSV_PARSER_INSTALLED = False
-POSITION_VALUES = {"GK", "DEF", "MID", "FWD"}
+POSITION_VALUES = {"GK", "GKP", "DEF", "MID", "FWD"}
 
 
 def read_merged_gw_with_name_repair(path: Path) -> pd.DataFrame:
@@ -144,7 +144,7 @@ def install_merged_gw_csv_parser() -> None:
             if isinstance(filepath_or_buffer, (str, Path))
             else getattr(filepath_or_buffer, "name", filepath_or_buffer)
         )
-        if str(source_path).endswith("merged_gw.csv"):
+        if "merged_gw.csv" in str(source_path):
             frame = read_merged_gw_with_name_repair(Path(source_path))
             usecols = kwargs.get("usecols")
             if usecols is not None:
