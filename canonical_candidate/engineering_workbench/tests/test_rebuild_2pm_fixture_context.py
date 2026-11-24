@@ -130,5 +130,5 @@ def test_missing_defensive_stats_do_not_become_zero_or_partial_opponent_totals()
     )
     result, _ = rebuild_fixture_context(target, history)
     assert pd.isna(result.loc[0, "ar_opp_dc_allowed_3"])
-    assert pd.isna(result.loc[0, "ar_opp_tackles_allowed_5"]) is False
+    assert not pd.isna(result.loc[0, "ar_opp_tackles_allowed_5"])
     assert result.loc[0, "ar_opp_tackles_allowed_5"] == 6
