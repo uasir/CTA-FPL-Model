@@ -73,9 +73,10 @@ def prepare_inputs(
         meta = pd.read_csv(source, usecols=["season"])
         if set(meta["season"].astype(str).unique()) != {"2025-26"}:
             raise ValueError(f"Unexpected season in metadata file: {source}")
-        destination = metadata_dir / f"{source.parent.name}__{source.name}"
+        destination = metadata_dir / source.parent.name / source.name
+        destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
-        copied_metadata.append(destination.name)
+        copied_metadata.append(str(destination.relative_to(metadata_dir)))
 
     report = {
         "status": "DEFENSIVE_AUDIT_INPUTS_PREPARED",
