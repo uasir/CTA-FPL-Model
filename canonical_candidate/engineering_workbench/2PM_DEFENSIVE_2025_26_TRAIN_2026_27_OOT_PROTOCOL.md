@@ -107,3 +107,56 @@ Do not rerun its expensive candidate rebuild as part of this experiment. Reuse a
 - Data audit and pipeline implementation are pending.
 - `training_authorized` remains `false`.
 - No model training or OOT scoring is authorized by this document.
+
+
+## Point-in-time source-vintage audit (2026-11-24)
+
+The audit is recorded in workflow run [45489748151](https://github.com/uasir/CTA-FPL-Model/actions/runs/45489748151). It reads identity, kickoff, minutes and defensive source fields only; it does not load `total_points` or `target_points`.
+
+### Snapshot availability
+
+- 2025/26: the pinned FPL cache archive provides a valid pre-deadline snapshot for all 38 Gameweeks under both the 30-hour EP and 12-hour signals limits.
+- 2026/27: valid EP and signals snapshots exist for GW1–9. GW10 has a valid EP snapshot (12.37 hours old) but its signals snapshot is outside the 12-hour limit.
+- FPL snapshot coverage is therefore not the primary blocker for this experiment.
+
+### Vaastav source-vintage coverage
+
+For each target GW, the audit selected the latest `merged_gw.csv` commit strictly before the official deadline minus five minutes. Match rows were considered available only when kickoff plus 24 hours was strictly before the target deadline. Coverage is the share of final-snapshot prior player-fixture keys already present in that selected pre-deadline source version; it is a global source-row measure, not a player-sample admission decision or value-parity test.
+
+2025/26:
+- Full prior-row key coverage: GW2–7, GW25 and GW30.
+- GW8–10: 85.35%, 87.23% and 88.68%.
+- GW11–24: coverage declines from 79.62% to 33.53%, because the selected source remains the 2025-11-01 commit.
+- GW26–29: 95.70% down to 84.44%, using the 2026-02-05 commit.
+- GW31–38: 96.45% down to 77.30%, using the 2026-03-13 commit.
+
+2026/27:
+- GW2: 100% prior-row key coverage.
+- GW3–7: 49.35%, 32.28%, 23.93%, 18.97% and 15.71%; these Gameweeks use the 2026-08-28 source commit.
+- GW8–10: 85.32%, 74.39% and 65.93%; these use the 2026-10-22 source commit.
+- The final 2026/27 source update is dated 2026-11-24 and must not be used to reconstruct features for earlier deadlines.
+
+### Consequence
+
+The final-snapshot tensors from candidate run #80 are not automatically point-in-time safe for this experiment. The final source can contain prior-match rows that were not present in the latest source commit available at a target deadline. Do not train the defensive experiment directly on those final-snapshot feature values.
+
+The next implementation stage is an isolated historical-target builder that uses, for each target GW:
+1. The selected pre-deadline Vaastav source commit for all required seasons.
+2. The archived FPL snapshot selected for that target deadline.
+3. The existing deadline-safe feature reconstruction, with no target-match statistics in the input.
+4. Labels from the final source only for 2025/26 training/validation, joined after feature construction. Keep 2026/27 target labels sealed until the final OOT evaluation.
+
+A later sample-level availability and feature-value parity audit must pass before training. The global source coverage percentages above are diagnostic only.
+
+## Defensive history-depth audit
+
+The 2025/26 candidate contains 7,244 labelled player-GW samples and 7,282 target-fixture history queries.
+
+- Player 3- and 5-match defensive windows have full finite depth in all 7,244 samples.
+- Player 10-match windows are full in 6,078/7,244 samples (84%).
+- Player 38-match windows are full in only 3/7,244 samples; median finite depth is 19, with p10–p90 of 8–30.
+- Opponent 3- and 5-match windows are full in all 7,282 fixture queries; opponent 10-match windows are full in 6,200/7,282.
+
+This is a history-depth distribution shift to audit against 2026/27, where the 2025/26 season supplies a much deeper initial defensive history. It is not a reason to zero-fill or fabricate warm-up values.
+
+**Current gate:** no model training; `training_authorized=false`.
