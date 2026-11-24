@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       rebuild_candidate:
-        description: "Rebuild the six-season candidate from raw sources (normally leave false)"
+        description: "Rebuild the four-season candidate (2022/23–2025/26) from raw sources (normally leave false)"
         required: false
         type: boolean
         default: false
@@ -41,23 +41,23 @@ jobs:
           key: 2pm-dastan-raw-v3-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
           restore-keys: |
             2pm-dastan-raw-v3-${{ hashFiles('dastan-source/data/source_pins.json') }}-
-      - name: Restore completed six-season candidate cache
+      - name: Restore completed four-season candidate cache
         id: candidate-cache
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/2pm-dastan-candidate
-          key: 2pm-dastan-candidate-v1-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
-      - name: Require explicit approval before an expensive six-season rebuild
+          key: 2pm-dastan-candidate-v2-2022-23-through-2025-26-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
+      - name: Require explicit approval before an expensive four-season rebuild
         if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate != true
         run: |
-          echo "::error::No reusable candidate cache exists. Refusing to start the six-season rebuild because rebuild_candidate was not explicitly enabled."
+          echo "::error::No reusable candidate cache exists. Refusing to start the four-season rebuild because rebuild_candidate was not explicitly enabled."
           exit 1
       - name: Install data reconstruction dependencies
         if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate == true
         run: |
           python -m pip install --upgrade pip
           python -m pip install numpy pandas pyarrow understatapi==0.7.1
-      - name: Rebuild six-season corrected-identity 286-feature candidate
+      - name: Rebuild four-season corrected-identity 286-feature candidate
         if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate == true
         working-directory: canonical_candidate/engineering_workbench
         env:
@@ -67,7 +67,7 @@ jobs:
             --dastan-root "$GITHUB_WORKSPACE/dastan-source" \
             --raw-dir "$RUNNER_TEMP/2pm-dastan-raw" \
             --output-dir "$RUNNER_TEMP/2pm-dastan-candidate" \
-            --seasons 2020-21,2021-22,2022-23,2023-24,2024-25,2025-26 \
+            --seasons 2022-23,2023-24,2024-25,2025-26 \
             --workers 12 \
             --allow-missing-understat \
             > "$RUNNER_TEMP/2pm-dastan-rebuild.log"
@@ -111,6 +111,8 @@ jobs:
               report = json.loads(report_path.read_text())
               lines = [
                   "## 2PM Dastan 286 candidate rebuild",
+                  "- Dataset scope: four seasons (2022/23–2025/26); 2020/21–2021/22 reserved for later generalisation testing.",
+                  "- Intended chronological use: train 2022/23–2023/24; validate 2024/25; out-of-time test 2025/26.",
                   f"- Status: **{report.get('status')}**",
                   f"- Admission: **{report.get('admission_status')}**",
                   f"- Candidate rows: {report.get('candidate_rows')}",
@@ -130,7 +132,8 @@ jobs:
                   f"- Fixture-context fields rebuilt: {len(report.get('fixture_context_reconstruction', {}).get('fixture_context_columns', []))}",
                   f"- 286-family reconstruction coverage: {report.get('reconstruction_coverage', {}).get('reconstruction_path_total')}/286",
                   "- Full player-level feature data and source files were kept runner-local; no data artifacts were uploaded.",
-                  "- This is a candidate rebuild, not point-in-time admission or model training."
+                  "- This is a candidate rebuild, not point-in-time admission or model training.",
+                  "- Season split defines the intended research evaluation; no model fitting or evaluation is performed by this workflow."
               ]
               audit_path = Path(os.environ["AUDIT_PATH"])
               if audit_path.exists():
