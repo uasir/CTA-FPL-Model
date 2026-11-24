@@ -17,7 +17,7 @@ DEFENSIVE_PREFIXES = (
     "ar_tackles_", "ar_dc_hit_rate_", "ar_dc_near_rate_",
     "ar_dc_ppg_", "ar_opp_dc_allowed_", "ar_opp_tackles_allowed_",
 )
-IDENTITY_COLUMNS = ("season", "gameweek", "fpl_code")
+IDENTITY_COLUMNS = ("season", "gameweek", "fpl_code", "fixture")
 
 
 def sha256(path: Path) -> str:
@@ -47,8 +47,6 @@ def derive_defensive_features(schema: dict[str, Any]) -> list[str]:
 
 def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
     identity_columns = [*IDENTITY_COLUMNS]
-    if "fixture" in frame.columns:
-        identity_columns.append("fixture")
     required = set(identity_columns) | set(features)
     missing = sorted(required - set(frame.columns))
     if missing:
