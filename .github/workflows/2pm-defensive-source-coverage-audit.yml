@@ -44,6 +44,7 @@ jobs:
           COMMIT_DATE_2026_27: "2026-11-24T19:03:03Z"
         run: |
           python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_*defensive*.py' -v
+          python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_audit_2pm_2025_26_labelled_gw_coverage.py' -v
           python canonical_candidate/engineering_workbench/scripts/prepare_2pm_defensive_feature_arms.py \
             --schema canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json \
             --output "$RUNNER_TEMP/defensive_feature_arms.json" \
