@@ -107,5 +107,24 @@
   ],
   "main_four_season_experiment_must_remain_unchanged": true,
   "expensive_four_season_candidate_rebuild_must_not_be_rerun": true,
-  "feature_arm_manifest_script": "canonical_candidate/engineering_workbench/scripts/prepare_2pm_defensive_feature_arms.py"
+  "feature_arm_manifest_script": "canonical_candidate/engineering_workbench/scripts/prepare_2pm_defensive_feature_arms.py",
+  "point_in_time_source_vintage": {
+    "audit_workflow_run_id": 45489748151,
+    "vaastav_repository": "vaastav/Fantasy-Premier-League",
+    "commit_selection_rule": "latest merged_gw.csv commit strictly before official target deadline minus five minutes",
+    "match_availability_rule": "kickoff_time + 24 hours, strictly earlier than target deadline",
+    "fplcache_pins": {
+      "2025-26": "6c364bfbd9914649dc5dec016e544be3ae4fe767",
+      "2026-27": "5f428bfbadc4223fe574e029a5e7ede90f6f7ddb"
+    },
+    "snapshot_freshness_hours": {
+      "ep_next": 30,
+      "signals": 12
+    },
+    "final_snapshot_candidate_run_80_point_in_time_admitted": false,
+    "requires_per_gameweek_source_reconstruction": true,
+    "requires_sample_level_availability_and_value_parity": true,
+    "target_points_loaded_in_oot_audit": false
+  },
+  "admission_status": "NOT_ADMITTED"
 }
