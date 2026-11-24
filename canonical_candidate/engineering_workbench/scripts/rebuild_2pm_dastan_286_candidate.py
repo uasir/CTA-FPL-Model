@@ -277,6 +277,8 @@ def attach_match_availability_bounds(
             ]
         )
     calendar = pd.concat(fixture_frames, ignore_index=True)
+    calendar["season"] = calendar["season"].astype(str)
+    calendar["fixture"] = calendar["fixture"].astype(str)
     if calendar.duplicated(["season", "fixture"]).any():
         raise ValueError("Fixture availability calendar has duplicate season/fixture keys")
     calendar = calendar.rename(columns={"kickoff_time": "calendar_kickoff_time"})
