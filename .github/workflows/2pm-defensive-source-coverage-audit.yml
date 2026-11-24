@@ -92,7 +92,7 @@ jobs:
             --source source-2025-26/data/2025-26/gws/merged_gw.csv \
             --fixtures source-2025-26/data/2025-26/fixtures.csv \
             --metadata-dir "${RUNNER_TEMP}/defensive-audit-inputs/metadata_2025-26" \
-            --identity-crosswalk "${RUNNER_TEMP}/defensive-audit-inputs/player_identity_crosswalk.csv" \
+            --players-raw source-2025-26/data/2025-26/players_raw.csv \
             --output "${RUNNER_TEMP}/defensive-history-depth.json" \
             --detail-output "${RUNNER_TEMP}/defensive-history-depth.csv" \
             > "${RUNNER_TEMP}/defensive-history-depth.log"
@@ -179,7 +179,6 @@ jobs:
             ${{ runner.temp }}/defensive_source_coverage.json
             ${{ runner.temp }}/defensive_feature_arms.json
             ${{ runner.temp }}/defensive-audit-inputs/input_manifest.json
-            ${{ runner.temp }}/defensive-audit-inputs/player_identity_crosswalk.csv
             ${{ runner.temp }}/defensive-warmup-audit.json
             ${{ runner.temp }}/defensive-labelled-gw-coverage.json
             ${{ runner.temp }}/defensive-history-depth.json
