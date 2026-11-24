@@ -59,7 +59,27 @@
     "source_file_sha256_required": true,
     "retrieval_timestamp_required": true,
     "publication_timestamp_required_when_available": true,
-    "point_in_time_availability_required": true
+    "point_in_time_availability_required": true,
+    "source_snapshots": {
+      "2025-26": {
+        "repository": "vaastav/Fantasy-Premier-League",
+        "commit": "8c97b2adb123863c3dd581e730f1360e89815ac2",
+        "commit_timestamp_utc": "2026-08-04T08:38:11Z",
+        "file": "data/2025-26/gws/merged_gw.csv",
+        "role": "historical_training_season_source_audit"
+      },
+      "2026-27": {
+        "repository": "vaastav/Fantasy-Premier-League",
+        "commit": "7ca01d3821a68ced454cd1f2195be40ed697629b",
+        "commit_timestamp_utc": "2026-11-24T19:03:03Z",
+        "file": "data/2026-27/gws/merged_gw.csv",
+        "role": "frozen_oot_feature_source_snapshot",
+        "target_labels_must_remain_sealed": true
+      }
+    },
+    "audit_workflow": ".github/workflows/2pm-defensive-source-coverage-audit.yml",
+    "audit_script": "canonical_candidate/engineering_workbench/scripts/audit_2pm_defensive_source_snapshots.py",
+    "audit_reads_target_points": false
   },
   "evaluation": {
     "grain": "player_gameweek",
