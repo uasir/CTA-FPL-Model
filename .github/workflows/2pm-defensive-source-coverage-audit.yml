@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: 2pm-defensive-source-coverage-audit
@@ -37,7 +38,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install audit dependency
-        run: python -m pip install pandas
+        run: python -m pip install pandas pyarrow
       - name: Audit only source coverage fields (never load total_points)
         env:
           COMMIT_2025_26: 8c97b2adb123863c3dd581e730f1360e89815ac2
@@ -61,6 +62,32 @@ jobs:
             --commit-date-2026-27 "$COMMIT_DATE_2026_27" \
             --output "$RUNNER_TEMP/defensive_source_coverage.json" \
             > "$RUNNER_TEMP/defensive_source_coverage.log"
+      - name: Download pinned run-80 candidate artifact (no rebuild)
+        uses: actions/download-artifact@v4
+        with:
+          name: 2pm-four-season-tensor-candidate-run-80
+          run-id: 45467108384
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/run80-artifact
+      - name: Prepare isolated 2025/26 defensive audit inputs
+        env:
+          PYTHONPATH: canonical_candidate/engineering_workbench/scripts
+        run: |
+          python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_prepare_2pm_defensive_audit_inputs.py' -v
+          python canonical_candidate/engineering_workbench/scripts/prepare_2pm_defensive_audit_inputs.py \
+            --artifact-dir "${RUNNER_TEMP}/run80-artifact" \
+            --schema canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json \
+            --output-dir "${RUNNER_TEMP}/defensive-audit-inputs" \
+            > "${RUNNER_TEMP}/defensive-audit-inputs.log"
+          python canonical_candidate/engineering_workbench/scripts/audit_2pm_defensive_warmup.py \
+            --candidate "${RUNNER_TEMP}/defensive-audit-inputs/postmatch_states_2025-26_defensive_only.parquet" \
+            --schema canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json \
+            --output "${RUNNER_TEMP}/defensive-warmup-audit.json" \
+            > "${RUNNER_TEMP}/defensive-warmup-audit.log"
+          python canonical_candidate/engineering_workbench/scripts/audit_2pm_2025_26_labelled_gw_coverage.py \
+            --metadata-dir "${RUNNER_TEMP}/defensive-audit-inputs/metadata_2025-26" \
+            --output "${RUNNER_TEMP}/defensive-labelled-gw-coverage.json" \
+            > "${RUNNER_TEMP}/defensive-labelled-gw-coverage.log"
       - name: Publish aggregate coverage without exposing target scores
         if: always()
         env:
@@ -104,5 +131,8 @@ jobs:
           path: |
             ${{ runner.temp }}/defensive_source_coverage.json
             ${{ runner.temp }}/defensive_feature_arms.json
+            ${{ runner.temp }}/defensive-audit-inputs/input_manifest.json
+            ${{ runner.temp }}/defensive-warmup-audit.json
+            ${{ runner.temp }}/defensive-labelled-gw-coverage.json
           if-no-files-found: warn
           retention-days: 30
