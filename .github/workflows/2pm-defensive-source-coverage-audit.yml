@@ -33,6 +33,18 @@ jobs:
           repository: vaastav/Fantasy-Premier-League
           ref: 7ca01d3821a68ced454cd1f2195be40ed697629b
           path: source-2026-27
+      - name: Check out pinned 2025/26 FPL cache archive
+        uses: actions/checkout@v4
+        with:
+          repository: Randdalf/fplcache
+          ref: 6c364bfbd9914649dc5dec016e544be3ae4fe767
+          path: fplcache-2025-26
+      - name: Check out frozen 2026/27 FPL cache archive
+        uses: actions/checkout@v4
+        with:
+          repository: Randdalf/fplcache
+          ref: 5f428bfbadc4223fe574e029a5e7ede90f6f7ddb
+          path: fplcache-2026-27
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -96,6 +108,20 @@ jobs:
             --output "${RUNNER_TEMP}/defensive-history-depth.json" \
             --detail-output "${RUNNER_TEMP}/defensive-history-depth.csv" \
             > "${RUNNER_TEMP}/defensive-history-depth.log"
+      - name: Audit per-Gameweek point-in-time source vintages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/audit_2pm_point_in_time_source_vintages.py \
+            --source-2025-26 source-2025-26/data/2025-26/gws/merged_gw.csv \
+            --source-2026-27 source-2026-27/data/2026-27/gws/merged_gw.csv \
+            --fplcache-2025-26 fplcache-2025-26 \
+            --fplcache-2026-27 fplcache-2026-27 \
+            --fplcache-2025-26-commit 6c364bfbd9914649dc5dec016e544be3ae4fe767 \
+            --fplcache-2026-27-commit 5f428bfbadc4223fe574e029a5e7ede90f6f7ddb \
+            --output "${RUNNER_TEMP}/point-in-time-source-vintages.json" \
+            --detail-output "${RUNNER_TEMP}/point-in-time-source-vintages.csv" \
+            > "${RUNNER_TEMP}/point-in-time-source-vintages.log"
       - name: Publish aggregate coverage without exposing target scores
         if: always()
         env:
@@ -168,6 +194,28 @@ jobs:
                       f"finite depth median={stats['median_finite_observations']}, "
                       f"range={stats['min_finite_observations']}–{stats['max_finite_observations']}"
                   )
+          vintage_path = p.parent / "point-in-time-source-vintages.json"
+          if vintage_path.exists():
+              vintage = json.loads(vintage_path.read_text())
+              lines.extend([
+                  "## Per-Gameweek point-in-time source vintages",
+                  "- Source commit selection is strictly before each official deadline minus five minutes.",
+                  "- FPL cache usability requires the target event to be is_next and within 30h (EP) / 12h (signals).",
+              ])
+              for season, season_report in vintage["seasons"].items():
+                  lines.append(f"### {season}")
+                  for gw, value in season_report["gameweeks"].items():
+                      snap = value.get("snapshot", {})
+                      src = value.get("source", {})
+                      lines.append(
+                          f"- GW{gw}: snapshot={snap.get('status')}, "
+                          f"age_h={snap.get('age_hours')}, "
+                          f"EP30h={snap.get('ep_next_usable_30h')}, "
+                          f"signals12h={snap.get('signals_usable_12h')}; "
+                          f"source={src.get('source_status')}, "
+                          f"coverage={src.get('source_coverage_of_final_prior_keys')}, "
+                          f"missing_prior_keys={src.get('missing_final_prior_keys')}"
+                      )
           Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines) + "\n")
           PY
       - name: Upload source coverage audit
@@ -183,5 +231,7 @@ jobs:
             ${{ runner.temp }}/defensive-labelled-gw-coverage.json
             ${{ runner.temp }}/defensive-history-depth.json
             ${{ runner.temp }}/defensive-history-depth.csv
+            ${{ runner.temp }}/point-in-time-source-vintages.json
+            ${{ runner.temp }}/point-in-time-source-vintages.csv
           if-no-files-found: warn
           retention-days: 30
