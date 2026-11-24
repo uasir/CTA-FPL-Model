@@ -53,3 +53,34 @@ def test_candidate_audit_rejects_duplicate_player_fixture_keys():
     row = make_candidate_row(5001)
     with pytest.raises(ValueError, match="duplicate"):
         audit_frame(pd.DataFrame([row, row]), FEATURES)
+
+
+
+def test_defensive_feature_coverage_distinguishes_missing_from_observed_zero():
+    historical = make_candidate_row(5003)
+    historical["season"] = "2024-25"
+    current = make_candidate_row(5004)
+    current["season"] = "2025-26"
+    defensive = [
+        column for column in FEATURES
+        if column.startswith((
+            "ar_defensive_contribution_", "ar_cbit_", "ar_recoveries_",
+            "ar_tackles_", "ar_dc_", "ar_opp_dc_allowed_",
+            "ar_opp_tackles_allowed_",
+        ))
+    ]
+    for column in defensive:
+        historical[column] = float("nan")
+        current[column] = 0.0
+
+    report = audit_frame(pd.DataFrame([historical, current]), FEATURES)
+    old = report["defensive_feature_coverage"]["2024-25"]
+    new = report["defensive_feature_coverage"]["2025-26"]
+    assert old["finite_values"] == 0
+    assert old["missing_values"] == len(defensive)
+    assert old["observed_zero_values"] == 0
+    assert new["finite_values"] == len(defensive)
+    assert new["missing_values"] == 0
+    assert new["observed_zero_values"] == len(defensive)
+    assert all(old["per_feature"][column]["missing_values"] == 1 for column in defensive)
+    assert all(new["per_feature"][column]["observed_zero_values"] == 1 for column in defensive)
