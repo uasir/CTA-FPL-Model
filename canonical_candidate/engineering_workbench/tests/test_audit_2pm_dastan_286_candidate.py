@@ -93,10 +93,10 @@ def test_defensive_source_coverage_distinguishes_absent_column_from_missing_rows
     season_dir.mkdir(parents=True)
     source = season_dir / "merged_gw.csv"
     source.write_text(
-        "element,minutes,defensive_contribution,recoveries,tackles\\n"
-        "1,90,0,3,1\\n"
-        "2,0,0,0,0\\n"
-        "3,90,,2,0\\n",
+        "element,minutes,defensive_contribution,recoveries,tackles\n"
+        "1,90,0,3,1\n"
+        "2,0,0,0,0\n"
+        "3,90,,2,0\n",
         encoding="utf-8",
     )
     player_matches = pd.DataFrame(
