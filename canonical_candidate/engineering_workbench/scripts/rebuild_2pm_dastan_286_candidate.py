@@ -37,6 +37,19 @@ MARKET_FIELDS = ["value", "selected", "transfers_balance"]
 FRAME_KEY = ["season", "gameweek", "fixture", "fpl_code"]
 
 
+def _json_default(value):
+    """Serialize report metadata without losing timestamp precision or nulls."""
+    if value is pd.NaT or value is pd.NA:
+        return None
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    if isinstance(value, (np.integer, np.floating, np.bool_)):
+        return value.item()
+    if isinstance(value, Path):
+        return str(value)
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -711,7 +724,7 @@ def build_candidate(
         ],
     }
     report_path = output_dir / "2pm_dastan_286_candidate_report.json"
-    report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    report_path.write_text(json.dumps(report, indent=2, default=_json_default) + "\n", encoding="utf-8")
     return report
 
 
