@@ -60,7 +60,7 @@ class PrepareDefensiveAuditInputsTests(unittest.TestCase):
                 return pd.DataFrame({
                     "season": ["2024-25", "2025-26"],
                     "gameweek": [38, 6],
-                    "fpl_code": [1, 1],
+                    "fpl_code": [1, 1],\n                    "fixture": ["old", "new"],
                     **{name: [None, 1.0] for name in columns if name.startswith("ar_")},
                 })
 
