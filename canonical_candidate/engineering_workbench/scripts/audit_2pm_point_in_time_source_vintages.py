@@ -406,7 +406,10 @@ def main() -> None:
                 "source_match_lag_hours": source.get("source_match_lag_hours"),
             })
     pd.DataFrame(rows).to_csv(args.detail_output, index=False)
-    print(json.dumps(report, indent=2))
+    print(json.dumps(
+        report, indent=2,
+        default=lambda value: value.isoformat() if isinstance(value, datetime) else str(value),
+    ))
 
 
 if __name__ == "__main__":
