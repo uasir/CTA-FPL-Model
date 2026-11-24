@@ -1,0 +1,82 @@
+{
+  "experiment_id": "2pm_defensive_2025_26_train_2026_27_oot_v1",
+  "status": "DESIGN_APPROVED_DATA_AUDIT_REQUIRED",
+  "training_authorized": false,
+  "oot_labels_access_authorized": false,
+  "model_scope": "player_gameweek_expected_points_forecast_only",
+  "base_schema_path": "canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json",
+  "base_schema_feature_count": 286,
+  "defensive_feature_count_expected": 27,
+  "defensive_source_fields": [
+    "defensive_contribution",
+    "clearances_blocks_interceptions",
+    "recoveries",
+    "tackles"
+  ],
+  "feature_group_selection": "derive_exact_27_from_pinned_schema_at_runtime_and_assert_count",
+  "seasons": {
+    "train_validation": "2025-26",
+    "oot_test": "2026-27"
+  },
+  "split": {
+    "method": "chronological_gameweek",
+    "validation_cutoff": "PENDING_2025_26_LABELLED_GW_COVERAGE_AUDIT",
+    "oot_gameweeks": "completed_2026_27_gameweeks_at_frozen_data_cutoff",
+    "random_split": false,
+    "keep_player_gameweek_groups_atomic": true
+  },
+  "arms": [
+    {
+      "id": "baseline",
+      "description": "286-feature schema minus exact 27 defensive-history features"
+    },
+    {
+      "id": "defensive_enhanced",
+      "description": "same schema including exact 27 defensive-history features"
+    }
+  ],
+  "comparison_controls": {
+    "identical_sample_intersection": true,
+    "same_architecture": true,
+    "same_optimization_budget": true,
+    "same_random_seeds": true,
+    "train_only_preprocessing": true
+  },
+  "missingness": {
+    "structural_absence_is_not_zero": true,
+    "preserve_2024_25_boundary_missingness": true,
+    "audit_by_feature_gameweek_player_and_history_depth": true,
+    "warmup_policy": "PENDING_AUDIT_AND_PREDECLARED_COMMON_SAMPLE_POLICY",
+    "imputation_fit_partition": "training_only"
+  },
+  "holdout_protection": {
+    "do_not_load_oot_labels_during_feature_or_model_selection": true,
+    "freeze_commit_and_config_before_label_access": true,
+    "single_final_oot_evaluation": true
+  },
+  "provenance": {
+    "source_commit_required": true,
+    "source_file_sha256_required": true,
+    "retrieval_timestamp_required": true,
+    "publication_timestamp_required_when_available": true,
+    "point_in_time_availability_required": true
+  },
+  "evaluation": {
+    "grain": "player_gameweek",
+    "preserve_negative_points": true,
+    "double_gameweeks_aggregated_once": true,
+    "metrics": "PENDING_PREDECLARED_EVALUATION_PROTOCOL"
+  },
+  "forbidden_scope": [
+    "transfers",
+    "squad_selection",
+    "captaincy",
+    "ownership",
+    "effective_ownership",
+    "variance",
+    "CoVar",
+    "recommendations"
+  ],
+  "main_four_season_experiment_must_remain_unchanged": true,
+  "expensive_four_season_candidate_rebuild_must_not_be_rerun": true
+}
