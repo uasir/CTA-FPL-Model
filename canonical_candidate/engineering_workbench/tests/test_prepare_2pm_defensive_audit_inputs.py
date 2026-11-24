@@ -61,7 +61,8 @@ class PrepareDefensiveAuditInputsTests(unittest.TestCase):
                     "season": ["2024-25", "2025-26"],
                     "gameweek": [38, 6],
                     "fpl_code": [1, 1],
-                    "fixture": ["old", "new"],\n                    "element": [100, 100],
+                    "fixture": ["old", "new"],
+                    "element": [100, 100],
                     **{name: [None, 1.0] for name in columns if name.startswith("ar_")},
                 })
 
