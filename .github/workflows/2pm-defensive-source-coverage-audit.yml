@@ -38,6 +38,7 @@ jobs:
       - name: Audit only source coverage fields (never load total_points)
         env:
           COMMIT_2025_26: 8c97b2adb123863c3dd581e730f1360e89815ac2
+          PYTHONPATH: canonical_candidate/engineering_workbench/scripts
           COMMIT_DATE_2025_26: "2026-08-04T08:38:11Z"
           COMMIT_2026_27: 7ca01d3821a68ced454cd1f2195be40ed697629b
           COMMIT_DATE_2026_27: "2026-11-24T19:03:03Z"
