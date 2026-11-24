@@ -121,11 +121,12 @@ def read_merged_gw_with_name_repair(path: Path) -> pd.DataFrame:
     for column in frame.columns:
         if column not in text_columns:
             frame[column] = pd.to_numeric(frame[column], errors="coerce")
-    if "was_home" in frame:
-        frame["was_home"] = (
-            frame["was_home"].astype(str).str.strip().str.lower()
-            .map({"true": True, "false": False, "1": True, "0": False})
-        )
+    for boolean_column in ("was_home", "modified"):
+        if boolean_column in frame:
+            frame[boolean_column] = (
+                frame[boolean_column].astype(str).str.strip().str.lower()
+                .map({"true": True, "false": False, "1": True, "0": False})
+            )
     MERGED_GW_REPAIR_LOG.extend(repairs)
     return frame
 
