@@ -7,6 +7,7 @@ seasons are included for player/team history. Target labels are never loaded her
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import os
@@ -40,6 +41,114 @@ from rebuild_2pm_fixture_context import (
 
 VAASTAV_REPO = "vaastav/Fantasy-Premier-League"
 FPLCACHE_REPO = "Randdalf/fplcache"
+
+MERGED_GW_REPAIR_LOG: list[dict[str, Any]] = []
+POSITION_VALUES = {"GK", "DEF", "MID", "FWD"}
+
+
+def read_merged_gw_with_name_repair(path: Path) -> pd.DataFrame:
+    """Repair only unquoted commas in the leading player-name field."""
+    rows: list[list[str]] = []
+    repairs: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.reader(handle)
+        try:
+            header = next(reader)
+        except StopIteration:
+            raise ValueError(f"Empty merged_gw.csv: {path}")
+        if len(header) != len(set(header)):
+            raise ValueError(f"Duplicate merged_gw.csv headers: {path}")
+        positions = {name: index for index, name in enumerate(header)}
+        required = ["position", "element", "fixture", "kickoff_time", "minutes"]
+        missing = [name for name in required if name not in positions]
+        if missing:
+            raise ValueError(f"merged_gw.csv missing required fields {missing}: {path}")
+        gw_column = "GW" if "GW" in positions else "round"
+        if gw_column not in positions:
+            raise ValueError(f"merged_gw.csv has no GW/round field: {path}")
+
+        for line_number, row in enumerate(reader, start=2):
+            if len(row) != len(header):
+                if len(row) < len(header):
+                    raise ValueError(
+                        f"Short malformed merged_gw row at {path}:{line_number}: "
+                        f"{len(row)} fields, expected {len(header)}"
+                    )
+                candidates = [
+                    index
+                    for index in range(1, min(15, len(row)))
+                    if row[index].strip() in POSITION_VALUES
+                ]
+                if len(candidates) != 1:
+                    raise ValueError(
+                        f"Cannot uniquely locate position token at "
+                        f"{path}:{line_number}; candidates={candidates}"
+                    )
+                position_index = candidates[0]
+                repaired = [",".join(row[:position_index]).strip(), *row[position_index:]]
+                if len(repaired) != len(header):
+                    raise ValueError(
+                        f"Name-comma repair did not restore header width at "
+                        f"{path}:{line_number}: {len(repaired)} vs {len(header)}"
+                    )
+                row = repaired
+                for column in ("element", "fixture", "minutes", gw_column):
+                    value = pd.to_numeric(row[positions[column]], errors="coerce")
+                    if pd.isna(value):
+                        raise ValueError(
+                            f"Repaired row has invalid {column} at {path}:{line_number}"
+                        )
+                kickoff = pd.to_datetime(
+                    row[positions["kickoff_time"]], utc=True, errors="coerce"
+                )
+                if pd.isna(kickoff):
+                    raise ValueError(
+                        f"Repaired row has invalid kickoff_time at {path}:{line_number}"
+                    )
+                repairs.append({
+                    "path": path.as_posix(),
+                    "line_number": line_number,
+                    "extra_fields": len(row) - len(header),
+                    "repair": "joined leading name fragments before position",
+                    "name": row[positions["name"]] if "name" in positions else row[0],
+                })
+            rows.append(row)
+
+    frame = pd.DataFrame(rows, columns=header)
+    text_columns = {"name", "position", "team", "kickoff_time", "modified", "was_home"}
+    for column in frame.columns:
+        if column not in text_columns:
+            frame[column] = pd.to_numeric(frame[column], errors="coerce")
+    if "was_home" in frame:
+        frame["was_home"] = (
+            frame["was_home"].astype(str).str.strip().str.lower()
+            .map({"true": True, "false": False, "1": True, "0": False})
+        )
+    MERGED_GW_REPAIR_LOG.extend(repairs)
+    return frame
+
+
+def install_merged_gw_csv_parser() -> None:
+    """Use the strict parser for Vaastav merged_gw.csv reads in this process."""
+    original_read_csv = pd.read_csv
+
+    def patched_read_csv(filepath_or_buffer, *args, **kwargs):
+        if isinstance(filepath_or_buffer, (str, Path)) and str(filepath_or_buffer).endswith("/gws/merged_gw.csv"):
+            frame = read_merged_gw_with_name_repair(Path(filepath_or_buffer))
+            usecols = kwargs.get("usecols")
+            if usecols is not None:
+                if callable(usecols):
+                    selected = [column for column in frame.columns if usecols(column)]
+                else:
+                    selected = list(usecols)
+                frame = frame[selected]
+            nrows = kwargs.get("nrows")
+            if nrows is not None:
+                frame = frame.head(int(nrows))
+            return frame
+        return original_read_csv(filepath_or_buffer, *args, **kwargs)
+
+    pd.read_csv = patched_read_csv
 HISTORY_SEASONS = {
     "2025-26": ["2024-25", "2025-26"],
     "2026-27": ["2025-26", "2026-27"],
@@ -142,6 +251,7 @@ def build_point_in_time_target_candidate(
     fplcache_commit = season_report["fplcache_commit"]
     _configure_source_pins(sources, fplcache, source_commit, fplcache_commit)
     _patch_deadlines(fplcache, vintage_report)
+    install_merged_gw_csv_parser()
     _ensure_shared_fplcache(raw_dir, shared_fplcache)
 
     registry = json.loads((data.DATA / "season_registry.json").read_text())
