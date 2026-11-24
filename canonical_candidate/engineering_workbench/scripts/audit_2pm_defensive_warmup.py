@@ -46,11 +46,14 @@ def derive_defensive_features(schema: dict[str, Any]) -> list[str]:
 
 
 def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
-    required = set(IDENTITY_COLUMNS) | set(features)
+    identity_columns = [*IDENTITY_COLUMNS]
+    if "fixture" in frame.columns:
+        identity_columns.append("fixture")
+    required = set(identity_columns) | set(features)
     missing = sorted(required - set(frame.columns))
     if missing:
         raise ValueError(f"Candidate is missing required audit columns: {missing}")
-    data = frame[[*IDENTITY_COLUMNS, *features]].copy()
+    data = frame[[*identity_columns, *features]].copy()
     data["season"] = data["season"].astype(str)
     if data["season"].nunique() != 1 or data["season"].iloc[0] != "2025-26":
         raise ValueError("Warm-up audit accepts only 2025-26 candidate rows")
@@ -60,8 +63,9 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
         raise ValueError("Player/Gameweek identity contains null or non-numeric values")
     data["gameweek"] = data["gameweek"].astype(int)
     data["fpl_code"] = data["fpl_code"].astype(int)
-    if data.duplicated(["season", "gameweek", "fpl_code"]).any():
-        raise ValueError("Duplicate player-Gameweek candidate rows")
+    if data.duplicated(identity_columns).any():
+        grain = "player-fixture" if "fixture" in identity_columns else "player-Gameweek"
+        raise ValueError(f"Duplicate {grain} candidate rows")
     numeric = data[features].apply(pd.to_numeric, errors="coerce")
     values = numeric.to_numpy(dtype=np.float64)
     if np.isinf(values).any():
@@ -91,8 +95,10 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
     by_gw: dict[str, Any] = {}
     for gw, idx in data.groupby("gameweek", sort=True).groups.items():
         gw_finite = finite.loc[idx]
+        row_key = "player_fixture_rows" if "fixture" in identity_columns else "player_gameweek_rows"
         by_gw[str(int(gw))] = {
-            "player_gameweek_rows": int(len(idx)),
+            row_key: int(len(idx)),
+            "candidate_rows": int(len(idx)),
             "distinct_players": int(data.loc[idx, "fpl_code"].nunique()),
             "finite_values": int(gw_finite.to_numpy().sum()),
             "possible_values": int(gw_finite.size),
@@ -110,6 +116,7 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
     return {
         "season": "2025-26",
         "candidate_rows": int(len(data)),
+        "identity_grain": "player_fixture" if "fixture" in identity_columns else "player_gameweek",
         "distinct_gameweeks": sorted(int(x) for x in data["gameweek"].unique()),
         "defensive_feature_count": len(features),
         "feature_order": features,
