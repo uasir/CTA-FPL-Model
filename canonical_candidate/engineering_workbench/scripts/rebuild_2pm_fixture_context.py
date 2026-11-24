@@ -619,8 +619,12 @@ def rebuild_fixture_context(
     out["ar_team_matches_14d"] = congestion
 
     # Attribute each team's DC/tackles to the opponent that conceded them.
-    dc = pd.to_numeric(hist["defensive_contribution"], errors="coerce").fillna(0.0)
-    tackles = pd.to_numeric(hist["tackles"], errors="coerce").fillna(0.0)
+    # Missing defensive-stat rows are not zero-event performances. Preserve
+    # fixture totals as missing unless every player row for that team-fixture
+    # has a source value; otherwise a partial sum would understate the opponent
+    # allowance and silently fabricate historical coverage.
+    dc = pd.to_numeric(hist["defensive_contribution"], errors="coerce")
+    tackles = pd.to_numeric(hist["tackles"], errors="coerce")
     stat_frame = hist.loc[hist["match_available_at"].notna()].assign(
         _dc=dc.loc[hist["match_available_at"].notna()],
         _tackles=tackles.loc[hist["match_available_at"].notna()],
@@ -631,9 +635,17 @@ def rebuild_fixture_context(
             as_index=False,
             sort=False,
         )
-        .agg(dc_sum=("_dc", "sum"), tackle_sum=("_tackles", "sum"))
+        .agg(
+            dc_sum=("_dc", "sum"),
+            tackle_sum=("_tackles", "sum"),
+            dc_rows=("_dc", "count"),
+            tackle_rows=("_tackles", "count"),
+            player_rows=("_dc", "size"),
+        )
         .rename(columns={"opponent_team_name": "conceding_team"})
     )
+    allowed.loc[allowed["dc_rows"].ne(allowed["player_rows"]), "dc_sum"] = np.nan
+    allowed.loc[allowed["tackle_rows"].ne(allowed["player_rows"]), "tackle_sum"] = np.nan
     allowed_groups = {}
     for key, group in allowed.groupby(["season", "conceding_team"], sort=False):
         group = group.sort_values(
@@ -663,14 +675,18 @@ def rebuild_fixture_context(
             for window in (3, 5, 10):
                 start = max(0, end - window)
                 if end > start:
-                    values[f"ar_opp_dc_allowed_{window}"][row_position] = float(
-                        dc_sums[start:end].mean()
-                    )
+                    sample = dc_sums[start:end]
+                    if np.isfinite(sample).all():
+                        values[f"ar_opp_dc_allowed_{window}"][row_position] = float(
+                            sample.mean()
+                        )
             start = max(0, end - 5)
             if end > start:
-                values["ar_opp_tackles_allowed_5"][row_position] = float(
-                    tackle_sums[start:end].mean()
-                )
+                sample = tackle_sums[start:end]
+                if np.isfinite(sample).all():
+                    values["ar_opp_tackles_allowed_5"][row_position] = float(
+                        sample.mean()
+                    )
     for column, array in values.items():
         out[column] = array
 
