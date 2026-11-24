@@ -12,6 +12,8 @@ on:
       - canonical_candidate/engineering_workbench/scripts/**
       - canonical_candidate/engineering_workbench/src/js/**
       - canonical_candidate/engineering_workbench/tests/**
+      - canonical_candidate/engineering_workbench/docs/EXTERNAL_FPL_BENCHMARK_PROTOCOL.md
+      - canonical_candidate/engineering_workbench/docs/TWO_PM_POSITION_ABLATION_PROTOCOL.md
       - canonical_candidate/src/**
       - canonical_candidate/tests/**
       - canonical_candidate/data/11footy_fpl_identity_crosswalk.csv
@@ -24,7 +26,7 @@ permissions:
 
 concurrency:
   group: cta-fpl-ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -47,8 +49,8 @@ jobs:
       - name: Run canonical Python feature-core tests
         working-directory: canonical_candidate
         run: python -m unittest discover -s tests -v
-      - name: Install pytest
-        run: python -m pip install pytest numpy
+      - name: Install engineering test dependencies
+        run: python -m pip install pytest numpy pandas pyarrow
       - name: Run engineering tests
         working-directory: canonical_candidate/engineering_workbench
         env:
@@ -81,3 +83,105 @@ jobs:
             --provider 11footy \
             --input ../data/11footy_fpl_identity_crosswalk.csv \
             --out-dir ../../run_artifacts/11footy_identity
+
+  standalone_transformer_research:
+    if: contains(github.event.head_commit.message, '[run-transformer]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Confirm standalone model-track isolation
+        run: echo "Training conventional FPL 2PM with lagged points, minutes and observed xG/xA only; test held-out monotone expected-points affine calibration and calibration-only fit isolation; no A/B/C features."
+      - name: Install standalone Transformer research dependencies
+        run: |
+          python -m pip install numpy pytest
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Run Transformer architecture and sequence tests
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: python -m pytest -q tests/test_two_pm_transformer.py tests/test_two_pm_transformer_walk_forward.py
+      - name: Build runner-local multi-season conventional FPL panel
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/build_vaastav_fpl_multiseason_panel.py \
+            --out-dir "$RUNNER_TEMP/cta_fpl_transformer_research"
+      - name: Train and evaluate standalone 2PM-Transformer walk-forward
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/evaluate_two_pm_transformer_walk_forward.py \
+            --input "$RUNNER_TEMP/cta_fpl_transformer_research/vaastav_fpl_multiseason_panel.csv" \
+            --out "$RUNNER_TEMP/cta_fpl_transformer_research/standalone_2pm_transformer_report.json"
+      - name: Confirm research data and player-level outputs remain private to runner
+        run: |
+          echo "Historical source data, player-level sequences and predictions remain runner-local."
+          echo "Only aggregate workflow logs are retained; no research artifact is uploaded."
+  position_ablation_research:
+    if: contains(github.event.head_commit.message, '[run-position-ablation]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install position-ablation research dependencies
+        run: |
+          python -m pip install numpy pytest
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Test position features and model architecture
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: python -m pytest -q tests/test_two_pm_transformer.py tests/test_two_pm_transformer_walk_forward.py tests/test_two_pm_position_features.py
+      - name: Build runner-local multi-season panel with position features
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/build_vaastav_fpl_multiseason_panel.py \
+            --out-dir "$RUNNER_TEMP/cta_fpl_position_ablation"
+      - name: Evaluate unchanged base 2PM feature set
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/evaluate_two_pm_transformer_walk_forward.py \
+            --input "$RUNNER_TEMP/cta_fpl_position_ablation/vaastav_fpl_multiseason_panel.csv" \
+            --feature-set base \
+            --predictions-out "$RUNNER_TEMP/cta_fpl_position_ablation/base_predictions.csv" \
+            --out "$RUNNER_TEMP/cta_fpl_position_ablation/base_report.json"
+      - name: Evaluate position-aware 2PM feature set
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/evaluate_two_pm_transformer_walk_forward.py \
+            --input "$RUNNER_TEMP/cta_fpl_position_ablation/vaastav_fpl_multiseason_panel.csv" \
+            --feature-set position \
+            --predictions-out "$RUNNER_TEMP/cta_fpl_position_ablation/position_predictions.csv" \
+            --out "$RUNNER_TEMP/cta_fpl_position_ablation/position_report.json"
+      - name: Compare paired player-gameweek predictions
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python scripts/compare_2pm_position_ablation.py \
+            --base-predictions "$RUNNER_TEMP/cta_fpl_position_ablation/base_predictions.csv" \
+            --position-predictions "$RUNNER_TEMP/cta_fpl_position_ablation/position_predictions.csv" \
+            --out "$RUNNER_TEMP/cta_fpl_position_ablation/paired_ablation_report.json"
+      - name: Confirm research panel and player-level predictions remain runner-local
+        run: |
+          echo "Historical source data, panels, predictions and paired player rows remain runner-local."
+          echo "Only aggregate logs are retained; no research artifact is uploaded."

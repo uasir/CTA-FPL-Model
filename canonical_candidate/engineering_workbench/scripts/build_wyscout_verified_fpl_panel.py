@@ -34,6 +34,26 @@ FEATURES = (
     "progressive_carry_attempts", "shot_attempts", "accurate_shot_attempts",
     "shot_opportunity_attempts", "dangerous_ball_losses", "offside_events",
     "duel_events", "duels_won", "duels_lost",
+    "ground_defensive_duel_events", "ground_defensive_duels_won",
+    "ground_defensive_duels_lost", "aerial_duel_events",
+    "aerial_duels_won", "aerial_duels_lost", "clearance_events",
+    "foul_events", "interception_events",
+)
+TEAM_A_FEATURES = (
+    "progressive_pass_completions", "final_third_entry_pass_attempts",
+    "danger_zone_entry_pass_attempts", "threat_creation_pass_attempts",
+    "progressive_carry_attempts",
+)
+TEAM_B_FEATURES = (
+    "ground_defensive_duel_events", "ground_defensive_duels_won",
+    "ground_defensive_duels_lost", "aerial_duel_events",
+    "aerial_duels_won", "aerial_duels_lost", "clearance_events",
+    "foul_events", "interception_events", "dangerous_ball_losses",
+)
+OPPONENT_ALLOWED_FEATURES = (
+    "shot_attempts", "shot_opportunity_attempts",
+    "threat_creation_pass_attempts", "danger_zone_entry_pass_attempts",
+    "progressive_pass_completions",
 )
 TARGETS = ("total_points", "minutes", "goals_scored", "assists", "bonus", "bps")
 
@@ -68,6 +88,9 @@ def verified_identity_map(crosswalk_rows):
 def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_to_fixture):
     identity = verified_identity_map(crosswalk_rows)
     history_by_key = {}
+    fixture_kickoff_by_id = {}
+    fixture_round_by_id = {}
+    round_cutoff_by_id = {}
     for row in fpl_history:
         player_id = as_int(row.get("element"))
         fixture_id = as_int(row.get("fixture"))
@@ -77,6 +100,59 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
         if key in history_by_key:
             raise ValueError(f"Duplicate historical FPL player-fixture row: {key}")
         history_by_key[key] = row
+        kickoff = parse_kickoff(row.get("kickoff_time"))
+        existing = fixture_kickoff_by_id.get(fixture_id)
+        if existing is not None and existing != kickoff:
+            raise ValueError(f"Conflicting kickoff timestamps for historical fixture {fixture_id}")
+        fixture_kickoff_by_id[fixture_id] = kickoff
+        round_value = as_int(row.get("round") or row.get("gameweek") or row.get("event"))
+        if round_value is not None:
+            existing_round = fixture_round_by_id.get(fixture_id)
+            if existing_round is not None and existing_round != round_value:
+                raise ValueError(f"Conflicting gameweek values for historical fixture {fixture_id}")
+            fixture_round_by_id[fixture_id] = round_value
+            previous_cutoff = round_cutoff_by_id.get(round_value)
+            if previous_cutoff is None or kickoff < previous_cutoff:
+                round_cutoff_by_id[round_value] = kickoff
+
+    # Team context is aggregated from the complete provider panel before player
+    # identity filtering. Unverified players contribute only to team totals.
+    team_match_stats = defaultdict(Counter)
+    team_match_opponents = {}
+    for source_row in player_match_rows:
+        match_id = as_int(source_row.get("provider_match_id"))
+        team_id = as_int(source_row.get("provider_team_id"))
+        opponent_id = as_int(source_row.get("opponent_team_id"))
+        if match_id is None or team_id is None or team_id <= 0:
+            continue
+        key = (match_id, team_id)
+        if opponent_id is not None:
+            prior_opponent = team_match_opponents.get(key)
+            if prior_opponent is not None and prior_opponent != opponent_id:
+                raise ValueError(f"Conflicting opponent IDs for Wyscout team-match {key}")
+            team_match_opponents[key] = opponent_id
+        for feature in FEATURES:
+            value = as_number(source_row.get(feature))
+            if value is not None:
+                team_match_stats[key][feature] += value
+
+    team_history_by_id = defaultdict(list)
+    for (match_id, team_id), own_stats in team_match_stats.items():
+        fixture_id = match_to_fixture.get(match_id)
+        opponent_id = team_match_opponents.get((match_id, team_id))
+        kickoff = fixture_kickoff_by_id.get(int(fixture_id)) if fixture_id is not None else None
+        if fixture_id is None or kickoff is None or opponent_id is None:
+            continue
+        opponent_stats = team_match_stats.get((match_id, opponent_id), Counter())
+        team_history_by_id[team_id].append({
+            "provider_match_id": match_id,
+            "fixture_id": int(fixture_id),
+            "kickoff_time": kickoff,
+            "own_stats": own_stats,
+            "opponent_stats": opponent_stats,
+        })
+    for rows in team_history_by_id.values():
+        rows.sort(key=lambda item: (item["kickoff_time"], item["fixture_id"]))
 
     seen_provider_keys = set()
     panel = []
@@ -109,6 +185,8 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
             "provider": "Wyscout",
             "provider_player_id": provider_id,
             "provider_match_id": match_id,
+            "provider_team_id": as_int(row.get("provider_team_id")),
+            "opponent_team_id": as_int(row.get("opponent_team_id")),
             "fpl_element_id": fpl_id,
             "fixture_id": int(fixture_id),
             "kickoff_time_utc": kickoff.isoformat(),
@@ -133,12 +211,22 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
     for player_id, rows in by_player.items():
         for index, target in enumerate(rows):
             target_time = parse_kickoff(target["kickoff_time_utc"])
+            target_round = fixture_round_by_id.get(target["fixture_id"])
+            feature_cutoff = round_cutoff_by_id.get(target_round) if target_round is not None else None
+            cutoff_policy = "CONSERVATIVE_EARLIEST_GAMEWEEK_KICKOFF" if feature_cutoff else "TARGET_KICKOFF_FALLBACK_NOT_POINT_IN_TIME"
+            feature_cutoff = feature_cutoff or target_time
             prior = [candidate for candidate in rows[:index]
-                     if parse_kickoff(candidate["kickoff_time_utc"]) < target_time]
+                     if parse_kickoff(candidate["kickoff_time_utc"]) < feature_cutoff]
             record = {
                 "fpl_element_id": player_id,
+                "gameweek": target_round if target_round is not None else "",
                 "fixture_id": target["fixture_id"],
+                "provider_match_id": target["provider_match_id"],
+                "provider_team_id": target["provider_team_id"],
+                "opponent_team_id": target["opponent_team_id"],
                 "kickoff_time_utc": target["kickoff_time_utc"],
+                "feature_cutoff_time_utc": feature_cutoff.isoformat(),
+                "feature_cutoff_policy": cutoff_policy,
                 "target_fpl_total_points": target["fpl_total_points"],
                 "target_fpl_minutes": target["fpl_minutes"],
                 "prior_matches_count": len(prior),
@@ -152,6 +240,29 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
                     record[f"{target_field}_prior_{window}_avg"] = (
                         sum(values) / len(values) if values else None
                     )
+            team_prior = [
+                candidate for candidate in team_history_by_id.get(target["provider_team_id"], [])
+                if candidate["kickoff_time"] < feature_cutoff
+                and candidate["provider_match_id"] != target["provider_match_id"]
+            ]
+            record["team_prior_matches_count"] = len(team_prior)
+            for feature in TEAM_A_FEATURES + TEAM_B_FEATURES:
+                for window in (3, 5):
+                    sample = team_prior[-window:]
+                    values = [item["own_stats"].get(feature) for item in sample
+                              if item["own_stats"].get(feature) is not None]
+                    record[f"team_{feature}_prior_{window}_avg"] = (
+                        sum(values) / len(values) if values else None
+                    )
+            for feature in OPPONENT_ALLOWED_FEATURES:
+                for window in (3, 5):
+                    sample = team_prior[-window:]
+                    values = [item["opponent_stats"].get(feature) for item in sample
+                              if item["opponent_stats"].get(feature) is not None]
+                    record[f"opponent_{feature}_allowed_prior_{window}_avg"] = (
+                        sum(values) / len(values) if values else None
+                    )
+
             for feature in FEATURES:
                 for window in (3, 5):
                     sample = prior[-window:]
@@ -177,6 +288,14 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
     counts["lagged_rows"] = len(lagged)
     counts["unique_verified_fpl_players"] = len({row["fpl_element_id"] for row in panel})
     counts["rows_with_prior_history"] = sum(row["prior_matches_count"] > 0 for row in lagged)
+    counts["rows_with_prior_team_context"] = sum(row["team_prior_matches_count"] > 0 for row in lagged)
+    counts["rows_with_conservative_gameweek_cutoff"] = sum(
+        row["feature_cutoff_policy"] == "CONSERVATIVE_EARLIEST_GAMEWEEK_KICKOFF" for row in lagged
+    )
+    counts["rows_with_kickoff_fallback"] = sum(
+        row["feature_cutoff_policy"] != "CONSERVATIVE_EARLIEST_GAMEWEEK_KICKOFF" for row in lagged
+    )
+    counts["team_context_team_match_rows"] = sum(len(rows) for rows in team_history_by_id.values())
     report = {
         "status": "PASS_VERIFIED_WYSCOUT_FPL_PANEL_BUILT" if panel else "NO_VERIFIED_PANEL_ROWS",
         "season": "2017/18",
@@ -184,10 +303,16 @@ def build_verified_panel(player_match_rows, crosswalk_rows, fpl_history, match_t
         "verified_identity_count": len(identity),
         "match_fixture_map_count": len(match_to_fixture),
         **dict(counts),
+        "team_context_policy": (
+            "Team-match aggregates use all Wyscout player event rows, including players without a verified FPL identity, "
+            "only for team-level context. Player-specific rows remain restricted to verified identities; team and opponent "
+            "context is lagged strictly before the conservative earliest kickoff in the target FPL gameweek."
+        ),
         "predictor_policy": (
-            "Lagged features use only earlier player-match rows whose mapped FPL kickoff_time is "
-            "strictly earlier than the target fixture kickoff_time. Same-match provider metrics are "
-            "kept in the research panel and excluded from that match's predictor row."
+            "Where historical FPL round/gameweek is available, features use only player/team matches "
+            "strictly earlier than the earliest kickoff in that gameweek, conservatively excluding all "
+            "same-gameweek results. If round metadata is absent, target-kickoff fallback is explicitly "
+            "marked NOT_POINT_IN_TIME and must not be treated as deadline-safe."
         ),
         "validation_status": "PREDICTIVE_VALIDATION_NOT_YET_RUN",
         "limitations": [

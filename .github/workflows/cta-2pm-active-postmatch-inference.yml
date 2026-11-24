@@ -1,0 +1,108 @@
+name: 2PM active post-match inference tensors
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: Active FPL season
+        required: true
+        type: string
+        default: "2026-27"
+      gameweek:
+        description: Upcoming target Gameweek number
+        required: true
+        type: number
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-2pm-active-postmatch-inference
+  cancel-in-progress: false
+
+jobs:
+  build-inference-tensors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Check out pinned Dastan source
+        uses: actions/checkout@v4
+        with:
+          repository: qazybekb/smartplayfpl-dastan
+          ref: 758db9247e8b3a9a870c991064f74d8339d61cd0
+          path: dastan-source
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install active-query dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pandas pyarrow understatapi==0.7.1
+      - name: Build active-season deadline-safe target queries and match context
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_SEASON: ${{ inputs.season }}
+          TARGET_GAMEWEEK: ${{ inputs.gameweek }}
+        run: |
+          python scripts/build_2pm_active_target_queries.py \
+            --dastan-root "$GITHUB_WORKSPACE/dastan-source" \
+            --raw-dir "$RUNNER_TEMP/2pm-active-raw" \
+            --output-dir "$RUNNER_TEMP/2pm-active" \
+            --season "$TARGET_SEASON" \
+            --gameweek "$TARGET_GAMEWEEK" \
+            > "$RUNNER_TEMP/2pm-active-query.log"
+      - name: Build post-match history and target-query tensors
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_SEASON: ${{ inputs.season }}
+          TARGET_GAMEWEEK: ${{ inputs.gameweek }}
+        run: |
+          python scripts/build_2pm_active_postmatch_inference.py \
+            --dastan-root "$GITHUB_WORKSPACE/dastan-source" \
+            --candidate "$RUNNER_TEMP/2pm-active/2pm_${{ inputs.season }}_gw${{ inputs.gameweek }}_active_candidate.parquet" \
+            --player-matches "$RUNNER_TEMP/2pm-active/player_matches_with_availability.parquet" \
+            --team-matches "$RUNNER_TEMP/2pm-active/team_matches.parquet" \
+            --target-season "$TARGET_SEASON" \
+            --target-gameweek "$TARGET_GAMEWEEK" \
+            --output-dir "$RUNNER_TEMP/2pm-active/inference" \
+            --report "$RUNNER_TEMP/2pm-active/inference_report.json" \
+            > "$RUNNER_TEMP/2pm-active-inference.log"
+      - name: Publish aggregate inference-tensor status
+        env:
+          REPORT_PATH: ${{ runner.temp }}/2pm-active/inference_report.json
+          QUERY_REPORT_PATH: ${{ runner.temp }}/2pm-active/active_target_query_report.json
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          report = json.loads(Path(os.environ["REPORT_PATH"]).read_text())
+          query = json.loads(Path(os.environ["QUERY_REPORT_PATH"]).read_text())
+          tensor = report["inference_tensor_report"]
+          counts = tensor.get("counts", {})
+          lines = [
+              "## 2PM active post-match inference tensors",
+              f"- Status: **{report.get('status')}**",
+              f"- Admission: **{report.get('admission_status')}**",
+              f"- Target: {report.get('target_season')} GW{report.get('target_gameweek')}",
+              f"- Target player-fixture rows: {report.get('target_query_player_fixture_rows')}",
+              f"- Target fixtures: {report.get('target_fixture_count')}",
+              f"- Historical post-match state rows: {report.get('postmatch_state_rows')}",
+              f"- Inference player-Gameweek samples emitted: {counts.get('emitted')}",
+              f"- Insufficient history: {counts.get('insufficient_previous_played_matches')}",
+              f"- Post-match states unavailable by deadline: {counts.get('postmatch_state_not_available_by_deadline')}",
+              f"- Sequence gaps over 21 days: {counts.get('gap_over_21_days')}",
+              "- Active-season historical source vintages are retrospective, not archived at original deadlines.",
+              "- Full player-level tensors and candidate data remained runner-local.",
+              "- No model training or point forecasts were produced.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as stream:
+              stream.write("\n".join(lines) + "\n")
+          PY

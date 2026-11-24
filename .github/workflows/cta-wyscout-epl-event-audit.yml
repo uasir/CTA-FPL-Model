@@ -16,7 +16,22 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/verify_cross_provider_fpl_identity.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_vaastav_fpl_multiseason_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_vaastav_fpl_multiseason_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_abc_expected_fixture_universe.py
+      - canonical_candidate/engineering_workbench/scripts/aggregate_abc_player_gameweeks.py
+      - canonical_candidate/engineering_workbench/tests/test_build_abc_expected_fixture_universe.py
+      - canonical_candidate/engineering_workbench/tests/test_aggregate_abc_player_gameweeks.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_wyscout.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py
+      - canonical_candidate/engineering_workbench/scripts/compare_abc_with_2pm_same_cohort.py
+      - canonical_candidate/engineering_workbench/scripts/cta_four_layer_pipeline.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_decision_quality.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_fpl_walk_forward.py
+      - canonical_candidate/engineering_workbench/scripts/train_fpl_exploratory_ridge.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_xsuccess.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_xsuccess.py
@@ -30,7 +45,11 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_cta_abc_wyscout_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_wyscout.py
+      - canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_walk_forward.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py
+      - canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_walk_forward.py
   push:
     branches: [main, "feat/**"]
     paths:
@@ -46,6 +65,15 @@ on:
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/scripts/build_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_vaastav_fpl_multiseason_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_vaastav_fpl_multiseason_panel.py
+      - canonical_candidate/engineering_workbench/scripts/build_abc_expected_fixture_universe.py
+      - canonical_candidate/engineering_workbench/scripts/aggregate_abc_player_gameweeks.py
+      - canonical_candidate/engineering_workbench/tests/test_build_abc_expected_fixture_universe.py
+      - canonical_candidate/engineering_workbench/tests/test_aggregate_abc_player_gameweeks.py
+      - canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py
+      - canonical_candidate/engineering_workbench/scripts/compare_abc_with_2pm_same_cohort.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_cta_incremental_value.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_temporal_xt.py
       - canonical_candidate/engineering_workbench/scripts/evaluate_wyscout_xsuccess.py
@@ -59,6 +87,7 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_wyscout_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_11footy_historical_fpl_identity_candidates.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py
+      - canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_walk_forward.py
       - canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py
   workflow_dispatch:
 
@@ -72,7 +101,7 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Check out CTA-FPL-Model
         uses: actions/checkout@v4
@@ -96,6 +125,7 @@ jobs:
             canonical_candidate/engineering_workbench/tests/test_cross_provider_fpl_identity.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_verified_fpl_panel.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_cta_incremental_value.py \
+            canonical_candidate/engineering_workbench/tests/test_evaluate_cta_abc_walk_forward.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_temporal_xt.py \
             canonical_candidate/engineering_workbench/tests/test_wyscout_xsuccess.py
 
@@ -261,6 +291,127 @@ jobs:
           else
             echo "WARNING: no cross-provider verified identity file; Wyscout player-level panel not built"
           fi
+
+      - name: Build integrated historical Wyscout A/B/C player-fixture panel
+        if: always()
+        continue-on-error: true
+        run: |
+          LAGGED="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_lagged_fpl_research_features.csv"
+          REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
+          if [ -f "$LAGGED" ] && [ -f "$REPORT" ]; then
+            python canonical_candidate/engineering_workbench/scripts/build_cta_abc_wyscout_panel.py \
+              --lagged-features "$LAGGED" \
+              --source-report "$REPORT" \
+              --out-dir run_artifacts/wyscout/output/verified_fpl_panel/cta_abc
+          else
+            echo "WARNING: verified historical Wyscout/FPL lagged panel unavailable"
+          fi
+
+      - name: Evaluate standalone historical A/B/C predictor
+        if: always()
+        continue-on-error: true
+        run: |
+          PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
+          if [ -f "$PANEL" ] && [ -f "$REPORT" ]; then
+            python canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_wyscout.py \
+              --abc-panel "$PANEL" \
+              --source-report "$REPORT" \
+              --out run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_evaluation_report.json
+          else
+            echo "WARNING: integrated historical A/B/C panel unavailable"
+          fi
+
+      - name: Evaluate independent A/B/C variants with expanding gameweek folds
+        if: always()
+        continue-on-error: true
+        run: |
+          PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
+          if [ -f "$PANEL" ] && [ -f "$REPORT" ]; then
+            python canonical_candidate/engineering_workbench/scripts/evaluate_cta_abc_walk_forward.py \
+              --abc-panel "$PANEL" \
+              --source-report "$REPORT" \
+              --out run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_walk_forward_report.json
+          else
+            echo "WARNING: integrated historical A/B/C panel unavailable for walk-forward evaluation"
+          fi
+
+      - name: Install CPU PyTorch for independent 2PM comparator
+        if: always()
+        continue-on-error: true
+        run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+
+      - name: Build pinned 2016/17-2017/18 conventional FPL panel for matched 2PM evaluation
+        if: always()
+        continue-on-error: true
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/build_vaastav_fpl_multiseason_panel.py \
+            --out-dir "$RUNNER_TEMP/cta_2pm_same_cohort" \
+            --seasons 2016-17 2017-18
+
+      - name: Validate exact player-GW fixture universe and aggregate ABC features
+        if: always()
+        continue-on-error: true
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          ABC_PANEL="../../run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          ABC_SOURCE_REPORT="../../run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
+          FPL_PANEL="$RUNNER_TEMP/cta_2pm_same_cohort/vaastav_fpl_multiseason_panel.csv"
+          FPL_REPORT="$RUNNER_TEMP/cta_2pm_same_cohort/vaastav_fpl_multiseason_report.json"
+          OUT_DIR="$RUNNER_TEMP/cta_2pm_same_cohort/abc_player_gameweek"
+          REPORT_DIR="../../run_artifacts/wyscout/output/verified_fpl_panel/cta_abc"
+          mkdir -p "$OUT_DIR" "$REPORT_DIR"
+          if [ -f "$ABC_PANEL" ] && [ -f "$ABC_SOURCE_REPORT" ] && [ -f "$FPL_PANEL" ] && [ -f "$FPL_REPORT" ]; then
+            python scripts/build_abc_expected_fixture_universe.py \
+              --abc-panel "$ABC_PANEL" \
+              --fpl-panel "$FPL_PANEL" \
+              --abc-source-report "$ABC_SOURCE_REPORT" \
+              --fpl-panel-report "$FPL_REPORT" \
+              --expected-fixtures-out "$OUT_DIR/expected_fixture_ids.csv" \
+              --report-out "$REPORT_DIR/abc_expected_fixture_reference_report.json"
+            python scripts/aggregate_abc_player_gameweeks.py \
+              --input "$ABC_PANEL" \
+              --expected-fixtures "$OUT_DIR/expected_fixture_ids.csv" \
+              --out "$OUT_DIR/abc_player_gameweek_panel.csv" \
+              --report-out "$REPORT_DIR/abc_player_gameweek_aggregation_report.json"
+          else
+            echo "WARNING: ABC player-fixture panel or pinned FPL reference panel/report unavailable"
+          fi
+
+      - name: Compare independent ABC and 2PM on the exact same player-GW cohort
+        if: always()
+        continue-on-error: true
+        run: |
+          PANEL="run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_player_fixture_panel.csv"
+          REPORT="run_artifacts/wyscout/output/verified_fpl_panel/wyscout_verified_fpl_panel_report.json"
+          FPL_PANEL="$RUNNER_TEMP/cta_2pm_same_cohort/vaastav_fpl_multiseason_panel.csv"
+          if [ -f "$PANEL" ] && [ -f "$REPORT" ] && [ -f "$FPL_PANEL" ]; then
+            python canonical_candidate/engineering_workbench/scripts/compare_abc_with_2pm_same_cohort.py \
+              --abc-panel "$PANEL" \
+              --source-report "$REPORT" \
+              --fpl-multiseason-panel "$FPL_PANEL" \
+              --out run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_vs_2pm_same_cohort_report.json
+          else
+            echo "WARNING: one or more matched-cohort inputs are unavailable"
+          fi
+
+      - name: Upload aggregate-only historical A/B/C integration and evaluation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cta-wyscout-abc-research
+          path: |
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_integration_report.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_wyscout_evaluation_report.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_walk_forward_report.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/cta_abc_vs_2pm_same_cohort_report.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_expected_fixture_reference_report.json
+            run_artifacts/wyscout/output/verified_fpl_panel/cta_abc/abc_player_gameweek_aggregation_report.json
+          if-no-files-found: ignore
+          retention-days: 90
 
       - name: Evaluate incremental Wyscout CTA signal against prior FPL form
         if: always()

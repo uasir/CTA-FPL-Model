@@ -67,6 +67,23 @@ def first_value(row, *names):
     return None
 
 
+def source_gameweek(raw, season):
+    """Read the source GW label and normalize the 2019-20 COVID-era offset.
+
+    The Vaastav 2019-20 merged export labels the post-lockdown rounds 39-47.
+    These correspond to FPL gameweeks 30-38 (a nine-week offset). Preserve the
+    raw source values in the audit manifest; use normalized 1-38 labels in the
+    model panel. Other seasons are not remapped.
+    """
+    explicit_gw = optional_number(raw.get("GW"))
+    value = explicit_gw if explicit_gw is not None else optional_number(first_value(raw, "round", "gameweek"))
+    if value is None:
+        return None
+    value = int(value)
+    if season == "2019-20" and 39 <= value <= 47:
+        value -= 9
+    return value
+
 def load_season(season, out_dir):
     url = f"{RAW_BASE}/{SOURCE_COMMIT}/data/{season}/gws/merged_gw.csv"
     payload = fetch_bytes(url)
@@ -82,12 +99,29 @@ def load_season(season, out_dir):
     missing = sorted(required - set(source_rows[0]))
     if missing:
         raise ValueError(f"{season}: missing required source columns: {missing}")
+    gameweeks = sorted({int(source_gameweek(row, season)) for row in source_rows if source_gameweek(row, season) is not None})
+    round_gw_mismatches = sum(
+        1 for row in source_rows
+        if optional_number(row.get("GW")) is not None
+        and optional_number(row.get("round")) is not None
+        and source_gameweek({"GW": row.get("GW")}, season)
+            != source_gameweek({"round": row.get("round")}, season)
+    )
+    if gameweeks and (min(gameweeks) < 1 or max(gameweeks) > 38):
+        raise ValueError(f"{season}: source gameweek range outside 1-38: {gameweeks}")
     return source_rows, {
         "season": season,
         "url": url,
         "sha256": digest,
         "bytes": len(payload),
         "source_rows": len(source_rows),
+        "gameweek_source_field": "GW" if any(optional_number(row.get("GW")) is not None for row in source_rows) else "round",
+        "covid_offset_rows": sum(1 for row in source_rows if season == "2019-20" and ((optional_number(row.get("GW")) if optional_number(row.get("GW")) is not None else optional_number(row.get("round"))) or 0) in range(39, 48)),
+        "gameweek_normalization": "2019-20 source labels 39-47 mapped to FPL GW30-38; other seasons unchanged",
+        "gameweeks": gameweeks,
+        "min_gameweek": min(gameweeks) if gameweeks else None,
+        "max_gameweek": max(gameweeks) if gameweeks else None,
+        "round_vs_GW_mismatch_rows": round_gw_mismatches,
         "encoding": source_encoding,
         "raw_file": str(raw_path),
     }
@@ -97,9 +131,11 @@ def build_season_rows(season, source_rows):
     grouped = defaultdict(lambda: defaultdict(list))
     for raw in source_rows:
         element = first_value(raw, "element", "id")
-        gameweek = optional_number(first_value(raw, "round", "gameweek"))
+        gameweek = source_gameweek(raw, season)
         if element is None or gameweek is None or gameweek < 1:
             continue
+        if gameweek > 38:
+            raise ValueError(f"{season}: invalid FPL gameweek {gameweek}; expected 1-38")
         kickoff = first_value(raw, "kickoff_time")
         if not kickoff:
             raise ValueError(f"{season}: missing kickoff_time for player {element}, GW{gameweek}")
@@ -113,6 +149,7 @@ def build_season_rows(season, source_rows):
             "gameweek": int(gameweek),
             "minutes": optional_number(raw.get("minutes")),
             "total_points": optional_number(raw.get("total_points")),
+            "position": str(raw.get("position") or "").strip().upper(),
             "expected_goals": optional_number(raw.get("expected_goals")),
             "expected_assists": optional_number(raw.get("expected_assists")),
             "was_home": parse_bool(raw.get("was_home")),
@@ -170,6 +207,10 @@ def build_season_rows(season, source_rows):
                     "season": season,
                     "fpl_element_id": element,
                     "gameweek": gameweek,
+                    "position_gkp": (1.0 if fixture["position"] == "GKP" else 0.0) if fixture["position"] in {"GKP", "DEF", "MID", "FWD"} else None,
+                    "position_def": (1.0 if fixture["position"] == "DEF" else 0.0) if fixture["position"] in {"GKP", "DEF", "MID", "FWD"} else None,
+                    "position_mid": (1.0 if fixture["position"] == "MID" else 0.0) if fixture["position"] in {"GKP", "DEF", "MID", "FWD"} else None,
+                    "position_fwd": (1.0 if fixture["position"] == "FWD" else 0.0) if fixture["position"] in {"GKP", "DEF", "MID", "FWD"} else None,
                     "kickoff_time": fixture["kickoff_time"].isoformat(),
                     "prior_gameweeks_count": len(history),
                     "prior_gw_points": prior_points,
@@ -193,6 +234,14 @@ def build_season_rows(season, source_rows):
     return output
 
 
+def available_training_features(rows, feature_names=FEATURES):
+    """Select only features observed at least once in the training partition."""
+    return tuple(
+        name for name in feature_names
+        if any(optional_number(row.get(name)) is not None for row in rows)
+    )
+
+
 def evaluate(rows, holdout_fraction=0.2):
     eligible = [
         row for row in rows
@@ -209,7 +258,11 @@ def evaluate(rows, holdout_fraction=0.2):
     validation = [row for row in eligible if (row["season"], row["gameweek"]) in validation_keys]
     if not train or not validation:
         raise ValueError("Empty chronological train or validation partition")
-    model = fit_ridge(train, "target_total_points")
+    features_used = available_training_features(train)
+    if not features_used:
+        raise ValueError("No predictor features are observed in the training partition")
+    features_unavailable = [name for name in FEATURES if name not in features_used]
+    model = fit_ridge(train, "target_total_points", features_used)
     groups = defaultdict(list)
     for row in validation:
         key = (row["season"], row["fpl_element_id"], row["gameweek"])
@@ -300,7 +353,8 @@ def evaluate(rows, holdout_fraction=0.2):
         "mean_actual_points": round(sum(actual) / len(actual), 6),
         "positive_minute_conditional_diagnostic": appearance_diagnostic,
         "per_season_validation_metrics": per_season,
-        "features": list(FEATURES),
+        "features": list(features_used),
+        "features_excluded_unobserved_in_training": features_unavailable,
         "model_missing_value_policy": model["missing_value_policy"],
         "validation_seasons": sorted({row["season"] for row in validation}),
         "validation_first_gameweek": min(validation_keys),

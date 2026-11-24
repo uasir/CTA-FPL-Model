@@ -1,0 +1,596 @@
+"""Paper-governed two-component Poisson-mixture Transformer for 2PM.
+
+This is a clean implementation. It does not import or reuse the legacy categorical
+TwoPMTransformer, Dastan model code, weights, preprocessing or prediction heads.
+The 286-feature / six-token input is the current candidate adaptation contract; the
+feature and sequence admission gates remain separate from this model module.
+"""
+from __future__ import annotations
+
+from typing import Any
+import math
+
+try:
+    import torch
+    from torch import nn
+    from torch.nn import functional as F
+except ImportError:  # Keep non-model engineering tools usable without PyTorch.
+    torch = None
+    nn = None
+    F = None
+
+
+MODEL_NAME = "2PM-PoissonMixture-Transformer"
+MODEL_ARCHITECTURE_VERSION = "0.2.0"
+
+
+if nn is not None:
+    class SinusoidalPositionEncoding(nn.Module):
+        """Fixed sinusoidal positions for the ordered played-fixture/query tokens."""
+
+        def __init__(self, width: int, max_length: int):
+            super().__init__()
+            if width <= 0 or max_length <= 0:
+                raise ValueError("width and max_length must be positive")
+            position = torch.arange(max_length, dtype=torch.float32).unsqueeze(1)
+            scale = torch.exp(
+                torch.arange(0, width, 2, dtype=torch.float32)
+                * (-torch.log(torch.tensor(10000.0)) / width)
+            )
+            encoding = torch.zeros(max_length, width, dtype=torch.float32)
+            encoding[:, 0::2] = torch.sin(position * scale)
+            if width > 1:
+                encoding[:, 1::2] = torch.cos(
+                    position * scale[: encoding[:, 1::2].shape[1]]
+                )
+            self.register_buffer("encoding", encoding.unsqueeze(0), persistent=False)
+
+        def forward(self, values: torch.Tensor) -> torch.Tensor:
+            if values.ndim != 3:
+                raise ValueError("position encoding expects [batch, sequence, width]")
+            if values.shape[1] > self.encoding.shape[1]:
+                raise ValueError("input sequence exceeds configured maximum length")
+            return values + self.encoding[:, : values.shape[1], :].to(values.dtype)
+
+
+    class PaperTwoComponentPoissonTransformer(nn.Module):
+        """Encoder-only Transformer with a two-component Poisson-mixture output.
+
+        Input:  [batch, sequence_length, feature_count]
+        Output: mixture probability p and positive Poisson rates lambda1/lambda2.
+
+        The final token is the target-fixture query token in the current Dastan
+        adaptation. The sequence length and encoder layer count are explicit config
+        values; the paper does not clearly report its selected layer count.
+        """
+
+        def __init__(
+            self,
+            feature_count: int,
+            *,
+            sequence_length: int,
+            num_layers: int,
+            d_model: int = 256,
+            nhead: int = 8,
+            dim_feedforward: int = 1024,
+            dropout: float = 0.22,
+            epsilon: float = 1e-6,
+            support_shift: int = 0,
+        ):
+            super().__init__()
+            if feature_count <= 0 or sequence_length <= 0 or num_layers <= 0:
+                raise ValueError("feature_count, sequence_length and num_layers must be positive")
+            if d_model <= 0 or nhead <= 0 or d_model % nhead:
+                raise ValueError("d_model must be positive and divisible by nhead")
+            if dim_feedforward <= 0:
+                raise ValueError("dim_feedforward must be positive")
+            if not 0.0 <= dropout < 1.0:
+                raise ValueError("dropout must be in [0, 1)")
+            if epsilon <= 0:
+                raise ValueError("epsilon must be positive")
+            if int(support_shift) != support_shift or support_shift < 0:
+                raise ValueError("support_shift must be a non-negative integer")
+
+            self.feature_count = int(feature_count)
+            self.sequence_length = int(sequence_length)
+            self.d_model = int(d_model)
+            self.epsilon = float(epsilon)
+            self.support_shift = int(support_shift)
+
+            self.input_embedding = nn.Linear(self.feature_count, self.d_model)
+            self.position_encoding = SinusoidalPositionEncoding(
+                self.d_model, self.sequence_length
+            )
+            encoder_layer = nn.TransformerEncoderLayer(
+                d_model=self.d_model,
+                nhead=int(nhead),
+                dim_feedforward=int(dim_feedforward),
+                dropout=float(dropout),
+                activation="gelu",
+                batch_first=True,
+                norm_first=True,
+            )
+            self.encoder = nn.TransformerEncoder(
+                encoder_layer,
+                num_layers=int(num_layers),
+                enable_nested_tensor=False,
+            )
+            self.output_norm = nn.LayerNorm(self.d_model)
+            self.mixture_head = nn.Linear(self.d_model, 3)
+
+        def forward(self, sequence: torch.Tensor) -> dict[str, torch.Tensor]:
+            if sequence.ndim != 3:
+                raise ValueError("sequence must have [batch, sequence, features] shape")
+            if sequence.shape[1] != self.sequence_length:
+                raise ValueError(
+                    f"expected sequence length {self.sequence_length}, got {sequence.shape[1]}"
+                )
+            if sequence.shape[2] != self.feature_count:
+                raise ValueError(
+                    f"expected {self.feature_count} features, got {sequence.shape[2]}"
+                )
+            if not torch.isfinite(sequence).all():
+                raise ValueError("model input contains NaN or infinite values")
+
+            embedded = self.input_embedding(sequence)
+            encoded = self.encoder(self.position_encoding(embedded))
+            target_context = self.output_norm(encoded[:, -1, :])
+            raw = self.mixture_head(target_context)
+
+            mixture_logit = raw[:, 0]
+            mixture_probability = torch.sigmoid(mixture_logit).clamp(
+                self.epsilon, 1.0 - self.epsilon
+            )
+            lambda_1 = F.softplus(raw[:, 1]) + self.epsilon
+            lambda_2 = F.softplus(raw[:, 2]) + self.epsilon
+
+            count_expectation = (
+                mixture_probability * lambda_1
+                + (1.0 - mixture_probability) * lambda_2
+            )
+            expected_points = count_expectation - self.support_shift
+            second_moment = (
+                mixture_probability * (lambda_1 + lambda_1.square())
+                + (1.0 - mixture_probability) * (lambda_2 + lambda_2.square())
+            )
+            # A constant support shift changes the mean, not the variance.
+            variance = (second_moment - count_expectation.square()).clamp_min(0.0)
+
+            return {
+                "mixture_logit": mixture_logit,
+                "p": mixture_probability,
+                "lambda_1": lambda_1,
+                "lambda_2": lambda_2,
+                "expected_points": expected_points,
+                "variance": variance,
+                "standard_deviation": torch.sqrt(variance),
+                "support_shift": self.support_shift,
+                "support_lower_bound": -self.support_shift,
+            }
+else:
+    class PaperTwoComponentPoissonTransformer:  # pragma: no cover
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "Install the optional PyTorch dependency to use the 2PM Poisson-mixture model"
+            )
+
+
+def poisson_mixture_negative_log_likelihood(
+    output: dict[str, Any],
+    targets,
+    *,
+    reduction: str = "mean",
+):
+    """Stable negative log-likelihood for the two-component Poisson mixture."""
+    if torch is None:
+        raise ImportError("PyTorch is required for the 2PM mixture likelihood")
+    if reduction not in {"none", "mean", "sum"}:
+        raise ValueError("reduction must be one of: none, mean, sum")
+
+    y = torch.as_tensor(targets, dtype=output["lambda_1"].dtype,
+                        device=output["lambda_1"].device)
+    if not torch.isfinite(y).all():
+        raise ValueError("targets must be finite")
+    support_shift = int(output.get("support_shift", 0))
+    if support_shift < 0:
+        raise ValueError("support_shift must be non-negative")
+    if (y < -support_shift).any():
+        if support_shift == 0:
+            raise ValueError("Poisson targets must be non-negative when support_shift=0")
+        raise ValueError(
+            f"targets fall below the configured Poisson support floor {-support_shift}"
+        )
+    if not torch.equal(y, torch.round(y)):
+        if support_shift == 0:
+            raise ValueError("Poisson targets must be non-negative integer-valued")
+        raise ValueError("shifted-Poisson targets must be integer-valued")
+    shifted_y = y + support_shift
+
+    log_factorial = torch.lgamma(shifted_y + 1.0)
+    log_component_1 = (
+        F.logsigmoid(output["mixture_logit"])
+        + shifted_y * torch.log(output["lambda_1"])
+        - output["lambda_1"]
+        - log_factorial
+    )
+    log_component_2 = (
+        F.logsigmoid(-output["mixture_logit"])
+        + shifted_y * torch.log(output["lambda_2"])
+        - output["lambda_2"]
+        - log_factorial
+    )
+    losses = -torch.logaddexp(log_component_1, log_component_2)
+    if reduction == "mean":
+        return losses.mean()
+    if reduction == "sum":
+        return losses.sum()
+    return losses
+
+
+def poisson_mixture_tail_probability(
+    output: dict[str, Any], threshold: int
+):
+    """Return P(Y >= threshold) under the two-component Poisson mixture."""
+    if torch is None:
+        raise ImportError("PyTorch is required for mixture tail probabilities")
+    if int(threshold) != threshold or threshold < 0:
+        raise ValueError("threshold must be a non-negative integer")
+    support_shift = int(output.get("support_shift", 0))
+    shifted_threshold = int(threshold) + support_shift
+    if shifted_threshold == 0:
+        return torch.ones_like(output["lambda_1"])
+    rates = [output["lambda_1"], output["lambda_2"]]
+    tails = []
+    support = torch.arange(
+        shifted_threshold,
+        dtype=output["lambda_1"].dtype,
+        device=output["lambda_1"].device,
+    )
+    for rate in rates:
+        log_pmf = (
+            -rate.unsqueeze(-1)
+            + support * torch.log(rate.unsqueeze(-1))
+            - torch.lgamma(support + 1.0)
+        )
+        cdf_below = torch.exp(log_pmf).sum(dim=-1).clamp(0.0, 1.0)
+        tails.append((1.0 - cdf_below).clamp(0.0, 1.0))
+    return output["p"] * tails[0] + (1.0 - output["p"]) * tails[1]
+
+
+def fit_training_poisson_mixture_mle(
+    training_targets,
+    *,
+    max_iter: int = 500,
+    tolerance: float = 1e-9,
+    epsilon: float = 1e-6,
+    support_shift: int = 0,
+) -> dict[str, float | int]:
+    """Fit a two-Poisson mixture by EM using the supplied training labels only.
+
+    This is a transparent candidate implementation of the paper's training-only
+    MLE initialization. Deterministic quantile partitioning seeds EM; it is not
+    claimed to reproduce an unspecified author initialization routine exactly.
+    """
+    import numpy as np
+
+    raw_values = np.asarray(training_targets, dtype=np.float64).reshape(-1)
+    if raw_values.size == 0 or not np.isfinite(raw_values).all():
+        raise ValueError("training_targets must be a non-empty finite array")
+    if int(support_shift) != support_shift or support_shift < 0:
+        raise ValueError("support_shift must be a non-negative integer")
+    if not np.equal(raw_values, np.round(raw_values)).all():
+        if support_shift == 0:
+            raise ValueError("training_targets must be non-negative integer points")
+        raise ValueError("training_targets must be integer-valued points")
+    if (raw_values < -support_shift).any():
+        if support_shift == 0:
+            raise ValueError("training_targets must be non-negative integer points")
+        raise ValueError("training targets fall below the configured shifted-Poisson support")
+    values = raw_values + int(support_shift)
+    if max_iter <= 0 or tolerance <= 0 or epsilon <= 0:
+        raise ValueError("max_iter, tolerance and epsilon must be positive")
+
+    split = float(np.median(values))
+    lower = values[values <= split]
+    upper = values[values > split]
+    if lower.size == 0 or upper.size == 0:
+        mean = max(float(values.mean()), epsilon)
+        lambda_1 = mean
+        lambda_2 = max(float(values.mean() + values.std()), epsilon)
+        p = 0.5
+    else:
+        lambda_1 = max(float(lower.mean()), epsilon)
+        lambda_2 = max(float(upper.mean()), epsilon)
+        p = float(lower.size / values.size)
+
+    log_factorial = np.asarray(
+        [math.lgamma(float(value) + 1.0) for value in values],
+        dtype=np.float64,
+    )
+    iterations = 0
+    for iterations in range(1, max_iter + 1):
+        log_1 = (
+            np.log(max(p, epsilon))
+            + values * np.log(lambda_1)
+            - lambda_1
+            - log_factorial
+        )
+        log_2 = (
+            np.log(max(1.0 - p, epsilon))
+            + values * np.log(lambda_2)
+            - lambda_2
+            - log_factorial
+        )
+        normalizer = np.logaddexp(log_1, log_2)
+        responsibility_1 = np.exp(log_1 - normalizer)
+        responsibility_2 = 1.0 - responsibility_1
+        weight_1 = max(float(responsibility_1.sum()), epsilon)
+        weight_2 = max(float(responsibility_2.sum()), epsilon)
+        next_p = float(np.clip(responsibility_1.mean(), epsilon, 1.0 - epsilon))
+        next_lambda_1 = max(
+            float(np.dot(responsibility_1, values) / weight_1), epsilon
+        )
+        next_lambda_2 = max(
+            float(np.dot(responsibility_2, values) / weight_2), epsilon
+        )
+        change = max(
+            abs(next_p - p),
+            abs(next_lambda_1 - lambda_1),
+            abs(next_lambda_2 - lambda_2),
+        )
+        p, lambda_1, lambda_2 = next_p, next_lambda_1, next_lambda_2
+        if change < tolerance:
+            break
+
+    return {
+        "p": float(p),
+        "lambda_1": float(lambda_1),
+        "lambda_2": float(lambda_2),
+        "iterations": int(iterations),
+        "training_rows": int(values.size),
+        "support_shift": int(support_shift),
+        "support_lower_bound": -int(support_shift),
+        "converged": bool(iterations < max_iter or change < tolerance),
+        "initialization": "training_only_quantile_seeded_two_poisson_em_mle",
+    }
+
+
+def initialize_mixture_head_from_training_targets(
+    model,
+    training_targets,
+    *,
+    max_iter: int = 500,
+    tolerance: float = 1e-9,
+) -> dict[str, float | int]:
+    """Initialize output-head biases from a training-only two-Poisson EM fit."""
+    if torch is None:
+        raise ImportError("PyTorch is required for model initialization")
+    fitted = fit_training_poisson_mixture_mle(
+        training_targets, max_iter=max_iter, tolerance=tolerance,
+        epsilon=model.epsilon, support_shift=model.support_shift,
+    )
+    p = min(max(float(fitted["p"]), model.epsilon), 1.0 - model.epsilon)
+    lambda_1 = max(float(fitted["lambda_1"]) - model.epsilon, model.epsilon)
+    lambda_2 = max(float(fitted["lambda_2"]) - model.epsilon, model.epsilon)
+    inverse_softplus_1 = math.log(math.expm1(lambda_1))
+    inverse_softplus_2 = math.log(math.expm1(lambda_2))
+    with torch.no_grad():
+        model.mixture_head.bias[0] = math.log(p / (1.0 - p))
+        model.mixture_head.bias[1] = inverse_softplus_1
+        model.mixture_head.bias[2] = inverse_softplus_2
+    fitted["initialization"] = "training_only_quantile_seeded_two_poisson_em_mle"
+    return fitted
+
+
+def prepare_paper_targets(raw_targets):
+    """Apply the paper's negative-to-zero target rule without mutating raw scores.
+
+    Returns (model_targets, transformed_mask). Keep raw_targets separately for
+    evaluation and reporting; the transformation must never overwrite actual points.
+    """
+    if torch is None:
+        raise ImportError("PyTorch is required for target preparation")
+    raw = torch.as_tensor(raw_targets, dtype=torch.float32)
+    if not torch.isfinite(raw).all():
+        raise ValueError("raw target points must be finite")
+    if not torch.equal(raw, torch.round(raw)):
+        raise ValueError("raw FPL points must be integer-valued")
+    transformed = raw.lt(0)
+    return raw.clamp_min(0), transformed
+
+
+def build_model(feature_count: int, **kwargs):
+    """Construct a new paper-governed 2PM model; num_layers is deliberately required."""
+    return PaperTwoComponentPoissonTransformer(
+        feature_count=feature_count, **kwargs
+    )
+
+
+
+def select_training_support_shift(
+    training_targets,
+    *,
+    minimum_shift: int = 20,
+    safety_margin: int = 5,
+) -> int:
+    """Choose the lower-support offset from training-fold fixture labels only.
+
+    Do not pass repeated player-Gameweek totals as if they were fixture labels.
+    If only GW-grain labels are available, use the configured minimum shift and
+    fail closed if a later target falls below the resulting aggregate support.
+    """
+    import numpy as np
+
+    values = np.asarray(training_targets, dtype=np.float64).reshape(-1)
+    if values.size == 0 or not np.isfinite(values).all():
+        raise ValueError("training_targets must be a non-empty finite array")
+    if not np.equal(values, np.round(values)).all():
+        raise ValueError("training targets must be integer-valued")
+    if minimum_shift < 0 or safety_margin < 0:
+        raise ValueError("minimum_shift and safety_margin must be non-negative")
+    return int(max(minimum_shift, max(0, int(math.ceil(-float(values.min())))) + safety_margin))
+
+
+def prepare_shifted_poisson_targets(raw_targets, support_shift: int):
+    """Preserve signed FPL points and shift counts into a non-negative Poisson domain."""
+    if torch is None:
+        raise ImportError("PyTorch is required for target preparation")
+    if int(support_shift) != support_shift or support_shift < 0:
+        raise ValueError("support_shift must be a non-negative integer")
+    raw = torch.as_tensor(raw_targets, dtype=torch.float32)
+    if not torch.isfinite(raw).all():
+        raise ValueError("raw target points must be finite")
+    if not torch.equal(raw, torch.round(raw)):
+        raise ValueError("raw FPL points must be integer-valued")
+    if (raw < -int(support_shift)).any():
+        raise ValueError("raw target points fall below the configured support floor")
+    return raw + int(support_shift)
+
+
+def independent_fixture_gameweek_negative_log_likelihood(
+    fixture_output: dict[str, Any],
+    gameweek_targets,
+    fixture_mask,
+    *,
+    support_shift: int | None = None,
+    reduction: str = "mean",
+):
+    """Differentiable exact NLL for sums of independent fixture-level mixtures.
+
+    fixture_output tensors have shape [batch, fixture]. The component expansion
+    has 2**fixture_count Poisson components per player-Gameweek. The signed
+    Gameweek target is shifted by support_shift * fixture_count before evaluating
+    its Poisson-mixture likelihood. Cross-fixture independence is explicit.
+    """
+    if torch is None:
+        raise ImportError("PyTorch is required for Gameweek mixture likelihood")
+    if reduction not in {"none", "mean", "sum"}:
+        raise ValueError("reduction must be one of: none, mean, sum")
+    p = fixture_output["p"]
+    lambda_1 = fixture_output["lambda_1"]
+    lambda_2 = fixture_output["lambda_2"]
+    if p.ndim != 2 or lambda_1.shape != p.shape or lambda_2.shape != p.shape:
+        raise ValueError("fixture mixture parameters must share [batch, fixture] shape")
+    mask = torch.as_tensor(fixture_mask, dtype=torch.bool, device=p.device)
+    if mask.shape != p.shape or not mask.any(dim=1).all():
+        raise ValueError("fixture_mask must select at least one fixture per sample")
+    y = torch.as_tensor(gameweek_targets, dtype=p.dtype, device=p.device).reshape(-1)
+    if y.numel() != p.shape[0] or not torch.isfinite(y).all():
+        raise ValueError("gameweek_targets must be finite and match the batch size")
+    if not torch.equal(y, torch.round(y)):
+        raise ValueError("Gameweek target points must be integer-valued")
+    if support_shift is None:
+        support_shift = int(fixture_output.get("support_shift", 0))
+    if int(support_shift) != support_shift or support_shift < 0:
+        raise ValueError("support_shift must be a non-negative integer")
+    if "support_shift" in fixture_output and int(fixture_output["support_shift"]) != int(support_shift):
+        raise ValueError("explicit support_shift disagrees with fixture model outputs")
+    if not torch.isfinite(p).all() or (p <= 0).any() or (p >= 1).any():
+        raise ValueError("fixture mixture probabilities must be finite and in (0, 1)")
+    if not torch.isfinite(lambda_1).all() or not torch.isfinite(lambda_2).all():
+        raise ValueError("fixture Poisson rates must be finite")
+    if (lambda_1 <= 0).any() or (lambda_2 <= 0).any():
+        raise ValueError("fixture Poisson rates must be positive")
+
+    sample_losses = []
+    for batch_index in range(p.shape[0]):
+        selected = torch.nonzero(mask[batch_index], as_tuple=False).reshape(-1)
+        log_weights = torch.zeros(1, dtype=p.dtype, device=p.device)
+        rate_sums = torch.zeros(1, dtype=p.dtype, device=p.device)
+        for fixture_index in selected:
+            probability = p[batch_index, fixture_index].clamp(1e-7, 1.0 - 1e-7)
+            rate_a = lambda_1[batch_index, fixture_index]
+            rate_b = lambda_2[batch_index, fixture_index]
+            if not torch.isfinite(torch.stack([rate_a, rate_b])).all():
+                raise ValueError("fixture Poisson rates must be finite")
+            if (torch.stack([rate_a, rate_b]) <= 0).any():
+                raise ValueError("fixture Poisson rates must be positive")
+            log_weights = torch.cat([
+                log_weights + torch.log(probability),
+                log_weights + torch.log1p(-probability),
+            ])
+            rate_sums = torch.cat([
+                rate_sums + rate_a,
+                rate_sums + rate_b,
+            ])
+        fixture_count = int(selected.numel())
+        shifted_target = y[batch_index] + int(support_shift) * fixture_count
+        if shifted_target < 0:
+            raise ValueError(
+                f"Gameweek target falls below configured aggregate support floor {-int(support_shift) * fixture_count}"
+            )
+        log_probability = (
+            log_weights
+            + shifted_target * torch.log(rate_sums)
+            - rate_sums
+            - torch.lgamma(shifted_target + 1.0)
+        )
+        sample_losses.append(-torch.logsumexp(log_probability, dim=0))
+    losses = torch.stack(sample_losses)
+    if reduction == "mean":
+        return losses.mean()
+    if reduction == "sum":
+        return losses.sum()
+    return losses
+
+
+def forward_player_gameweek_batch(
+    model,
+    inputs,
+    fixture_mask,
+    targets=None,
+) -> dict[str, Any]:
+    """Run one Transformer query per fixture and aggregate to player-Gameweek grain.
+
+    inputs: [batch, target_fixture, 6, 286]
+    fixture_mask: [batch, target_fixture]
+    targets: optional signed player-Gameweek point totals [batch]
+
+    The model is evaluated independently for each fixture query using the same
+    five post-match history tokens. Fixture mixture outputs are then reshaped;
+    expected points and variances are summed under the explicit independent-
+    fixture assumption. When targets are supplied, one exact aggregate NLL is
+    returned per player-Gameweek.
+    """
+    if torch is None:
+        raise ImportError("PyTorch is required for player-Gameweek forward passes")
+    values = torch.as_tensor(inputs, dtype=torch.float32)
+    if values.ndim != 4:
+        raise ValueError("inputs must have [batch, fixture, sequence, feature] shape")
+    batch_size, fixture_count, sequence_length, feature_count = values.shape
+    if sequence_length != model.sequence_length or feature_count != model.feature_count:
+        raise ValueError("input sequence/feature dimensions do not match the model")
+    mask = torch.as_tensor(fixture_mask, dtype=torch.bool, device=values.device)
+    if mask.shape != (batch_size, fixture_count) or not mask.any(dim=1).all():
+        raise ValueError("fixture_mask must select at least one fixture per player-Gameweek")
+
+    flat = values.reshape(batch_size * fixture_count, sequence_length, feature_count)
+    flat_output = model(flat)
+    fixture_output = {
+        "p": flat_output["p"].reshape(batch_size, fixture_count),
+        "lambda_1": flat_output["lambda_1"].reshape(batch_size, fixture_count),
+        "lambda_2": flat_output["lambda_2"].reshape(batch_size, fixture_count),
+        "support_shift": int(flat_output["support_shift"]),
+    }
+    fixture_expected = flat_output["expected_points"].reshape(batch_size, fixture_count)
+    fixture_variance = flat_output["variance"].reshape(batch_size, fixture_count)
+    gameweek_expected = (fixture_expected * mask.to(fixture_expected.dtype)).sum(dim=1)
+    gameweek_variance = (fixture_variance * mask.to(fixture_variance.dtype)).sum(dim=1)
+
+    result = {
+        "fixture_output": fixture_output,
+        "fixture_expected_points": fixture_expected,
+        "fixture_variance": fixture_variance,
+        "fixture_mask": mask,
+        "expected_points": gameweek_expected,
+        "variance": gameweek_variance,
+        "standard_deviation": torch.sqrt(gameweek_variance.clamp_min(0.0)),
+        "dependence_assumption": "independent_fixture_scores",
+    }
+    if targets is not None:
+        per_sample_nll = independent_fixture_gameweek_negative_log_likelihood(
+            fixture_output, targets, mask, reduction="none"
+        )
+        result["nll_per_player_gameweek"] = per_sample_nll
+        result["loss"] = per_sample_nll.mean()
+    return result

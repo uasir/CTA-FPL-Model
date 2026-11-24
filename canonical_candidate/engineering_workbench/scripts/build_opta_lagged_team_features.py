@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -17,6 +18,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 PROVIDER_COMMIT = "f0f3d40f803c69bc7fac48d0748b49175e2d08ce"
+PROVIDER_COMMIT_DATE_UTC = "2026-11-09T21:54:16+00:00"
 PROVIDER_REPO = "imadeddine-belkat/Premier-League-Stats"
 PLAYER_SOURCE_PATH = "pl_stats/_merged/players/2026-27_players_stats.csv"
 TEAM_SOURCE_PATH = "pl_stats/_merged/events/2026-27_events_stats.csv"
@@ -38,6 +40,14 @@ CROSSWALK_FIELDS = [
 def read_csv(path: Path) -> list[dict]:
     with path.open(newline="", encoding="utf-8-sig") as handle:
         return list(csv.DictReader(handle))
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def write_csv(path: Path, rows: list[dict], fields: list[str]) -> None:
@@ -168,6 +178,7 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
     teams = {str(t["id"]): t.get("name", "") for t in bootstrap.get("teams", [])}
     team_codes = {str(t["id"]): str(t.get("code", "")) for t in bootstrap.get("teams", [])}
     metrics = [m for m in METRIC_CANDIDATES if any(m in row for row in provider_rows)]
+    metrics += ["opponentExpectedGoals", "opponentAttemptsIbox"]
     source = []
     for row in provider_rows:
         if str(row.get("season", season)) != season:
@@ -177,6 +188,27 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
         if not team_id:
             continue
         source.append({**row, "_kickoff": kickoff, "_team_id": team_id})
+    # Pair each provider team row with the opposing team row in the same match.
+    # The opponent's attacking output is the threat conceded by this team.
+    by_match = defaultdict(list)
+    for row in source:
+        by_match[str(row.get("matchId", ""))].append(row)
+    for match_id, match_rows in by_match.items():
+        if not match_id or len(match_rows) != 2:
+            continue
+        left, right = match_rows
+        left["opponentExpectedGoals"] = as_float(right.get("expectedGoals"))
+        right["opponentExpectedGoals"] = as_float(left.get("expectedGoals"))
+        left["opponentAttemptsIbox"] = as_float(right.get("attemptsIbox"))
+        right["opponentAttemptsIbox"] = as_float(left.get("attemptsIbox"))
+
+    deadline_by_event = {}
+    for event_row in bootstrap.get("events", []):
+        event_id = str(event_row.get("id", ""))
+        deadline_value = event_row.get("deadline_time")
+        if event_id and deadline_value:
+            deadline_by_event[event_id] = parse_time(deadline_value)
+
     by_team = defaultdict(list)
     for row in source:
         by_team[row["_team_id"]].append(row)
@@ -193,12 +225,21 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
         event = fixture.get("event")
         sides = (("home", str(fixture.get("team_h", ""))),
                  ("away", str(fixture.get("team_a", ""))))
+        event_key = str(event) if event is not None else ""
+        deadline_cutoff = deadline_by_event.get(event_key)
+        # For official FPL events, use the gameweek deadline, not target kickoff:
+        # another fixture in the same gameweek may have occurred after deadline
+        # but before this player's fixture. Legacy fixtures without event metadata
+        # retain the old kickoff cutoff and are explicitly marked as such.
+        feature_cutoff = deadline_cutoff or target_kickoff
+        if deadline_cutoff and target_kickoff and deadline_cutoff >= target_kickoff:
+            raise ValueError(f"FPL deadline is not before fixture kickoff for fixture {fixture_id}")
         for side, team_id in sides:
             provider_team_id = team_codes.get(team_id, "")
             team_source = by_team.get(provider_team_id, [])
             prior = ([r for r in team_source
-                      if r["_kickoff"] < target_kickoff and str(r.get("matchId", "")) != provider_match_id]
-                     if target_kickoff else [])
+                      if r["_kickoff"] < feature_cutoff and str(r.get("matchId", "")) != provider_match_id]
+                     if feature_cutoff else [])
             if target_kickoff:
                 excluded_same_or_future += sum(
                     1 for r in team_source
@@ -211,7 +252,8 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
                 "side": side, "team_id": team_id, "provider_team_id": provider_team_id,
                 "provider_match_id": provider_match_id, "team_name": teams.get(team_id, ""),
                 "opta_prior_matches_count": len(prior),
-                "features_as_of": target_kickoff.isoformat() if target_kickoff else "",
+                "features_as_of": feature_cutoff.isoformat() if feature_cutoff else "",
+                "feature_cutoff_policy": "OFFICIAL_FPL_DEADLINE" if deadline_cutoff else "TARGET_KICKOFF_FALLBACK",
             }
             for metric in metrics:
                 values = [as_float(r.get(metric)) for r in prior]
@@ -260,7 +302,9 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
     provider_match_ids = set(match_teams) - {""}
     malformed_match_ids = sorted(mid for mid, ids in match_teams.items() if mid and len(ids) != 2)
     report = {
-        "season": season, "as_of_time": as_of_time.isoformat(), "fixtures": len(fixtures),
+        "season": season, "as_of_time": as_of_time.isoformat(),
+        "source_snapshot_as_of": PROVIDER_COMMIT_DATE_UTC,
+        "source_commit": PROVIDER_COMMIT, "fixtures": len(fixtures),
         "fixtures_without_kickoff": sum(not bool(f.get("kickoff_time")) for f in fixtures),
         "team_fixture_rows": len(team_output), "player_fixture_rows": len(player_output),
         "provider_team_match_rows": len(source), "provider_unique_match_ids": len(provider_match_ids),
@@ -275,7 +319,9 @@ def build_team_features(fixtures: list[dict], bootstrap: dict, provider_rows: li
         "metrics_used": metrics,
         "max_prior_matches": max_history,
         "same_or_future_rows_excluded": excluded_same_or_future,
-        "leakage_policy": "Only same-season provider team rows with kickoff strictly earlier than target fixture kickoff are used; current fixture matchId is excluded.",
+        "leakage_policy": "Only same-season provider team rows with kickoff strictly earlier than the official FPL event deadline are used when deadline_time exists; legacy fixtures without event metadata use target kickoff and are explicitly marked. Current fixture matchId is excluded.",
+        "deadline_cutoff_fixtures": sum(1 for row in team_output if row["feature_cutoff_policy"] == "OFFICIAL_FPL_DEADLINE") // 2,
+        "kickoff_fallback_fixtures": sum(1 for row in team_output if row["feature_cutoff_policy"] == "TARGET_KICKOFF_FALLBACK") // 2,
         "player_projection_policy": "Current bootstrap roster is emitted only for unfinished fixtures strictly after as_of_time; no current roster is projected backwards onto completed fixtures.",
         "point_in_time_status": "NOT_VERIFIED",
         "point_in_time_caveat": "Provider snapshot vintage must be archived at each deadline before strict historical backtests are claimed.",
@@ -359,7 +405,19 @@ def main():
               list(team_rows[0]) if team_rows else [])
     write_csv(args.out_dir / "opta_lagged_player_fixture_features.csv", player_rows,
               list(player_rows[0]) if player_rows else [])
-    report = {"identity": identity_report, "team_features": feature_report}
+    report = {
+        "identity": identity_report,
+        "team_features": feature_report,
+        "source_provenance": {
+            "provider_repository": PROVIDER_REPO,
+            "provider_commit": args.source_commit,
+            "provider_commit_timestamp_utc": PROVIDER_COMMIT_DATE_UTC,
+            "player_stats_sha256": sha256_file(args.opta_players),
+            "team_match_stats_sha256": sha256_file(args.opta_team_events),
+            "official_fpl_bootstrap_sha256": sha256_file(args.bootstrap),
+            "official_fpl_fixtures_sha256": sha256_file(args.fixtures),
+        },
+    }
     (args.out_dir / "opta_fpl_integration_report.json").write_text(
         json.dumps(report, indent=2), encoding="utf-8"
     )

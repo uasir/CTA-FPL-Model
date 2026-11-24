@@ -1,0 +1,94 @@
+name: 2PM Dastan 286 sequence contract
+
+on:
+  push:
+    branches: ["feat/four-layer-2pm-transformer-evaluation"]
+    paths:
+      - canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json
+      - canonical_candidate/engineering_workbench/config/2pm_poisson_transformer_candidate.json
+      - canonical_candidate/engineering_workbench/scripts/build_2pm_dastan_sequence_dataset.py
+      - canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py
+      - canonical_candidate/engineering_workbench/scripts/audit_2pm_dastan_286_candidate.py
+      - canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py
+      - canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py
+      - canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_state_vectors.py
+      - canonical_candidate/engineering_workbench/scripts/build_2pm_player_gameweek_sequence_tensors.py
+      - canonical_candidate/engineering_workbench/scripts/audit_2pm_grouped_tensor_artifacts.py
+      - canonical_candidate/engineering_workbench/scripts/two_component_poisson_transformer.py
+      - canonical_candidate/engineering_workbench/scripts/two_pm_forecast_records.py
+      - canonical_candidate/engineering_workbench/scripts/two_pm_gameweek_aggregation.py
+      - canonical_candidate/engineering_workbench/tests/test_2pm_player_gameweek_sequence_tensors.py
+      - canonical_candidate/engineering_workbench/tests/test_2pm_postmatch_grouped_dataset.py
+      - canonical_candidate/engineering_workbench/tests/test_audit_2pm_grouped_tensor_artifacts.py
+      - canonical_candidate/engineering_workbench/tests/test_two_component_poisson_transformer.py
+      - canonical_candidate/engineering_workbench/tests/test_2pm_shifted_poisson.py
+      - canonical_candidate/engineering_workbench/tests/test_two_pm_forecast_records.py
+      - canonical_candidate/engineering_workbench/tests/test_two_pm_gameweek_aggregation.py
+      - canonical_candidate/engineering_workbench/tests/test_2pm_postmatch_state_vectors.py
+      - canonical_candidate/engineering_workbench/tests/test_rebuild_2pm_fixture_context.py
+      - canonical_candidate/engineering_workbench/tests/test_rebuild_2pm_team_context.py
+      - canonical_candidate/engineering_workbench/tests/test_rebuild_2pm_player_history.py
+      - canonical_candidate/engineering_workbench/tests/test_2pm_predeadline_market_snapshot.py
+      - canonical_candidate/engineering_workbench/tests/test_2pm_dastan_sequence_dataset.py
+      - canonical_candidate/engineering_workbench/tests/test_2pm_dastan_candidate_rebuild.py
+      - canonical_candidate/engineering_workbench/tests/test_audit_2pm_dastan_286_candidate.py
+      - .github/workflows/cta-2pm-dastan-sequence-contract.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-2pm-dastan-sequence-contract
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install focused test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pandas pyarrow pytest
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile 2PM Dastan candidate and sequence builders
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python -m py_compile scripts/build_2pm_dastan_sequence_dataset.py
+          python -m py_compile scripts/rebuild_2pm_dastan_286_candidate.py
+          python -m py_compile scripts/audit_2pm_dastan_286_candidate.py
+          python -m py_compile tests/test_audit_2pm_dastan_286_candidate.py
+          python -m py_compile scripts/build_2pm_predeadline_market_snapshot.py
+          python -m py_compile scripts/rebuild_2pm_fixture_context.py
+          python -m py_compile scripts/build_2pm_postmatch_state_vectors.py
+          python -m py_compile scripts/build_2pm_player_gameweek_sequence_tensors.py
+          python -m py_compile scripts/audit_2pm_grouped_tensor_artifacts.py
+          python -m py_compile scripts/two_component_poisson_transformer.py
+          python -m py_compile scripts/two_pm_forecast_records.py
+          python -m py_compile scripts/two_pm_gameweek_aggregation.py
+      - name: Run Dastan 286 reconstruction-adapter and sequence tests
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: |
+          python -m pytest -q \
+            tests/test_2pm_dastan_sequence_dataset.py \
+            tests/test_2pm_dastan_candidate_rebuild.py \
+            tests/test_audit_2pm_dastan_286_candidate.py \
+            tests/test_2pm_predeadline_market_snapshot.py \
+            tests/test_rebuild_2pm_fixture_context.py \
+            tests/test_rebuild_2pm_team_context.py \
+            tests/test_rebuild_2pm_player_history.py \
+            tests/test_2pm_postmatch_state_vectors.py \
+            tests/test_2pm_postmatch_grouped_dataset.py \
+            tests/test_audit_2pm_grouped_tensor_artifacts.py \
+            tests/test_2pm_player_gameweek_sequence_tensors.py \
+            tests/test_two_component_poisson_transformer.py \
+            tests/test_2pm_shifted_poisson.py \
+            tests/test_two_pm_forecast_records.py \
+            tests/test_two_pm_gameweek_aggregation.py

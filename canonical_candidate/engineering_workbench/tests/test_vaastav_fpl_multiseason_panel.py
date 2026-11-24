@@ -1,4 +1,4 @@
-from build_vaastav_fpl_multiseason_panel import build_season_rows, evaluate, read_csv_bytes
+from build_vaastav_fpl_multiseason_panel import build_season_rows, evaluate, read_csv_bytes, source_gameweek
 from train_fpl_exploratory_ridge import FEATURES
 
 
@@ -98,3 +98,57 @@ def test_source_csv_reader_supports_legacy_windows_1252_names():
     rows, encoding = read_csv_bytes(payload)
     assert encoding == "cp1252"
     assert rows[0]["name"] == "André"
+
+
+
+def test_2019_20_covid_shifted_source_gameweeks_are_normalized():
+    raw = {"GW": "47", "round": "47"}
+    assert source_gameweek(raw, "2019-20") == 38
+    assert source_gameweek({"GW": "39", "round": "39"}, "2019-20") == 30
+    assert source_gameweek({"GW": "29", "round": "29"}, "2019-20") == 29
+
+
+def test_covid_gameweek_normalization_does_not_apply_to_other_seasons():
+    assert source_gameweek({"GW": "47", "round": "47"}, "2020-21") == 47
+
+
+
+def test_2019_20_post_lockdown_source_round_builds_fpl_gameweek_38():
+    raw = source_row(10, 47, 6)
+    raw["GW"] = "47"
+    raw["round"] = "47"
+    raw["kickoff_time"] = "2020-07-26T15:00:00Z"
+    panel = build_season_rows("2019-20", [raw])
+    assert len(panel) == 1
+    assert panel[0]["gameweek"] == 38
+
+
+def test_multiseason_evaluation_excludes_features_unobserved_in_training():
+    rows = []
+    for season_index, season in enumerate(("2016-17", "2017-18")):
+        for gw in range(1, 13):
+            for player in (10, 20):
+                rows.append({
+                    "season": season,
+                    "fpl_element_id": str(player),
+                    "gameweek": gw,
+                    "kickoff_time": f"{2016 + season_index}-08-{gw:02d}T12:00:00+00:00",
+                    "prior_gameweeks_count": gw - 1,
+                    "prior_gw_points": float(gw + player / 10) if gw > 1 else None,
+                    "prior_gw_minutes": 90.0 if gw > 1 else None,
+                    "prior3_gw_points_avg": float(gw + player / 10),
+                    "prior5_gw_points_avg": float(gw + player / 10),
+                    "prior3_gw_minutes_avg": 90.0,
+                    "prior5_gw_minutes_avg": 90.0,
+                    "prior3_gw_xg_avg": None,
+                    "prior3_gw_xa_avg": None,
+                    "season_to_date_points_per90": 5.0,
+                    "was_home": float(gw % 2),
+                    "target_total_points": float((gw % 5) + player / 10),
+                    "target_minutes": 90.0,
+                })
+    report = evaluate(rows)
+    assert "prior3_gw_xg_avg" not in report["features"]
+    assert "prior3_gw_xa_avg" not in report["features"]
+    assert "prior3_gw_xg_avg" in report["features_excluded_unobserved_in_training"]
+    assert "prior5_gw_points_avg" in report["features"]
