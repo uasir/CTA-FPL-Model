@@ -47,11 +47,16 @@ jobs:
         with:
           path: ${{ runner.temp }}/2pm-dastan-candidate
           key: 2pm-dastan-candidate-v2-2022-23-through-2025-26-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
-      - name: Require explicit approval before an expensive four-season rebuild
-        if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate != true
+          restore-keys: |
+            2pm-dastan-candidate-v2-2022-23-through-2025-26-
+      - name: Require reusable four-season candidate unless rebuild is explicitly approved
+        if: inputs.rebuild_candidate != true
         run: |
-          echo "::error::No reusable candidate cache exists. Refusing to start the four-season rebuild because rebuild_candidate was not explicitly enabled."
-          exit 1
+          if [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/player_matches_with_availability.parquet" ] || [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json" ]; then
+            echo "::error::No reusable four-season candidate cache was restored. Refusing to rebuild because rebuild_candidate is false."
+            exit 1
+          fi
+          echo "Reusable candidate cache restored; downstream audit only. No four-season rebuild will run."
       - name: Install tensor and reconstruction dependencies
         run: |
           python -m pip install --upgrade pip
@@ -76,6 +81,27 @@ jobs:
         with:
           path: ${{ runner.temp }}/2pm-dastan-candidate
           key: 2pm-dastan-candidate-v2-2022-23-through-2025-26-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
+      - name: Audit defensive source coverage from cached four-season data
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+          from rebuild_2pm_dastan_286_candidate import audit_defensive_source_coverage
+          root = Path(__import__("os").environ["RUNNER_TEMP"])
+          raw_dir = root / "2pm-dastan-raw"
+          candidate_dir = root / "2pm-dastan-candidate"
+          matches = pd.read_parquet(candidate_dir / "player_matches_with_availability.parquet")
+          report = json.loads((candidate_dir / "2pm_dastan_286_candidate_report.json").read_text())
+          seasons = ["2022-23", "2023-24", "2024-25", "2025-26"]
+          report["defensive_source_coverage"] = audit_defensive_source_coverage(raw_dir, seasons, matches)
+          report["defensive_source_coverage_audit_mode"] = "CACHED_RAW_SOURCE_AND_EXISTING_PLAYER_MATCHES_NO_REBUILD"
+          (candidate_dir / "2pm_dastan_286_candidate_report.json").write_text(json.dumps(report, indent=2) + "\\n")
+          print(json.dumps(report["defensive_source_coverage"], indent=2))
+          PY
       - name: Enforce official-deadline snapshot safety on candidate features
         working-directory: canonical_candidate/engineering_workbench
         run: |
