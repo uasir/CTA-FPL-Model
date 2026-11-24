@@ -62,6 +62,7 @@ jobs:
           python -m py_compile scripts/build_2pm_dastan_sequence_dataset.py
           python -m py_compile scripts/rebuild_2pm_dastan_286_candidate.py
           python -m py_compile scripts/audit_2pm_dastan_286_candidate.py
+          python -m py_compile tests/test_audit_2pm_dastan_286_candidate.py
           python -m py_compile scripts/build_2pm_predeadline_market_snapshot.py
           python -m py_compile scripts/rebuild_2pm_fixture_context.py
           python -m py_compile scripts/build_2pm_postmatch_state_vectors.py
