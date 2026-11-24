@@ -43,6 +43,7 @@ VAASTAV_REPO = "vaastav/Fantasy-Premier-League"
 FPLCACHE_REPO = "Randdalf/fplcache"
 
 MERGED_GW_REPAIR_LOG: list[dict[str, Any]] = []
+CSV_PARSER_INSTALLED = False
 POSITION_VALUES = {"GK", "DEF", "MID", "FWD"}
 
 
@@ -131,6 +132,9 @@ def read_merged_gw_with_name_repair(path: Path) -> pd.DataFrame:
 
 def install_merged_gw_csv_parser() -> None:
     """Use the strict parser for Vaastav merged_gw.csv reads in this process."""
+    global CSV_PARSER_INSTALLED
+    if CSV_PARSER_INSTALLED:
+        return
     original_read_csv = pd.read_csv
 
     def patched_read_csv(filepath_or_buffer, *args, **kwargs):
@@ -226,6 +230,7 @@ def build_point_in_time_target_candidate(
     gameweek: int,
     workers: int = 12,
 ) -> dict[str, Any]:
+    MERGED_GW_REPAIR_LOG.clear()
     season_report = vintage_report["seasons"][season]
     gw_report = season_report["gameweeks"][str(gameweek)]
     source_report = gw_report.get("source", {})
