@@ -75,7 +75,7 @@ jobs:
               for field, stats in source["audit"]["fields"].items():
                   lines.append(f"- {field}: present={stats['source_column_present']}, finite={stats['finite_values']}, missing={stats['missing_values']}, zero={stats['observed_zero_values']}, nonzero={stats['observed_nonzero_values']}")
               lines.append(f"- Gameweeks represented: {', '.join(source['audit']['gameweeks'].keys())}")
-          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\\n".join(lines) + "\\n")
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines) + "\n")
           PY
       - name: Upload source coverage audit
         if: always()
