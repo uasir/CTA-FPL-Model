@@ -4,6 +4,7 @@ import pytest
 from types import SimpleNamespace
 
 from rebuild_2pm_dastan_286_candidate import (
+    _json_default,
     attach_match_availability_bounds,
     corrected_assignments,
 )
@@ -129,3 +130,14 @@ def test_official_deadline_marks_started_fixtures_ineligible_without_dropping_hi
     report = result.attrs["deadline_target_eligibility"]
     assert report["rows_excluded_started_by_deadline"] == 1
     assert report["rows_after"] == 1
+
+
+def test_candidate_report_json_serializer_handles_pandas_and_numpy_scalars():
+    import numpy as np
+
+    timestamp = pd.Timestamp("2026-11-24T01:31:30.123456789Z")
+    assert _json_default(timestamp) == "2026-11-24T01:31:30.123456789+00:00"
+    assert _json_default(pd.NaT) is None
+    assert _json_default(np.int64(7)) == 7
+    assert _json_default(np.float64(2.5)) == 2.5
+    assert _json_default(np.bool_(True)) is True
