@@ -139,8 +139,9 @@ def install_merged_gw_csv_parser() -> None:
     original_read_csv = pd.read_csv
 
     def patched_read_csv(filepath_or_buffer, *args, **kwargs):
-        if isinstance(filepath_or_buffer, (str, Path)) and str(filepath_or_buffer).endswith("/gws/merged_gw.csv"):
-            frame = read_merged_gw_with_name_repair(Path(filepath_or_buffer))
+        source_path = getattr(filepath_or_buffer, "name", filepath_or_buffer)
+        if str(source_path).endswith("merged_gw.csv"):
+            frame = read_merged_gw_with_name_repair(Path(source_path))
             usecols = kwargs.get("usecols")
             if usecols is not None:
                 if callable(usecols):
