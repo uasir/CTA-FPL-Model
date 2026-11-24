@@ -77,7 +77,7 @@ class PrepareDefensiveAuditInputsTests(unittest.TestCase):
             self.assertNotIn("target_points", requested_columns)
             self.assertNotIn("total_points", requested_columns)
             self.assertEqual(report["metadata_files_copied"], 1)
-            self.assertTrue((output / "metadata_2025-26" / f"{metadata.parent.name}__{metadata.name}").is_file())
+            self.assertTrue((output / "metadata_2025-26" / metadata.parent.name / metadata.name).is_file())
 
 
 if __name__ == "__main__":
