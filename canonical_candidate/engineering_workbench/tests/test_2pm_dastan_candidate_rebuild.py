@@ -71,13 +71,23 @@ def test_fixture_availability_uses_conservative_upper_bound_and_finished_flag(tm
     source = SimpleNamespace(VAASTAV_RAW="https://example.invalid/")
     frame = pd.DataFrame(
         [
-            {"season": "2025-26", "fixture": 11},
-            {"season": "2025-26", "fixture": 12},
+            {
+                "season": "2025-26", "fixture": 11,
+                "kickoff_time": "2026-01-01T11:00:00Z",
+            },
+            {
+                "season": "2025-26", "fixture": 12,
+                "kickoff_time": "2026-01-03T12:00:00Z",
+            },
         ]
     )
     result = attach_match_availability_bounds(
         frame, tmp_path, source, ["2025-26"]
     )
+    # Candidate and availability timestamps must use one fixture-calendar clock.
+    assert result.loc[0, "candidate_kickoff_time"] == pd.Timestamp("2026-01-01T11:00:00Z")
+    assert result.loc[0, "kickoff_time"] == pd.Timestamp("2026-01-01T12:00:00Z")
+    assert result.attrs["fixture_kickoff_reconciliation"]["rows_with_candidate_kickoff_mismatch"] == 1
     assert result.loc[0, "match_available_at"] == pd.Timestamp("2026-01-02T12:00:00Z")
     assert pd.isna(result.loc[1, "match_available_at"])
     assert result["completion_time_quality"].tolist() == [
