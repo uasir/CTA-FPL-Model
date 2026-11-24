@@ -238,11 +238,12 @@ def attach_match_availability_bounds(
     *,
     force: bool = False,
 ) -> pd.DataFrame:
-    """Attach a conservative 24-hour post-kickoff availability upper bound.
+    """Attach canonical fixture kickoff and its conservative availability bound.
 
-    Vaastav fixture archives expose kickoff and finished status, not an exact
-    completion timestamp. The bound intentionally excludes borderline matches
-    rather than inventing an exact finish time.
+    Vaastav's fixture calendar is the common kickoff-time authority for the
+    availability bound and all downstream post-match state checks. Preserve the
+    incoming candidate kickoff for discrepancy auditing rather than comparing
+    availability derived from one source against kickoff from another.
     """
     fixture_frames = []
     for season in seasons:
@@ -270,7 +271,7 @@ def attach_match_availability_bounds(
         fixture_frames.append(
             fixtures[
                 [
-                    "season", "fixture", "match_available_at",
+                    "season", "fixture", "kickoff_time", "match_available_at",
                     "completion_time_quality",
                 ]
             ]
@@ -278,7 +279,14 @@ def attach_match_availability_bounds(
     calendar = pd.concat(fixture_frames, ignore_index=True)
     if calendar.duplicated(["season", "fixture"]).any():
         raise ValueError("Fixture availability calendar has duplicate season/fixture keys")
-    out = frame.merge(
+    calendar = calendar.rename(columns={"kickoff_time": "calendar_kickoff_time"})
+    out = frame.copy()
+    out["season"] = out["season"].astype(str)
+    out["fixture"] = out["fixture"].astype(str)
+    out["candidate_kickoff_time"] = pd.to_datetime(
+        out["kickoff_time"], utc=True, errors="coerce"
+    )
+    out = out.merge(
         calendar,
         on=["season", "fixture"],
         how="left",
@@ -292,6 +300,20 @@ def attach_match_availability_bounds(
             "Candidate rows lack fixture completion metadata: "
             f"{missing.head(10).to_dict('records')}"
         )
+    if out["calendar_kickoff_time"].isna().any():
+        raise ValueError("Canonical fixture calendar contains missing kickoff timestamps")
+    out["kickoff_time"] = out["calendar_kickoff_time"]
+    mismatch = out["candidate_kickoff_time"].ne(out["calendar_kickoff_time"])
+    report = {
+        "calendar_authority": "pinned Vaastav fixture kickoff_time",
+        "rows_with_candidate_kickoff_mismatch": int(mismatch.sum()),
+        "mismatch_sample": out.loc[
+            mismatch,
+            ["season", "fixture", "candidate_kickoff_time", "calendar_kickoff_time"],
+        ].head(20).astype({"season": "string", "fixture": "string"}).to_dict("records"),
+        "availability_rule": "calendar kickoff_time + 24h for fixtures marked finished",
+    }
+    out.attrs["fixture_kickoff_reconciliation"] = report
     return out
 
 
@@ -575,6 +597,25 @@ def build_candidate(
     loaded = attach_match_availability_bounds(
         loaded, raw_dir, sources, seasons, force=force
     )
+    fixture_kickoff_reconciliation = loaded.attrs.get(
+        "fixture_kickoff_reconciliation", {}
+    )
+    # Re-evaluate target eligibility against the same canonical fixture kickoff
+    # used to derive match_available_at; never mix kickoff timestamps from sources.
+    loaded["deadline_time"] = pd.to_datetime(loaded["deadline_time"], utc=True)
+    loaded["forecast_target_eligible"] = loaded["kickoff_time"].gt(
+        loaded["deadline_time"]
+    )
+    deadline_target_eligibility = {
+        "rows_before": int(len(loaded)),
+        "rows_excluded_started_by_deadline": int(
+            (~loaded["forecast_target_eligible"]).sum()
+        ),
+        "rows_after": int(loaded["forecast_target_eligible"].sum()),
+        "kickoff_authority": "pinned Vaastav fixture calendar",
+        "kickoff_reconciliation": fixture_kickoff_reconciliation,
+        "policy": "Only fixtures kicking off strictly after the official Gameweek deadline remain forecast targets; all fixtures remain available for historical state reconstruction.",
+    }
     # Restore canonical fixture identity/context from the raw player-match table.
     # The upstream release frame may have anchored ar_* values across a DGW;
     # rebuild the six fixture-specific context fields after that anchor.
@@ -599,14 +640,17 @@ def build_candidate(
         validate="one_to_one",
     )
     fixture_availability = loaded[
-        ["season", "fixture", "match_available_at"]
+        ["season", "fixture", "kickoff_time", "match_available_at"]
     ].drop_duplicates(["season", "fixture"])
-    history_matches = context_matches.merge(
+    fixture_availability = fixture_availability.rename(
+        columns={"kickoff_time": "calendar_kickoff_time"}
+    )
+    history_matches = context_matches.drop(columns=["kickoff_time"], errors="ignore").merge(
         fixture_availability,
         on=["season", "fixture"],
         how="left",
         validate="many_to_one",
-    )
+    ).rename(columns={"calendar_kickoff_time": "kickoff_time"})
     # Preserve reconstruction inputs for the post-match sequence stage.
     history_matches.to_parquet(
         output_dir / "player_matches_with_availability.parquet", index=False
