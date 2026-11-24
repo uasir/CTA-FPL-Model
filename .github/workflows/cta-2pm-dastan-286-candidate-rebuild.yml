@@ -52,8 +52,7 @@ jobs:
         run: |
           echo "::error::No reusable candidate cache exists. Refusing to start the four-season rebuild because rebuild_candidate was not explicitly enabled."
           exit 1
-      - name: Install data reconstruction dependencies
-        if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate == true
+      - name: Install tensor and reconstruction dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install numpy pandas pyarrow understatapi==0.7.1
