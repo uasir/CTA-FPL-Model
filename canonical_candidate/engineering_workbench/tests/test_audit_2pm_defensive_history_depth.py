@@ -43,7 +43,7 @@ class DefensiveHistoryDepthTests(unittest.TestCase):
             root = Path(tmp)
             source_path = root / "merged_gw.csv"
             fixtures_path = root / "fixtures.csv"
-            crosswalk_path = root / "crosswalk.csv"
+            players_raw_path = root / "players_raw.csv"
             metadata_dir = root / "metadata"
             metadata_dir.mkdir()
 
@@ -68,7 +68,7 @@ class DefensiveHistoryDepthTests(unittest.TestCase):
                 {"id": 3, "kickoff_time": "2026-01-03T12:00:00Z", "finished": True},
                 {"id": 4, "kickoff_time": "2026-01-05T12:00:00Z", "finished": False},
             ]).to_csv(fixtures_path, index=False)
-            pd.DataFrame([{"fpl_code": 10, "element": 10}]).to_csv(crosswalk_path, index=False)
+            pd.DataFrame([{"id": 10, "code": 10}]).to_csv(players_raw_path, index=False)
             pd.DataFrame([{
                 "season": "2025-26", "gameweek": 4, "fpl_code": 10,
                 "target_deadline_time": "2026-01-04T12:30:00Z",
@@ -76,7 +76,7 @@ class DefensiveHistoryDepthTests(unittest.TestCase):
             }]).to_csv(metadata_dir / "metadata_player_gw_00000.csv", index=False)
 
             report, detail = audit_history_depth(
-                source_path, fixtures_path, metadata_dir, crosswalk_path
+                source_path, fixtures_path, metadata_dir, players_raw_path
             )
             player = detail.loc[detail["feature"].eq("ar_defensive_contribution_3")].iloc[0]
             opponent = detail.loc[detail["feature"].eq("ar_opp_dc_allowed_3")].iloc[0]
