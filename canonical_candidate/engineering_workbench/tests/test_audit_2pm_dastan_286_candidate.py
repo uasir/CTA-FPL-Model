@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from audit_2pm_dastan_286_candidate import audit_frame
+from rebuild_2pm_dastan_286_candidate import audit_defensive_source_coverage
 from build_2pm_dastan_sequence_dataset import load_schema
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,3 +85,40 @@ def test_defensive_feature_coverage_distinguishes_missing_from_observed_zero():
     assert new["observed_zero_values"] == len(defensive)
     assert all(old["per_feature"][column]["missing_values"] == 1 for column in defensive)
     assert all(new["per_feature"][column]["observed_zero_values"] == 1 for column in defensive)
+
+
+
+def test_defensive_source_coverage_distinguishes_absent_column_from_missing_rows(tmp_path):
+    season_dir = tmp_path / "vaastav" / "2024-25"
+    season_dir.mkdir(parents=True)
+    source = season_dir / "merged_gw.csv"
+    source.write_text(
+        "element,minutes,defensive_contribution,recoveries,tackles\\n"
+        "1,90,0,3,1\\n"
+        "2,0,0,0,0\\n"
+        "3,90,,2,0\\n",
+        encoding="utf-8",
+    )
+    player_matches = pd.DataFrame(
+        {
+            "season": ["2024-25", "2024-25", "2024-25"],
+            "minutes": [90, 0, 90],
+            "defensive_contribution": [0.0, 0.0, float("nan")],
+            "clearances_blocks_interceptions": [float("nan")] * 3,
+            "recoveries": [3.0, 0.0, 2.0],
+            "tackles": [1.0, 0.0, 0.0],
+        }
+    )
+    report = audit_defensive_source_coverage(
+        tmp_path, ["2024-25"], player_matches
+    )
+    fields = report["seasons"]["2024-25"]["source_column_audit"]
+    assert fields["defensive_contribution"]["source_column_present"] is True
+    assert fields["defensive_contribution"]["played_rows"] == 2
+    assert fields["defensive_contribution"]["finite_values"] == 1
+    assert fields["defensive_contribution"]["observed_zero_values"] == 1
+    assert fields["defensive_contribution"]["missing_values"] == 1
+    assert fields["clearances_blocks_interceptions"]["source_column_present"] is False
+    assert fields["clearances_blocks_interceptions"]["finite_values"] == 0
+    assert fields["recoveries"]["finite_values"] == 2
+    assert fields["recoveries"]["observed_nonzero_values"] == 2
