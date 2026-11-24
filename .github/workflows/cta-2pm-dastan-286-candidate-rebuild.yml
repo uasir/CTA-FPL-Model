@@ -179,6 +179,20 @@ jobs:
               summary.write_text("## 2PM Dastan 286 candidate rebuild\n\nRebuild did not produce a candidate report.\n\n```text\n" + tail + "\n```\n")
           PY
           cat "$RUNNER_TEMP/2pm-dastan-step-summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload 2PM tensor dataset and audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2pm-four-season-tensor-candidate-run-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/2pm-dastan-candidate/postmatch-grouped-dataset/
+            ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json
+            ${{ runner.temp }}/2pm-dastan-candidate/snapshot_provenance_sanitization.json
+            ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json
+            ${{ runner.temp }}/2pm-dastan-step-summary.md
+          if-no-files-found: warn
+          retention-days: 30
+          compression-level: 1
       - name: Save pinned Dastan raw-source cache
         if: always() && steps.raw-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
