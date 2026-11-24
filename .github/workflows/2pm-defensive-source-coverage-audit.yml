@@ -1,0 +1,87 @@
+name: 2PM defensive experiment source coverage audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: 2pm-defensive-source-coverage-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v4
+      - name: Check out pinned 2025/26 Vaastav source
+        uses: actions/checkout@v4
+        with:
+          repository: vaastav/Fantasy-Premier-League
+          ref: 8c97b2adb123863c3dd581e730f1360e89815ac2
+          path: source-2025-26
+      - name: Check out frozen 2026/27 Vaastav source snapshot
+        uses: actions/checkout@v4
+        with:
+          repository: vaastav/Fantasy-Premier-League
+          ref: 7ca01d3821a68ced454cd1f2195be40ed697629b
+          path: source-2026-27
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install audit dependency
+        run: python -m pip install pandas
+      - name: Audit only source coverage fields (never load total_points)
+        env:
+          COMMIT_2025_26: 8c97b2adb123863c3dd581e730f1360e89815ac2
+          COMMIT_DATE_2025_26: "2026-08-08"
+          COMMIT_2026_27: 7ca01d3821a68ced454cd1f2195be40ed697629b
+          COMMIT_DATE_2026_27: "2026-11-24"
+        run: |
+          python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_audit_2pm_defensive_source_snapshots.py' -v
+          python canonical_candidate/engineering_workbench/scripts/audit_2pm_defensive_source_snapshots.py \
+            --source-2025-26 source-2025-26/data/2025-26/gws/merged_gw.csv \
+            --source-2026-27 source-2026-27/data/2026-27/gws/merged_gw.csv \
+            --commit-2025-26 "$COMMIT_2025_26" \
+            --commit-date-2025-26 "$COMMIT_DATE_2025_26" \
+            --commit-2026-27 "$COMMIT_2026_27" \
+            --commit-date-2026-27 "$COMMIT_DATE_2026_27" \
+            --output "$RUNNER_TEMP/defensive_source_coverage.json" \
+            > "$RUNNER_TEMP/defensive_source_coverage.log"
+      - name: Publish aggregate coverage without exposing target scores
+        if: always()
+        env:
+          REPORT: ${{ runner.temp }}/defensive_source_coverage.json
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p = Path(os.environ["REPORT"])
+          if not p.exists():
+              raise SystemExit("Coverage report missing")
+          report = json.loads(p.read_text())
+          lines = ["## 2PM defensive experiment: source coverage audit",
+                   "- Target-score columns were not loaded.",
+                   "- This audit verifies source coverage only; it does not authorize training."]
+          for season, source in report["sources"].items():
+              lines.append(f"### {season}")
+              lines.append(f"- Source commit: `{source['commit']}`")
+              lines.append(f"- File SHA-256: `{source['source_file_sha256']}`")
+              lines.append(f"- Played player-fixture rows: {source['audit']['played_player_fixture_rows']}")
+              for field, stats in source["audit"]["fields"].items():
+                  lines.append(f"- {field}: present={stats['source_column_present']}, finite={stats['finite_values']}, missing={stats['missing_values']}, zero={stats['observed_zero_values']}, nonzero={stats['observed_nonzero_values']}")
+              lines.append(f"- Gameweeks represented: {', '.join(source['audit']['gameweeks'].keys())}")
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\\n".join(lines) + "\\n")
+          PY
+      - name: Upload source coverage audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2pm-defensive-source-coverage-audit
+          path: ${{ runner.temp }}/defensive_source_coverage.json
+          if-no-files-found: warn
+          retention-days: 30
