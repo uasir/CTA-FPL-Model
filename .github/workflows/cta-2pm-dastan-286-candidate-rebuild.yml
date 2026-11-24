@@ -77,6 +77,13 @@ jobs:
         with:
           path: ${{ runner.temp }}/2pm-dastan-candidate
           key: 2pm-dastan-candidate-v2-2022-23-through-2025-26-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
+      - name: Enforce official-deadline snapshot safety on candidate features
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/sanitize_2pm_candidate_snapshot_provenance.py \
+            --input "$RUNNER_TEMP/2pm-dastan-candidate/features_286_candidate.parquet" \
+            --report "$RUNNER_TEMP/2pm-dastan-candidate/snapshot_provenance_sanitization.json" \
+            --safety-buffer-minutes 5
       - name: Audit candidate frame and build post-match player-Gameweek tensors
         working-directory: canonical_candidate/engineering_workbench
         env:
@@ -98,6 +105,7 @@ jobs:
           REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json
           LOG_PATH: ${{ runner.temp }}/2pm-dastan-rebuild.log
           AUDIT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json
+          SNAPSHOT_SANITIZATION_PATH: ${{ runner.temp }}/2pm-dastan-candidate/snapshot_provenance_sanitization.json
           TENSOR_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/postmatch-grouped-dataset/postmatch_grouped_dataset_report.json
           SUMMARY_PATH: ${{ runner.temp }}/2pm-dastan-step-summary.md
         run: |
@@ -135,6 +143,12 @@ jobs:
                   "- This is a candidate rebuild, not point-in-time admission or model training.",
                   "- Season split defines the intended research evaluation; no model fitting or evaluation is performed by this workflow."
               ]
+              sanitization_path = Path(os.environ["SNAPSHOT_SANITIZATION_PATH"])
+              if sanitization_path.exists():
+                  sanitization = json.loads(sanitization_path.read_text())
+                  lines.append("- Snapshot provenance safety sanitization (official deadline, five-minute buffer):")
+                  for name, values in sanitization.get("groups", {}).items():
+                      lines.append(f"  - {name}: {values.get('rows_invalidated')} rows invalidated; {values.get('rows_retained')} retained")
               audit_path = Path(os.environ["AUDIT_PATH"])
               if audit_path.exists():
                   audit = json.loads(audit_path.read_text())
