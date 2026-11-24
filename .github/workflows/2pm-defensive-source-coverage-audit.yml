@@ -1,6 +1,9 @@
 name: 2PM defensive experiment source coverage audit
 
 on:
+  push:
+    branches:
+      - feat/2pm-defensive-2025-26-train-2026-27-oot
   workflow_dispatch:
 
 permissions:
