@@ -109,12 +109,20 @@ def audit_history_depth(
     source_path: Path,
     fixtures_path: Path,
     metadata_dir: Path,
+    identity_crosswalk_path: Path,
 ) -> tuple[dict[str, Any], pd.DataFrame]:
     metadata = _load_metadata(metadata_dir)
 
+    crosswalk = pd.read_csv(identity_crosswalk_path, usecols=["fpl_code", "element"])
+    crosswalk["fpl_code"] = pd.to_numeric(crosswalk["fpl_code"], errors="raise").astype(int)
+    crosswalk["element"] = pd.to_numeric(crosswalk["element"], errors="raise").astype(int)
+    if crosswalk["fpl_code"].duplicated().any() or crosswalk["element"].duplicated().any():
+        raise ValueError("Identity crosswalk must be one-to-one for 2025/26")
+
     source = pd.read_csv(source_path, usecols=list(SOURCE_COLUMNS))
     source["fixture"] = source["fixture"].astype(str)
-    source["fpl_code"] = pd.to_numeric(source["element"], errors="raise").astype(int)
+    source["element"] = pd.to_numeric(source["element"], errors="raise").astype(int)
+    source["fpl_code"] = source["element"].map(crosswalk.set_index("element")["fpl_code"])
     source["team"] = pd.to_numeric(source["team"], errors="coerce")
     source["opponent_team"] = pd.to_numeric(source["opponent_team"], errors="coerce")
     source["kickoff_time"] = pd.to_datetime(source["kickoff_time"], utc=True, errors="coerce")
@@ -294,10 +302,11 @@ def main() -> None:
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--fixtures", type=Path, required=True)
     parser.add_argument("--metadata-dir", type=Path, required=True)
+    parser.add_argument("--identity-crosswalk", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--detail-output", type=Path, required=True)
     args = parser.parse_args()
-    report, detail = audit_history_depth(args.source, args.fixtures, args.metadata_dir)
+    report, detail = audit_history_depth(args.source, args.fixtures, args.metadata_dir, args.identity_crosswalk)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.detail_output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
