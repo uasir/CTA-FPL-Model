@@ -23,7 +23,14 @@
     "validation_cutoff": "PENDING_2025_26_LABELLED_GW_COVERAGE_AUDIT",
     "oot_gameweeks": "completed_2026_27_gameweeks_at_frozen_data_cutoff",
     "random_split": false,
-    "keep_player_gameweek_groups_atomic": true
+    "keep_player_gameweek_groups_atomic": true,
+    "cutoff_candidate_screening": {
+      "min_training_gameweeks": 1,
+      "min_validation_gameweeks": 1,
+      "selection": "not_automatic_review_sample_counts_then_predeclare",
+      "random_split": false
+    },
+    "labelled_gameweek_coverage_audit_script": "canonical_candidate/engineering_workbench/scripts/audit_2pm_2025_26_labelled_gw_coverage.py"
   },
   "arms": [
     {
@@ -47,7 +54,8 @@
     "preserve_2024_25_boundary_missingness": true,
     "audit_by_feature_gameweek_player_and_history_depth": true,
     "warmup_policy": "PENDING_AUDIT_AND_PREDECLARED_COMMON_SAMPLE_POLICY",
-    "imputation_fit_partition": "training_only"
+    "imputation_fit_partition": "training_only",
+    "warmup_audit_script": "canonical_candidate/engineering_workbench/scripts/audit_2pm_defensive_warmup.py"
   },
   "holdout_protection": {
     "do_not_load_oot_labels_during_feature_or_model_selection": true,
@@ -98,5 +106,6 @@
     "recommendations"
   ],
   "main_four_season_experiment_must_remain_unchanged": true,
-  "expensive_four_season_candidate_rebuild_must_not_be_rerun": true
+  "expensive_four_season_candidate_rebuild_must_not_be_rerun": true,
+  "feature_arm_manifest_script": "canonical_candidate/engineering_workbench/scripts/prepare_2pm_defensive_feature_arms.py"
 }
