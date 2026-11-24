@@ -55,8 +55,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install audit dependency
-        run: python -m pip install pandas pyarrow
+      - name: Install point-in-time audit and Dastan dependencies
+        run: python -m pip install numpy pandas pyarrow scipy==1.13.1 scikit-learn==1.6.1 understatapi==0.7.1
       - name: Audit only source coverage fields (never load total_points)
         env:
           COMMIT_2025_26: 8c97b2adb123863c3dd581e730f1360e89815ac2
