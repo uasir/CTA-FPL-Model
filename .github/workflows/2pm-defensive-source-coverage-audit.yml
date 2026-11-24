@@ -69,9 +69,19 @@ jobs:
           if not p.exists():
               raise SystemExit("Coverage report missing")
           report = json.loads(p.read_text())
+          manifest_path = p.parent / "defensive_feature_arms.json"
+          manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else None
           lines = ["## 2PM defensive experiment: source coverage audit",
                    "- Target-score columns were not loaded.",
                    "- This audit verifies source coverage only; it does not authorize training."]
+          if manifest:
+              lines.extend([
+                  "## Matched feature arms",
+                  f"- Baseline: {manifest['arms']['baseline']['feature_count']} features",
+                  f"- Defensive enhanced: {manifest['arms']['defensive_enhanced']['feature_count']} features",
+                  f"- Defensive block: {manifest['defensive_feature_count']} schema-derived features",
+                  "- Both arms must use the identical player-Gameweek sample intersection.",
+              ])
           for season, source in report["sources"].items():
               lines.append(f"### {season}")
               lines.append(f"- Source commit: `{source['commit']}`")
