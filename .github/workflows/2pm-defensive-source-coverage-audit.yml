@@ -121,6 +121,30 @@ jobs:
               for field, stats in source["audit"]["fields"].items():
                   lines.append(f"- {field}: present={stats['source_column_present']}, finite={stats['finite_values']}, missing={stats['missing_values']}, zero={stats['observed_zero_values']}, nonzero={stats['observed_nonzero_values']}")
               lines.append(f"- Gameweeks represented: {', '.join(source['audit']['gameweeks'].keys())}")
+          warmup_path = p.parent / "defensive-warmup-audit.json"
+          if warmup_path.exists():
+              warmup = json.loads(warmup_path.read_text())
+              lines.extend([
+                  "## 2025/26 defensive rolling-feature warm-up",
+                  f"- Candidate rows audited: {warmup['candidate_rows']} ({warmup['identity_grain']})",
+                  f"- Defensive features: {warmup['defensive_feature_count']}",
+                  f"- Gameweeks represented: {len(warmup['distinct_gameweeks'])}",
+                  "- Complete 27-feature rows by GW: " + ", ".join(
+                      f"GW{gw}: {stats['complete_27_feature_rows']}/"
+                      f"{stats.get('player_fixture_rows', stats.get('player_gameweek_rows'))}"
+                      for gw, stats in warmup["gameweek_level"].items()
+                  ),
+                  "- No target-score columns were loaded for this audit.",
+              ])
+          labels_path = p.parent / "defensive-labelled-gw-coverage.json"
+          if labels_path.exists():
+              labels = json.loads(labels_path.read_text())
+              lines.extend([
+                  "## 2025/26 chronological split coverage (cutoff not selected)",
+                  f"- Labelled player-Gameweek samples: {labels['labelled_player_gameweek_samples']}",
+                  f"- Gameweeks represented: {labels['gameweek_count']}",
+                  "- Candidate cutoffs are descriptive only; training remains unauthorized.",
+              ])
           Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines) + "\n")
           PY
       - name: Upload source coverage audit
