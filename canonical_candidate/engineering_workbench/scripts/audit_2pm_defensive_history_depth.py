@@ -109,11 +109,13 @@ def audit_history_depth(
     source_path: Path,
     fixtures_path: Path,
     metadata_dir: Path,
-    identity_crosswalk_path: Path,
+    players_raw_path: Path,
 ) -> tuple[dict[str, Any], pd.DataFrame]:
     metadata = _load_metadata(metadata_dir)
 
-    crosswalk = pd.read_csv(identity_crosswalk_path, usecols=["fpl_code", "element"])
+    crosswalk = pd.read_csv(players_raw_path, usecols=["id", "code"]).rename(
+        columns={"id": "element", "code": "fpl_code"}
+    )
     crosswalk["fpl_code"] = pd.to_numeric(crosswalk["fpl_code"], errors="raise").astype(int)
     crosswalk["element"] = pd.to_numeric(crosswalk["element"], errors="raise").astype(int)
     if crosswalk["fpl_code"].duplicated().any() or crosswalk["element"].duplicated().any():
@@ -302,11 +304,11 @@ def main() -> None:
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--fixtures", type=Path, required=True)
     parser.add_argument("--metadata-dir", type=Path, required=True)
-    parser.add_argument("--identity-crosswalk", type=Path, required=True)
+    parser.add_argument("--players-raw", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--detail-output", type=Path, required=True)
     args = parser.parse_args()
-    report, detail = audit_history_depth(args.source, args.fixtures, args.metadata_dir, args.identity_crosswalk)
+    report, detail = audit_history_depth(args.source, args.fixtures, args.metadata_dir, args.players_raw)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.detail_output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
