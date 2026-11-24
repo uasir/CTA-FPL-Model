@@ -369,6 +369,22 @@ def audit_market_value_parity(
         right = pd.to_numeric(joined[f"{column}_snapshot"], errors="coerce")
         valid = left.notna() & right.notna()
         difference = (left[valid] - right[valid]).abs()
+        def distribution(values: pd.Series) -> dict:
+            numeric = pd.to_numeric(values, errors="coerce").dropna()
+            if numeric.empty:
+                return {"count": 0}
+            return {
+                "count": int(len(numeric)),
+                "min": float(numeric.min()),
+                "p05": float(numeric.quantile(0.05)),
+                "median": float(numeric.median()),
+                "mean": float(numeric.mean()),
+                "p95": float(numeric.quantile(0.95)),
+                "max": float(numeric.max()),
+            }
+
+        paired_left = left[valid]
+        paired_right = right[valid]
         report["fields"][column] = {
             "valid_pairs": int(valid.sum()),
             "exact_match_rows": int(np.isclose(left[valid], right[valid], atol=1e-6).sum()),
@@ -379,10 +395,26 @@ def audit_market_value_parity(
             "mean_absolute_difference": float(difference.mean()) if len(difference) else None,
             "median_absolute_difference": float(difference.median()) if len(difference) else None,
             "p95_absolute_difference": float(difference.quantile(0.95)) if len(difference) else None,
+            "retrospective_distribution": distribution(paired_left),
+            "deadline_snapshot_distribution": distribution(paired_right),
+            "pearson_correlation": (
+                float(paired_left.corr(paired_right))
+                if len(paired_left) > 1 and paired_left.nunique() > 1 and paired_right.nunique() > 1
+                else None
+            ),
+            "spearman_correlation": (
+                float(paired_left.corr(paired_right, method="spearman"))
+                if len(paired_left) > 1 and paired_left.nunique() > 1 and paired_right.nunique() > 1
+                else None
+            ),
         }
     report["interpretation"] = (
-        "Comparison only; retrospective Vaastav values are not treated as deadline-safe truth. "
-        "Use differences to detect unit mismatches and snapshot-vintage drift."
+        "Diagnostic comparison only. Retrospective Vaastav player-fixture fields and "
+        "deadline-anchored fplcache player-Gameweek snapshots are different source "
+        "artifacts and may represent different capture times or semantics. Distribution "
+        "and rank-correlation diagnostics help identify scale/definition differences; "
+        "neither exact parity nor correlation proves historical point-in-time validity. "
+        "Do not normalize or admit a field from this comparison alone."
     )
     return report
 
