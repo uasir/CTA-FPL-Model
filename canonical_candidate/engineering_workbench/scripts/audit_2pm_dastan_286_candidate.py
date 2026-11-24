@@ -138,10 +138,23 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
     defensive = [column for column in features if column.startswith(DEFENSIVE_PREFIXES)]
     for season, rows in frame.groupby("season", sort=True):
         block = numeric.loc[rows.index, defensive] if defensive else pd.DataFrame(index=rows.index)
+        finite = np.isfinite(block.to_numpy(dtype=float)) if defensive else np.empty((len(rows), 0), dtype=bool)
         defensive_coverage[str(season)] = {
             "rows": int(len(rows)),
             "columns": len(defensive),
-            "finite_values": int(np.isfinite(block.to_numpy(dtype=float)).sum()) if defensive else 0,
+            "finite_values": int(finite.sum()),
+            "missing_values": int(block.isna().sum().sum()) if defensive else 0,
+            "observed_zero_values": int(block.eq(0.0).sum().sum()) if defensive else 0,
+            "observed_nonzero_values": int((block.notna() & block.ne(0.0)).sum().sum()) if defensive else 0,
+            "per_feature": {
+                column: {
+                    "finite_values": int(np.isfinite(block[column].to_numpy(dtype=float)).sum()),
+                    "missing_values": int(block[column].isna().sum()),
+                    "observed_zero_values": int(block[column].eq(0.0).sum()),
+                    "observed_nonzero_values": int((block[column].notna() & block[column].ne(0.0)).sum()),
+                }
+                for column in defensive
+            },
             "all_zero_columns": [
                 column for column in defensive
                 if len(block) and block[column].notna().all() and block[column].eq(0).all()
