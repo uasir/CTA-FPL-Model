@@ -101,7 +101,7 @@ jobs:
           python scripts/audit_2pm_grouped_tensor_artifacts.py \
             --dataset-dir "$RUNNER_TEMP/2pm-dastan-candidate/postmatch-grouped-dataset" \
             --out "$RUNNER_TEMP/2pm-dastan-candidate/postmatch-grouped-dataset/tensor_artifact_integrity_audit.json"
-      - name: Publish aggregate candidate status only
+      - name: Publish candidate status and tensor integrity summary
         if: always()
         env:
           REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json
@@ -142,7 +142,7 @@ jobs:
                   f"- Own/opponent rolling team features rebuilt: {report.get('deadline_team_context_reconstruction', {}).get('team_feature_count')} / {report.get('deadline_team_context_reconstruction', {}).get('opponent_feature_count')}",
                   f"- Fixture-context fields rebuilt: {len(report.get('fixture_context_reconstruction', {}).get('fixture_context_columns', []))}",
                   f"- 286-family reconstruction coverage: {report.get('reconstruction_coverage', {}).get('reconstruction_path_total')}/286",
-                  "- Full player-level feature data and source files were kept runner-local; no data artifacts were uploaded.",
+                  "- The full candidate feature frame and raw source files remain runner-local; grouped tensor shards and audit reports are uploaded as a 30-day artifact.",
                   "- This is a candidate rebuild, not point-in-time admission or model training.",
                   "- Season split defines the intended research evaluation; no model fitting or evaluation is performed by this workflow."
               ]
