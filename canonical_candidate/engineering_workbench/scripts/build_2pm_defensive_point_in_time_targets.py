@@ -84,6 +84,7 @@ def read_merged_gw_with_name_repair(path: Path) -> pd.DataFrame:
                         f"Cannot uniquely locate position token at "
                         f"{path}:{line_number}; candidates={candidates}"
                     )
+                original_extra_fields = len(row) - len(header)
                 position_index = candidates[0]
                 repaired = [",".join(row[:position_index]).strip(), *row[position_index:]]
                 if len(repaired) != len(header):
@@ -108,7 +109,7 @@ def read_merged_gw_with_name_repair(path: Path) -> pd.DataFrame:
                 repairs.append({
                     "path": path.as_posix(),
                     "line_number": line_number,
-                    "extra_fields": len(row) - len(header),
+                    "extra_fields": original_extra_fields,
                     "repair": "joined leading name fragments before position",
                     "name": row[positions["name"]] if "name" in positions else row[0],
                 })
@@ -451,6 +452,11 @@ def build_point_in_time_target_candidate(
         "target_snapshot_age_hours": round(snapshot_age_hours, 4),
         "target_snapshot_path": snapshot_path,
         "source_vintage_status": vintage_status,
+        "merged_gw_csv_repairs": {
+            "count": len(MERGED_GW_REPAIR_LOG),
+            "rows": MERGED_GW_REPAIR_LOG[-50:],
+            "policy": "only repaired unquoted leading name fragments when a unique position token and required identity/time fields validate; no rows dropped",
+        },
         "historical_player_fixture_rows": int(len(history)),
         "target_query_player_fixture_rows": int(len(queries)),
         "target_fixture_count": int(queries["fixture"].nunique()),
