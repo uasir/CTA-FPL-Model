@@ -1,0 +1,174 @@
+name: 2PM Dastan 286 corrected-identity candidate rebuild
+
+on:
+  workflow_dispatch:
+    inputs:
+      rebuild_candidate:
+        description: "Rebuild the four-season candidate (2022/23–2025/26) from raw sources (normally leave false)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cta-2pm-dastan-286-candidate-rebuild-current
+  cancel-in-progress: true
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out CTA-FPL-Model
+        uses: actions/checkout@v4
+      - name: Check out pinned Dastan source
+        uses: actions/checkout@v4
+        with:
+          repository: qazybekb/smartplayfpl-dastan
+          ref: 758db9247e8b3a9a870c991064f74d8339d61cd0
+          path: dastan-source
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Restore pinned Dastan raw-source cache
+        id: raw-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/2pm-dastan-raw
+          key: 2pm-dastan-raw-v3-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
+          restore-keys: |
+            2pm-dastan-raw-v3-${{ hashFiles('dastan-source/data/source_pins.json') }}-
+      - name: Restore completed four-season candidate cache
+        id: candidate-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/2pm-dastan-candidate
+          key: 2pm-dastan-candidate-v2-2022-23-through-2025-26-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
+      - name: Require explicit approval before an expensive four-season rebuild
+        if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate != true
+        run: |
+          echo "::error::No reusable candidate cache exists. Refusing to start the four-season rebuild because rebuild_candidate was not explicitly enabled."
+          exit 1
+      - name: Install data reconstruction dependencies
+        if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate == true
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pandas pyarrow understatapi==0.7.1
+      - name: Rebuild four-season corrected-identity 286-feature candidate
+        if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate == true
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/rebuild_2pm_dastan_286_candidate.py \
+            --dastan-root "$GITHUB_WORKSPACE/dastan-source" \
+            --raw-dir "$RUNNER_TEMP/2pm-dastan-raw" \
+            --output-dir "$RUNNER_TEMP/2pm-dastan-candidate" \
+            --seasons 2022-23,2023-24,2024-25,2025-26 \
+            --workers 12 \
+            --allow-missing-understat \
+            > "$RUNNER_TEMP/2pm-dastan-rebuild.log"
+      - name: Save completed candidate for downstream-only reruns
+        if: success() && steps.candidate-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/2pm-dastan-candidate
+          key: 2pm-dastan-candidate-v2-2022-23-through-2025-26-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
+      - name: Audit candidate frame and build post-match player-Gameweek tensors
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts
+        run: |
+          python scripts/audit_2pm_dastan_286_candidate.py \
+            --input "$RUNNER_TEMP/2pm-dastan-candidate/features_286_candidate.parquet" \
+            --out "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json"
+          python scripts/build_2pm_postmatch_grouped_dataset.py \
+            --dastan-root "$GITHUB_WORKSPACE/dastan-source" \
+            --candidate "$RUNNER_TEMP/2pm-dastan-candidate/features_286_candidate.parquet" \
+            --player-matches "$RUNNER_TEMP/2pm-dastan-candidate/player_matches_with_availability.parquet" \
+            --team-matches "$RUNNER_TEMP/2pm-dastan-candidate/team_matches.parquet" \
+            --output-dir "$RUNNER_TEMP/2pm-dastan-candidate/postmatch-grouped-dataset" \
+            > "$RUNNER_TEMP/2pm-dastan-candidate/postmatch_grouped_dataset_report.json"
+      - name: Publish aggregate candidate status only
+        if: always()
+        env:
+          REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json
+          LOG_PATH: ${{ runner.temp }}/2pm-dastan-rebuild.log
+          AUDIT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json
+          TENSOR_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/postmatch-grouped-dataset/postmatch_grouped_dataset_report.json
+          SUMMARY_PATH: ${{ runner.temp }}/2pm-dastan-step-summary.md
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          summary = Path(os.environ["SUMMARY_PATH"])
+          report_path = Path(os.environ["REPORT_PATH"])
+          if report_path.exists():
+              report = json.loads(report_path.read_text())
+              lines = [
+                  "## 2PM Dastan 286 candidate rebuild",
+                  "- Dataset scope: four seasons (2022/23–2025/26); 2020/21–2021/22 reserved for later generalisation testing.",
+                  "- Intended chronological use: train 2022/23–2023/24; validate 2024/25; out-of-time test 2025/26.",
+                  f"- Status: **{report.get('status')}**",
+                  f"- Admission: **{report.get('admission_status')}**",
+                  f"- Candidate rows: {report.get('candidate_rows')}",
+                  f"- Player-fixture rows excluded from forecast targets as already started: {report.get('deadline_target_eligibility', {}).get('rows_excluded_started_by_deadline')}",
+                  f"- Feature count: {report.get('candidate_feature_count')}",
+                  f"- Seasons: {', '.join(report.get('seasons', []))}",
+                  f"- Feature-order SHA-256: `{report.get('feature_order_sha256')}`",
+                  f"- Candidate SHA-256: `{report.get('candidate_sha256')}`",
+                  f"- Accepted pre-deadline market snapshot rows: {report.get('pre_deadline_snapshot_rows', {}).get('market')}",
+                  f"- Market retrospective parity rows compared: {report.get('market_value_parity_audit', {}).get('rows_compared')}",
+                  f"- Understat mapped played rows: {report.get('understat_player_coverage', {}).get('mapped_played_player_fixture_rows')}",
+                  f"- Understat player IDs with no xG history: {report.get('understat_player_coverage', {}).get('mapped_player_ids_with_no_xG_history')}",
+                  f"- Understat xG row coverage: {report.get('understat_player_coverage', {}).get('metric_coverage', {}).get('us_xG', {}).get('coverage_rate')}",
+                  f"- Player rolling/availability/defensive features rebuilt: {report.get('player_history_reconstruction', {}).get('player_rolling_feature_count')} / {report.get('player_history_reconstruction', {}).get('availability_feature_count')} / {report.get('player_history_reconstruction', {}).get('defensive_player_history_feature_count')}",
+                  f"- Deadline team snapshots reconstructed: {report.get('deadline_team_context_reconstruction', {}).get('team_deadline_snapshots_built')}",
+                  f"- Own/opponent rolling team features rebuilt: {report.get('deadline_team_context_reconstruction', {}).get('team_feature_count')} / {report.get('deadline_team_context_reconstruction', {}).get('opponent_feature_count')}",
+                  f"- Fixture-context fields rebuilt: {len(report.get('fixture_context_reconstruction', {}).get('fixture_context_columns', []))}",
+                  f"- 286-family reconstruction coverage: {report.get('reconstruction_coverage', {}).get('reconstruction_path_total')}/286",
+                  "- Full player-level feature data and source files were kept runner-local; no data artifacts were uploaded.",
+                  "- This is a candidate rebuild, not point-in-time admission or model training.",
+                  "- Season split defines the intended research evaluation; no model fitting or evaluation is performed by this workflow."
+              ]
+              audit_path = Path(os.environ["AUDIT_PATH"])
+              if audit_path.exists():
+                  audit = json.loads(audit_path.read_text())
+                  anchor = audit.get("same_player_gameweek_upstream_anchor_check", {})
+                  lines.extend([
+                      f"- Structural audit non-finite values: {audit.get('nonfinite_feature_values')}",
+                      f"- Selected-prefix same-player/GW groups with differences: {anchor.get('groups_with_differences')}",
+                      f"- Historical ep_next snapshots after deadline: {audit.get('snapshot_timestamps', {}).get('ep_next_snapshot_at', {}).get('post_deadline_rows')}",
+                      f"- Historical market snapshots after deadline: {audit.get('snapshot_timestamps', {}).get('market_snapshot_at', {}).get('post_deadline_rows')}",
+                      f"- Market snapshots inside five-minute safety buffer: {audit.get('snapshot_timestamps', {}).get('market_snapshot_at', {}).get('rows_under_5m_buffer')}"
+                  ])
+              tensor_path = Path(os.environ["TENSOR_REPORT_PATH"])
+              if tensor_path.exists():
+                  tensor = json.loads(tensor_path.read_text())
+                  lines.extend([
+                      f"- Post-match state rows: {tensor.get('postmatch_state_rows')}",
+                      f"- Season/Gameweek groups processed: {tensor.get('season_gameweek_groups_processed')}",
+                      f"- Player-Gameweek candidate groups considered: {tensor.get('player_gameweek_candidate_groups_considered')}",
+                      f"- Player-Gameweek exclusion counts: {tensor.get('player_gameweek_exclusions')}",
+                      f"- Five-match sequence samples emitted: {tensor.get('player_gameweek_samples_emitted')}",
+                      f"- Grouped tensor build admission: {tensor.get('admission_status')}",
+                      "- Tensors use five post-match played-fixture states plus one pre-deadline query per target fixture.",
+                      "- Candidate sequences are not admitted for model training."
+                  ])
+              summary.write_text("\n".join(lines) + "\n")
+          else:
+              log = Path(os.environ["LOG_PATH"])
+              tail = "\n".join(log.read_text(errors="replace").splitlines()[-30:]) if log.exists() else "No rebuild log was produced."
+              summary.write_text("## 2PM Dastan 286 candidate rebuild\n\nRebuild did not produce a candidate report.\n\n```text\n" + tail + "\n```\n")
+          PY
+          cat "$RUNNER_TEMP/2pm-dastan-step-summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Save pinned Dastan raw-source cache
+        if: always() && steps.raw-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/2pm-dastan-raw
+          key: 2pm-dastan-raw-v3-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
