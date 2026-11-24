@@ -86,12 +86,15 @@ def read_merged_gw_with_name_repair(path: Path) -> pd.DataFrame:
                         f"{path}:{line_number}; candidates={candidates}"
                     )
                 original_extra_fields = len(row) - len(header)
+                original_row = list(row)
                 position_index = candidates[0]
                 repaired = [",".join(row[:position_index]).strip(), *row[position_index:]]
                 if len(repaired) != len(header):
                     raise ValueError(
-                        f"Name-comma repair did not restore header width at "
-                        f"{path}:{line_number}: {len(repaired)} vs {len(header)}"
+                        f"Name-comma repair did not restore header width at {path}:{line_number}; "
+                        f"header={header!r}; original_row={original_row!r}; "
+                        f"position_candidates={candidates}; repaired_fields={len(repaired)} "
+                        f"expected={len(header)}"
                     )
                 row = repaired
                 for column in ("element", "fixture", "minutes", gw_column):
