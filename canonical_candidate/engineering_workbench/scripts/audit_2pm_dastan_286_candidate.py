@@ -186,7 +186,7 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
             "direct_league_rank_features": "own and opponent ranks are reconstructed from standings using only team matches whose conservative availability is strictly before the target deadline; tie-break parity and source-vintage admission remain open",
             "market_fields": "value/selected/transfers_balance are taken from accepted pre-deadline fplcache snapshots; unit/value parity against released Dastan frame remains open",
             "source_vintage": "retrospective provider revisions not verified",
-            "defensive_features": "pre-2025/26 structural absence versus observed zero requires source-level audit",
+            "defensive_features": "the pinned upstream builder initializes absent defensive-stat columns as NaN, and the reconstruction preserves missing defensive observations; per-season/per-feature reporting now separates missing, observed zero and observed nonzero values, but source coverage must still be verified before interpreting pre-2025/26 missingness as structural absence",
         },
         "market_fields": {
             column: {
