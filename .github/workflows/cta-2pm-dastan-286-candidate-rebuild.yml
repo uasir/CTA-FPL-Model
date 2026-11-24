@@ -1,20 +1,6 @@
 name: 2PM Dastan 286 corrected-identity candidate rebuild
 
 on:
-  push:
-    branches: ["feat/four-layer-2pm-transformer-evaluation"]
-    paths:
-      - canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py
-      - canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py
-      - canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py
-      - canonical_candidate/engineering_workbench/scripts/audit_2pm_dastan_286_candidate.py
-      - canonical_candidate/engineering_workbench/scripts/build_2pm_dastan_sequence_dataset.py
-      - canonical_candidate/engineering_workbench/scripts/prepare_2pm_candidate_tensors.py
-      - canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_grouped_dataset.py
-      - canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_state_vectors.py
-      - canonical_candidate/engineering_workbench/scripts/build_2pm_player_gameweek_sequence_tensors.py
-      - canonical_candidate/engineering_workbench/scripts/prepare_2pm_candidate_tensors.py
-      - .github/workflows/cta-2pm-dastan-286-candidate-rebuild.yml
   workflow_dispatch:
 
 permissions:
