@@ -98,8 +98,8 @@ jobs:
             --team-matches "$RUNNER_TEMP/2pm-dastan-candidate/team_matches.parquet" \
             --output-dir "$RUNNER_TEMP/2pm-dastan-candidate/postmatch-grouped-dataset" \
             > "$RUNNER_TEMP/2pm-dastan-candidate/postmatch_grouped_dataset_report.json"
-          python scripts/audit_2pm_grouped_tensor_artifacts.py \\
-            --dataset-dir "$RUNNER_TEMP/2pm-dastan-candidate/postmatch-grouped-dataset" \\
+          python scripts/audit_2pm_grouped_tensor_artifacts.py \
+            --dataset-dir "$RUNNER_TEMP/2pm-dastan-candidate/postmatch-grouped-dataset" \
             --out "$RUNNER_TEMP/2pm-dastan-candidate/postmatch-grouped-dataset/tensor_artifact_integrity_audit.json"
       - name: Publish aggregate candidate status only
         if: always()
