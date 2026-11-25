@@ -76,7 +76,7 @@ def read_merged_gw_with_schema_normalization(path: Path) -> pd.DataFrame:
     # per-GW exports, while the merged file retained its original first header.
     mixed_manager_schema = (
         not has_mng_header and minutes_index >= 0
-        and widths == [base_width, base_width + len(mng_columns)]
+        and widths in ([base_width, base_width + len(mng_columns)], [base_width + len(mng_columns)])
     )
     if mixed_manager_schema:
         normalized_header = (
