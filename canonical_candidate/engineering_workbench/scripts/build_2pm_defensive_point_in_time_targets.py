@@ -48,78 +48,73 @@ POSITION_VALUES = {"GK", "GKP", "DEF", "MID", "FWD"}
 
 
 def read_merged_gw_with_name_repair(path: Path) -> pd.DataFrame:
-    """Repair only unquoted commas in the leading player-name field."""
+    """Normalize Vaastav's mixed merged/per-GW CSV schema without imputing values."""
     rows: list[list[str]] = []
-    repairs: list[dict[str, Any]] = []
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.reader(handle)
         try:
-            header = next(reader)
+            base_header = next(reader)
         except StopIteration:
             raise ValueError(f"Empty merged_gw.csv: {path}")
-        if len(header) != len(set(header)):
+        if len(base_header) != len(set(base_header)):
             raise ValueError(f"Duplicate merged_gw.csv headers: {path}")
-        positions = {name: index for index, name in enumerate(header)}
-        required = ["position", "element", "fixture", "kickoff_time", "minutes"]
-        missing = [name for name in required if name not in positions]
-        if missing:
-            raise ValueError(f"merged_gw.csv missing required fields {missing}: {path}")
-        gw_column = "GW" if "GW" in positions else "round"
-        if gw_column not in positions:
-            raise ValueError(f"merged_gw.csv has no GW/round field: {path}")
-
         for line_number, row in enumerate(reader, start=2):
-            if len(row) != len(header):
-                if len(row) < len(header):
-                    raise ValueError(
-                        f"Short malformed merged_gw row at {path}:{line_number}: "
-                        f"{len(row)} fields, expected {len(header)}"
-                    )
-                candidates = [
-                    index
-                    for index in range(1, min(15, len(row)))
-                    if row[index].strip() in POSITION_VALUES
-                ]
-                if len(candidates) != 1:
-                    raise ValueError(
-                        f"Cannot uniquely locate position token at "
-                        f"{path}:{line_number}; candidates={candidates}"
-                    )
-                original_extra_fields = len(row) - len(header)
-                original_row = list(row)
-                position_index = candidates[0]
-                repaired = [",".join(row[:position_index]).strip(), *row[position_index:]]
-                if len(repaired) != len(header):
-                    raise ValueError(
-                        f"Name-comma repair did not restore header width at {path}:{line_number}; "
-                        f"header={header!r}; original_row={original_row!r}; "
-                        f"position_candidates={candidates}; repaired_fields={len(repaired)} "
-                        f"expected={len(header)}"
-                    )
-                row = repaired
-                for column in ("element", "fixture", "minutes", gw_column):
-                    value = pd.to_numeric(row[positions[column]], errors="coerce")
-                    if pd.isna(value):
-                        raise ValueError(
-                            f"Repaired row has invalid {column} at {path}:{line_number}"
-                        )
-                kickoff = pd.to_datetime(
-                    row[positions["kickoff_time"]], utc=True, errors="coerce"
-                )
-                if pd.isna(kickoff):
-                    raise ValueError(
-                        f"Repaired row has invalid kickoff_time at {path}:{line_number}"
-                    )
-                repairs.append({
-                    "path": path.as_posix(),
-                    "line_number": line_number,
-                    "extra_fields": original_extra_fields,
-                    "repair": "joined leading name fragments before position",
-                    "name": row[positions["name"]] if "name" in positions else row[0],
-                })
-            rows.append(row)
+            if row:
+                rows.append(row)
 
-    frame = pd.DataFrame(rows, columns=header)
+    widths = sorted({len(row) for row in rows})
+    base_width = len(base_header)
+    mng_columns = [
+        "mng_clean_sheets", "mng_draw", "mng_goals_scored", "mng_loss",
+        "mng_underdog_draw", "mng_underdog_win", "mng_win",
+    ]
+    has_mng_header = all(column in base_header for column in mng_columns)
+    minutes_index = base_header.index("minutes") if "minutes" in base_header else -1
+
+    # Vaastav's merged file can concatenate weekly exports with a later schema:
+    # seven manager-result columns were inserted immediately after minutes in
+    # per-GW exports, while the merged file retained its original first header.
+    mixed_manager_schema = (
+        not has_mng_header and minutes_index >= 0
+        and widths == [base_width, base_width + len(mng_columns)]
+    )
+    if mixed_manager_schema:
+        normalized_header = (
+            base_header[:minutes_index + 1]
+            + mng_columns
+            + base_header[minutes_index + 1:]
+        )
+        normalized_rows = []
+        for row in rows:
+            if len(row) == base_width:
+                normalized_rows.append(
+                    row[:minutes_index + 1]
+                    + [""] * len(mng_columns)
+                    + row[minutes_index + 1:]
+                )
+            elif len(row) == base_width + len(mng_columns):
+                normalized_rows.append(row)
+            else:
+                raise ValueError(f"Unexpected merged_gw row width at {path}: {len(row)}")
+        MERGED_GW_REPAIR_LOG.append({
+            "path": path.as_posix(),
+            "schema_normalization": "unioned seven manager-result columns inserted after minutes",
+            "base_header_fields": base_width,
+            "normalized_header_fields": len(normalized_header),
+            "rows_with_manager_columns": sum(len(row) == base_width + len(mng_columns) for row in rows),
+            "rows_without_manager_columns_preserved_as_missing": sum(len(row) == base_width for row in rows),
+            "missing_values_policy": "blank/NaN; no zero fill",
+        })
+    else:
+        if widths and widths != [base_width]:
+            raise ValueError(
+                f"Unrecognized merged_gw schema widths at {path}: "
+                f"header={base_width}, row_widths={widths}"
+            )
+        normalized_header = base_header
+        normalized_rows = rows
+
+    frame = pd.DataFrame(normalized_rows, columns=normalized_header)
     text_columns = {"name", "position", "team", "kickoff_time", "modified", "was_home"}
     for column in frame.columns:
         if column not in text_columns:
@@ -130,7 +125,6 @@ def read_merged_gw_with_name_repair(path: Path) -> pd.DataFrame:
                 frame[boolean_column].astype(str).str.strip().str.lower()
                 .map({"true": True, "false": False, "1": True, "0": False})
             )
-    MERGED_GW_REPAIR_LOG.extend(repairs)
     return frame
 
 
