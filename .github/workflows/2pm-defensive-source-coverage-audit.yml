@@ -140,6 +140,12 @@ jobs:
           key: 2pm-defensive-pit-v1-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-${{ github.run_id }}
           restore-keys: |
             2pm-defensive-pit-v1-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-
+      - name: Diagnose Understat API before expensive candidate build
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/diagnose_2pm_understat_access.py \\
+            --output "${RUNNER_TEMP}/understat-access-diagnostic.json" \\
+            --player-id 76 --player-id 87 --player-id 181 \\
+            --team-season 2024 --team-season 2025
       - name: Build point-in-time candidate smoke tests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -290,5 +296,6 @@ jobs:
             ${{ runner.temp }}/point-in-time-source-vintages.csv
             ${{ runner.temp }}/point-in-time-candidates/**
             ${{ runner.temp }}/point-in-time-candidate-build.log
+            ${{ runner.temp }}/understat-access-diagnostic.json
           if-no-files-found: warn
           retention-days: 30
