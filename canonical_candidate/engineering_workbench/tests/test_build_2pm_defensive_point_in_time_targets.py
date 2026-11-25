@@ -18,30 +18,36 @@ class PointInTimeTargetCandidateTests(unittest.TestCase):
         self.assertIn("fplcachesha", value)
         self.assertIn("1652.json.xz", value)
 
-    def test_repairs_only_unquoted_leading_name_commas_without_dropping_row(self):
+    def test_unions_manager_columns_and_preserves_older_rows_as_missing(self):
         MERGED_GW_REPAIR_LOG.clear()
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "merged_gw.csv"
             path.write_text(
-                "name,position,team,element,fixture,kickoff_time,minutes,GW\n"
-                "Doe, John,DEF,Arsenal,123,456,2025-09-27T12:30:00Z,90,6\n",
+                "name,position,team,minutes,round,GW\n"
+                "Older Player,DEF,Arsenal,90,1,1\n"
+                "Later Player,MID,Arsenal,0,0,22,0,0,0,0,0,0,0,0,22\n",
                 encoding="utf-8",
             )
             frame = read_merged_gw_with_name_repair(path)
-        self.assertEqual(len(frame), 1)
-        self.assertEqual(frame.loc[0, "name"], "Doe, John")
-        self.assertEqual(frame.loc[0, "position"], "DEF")
-        self.assertEqual(int(frame.loc[0, "element"]), 123)
-        self.assertEqual(int(frame.loc[0, "minutes"]), 90)
-        self.assertEqual(len(MERGED_GW_REPAIR_LOG), 1)
-        self.assertEqual(MERGED_GW_REPAIR_LOG[0]["extra_fields"], 1)
+        expected_manager_columns = [
+            "mng_clean_sheets", "mng_draw", "mng_goals_scored", "mng_loss",
+            "mng_underdog_draw", "mng_underdog_win", "mng_win",
+        ]
+        self.assertEqual(len(frame), 2)
+        self.assertEqual(frame.columns[4:11].tolist(), expected_manager_columns)
+        self.assertTrue(frame.loc[0, expected_manager_columns].isna().all())
+        self.assertEqual(frame.loc[1, expected_manager_columns].tolist(), [0] * 7)
+        self.assertEqual(int(frame.loc[1, "round"]), 22)
+        self.assertEqual(int(frame.loc[1, "GW"]), 22)
+        self.assertEqual(MERGED_GW_REPAIR_LOG[0]["rows_with_manager_columns"], 1)
+        self.assertEqual(MERGED_GW_REPAIR_LOG[0]["rows_without_manager_columns_preserved_as_missing"], 1)
 
-    def test_unrepairable_malformed_row_fails_closed(self):
+    def test_unrecognized_mixed_row_width_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "merged_gw.csv"
             path.write_text(
-                "name,position,team,element,fixture,kickoff_time,minutes,GW\n"
-                "Doe, John,UNKNOWN,Arsenal,123,456,2025-09-27T12:30:00Z,90,6\n",
+                "name,position,team,minutes,round,GW\n"
+                "Player,DEF,Arsenal,90,1,1,unexpected\n",
                 encoding="utf-8",
             )
             with self.assertRaises(ValueError):
