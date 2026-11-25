@@ -25,7 +25,7 @@ class PointInTimeTargetCandidateTests(unittest.TestCase):
             path.write_text(
                 "name,position,team,minutes,round,GW\n"
                 "Older Player,DEF,Arsenal,90,1,1\n"
-                "Later Player,MID,Arsenal,0,0,22,0,0,0,0,0,0,0,0,22\n",
+                "Later Player,MID,Arsenal,0,0,0,0,0,0,0,0,22,22\n",
                 encoding="utf-8",
             )
             frame = read_merged_gw_with_schema_normalization(path)
