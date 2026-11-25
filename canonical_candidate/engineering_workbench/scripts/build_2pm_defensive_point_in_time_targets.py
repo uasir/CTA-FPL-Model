@@ -42,12 +42,12 @@ from rebuild_2pm_fixture_context import (
 VAASTAV_REPO = "vaastav/Fantasy-Premier-League"
 FPLCACHE_REPO = "Randdalf/fplcache"
 
-MERGED_GW_REPAIR_LOG: list[dict[str, Any]] = []
+MERGED_GW_SCHEMA_NORMALIZATION_LOG: list[dict[str, Any]] = []
 CSV_PARSER_INSTALLED = False
 POSITION_VALUES = {"GK", "GKP", "DEF", "MID", "FWD"}
 
 
-def read_merged_gw_with_name_repair(path: Path) -> pd.DataFrame:
+def read_merged_gw_with_schema_normalization(path: Path) -> pd.DataFrame:
     """Normalize Vaastav's mixed merged/per-GW CSV schema without imputing values."""
     rows: list[list[str]] = []
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
@@ -96,7 +96,7 @@ def read_merged_gw_with_name_repair(path: Path) -> pd.DataFrame:
                 normalized_rows.append(row)
             else:
                 raise ValueError(f"Unexpected merged_gw row width at {path}: {len(row)}")
-        MERGED_GW_REPAIR_LOG.append({
+        MERGED_GW_SCHEMA_NORMALIZATION_LOG.append({
             "path": path.as_posix(),
             "schema_normalization": "unioned seven manager-result columns inserted after minutes",
             "base_header_fields": base_width,
@@ -142,7 +142,7 @@ def install_merged_gw_csv_parser() -> None:
             else getattr(filepath_or_buffer, "name", filepath_or_buffer)
         )
         if "merged_gw.csv" in str(source_path):
-            frame = read_merged_gw_with_name_repair(Path(source_path))
+            frame = read_merged_gw_with_schema_normalization(Path(source_path))
             usecols = kwargs.get("usecols")
             if usecols is not None:
                 if callable(usecols):
@@ -233,7 +233,7 @@ def build_point_in_time_target_candidate(
     gameweek: int,
     workers: int = 12,
 ) -> dict[str, Any]:
-    MERGED_GW_REPAIR_LOG.clear()
+    MERGED_GW_SCHEMA_NORMALIZATION_LOG.clear()
     season_report = vintage_report["seasons"][season]
     gw_report = season_report["gameweeks"][str(gameweek)]
     source_report = gw_report.get("source", {})
@@ -460,10 +460,10 @@ def build_point_in_time_target_candidate(
         "target_snapshot_age_hours": round(snapshot_age_hours, 4),
         "target_snapshot_path": snapshot_path,
         "source_vintage_status": vintage_status,
-        "merged_gw_csv_repairs": {
-            "count": len(MERGED_GW_REPAIR_LOG),
-            "rows": MERGED_GW_REPAIR_LOG[-50:],
-            "policy": "only repaired unquoted leading name fragments when a unique position token and required identity/time fields validate; no rows dropped",
+        "merged_gw_csv_schema_normalization": {
+            "count": len(MERGED_GW_SCHEMA_NORMALIZATION_LOG),
+            "rows": MERGED_GW_SCHEMA_NORMALIZATION_LOG[-50:],
+            "policy": "only repaired unquoted leading name fragments when a unique position token and required identity/time fields validate; no rows dropped or silently discarded",
         },
         "historical_player_fixture_rows": int(len(history)),
         "target_query_player_fixture_rows": int(len(queries)),
