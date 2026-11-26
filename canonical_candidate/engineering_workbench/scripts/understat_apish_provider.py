@@ -596,7 +596,7 @@ def download_missing_histories(
         fetched_team_members.append((season, team))
         print(f"API.SH checkpointed team {team} {season}", flush=True)
 
-    if probe_only and not probe_already_done and (fetched_players or fetched_team_members):
+    if probe_only and not probe_already_done and (not missing_player_ids or fetched_players) and (not missing_team_requests or fetched_team_members):
         _atomic_json(probe_marker, {
             "provider": PROVIDER, "mapping_commit": MAPPING_COMMIT,
             "completed_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
