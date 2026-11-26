@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       rebuild_candidate:
-        description: "Rebuild the four-season candidate (2022/23–2025/26) from raw sources (normally leave false)"
+        description: "Rebuild the six-season candidate (2020/21–2025/26) from raw sources (normally leave false)"
         required: false
         type: boolean
         default: false
@@ -41,27 +41,27 @@ jobs:
           key: 2pm-dastan-raw-v3-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
           restore-keys: |
             2pm-dastan-raw-v3-${{ hashFiles('dastan-source/data/source_pins.json') }}-
-      - name: Restore completed four-season candidate cache
+      - name: Restore completed six-season candidate cache
         id: candidate-cache
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/2pm-dastan-candidate
-          key: 2pm-dastan-candidate-v2-2022-23-through-2025-26-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
+          key: 2pm-dastan-candidate-v3-2020-21-through-2025-26-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
           restore-keys: |
-            2pm-dastan-candidate-v2-2022-23-through-2025-26-
-      - name: Require reusable four-season candidate unless rebuild is explicitly approved
+            2pm-dastan-candidate-v3-2020-21-through-2025-26-
+      - name: Require reusable six-season candidate unless rebuild is explicitly approved
         if: inputs.rebuild_candidate != true
         run: |
           if [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/player_matches_with_availability.parquet" ] || [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json" ]; then
             echo "::error::No reusable four-season candidate cache was restored. Refusing to rebuild because rebuild_candidate is false."
             exit 1
           fi
-          echo "Reusable candidate cache restored; downstream audit only. No four-season rebuild will run."
+          echo "Reusable candidate cache restored; downstream audit only. No six-season rebuild will run."
       - name: Install tensor and reconstruction dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install numpy pandas pyarrow understatapi==0.7.1
-      - name: Rebuild four-season corrected-identity 286-feature candidate
+      - name: Rebuild six-season corrected-identity 286-feature candidate
         if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate == true
         working-directory: canonical_candidate/engineering_workbench
         env:
@@ -71,7 +71,7 @@ jobs:
             --dastan-root "$GITHUB_WORKSPACE/dastan-source" \
             --raw-dir "$RUNNER_TEMP/2pm-dastan-raw" \
             --output-dir "$RUNNER_TEMP/2pm-dastan-candidate" \
-            --seasons 2022-23,2023-24,2024-25,2025-26 \
+            --seasons 2020-21,2021-22,2022-23,2023-24,2024-25,2025-26 \
             --workers 12 \
             --allow-missing-understat \
             > "$RUNNER_TEMP/2pm-dastan-rebuild.log"
@@ -80,7 +80,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/2pm-dastan-candidate
-          key: 2pm-dastan-candidate-v2-2022-23-through-2025-26-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
+          key: 2pm-dastan-candidate-v3-2020-21-through-2025-26-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
       - name: Audit defensive source coverage from cached four-season data
         working-directory: canonical_candidate/engineering_workbench
         env:
@@ -96,7 +96,7 @@ jobs:
           candidate_dir = root / "2pm-dastan-candidate"
           matches = pd.read_parquet(candidate_dir / "player_matches_with_availability.parquet")
           report = json.loads((candidate_dir / "2pm_dastan_286_candidate_report.json").read_text())
-          seasons = ["2022-23", "2023-24", "2024-25", "2025-26"]
+          seasons = ["2020-21", "2021-22", "2022-23", "2023-24", "2024-25", "2025-26"]
           report["defensive_source_coverage"] = audit_defensive_source_coverage(raw_dir, seasons, matches)
           report["defensive_source_coverage_audit_mode"] = "CACHED_RAW_SOURCE_AND_EXISTING_PLAYER_MATCHES_NO_REBUILD"
           (candidate_dir / "2pm_dastan_286_candidate_report.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -148,8 +148,8 @@ jobs:
               report = json.loads(report_path.read_text())
               lines = [
                   "## 2PM Dastan 286 candidate rebuild",
-                  "- Dataset scope: four seasons (2022/23–2025/26); 2020/21–2021/22 reserved for later generalisation testing.",
-                  "- Intended chronological use: train 2022/23–2023/24; validate 2024/25; out-of-time test 2025/26.",
+                  "- Dataset scope: all six historical seasons (2020/21–2025/26), all eligible seasons included in final model refit.",
+                  "- Intended chronological use: expanding-season walk-forward validation across 2021/22–2025/26; final refit on all eligible 2020/21–2025/26 data; sealed OOT 2026/27.",
                   f"- Status: **{report.get('status')}**",
                   f"- Admission: **{report.get('admission_status')}**",
                   f"- Candidate rows: {report.get('candidate_rows')}",
@@ -231,7 +231,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: 2pm-four-season-tensor-candidate-run-${{ github.run_number }}
+          name: 2pm-six-season-tensor-candidate-run-${{ github.run_number }}
           path: |
             ${{ runner.temp }}/2pm-dastan-candidate/postmatch-grouped-dataset/
             ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json
