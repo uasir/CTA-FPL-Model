@@ -2,7 +2,7 @@ name: 2PM Dastan 286 sequence contract
 
 on:
   push:
-    branches: ["feat/four-layer-2pm-transformer-evaluation"]
+    branches: ["feat/four-layer-2pm-transformer-evaluation", "feat/2pm-defensive-2025-26-train-2026-27-oot"]
     paths:
       - canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json
       - canonical_candidate/engineering_workbench/config/2pm_poisson_transformer_candidate.json
