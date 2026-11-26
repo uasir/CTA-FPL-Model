@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from understat_apish_provider import (
-    normalize_player_matches, normalize_one_team, normalize_team_histories,
+    ApiShUnderstatClient, normalize_player_matches, normalize_one_team, normalize_team_histories,
     _valid_meta, _persist_response, _log_records, _record_params, _record_route,
     recover_remote_histories, _remaining_credits, _season_team_names,
     _team_cache_filename, _write_complete_team_season, download_missing_histories,
@@ -35,6 +35,27 @@ class TestApiShUnderstatProvider(unittest.TestCase):
     def test_player_history_rejects_missing_identity_fields(self):
         with self.assertRaisesRegex(ValueError, "lacks"):
             normalize_player_matches([{"xG": 0.5}], 76)
+
+    def test_client_uses_individual_team_endpoint_with_team_and_season_params(self):
+        class FakeResponse:
+            headers = {"x-request-id": "team-req", "x-credits-used": "1"}
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return team_response("Arsenal")
+        class FakeSession:
+            def __init__(self):
+                self.headers = {}
+                self.calls = []
+            def get(self, url, params, timeout):
+                self.calls.append((url, params, timeout))
+                return FakeResponse()
+        session = FakeSession()
+        client = ApiShUnderstatClient(api_key="test-key", session=session)
+        result = client.team_history("Arsenal", "2024-25")
+        self.assertEqual(result["title"], "Arsenal")
+        self.assertTrue(session.calls[0][0].endswith("/understat/v1/team"))
+        self.assertEqual(session.calls[0][1], {"team": "Arsenal", "season": 2024, "raw": "true"})
 
     def test_one_team_history_normalizes_venue_and_preserves_null_metrics(self):
         team = normalize_one_team(team_response(), "Arsenal", "2025-26")
