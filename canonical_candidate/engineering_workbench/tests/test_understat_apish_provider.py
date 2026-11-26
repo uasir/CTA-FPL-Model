@@ -220,9 +220,10 @@ class TestApiShUnderstatProvider(unittest.TestCase):
     def test_downloader_excludes_non_required_player_histories_without_api_calls(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            report = download_missing_histories(
-                root / "raw", [76, 87], [], cache_root=root / "shared", probe_only=False
-            )
+            with patch("understat_apish_provider.ApiShUnderstatClient"):
+                report = download_missing_histories(
+                    root / "raw", [76, 87], [], cache_root=root / "shared", probe_only=False
+                )
             self.assertEqual(report["excluded_player_history_ids"], [76, 87])
             self.assertEqual(report["unresolved_player_ids"], [])
             self.assertEqual(report["required_calls_before_acquisition"], 0)
