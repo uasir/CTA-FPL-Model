@@ -44,7 +44,7 @@ class PointInTimeTargetCandidateTests(unittest.TestCase):
                 _needed_understat_ids=lambda _raw, _seasons: {500, 76, 87, 700}
             )
             report = install_relevant_understat_player_filter(
-                sources, mappings, Path(tmp), "2025-26"
+                sources, mappings, "2025-26"
             )
             self.assertEqual(sources._needed_understat_ids(Path(tmp), ["2024-25", "2025-26"]), {500})
             self.assertEqual(report["dataset_fpl_element_count"], 3)
