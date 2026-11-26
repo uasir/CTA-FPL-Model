@@ -571,7 +571,8 @@ def _apply_call_budget(
 
 def download_missing_histories(
     raw_dir: Path, missing_players: list[int], missing_team_seasons: list[str],
-    *, cache_root: Path, probe_only: bool = False, max_calls_this_run: int | None = None,
+    *, cache_root: Path, probe_only: bool = False, preflight_only: bool = False,
+    max_calls_this_run: int | None = None,
 ) -> dict[str, Any]:
     """Restore all validated checkpoints, then acquire only missing player/team records."""
     global RUN_CIRCUIT_BREAKER_OPEN
@@ -620,7 +621,7 @@ def download_missing_histories(
             else:
                 missing_team_requests.append((season, team))
 
-    if missing_player_ids or missing_team_requests:
+    if missing_player_ids or missing_team_requests or preflight_only:
         account_payload, credits_remaining = client.account()
         recovered_players, recovered_teams, unrecoverable = recover_remote_histories(
             client, missing_player_ids, missing_team_requests, player_cache, team_cache
@@ -667,6 +668,38 @@ def download_missing_histories(
     if RUN_CIRCUIT_BREAKER_OPEN and not probe_only:
         player_requests, team_requests = [], []
     planned_calls = len(player_requests) + len(team_requests)
+    if preflight_only:
+        unresolved_seasons = sorted({
+            season for season, _team in missing_team_requests
+        })
+        return {
+            "provider": PROVIDER, "mapping_commit": MAPPING_COMMIT,
+            "probe_only": False, "preflight_only": True,
+            "credits_remaining_before": credits_remaining,
+            "free_credits_reset_at": free_resets_at,
+            "max_calls_this_run": max_calls_this_run,
+            "required_calls_before_acquisition": required_calls,
+            "planned_calls_this_run": 0,
+            "restored_player_histories": restored_players,
+            "excluded_player_history_ids": excluded_player_ids,
+            "restored_team_members": [{"season": s, "team": t} for s, t in restored_team_members],
+            "restored_team_seasons": sorted({s for s, _ in restored_team_members}),
+            "remote_recovered_player_histories": recovered_players,
+            "remote_recovered_team_members": [{"season": s, "team": t} for s, t in recovered_teams],
+            "fetched_player_histories": [],
+            "fetched_team_members": [],
+            "fetched_team_seasons": [],
+            "probe_errors": [], "acquisition_errors": [],
+            "provider_unavailable_circuit_breaker_open": RUN_CIRCUIT_BREAKER_OPEN,
+            "unresolved_player_ids": missing_player_ids,
+            "unresolved_team_seasons": unresolved_seasons,
+            "unresolved_team_requests": [
+                {"season": season, "team": team}
+                for season, team in missing_team_requests
+            ],
+            "unresolved_team_member_count": len(missing_team_requests),
+            "acquisition_started": False,
+        }
     print(
         f"API.SH pre-acquisition check: {credits_remaining} credits remaining; "
         f"{required_calls} calls outstanding overall; {planned_calls} planned this run; "
