@@ -60,7 +60,7 @@ jobs:
       - name: Install tensor and reconstruction dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install numpy pandas pyarrow understatapi==0.7.1
+          python -m pip install numpy pandas pyarrow scipy==1.16.3 understatapi==0.7.1
       - name: Rebuild six-season corrected-identity 286-feature candidate
         if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate == true
         working-directory: canonical_candidate/engineering_workbench
