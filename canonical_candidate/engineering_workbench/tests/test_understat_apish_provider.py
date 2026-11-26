@@ -217,6 +217,17 @@ class TestApiShUnderstatProvider(unittest.TestCase):
             aggregate = raw / "understat" / "teams" / "2025-26.json"
             self.assertEqual(len(__import__("json").loads(aggregate.read_text())), 20)
 
+    def test_downloader_excludes_non_required_player_histories_without_api_calls(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = download_missing_histories(
+                root / "raw", [76, 87], [], cache_root=root / "shared", probe_only=False
+            )
+            self.assertEqual(report["excluded_player_history_ids"], [76, 87])
+            self.assertEqual(report["unresolved_player_ids"], [])
+            self.assertEqual(report["required_calls_before_acquisition"], 0)
+            self.assertEqual(report["planned_calls_this_run"], 0)
+
     def test_call_budget_caps_player_and_team_requests_without_dropping_remainder(self):
         players = [10, 20, 30]
         teams = [("2024-25", "Arsenal"), ("2024-25", "Chelsea"), ("2025-26", "Arsenal")]
