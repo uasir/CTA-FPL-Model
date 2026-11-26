@@ -226,10 +226,10 @@ class TestApiShUnderstatProvider(unittest.TestCase):
         self.assertEqual(players[len(selected_players):], [])
         self.assertEqual(teams[len(selected_teams):], [("2024-25", "Chelsea"), ("2025-26", "Arsenal")])
 
-    def test_call_budget_rejects_zero_and_negative_limits(self):
-        for limit in (0, -1):
-            with self.subTest(limit=limit), self.assertRaisesRegex(ValueError, "at least 1"):
-                _apply_call_budget([1], [], limit)
+    def test_call_budget_allows_zero_remaining_and_rejects_negative_limits(self):
+        self.assertEqual(_apply_call_budget([1], [], 0), ([], []))
+        with self.assertRaisesRegex(ValueError, "non-negative"):
+            _apply_call_budget([1], [], -1)
 
     def test_account_balance_uses_response_header_when_present(self):
         self.assertEqual(_remaining_credits({"free_credits": 100}, "875"), 875)
