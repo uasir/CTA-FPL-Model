@@ -164,7 +164,7 @@ class TestApiShUnderstatProvider(unittest.TestCase):
             def __init__(self):
                 self.last_meta = {}
                 self.last_payload = None
-            def account_logs(self):
+            def account_logs(self, status="ok"):
                 return [
                     {"request_id": "player-request", "route": "/understat/v1/player",
                      "params": {"id": "181"}, "credits_used": 1},
@@ -226,7 +226,7 @@ class TestApiShUnderstatProvider(unittest.TestCase):
                 self.requested = []
             def account(self):
                 return {}, 1
-            def account_logs(self):
+            def account_logs(self, status="ok"):
                 return []
             def team_history(self, team, season):
                 self.requested.append((season, team))
@@ -279,7 +279,7 @@ class TestApiShUnderstatProvider(unittest.TestCase):
                 self.requested = []
             def account(self):
                 return {"credits": {"total": 1000}}, 1000
-            def account_logs(self):
+            def account_logs(self, status="ok"):
                 return []
             def player_history(self, player_id):
                 self.requested.append(player_id)
