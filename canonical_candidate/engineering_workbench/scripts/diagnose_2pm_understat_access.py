@@ -38,10 +38,36 @@ def main() -> int:
         print(json.dumps(report, indent=2))
         return 2
 
+    # Capture the HTTP response behind understatapi's JSONDecodeError. The
+    # library otherwise discards status/body details, making 403/429/5xx and
+    # provider-side HTML challenges indistinguishable.
+    import requests
+
+    last_http: dict = {}
+    original_request = requests.sessions.Session.request
+
+    def observed_request(session, method, url, *args, **kwargs):
+        response = original_request(session, method, url, *args, **kwargs)
+        last_http.clear()
+        last_http.update({
+            "method": method,
+            "url": response.url,
+            "status_code": response.status_code,
+            "reason": response.reason,
+            "content_type": response.headers.get("content-type"),
+            "server": response.headers.get("server"),
+            "cf_ray": response.headers.get("cf-ray"),
+            "retry_after": response.headers.get("retry-after"),
+            "body_preview": response.text[:500],
+        })
+        return response
+
+    requests.sessions.Session.request = observed_request
     failures = 0
     with UnderstatClient() as client:
         for player_id in args.player_id:
             item = {"kind": "player", "id": player_id}
+            last_http.clear()
             try:
                 payload = client.player(player=player_id).get_match_data()
                 item.update({
@@ -59,11 +85,14 @@ def main() -> int:
                     "exception": str(exc)[:1200],
                     "traceback": traceback.format_exc(limit=4),
                 })
+            if last_http:
+                item["http"] = dict(last_http)
             report["probes"].append(item)
             print(json.dumps(item, ensure_ascii=False), flush=True)
 
         for season in args.team_season:
             item = {"kind": "teams", "season": season, "league": "EPL"}
+            last_http.clear()
             try:
                 payload = client.league(league="EPL").get_team_data(season=season)
                 item.update({
@@ -81,9 +110,12 @@ def main() -> int:
                     "exception": str(exc)[:1200],
                     "traceback": traceback.format_exc(limit=4),
                 })
+            if last_http:
+                item["http"] = dict(last_http)
             report["probes"].append(item)
             print(json.dumps(item, ensure_ascii=False), flush=True)
 
+    requests.sessions.Session.request = original_request
     report["failed_probe_count"] = failures
     report["successful_probe_count"] = len(report["probes"]) - failures
     report["decision"] = (
