@@ -233,6 +233,7 @@ def build_point_in_time_target_candidate(
     gameweek: int,
     workers: int = 12,
     prepare_sources_only: bool = False,
+    pinned_sources_only: bool = False,
 ) -> dict[str, Any]:
     MERGED_GW_SCHEMA_NORMALIZATION_LOG.clear()
     season_report = vintage_report["seasons"][season]
@@ -279,7 +280,67 @@ def build_point_in_time_target_candidate(
         f"Downloading {all_seasons} from Vaastav commit {source_commit}",
         flush=True,
     )
+    understat_fallback_audit = {
+        "policy": "LIVE_UNDERSTAT_REQUESTS_PROHIBITED",
+        "robots_policy_reference": "Understat robots.txt disallows automated agents",
+        "cached_player_fallbacks_used": [],
+        "cached_team_fallbacks_used": [],
+        "unresolved_player_ids": [],
+        "unresolved_team_seasons": [],
+    }
+    if pinned_sources_only:
+        # Reuse only previously cached Understat JSON or pinned Vaastav archives.
+        # Never issue new requests to Understat: its current robots.txt disallows
+        # automated agents. This branch is only for source preparation/auditing;
+        # candidate reconstruction is gated on zero unresolved histories.
+        def use_existing_understat_fallbacks(
+            fallback_raw_dir, missing_players, missing_team_seasons,
+            *, force=False, allow_missing=False,
+        ):
+            for player_id in missing_players:
+                cached = fallback_raw_dir / "understat" / "players" / f"{player_id}.json"
+                valid = False
+                if cached.is_file() and cached.stat().st_size:
+                    try:
+                        payload = json.loads(cached.read_text(encoding="utf-8"))
+                        valid = isinstance(payload, list) and bool(payload)
+                    except (OSError, ValueError, TypeError):
+                        valid = False
+                if valid:
+                    understat_fallback_audit["cached_player_fallbacks_used"].append(int(player_id))
+                else:
+                    understat_fallback_audit["unresolved_player_ids"].append(int(player_id))
+            for history_season in missing_team_seasons:
+                cached = fallback_raw_dir / "understat" / "teams" / f"{history_season}.json"
+                valid = False
+                if cached.is_file() and cached.stat().st_size:
+                    try:
+                        payload = json.loads(cached.read_text(encoding="utf-8"))
+                        valid = isinstance(payload, list) and bool(payload)
+                    except (OSError, ValueError, TypeError):
+                        valid = False
+                if valid:
+                    understat_fallback_audit["cached_team_fallbacks_used"].append(str(history_season))
+                else:
+                    understat_fallback_audit["unresolved_team_seasons"].append(str(history_season))
+            print(
+                "Understat live fallback prohibited; "
+                f"cached player histories={len(understat_fallback_audit['cached_player_fallbacks_used'])}, "
+                f"unresolved players={len(understat_fallback_audit['unresolved_player_ids'])}, "
+                f"cached team histories={len(understat_fallback_audit['cached_team_fallbacks_used'])}, "
+                f"unresolved team seasons={len(understat_fallback_audit['unresolved_team_seasons'])}",
+                flush=True,
+            )
+        sources._fetch_understat_fallbacks = use_existing_understat_fallbacks
+
     sources.download_sources(raw_dir, all_seasons, workers=workers, force=False)
+    download_manifest = raw_dir / "downloads.json"
+    if pinned_sources_only and download_manifest.is_file():
+        manifest_payload = json.loads(download_manifest.read_text(encoding="utf-8"))
+        manifest_payload["understat_fallback_policy"] = understat_fallback_audit
+        download_manifest.write_text(
+            json.dumps(manifest_payload, indent=2) + "\n", encoding="utf-8"
+        )
 
     # Resolve and persist the exact pre-deadline FPL snapshot before expensive
     # feature reconstruction. This makes both Vaastav/Understat and FPL-cache
@@ -309,6 +370,11 @@ def build_point_in_time_target_candidate(
             "target_snapshot_at": captured_at.isoformat(),
             "target_snapshot_path": snapshot_path,
             "download_manifest": str(raw_dir / "downloads.json"),
+            "understat_fallback_audit": understat_fallback_audit,
+            "understat_history_complete": (
+                not understat_fallback_audit["unresolved_player_ids"]
+                and not understat_fallback_audit["unresolved_team_seasons"]
+            ) if pinned_sources_only else None,
             "candidate_reconstruction_started": False,
             "labels_loaded": False,
             "target_points_loaded": False,
@@ -554,6 +620,10 @@ def main() -> None:
         "--prepare-sources-only", action="store_true",
         help="Download and validate pinned raw inputs, then exit before candidate reconstruction",
     )
+    parser.add_argument(
+        "--pinned-sources-only", action="store_true",
+        help="Prohibit live Understat requests; audit only pinned and already-cached histories",
+    )
     args = parser.parse_args()
 
     vintage_report = json.loads(args.vintage_report.read_text(encoding="utf-8"))
@@ -581,6 +651,7 @@ def main() -> None:
             gameweek=gameweek,
             workers=args.workers,
             prepare_sources_only=args.prepare_sources_only,
+            pinned_sources_only=args.pinned_sources_only,
         )
         reports.append(report)
 
