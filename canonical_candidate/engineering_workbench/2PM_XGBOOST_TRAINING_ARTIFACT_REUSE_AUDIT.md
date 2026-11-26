@@ -11,8 +11,8 @@ The 2PM experiment reuses the extended Dastan-derived feature foundation already
 - Do not acquire a replacement provider or create a new statistics catalogue.
 - Do not use XGBoost weights, predictions, or the XGBoost points-per-90 target as 2PM inputs or labels.
 - Reuse the same 286 ordered feature definitions and source-data foundation, subject to 2PM-specific point-in-time, semantic, identity, missingness, and sequence validation.
-- Keep the current defensive experiment protocol: 2025/26 training with chronological within-season validation and completed 2026/27 Gameweeks as sealed OOT.
-- The historical XGBoost frame covers six seasons; it must be filtered to the experiment's authorized 2025/26 training cohort. The other seasons do not become training data merely because they are present in the artifact.
+- Train the independent 2PM model on **all eligible historical seasons** available in the extended Dastan dataset, currently 2020/21–2025/26. The previous 2025/26-only defensive candidate cohort is superseded.
+- Use chronological validation within the historical training period. Keep 2026/27 separate as the sealed out-of-time evaluation season; its labels must not enter training, tuning, feature selection, or early stopping.
 - 2026/27 OOT queries must be reconstructed from the corresponding pre-deadline source vintages. The XGBoost artifact's current GW12–16 forecast matrix is not the historical GW1+ OOT query set.
 
 ## 2. Exact XGBoost artifact located
@@ -94,9 +94,9 @@ The XGBoost trainer learns conditional non-appearance points per 90 minutes. Its
 
 2PM instead models the player-points outcome distribution using its two-component Poisson-mixture objective. The 2PM label must be constructed from observed FPL points under the approved 2PM target policy. Do not substitute XGBoost's transformed `target_points` or XGBoost predictions.
 
-### Six-season release versus the current experiment cohort
+### Historical training coverage and OOT boundary
 
-The XGBoost training artifact contains the six-season Dastan release. The current defensive 2PM protocol authorizes 2025/26 as the training season and 2026/27 as the sealed OOT season. Only the 2025/26 rows may enter the current experiment's training/validation cohort. The six-season artifact is a source container, not permission to change the experiment split.
+The verified extended Dastan release contains six historical seasons, 2020/21–2025/26. The governing 2PM decision is to use all eligible seasons in that historical range for training and chronological validation, subject to 2PM-specific feature, target, identity, and point-in-time admission gates. The earlier 2025/26-only defensive candidate cohort is superseded. The 2026/27 season remains a separate sealed OOT evaluation period.
 
 ### Point-in-time limitation
 
@@ -131,3 +131,8 @@ The next integration should:
 - 2PM training authorization: **NOT GRANTED**.
 
 No training was started and no external source was reacquired during this audit.
+
+
+## 8. Updated 2PM training-scope decision (2026-11-26)
+
+The user has explicitly confirmed that 2PM must be developed independently using the extended Dastan dataset adapted to the Transformer architecture, and must train on all eligible historical seasons rather than only two seasons. The verified historical coverage is 2020/21–2025/26. The prior 2025/26-only candidate cohort is superseded. Keep 2026/27 sealed for out-of-time evaluation. This is an independent 2PM modelling decision; XGBoost is only a provenance clue for the existing data foundation and does not prescribe feature masks, architecture, or training policy.
