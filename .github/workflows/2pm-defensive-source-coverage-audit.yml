@@ -187,7 +187,7 @@ jobs:
             --prepare-sources-only
           )
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.use_apish_understat }}" = "true" ]; then
-            args+=(--apish-understat)
+            args+=(--apish-understat --apish-max-calls-this-run 1000)
             if [ "${{ inputs.apish_probe_only }}" = "true" ]; then
               # A probe is one provider sample pair for the whole experiment,
               # not one pair per target vintage.
@@ -344,6 +344,19 @@ jobs:
                   f"- Individual team-history calls required (20 clubs per season): {team_calls}",
                   f"- Total distinct history calls outstanding: {len(player_ids) + team_calls}",
               ])
+              for item in reports:
+                  provider = (item.get("understat_fallback_audit") or {}).get("provider_run") or {}
+                  if provider:
+                      lines.extend([
+                          "### API.SH acquisition checkpoint",
+                          f"- Calls outstanding before this target: {provider.get('required_calls_before_acquisition')}",
+                          f"- Calls planned this target: {provider.get('planned_calls_this_run')}",
+                          f"- Live credits before requests: {provider.get('credits_remaining_before')}",
+                          f"- Free-credit reset: {provider.get('free_credits_reset_at') or 'not reported'}",
+                          f"- Player histories checkpointed: {len(provider.get('fetched_player_histories', []))}",
+                          f"- Team histories checkpointed: {len(provider.get('fetched_team_members', []))}",
+                          f"- Remote responses recovered free: {len(provider.get('remote_recovered_player_histories', [])) + len(provider.get('remote_recovered_team_members', []))}",
+                      ])
               if any(item.get("candidate_reconstruction_started") for item in reports):
                   lines.extend([
                       "## Point-in-time candidate smoke tests",
