@@ -271,19 +271,21 @@ class ApiShUnderstatClient:
     def _request(self, url: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         request_params = dict(params or {})
         response = self.session.get(url, params=request_params, timeout=120)
-        if response.status_code >= 400:
+        status_code = getattr(response, "status_code", 200)
+        if status_code >= 400:
             # Preserve provider diagnostics before raising: request IDs and Retry-After
             # are essential for distinguishing API.SH gateway failures from source-site
             # failures and for support escalation. Never persist request credentials.
+            headers = getattr(response, "headers", {}) or {}
             self.last_error_meta = {
-                "status_code": response.status_code,
-                "request_id": response.headers.get("x-request-id"),
-                "retry_after": response.headers.get("Retry-After"),
-                "credits_used": response.headers.get("x-credits-used"),
-                "credits_remaining": response.headers.get("x-credits-remaining"),
+                "status_code": status_code,
+                "request_id": headers.get("x-request-id"),
+                "retry_after": headers.get("Retry-After"),
+                "credits_used": headers.get("x-credits-used"),
+                "credits_remaining": headers.get("x-credits-remaining"),
                 "endpoint": urlparse(url).path,
                 "params": request_params,
-                "response_body_excerpt": response.text[:1000],
+                "response_body_excerpt": str(getattr(response, "text", ""))[:1000],
             }
         response.raise_for_status()
         payload = response.json()
