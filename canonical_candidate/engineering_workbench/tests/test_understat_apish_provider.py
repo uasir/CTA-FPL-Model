@@ -42,7 +42,7 @@ class TestApiShUnderstatProvider(unittest.TestCase):
         self.assertEqual(teams["Team 0"]["history"][0]["h_a"], "h")
 
     def test_team_histories_reject_partial_team_list(self):
-        with self.assertRaisesRegex(ValueError, "only 1 usable teams"):
+        with self.assertRaisesRegex(ValueError, "lacks required team metrics"):
             normalize_team_histories({"raw": {"teams": {
                 "1": {"title": "Arsenal", "history": [{"date": "2025-08-15"}]}
             }}}, "2025-26")
