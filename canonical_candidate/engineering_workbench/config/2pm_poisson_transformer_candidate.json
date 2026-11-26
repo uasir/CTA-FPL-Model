@@ -73,35 +73,46 @@
     "feature_admission": "NOT_ADMITTED",
     "model_evaluation": "DEFERRED_UNTIL_OFFICIAL_GAMEWEEK_SCORES",
     "negative_points": "PRESERVED_SHIFTED_POISSON_CANDIDATE_NOT_YET_VALIDATED",
-    "dataset_scope_status": "FOUR_SEASON_CHRONOLOGICAL_SPLIT_CONFIGURED_NOT_BUILT"
+    "dataset_scope_status": "SIX_HISTORICAL_SEASONS_2020_21_TO_2025_26_CANDIDATE_BUILD_AND_WALK_FORWARD_VALIDATION_PENDING"
   },
   "dataset_scope": {
     "candidate_seasons": [
+      "2020-21",
+      "2021-22",
       "2022-23",
       "2023-24",
       "2024-25",
       "2025-26"
     ],
-    "reserved_generalisation_seasons": [
-      "2020-21",
-      "2021-22"
-    ],
+    "reserved_generalisation_seasons": [],
     "chronological_split": {
-      "training": [
+      "method": "expanding_season_walk_forward_within_all_six_historical_seasons",
+      "first_validation_season": "2021-22",
+      "validation_seasons": [
+        "2021-22",
         "2022-23",
-        "2023-24"
+        "2023-24",
+        "2024-25",
+        "2025-26"
       ],
-      "validation": [
-        "2024-25"
+      "training_for_each_validation_fold": "all_earlier_historical_seasons_only",
+      "final_refit_training_seasons": [
+        "2020-21",
+        "2021-22",
+        "2022-23",
+        "2023-24",
+        "2024-25",
+        "2025-26"
       ],
       "out_of_time_test": [
-        "2025-26"
+        "2026-27"
       ]
     },
-    "split_policy": "season_level_chronological_no_random_player_gameweek_split",
-    "preprocessing_fit_scope": "training_seasons_only",
-    "validation_use": "architecture_and_hyperparameter_selection_only",
-    "test_use": "single_final_out_of_time_evaluation_after_selection",
+    "split_policy": "chronological_expanding_season_walk_forward_no_random_player_gameweek_split",
+    "preprocessing_fit_scope": "training_partition_only_within_each_fold_then_refit_on_all_six_historical_seasons",
+    "validation_use": "architecture_and_hyperparameter_selection_only_using_historical_walk_forward_folds",
+    "final_model_fit": "refit_selected_configuration_on_all_eligible_2020_21_to_2025_26_samples",
+    "test_use": "single_final_sealed_out_of_time_evaluation_on_2026_27_after_selection_and_final_refit",
     "status": "PLANNED_NOT_EXECUTED"
   }
 }
