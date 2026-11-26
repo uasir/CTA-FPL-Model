@@ -1,0 +1,385 @@
+name: 2PM defensive experiment source coverage audit
+
+on:
+  # Deliberately manual-only: provider acquisition must never be triggered by
+  # an ordinary code push or by a sequence of commits.
+  workflow_dispatch:
+    inputs:
+      use_apish_understat:
+        description: "Use API.SH for missing Understat histories (otherwise audit pinned/cache only)"
+        required: false
+        type: boolean
+        default: false
+      apish_probe_only:
+        description: "Probe only: fetch at most one player history and one full league team-history season across both target vintages"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: 2pm-defensive-source-coverage-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v4
+      - name: Check out pinned 2025/26 Vaastav source
+        uses: actions/checkout@v4
+        with:
+          repository: vaastav/Fantasy-Premier-League
+          ref: 8c97b2adb123863c3dd581e730f1360e89815ac2
+          path: source-2025-26
+      - name: Check out frozen 2026/27 Vaastav source snapshot
+        uses: actions/checkout@v4
+        with:
+          repository: vaastav/Fantasy-Premier-League
+          ref: 7ca01d3821a68ced454cd1f2195be40ed697629b
+          path: source-2026-27
+      - name: Check out pinned 2025/26 FPL cache archive
+        uses: actions/checkout@v4
+        with:
+          repository: Randdalf/fplcache
+          ref: 6c364bfbd9914649dc5dec016e544be3ae4fe767
+          path: fplcache-2025-26
+      - name: Check out frozen 2026/27 FPL cache archive
+        uses: actions/checkout@v4
+        with:
+          repository: Randdalf/fplcache
+          ref: 5f428bfbadc4223fe574e029a5e7ede90f6f7ddb
+          path: fplcache-2026-27
+      - name: Check out pinned Dastan data builder
+        uses: actions/checkout@v4
+        with:
+          repository: qazybekb/smartplayfpl-dastan
+          ref: 758db9247e8b3a9a870c991064f74d8339d61cd0
+          path: dastan-source
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install point-in-time audit and Dastan dependencies
+        run: python -m pip install numpy pandas pyarrow requests scipy==1.13.1 scikit-learn==1.6.1
+      - name: Audit only source coverage fields (never load total_points)
+        env:
+          COMMIT_2025_26: 8c97b2adb123863c3dd581e730f1360e89815ac2
+          PYTHONPATH: canonical_candidate/engineering_workbench/scripts
+          COMMIT_DATE_2025_26: "2026-08-04T08:38:11Z"
+          COMMIT_2026_27: 7ca01d3821a68ced454cd1f2195be40ed697629b
+          COMMIT_DATE_2026_27: "2026-11-24T19:03:03Z"
+        run: |
+          python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_*defensive*.py' -v
+          python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_understat_apish_provider.py' -v
+          python -m py_compile canonical_candidate/engineering_workbench/scripts/understat_apish_provider.py canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py
+          python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_audit_2pm_2025_26_labelled_gw_coverage.py' -v
+          python canonical_candidate/engineering_workbench/scripts/prepare_2pm_defensive_feature_arms.py \
+            --schema canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json \
+            --output "$RUNNER_TEMP/defensive_feature_arms.json" \
+            > "$RUNNER_TEMP/defensive_feature_arms.log"
+          python canonical_candidate/engineering_workbench/scripts/audit_2pm_defensive_source_snapshots.py \
+            --source-2025-26 source-2025-26/data/2025-26/gws/merged_gw.csv \
+            --source-2026-27 source-2026-27/data/2026-27/gws/merged_gw.csv \
+            --commit-2025-26 "$COMMIT_2025_26" \
+            --commit-date-2025-26 "$COMMIT_DATE_2025_26" \
+            --commit-2026-27 "$COMMIT_2026_27" \
+            --commit-date-2026-27 "$COMMIT_DATE_2026_27" \
+            --output "$RUNNER_TEMP/defensive_source_coverage.json" \
+            > "$RUNNER_TEMP/defensive_source_coverage.log"
+      - name: Download pinned run-80 candidate artifact (no rebuild)
+        uses: actions/download-artifact@v4
+        with:
+          name: 2pm-four-season-tensor-candidate-run-80
+          run-id: 45467108384
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/run80-artifact
+      - name: Prepare isolated 2025/26 defensive audit inputs
+        env:
+          PYTHONPATH: canonical_candidate/engineering_workbench/scripts
+        run: |
+          python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_prepare_2pm_defensive_audit_inputs.py' -v
+          python canonical_candidate/engineering_workbench/scripts/prepare_2pm_defensive_audit_inputs.py \
+            --artifact-dir "${RUNNER_TEMP}/run80-artifact" \
+            --schema canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json \
+            --output-dir "${RUNNER_TEMP}/defensive-audit-inputs" \
+            > "${RUNNER_TEMP}/defensive-audit-inputs.log"
+          python canonical_candidate/engineering_workbench/scripts/audit_2pm_defensive_warmup.py \
+            --candidate "${RUNNER_TEMP}/defensive-audit-inputs/postmatch_states_2025-26_defensive_only.parquet" \
+            --schema canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json \
+            --output "${RUNNER_TEMP}/defensive-warmup-audit.json" \
+            > "${RUNNER_TEMP}/defensive-warmup-audit.log"
+          python canonical_candidate/engineering_workbench/scripts/audit_2pm_2025_26_labelled_gw_coverage.py \
+            --metadata-dir "${RUNNER_TEMP}/defensive-audit-inputs/metadata_2025-26" \
+            --output "${RUNNER_TEMP}/defensive-labelled-gw-coverage.json" \
+            > "${RUNNER_TEMP}/defensive-labelled-gw-coverage.log"
+          python canonical_candidate/engineering_workbench/scripts/audit_2pm_defensive_history_depth.py \
+            --source source-2025-26/data/2025-26/gws/merged_gw.csv \
+            --fixtures source-2025-26/data/2025-26/fixtures.csv \
+            --metadata-dir "${RUNNER_TEMP}/defensive-audit-inputs/metadata_2025-26" \
+            --players-raw source-2025-26/data/2025-26/players_raw.csv \
+            --output "${RUNNER_TEMP}/defensive-history-depth.json" \
+            --detail-output "${RUNNER_TEMP}/defensive-history-depth.csv" \
+            > "${RUNNER_TEMP}/defensive-history-depth.log"
+      - name: Audit per-Gameweek point-in-time source vintages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/audit_2pm_point_in_time_source_vintages.py \
+            --source-2025-26 source-2025-26/data/2025-26/gws/merged_gw.csv \
+            --source-2026-27 source-2026-27/data/2026-27/gws/merged_gw.csv \
+            --fplcache-2025-26 fplcache-2025-26 \
+            --fplcache-2026-27 fplcache-2026-27 \
+            --fplcache-2025-26-commit 6c364bfbd9914649dc5dec016e544be3ae4fe767 \
+            --fplcache-2026-27-commit 5f428bfbadc4223fe574e029a5e7ede90f6f7ddb \
+            --output "${RUNNER_TEMP}/point-in-time-source-vintages.json" \
+            --detail-output "${RUNNER_TEMP}/point-in-time-source-vintages.csv" \
+            > "${RUNNER_TEMP}/point-in-time-source-vintages.log"
+      # Reuse pinned raw downloads across workflow runs. The run-id suffix makes each
+      # run's cache immutable while restore-keys recover the latest partial/full cache.
+      - name: Restore point-in-time source downloads
+        id: pit-source-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/point-in-time-raw
+            ${{ runner.temp }}/point-in-time-fplcache
+            ${{ runner.temp }}/2pm-apish-provider-cache
+          key: 2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-schema1-mapping-758db9247e8b3a9a870c991064f74d8339d61cd0-${{ github.run_id }}
+          restore-keys: |
+            2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-schema1-mapping-758db9247e8b3a9a870c991064f74d8339d61cd0-
+      - name: Enforce Understat robots policy; allow separate API.SH provider
+        id: understat-diagnostic
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = {
+              "status": "UNDERSTAT_AUTOMATED_ACCESS_DISABLED",
+              "provider": "Understat",
+              "policy": "No direct requests to Understat; the separately documented API.SH provider may be enabled only by manual dispatch",
+              "decision": "NO_DIRECT_UNDERSTAT_REQUESTS; API.SH_IS_A_SEPARATE_DOCUMENTED_PROVIDER",
+              "network_requests_made": 0,
+          }
+          path = Path(os.environ["RUNNER_TEMP"]) / "understat-access-diagnostic.json"
+          path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(report, indent=2))
+          PY
+      - name: Prepare and validate point-in-time source downloads
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APISH_KEY: ${{ secrets.APISH_KEY }}
+          APISH_CACHE_ROOT: ${{ runner.temp }}/2pm-apish-provider-cache
+          PYTHONPATH: canonical_candidate/engineering_workbench/scripts
+        run: |
+          args=(
+            --dastan-root dastan-source
+            --raw-root "${RUNNER_TEMP}/point-in-time-raw"
+            --output-root "${RUNNER_TEMP}/point-in-time-candidates"
+            --shared-fplcache-root "${RUNNER_TEMP}/point-in-time-fplcache"
+            --vintage-report "${RUNNER_TEMP}/point-in-time-source-vintages.json"
+            --target 2025-26:6
+            --target 2026-27:8
+            --workers 4
+            --prepare-sources-only
+          )
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.use_apish_understat }}" = "true" ]; then
+            args+=(--apish-understat)
+            if [ "${{ inputs.apish_probe_only }}" = "true" ]; then
+              args+=(--apish-probe-only)
+            fi
+          else
+            args+=(--pinned-sources-only)
+          fi
+          python canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py "${args[@]}" \
+            > "${RUNNER_TEMP}/point-in-time-source-preparation.log"
+      # Save the raw source checkpoint before candidate reconstruction. The
+      # always() condition preserves partial downloads if source preparation fails.
+      - name: Checkpoint point-in-time source downloads before reconstruction
+        if: always() && steps.understat-diagnostic.outcome == 'success' && steps.pit-source-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ runner.temp }}/point-in-time-raw
+            ${{ runner.temp }}/point-in-time-fplcache
+            ${{ runner.temp }}/2pm-apish-provider-cache
+          key: 2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-schema1-mapping-758db9247e8b3a9a870c991064f74d8339d61cd0-${{ github.run_id }}
+      - name: Gate candidate reconstruction on complete Understat histories
+        if: ${{ !(inputs.use_apish_understat == true && inputs.apish_probe_only == true) }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path(os.environ["RUNNER_TEMP"]) / "point-in-time-candidates" / "point_in_time_target_candidate_batch.json"
+          if not path.is_file():
+              raise SystemExit("Source preparation batch report is missing")
+          report = json.loads(path.read_text(encoding="utf-8"))
+          failures = []
+          for item in report.get("reports", []):
+              audit = item.get("understat_fallback_audit") or {}
+              players = audit.get("unresolved_player_ids", [])
+              teams = audit.get("unresolved_team_seasons", [])
+              if item.get("understat_history_complete") is not True:
+                  failures.append({
+                      "target": f"{item.get('season')}:{item.get('gameweek')}",
+                      "unresolved_player_count": len(players),
+                      "unresolved_team_seasons": teams,
+                      "sample_player_ids": players[:20],
+                  })
+          if failures:
+              print(json.dumps(failures, indent=2))
+              raise SystemExit("Pinned Understat history coverage is incomplete; candidate reconstruction is prohibited")
+          print("All required Understat histories are available from pinned or previously cached sources.")
+          PY
+      - name: Build point-in-time candidate smoke tests
+        if: ${{ github.event_name != 'push' && !(inputs.use_apish_understat == true && inputs.apish_probe_only == true) }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHONPATH: canonical_candidate/engineering_workbench/scripts
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py \
+            --dastan-root dastan-source \
+            --raw-root "${RUNNER_TEMP}/point-in-time-raw" \
+            --output-root "${RUNNER_TEMP}/point-in-time-candidates" \
+            --shared-fplcache-root "${RUNNER_TEMP}/point-in-time-fplcache" \
+            --vintage-report "${RUNNER_TEMP}/point-in-time-source-vintages.json" \
+            --target 2025-26:6 \
+            --target 2026-27:8 \
+            --workers 4 \
+            > "${RUNNER_TEMP}/point-in-time-candidate-build.log"
+      - name: Publish aggregate coverage without exposing target scores
+        if: always()
+        env:
+          REPORT: ${{ runner.temp }}/defensive_source_coverage.json
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p = Path(os.environ["REPORT"])
+          if not p.exists():
+              raise SystemExit("Coverage report missing")
+          report = json.loads(p.read_text())
+          manifest_path = p.parent / "defensive_feature_arms.json"
+          manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else None
+          lines = ["## 2PM defensive experiment: source coverage audit",
+                   "- Target-score columns were not loaded.",
+                   "- This audit verifies source coverage only; it does not authorize training."]
+          if manifest:
+              lines.extend([
+                  "## Matched feature arms",
+                  f"- Baseline: {manifest['arms']['baseline']['feature_count']} features",
+                  f"- Defensive enhanced: {manifest['arms']['defensive_enhanced']['feature_count']} features",
+                  f"- Defensive block: {manifest['defensive_feature_count']} schema-derived features",
+                  "- Both arms must use the identical player-Gameweek sample intersection.",
+              ])
+          for season, source in report["sources"].items():
+              lines.append(f"### {season}")
+              lines.append(f"- Source commit: `{source['commit']}`")
+              lines.append(f"- File SHA-256: `{source['source_file_sha256']}`")
+              lines.append(f"- Played player-fixture rows: {source['audit']['played_player_fixture_rows']}")
+              for field, stats in source["audit"]["fields"].items():
+                  lines.append(f"- {field}: present={stats['source_column_present']}, finite={stats['finite_values']}, missing={stats['missing_values']}, zero={stats['observed_zero_values']}, nonzero={stats['observed_nonzero_values']}")
+              lines.append(f"- Gameweeks represented: {', '.join(source['audit']['gameweeks'].keys())}")
+          warmup_path = p.parent / "defensive-warmup-audit.json"
+          if warmup_path.exists():
+              warmup = json.loads(warmup_path.read_text())
+              lines.extend([
+                  "## 2025/26 defensive rolling-feature warm-up",
+                  f"- Candidate rows audited: {warmup['candidate_rows']} ({warmup['identity_grain']})",
+                  f"- Defensive features: {warmup['defensive_feature_count']}",
+                  f"- Gameweeks represented: {len(warmup['distinct_gameweeks'])}",
+                  "- Complete 27-feature rows by GW: " + ", ".join(
+                      f"GW{gw}: {stats['complete_27_feature_rows']}/"
+                      f"{stats.get('player_fixture_rows', stats.get('player_gameweek_rows'))}"
+                      for gw, stats in warmup["gameweek_level"].items()
+                  ),
+                  "- No target-score columns were loaded for this audit.",
+              ])
+          labels_path = p.parent / "defensive-labelled-gw-coverage.json"
+          if labels_path.exists():
+              labels = json.loads(labels_path.read_text())
+              lines.extend([
+                  "## 2025/26 chronological split coverage (cutoff not selected)",
+                  f"- Labelled player-Gameweek samples: {labels['labelled_player_gameweek_samples']}",
+                  f"- Gameweeks represented: {labels['gameweek_count']}",
+                  "- Candidate cutoffs are descriptive only; training remains unauthorized.",
+              ])
+          depth_path = p.parent / "defensive-history-depth.json"
+          if depth_path.exists():
+              depth = json.loads(depth_path.read_text())
+              lines.extend([
+                  "## 2025/26 defensive history depth",
+                  f"- Player-Gameweek samples: {depth['player_gameweek_samples']}",
+                  f"- Target fixture queries: {depth['target_fixture_queries']}",
+                  "- Full-window coverage by defensive feature:",
+              ])
+              for feature, stats in depth["feature_depth"].items():
+                  lines.append(
+                      f"  - {feature}: full={stats['full_window_rows']}/{stats['rows']}, "
+                      f"finite depth median={stats['median_finite_observations']}, "
+                      f"range={stats['min_finite_observations']}–{stats['max_finite_observations']}"
+                  )
+          candidate_path = p.parent / "point-in-time-candidates/point_in_time_target_candidate_batch.json"
+          if candidate_path.exists():
+              candidate = json.loads(candidate_path.read_text())
+              lines.extend([
+                  "## Point-in-time candidate smoke tests",
+                  f"- Built targets: {candidate.get('targets_built')}",
+              ])
+              for item in candidate.get("reports", []):
+                  lines.append(
+                      f"- {item['season']} GW{item['gameweek']}: "
+                      f"{item['target_query_player_fixture_rows']} target rows, "
+                      f"{item['feature_count']} features, "
+                      f"snapshot age {item['target_snapshot_age_hours']:.2f}h"
+                  )
+          vintage_path = p.parent / "point-in-time-source-vintages.json"
+          if vintage_path.exists():
+              vintage = json.loads(vintage_path.read_text())
+              lines.extend([
+                  "## Per-Gameweek point-in-time source vintages",
+                  "- Source commit selection is strictly before each official deadline minus five minutes.",
+                  "- FPL cache usability requires the target event to be is_next and within 30h (EP) / 12h (signals).",
+              ])
+              for season, season_report in vintage["seasons"].items():
+                  lines.append(f"### {season}")
+                  for gw, value in season_report["gameweeks"].items():
+                      snap = value.get("snapshot", {})
+                      src = value.get("source", {})
+                      lines.append(
+                          f"- GW{gw}: snapshot={snap.get('status')}, "
+                          f"age_h={snap.get('age_hours')}, "
+                          f"EP30h={snap.get('ep_next_usable_30h')}, "
+                          f"signals12h={snap.get('signals_usable_12h')}; "
+                          f"source={src.get('source_status')}, "
+                          f"coverage={src.get('source_coverage_of_final_prior_keys')}, "
+                          f"missing_prior_keys={src.get('missing_final_prior_keys')}"
+                      )
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines) + "\n")
+          PY
+      - name: Upload source coverage audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2pm-defensive-source-coverage-audit
+          path: |
+            ${{ runner.temp }}/defensive_source_coverage.json
+            ${{ runner.temp }}/defensive_feature_arms.json
+            ${{ runner.temp }}/defensive-audit-inputs/input_manifest.json
+            ${{ runner.temp }}/defensive-warmup-audit.json
+            ${{ runner.temp }}/defensive-labelled-gw-coverage.json
+            ${{ runner.temp }}/defensive-history-depth.json
+            ${{ runner.temp }}/defensive-history-depth.csv
+            ${{ runner.temp }}/point-in-time-source-vintages.json
+            ${{ runner.temp }}/point-in-time-source-vintages.csv
+            ${{ runner.temp }}/point-in-time-candidates/**
+            ${{ runner.temp }}/point-in-time-candidate-build.log
+            ${{ runner.temp }}/point-in-time-source-preparation.log
+            ${{ runner.temp }}/understat-access-diagnostic.json
+          if-no-files-found: warn
+          retention-days: 30
