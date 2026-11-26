@@ -6,6 +6,7 @@ are acquired once and copied into each Dastan raw-source tree.
 """
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import os
@@ -107,71 +108,57 @@ def normalize_player_matches(rows: list[dict[str, Any]], player_id: int) -> list
     return output
 
 
-def normalize_team_histories(payload: dict[str, Any], season: str) -> dict[str, dict[str, Any]]:
-    teams_payload = None
-    for candidate in _object_candidates(payload):
-        value = candidate.get("teams")
-        if isinstance(value, dict):
-            teams_payload = list(value.values())
-            break
-        if isinstance(value, list):
-            teams_payload = value
-            break
-    if teams_payload is None:
-        raise ValueError(f"API.SH league response omitted raw team histories for {season}")
-    result: dict[str, dict[str, Any]] = {}
-    for team in teams_payload:
-        if not isinstance(team, dict):
+def normalize_one_team(payload: dict[str, Any], expected_team: str, season: str) -> dict[str, Any]:
+    """Normalize one API.SH /team response without substituting league aggregates."""
+    candidates = _object_candidates(payload)
+    if isinstance(payload.get("team"), dict):
+        candidates.insert(0, payload["team"])
+    team_obj = next((item for item in candidates if isinstance(item.get("history"), list)), None)
+    if team_obj is None:
+        raise ValueError(f"API.SH /team response for {expected_team} {season} omitted match history")
+    title = str(team_obj.get("title") or team_obj.get("name") or expected_team).strip()
+    if title.casefold() != expected_team.casefold():
+        raise ValueError(f"API.SH /team identity mismatch: requested {expected_team}, received {title}")
+    normalized = []
+    for source in team_obj["history"]:
+        if not isinstance(source, dict):
             continue
-        title = str(team.get("title") or team.get("name") or "").strip()
-        history = team.get("history")
-        if not title or not isinstance(history, list) or not history:
-            continue
-        normalized = []
-        for source in history:
-            if not isinstance(source, dict):
-                continue
-            row = dict(source)
-            aliases = {
-                "date": ("date", "datetime", "match_date"),
-                "h_a": ("h_a", "home_away", "venue"),
-                "scored": ("scored", "goals_for", "goals"),
-                "missed": ("missed", "goals_against", "conceded"),
-                "xG": ("xG", "xg"),
-                "xGA": ("xGA", "xga"),
-                "deep": ("deep",),
-                "deep_allowed": ("deep_allowed",),
-                "ppda": ("ppda",),
-                "ppda_allowed": ("ppda_allowed",),
-                "pts": ("pts", "points"),
-            }
-            for target, names in aliases.items():
-                if row.get(target) is None:
-                    value = _first(source, names)
-                    if value is not None:
-                        row[target] = value
-            if row.get("h_a") is None and source.get("is_home") is not None:
-                row["h_a"] = "h" if str(source["is_home"]).lower() in {"true", "1", "yes"} else "a"
-            if row.get("h_a") is not None:
-                venue = str(row["h_a"]).lower()
-                row["h_a"] = "h" if venue in {"home", "h"} else "a" if venue in {"away", "a"} else row["h_a"]
-            required_values = (
-                "date", "h_a", "scored", "missed", "xG", "xGA",
-                "deep", "deep_allowed", "pts",
-            )
-            missing_values = [field for field in required_values if row.get(field) is None]
-            missing_ppda = [field for field in ("ppda", "ppda_allowed") if field not in row]
-            missing = missing_values + missing_ppda
-            if missing:
-                raise ValueError(
-                    f"API.SH team {title} {season} row lacks required team metrics {missing}"
-                )
-            normalized.append(row)
-        if normalized:
-            result[title] = {"title": title, "history": normalized}
-    if len(result) != 20:
-        raise ValueError(f"API.SH league {season} returned {len(result)} usable teams; expected exactly 20")
-    return result
+        row = dict(source)
+        aliases = {
+            "date": ("date", "datetime", "match_date"), "h_a": ("h_a", "home_away", "venue"),
+            "scored": ("scored", "goals_for", "goals"), "missed": ("missed", "goals_against", "conceded"),
+            "xG": ("xG", "xg"), "xGA": ("xGA", "xga"), "deep": ("deep",),
+            "deep_allowed": ("deep_allowed",), "ppda": ("ppda",),
+            "ppda_allowed": ("ppda_allowed",), "pts": ("pts", "points"),
+        }
+        for target, names in aliases.items():
+            if target not in row:
+                value = _first(source, names)
+                if value is not None:
+                    row[target] = value
+        if row.get("h_a") is None and source.get("is_home") is not None:
+            row["h_a"] = "h" if str(source["is_home"]).lower() in {"true", "1", "yes"} else "a"
+        if row.get("h_a") is not None:
+            venue = str(row["h_a"]).lower()
+            row["h_a"] = "h" if venue in {"home", "h"} else "a" if venue in {"away", "a"} else row["h_a"]
+        required = ("date", "h_a", "scored", "missed", "xG", "xGA", "deep", "deep_allowed", "pts", "ppda", "ppda_allowed")
+        missing = [field for field in required if field not in row]
+        if missing:
+            raise ValueError(f"API.SH team {expected_team} {season} row lacks required team metrics {missing}")
+        normalized.append(row)
+    if not normalized:
+        raise ValueError(f"API.SH returned no match rows for team {expected_team} {season}")
+    return {"title": expected_team, "history": normalized}
+
+
+def normalize_team_histories(teams: dict[str, dict[str, Any]], season: str) -> dict[str, dict[str, Any]]:
+    """Validate a complete 20-team season assembled from individual /team calls."""
+    if len(teams) != 20:
+        raise ValueError(f"API.SH team histories for {season}: got {len(teams)} teams; expected 20")
+    for name, item in teams.items():
+        if item.get("title") != name or not isinstance(item.get("history"), list) or not item["history"]:
+            raise ValueError(f"Invalid team checkpoint for {name} {season}")
+    return teams
 
 
 def _remaining_credits(payload: dict[str, Any], header_value: Any = None) -> int:
@@ -303,11 +290,11 @@ class ApiShUnderstatClient:
         rows = _extract_list(payload, ("matches", "history", "player_matches"))
         return normalize_player_matches(rows, player_id)
 
-    def team_histories(self, season: str) -> dict[str, dict[str, Any]]:
-        payload = self._request(f"{BASE_URL}/league", {
-            "league": "EPL", "season": int(str(season).split("-")[0]), "raw": "true",
+    def team_history(self, team: str, season: str) -> dict[str, Any]:
+        payload = self._request(f"{BASE_URL}/team", {
+            "team": team, "season": int(str(season).split("-")[0]), "raw": "true",
         })
-        return normalize_team_histories(payload, season)
+        return normalize_one_team(payload, team, season)
 
 
 
@@ -362,12 +349,12 @@ def _result_body(payload: dict[str, Any]) -> dict[str, Any]:
 
 def recover_remote_histories(
     client: ApiShUnderstatClient, missing_player_ids: list[int],
-    missing_seasons: list[str], player_cache: Path, team_cache: Path,
-) -> tuple[list[int], list[str], list[str]]:
-    """Recover successful remote responses for free before credit-consuming calls."""
+    missing_team_requests: list[tuple[str, str]], player_cache: Path, team_cache: Path,
+) -> tuple[list[int], list[tuple[str, str]], list[str]]:
+    """Recover successful player and per-team responses from API.SH's free result store."""
     records = client.account_logs()
     wanted_players = set(map(int, missing_player_ids))
-    wanted_seasons = {str(v): int(str(v).split("-")[0]) for v in missing_seasons}
+    wanted_teams = set(missing_team_requests)
     matches: dict[tuple[str, str], dict[str, Any]] = {}
     for record in records:
         route = _record_route(record).rstrip("/")
@@ -379,15 +366,12 @@ def recover_remote_histories(
             value = _first(params, ("id", "player_id"))
             if value is not None and str(value).isdigit() and int(value) in wanted_players:
                 matches.setdefault(("player", str(int(value))), record)
-        elif route.endswith("/understat/v1/league") or route.endswith("/league"):
-            if str(params.get("league", "")).upper() == "EPL":
-                year = str(params.get("season", ""))
-                for season, season_year in wanted_seasons.items():
-                    if year == str(season_year):
-                        matches.setdefault(("team", season), record)
-    recovered_players: list[int] = []
-    recovered_seasons: list[str] = []
-    unrecoverable: list[str] = []
+        elif route.endswith("/understat/v1/team") or route.endswith("/team"):
+            team, year = str(params.get("team", "")), str(params.get("season", ""))
+            for season, requested_team in wanted_teams:
+                if team.casefold() == requested_team.casefold() and year == str(int(season.split("-")[0])):
+                    matches.setdefault(("team", f"{season}|{requested_team}"), record)
+    recovered_players, recovered_teams, unrecoverable = [], [], []
     for (kind, key), record in sorted(matches.items()):
         request_id = str(_first(record, ("request_id", "requestId", "id")))
         try:
@@ -398,31 +382,29 @@ def recover_remote_histories(
                 normalized = normalize_player_matches(rows, int(key))
                 destination = player_cache / f"{key}.json"
             else:
-                normalized = normalize_team_histories(body, key)
-                destination = team_cache / f"{key}.json"
-            client.last_payload = body
+                season, team = key.split("|", 1)
+                normalized = normalize_one_team(body, team, season)
+                destination = team_cache / _team_cache_filename(season, team)
+            client.last_payload = response_payload
             client.last_meta = {
-                "request_id": request_id,
-                "credits_used": int(record.get("credits_used") or 1),
-                "credits_remaining": None,
-                "cached": record.get("cached"),
+                "request_id": request_id, "credits_used": int(record.get("credits_used") or 1),
+                "credits_remaining": None, "cached": record.get("cached"),
                 "fetched_at": record.get("created_at") or record.get("timestamp"),
-                "endpoint": _record_route(record),
-                "params": _record_params(record),
+                "endpoint": _record_route(record), "params": _record_params(record),
                 "recovered_from_remote_result": True,
             }
             _persist_response(destination, normalized, kind=kind, key=key, client=client)
             if kind == "player":
                 recovered_players.append(int(key))
             else:
-                recovered_seasons.append(key)
+                recovered_teams.append((season, team))
             print(f"API.SH free recovery: {kind} {key} from request {request_id}", flush=True)
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 410:
                 unrecoverable.append(f"{kind}:{key}:{request_id}:result_expired")
             else:
                 raise
-    return recovered_players, recovered_seasons, unrecoverable
+    return recovered_players, recovered_teams, unrecoverable
 
 def _valid_meta(path: Path, *, kind: str, key: str) -> bool:
     meta_path = path.with_suffix(".meta")
@@ -437,7 +419,7 @@ def _valid_meta(path: Path, *, kind: str, key: str) -> bool:
             and meta.get("mapping_commit") == MAPPING_COMMIT
             and meta.get("payload_sha256") == _sha256(path)
             and bool(payload)
-            and (normalize_player_matches(payload, int(key)) if kind == "player" else normalize_team_histories({"raw": {"teams": payload}}, key))
+            and (normalize_player_matches(payload, int(key)) if kind == "player" else normalize_one_team(payload, key.split("|", 1)[1], key.split("|", 1)[0]))
         )
     except (OSError, ValueError, TypeError):
         return False
@@ -473,100 +455,128 @@ def _copy_checkpoint(source: Path, destination: Path) -> None:
     temporary.replace(destination)
 
 
+def _team_cache_filename(season: str, team: str) -> str:
+    import re
+    slug = re.sub(r"[^a-z0-9]+", "-", team.casefold()).strip("-")
+    return f"{season}--{slug}.json"
+
+
+FPL_TO_UNDERSTAT = {
+    "Man City": "Manchester City", "Man Utd": "Manchester United",
+    "Newcastle": "Newcastle United", "Nott'm Forest": "Nottingham Forest",
+    "Sheffield Utd": "Sheffield United", "Spurs": "Tottenham",
+    "West Brom": "West Bromwich Albion", "Wolves": "Wolverhampton Wanderers",
+}
+
+
+def _season_team_names(raw_dir: Path, season: str) -> list[str]:
+    path = raw_dir / "vaastav" / season / "teams.csv"
+    if not path.is_file():
+        raise FileNotFoundError(f"Pinned Vaastav teams.csv is required to enumerate {season}: {path}")
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        names = [FPL_TO_UNDERSTAT.get(row["name"], row["name"]) for row in csv.DictReader(handle)]
+    names = sorted(set(name.strip() for name in names if name and name.strip()))
+    if len(names) != 20:
+        raise ValueError(f"Pinned Vaastav {season} teams.csv maps to {len(names)} distinct Understat teams, expected 20")
+    return names
+
+
+def _write_complete_team_season(team_cache: Path, raw_team_dir: Path, season: str, names: list[str]) -> bool:
+    histories = {}
+    for team in names:
+        path = team_cache / _team_cache_filename(season, team)
+        key = f"{season}|{team}"
+        if not _valid_meta(path, kind="team", key=key):
+            return False
+        histories[team] = json.loads(path.read_text(encoding="utf-8"))
+    _atomic_json(raw_team_dir / f"{season}.json", normalize_team_histories(histories, season))
+    return True
+
+
 def download_missing_histories(
     raw_dir: Path, missing_players: list[int], missing_team_seasons: list[str],
     *, cache_root: Path, probe_only: bool = False,
 ) -> dict[str, Any]:
-    """Restore shared checkpoints first; acquire only missing records, saving each immediately."""
+    """Restore all validated checkpoints, then acquire only missing player/team records."""
     client = ApiShUnderstatClient()
     cache_root.mkdir(parents=True, exist_ok=True)
-    player_cache = cache_root / "players"
-    team_cache = cache_root / "teams"
-    player_dir = raw_dir / "understat" / "players"
-    team_dir = raw_dir / "understat" / "teams"
-    restored_players, restored_teams = [], []
+    player_cache, team_cache = cache_root / "players", cache_root / "teams"
+    player_dir, team_dir = raw_dir / "understat" / "players", raw_dir / "understat" / "teams"
+    player_dir.mkdir(parents=True, exist_ok=True)
+    team_dir.mkdir(parents=True, exist_ok=True)
 
+    restored_players, restored_team_members = [], []
     missing_player_ids = []
     for player_id in sorted(set(map(int, missing_players))):
         cache = player_cache / f"{player_id}.json"
-        destination = player_dir / f"{player_id}.json"
+        destination = player_dir / cache.name
         if _valid_meta(cache, kind="player", key=str(player_id)):
             _copy_checkpoint(cache, destination)
+            _copy_checkpoint(cache.with_suffix(".meta"), destination.with_suffix(".meta"))
             restored_players.append(player_id)
-        elif destination.is_file() and destination.stat().st_size and not cache.exists():
-            # Raw-run-local files from an earlier API.SH run are reused only when
-            # their matching provenance sidecar validates.
-            if _valid_meta(destination, kind="player", key=str(player_id)):
-                _copy_checkpoint(destination, cache)
-                restored_players.append(player_id)
-            else:
-                missing_player_ids.append(player_id)
+        elif _valid_meta(destination, kind="player", key=str(player_id)):
+            _copy_checkpoint(destination, cache)
+            restored_players.append(player_id)
         else:
             missing_player_ids.append(player_id)
 
-    missing_seasons = []
-    for season in sorted(set(map(str, missing_team_seasons))):
-        cache = team_cache / f"{season}.json"
-        destination = team_dir / f"{season}.json"
-        if _valid_meta(cache, kind="team", key=season):
-            _copy_checkpoint(cache, destination)
-            restored_teams.append(season)
-        elif destination.is_file() and destination.stat().st_size and not cache.exists():
-            if _valid_meta(destination, kind="team", key=season):
+    team_names_by_season = {
+        season: _season_team_names(raw_dir, season)
+        for season in sorted(set(map(str, missing_team_seasons)))
+    }
+    missing_team_requests = []
+    for season, names in team_names_by_season.items():
+        for team in names:
+            key = f"{season}|{team}"
+            cache = team_cache / _team_cache_filename(season, team)
+            destination = team_dir / cache.name
+            if _valid_meta(cache, kind="team", key=key):
+                _copy_checkpoint(cache, destination)
+                _copy_checkpoint(cache.with_suffix(".meta"), destination.with_suffix(".meta"))
+                restored_team_members.append((season, team))
+            elif _valid_meta(destination, kind="team", key=key):
                 _copy_checkpoint(destination, cache)
-                restored_teams.append(season)
+                restored_team_members.append((season, team))
             else:
-                missing_seasons.append(season)
-        else:
-            missing_seasons.append(season)
+                missing_team_requests.append((season, team))
 
-    if missing_player_ids or missing_seasons:
-        account, credits_remaining = client.account()
-        recovered_players, recovered_seasons, unrecoverable = recover_remote_histories(
-            client, missing_player_ids, missing_seasons, player_cache, team_cache
+    if missing_player_ids or missing_team_requests:
+        _, credits_remaining = client.account()
+        recovered_players, recovered_teams, unrecoverable = recover_remote_histories(
+            client, missing_player_ids, missing_team_requests, player_cache, team_cache
         )
     else:
-        account, credits_remaining = {}, 0
-        recovered_players, recovered_seasons, unrecoverable = [], [], []
+        credits_remaining = 0
+        recovered_players, recovered_teams, unrecoverable = [], [], []
+
     for player_id in recovered_players:
-        _copy_checkpoint(player_cache / f"{player_id}.json", player_dir / f"{player_id}.json")
-        _copy_checkpoint(player_cache / f"{player_id}.meta", player_dir / f"{player_id}.meta")
+        source = player_cache / f"{player_id}.json"
+        _copy_checkpoint(source, player_dir / source.name)
+        _copy_checkpoint(source.with_suffix(".meta"), (player_dir / source.name).with_suffix(".meta"))
         restored_players.append(player_id)
         missing_player_ids.remove(player_id)
-    for season in recovered_seasons:
-        _copy_checkpoint(team_cache / f"{season}.json", team_dir / f"{season}.json")
-        _copy_checkpoint(team_cache / f"{season}.meta", team_dir / f"{season}.meta")
-        restored_teams.append(season)
-        missing_seasons.remove(season)
+    for season, team in recovered_teams:
+        source = team_cache / _team_cache_filename(season, team)
+        _copy_checkpoint(source, team_dir / source.name)
+        _copy_checkpoint(source.with_suffix(".meta"), (team_dir / source.name).with_suffix(".meta"))
+        restored_team_members.append((season, team))
+        missing_team_requests.remove((season, team))
     if unrecoverable:
-        raise RuntimeError(
-            "Successful API.SH requests were found but their free 30-day results have expired. "
-            "Refusing to pay for them again without review: " + "; ".join(unrecoverable)
-        )
-    required_calls = len(missing_player_ids) + len(missing_seasons)
-    if not probe_only and required_calls > credits_remaining:
-        raise RuntimeError(
-            f"API.SH credits insufficient: {credits_remaining} remaining, "
-            f"{required_calls} missing-history calls required. No bulk requests made."
-        )
+        raise RuntimeError("Successful API.SH requests were found but their free 30-day results have expired. Refusing to pay again: " + "; ".join(unrecoverable))
 
-    fetched_players, fetched_teams = [], []
+    required_calls = len(missing_player_ids) + len(missing_team_requests)
     probe_marker = cache_root / "probe_complete.json"
     probe_already_done = probe_only and probe_marker.is_file()
-    player_requests = (
-        missing_player_ids[:1] if probe_only and not probe_already_done
-        else [] if probe_only else missing_player_ids
-    )
-    team_requests = (
-        missing_seasons[:1] if probe_only and not probe_already_done
-        else [] if probe_only else missing_seasons
-    )
-    probe_calls = len(player_requests) + len(team_requests)
-    if probe_calls > credits_remaining:
+    player_requests = missing_player_ids[:1] if probe_only and not probe_already_done else ([] if probe_only else missing_player_ids)
+    team_requests = missing_team_requests[:1] if probe_only and not probe_already_done else ([] if probe_only else missing_team_requests)
+    planned_calls = len(player_requests) + len(team_requests)
+    if planned_calls > credits_remaining:
         raise RuntimeError(
-            f"API.SH probe requires {probe_calls} credits but only {credits_remaining} remain; "
-            "no provider data requests were made."
+            f"API.SH credits insufficient: {credits_remaining} remaining, {planned_calls} calls planned "
+            f"({required_calls} outstanding overall). No provider data requests were made."
         )
+
+    fetched_players, fetched_team_members = [], []
     for player_id in player_requests:
         payload = client.player_history(player_id)
         cache = player_cache / f"{player_id}.json"
@@ -575,58 +585,49 @@ def download_missing_histories(
         _copy_checkpoint(cache.with_suffix(".meta"), (player_dir / cache.name).with_suffix(".meta"))
         fetched_players.append(player_id)
         print(f"API.SH checkpointed player {player_id}", flush=True)
-    for season in team_requests:
-        payload = client.team_histories(season)
-        cache = team_cache / f"{season}.json"
-        _persist_response(cache, payload, kind="team", key=season, client=client)
+
+    for season, team in team_requests:
+        payload = client.team_history(team, season)
+        key = f"{season}|{team}"
+        cache = team_cache / _team_cache_filename(season, team)
+        _persist_response(cache, payload, kind="team", key=key, client=client)
         _copy_checkpoint(cache, team_dir / cache.name)
         _copy_checkpoint(cache.with_suffix(".meta"), (team_dir / cache.name).with_suffix(".meta"))
-        fetched_teams.append(season)
-        print(f"API.SH checkpointed team season {season}", flush=True)
+        fetched_team_members.append((season, team))
+        print(f"API.SH checkpointed team {team} {season}", flush=True)
 
-    # One shared marker makes the probe a one-time, bounded action across both
-    # target vintages and future manual workflow runs. Bulk mode ignores it.
-    if probe_only and not probe_already_done and (fetched_players or fetched_teams):
+    if probe_only and not probe_already_done and (fetched_players or fetched_team_members):
         _atomic_json(probe_marker, {
             "provider": PROVIDER, "mapping_commit": MAPPING_COMMIT,
             "completed_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "sample_player_ids": fetched_players, "sample_team_seasons": fetched_teams,
+            "sample_player_ids": fetched_players,
+            "sample_team_requests": [{"season": s, "team": t} for s, t in fetched_team_members],
         })
 
-    # Probe mode deliberately stops after one player and one team season. The
-    # next bulk run restores these checkpoints and continues the remaining acquisition.
-    remaining_players = [p for p in missing_player_ids if p not in fetched_players]
-    remaining_teams = [s for s in missing_seasons if s not in fetched_teams]
-    if not probe_only:
-        for player_id in remaining_players:
-            payload = client.player_history(player_id)
-            cache = player_cache / f"{player_id}.json"
-            _persist_response(cache, payload, kind="player", key=str(player_id), client=client)
-            _copy_checkpoint(cache, player_dir / cache.name)
-            _copy_checkpoint(cache.with_suffix(".meta"), (player_dir / cache.name).with_suffix(".meta"))
-            fetched_players.append(player_id)
-            print(f"API.SH checkpointed player {player_id}", flush=True)
-        for season in remaining_teams:
-            payload = client.team_histories(season)
-            cache = team_cache / f"{season}.json"
-            _persist_response(cache, payload, kind="team", key=season, client=client)
-            _copy_checkpoint(cache, team_dir / cache.name)
-            _copy_checkpoint(cache.with_suffix(".meta"), (team_dir / cache.name).with_suffix(".meta"))
-            fetched_teams.append(season)
-            print(f"API.SH checkpointed team season {season}", flush=True)
+    complete_team_seasons, unresolved_team_seasons = [], []
+    for season, names in team_names_by_season.items():
+        if _write_complete_team_season(team_cache, team_dir, season, names):
+            complete_team_seasons.append(season)
+        else:
+            unresolved_team_seasons.append(season)
 
     unresolved_players = [p for p in missing_player_ids if p not in fetched_players]
-    unresolved_teams = [s for s in missing_seasons if s not in fetched_teams]
     return {
         "provider": PROVIDER, "mapping_commit": MAPPING_COMMIT,
         "probe_only": probe_only, "credits_remaining_before": credits_remaining,
-        "required_calls_before_acquisition": required_calls,
+        "required_calls_before_acquisition": required_calls, "planned_calls_this_run": planned_calls,
         "restored_player_histories": restored_players,
-        "restored_team_seasons": restored_teams,
+        "restored_team_members": [{"season": s, "team": t} for s, t in restored_team_members],
+        "restored_team_seasons": sorted({s for s, _ in restored_team_members}),
         "remote_recovered_player_histories": recovered_players,
-        "remote_recovered_team_seasons": recovered_seasons,
+        "remote_recovered_team_members": [{"season": s, "team": t} for s, t in recovered_teams],
         "fetched_player_histories": fetched_players,
-        "fetched_team_seasons": fetched_teams,
+        "fetched_team_members": [{"season": s, "team": t} for s, t in fetched_team_members],
+        "fetched_team_seasons": complete_team_seasons,
         "unresolved_player_ids": unresolved_players,
-        "unresolved_team_seasons": unresolved_teams,
+        "unresolved_team_seasons": unresolved_team_seasons,
+        "unresolved_team_member_count": sum(
+            1 for season, names in team_names_by_season.items() for team in names
+            if not _valid_meta(team_cache / _team_cache_filename(season, team), kind="team", key=f"{season}|{team}")
+        ),
     }
