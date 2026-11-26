@@ -539,7 +539,7 @@ def download_missing_histories(
         print(f"API.SH checkpointed team season {season}", flush=True)
 
     # One shared marker makes the probe a one-time, bounded action across both
-    # target vintages and future push-triggered audit runs. Bulk mode ignores it.
+    # target vintages and future manual workflow runs. Bulk mode ignores it.
     if probe_only and not probe_already_done and (fetched_players or fetched_teams):
         _atomic_json(probe_marker, {
             "provider": PROVIDER, "mapping_commit": MAPPING_COMMIT,
