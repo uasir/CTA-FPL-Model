@@ -303,7 +303,14 @@ def build_point_in_time_target_candidate(
                 if cached.is_file() and cached.stat().st_size:
                     try:
                         payload = json.loads(cached.read_text(encoding="utf-8"))
-                        valid = isinstance(payload, list) and bool(payload)
+                        valid = (
+                            isinstance(payload, list) and bool(payload)
+                            and all(
+                                isinstance(row, dict)
+                                and {"date", "season", "h_team", "a_team"}.issubset(row)
+                                for row in payload[: min(len(payload), 5)]
+                            )
+                        )
                     except (OSError, ValueError, TypeError):
                         valid = False
                 if valid:
@@ -316,7 +323,15 @@ def build_point_in_time_target_candidate(
                 if cached.is_file() and cached.stat().st_size:
                     try:
                         payload = json.loads(cached.read_text(encoding="utf-8"))
-                        valid = isinstance(payload, list) and bool(payload)
+                        values = list(payload.values()) if isinstance(payload, dict) else payload
+                        valid = (
+                            isinstance(values, list) and bool(values)
+                            and all(
+                                isinstance(team, dict)
+                                and isinstance(team.get("history"), list)
+                                for team in values[: min(len(values), 5)]
+                            )
+                        )
                     except (OSError, ValueError, TypeError):
                         valid = False
                 if valid:
