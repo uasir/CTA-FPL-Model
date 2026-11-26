@@ -1,20 +1,25 @@
 from pathlib import Path
+import csv
 import sys
 import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from understat_apish_provider import (
-    normalize_player_matches,
-    normalize_team_histories,
-    _valid_meta,
-    _persist_response,
-    _log_records,
-    _record_params,
-    _record_route,
-    recover_remote_histories,
-    _remaining_credits,
+    normalize_player_matches, normalize_one_team, normalize_team_histories,
+    _valid_meta, _persist_response, _log_records, _record_params, _record_route,
+    recover_remote_histories, _remaining_credits, _season_team_names,
+    _team_cache_filename, _write_complete_team_season,
 )
+
+
+def team_response(name="Arsenal"):
+    return {"raw": {"title": name, "history": [{
+        "date": "2025-08-15 15:00:00", "is_home": True,
+        "scored": "1", "missed": "0", "xG": "1.2", "xGA": "0.4",
+        "deep": "5", "deep_allowed": "2", "ppda": None,
+        "ppda_allowed": None, "pts": "3",
+    }]}}
 
 
 class TestApiShUnderstatProvider(unittest.TestCase):
@@ -30,30 +35,47 @@ class TestApiShUnderstatProvider(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "lacks"):
             normalize_player_matches([{"xG": 0.5}], 76)
 
-    def test_team_histories_normalize_venue_and_require_twenty_teams(self):
-        payload = {"raw": {"teams": {
-            f"id-{i}": {"title": f"Team {i}", "history": [{
-                "date": "2025-08-15 15:00:00", "is_home": True,
-                "scored": "1", "missed": "0", "xG": "1.2", "xGA": "0.4",
-                "deep": "5", "deep_allowed": "2", "ppda": "9.0",
-                "ppda_allowed": "14.0", "pts": "3",
-            }]} for i in range(20)
-        }}}
-        teams = normalize_team_histories(payload, "2025-26")
-        self.assertEqual(len(teams), 20)
-        self.assertEqual(teams["Team 0"]["history"][0]["h_a"], "h")
+    def test_one_team_history_normalizes_venue_and_preserves_null_metrics(self):
+        team = normalize_one_team(team_response(), "Arsenal", "2025-26")
+        self.assertEqual(team["title"], "Arsenal")
+        self.assertEqual(team["history"][0]["h_a"], "h")
+        self.assertIsNone(team["history"][0]["ppda"])
 
-    def test_team_histories_reject_partial_team_list(self):
+    def test_one_team_history_rejects_wrong_team_identity(self):
+        with self.assertRaisesRegex(ValueError, "identity mismatch"):
+            normalize_one_team(team_response("Chelsea"), "Arsenal", "2025-26")
+
+    def test_one_team_history_rejects_missing_metrics(self):
         with self.assertRaisesRegex(ValueError, "lacks required team metrics"):
-            normalize_team_histories({"raw": {"teams": {
-                "1": {"title": "Arsenal", "history": [{"date": "2025-08-15"}]}
-            }}}, "2025-26")
+            normalize_one_team({"raw": {"title": "Arsenal", "history": [{"date": "2025-08-15"}]}}, "Arsenal", "2025-26")
 
+    def test_complete_team_season_requires_twenty_distinct_team_histories(self):
+        teams = {f"Team {i}": {"title": f"Team {i}", "history": [{"date": "2025-08-15"}]} for i in range(20)}
+        self.assertEqual(len(normalize_team_histories(teams, "2025-26")), 20)
+        with self.assertRaisesRegex(ValueError, "expected 20"):
+            normalize_team_histories(dict(list(teams.items())[:19]), "2025-26")
+
+    def test_season_team_names_use_pinned_teams_csv_and_alias_mapping(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "vaastav" / "2025-26"
+            path.mkdir(parents=True)
+            names = ["Arsenal", "Man City", "Man Utd", "Newcastle", "Nott'm Forest",
+                     "Sheffield Utd", "Spurs", "West Brom", "Wolves", "Chelsea",
+                     "Liverpool", "Everton", "Fulham", "Brentford", "Brighton",
+                     "Burnley", "Leeds", "Sunderland", "Bournemouth", "Crystal Palace"]
+            with (path / "teams.csv").open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["id", "name"])
+                writer.writeheader()
+                for i, name in enumerate(names, 1):
+                    writer.writerow({"id": i, "name": name})
+            mapped = _season_team_names(Path(directory), "2025-26")
+            self.assertIn("Manchester City", mapped)
+            self.assertIn("Nottingham Forest", mapped)
+            self.assertEqual(len(mapped), 20)
 
     def test_account_log_parsing_extracts_request_route_and_params(self):
         records = _log_records([{
-            "request_id": "abc-123",
-            "route": "/understat/v1/player",
+            "request_id": "abc-123", "route": "/understat/v1/player",
             "url": "https://api.api.sh/understat/v1/player?id=181",
         }])
         self.assertEqual(records[0]["request_id"], "abc-123")
@@ -62,78 +84,78 @@ class TestApiShUnderstatProvider(unittest.TestCase):
 
     def test_account_log_params_accept_json_and_query_string(self):
         self.assertEqual(_record_params({"params": {"season": 2025}})["season"], 2025)
-        self.assertEqual(_record_params({"query": "league=EPL&season=2025"})["season"], "2025")
+        self.assertEqual(_record_params({"query": "team=Arsenal&season=2025"})["season"], "2025")
 
-    def test_remote_result_recovery_restores_player_and_full_league_team_histories(self):
+    def test_remote_result_recovery_restores_player_and_individual_team(self):
         class FakeClient:
             def __init__(self):
                 self.last_meta = {}
                 self.last_payload = None
-
             def account_logs(self):
                 return [
-                    {
-                        "request_id": "player-request",
-                        "route": "/understat/v1/player",
-                        "params": {"id": "181"},
-                        "credits_used": 1,
-                    },
-                    {
-                        "request_id": "league-request",
-                        "route": "/understat/v1/league",
-                        "params": {"league": "EPL", "season": "2024"},
-                        "credits_used": 1,
-                    },
+                    {"request_id": "player-request", "route": "/understat/v1/player",
+                     "params": {"id": "181"}, "credits_used": 1},
+                    {"request_id": "team-request", "route": "/understat/v1/team",
+                     "params": {"team": "Arsenal", "season": "2024"}, "credits_used": 1},
                 ]
-
             def result(self, request_id):
-                if request_id == "player-request":
-                    self.last_payload = {"raw": {"matches": [{
-                        "season": "2024", "date": "2024-08-15",
-                        "h_team": "Arsenal", "a_team": "Wolves",
-                    }]}}
-                else:
-                    self.last_payload = {"raw": {"teams": {
-                        f"id-{i}": {"title": f"Team {i}", "history": [{
-                            "date": "2024-08-15", "h_a": "h",
-                            "scored": "1", "missed": "0", "xG": "1.2", "xGA": "0.4",
-                            "deep": "5", "deep_allowed": "2", "ppda": None,
-                            "ppda_allowed": None, "pts": "3",
-                        }]} for i in range(20)
-                    }}}
+                self.last_payload = (
+                    {"raw": {"matches": [{"season": "2024", "date": "2024-08-15",
+                                          "h_team": "Arsenal", "a_team": "Wolves"}]}}
+                    if request_id == "player-request" else team_response("Arsenal")
+                )
                 self.last_meta = {"request_id": request_id, "credits_used": 0}
                 return self.last_payload
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            players = root / "players"
-            teams = root / "teams"
-            recovered_players, recovered_teams, blocked = recover_remote_histories(
-                FakeClient(), [181], ["2024-25"], players, teams
+            players, teams = root / "players", root / "teams"
+            got_players, got_teams, blocked = recover_remote_histories(
+                FakeClient(), [181], [("2024-25", "Arsenal")], players, teams
             )
-            self.assertEqual(recovered_players, [181])
-            self.assertEqual(recovered_teams, ["2024-25"])
+            self.assertEqual(got_players, [181])
+            self.assertEqual(got_teams, [("2024-25", "Arsenal")])
             self.assertEqual(blocked, [])
             self.assertTrue(_valid_meta(players / "181.json", kind="player", key="181"))
-            self.assertTrue(_valid_meta(teams / "2024-25.json", kind="team", key="2024-25"))
+            team_path = teams / _team_cache_filename("2024-25", "Arsenal")
+            self.assertTrue(_valid_meta(team_path, kind="team", key="2024-25|Arsenal"))
+
+    def test_complete_team_season_aggregate_is_written_only_after_all_twenty(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cache = root / "cache" / "teams"
+            output = root / "raw" / "understat" / "teams"
+            names = [f"Team {i}" for i in range(20)]
+            for name in names[:19]:
+                path = cache / _team_cache_filename("2025-26", name)
+                fake = type("Client", (), {
+                    "last_meta": {"request_id": f"req-{name}", "credits_used": 1},
+                    "last_payload": team_response(name),
+                })()
+                _persist_response(path, {"title": name, "history": normalize_one_team(team_response(name), name, "2025-26")["history"]},
+                                  kind="team", key=f"2025-26|{name}", client=fake)
+            self.assertFalse(_write_complete_team_season(cache, output, "2025-26", names))
+            name = names[-1]
+            path = cache / _team_cache_filename("2025-26", name)
+            fake = type("Client", (), {
+                "last_meta": {"request_id": f"req-{name}", "credits_used": 1},
+                "last_payload": team_response(name),
+            })()
+            _persist_response(path, {"title": name, "history": normalize_one_team(team_response(name), name, "2025-26")["history"]},
+                              kind="team", key=f"2025-26|{name}", client=fake)
+            self.assertTrue(_write_complete_team_season(cache, output, "2025-26", names))
+            self.assertEqual(len(__import__("json").loads((output / "2025-26.json").read_text())), 20)
 
     def test_account_balance_uses_response_header_when_present(self):
         self.assertEqual(_remaining_credits({"free_credits": 100}, "875"), 875)
 
     def test_account_balance_sums_available_credit_buckets(self):
-        self.assertEqual(_remaining_credits({
-            "credits": {
-                "free_monthly_credits": 800,
-                "plan_credits": 100,
-                "payg_credits": 50,
-            }
-        }), 950)
+        self.assertEqual(_remaining_credits({"credits": {
+            "free_monthly_credits": 800, "plan_credits": 100, "payg_credits": 50,
+        }}), 950)
 
     def test_account_balance_prefers_explicit_total(self):
-        self.assertEqual(_remaining_credits({
-            "credits_remaining": 725,
-            "free_monthly_credits": 800,
-        }), 725)
+        self.assertEqual(_remaining_credits({"credits_remaining": 725, "free_monthly_credits": 800}), 725)
 
     def test_account_balance_fails_closed_on_unknown_schema(self):
         with self.assertRaisesRegex(RuntimeError, "No provider data requests were made"):
@@ -146,11 +168,9 @@ class TestApiShUnderstatProvider(unittest.TestCase):
                 "last_meta": {"request_id": "test", "credits_used": 1},
                 "last_payload": {"raw": {"matches": [{"date": "2025-08-15"}]}},
             })()
-            _persist_response(
-                path,
-                [{"season": "2025", "date": "2025-08-15", "h_team": "A", "a_team": "B"}],
-                kind="player", key="76", client=client,
-            )
+            _persist_response(path, [{
+                "season": "2025", "date": "2025-08-15", "h_team": "A", "a_team": "B"
+            }], kind="player", key="76", client=client)
             self.assertTrue(_valid_meta(path, kind="player", key="76"))
             self.assertFalse(_valid_meta(path, kind="player", key="87"))
             self.assertTrue((path.parent.parent / "responses" / "test.json").is_file())
