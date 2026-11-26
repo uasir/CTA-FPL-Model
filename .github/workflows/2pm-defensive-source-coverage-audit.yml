@@ -19,7 +19,7 @@ on:
         description: "Preflight only: calculate filtered requests and check live credits without paid history requests"
         required: false
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read
