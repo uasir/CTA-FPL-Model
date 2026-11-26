@@ -13,11 +13,14 @@ import shutil
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 import requests
 
 BASE_URL = "https://api.api.sh/understat/v1"
 ACCOUNT_URL = "https://api.api.sh/v1/account"
+ACCOUNT_LOGS_URL = "https://api.api.sh/v1/account/logs"
+RESULTS_URL = "https://api.api.sh/v1/results"
 PROVIDER = "api.sh/understat"
 CACHE_SCHEMA = 1
 MAPPING_COMMIT = "758db9247e8b3a9a870c991064f74d8339d61cd0"
@@ -170,24 +173,63 @@ class ApiShUnderstatClient:
         self.session = session or requests.Session()
         self.session.headers.update({"x-api-key": key})
         self.last_meta: dict[str, Any] = {}
+        self.last_payload: dict[str, Any] | None = None
+        self.last_url: str | None = None
+        self.last_params: dict[str, Any] = {}
 
     def _request(self, url: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        response = self.session.get(url, params=params or {}, timeout=120)
+        request_params = dict(params or {})
+        response = self.session.get(url, params=request_params, timeout=120)
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict):
             raise ValueError(f"API.SH returned {type(payload).__name__}, expected object")
         if payload.get("success") is False:
             raise RuntimeError(f"API.SH error: {payload.get('error', 'unspecified')}")
+        self.last_payload = payload
+        self.last_url = url
+        self.last_params = request_params
         self.last_meta = {
             "request_id": response.headers.get("x-request-id"),
             "credits_used": int(payload.get("credits_used", response.headers.get("x-credits-used", 0)) or 0),
             "credits_remaining": response.headers.get("x-credits-remaining"),
             "cached": payload.get("cached"),
             "fetched_at": payload.get("fetched_at"),
+            "endpoint": urlparse(url).path,
+            "params": request_params,
         }
         return payload
 
+    def account_logs(self) -> list[dict[str, Any]]:
+        """Read successful Understat calls from the free, 30-day account log."""
+        records: list[dict[str, Any]] = []
+        before = None
+        while True:
+            params = {"status": "ok", "route": "/understat/v1/", "output": "ndjson"}
+            if before:
+                params["before"] = before
+            response = self.session.get(ACCOUNT_LOGS_URL, params=params, timeout=120)
+            response.raise_for_status()
+            body = response.text.strip()
+            if not body:
+                break
+            page_records = []
+            try:
+                for line in body.splitlines():
+                    if line.strip():
+                        value = json.loads(line)
+                        if isinstance(value, dict):
+                            page_records.append(value)
+            except json.JSONDecodeError:
+                page_records = _log_records(response.json())
+            records.extend(page_records)
+            before = response.headers.get("x-next-cursor")
+            if not before or not page_records:
+                break
+        return records
+
+    def result(self, request_id: str) -> dict[str, Any]:
+        return self._request(f"{RESULTS_URL}/{request_id}")
     def account(self) -> tuple[dict[str, Any], int]:
         payload = self._request(ACCOUNT_URL)
         remaining = self.last_meta.get("credits_remaining")
