@@ -468,10 +468,14 @@ def download_missing_histories(
         else:
             missing_seasons.append(season)
 
-    account, credits_remaining = client.account()
-    recovered_players, recovered_seasons, unrecoverable = recover_remote_histories(
-        client, missing_player_ids, missing_seasons, player_cache, team_cache
-    )
+    if missing_player_ids or missing_seasons:
+        account, credits_remaining = client.account()
+        recovered_players, recovered_seasons, unrecoverable = recover_remote_histories(
+            client, missing_player_ids, missing_seasons, player_cache, team_cache
+        )
+    else:
+        account, credits_remaining = {}, 0
+        recovered_players, recovered_seasons, unrecoverable = [], [], []
     for player_id in recovered_players:
         _copy_checkpoint(player_cache / f"{player_id}.json", player_dir / f"{player_id}.json")
         _copy_checkpoint(player_cache / f"{player_id}.meta", player_dir / f"{player_id}.meta")
