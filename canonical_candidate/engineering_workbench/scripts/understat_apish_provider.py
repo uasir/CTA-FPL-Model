@@ -554,7 +554,7 @@ def _write_complete_team_season(team_cache: Path, raw_team_dir: Path, season: st
 
 def download_missing_histories(
     raw_dir: Path, missing_players: list[int], missing_team_seasons: list[str],
-    *, cache_root: Path, probe_only: bool = False,
+    *, cache_root: Path, probe_only: bool = False, max_calls_this_run: int | None = None,
 ) -> dict[str, Any]:
     """Restore all validated checkpoints, then acquire only missing player/team records."""
     client = ApiShUnderstatClient()
@@ -600,13 +600,17 @@ def download_missing_histories(
                 missing_team_requests.append((season, team))
 
     if missing_player_ids or missing_team_requests:
-        _, credits_remaining = client.account()
+        account_payload, credits_remaining = client.account()
         recovered_players, recovered_teams, unrecoverable = recover_remote_histories(
             client, missing_player_ids, missing_team_requests, player_cache, team_cache
         )
     else:
+        account_payload = {}
         credits_remaining = 0
         recovered_players, recovered_teams, unrecoverable = [], [], []
+
+    credits_info = account_payload.get("credits", {}) if isinstance(account_payload, dict) else {}
+    free_resets_at = credits_info.get("free_resets_at") if isinstance(credits_info, dict) else None
 
     for player_id in recovered_players:
         source = player_cache / f"{player_id}.json"
@@ -628,10 +632,18 @@ def download_missing_histories(
     probe_already_done = probe_only and probe_marker.is_file()
     player_requests = missing_player_ids[:1] if probe_only and not probe_already_done else ([] if probe_only else missing_player_ids)
     team_requests = missing_team_requests[:1] if probe_only and not probe_already_done else ([] if probe_only else missing_team_requests)
+    if not probe_only and max_calls_this_run is not None:
+        if max_calls_this_run < 1:
+            raise ValueError("max_calls_this_run must be at least 1")
+        player_budget = min(len(player_requests), max_calls_this_run)
+        player_requests = player_requests[:player_budget]
+        team_budget = max(0, max_calls_this_run - player_budget)
+        team_requests = team_requests[:team_budget]
     planned_calls = len(player_requests) + len(team_requests)
     print(
         f"API.SH pre-acquisition check: {credits_remaining} credits remaining; "
-        f"{required_calls} calls outstanding overall; {planned_calls} planned this run.",
+        f"{required_calls} calls outstanding overall; {planned_calls} planned this run; "
+        f"free credits reset at {free_resets_at or 'not reported'}.",
         flush=True,
     )
     if planned_calls > credits_remaining:
@@ -693,6 +705,8 @@ def download_missing_histories(
     return {
         "provider": PROVIDER, "mapping_commit": MAPPING_COMMIT,
         "probe_only": probe_only, "credits_remaining_before": credits_remaining,
+        "free_credits_reset_at": free_resets_at,
+        "max_calls_this_run": max_calls_this_run,
         "required_calls_before_acquisition": required_calls, "planned_calls_this_run": planned_calls,
         "restored_player_histories": restored_players,
         "restored_team_members": [{"season": s, "team": t} for s, t in restored_team_members],
