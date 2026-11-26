@@ -65,7 +65,10 @@ class TestApiShUnderstatProvider(unittest.TestCase):
     def test_provider_cache_requires_matching_provenance_and_checksum(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "players" / "76.json"
-            client = type("Client", (), {"last_meta": {"request_id": "test", "credits_used": 1}})()
+            client = type("Client", (), {
+                "last_meta": {"request_id": "test", "credits_used": 1},
+                "last_payload": {"raw": {"matches": [{"date": "2025-08-15"}]}},
+            })()
             _persist_response(
                 path,
                 [{"season": "2025", "date": "2025-08-15", "h_team": "A", "a_team": "B"}],
@@ -73,6 +76,7 @@ class TestApiShUnderstatProvider(unittest.TestCase):
             )
             self.assertTrue(_valid_meta(path, kind="player", key="76"))
             self.assertFalse(_valid_meta(path, kind="player", key="87"))
+            self.assertTrue((path.parent.parent / "responses" / "test.json").is_file())
 
 
 if __name__ == "__main__":
