@@ -236,6 +236,7 @@ def build_point_in_time_target_candidate(
     pinned_sources_only: bool = False,
     apish_understat: bool = False,
     apish_probe_only: bool = False,
+    apish_max_calls_this_run: int | None = 1000,
 ) -> dict[str, Any]:
     MERGED_GW_SCHEMA_NORMALIZATION_LOG.clear()
     season_report = vintage_report["seasons"][season]
@@ -372,6 +373,7 @@ def build_point_in_time_target_candidate(
                 missing_team_seasons,
                 cache_root=cache_root,
                 probe_only=apish_probe_only,
+                max_calls_this_run=apish_max_calls_this_run,
             )
             understat_fallback_audit.update({
                 "cached_player_fallbacks_used": report["restored_player_histories"],
@@ -712,6 +714,10 @@ def main() -> None:
         "--apish-probe-only", action="store_true",
         help="Fetch at most one missing player history and one individual team history total to validate the provider contract",
     )
+    parser.add_argument(
+        "--apish-max-calls-this-run", type=int, default=1000,
+        help="Cap paid API.SH history requests per run; remaining records stay checkpointed for a later run",
+    )
     args = parser.parse_args()
 
     vintage_report = json.loads(args.vintage_report.read_text(encoding="utf-8"))
@@ -742,6 +748,7 @@ def main() -> None:
             pinned_sources_only=args.pinned_sources_only,
             apish_understat=args.apish_understat,
             apish_probe_only=args.apish_probe_only,
+            apish_max_calls_this_run=args.apish_max_calls_this_run,
         )
         reports.append(report)
 
