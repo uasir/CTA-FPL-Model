@@ -377,6 +377,7 @@ def build_point_in_time_target_candidate(
             )
             understat_fallback_audit.update({
                 "cached_player_fallbacks_used": report["restored_player_histories"],
+                "excluded_player_history_ids": report.get("excluded_player_history_ids", []),
                 "cached_team_fallbacks_used": report["restored_team_seasons"],
                 "fetched_player_histories": report["fetched_player_histories"],
                 "fetched_team_seasons": report["fetched_team_seasons"],
