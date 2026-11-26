@@ -299,7 +299,7 @@ def _record_params(record: dict[str, Any]) -> dict[str, Any]:
                     return decoded
             except json.JSONDecodeError:
                 return {key: values[-1] for key, values in parse_qs(value.lstrip("?")).items()}
-    for name in ("url", "request_url"):
+    for name in ("url", "request_url", "route", "endpoint", "path"):
         value = record.get(name)
         if value:
             return {key: values[-1] for key, values in parse_qs(urlparse(str(value)).query).items()}
@@ -332,13 +332,13 @@ def recover_remote_histories(
         if route.endswith("/understat/v1/player") or route.endswith("/player"):
             value = _first(params, ("id", "player_id"))
             if value is not None and str(value).isdigit() and int(value) in wanted_players:
-                matches[("player", str(int(value)))] = record
+                matches.setdefault(("player", str(int(value))), record)
         elif route.endswith("/understat/v1/league") or route.endswith("/league"):
             if str(params.get("league", "")).upper() == "EPL":
                 year = str(params.get("season", ""))
                 for season, season_year in wanted_seasons.items():
                     if year == str(season_year):
-                        matches[("team", season)] = record
+                        matches.setdefault(("team", season), record)
     recovered_players: list[int] = []
     recovered_seasons: list[str] = []
     unrecoverable: list[str] = []
