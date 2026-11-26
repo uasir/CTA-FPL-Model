@@ -606,6 +606,16 @@ def build_point_in_time_target_candidate(
     source_player_matches.to_parquet(player_matches_path, index=False)
     team_matches.to_parquet(team_matches_path, index=False)
     sources.write_download_manifest(raw_dir, all_seasons)
+    if apish_understat:
+        manifest_path = raw_dir / "downloads.json"
+        manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_payload["understat_fallback_policy"] = understat_fallback_audit
+        understat_source = manifest_payload.setdefault("sources", {}).setdefault("understat", {})
+        understat_source["repository_cache"] = "Vaastav pinned histories where available"
+        understat_source["live_fallback"] = "API.SH authenticated Understat JSON provider; no direct Understat requests"
+        understat_source["provider"] = "api.sh/understat"
+        understat_source["mapping_commit"] = "758db9247e8b3a9a870c991064f74d8339d61cd0"
+        manifest_path.write_text(json.dumps(manifest_payload, indent=2) + "\\n", encoding="utf-8")
 
     report = {
         "status": "POINT_IN_TIME_TARGET_CANDIDATE_BUILT",
