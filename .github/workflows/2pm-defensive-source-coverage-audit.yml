@@ -183,18 +183,20 @@ jobs:
             --output-root "${RUNNER_TEMP}/point-in-time-candidates"
             --shared-fplcache-root "${RUNNER_TEMP}/point-in-time-fplcache"
             --vintage-report "${RUNNER_TEMP}/point-in-time-source-vintages.json"
-            --target 2025-26:6
-            --target 2026-27:8
             --workers 4
             --prepare-sources-only
           )
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.use_apish_understat }}" = "true" ]; then
             args+=(--apish-understat)
             if [ "${{ inputs.apish_probe_only }}" = "true" ]; then
-              args+=(--apish-probe-only)
+              # A probe is one provider sample pair for the whole experiment,
+              # not one pair per target vintage.
+              args+=(--apish-probe-only --target 2025-26:6)
+            else
+              args+=(--target 2025-26:6 --target 2026-27:8)
             fi
           else
-            args+=(--pinned-sources-only)
+            args+=(--pinned-sources-only --target 2025-26:6 --target 2026-27:8)
           fi
           python canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py "${args[@]}" \
             > "${RUNNER_TEMP}/point-in-time-source-preparation.log"
@@ -327,17 +329,36 @@ jobs:
           candidate_path = p.parent / "point-in-time-candidates/point_in_time_target_candidate_batch.json"
           if candidate_path.exists():
               candidate = json.loads(candidate_path.read_text())
+              reports = candidate.get("reports", [])
+              player_ids = set()
+              team_seasons = set()
+              for item in reports:
+                  audit = item.get("understat_fallback_audit") or {}
+                  player_ids.update(int(x) for x in audit.get("unresolved_player_ids", []))
+                  team_seasons.update(str(x) for x in audit.get("unresolved_team_seasons", []))
+              team_calls = 20 * len(team_seasons)
               lines.extend([
-                  "## Point-in-time candidate smoke tests",
-                  f"- Built targets: {candidate.get('targets_built')}",
+                  "## Understat history acquisition coverage",
+                  f"- Deduplicated unresolved player histories across requested targets: {len(player_ids)}",
+                  f"- Incomplete team-history seasons: {', '.join(sorted(team_seasons)) or 'none'}",
+                  f"- Individual team-history calls required (20 clubs per season): {team_calls}",
+                  f"- Total distinct history calls outstanding: {len(player_ids) + team_calls}",
               ])
-              for item in candidate.get("reports", []):
-                  lines.append(
-                      f"- {item['season']} GW{item['gameweek']}: "
-                      f"{item['target_query_player_fixture_rows']} target rows, "
-                      f"{item['feature_count']} features, "
-                      f"snapshot age {item['target_snapshot_age_hours']:.2f}h"
-                  )
+              if any(item.get("candidate_reconstruction_started") for item in reports):
+                  lines.extend([
+                      "## Point-in-time candidate smoke tests",
+                      f"- Built targets: {candidate.get('targets_built')}",
+                  ])
+                  for item in reports:
+                      if item.get("candidate_reconstruction_started"):
+                          lines.append(
+                              f"- {item['season']} GW{item['gameweek']}: "
+                              f"{item.get('target_query_player_fixture_rows', 'not reported')} target rows, "
+                              f"{item.get('feature_count', 'not reported')} features, "
+                              f"snapshot age {item.get('target_snapshot_age_hours', 'not reported')}h"
+                          )
+              else:
+                  lines.append("- Candidate reconstruction was not started; these are source-preparation results only.")
           vintage_path = p.parent / "point-in-time-source-vintages.json"
           if vintage_path.exists():
               vintage = json.loads(vintage_path.read_text())
