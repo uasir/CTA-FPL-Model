@@ -1,11 +1,13 @@
 # 2PM Transformer — Dastan 286-Feature Adaptation Decision
 
 **Decision date:** 2026-11-23  
-**Status:** Approved candidate input-foundation direction; feature admission and sequence-token semantics remain open; candidate pipeline implementation in progress  
+**Status:** SUPERSEDED on 2026-11-26 — Dastan/Understat 286-feature foundation abandoned by provider-reset decision  
 **Model:** Independent, paper-first 2PM player-points forecaster  
 **Governing paper:** Wiechno, Duch and Bartosik (2026), *Modeling Fantasy Premier League Player Performance with a Two-Component Poisson Mixture Transformer*, ICAART 2026, DOI: 10.5220/0014358000004052.
 
-## 1. Decision
+> **Superseded:** This document records the former Dastan/Understat candidate direction for historical traceability only. The 2026-11-26 provider-reset decision abandons this 286-feature foundation completely for the current 2PM experiment. Do not use it as a migration template or active input contract. See `2PM_PROVIDER_RESET_AND_SPORTMONKS_EVALUATION.md`.
+
+## 1. Historical decision (superseded)
 
 For the new 2PM implementation, replace the paper's original 116-per-match input-feature contract with the project's **Dastan 286-feature contract as the candidate input foundation**.
 
