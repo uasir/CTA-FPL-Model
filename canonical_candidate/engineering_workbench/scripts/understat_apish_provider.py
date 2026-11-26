@@ -155,11 +155,13 @@ def normalize_team_histories(payload: dict[str, Any], season: str) -> dict[str, 
             if row.get("h_a") is not None:
                 venue = str(row["h_a"]).lower()
                 row["h_a"] = "h" if venue in {"home", "h"} else "a" if venue in {"away", "a"} else row["h_a"]
-            required_fields = (
+            required_values = (
                 "date", "h_a", "scored", "missed", "xG", "xGA",
-                "deep", "deep_allowed", "ppda", "ppda_allowed", "pts",
+                "deep", "deep_allowed", "pts",
             )
-            missing = [field for field in required_fields if row.get(field) is None]
+            missing_values = [field for field in required_values if row.get(field) is None]
+            missing_ppda = [field for field in ("ppda", "ppda_allowed") if field not in row]
+            missing = missing_values + missing_ppda
             if missing:
                 raise ValueError(
                     f"API.SH team {title} {season} row lacks required team metrics {missing}"
