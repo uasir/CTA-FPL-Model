@@ -227,6 +227,16 @@ class TestApiShUnderstatProvider(unittest.TestCase):
     def test_account_balance_prefers_explicit_total(self):
         self.assertEqual(_remaining_credits({"credits_remaining": 725, "free_monthly_credits": 800}), 725)
 
+    def test_account_balance_reads_live_api_sh_account_schema(self):
+        self.assertEqual(_remaining_credits({"credits": {
+            "total": 947, "free": 800, "plan": 100, "payg": 47,
+        }}), 947)
+
+    def test_account_balance_sums_live_api_sh_buckets_when_total_missing(self):
+        self.assertEqual(_remaining_credits({"credits": {
+            "free": 800, "plan": 100, "payg": 47,
+        }}), 947)
+
     def test_account_balance_fails_closed_on_unknown_schema(self):
         with self.assertRaisesRegex(RuntimeError, "No provider data requests were made"):
             _remaining_credits({"account": {"status": "active"}})
