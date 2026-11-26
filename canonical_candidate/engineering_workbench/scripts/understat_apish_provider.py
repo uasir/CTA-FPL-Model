@@ -629,31 +629,50 @@ def download_missing_histories(
     player_requests = missing_player_ids[:1] if probe_only and not probe_already_done else ([] if probe_only else missing_player_ids)
     team_requests = missing_team_requests[:1] if probe_only and not probe_already_done else ([] if probe_only else missing_team_requests)
     planned_calls = len(player_requests) + len(team_requests)
+    print(
+        f"API.SH pre-acquisition check: {credits_remaining} credits remaining; "
+        f"{required_calls} calls outstanding overall; {planned_calls} planned this run.",
+        flush=True,
+    )
     if planned_calls > credits_remaining:
         raise RuntimeError(
             f"API.SH credits insufficient: {credits_remaining} remaining, {planned_calls} calls planned "
             f"({required_calls} outstanding overall). No provider data requests were made."
         )
 
-    fetched_players, fetched_team_members = [], []
+    fetched_players, fetched_team_members, probe_errors = [], [], []
     for player_id in player_requests:
-        payload = client.player_history(player_id)
-        cache = player_cache / f"{player_id}.json"
-        _persist_response(cache, payload, kind="player", key=str(player_id), client=client)
-        _copy_checkpoint(cache, player_dir / cache.name)
-        _copy_checkpoint(cache.with_suffix(".meta"), (player_dir / cache.name).with_suffix(".meta"))
-        fetched_players.append(player_id)
-        print(f"API.SH checkpointed player {player_id}", flush=True)
+        try:
+            payload = client.player_history(player_id)
+            cache = player_cache / f"{player_id}.json"
+            _persist_response(cache, payload, kind="player", key=str(player_id), client=client)
+            _copy_checkpoint(cache, player_dir / cache.name)
+            _copy_checkpoint(cache.with_suffix(".meta"), (player_dir / cache.name).with_suffix(".meta"))
+            fetched_players.append(player_id)
+            print(f"API.SH checkpointed player {player_id}", flush=True)
+        except Exception as exc:
+            if not probe_only:
+                raise
+            message = f"player {player_id}: {type(exc).__name__}: {exc}"
+            probe_errors.append(message)
+            print(f"API.SH probe request failed (no automatic retry): {message}", flush=True)
 
     for season, team in team_requests:
-        payload = client.team_history(team, season)
-        key = f"{season}|{team}"
-        cache = team_cache / _team_cache_filename(season, team)
-        _persist_response(cache, payload, kind="team", key=key, client=client)
-        _copy_checkpoint(cache, team_dir / cache.name)
-        _copy_checkpoint(cache.with_suffix(".meta"), (team_dir / cache.name).with_suffix(".meta"))
-        fetched_team_members.append((season, team))
-        print(f"API.SH checkpointed team {team} {season}", flush=True)
+        try:
+            payload = client.team_history(team, season)
+            key = f"{season}|{team}"
+            cache = team_cache / _team_cache_filename(season, team)
+            _persist_response(cache, payload, kind="team", key=key, client=client)
+            _copy_checkpoint(cache, team_dir / cache.name)
+            _copy_checkpoint(cache.with_suffix(".meta"), (team_dir / cache.name).with_suffix(".meta"))
+            fetched_team_members.append((season, team))
+            print(f"API.SH checkpointed team {team} {season}", flush=True)
+        except Exception as exc:
+            if not probe_only:
+                raise
+            message = f"team {team} {season}: {type(exc).__name__}: {exc}"
+            probe_errors.append(message)
+            print(f"API.SH probe request failed (no automatic retry): {message}", flush=True)
 
     if probe_only and not probe_already_done and (not missing_player_ids or fetched_players) and (not missing_team_requests or fetched_team_members):
         _atomic_json(probe_marker, {
@@ -683,6 +702,7 @@ def download_missing_histories(
         "fetched_player_histories": fetched_players,
         "fetched_team_members": [{"season": s, "team": t} for s, t in fetched_team_members],
         "fetched_team_seasons": complete_team_seasons,
+        "probe_errors": probe_errors,
         "unresolved_player_ids": unresolved_players,
         "unresolved_team_seasons": unresolved_team_seasons,
         "unresolved_team_member_count": sum(
