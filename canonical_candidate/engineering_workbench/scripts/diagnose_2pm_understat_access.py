@@ -44,9 +44,18 @@ def main() -> int:
     import requests
 
     last_http: dict = {}
+    request_count = 0
+    access_stop = False
     original_request = requests.sessions.Session.request
 
+    class StopAfterProviderResponse(RuntimeError):
+        """Stop the diagnostic after a provider-side denial or server failure."""
+
     def observed_request(session, method, url, *args, **kwargs):
+        nonlocal request_count, access_stop
+        request_count += 1
+        if request_count > 2:
+            raise StopAfterProviderResponse("Diagnostic hard limit: two HTTP requests")
         response = original_request(session, method, url, *args, **kwargs)
         last_http.clear()
         last_http.update({
@@ -60,62 +69,77 @@ def main() -> int:
             "retry_after": response.headers.get("retry-after"),
             "body_preview": response.text[:500],
         })
+        if response.status_code in {401, 403, 407, 429} or response.status_code >= 500:
+            access_stop = True
+            raise StopAfterProviderResponse(
+                f"Stopping after HTTP {response.status_code}; no further endpoint requests will be made"
+            )
         return response
 
     requests.sessions.Session.request = observed_request
     failures = 0
-    with UnderstatClient() as client:
-        for player_id in args.player_id:
-            item = {"kind": "player", "id": player_id}
-            last_http.clear()
-            try:
-                payload = client.player(player=player_id).get_match_data()
-                item.update({
-                    "status": "ok" if payload is not None else "empty",
-                    "record_count": len(payload) if payload is not None else 0,
-                    "payload_type": type(payload).__name__,
-                })
-                if payload is None:
+    try:
+        with UnderstatClient() as client:
+            for player_id in args.player_id:
+                if access_stop or request_count >= 2:
+                    break
+                item = {"kind": "player", "id": player_id}
+                last_http.clear()
+                try:
+                    payload = client.player(player=player_id).get_match_data()
+                    item.update({
+                        "status": "ok" if payload is not None else "empty",
+                        "record_count": len(payload) if payload is not None else 0,
+                        "payload_type": type(payload).__name__,
+                    })
+                    if payload is None:
+                        failures += 1
+                except Exception as exc:
                     failures += 1
-            except Exception as exc:
-                failures += 1
-                item.update({
-                    "status": "error",
-                    "exception_type": type(exc).__name__,
-                    "exception": str(exc)[:1200],
-                    "traceback": traceback.format_exc(limit=4),
-                })
-            if last_http:
-                item["http"] = dict(last_http)
-            report["probes"].append(item)
-            print(json.dumps(item, ensure_ascii=False), flush=True)
+                    item.update({
+                        "status": "access_or_transport_stop" if access_stop else "error",
+                        "exception_type": type(exc).__name__,
+                        "exception": str(exc)[:1200],
+                        "traceback": traceback.format_exc(limit=4),
+                    })
+                if last_http:
+                    item["http"] = dict(last_http)
+                report["probes"].append(item)
+                print(json.dumps(item, ensure_ascii=False), flush=True)
 
-        for season in args.team_season:
-            item = {"kind": "teams", "season": season, "league": "EPL"}
-            last_http.clear()
-            try:
-                payload = client.league(league="EPL").get_team_data(season=season)
-                item.update({
-                    "status": "ok" if payload else "empty",
-                    "record_count": len(payload) if payload else 0,
-                    "payload_type": type(payload).__name__,
-                })
-                if not payload:
+            if not access_stop and request_count < 2:
+                import time
+                time.sleep(2)
+            for season in args.team_season:
+                if access_stop or request_count >= 2:
+                    break
+                item = {"kind": "teams", "season": season, "league": "EPL"}
+                last_http.clear()
+                try:
+                    payload = client.league(league="EPL").get_team_data(season=season)
+                    item.update({
+                        "status": "ok" if payload else "empty",
+                        "record_count": len(payload) if payload else 0,
+                        "payload_type": type(payload).__name__,
+                    })
+                    if not payload:
+                        failures += 1
+                except Exception as exc:
                     failures += 1
-            except Exception as exc:
-                failures += 1
-                item.update({
-                    "status": "error",
-                    "exception_type": type(exc).__name__,
-                    "exception": str(exc)[:1200],
-                    "traceback": traceback.format_exc(limit=4),
-                })
-            if last_http:
-                item["http"] = dict(last_http)
-            report["probes"].append(item)
-            print(json.dumps(item, ensure_ascii=False), flush=True)
-
-    requests.sessions.Session.request = original_request
+                    item.update({
+                        "status": "access_or_transport_stop" if access_stop else "error",
+                        "exception_type": type(exc).__name__,
+                        "exception": str(exc)[:1200],
+                        "traceback": traceback.format_exc(limit=4),
+                    })
+                if last_http:
+                    item["http"] = dict(last_http)
+                report["probes"].append(item)
+                print(json.dumps(item, ensure_ascii=False), flush=True)
+    finally:
+        requests.sessions.Session.request = original_request
+    report["http_request_count"] = request_count
+    report["stopped_after_provider_response"] = access_stop
     report["failed_probe_count"] = failures
     report["successful_probe_count"] = len(report["probes"]) - failures
     report["decision"] = (
