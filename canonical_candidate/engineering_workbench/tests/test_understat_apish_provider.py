@@ -13,6 +13,7 @@ from understat_apish_provider import (
     _record_params,
     _record_route,
     recover_remote_histories,
+    _remaining_credits,
 )
 
 
@@ -115,6 +116,28 @@ class TestApiShUnderstatProvider(unittest.TestCase):
             self.assertEqual(blocked, [])
             self.assertTrue(_valid_meta(players / "181.json", kind="player", key="181"))
             self.assertTrue(_valid_meta(teams / "2024-25.json", kind="team", key="2024-25"))
+
+    def test_account_balance_uses_response_header_when_present(self):
+        self.assertEqual(_remaining_credits({"free_credits": 100}, "875"), 875)
+
+    def test_account_balance_sums_available_credit_buckets(self):
+        self.assertEqual(_remaining_credits({
+            "credits": {
+                "free_monthly_credits": 800,
+                "plan_credits": 100,
+                "payg_credits": 50,
+            }
+        }), 950)
+
+    def test_account_balance_prefers_explicit_total(self):
+        self.assertEqual(_remaining_credits({
+            "credits_remaining": 725,
+            "free_monthly_credits": 800,
+        }), 725)
+
+    def test_account_balance_fails_closed_on_unknown_schema(self):
+        with self.assertRaisesRegex(RuntimeError, "No provider data requests were made"):
+            _remaining_credits({"account": {"status": "active"}})
 
     def test_provider_cache_requires_matching_provenance_and_checksum(self):
         with tempfile.TemporaryDirectory() as directory:
