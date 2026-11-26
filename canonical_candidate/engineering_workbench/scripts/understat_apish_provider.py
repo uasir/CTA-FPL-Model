@@ -155,13 +155,20 @@ def normalize_team_histories(payload: dict[str, Any], season: str) -> dict[str, 
             if row.get("h_a") is not None:
                 venue = str(row["h_a"]).lower()
                 row["h_a"] = "h" if venue in {"home", "h"} else "a" if venue in {"away", "a"} else row["h_a"]
-            if row.get("date") is None:
-                raise ValueError(f"API.SH team {title} {season} row lacks date")
+            required_fields = (
+                "date", "h_a", "scored", "missed", "xG", "xGA",
+                "deep", "deep_allowed", "ppda", "ppda_allowed", "pts",
+            )
+            missing = [field for field in required_fields if row.get(field) is None]
+            if missing:
+                raise ValueError(
+                    f"API.SH team {title} {season} row lacks required team metrics {missing}"
+                )
             normalized.append(row)
         if normalized:
             result[title] = {"title": title, "history": normalized}
-    if len(result) < 20:
-        raise ValueError(f"API.SH league {season} returned only {len(result)} usable teams; expected 20")
+    if len(result) != 20:
+        raise ValueError(f"API.SH league {season} returned {len(result)} usable teams; expected exactly 20")
     return result
 
 
