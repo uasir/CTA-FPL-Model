@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from types import SimpleNamespace
+
+import pandas as pd
 from pathlib import Path
 
 from build_2pm_defensive_point_in_time_targets import (
     MERGED_GW_SCHEMA_NORMALIZATION_LOG,
     _source_status,
+    install_relevant_understat_player_filter,
     read_merged_gw_with_schema_normalization,
 )
 
@@ -17,6 +21,36 @@ class PointInTimeTargetCandidateTests(unittest.TestCase):
         self.assertIn("vaastavsha", value)
         self.assertIn("fplcachesha", value)
         self.assertIn("1652.json.xz", value)
+
+    def test_understat_player_selection_uses_target_dataset_and_excludes_failed_ids(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            raw = Path(tmp) / "vaastav" / "2025-26"
+            raw.mkdir(parents=True)
+            pd.DataFrame({
+                "id": [10, 11, 12, 13],
+                "code": [100, 101, 102, 103],
+            }).to_csv(raw / "players_raw.csv", index=False)
+            pd.DataFrame({"element": [10, 11, 10, 12]}).to_csv(
+                raw / "merged_gw.csv", index=False
+            )
+            mappings = SimpleNamespace(
+                assignments_for_seasons=lambda seasons: pd.DataFrame({
+                    "season": ["2025-26"] * 4,
+                    "fpl_code": [100, 101, 102, 103],
+                    "understat_id": [500, 76, 87, 700],
+                })
+            )
+            sources = SimpleNamespace(
+                _needed_understat_ids=lambda _raw, _seasons: {500, 76, 87, 700}
+            )
+            report = install_relevant_understat_player_filter(
+                sources, mappings, Path(tmp), "2025-26"
+            )
+            self.assertEqual(sources._needed_understat_ids(Path(tmp), ["2024-25", "2025-26"]), {500})
+            self.assertEqual(report["dataset_fpl_element_count"], 3)
+            self.assertEqual(report["mapped_target_player_count"], 1)
+            self.assertEqual(report["understat_player_ids"], [500])
+            self.assertEqual(report["excluded_understat_player_ids"], [76, 87])
 
     def test_unions_manager_columns_and_preserves_older_rows_as_missing(self):
         MERGED_GW_SCHEMA_NORMALIZATION_LOG.clear()
