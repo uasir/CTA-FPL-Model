@@ -251,6 +251,120 @@ class ApiShUnderstatClient:
         return normalize_team_histories(payload, season)
 
 
+
+def _log_records(payload: Any) -> list[dict[str, Any]]:
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if not isinstance(payload, dict):
+        return []
+    for candidate in (payload, payload.get("data"), payload.get("raw")):
+        if isinstance(candidate, list):
+            return [item for item in candidate if isinstance(item, dict)]
+        if isinstance(candidate, dict):
+            for key in ("logs", "items", "requests", "results"):
+                value = candidate.get(key)
+                if isinstance(value, list):
+                    return [item for item in value if isinstance(item, dict)]
+    return []
+
+def _record_route(record: dict[str, Any]) -> str:
+    value = _first(record, ("route", "endpoint", "path", "url", "request_url"))
+    if value is None:
+        return ""
+    parsed = urlparse(str(value))
+    return parsed.path if parsed.scheme else str(value).split("?", 1)[0]
+
+def _record_params(record: dict[str, Any]) -> dict[str, Any]:
+    for name in ("params", "query", "query_params", "request_params"):
+        value = record.get(name)
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, str):
+            try:
+                decoded = json.loads(value)
+                if isinstance(decoded, dict):
+                    return decoded
+            except json.JSONDecodeError:
+                return {key: values[-1] for key, values in parse_qs(value.lstrip("?")).items()}
+    for name in ("url", "request_url"):
+        value = record.get(name)
+        if value:
+            return {key: values[-1] for key, values in parse_qs(urlparse(str(value)).query).items()}
+    return {}
+
+def _result_body(payload: dict[str, Any]) -> dict[str, Any]:
+    for key in ("response", "body", "payload", "result"):
+        value = payload.get(key)
+        if isinstance(value, dict) and any(
+            field in value for field in ("raw", "data", "matches", "history", "teams")
+        ):
+            return value
+    return payload
+
+def recover_remote_histories(
+    client: ApiShUnderstatClient, missing_player_ids: list[int],
+    missing_seasons: list[str], player_cache: Path, team_cache: Path,
+) -> tuple[list[int], list[str], list[str]]:
+    """Recover successful remote responses for free before credit-consuming calls."""
+    records = client.account_logs()
+    wanted_players = set(map(int, missing_player_ids))
+    wanted_seasons = {str(v): int(str(v).split("-")[0]) for v in missing_seasons}
+    matches: dict[tuple[str, str], dict[str, Any]] = {}
+    for record in records:
+        route = _record_route(record).rstrip("/")
+        params = _record_params(record)
+        request_id = _first(record, ("request_id", "requestId", "id"))
+        if not request_id:
+            continue
+        if route.endswith("/understat/v1/player") or route.endswith("/player"):
+            value = _first(params, ("id", "player_id"))
+            if value is not None and str(value).isdigit() and int(value) in wanted_players:
+                matches[("player", str(int(value)))] = record
+        elif route.endswith("/understat/v1/league") or route.endswith("/league"):
+            if str(params.get("league", "")).upper() == "EPL":
+                year = str(params.get("season", ""))
+                for season, season_year in wanted_seasons.items():
+                    if year == str(season_year):
+                        matches[("team", season)] = record
+    recovered_players: list[int] = []
+    recovered_seasons: list[str] = []
+    unrecoverable: list[str] = []
+    for (kind, key), record in sorted(matches.items()):
+        request_id = str(_first(record, ("request_id", "requestId", "id")))
+        try:
+            response_payload = client.result(request_id)
+            body = _result_body(response_payload)
+            if kind == "player":
+                rows = _extract_list(body, ("matches", "history", "player_matches"))
+                normalized = normalize_player_matches(rows, int(key))
+                destination = player_cache / f"{key}.json"
+            else:
+                normalized = normalize_team_histories(body, key)
+                destination = team_cache / f"{key}.json"
+            client.last_payload = body
+            client.last_meta = {
+                "request_id": request_id,
+                "credits_used": int(record.get("credits_used") or 1),
+                "credits_remaining": None,
+                "cached": record.get("cached"),
+                "fetched_at": record.get("created_at") or record.get("timestamp"),
+                "endpoint": _record_route(record),
+                "params": _record_params(record),
+                "recovered_from_remote_result": True,
+            }
+            _persist_response(destination, normalized, kind=kind, key=key, client=client)
+            if kind == "player":
+                recovered_players.append(int(key))
+            else:
+                recovered_seasons.append(key)
+            print(f"API.SH free recovery: {kind} {key} from request {request_id}", flush=True)
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 410:
+                unrecoverable.append(f"{kind}:{key}:{request_id}:result_expired")
+            else:
+                raise
+    return recovered_players, recovered_seasons, unrecoverable
+
 def _valid_meta(path: Path, *, kind: str, key: str) -> bool:
     meta_path = path.with_suffix(".meta")
     try:
@@ -273,6 +387,10 @@ def _valid_meta(path: Path, *, kind: str, key: str) -> bool:
 def _persist_response(cache_path: Path, payload: Any, *, kind: str, key: str,
                       client: ApiShUnderstatClient) -> None:
     _atomic_json(cache_path, payload)
+    request_id = client.last_meta.get("request_id")
+    if request_id and client.last_payload is not None:
+        response_path = cache_path.parent.parent / "responses" / f"{request_id}.json"
+        _atomic_json(response_path, client.last_payload)
     meta = {
         "schema_version": CACHE_SCHEMA, "provider": PROVIDER, "kind": kind,
         "key": str(key), "mapping_commit": MAPPING_COMMIT,
