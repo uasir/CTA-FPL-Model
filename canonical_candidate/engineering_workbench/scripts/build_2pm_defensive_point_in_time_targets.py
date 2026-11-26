@@ -234,6 +234,8 @@ def build_point_in_time_target_candidate(
     workers: int = 12,
     prepare_sources_only: bool = False,
     pinned_sources_only: bool = False,
+    apish_understat: bool = False,
+    apish_probe_only: bool = False,
 ) -> dict[str, Any]:
     MERGED_GW_SCHEMA_NORMALIZATION_LOG.clear()
     season_report = vintage_report["seasons"][season]
@@ -288,6 +290,8 @@ def build_point_in_time_target_candidate(
         "unresolved_player_ids": [],
         "unresolved_team_seasons": [],
     }
+    if pinned_sources_only and apish_understat:
+        raise ValueError("Choose either pinned-sources-only or API.SH Understat mode, not both")
     if pinned_sources_only:
         # Reuse only previously cached Understat JSON or pinned Vaastav archives.
         # Never issue new requests to Understat: its current robots.txt disallows
@@ -348,9 +352,48 @@ def build_point_in_time_target_candidate(
             )
         sources._fetch_understat_fallbacks = use_existing_understat_fallbacks
 
+    if apish_understat:
+        from understat_apish_provider import download_missing_histories
+
+        understat_fallback_audit["policy"] = "API_SH_AUTHENTICATED_JSON_WITH_RESUMABLE_CHECKPOINTS"
+        understat_fallback_audit["provider"] = "api.sh/understat"
+        understat_fallback_audit["mapping_commit"] = "758db9247e8b3a9a870c991064f74d8339d61cd0"
+
+        def use_apish_understat_fallbacks(
+            fallback_raw_dir, missing_players, missing_team_seasons,
+            *, force=False, allow_missing=False,
+        ):
+            if force:
+                raise RuntimeError("API.SH cache is provenance-aware; force=True is prohibited")
+            cache_root = Path(os.environ.get("APISH_CACHE_ROOT", fallback_raw_dir.parent / "apish-cache"))
+            report = download_missing_histories(
+                fallback_raw_dir,
+                missing_players,
+                missing_team_seasons,
+                cache_root=cache_root,
+                probe_only=apish_probe_only,
+            )
+            understat_fallback_audit.update({
+                "cached_player_fallbacks_used": report["restored_player_histories"],
+                "cached_team_fallbacks_used": report["restored_team_seasons"],
+                "fetched_player_histories": report["fetched_player_histories"],
+                "fetched_team_seasons": report["fetched_team_seasons"],
+                "unresolved_player_ids": report["unresolved_player_ids"],
+                "unresolved_team_seasons": report["unresolved_team_seasons"],
+                "provider_run": report,
+            })
+            if report["unresolved_player_ids"] or report["unresolved_team_seasons"]:
+                print(
+                    "API.SH acquisition incomplete; remaining player histories="
+                    f"{len(report['unresolved_player_ids'])}, team seasons="
+                    f"{report['unresolved_team_seasons']}", flush=True,
+                )
+
+        sources._fetch_understat_fallbacks = use_apish_understat_fallbacks
+
     sources.download_sources(raw_dir, all_seasons, workers=workers, force=False)
     download_manifest = raw_dir / "downloads.json"
-    if pinned_sources_only and download_manifest.is_file():
+    if (pinned_sources_only or apish_understat) and download_manifest.is_file():
         manifest_payload = json.loads(download_manifest.read_text(encoding="utf-8"))
         manifest_payload["understat_fallback_policy"] = understat_fallback_audit
         download_manifest.write_text(
@@ -389,7 +432,7 @@ def build_point_in_time_target_candidate(
             "understat_history_complete": (
                 not understat_fallback_audit["unresolved_player_ids"]
                 and not understat_fallback_audit["unresolved_team_seasons"]
-            ) if pinned_sources_only else None,
+            ) if (pinned_sources_only or apish_understat) else None,
             "candidate_reconstruction_started": False,
             "labels_loaded": False,
             "target_points_loaded": False,
@@ -398,6 +441,12 @@ def build_point_in_time_target_candidate(
             json.dumps(preparation, indent=2) + "\n", encoding="utf-8"
         )
         return preparation
+
+    if apish_understat and (
+        understat_fallback_audit["unresolved_player_ids"]
+        or understat_fallback_audit["unresolved_team_seasons"]
+    ):
+        raise RuntimeError("API.SH Understat histories are incomplete; candidate reconstruction is prohibited")
 
     player_matches, team_matches, _ = sources.build_canonical_matches(raw_dir, all_seasons)
 
@@ -639,6 +688,14 @@ def main() -> None:
         "--pinned-sources-only", action="store_true",
         help="Prohibit live Understat requests; audit only pinned and already-cached histories",
     )
+    parser.add_argument(
+        "--apish-understat", action="store_true",
+        help="Use API.SH Understat JSON with shared provenance-aware checkpoints",
+    )
+    parser.add_argument(
+        "--apish-probe-only", action="store_true",
+        help="Fetch at most one missing player and one missing team-season per target to validate the provider contract",
+    )
     args = parser.parse_args()
 
     vintage_report = json.loads(args.vintage_report.read_text(encoding="utf-8"))
@@ -667,6 +724,8 @@ def main() -> None:
             workers=args.workers,
             prepare_sources_only=args.prepare_sources_only,
             pinned_sources_only=args.pinned_sources_only,
+            apish_understat=args.apish_understat,
+            apish_probe_only=args.apish_probe_only,
         )
         reports.append(report)
 
