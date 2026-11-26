@@ -32,4 +32,4 @@ jobs:
           PYTHONPATH: canonical_candidate/engineering_workbench/scripts
         run: |
           python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_understat_apish_provider.py' -v
-          python -m py_compile canonical_candidate/engineering_workbench/scripts/understat_apish_provider.py
+          python -m py_compile canonical_candidate/engineering_workbench/scripts/understat_apish_provider.py canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py
