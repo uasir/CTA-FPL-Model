@@ -153,7 +153,7 @@ jobs:
           key: 2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-schema1-mapping-758db9247e8b3a9a870c991064f74d8339d61cd0-${{ github.run_id }}
           restore-keys: |
             2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-schema1-mapping-758db9247e8b3a9a870c991064f74d8339d61cd0-
-      - name: Check live Understat robots policy for AJAX endpoints
+      - name: Record Understat robots policy (informational only)
         id: understat-diagnostic
         run: |
           python - <<'PY'
@@ -170,13 +170,15 @@ jobs:
               "match_data": f"{base}/getMatchData/1",
           }
           report = {
-              "status": "ROBOTS_POLICY_CHECK",
               "provider": "Understat",
               "robots_url": f"{base}/robots.txt",
               "user_agent": user_agent,
-              "endpoints_checked": endpoints,
+              "endpoints_assessed": endpoints,
               "endpoint_requests_made": 0,
               "network_requests_made": 1,
+              "legal_status": "NOT_ASSESSED",
+              "technical_status": "NOT_TESTED",
+              "decision": "ROBOTS_RECORDED_ONLY_CONTINUE_TO_SEPARATE_ACCESS_AND_LEGAL_ASSESSMENTS",
           }
           try:
               request = Request(
@@ -188,7 +190,7 @@ jobs:
                   body = response.read(512_000).decode("utf-8", errors="replace")
               report["robots_http_status"] = status
               if status != 200:
-                  raise RuntimeError(f"robots.txt returned HTTP {status}; refusing to infer permission")
+                  raise RuntimeError(f"robots.txt returned HTTP {status}")
               parser = RobotFileParser()
               parser.set_url(f"{base}/robots.txt")
               parser.parse(body.splitlines())
@@ -196,26 +198,21 @@ jobs:
                   name: parser.can_fetch(user_agent, url)
                   for name, url in endpoints.items()
               }
-              report["endpoint_permissions"] = decisions
-              report["direct_ajax_permitted"] = all(decisions.values())
-              report["decision"] = (
-                  "AJAX_ROUTE_ELIGIBLE_FOR_SEPARATE_LIMITED_TEST"
-                  if all(decisions.values())
-                  else "DIRECT_AJAX_ROUTE_BLOCKED_BY_ROBOTS_POLICY"
-              )
-              report["status"] = "ROBOTS_POLICY_EVALUATED"
+              report["robots_policy_status"] = "FETCHED_AND_PARSED"
+              report["robots_endpoint_decisions"] = decisions
+              report["robots_disallowed_endpoints"] = [
+                  name for name, allowed in decisions.items() if not allowed
+              ]
           except (HTTPError, URLError, TimeoutError, RuntimeError, UnicodeError) as exc:
               report.update({
-                  "status": "ROBOTS_POLICY_UNVERIFIED",
-                  "direct_ajax_permitted": False,
-                  "decision": "FAIL_CLOSED_UNTIL_ROBOTS_POLICY_CAN_BE_VERIFIED",
-                  "error_type": type(exc).__name__,
-                  "error": str(exc)[:1000],
+                  "robots_policy_status": "UNAVAILABLE_OR_UNVERIFIED",
+                  "robots_endpoint_decisions": {name: None for name in endpoints},
+                  "robots_disallowed_endpoints": [],
+                  "robots_error_type": type(exc).__name__,
+                  "robots_error": str(exc)[:1000],
               })
           output = Path(os.environ["RUNNER_TEMP"]) / "understat-access-diagnostic.json"
-          output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
-              stream.write(f"direct_ajax_permitted={str(report.get('direct_ajax_permitted', False)).lower()}\n")
+          output.write_text(json.dumps(report, indent=2) + "\\n", encoding="utf-8")
           print(json.dumps(report, indent=2))
           PY
       - name: Prepare and validate point-in-time source downloads
