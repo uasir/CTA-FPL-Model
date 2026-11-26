@@ -146,6 +146,24 @@ class TestApiShUnderstatProvider(unittest.TestCase):
         self.assertEqual(summary[0]["params"], {"id": "181"})
         self.assertNotIn("api_key", str(summary))
 
+    def test_account_logs_requests_error_status_filter(self):
+        class FakeResponse:
+            headers = {}
+            text = ""
+            def raise_for_status(self):
+                pass
+        class FakeSession:
+            def __init__(self):
+                self.headers = {}
+                self.calls = []
+            def get(self, url, params, timeout):
+                self.calls.append((url, params, timeout))
+                return FakeResponse()
+        session = FakeSession()
+        client = ApiShUnderstatClient(api_key="test-key", session=session)
+        self.assertEqual(client.account_logs(status="error"), [])
+        self.assertEqual(session.calls[0][1], {"status": "error", "output": "ndjson"})
+
     def test_account_log_parsing_extracts_request_route_and_params(self):
         records = _log_records([{
             "request_id": "abc-123", "route": "/understat/v1/player",
