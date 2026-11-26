@@ -225,8 +225,11 @@ class ApiShUnderstatClient:
                 for line in body.splitlines():
                     if line.strip():
                         value = json.loads(line)
-                        if isinstance(value, dict):
-                            page_records.append(value)
+                        if isinstance(value, list):
+                            page_records.extend(_log_records(value))
+                        elif isinstance(value, dict):
+                            nested = _log_records(value)
+                            page_records.extend(nested if nested else [value])
             except json.JSONDecodeError:
                 page_records = _log_records(response.json())
             records.extend(page_records)
