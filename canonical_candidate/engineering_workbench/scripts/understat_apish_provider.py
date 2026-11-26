@@ -212,7 +212,7 @@ class ApiShUnderstatClient:
         records: list[dict[str, Any]] = []
         before = None
         while True:
-            params = {"status": "ok", "route": "/understat/v1/", "output": "ndjson"}
+            params = {"status": "ok", "output": "ndjson"}
             if before:
                 params["before"] = before
             response = self.session.get(ACCOUNT_LOGS_URL, params=params, timeout=120)
