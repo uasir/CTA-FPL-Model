@@ -307,12 +307,14 @@ class ApiShUnderstatClient:
         }
         return payload
 
-    def account_logs(self) -> list[dict[str, Any]]:
-        """Read successful Understat calls from the free, 30-day account log."""
+    def account_logs(self, status: str = "ok") -> list[dict[str, Any]]:
+        """Read successful or failed calls from the free, 30-day account log."""
+        if status not in {"ok", "error"}:
+            raise ValueError("API.SH account log status must be 'ok' or 'error'")
         records: list[dict[str, Any]] = []
         before = None
         while True:
-            params = {"status": "ok", "output": "ndjson"}
+            params = {"status": status, "output": "ndjson"}
             if before:
                 params["before"] = before
             response = self.session.get(ACCOUNT_LOGS_URL, params=params, timeout=120)
@@ -376,6 +378,28 @@ def _log_records(payload: Any) -> list[dict[str, Any]]:
                 if isinstance(value, list):
                     return [item for item in value if isinstance(item, dict)]
     return []
+
+def _summarize_understat_error_logs(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep only safe, actionable metadata from recent failed Understat calls."""
+    summaries = []
+    for record in records:
+        route = _record_route(record)
+        if "understat" not in route.casefold():
+            continue
+        params = _record_params(record)
+        summaries.append({
+            "request_id": _first(record, ("request_id", "requestId", "id")),
+            "status": _first(record, ("status", "status_code", "http_status", "code")),
+            "endpoint": route,
+            "params": {
+                key: params[key] for key in ("id", "player_id", "team", "season")
+                if key in params
+            },
+            "created_at": _first(record, ("created_at", "timestamp", "time")),
+            "error": _first(record, ("error", "message", "response_error")),
+        })
+    return summaries[:100]
+
 
 def _record_route(record: dict[str, Any]) -> str:
     value = _first(record, ("route", "endpoint", "path", "url", "request_url"))
@@ -643,10 +667,17 @@ def download_missing_histories(
         recovered_players, recovered_teams, unrecoverable = recover_remote_histories(
             client, missing_player_ids, missing_team_requests, player_cache, team_cache
         )
+        # Error logs are free and do not expose response bodies or credentials.
+        # Keep them separate from successful-result recovery so failed requests
+        # can never be mistaken for histories available from the result store.
+        recent_understat_error_logs = _summarize_understat_error_logs(
+            client.account_logs(status="error")
+        )
     else:
         account_payload = {}
         credits_remaining = 0
         recovered_players, recovered_teams, unrecoverable = [], [], []
+        recent_understat_error_logs = []
 
     credits_info = account_payload.get("credits", {}) if isinstance(account_payload, dict) else {}
     free_resets_at = credits_info.get("free_resets_at") if isinstance(credits_info, dict) else None
@@ -826,6 +857,7 @@ def download_missing_histories(
         "restored_team_seasons": sorted({s for s, _ in restored_team_members}),
         "remote_recovered_player_histories": recovered_players,
         "remote_recovered_team_members": [{"season": s, "team": t} for s, t in recovered_teams],
+        "recent_understat_error_logs": recent_understat_error_logs,
         "fetched_player_histories": fetched_players,
         "fetched_team_members": [{"season": s, "team": t} for s, t in fetched_team_members],
         "fetched_team_seasons": complete_team_seasons,
