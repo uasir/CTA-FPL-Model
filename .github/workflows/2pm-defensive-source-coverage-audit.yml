@@ -215,6 +215,18 @@ jobs:
           output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
           print(json.dumps(report, indent=2))
           PY
+      # One low-volume direct Understat AJAX diagnostic. This is not bulk acquisition,
+      # does not use API.SH credits, and does not retry or bypass HTTP access controls.
+      - name: Probe direct Understat AJAX endpoints (two requests maximum)
+        id: understat-ajax-probe
+        continue-on-error: true
+        timeout-minutes: 3
+        run: |
+          python -m pip install understatapi==0.7.1
+          python canonical_candidate/engineering_workbench/scripts/diagnose_2pm_understat_access.py \
+            --player-id 181 \
+            --team-season 2025 \
+            --output "${RUNNER_TEMP}/understat-direct-ajax-diagnostic.json"
       - name: Prepare and validate point-in-time source downloads
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -465,5 +477,6 @@ jobs:
             ${{ runner.temp }}/point-in-time-candidate-build.log
             ${{ runner.temp }}/point-in-time-source-preparation.log
             ${{ runner.temp }}/understat-access-diagnostic.json
+            ${{ runner.temp }}/understat-direct-ajax-diagnostic.json
           if-no-files-found: warn
           retention-days: 30
