@@ -1,9 +1,8 @@
 name: 2PM defensive experiment source coverage audit
 
 on:
-  push:
-    branches:
-      - feat/2pm-defensive-2025-26-train-2026-27-oot
+  # Deliberately manual-only: provider acquisition must never be triggered by
+  # an ordinary code push or by a sequence of commits.
   workflow_dispatch:
     inputs:
       use_apish_understat:
@@ -194,10 +193,6 @@ jobs:
             if [ "${{ inputs.apish_probe_only }}" = "true" ]; then
               args+=(--apish-probe-only)
             fi
-          elif [ "${{ github.event_name }}" = "push" ] && [ -n "$APISH_KEY" ]; then
-            # First push after enabling the provider performs one bounded probe.
-            # A shared marker prevents subsequent push runs from spending credits.
-            args+=(--apish-understat --apish-probe-only)
           else
             args+=(--pinned-sources-only)
           fi
@@ -215,7 +210,7 @@ jobs:
             ${{ runner.temp }}/2pm-apish-provider-cache
           key: 2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-schema1-mapping-758db9247e8b3a9a870c991064f74d8339d61cd0-${{ github.run_id }}
       - name: Gate candidate reconstruction on complete Understat histories
-        if: ${{ github.event_name != 'push' && !(inputs.use_apish_understat == true && inputs.apish_probe_only == true) }}
+        if: ${{ !(inputs.use_apish_understat == true && inputs.apish_probe_only == true) }}
         run: |
           python - <<'PY'
           import json, os
