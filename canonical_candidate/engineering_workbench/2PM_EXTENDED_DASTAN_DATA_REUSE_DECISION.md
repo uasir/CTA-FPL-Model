@@ -76,3 +76,8 @@ The temporary 2026-11-26 Sportmonks/provider-reset direction was based on a misu
 6. Compare data hashes, row coverage, feature values and temporal eligibility before training.
 
 All expensive data work must remain resumable: restore and validate existing downloaded/derived artifacts first, checkpoint successful work, and fetch or rebuild only missing, corrupt, or version-mismatched items.
+
+
+## Verified XGBoost artifact follow-up
+
+The exact successful XGBoost training artifact has now been located and checksum-verified. Its 286-feature ordered list is identical to the 2PM candidate schema. The artifact is a reusable provenance/parity reference, but its final-snapshot historical values are not automatically admitted as point-in-time-safe 2PM inputs. The current defensive experiment remains 2025/26 train and sealed 2026/27 OOT; do not change that cohort or target definition. See [`2PM_XGBOOST_TRAINING_ARTIFACT_REUSE_AUDIT.md`](2PM_XGBOOST_TRAINING_ARTIFACT_REUSE_AUDIT.md) for the exact run, artifact, hashes, source pins, and remaining gates.
