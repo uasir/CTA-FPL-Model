@@ -11,7 +11,7 @@ on:
         type: boolean
         default: false
       apish_probe_only:
-        description: "Probe only: fetch at most one player and one team-season per target; do not bulk acquire"
+        description: "Probe only: fetch at most one player history and one full league team-history season across both target vintages"
         required: false
         type: boolean
         default: true
