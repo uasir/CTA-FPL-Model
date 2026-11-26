@@ -27,6 +27,9 @@ CACHE_SCHEMA = 1
 MAPPING_COMMIT = "758db9247e8b3a9a870c991064f74d8339d61cd0"
 # Histories not required by this experiment; do not let provider outages block it.
 EXCLUDED_PLAYER_HISTORY_IDS = {76, 87}
+# Shared across target-vintage calls within one workflow process. A new process/run
+# starts closed and may retry after the provider has recovered.
+RUN_CIRCUIT_BREAKER_OPEN = False
 
 
 def _atomic_json(path: Path, payload: Any) -> None:
@@ -571,6 +574,7 @@ def download_missing_histories(
     *, cache_root: Path, probe_only: bool = False, max_calls_this_run: int | None = None,
 ) -> dict[str, Any]:
     """Restore all validated checkpoints, then acquire only missing player/team records."""
+    global RUN_CIRCUIT_BREAKER_OPEN
     client = ApiShUnderstatClient()
     cache_root.mkdir(parents=True, exist_ok=True)
     player_cache, team_cache = cache_root / "players", cache_root / "teams"
@@ -657,6 +661,11 @@ def download_missing_histories(
         player_requests, team_requests = _apply_call_budget(
             player_requests, team_requests, effective_budget
         )
+    # Target vintages are prepared sequentially in one process. Do not send more
+    # paid requests to a provider that already returned two consecutive 503s in
+    # an earlier target during this same workflow run.
+    if RUN_CIRCUIT_BREAKER_OPEN and not probe_only:
+        player_requests, team_requests = [], []
     planned_calls = len(player_requests) + len(team_requests)
     print(
         f"API.SH pre-acquisition check: {credits_remaining} credits remaining; "
@@ -673,9 +682,10 @@ def download_missing_histories(
     fetched_players, fetched_team_members, probe_errors = [], [], []
     acquisition_errors: list[str] = []
     consecutive_503_failures = 0
-    provider_unavailable = False
+    provider_unavailable = RUN_CIRCUIT_BREAKER_OPEN and not probe_only
 
     def record_acquisition_failure(label: str, exc: Exception) -> None:
+        global RUN_CIRCUIT_BREAKER_OPEN
         nonlocal consecutive_503_failures, provider_unavailable
         status = getattr(getattr(exc, "response", None), "status_code", None)
         message = f"{label}: {type(exc).__name__}: {exc}"
@@ -693,6 +703,7 @@ def download_missing_histories(
             )
             if consecutive_503_failures >= 2:
                 provider_unavailable = True
+                RUN_CIRCUIT_BREAKER_OPEN = True
                 print(
                     "API.SH circuit breaker opened after two consecutive 503 responses; "
                     "remaining histories stay unresolved for a later resumed run.",
