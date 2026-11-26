@@ -237,6 +237,7 @@ class ApiShUnderstatClient:
 
     def result(self, request_id: str) -> dict[str, Any]:
         return self._request(f"{RESULTS_URL}/{request_id}")
+
     def account(self) -> tuple[dict[str, Any], int]:
         payload = self._request(ACCOUNT_URL)
         remaining = self.last_meta.get("credits_remaining")
@@ -395,9 +396,10 @@ def _persist_response(cache_path: Path, payload: Any, *, kind: str, key: str,
                       client: ApiShUnderstatClient) -> None:
     _atomic_json(cache_path, payload)
     request_id = client.last_meta.get("request_id")
-    if request_id and client.last_payload is not None:
+    raw_response = getattr(client, "last_payload", None)
+    if request_id and raw_response is not None:
         response_path = cache_path.parent.parent / "responses" / f"{request_id}.json"
-        _atomic_json(response_path, client.last_payload)
+        _atomic_json(response_path, raw_response)
     meta = {
         "schema_version": CACHE_SCHEMA, "provider": PROVIDER, "kind": kind,
         "key": str(key), "mapping_commit": MAPPING_COMMIT,
