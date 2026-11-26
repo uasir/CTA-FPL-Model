@@ -455,6 +455,24 @@ def download_missing_histories(
             missing_seasons.append(season)
 
     account, credits_remaining = client.account()
+    recovered_players, recovered_seasons, unrecoverable = recover_remote_histories(
+        client, missing_player_ids, missing_seasons, player_cache, team_cache
+    )
+    for player_id in recovered_players:
+        _copy_checkpoint(player_cache / f"{player_id}.json", player_dir / f"{player_id}.json")
+        _copy_checkpoint(player_cache / f"{player_id}.meta", player_dir / f"{player_id}.meta")
+        restored_players.append(player_id)
+        missing_player_ids.remove(player_id)
+    for season in recovered_seasons:
+        _copy_checkpoint(team_cache / f"{season}.json", team_dir / f"{season}.json")
+        _copy_checkpoint(team_cache / f"{season}.meta", team_dir / f"{season}.meta")
+        restored_teams.append(season)
+        missing_seasons.remove(season)
+    if unrecoverable:
+        raise RuntimeError(
+            "Successful API.SH requests were found but their free 30-day results have expired. "
+            "Refusing to pay for them again without review: " + "; ".join(unrecoverable)
+        )
     required_calls = len(missing_player_ids) + len(missing_seasons)
     if not probe_only and required_calls > credits_remaining:
         raise RuntimeError(
@@ -473,6 +491,12 @@ def download_missing_histories(
         missing_seasons[:1] if probe_only and not probe_already_done
         else [] if probe_only else missing_seasons
     )
+    probe_calls = len(player_requests) + len(team_requests)
+    if probe_calls > credits_remaining:
+        raise RuntimeError(
+            f"API.SH probe requires {probe_calls} credits but only {credits_remaining} remain; "
+            "no provider data requests were made."
+        )
     for player_id in player_requests:
         payload = client.player_history(player_id)
         cache = player_cache / f"{player_id}.json"
@@ -529,6 +553,8 @@ def download_missing_histories(
         "required_calls_before_acquisition": required_calls,
         "restored_player_histories": restored_players,
         "restored_team_seasons": restored_teams,
+        "remote_recovered_player_histories": recovered_players,
+        "remote_recovered_team_seasons": recovered_seasons,
         "fetched_player_histories": fetched_players,
         "fetched_team_seasons": fetched_teams,
         "unresolved_player_ids": unresolved_players,
