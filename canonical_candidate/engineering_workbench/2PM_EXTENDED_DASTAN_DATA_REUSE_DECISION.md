@@ -45,15 +45,17 @@ The existing XGBoost model's learned weights and predictions are not inputs to 2
 
 Reusing the same data does not mean passing a flattened XGBoost matrix directly into a Transformer without checking sequence semantics.
 
-The data adapter should construct the 2PM samples from the same canonical player-match and deadline-safe feature records. The intended paper-aligned representation is:
-1. up to five previous played-match state tokens for the player;
-2. one target-fixture query token containing only information available before the target deadline;
-3. an explicit mask/padding policy for shorter histories;
-4. strict chronological ordering and a maximum inter-observation gap consistent with the paper, with any adaptation documented.
+The data adapter constructs samples from the canonical player-match and deadline-safe feature records. The current implemented candidate contract is:
+1. exactly five previous played-match state tokens for the player;
+2. one target-fixture query token containing only information available before the target Gameweek deadline;
+3. no padding for shorter histories: samples with fewer than five eligible prior played matches are excluded and counted;
+4. the five history tokens are season-scoped, strictly chronological, available before the target deadline, and subject to a maximum 21-day gap between consecutive observations and the first target kickoff.
+
+The season-scoped token rule is deliberate: expanding the training pool to six seasons does not silently carry a player's prior-season fixtures into the next season's five-token sequence. Cross-season token continuity would require a separate identity/continuity decision and sequence audit.
 
 Rolling features that are already deadline-anchored in the extended dataset must not be recomputed from target or future fixtures. In particular, all target fixtures in one Gameweek must use the same deadline-safe historical state where required; an earlier double-Gameweek fixture must not update a later fixture's target input.
 
-The exact sequence-token schema and the mapping of flat features into historical-state versus target-query tokens remain subject to the existing 2PM sequence audit. This is a representation adaptation, not permission to change the underlying source statistics.
+The implemented tensor builder groups targets at player-Gameweek grain. All target fixtures in a Double Gameweek share the same five eligible history tokens but retain separate fixture-specific query tokens; one Gameweek label is emitted once. The sequence implementation remains a candidate pending full six-season execution, source/temporal admission, and integrity audits. This is a representation adaptation, not permission to change the underlying source statistics.
 
 ## Independent 2PM training and evaluation
 
