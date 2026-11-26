@@ -266,10 +266,25 @@ class ApiShUnderstatClient:
         self.last_payload: dict[str, Any] | None = None
         self.last_url: str | None = None
         self.last_params: dict[str, Any] = {}
+        self.last_error_meta: dict[str, Any] = {}
 
     def _request(self, url: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         request_params = dict(params or {})
         response = self.session.get(url, params=request_params, timeout=120)
+        if response.status_code >= 400:
+            # Preserve provider diagnostics before raising: request IDs and Retry-After
+            # are essential for distinguishing API.SH gateway failures from source-site
+            # failures and for support escalation. Never persist request credentials.
+            self.last_error_meta = {
+                "status_code": response.status_code,
+                "request_id": response.headers.get("x-request-id"),
+                "retry_after": response.headers.get("Retry-After"),
+                "credits_used": response.headers.get("x-credits-used"),
+                "credits_remaining": response.headers.get("x-credits-remaining"),
+                "endpoint": urlparse(url).path,
+                "params": request_params,
+                "response_body_excerpt": response.text[:1000],
+            }
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict):
@@ -714,6 +729,7 @@ def download_missing_histories(
 
     fetched_players, fetched_team_members, probe_errors = [], [], []
     acquisition_errors: list[str] = []
+    provider_failure_diagnostics: list[dict[str, Any]] = []
     consecutive_503_failures = 0
     provider_unavailable = RUN_CIRCUIT_BREAKER_OPEN and not probe_only
 
@@ -721,10 +737,14 @@ def download_missing_histories(
         global RUN_CIRCUIT_BREAKER_OPEN
         nonlocal consecutive_503_failures, provider_unavailable
         status = getattr(getattr(exc, "response", None), "status_code", None)
+        diagnostic = dict(getattr(client, "last_error_meta", {}) or {})
+        if diagnostic:
+            diagnostic["label"] = label
+            provider_failure_diagnostics.append(diagnostic)
         message = f"{label}: {type(exc).__name__}: {exc}"
         if probe_only:
             probe_errors.append(message)
-            print(f"API.SH probe request failed (no automatic retry): {message}", flush=True)
+            print(f"API.SH probe request failed (no automatic retry): {message}; diagnostics={diagnostic}", flush=True)
             return
         if status == 503:
             acquisition_errors.append(message)
@@ -809,6 +829,7 @@ def download_missing_histories(
         "fetched_team_seasons": complete_team_seasons,
         "probe_errors": probe_errors,
         "acquisition_errors": acquisition_errors,
+        "provider_failure_diagnostics": provider_failure_diagnostics,
         "provider_unavailable_circuit_breaker_open": provider_unavailable,
         "unresolved_player_ids": unresolved_players,
         "unresolved_team_seasons": unresolved_team_seasons,
