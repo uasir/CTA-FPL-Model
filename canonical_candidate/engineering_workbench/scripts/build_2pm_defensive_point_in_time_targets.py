@@ -314,7 +314,7 @@ def build_point_in_time_target_candidate(
             "target_points_loaded": False,
         }
         (output_dir / "source_preparation_report.json").write_text(
-            json.dumps(preparation, indent=2) + "\\n", encoding="utf-8"
+            json.dumps(preparation, indent=2) + "\n", encoding="utf-8"
         )
         return preparation
 
