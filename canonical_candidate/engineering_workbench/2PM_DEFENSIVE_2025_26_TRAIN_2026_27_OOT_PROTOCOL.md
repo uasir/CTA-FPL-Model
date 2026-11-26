@@ -90,15 +90,19 @@ Do not choose the policy by looking at 2026/27 outcomes. Do not drop rows select
 
 This experiment produces player-level expected-points forecasts/distributions only. It must not implement squad selection, transfers, captaincy, ownership, effective ownership, variance/CoVar portfolio logic, or recommendations.
 
-## Relationship to main experiment
+## Relationship to the main 2PM model
 
-The original four-season experiment remains unchanged:
-- train: 2022/23 and 2023/24
-- validation: 2024/25
-- OOT: 2025/26
-- original 286-feature candidate remains unadmitted pending its own feature-admission decision.
+This document defines a **separate, narrowly scoped defensive-feature ablation**, not the main 2PM training protocol. Its 2025/26 development cohort and 2026/27 evaluation design apply only to that isolated experiment and must not constrain the main model's historical training pool.
 
-Do not rerun its expensive candidate rebuild as part of this experiment. Reuse already completed artifacts where appropriate, or build only a narrowly scoped 2025/26 + 2026/27 dataset on this branch.
+The governing main-model scope, confirmed 2026-11-26, is:
+- candidate training pool: all eligible historical seasons 2020/21–2025/26;
+- historical model selection: expanding chronological walk-forward validation across those seasons;
+- final refit: all eligible 2020/21–2025/26 samples;
+- sealed out-of-time evaluation: 2026/27.
+
+The main model is developed independently using the extended Dastan dataset adapted to the 2PM Transformer. XGBoost is not a comparison target or authority for the main model's feature policy, architecture, or training scope. The isolated defensive ablation remains optional research and cannot redefine the main model's data split.
+
+Do not rerun expensive candidate acquisition/rebuild work merely to support this isolated ablation. Reuse validated cached artifacts where appropriate and fetch/rebuild only missing, corrupt, or version-mismatched data.
 
 ## Current decision
 
