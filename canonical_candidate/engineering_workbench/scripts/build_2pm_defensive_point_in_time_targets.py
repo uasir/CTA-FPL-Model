@@ -700,7 +700,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--apish-probe-only", action="store_true",
-        help="Fetch at most one missing player and one missing team-season per target to validate the provider contract",
+        help="Fetch at most one missing player history and one individual team history total to validate the provider contract",
     )
     args = parser.parse_args()
 
