@@ -2,7 +2,7 @@ name: 2PM paper Poisson-mixture model contract
 
 on:
   push:
-    branches: ["feat/four-layer-2pm-transformer-evaluation"]
+    branches: ["feat/four-layer-2pm-transformer-evaluation", "feat/2pm-defensive-2025-26-train-2026-27-oot"]
     paths:
       - canonical_candidate/engineering_workbench/scripts/two_component_poisson_transformer.py
       - canonical_candidate/engineering_workbench/scripts/two_pm_forecast_records.py
