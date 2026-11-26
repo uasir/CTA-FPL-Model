@@ -174,6 +174,53 @@ def normalize_team_histories(payload: dict[str, Any], season: str) -> dict[str, 
     return result
 
 
+def _remaining_credits(payload: dict[str, Any], header_value: Any = None) -> int:
+    """Read the available balance from API.SH account JSON or its response header."""
+    if header_value not in (None, ""):
+        return int(header_value)
+
+    scalar_keys = {
+        "credits_remaining", "remaining_credits", "available_credits",
+        "total_credits_remaining", "credit_balance", "credits_available",
+    }
+    bucket_keys = {
+        "free_credits", "free_monthly_credits", "monthly_free_credits",
+        "plan_credits", "payg_credits", "pay_as_you_go_credits",
+        "topup_credits", "top_up_credits",
+    }
+
+    def walk(value: Any):
+        if isinstance(value, dict):
+            for key, child in value.items():
+                normalized = str(key).lower().replace("-", "_")
+                if normalized in scalar_keys and isinstance(child, (int, float, str)):
+                    try:
+                        yield ("total", int(child))
+                    except (TypeError, ValueError):
+                        pass
+                elif normalized in bucket_keys and isinstance(child, (int, float, str)):
+                    try:
+                        yield ("bucket", int(child))
+                    except (TypeError, ValueError):
+                        pass
+                yield from walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                yield from walk(child)
+
+    found = list(walk(payload))
+    totals = [value for kind, value in found if kind == "total"]
+    if totals:
+        return max(totals)
+    buckets = [value for kind, value in found if kind == "bucket"]
+    if buckets:
+        return sum(buckets)
+    raise RuntimeError(
+        "API.SH account response did not expose a recognized remaining-credit field; "
+        f"top-level keys={sorted(payload)}. No provider data requests were made."
+    )
+
+
 class ApiShUnderstatClient:
     def __init__(self, api_key: str | None = None, session: Any | None = None):
         key = api_key or os.environ.get("APISH_KEY")
@@ -245,10 +292,9 @@ class ApiShUnderstatClient:
 
     def account(self) -> tuple[dict[str, Any], int]:
         payload = self._request(ACCOUNT_URL)
-        remaining = self.last_meta.get("credits_remaining")
-        if remaining is None:
-            raise RuntimeError("API.SH account response omitted x-credits-remaining; refusing bulk acquisition")
-        return payload, int(remaining)
+        remaining = _remaining_credits(payload, self.last_meta.get("credits_remaining"))
+        self.last_meta["credits_remaining"] = remaining
+        return payload, remaining
 
     def player_history(self, player_id: int) -> list[dict[str, Any]]:
         payload = self._request(f"{BASE_URL}/player", {
