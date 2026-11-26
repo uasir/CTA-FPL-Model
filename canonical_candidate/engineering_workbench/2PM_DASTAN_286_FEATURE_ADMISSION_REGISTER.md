@@ -1,6 +1,6 @@
 # 2PM — Dastan 286-Feature Admission Register
 
-**Status:** SUPERSEDED on 2026-11-26 — historical inventory only; not an active 2PM candidate schema  
+**Status:** Active candidate inventory — existing extended Dastan data foundation; all feature admissions remain on hold pending 2PM-specific validation  
 **Schema version:** `1.0.0`  
 **Schema component:** `dastan_286_candidate_input` (2PM candidate adaptation; 2PM does not reuse the Dastan predictor)  
 **Source schema commit:** `78b06b80a9adfa96b5b7691296b70b10512ee0e3`  
@@ -8,9 +8,7 @@
 **Upstream Dastan reconstruction commit:** `758db9247e8b3a9a870c991064f74d8339d61cd0`  
 **Feature count verified:** 286 unique ordered columns
 
-> **Superseded:** This register belongs to the abandoned Dastan/Understat 286-feature foundation. It is retained only as a historical record. Do not migrate these columns or use this inventory to define the new provider dataset. See `2PM_PROVIDER_RESET_AND_SPORTMONKS_EVALUATION.md`.
-
-## Historical purpose and interpretation
+## Purpose and interpretation
 
 This is the 2PM-specific feature-by-feature admission register generated from the exact pinned `feature_order`. It records the full candidate column inventory without claiming that the features are already approved for 2PM.
 
