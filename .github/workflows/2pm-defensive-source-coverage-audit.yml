@@ -11,7 +11,7 @@ on:
         type: boolean
         default: false
       apish_probe_only:
-        description: "Zero-spend preflight: calculate filtered player/team requests and check live credits; do not acquire paid histories"
+        description: "Two-request probe: acquire at most one relevant player history and one team history (up to 2 credits) to test API.SH availability"
         required: false
         type: boolean
         default: false
@@ -189,8 +189,8 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.use_apish_understat }}" = "true" ]; then
             args+=(--apish-understat --apish-max-calls-this-run 1000)
             if [ "${{ inputs.apish_probe_only }}" = "true" ]; then
-              # Reuse the existing UI toggle as a zero-spend preflight selector.
-              args+=(--apish-preflight-only --target 2025-26:6 --target 2026-27:8)
+              # User-approved provider probe: at most one player and one team history.
+              args+=(--apish-probe-only --target 2025-26:6)
             else
               args+=(--target 2025-26:6 --target 2026-27:8)
             fi
