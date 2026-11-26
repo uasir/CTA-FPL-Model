@@ -77,6 +77,8 @@ jobs:
           COMMIT_DATE_2026_27: "2026-11-24T19:03:03Z"
         run: |
           python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_*defensive*.py' -v
+          python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_understat_apish_provider.py' -v
+          python -m py_compile canonical_candidate/engineering_workbench/scripts/understat_apish_provider.py canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py
           python -m unittest discover -s canonical_candidate/engineering_workbench/tests -p 'test_audit_2pm_2025_26_labelled_gw_coverage.py' -v
           python canonical_candidate/engineering_workbench/scripts/prepare_2pm_defensive_feature_arms.py \
             --schema canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json \
@@ -149,9 +151,9 @@ jobs:
             ${{ runner.temp }}/point-in-time-raw
             ${{ runner.temp }}/point-in-time-fplcache
             ${{ runner.temp }}/2pm-apish-provider-cache
-          key: 2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-${{ github.run_id }}
+          key: 2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/understat_apish_provider.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py') }}-${{ github.run_id }}
           restore-keys: |
-            2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-
+            2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/understat_apish_provider.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py') }}-
       - name: Enforce Understat robots policy; allow separate API.SH provider
         id: understat-diagnostic
         run: |
@@ -161,7 +163,7 @@ jobs:
           report = {
               "status": "UNDERSTAT_AUTOMATED_ACCESS_DISABLED",
               "provider": "Understat",
-              "policy": "robots.txt disallows automated agents; no live requests will be made",
+              "policy": "No direct requests to Understat; the separately documented API.SH provider may be enabled only by manual dispatch",
               "decision": "NO_DIRECT_UNDERSTAT_REQUESTS; API.SH_IS_A_SEPARATE_DOCUMENTED_PROVIDER",
               "network_requests_made": 0,
           }
@@ -207,7 +209,7 @@ jobs:
             ${{ runner.temp }}/point-in-time-raw
             ${{ runner.temp }}/point-in-time-fplcache
             ${{ runner.temp }}/2pm-apish-provider-cache
-          key: 2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-${{ github.run_id }}
+          key: 2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/understat_apish_provider.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py') }}-${{ github.run_id }}
       - name: Gate candidate reconstruction on complete Understat histories
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.use_apish_understat == true && inputs.apish_probe_only == true) }}
         run: |
