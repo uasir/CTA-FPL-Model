@@ -11,10 +11,10 @@ on:
         type: boolean
         default: false
       apish_probe_only:
-        description: "Probe only: fetch at most one player history and one individual team history across both target vintages"
+        description: "Probe only: fetch at most one player history and one individual team history across both target vintages (leave disabled for full acquisition)"
         required: false
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read
