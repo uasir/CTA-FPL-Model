@@ -332,11 +332,17 @@ jobs:
               reports = candidate.get("reports", [])
               player_ids = set()
               team_seasons = set()
+              team_requests = set()
               for item in reports:
                   audit = item.get("understat_fallback_audit") or {}
                   player_ids.update(int(x) for x in audit.get("unresolved_player_ids", []))
                   team_seasons.update(str(x) for x in audit.get("unresolved_team_seasons", []))
-              team_calls = 20 * len(team_seasons)
+                  provider = audit.get("provider_run") or {}
+                  team_requests.update(
+                      (str(x["season"]), str(x["team"]))
+                      for x in provider.get("unresolved_team_requests", [])
+                  )
+              team_calls = len(team_requests) if team_requests else 20 * len(team_seasons)
               lines.extend([
                   "## Understat history acquisition coverage",
                   f"- Deduplicated unresolved player histories across requested targets: {len(player_ids)}",
