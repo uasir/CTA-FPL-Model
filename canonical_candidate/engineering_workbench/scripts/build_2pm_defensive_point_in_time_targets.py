@@ -615,7 +615,7 @@ def build_point_in_time_target_candidate(
         understat_source["live_fallback"] = "API.SH authenticated Understat JSON provider; no direct Understat requests"
         understat_source["provider"] = "api.sh/understat"
         understat_source["mapping_commit"] = "758db9247e8b3a9a870c991064f74d8339d61cd0"
-        manifest_path.write_text(json.dumps(manifest_payload, indent=2) + "\\n", encoding="utf-8")
+        manifest_path.write_text(json.dumps(manifest_payload, indent=2) + "\n", encoding="utf-8")
 
     report = {
         "status": "POINT_IN_TIME_TARGET_CANDIDATE_BUILT",
