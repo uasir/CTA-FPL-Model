@@ -178,7 +178,7 @@ This builder is implemented but depends on both the six-season historical candid
 - Keeps raw player-level source data, candidate feature frames and tensor shards on the ephemeral runner; only aggregate candidate status is written to the workflow summary.
 - Does not train the 2PM model or promote data.
 
-The first full rebuild run is being executed separately. Its outcome must be read from the workflow before reporting candidate row coverage or feature-build success.
+The six-season rebuild has **not** been executed on this branch. The previously inspected run 80 produced a four-season artifact on a different branch and is not evidence for 2020/21–2025/26 coverage. The current workflow defaults `rebuild_candidate` to false and deliberately stops if no completed six-season candidate cache is restored. Do not report six-season candidate coverage or feature-build success until a six-season run produces and passes its audits.
 
 ## Immediate engineering continuation
 
