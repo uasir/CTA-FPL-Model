@@ -211,6 +211,8 @@ def _remaining_credits(payload: dict[str, Any], header_value: Any = None) -> int
                 paths.extend(shape(child, path))
         elif isinstance(value, list) and value:
             paths.extend(shape(value[0], f"{prefix}[]"))
+        elif prefix:
+            paths.append(f"{prefix} ({type(value).__name__})")
         return paths
 
     # Keep diagnostics safe: report field paths and primitive types only, never
