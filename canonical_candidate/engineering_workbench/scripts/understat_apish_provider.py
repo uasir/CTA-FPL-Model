@@ -202,9 +202,24 @@ def _remaining_credits(payload: dict[str, Any], header_value: Any = None) -> int
     buckets = [value for kind, value in found if kind == "bucket"]
     if buckets:
         return sum(buckets)
+    def shape(value: Any, prefix: str = "") -> list[str]:
+        paths: list[str] = []
+        if isinstance(value, dict):
+            for key, child in value.items():
+                path = f"{prefix}.{key}" if prefix else str(key)
+                paths.append(path)
+                paths.extend(shape(child, path))
+        elif isinstance(value, list) and value:
+            paths.extend(shape(value[0], f"{prefix}[]"))
+        return paths
+
+    # Keep diagnostics safe: report field paths and primitive types only, never
+    # account values, API keys, emails, or billing identifiers.
+    field_shape = shape(payload)
     raise RuntimeError(
         "API.SH account response did not expose a recognized remaining-credit field; "
-        f"top-level keys={sorted(payload)}. No provider data requests were made."
+        f"top_level_keys={sorted(payload)}, nested_field_paths={field_shape[:80]}. "
+        "No provider data requests were made."
     )
 
 
