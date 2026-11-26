@@ -166,6 +166,31 @@ def _remaining_credits(payload: dict[str, Any], header_value: Any = None) -> int
     if header_value not in (None, ""):
         return int(header_value)
 
+    # API.SH's live account endpoint exposes the current balance as
+    # credits.total, alongside its free/plan/payg components.
+    credit_summary = payload.get("credits")
+    if isinstance(credit_summary, dict):
+        total = credit_summary.get("total")
+        if isinstance(total, (int, float, str)):
+            try:
+                parsed_total = int(total)
+                if parsed_total >= 0:
+                    return parsed_total
+            except (TypeError, ValueError):
+                pass
+        bucket_values = [
+            credit_summary.get(name) for name in ("free", "plan", "payg")
+        ]
+        if bucket_values and all(
+            isinstance(value, (int, float, str)) for value in bucket_values
+        ):
+            try:
+                parsed_buckets = [int(value) for value in bucket_values]
+                if all(value >= 0 for value in parsed_buckets):
+                    return sum(parsed_buckets)
+            except (TypeError, ValueError):
+                pass
+
     scalar_keys = {
         "credits_remaining", "remaining_credits", "available_credits",
         "total_credits_remaining", "credit_balance", "credits_available",
