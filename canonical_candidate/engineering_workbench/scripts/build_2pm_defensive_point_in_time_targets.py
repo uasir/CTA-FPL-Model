@@ -222,67 +222,72 @@ def _source_status(source_commit: str, fplcache_commit: str, snapshot_path: str)
     )
 
 
-def install_relevant_understat_player_filter(sources, mappings, raw_dir: Path, target_season: str) -> dict[str, Any]:
-    """Restrict Understat player acquisition to mapped players in the target dataset.
+def install_relevant_understat_player_filter(sources, mappings, target_season: str) -> dict[str, Any]:
+    """Restrict Understat acquisition to mapped players in the target dataset.
 
-    The player endpoint returns a player's full match history, so a player in the
-    target season supplies the prior-season warm-up rows too. We do not need to
-    acquire separate player IDs merely because they appeared in a warm-up season.
+    The selector runs lazily: Dastan downloads the pinned core CSVs first, then
+    calls _needed_understat_ids. The player endpoint is career-wide, so each
+    target-season player supplies prior-season warm-up rows in the same response.
     """
     from understat_apish_provider import EXCLUDED_PLAYER_HISTORY_IDS
 
-    players_path = raw_dir / "vaastav" / target_season / "players_raw.csv"
-    merged_path = raw_dir / "vaastav" / target_season / "merged_gw.csv"
-    players = pd.read_csv(players_path, usecols=["id", "code"])
-    merged = pd.read_csv(merged_path, usecols=["element"])
-    element_to_code = players.assign(
-        id=pd.to_numeric(players["id"], errors="raise").astype(int),
-        code=pd.to_numeric(players["code"], errors="coerce"),
-    ).dropna(subset=["code"]).set_index("id")["code"]
-    dataset_elements = set(
-        pd.to_numeric(merged["element"], errors="coerce").dropna().astype(int)
-    )
-    dataset_codes = set(
-        pd.to_numeric(
-            element_to_code.reindex(sorted(dataset_elements)), errors="coerce"
-        ).dropna().astype(int)
-    )
-    assignments = mappings.assignments_for_seasons([target_season])
-    required_columns = {"fpl_code", "understat_id"}
-    if not required_columns.issubset(assignments.columns):
-        raise ValueError(
-            "Understat assignment table lacks required columns: "
-            f"{sorted(required_columns - set(assignments.columns))}"
-        )
-    selected = assignments.loc[
-        assignments["fpl_code"].astype(int).isin(dataset_codes)
-    ]
-    selected_ids = set(pd.to_numeric(selected["understat_id"], errors="coerce").dropna().astype(int))
-    selected_ids.difference_update(EXCLUDED_PLAYER_HISTORY_IDS)
-    if not selected_ids:
-        raise RuntimeError(
-            f"No eligible mapped Understat players found in {target_season} dataset"
-        )
+    report: dict[str, Any] = {
+        "target_season": target_season,
+        "dataset_fpl_element_count": None,
+        "dataset_fpl_code_count": None,
+        "mapped_target_player_count": None,
+        "excluded_understat_player_ids": sorted(EXCLUDED_PLAYER_HISTORY_IDS),
+        "understat_player_ids": [],
+        "selection_policy": (
+            "mapped Understat IDs whose FPL codes occur in target-season merged_gw "
+            "dataset; excluded IDs omitted; selector evaluated after core CSV download"
+        ),
+    }
 
-    original = sources._needed_understat_ids
-
-    def relevant_ids(_raw_dir, _history_seasons):
-        # The API.SH player endpoint is career-wide. Target-season IDs alone
-        # provide their historical warm-up matches without acquiring unrelated
-        # players from the warm-up season's wider population.
-        return set(selected_ids)
+    def relevant_ids(raw_dir: Path, _history_seasons: list[str]) -> set[int]:
+        players_path = raw_dir / "vaastav" / target_season / "players_raw.csv"
+        merged_path = raw_dir / "vaastav" / target_season / "merged_gw.csv"
+        players = pd.read_csv(players_path, usecols=["id", "code"])
+        merged = pd.read_csv(merged_path, usecols=["element"])
+        players["id"] = pd.to_numeric(players["id"], errors="raise").astype(int)
+        players["code"] = pd.to_numeric(players["code"], errors="coerce")
+        element_to_code = players.dropna(subset=["code"]).set_index("id")["code"]
+        dataset_elements = set(
+            pd.to_numeric(merged["element"], errors="coerce").dropna().astype(int)
+        )
+        dataset_codes = set(
+            pd.to_numeric(
+                element_to_code.reindex(sorted(dataset_elements)), errors="coerce"
+            ).dropna().astype(int)
+        )
+        assignments = mappings.assignments_for_seasons([target_season])
+        required_columns = {"fpl_code", "understat_id"}
+        if not required_columns.issubset(assignments.columns):
+            raise ValueError(
+                "Understat assignment table lacks required columns: "
+                f"{sorted(required_columns - set(assignments.columns))}"
+            )
+        selected = assignments.loc[
+            pd.to_numeric(assignments["fpl_code"], errors="coerce").isin(dataset_codes)
+        ]
+        selected_ids = set(
+            pd.to_numeric(selected["understat_id"], errors="coerce").dropna().astype(int)
+        )
+        selected_ids.difference_update(EXCLUDED_PLAYER_HISTORY_IDS)
+        if not selected_ids:
+            raise RuntimeError(
+                f"No eligible mapped Understat players found in {target_season} dataset"
+            )
+        report.update({
+            "dataset_fpl_element_count": len(dataset_elements),
+            "dataset_fpl_code_count": len(dataset_codes),
+            "mapped_target_player_count": len(selected_ids),
+            "understat_player_ids": sorted(selected_ids),
+        })
+        return selected_ids
 
     sources._needed_understat_ids = relevant_ids
-    return {
-        "target_season": target_season,
-        "dataset_fpl_element_count": len(dataset_elements),
-        "dataset_fpl_code_count": len(dataset_codes),
-        "mapped_target_player_count": len(selected_ids),
-        "excluded_understat_player_ids": sorted(EXCLUDED_PLAYER_HISTORY_IDS),
-        "understat_player_ids": sorted(selected_ids),
-        "original_selector_preserved_for_audit": callable(original),
-        "selection_policy": "mapped Understat IDs whose FPL codes occur in target-season merged_gw dataset; excluded IDs omitted",
-    }
+    return report
 
 
 def build_point_in_time_target_candidate(
@@ -326,7 +331,7 @@ def build_point_in_time_target_candidate(
 
     data, mappings, features, fplcache, sources = load_dastan_package(dastan_root)
     player_selection_audit = install_relevant_understat_player_filter(
-        sources, mappings, raw_dir, season
+        sources, mappings, season
     )
     fplcache_commit = season_report["fplcache_commit"]
     _configure_source_pins(sources, fplcache, source_commit, fplcache_commit)
