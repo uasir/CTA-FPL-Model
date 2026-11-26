@@ -419,10 +419,15 @@ def _valid_meta(path: Path, *, kind: str, key: str) -> bool:
         raw_path = (cache_root / raw_relative).resolve()
         if cache_root.resolve() not in raw_path.parents:
             return False
-        if not raw_path.is_file() or meta.get("raw_response_sha256") != _sha256(raw_path):
+        if raw_path.is_file():
+            if meta.get("raw_response_sha256") != _sha256(raw_path):
+                return False
+            # A response checkpoint must remain parseable JSON, not merely match a stale hash.
+            json.loads(raw_path.read_text(encoding="utf-8"))
+        elif cache_root.name != "understat" or not meta.get("raw_response_sha256"):
+            # Shared-cache entries must retain the raw body. Dastan source-tree copies
+            # intentionally carry the same sidecar but not a duplicate responses folder.
             return False
-        # A response checkpoint must remain parseable JSON, not merely match a stale hash.
-        json.loads(raw_path.read_text(encoding="utf-8"))
         return (
             meta.get("schema_version") == CACHE_SCHEMA
             and meta.get("provider") == PROVIDER
