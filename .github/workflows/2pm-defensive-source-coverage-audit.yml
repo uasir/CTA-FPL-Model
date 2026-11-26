@@ -151,9 +151,9 @@ jobs:
             ${{ runner.temp }}/point-in-time-raw
             ${{ runner.temp }}/point-in-time-fplcache
             ${{ runner.temp }}/2pm-apish-provider-cache
-          key: 2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/understat_apish_provider.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py') }}-${{ github.run_id }}
+          key: 2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-schema1-mapping-758db9247e8b3a9a870c991064f74d8339d61cd0-${{ github.run_id }}
           restore-keys: |
-            2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/understat_apish_provider.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py') }}-
+            2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-schema1-mapping-758db9247e8b3a9a870c991064f74d8339d61cd0-
       - name: Enforce Understat robots policy; allow separate API.SH provider
         id: understat-diagnostic
         run: |
@@ -213,7 +213,7 @@ jobs:
             ${{ runner.temp }}/point-in-time-raw
             ${{ runner.temp }}/point-in-time-fplcache
             ${{ runner.temp }}/2pm-apish-provider-cache
-          key: 2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/understat_apish_provider.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py') }}-${{ github.run_id }}
+          key: 2pm-defensive-pit-v2-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-apish-schema1-mapping-758db9247e8b3a9a870c991064f74d8339d61cd0-${{ github.run_id }}
       - name: Gate candidate reconstruction on complete Understat histories
         if: ${{ github.event_name != 'push' && !(inputs.use_apish_understat == true && inputs.apish_probe_only == true) }}
         run: |
