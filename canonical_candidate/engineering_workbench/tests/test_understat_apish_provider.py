@@ -12,6 +12,7 @@ from understat_apish_provider import (
     _log_records,
     _record_params,
     _record_route,
+    recover_remote_histories,
 )
 
 
@@ -61,6 +62,59 @@ class TestApiShUnderstatProvider(unittest.TestCase):
     def test_account_log_params_accept_json_and_query_string(self):
         self.assertEqual(_record_params({"params": {"season": 2025}})["season"], 2025)
         self.assertEqual(_record_params({"query": "league=EPL&season=2025"})["season"], "2025")
+
+    def test_remote_result_recovery_restores_player_and_full_league_team_histories(self):
+        class FakeClient:
+            def __init__(self):
+                self.last_meta = {}
+                self.last_payload = None
+
+            def account_logs(self):
+                return [
+                    {
+                        "request_id": "player-request",
+                        "route": "/understat/v1/player",
+                        "params": {"id": "181"},
+                        "credits_used": 1,
+                    },
+                    {
+                        "request_id": "league-request",
+                        "route": "/understat/v1/league",
+                        "params": {"league": "EPL", "season": "2024"},
+                        "credits_used": 1,
+                    },
+                ]
+
+            def result(self, request_id):
+                if request_id == "player-request":
+                    self.last_payload = {"raw": {"matches": [{
+                        "season": "2024", "date": "2024-08-15",
+                        "h_team": "Arsenal", "a_team": "Wolves",
+                    }]}}
+                else:
+                    self.last_payload = {"raw": {"teams": {
+                        f"id-{i}": {"title": f"Team {i}", "history": [{
+                            "date": "2024-08-15", "h_a": "h",
+                            "scored": "1", "missed": "0", "xG": "1.2", "xGA": "0.4",
+                            "deep": "5", "deep_allowed": "2", "ppda": None,
+                            "ppda_allowed": None, "pts": "3",
+                        }]} for i in range(20)
+                    }}}
+                self.last_meta = {"request_id": request_id, "credits_used": 0}
+                return self.last_payload
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            players = root / "players"
+            teams = root / "teams"
+            recovered_players, recovered_teams, blocked = recover_remote_histories(
+                FakeClient(), [181], ["2024-25"], players, teams
+            )
+            self.assertEqual(recovered_players, [181])
+            self.assertEqual(recovered_teams, ["2024-25"])
+            self.assertEqual(blocked, [])
+            self.assertTrue(_valid_meta(players / "181.json", kind="player", key="181"))
+            self.assertTrue(_valid_meta(teams / "2024-25.json", kind="team", key="2024-25"))
 
     def test_provider_cache_requires_matching_provenance_and_checksum(self):
         with tempfile.TemporaryDirectory() as directory:
