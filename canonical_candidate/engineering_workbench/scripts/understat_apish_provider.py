@@ -210,7 +210,7 @@ class ApiShUnderstatClient:
 
 
 def _valid_meta(path: Path, *, kind: str, key: str) -> bool:
-    meta_path = path.with_suffix(path.suffix + ".meta.json")
+    meta_path = path.with_suffix(".meta")
     try:
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -222,6 +222,7 @@ def _valid_meta(path: Path, *, kind: str, key: str) -> bool:
             and meta.get("mapping_commit") == MAPPING_COMMIT
             and meta.get("payload_sha256") == _sha256(path)
             and bool(payload)
+            and (normalize_player_matches(payload, int(key)) if kind == "player" else normalize_team_histories({"raw": {"teams": payload}}, key))
         )
     except (OSError, ValueError, TypeError):
         return False
@@ -236,7 +237,7 @@ def _persist_response(cache_path: Path, payload: Any, *, kind: str, key: str,
         "payload_sha256": _sha256(cache_path), "saved_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         **client.last_meta,
     }
-    _atomic_json(cache_path.with_suffix(cache_path.suffix + ".meta.json"), meta)
+    _atomic_json(cache_path.with_suffix(".meta"), meta)
 
 
 def _copy_checkpoint(source: Path, destination: Path) -> None:
@@ -317,7 +318,7 @@ def download_missing_histories(
         cache = player_cache / f"{player_id}.json"
         _persist_response(cache, payload, kind="player", key=str(player_id), client=client)
         _copy_checkpoint(cache, player_dir / cache.name)
-        _copy_checkpoint(cache.with_suffix(".json.meta.json"), (player_dir / cache.name).with_suffix(".json.meta.json"))
+        _copy_checkpoint(cache.with_suffix(".meta"), (player_dir / cache.name).with_suffix(".meta"))
         fetched_players.append(player_id)
         print(f"API.SH checkpointed player {player_id}", flush=True)
     for season in team_requests:
@@ -325,7 +326,7 @@ def download_missing_histories(
         cache = team_cache / f"{season}.json"
         _persist_response(cache, payload, kind="team", key=season, client=client)
         _copy_checkpoint(cache, team_dir / cache.name)
-        _copy_checkpoint(cache.with_suffix(".json.meta.json"), (team_dir / cache.name).with_suffix(".json.meta.json"))
+        _copy_checkpoint(cache.with_suffix(".meta"), (team_dir / cache.name).with_suffix(".meta"))
         fetched_teams.append(season)
         print(f"API.SH checkpointed team season {season}", flush=True)
 
