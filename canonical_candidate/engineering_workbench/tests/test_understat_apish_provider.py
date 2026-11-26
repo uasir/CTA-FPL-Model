@@ -217,6 +217,46 @@ class TestApiShUnderstatProvider(unittest.TestCase):
             aggregate = raw / "understat" / "teams" / "2025-26.json"
             self.assertEqual(len(__import__("json").loads(aggregate.read_text())), 20)
 
+    def test_503_circuit_breaker_is_shared_across_target_vintages(self):
+        import understat_apish_provider as provider
+
+        class Fake503(Exception):
+            def __init__(self):
+                self.response = type("Response", (), {"status_code": 503})()
+
+        class FakeClient:
+            def __init__(self):
+                self.requested = []
+            def account(self):
+                return {"credits": {"total": 1000}}, 1000
+            def account_logs(self):
+                return []
+            def player_history(self, player_id):
+                self.requested.append(player_id)
+                raise Fake503()
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fake = FakeClient()
+            provider.RUN_CIRCUIT_BREAKER_OPEN = False
+            try:
+                with patch("understat_apish_provider.ApiShUnderstatClient", return_value=fake):
+                    first = download_missing_histories(
+                        root / "raw-2025", [181, 204], [],
+                        cache_root=root / "shared", probe_only=False,
+                    )
+                    second = download_missing_histories(
+                        root / "raw-2026", [126], [],
+                        cache_root=root / "shared", probe_only=False,
+                    )
+                self.assertEqual(fake.requested, [181, 204])
+                self.assertTrue(first["provider_unavailable_circuit_breaker_open"])
+                self.assertTrue(second["provider_unavailable_circuit_breaker_open"])
+                self.assertEqual(second["planned_calls_this_run"], 0)
+                self.assertEqual(second["unresolved_player_ids"], [126])
+            finally:
+                provider.RUN_CIRCUIT_BREAKER_OPEN = False
+
     def test_downloader_excludes_non_required_player_histories_without_api_calls(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
