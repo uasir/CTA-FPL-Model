@@ -456,6 +456,34 @@ jobs:
                           f"coverage={src.get('source_coverage_of_final_prior_keys')}, "
                           f"missing_prior_keys={src.get('missing_final_prior_keys')}"
                       )
+          understat_diag_path = p.parent / "understat-access-diagnostic.json"
+          if understat_diag_path.exists():
+              understat = json.loads(understat_diag_path.read_text())
+              lines.extend([
+                  "## Understat robots policy (informational)",
+                  f"- Robots status: {understat.get('robots_policy_status', 'not reported')}",
+                  f"- Endpoint decisions: {understat.get('robots_endpoint_decisions', {})}",
+                  f"- Legal assessment: {understat.get('legal_status', 'not reported')}",
+                  f"- Technical assessment: {understat.get('technical_status', 'not reported')}",
+                  "- Robots policy is recorded as site guidance; it is not used as an automatic workflow gate.",
+              ])
+          ajax_diag_path = p.parent / "understat-direct-ajax-diagnostic.json"
+          if ajax_diag_path.exists():
+              ajax = json.loads(ajax_diag_path.read_text())
+              lines.extend([
+                  "## Direct Understat AJAX diagnostic (capped)",
+                  f"- Logical HTTP requests: {ajax.get('http_request_count', 'not reported')}",
+                  f"- Successful probes: {ajax.get('successful_probe_count', 'not reported')}",
+                  f"- Failed probes: {ajax.get('failed_probe_count', 'not reported')}",
+                  f"- Stopped after provider denial/server failure: {ajax.get('stopped_after_provider_response', 'not reported')}",
+              ])
+              for probe in ajax.get("probes", []):
+                  http = probe.get("http", {})
+                  lines.append(
+                      f"- {probe.get('kind')} {probe.get('id', probe.get('season', ''))}: "
+                      f"status={probe.get('status')}, HTTP={http.get('status_code', 'not captured')}, "
+                      f"type={http.get('content_type', 'not reported')}"
+                  )
           Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines) + "\n")
           PY
       - name: Upload source coverage audit
