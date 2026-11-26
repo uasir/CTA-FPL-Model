@@ -231,6 +231,38 @@ class TestApiShUnderstatProvider(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "No provider data requests were made"):
             _remaining_credits({"account": {"status": "active"}})
 
+    def test_provider_cache_rejects_corrupt_exact_raw_response(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "cache" / "players" / "76.json"
+            client = type("Client", (), {
+                "last_meta": {"request_id": "raw-check", "credits_used": 1},
+                "last_payload": {"raw": {"matches": [{"date": "2025-08-15"}]}},
+            })()
+            _persist_response(path, [{
+                "season": "2025", "date": "2025-08-15", "h_team": "A", "a_team": "B"
+            }], kind="player", key="76", client=client)
+            self.assertTrue(_valid_meta(path, kind="player", key="76"))
+            raw_path = path.parent.parent / "responses" / "raw-check.json"
+            raw_path.write_text('{"tampered": true}', encoding="utf-8")
+            self.assertFalse(_valid_meta(path, kind="player", key="76"))
+
+    def test_dastan_source_copy_validates_without_duplicate_response_folder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cache_path = root / "cache" / "players" / "76.json"
+            client = type("Client", (), {
+                "last_meta": {"request_id": "source-copy", "credits_used": 1},
+                "last_payload": {"raw": {"matches": [{"date": "2025-08-15"}]}},
+            })()
+            _persist_response(cache_path, [{
+                "season": "2025", "date": "2025-08-15", "h_team": "A", "a_team": "B"
+            }], kind="player", key="76", client=client)
+            source_copy = root / "raw" / "understat" / "players" / "76.json"
+            source_copy.parent.mkdir(parents=True)
+            source_copy.write_bytes(cache_path.read_bytes())
+            source_copy.with_suffix(".meta").write_bytes(cache_path.with_suffix(".meta").read_bytes())
+            self.assertTrue(_valid_meta(source_copy, kind="player", key="76"))
+
     def test_provider_cache_requires_matching_provenance_and_checksum(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "players" / "76.json"
