@@ -11,7 +11,7 @@ from understat_apish_provider import (
     _valid_meta, _persist_response, _log_records, _record_params, _record_route,
     recover_remote_histories, _remaining_credits, _season_team_names,
     _team_cache_filename, _write_complete_team_season, download_missing_histories,
-    _apply_call_budget,
+    _apply_call_budget, _summarize_understat_error_logs,
 )
 
 
@@ -124,6 +124,27 @@ class TestApiShUnderstatProvider(unittest.TestCase):
             self.assertIn("Manchester City", mapped)
             self.assertIn("Nottingham Forest", mapped)
             self.assertEqual(len(mapped), 20)
+
+    def test_understat_error_log_summary_keeps_request_diagnostics_separate(self):
+        records = [
+            {
+                "request_id": "failed-503-id", "status": 503,
+                "route": "/understat/v1/player",
+                "params": {"id": "181", "raw": "true", "api_key": "must-not-appear"},
+                "created_at": "2026-11-26T12:00:00Z",
+                "error": "upstream source unavailable",
+            },
+            {
+                "request_id": "other-endpoint", "status": 503,
+                "route": "/football/v1/match", "params": {"id": "x"},
+            },
+        ]
+        summary = _summarize_understat_error_logs(records)
+        self.assertEqual(len(summary), 1)
+        self.assertEqual(summary[0]["request_id"], "failed-503-id")
+        self.assertEqual(summary[0]["status"], 503)
+        self.assertEqual(summary[0]["params"], {"id": "181"})
+        self.assertNotIn("api_key", str(summary))
 
     def test_account_log_parsing_extracts_request_route_and_params(self):
         records = _log_records([{
