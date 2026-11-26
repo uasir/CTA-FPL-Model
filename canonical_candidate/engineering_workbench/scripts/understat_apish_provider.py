@@ -557,8 +557,8 @@ def _apply_call_budget(
 ) -> tuple[list[int], list[tuple[str, str]]]:
     if max_calls is None:
         return list(player_ids), list(team_requests)
-    if max_calls < 1:
-        raise ValueError("max_calls_this_run must be at least 1")
+    if max_calls < 0:
+        raise ValueError("max_calls_this_run must be non-negative")
     selected_players = list(player_ids[:max_calls])
     team_budget = max(0, max_calls - len(selected_players))
     return selected_players, list(team_requests[:team_budget])
@@ -645,8 +645,12 @@ def download_missing_histories(
     player_requests = missing_player_ids[:1] if probe_only and not probe_already_done else ([] if probe_only else missing_player_ids)
     team_requests = missing_team_requests[:1] if probe_only and not probe_already_done else ([] if probe_only else missing_team_requests)
     if not probe_only:
+        effective_budget = (
+            min(max_calls_this_run, credits_remaining)
+            if max_calls_this_run is not None else None
+        )
         player_requests, team_requests = _apply_call_budget(
-            player_requests, team_requests, max_calls_this_run
+            player_requests, team_requests, effective_budget
         )
     planned_calls = len(player_requests) + len(team_requests)
     print(
