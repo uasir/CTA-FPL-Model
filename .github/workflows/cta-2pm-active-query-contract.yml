@@ -2,7 +2,7 @@ name: 2PM active-season target query contract
 
 on:
   push:
-    branches: ["feat/four-layer-2pm-transformer-evaluation"]
+    branches: ["feat/four-layer-2pm-transformer-evaluation", "feat/2pm-defensive-2025-26-train-2026-27-oot"]
     paths:
       - canonical_candidate/engineering_workbench/scripts/build_2pm_active_target_queries.py
       - canonical_candidate/engineering_workbench/scripts/build_2pm_active_postmatch_inference.py
