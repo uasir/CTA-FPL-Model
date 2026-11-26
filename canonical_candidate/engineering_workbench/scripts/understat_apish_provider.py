@@ -732,6 +732,14 @@ def download_missing_histories(
         "probe_errors": probe_errors,
         "unresolved_player_ids": unresolved_players,
         "unresolved_team_seasons": unresolved_team_seasons,
+        "unresolved_team_requests": [
+            {"season": season, "team": team}
+            for season, names in team_names_by_season.items() for team in names
+            if not _valid_meta(
+                team_cache / _team_cache_filename(season, team),
+                kind="team", key=f"{season}|{team}",
+            )
+        ],
         "unresolved_team_member_count": sum(
             1 for season, names in team_names_by_season.items() for team in names
             if not _valid_meta(team_cache / _team_cache_filename(season, team), kind="team", key=f"{season}|{team}")
