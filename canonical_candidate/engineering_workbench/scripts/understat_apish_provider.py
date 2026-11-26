@@ -302,8 +302,16 @@ def download_missing_histories(
         )
 
     fetched_players, fetched_teams = [], []
-    player_requests = missing_player_ids[:1] if probe_only else missing_player_ids
-    team_requests = missing_seasons[:1] if probe_only else missing_seasons
+    probe_marker = cache_root / "probe_complete.json"
+    probe_already_done = probe_only and probe_marker.is_file()
+    player_requests = (
+        missing_player_ids[:1] if probe_only and not probe_already_done
+        else [] if probe_only else missing_player_ids
+    )
+    team_requests = (
+        missing_seasons[:1] if probe_only and not probe_already_done
+        else [] if probe_only else missing_seasons
+    )
     for player_id in player_requests:
         payload = client.player_history(player_id)
         cache = player_cache / f"{player_id}.json"
@@ -321,8 +329,17 @@ def download_missing_histories(
         fetched_teams.append(season)
         print(f"API.SH checkpointed team season {season}", flush=True)
 
+    # One shared marker makes the probe a one-time, bounded action across both
+    # target vintages and future push-triggered audit runs. Bulk mode ignores it.
+    if probe_only and not probe_already_done and (fetched_players or fetched_teams):
+        _atomic_json(probe_marker, {
+            "provider": PROVIDER, "mapping_commit": MAPPING_COMMIT,
+            "completed_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "sample_player_ids": fetched_players, "sample_team_seasons": fetched_teams,
+        })
+
     # Probe mode deliberately stops after one player and one team season. The
-    # next run restores these checkpoints and only then continues the acquisition.
+    # next bulk run restores these checkpoints and continues the remaining acquisition.
     remaining_players = [p for p in missing_player_ids if p not in fetched_players]
     remaining_teams = [s for s in missing_seasons if s not in fetched_teams]
     if not probe_only:
