@@ -399,16 +399,22 @@ def _valid_meta(path: Path, *, kind: str, key: str) -> bool:
 
 def _persist_response(cache_path: Path, payload: Any, *, kind: str, key: str,
                       client: ApiShUnderstatClient) -> None:
-    _atomic_json(cache_path, payload)
     request_id = client.last_meta.get("request_id")
     raw_response = getattr(client, "last_payload", None)
-    if request_id and raw_response is not None:
-        response_path = cache_path.parent.parent / "responses" / f"{request_id}.json"
-        _atomic_json(response_path, raw_response)
+    if not request_id or raw_response is None:
+        raise RuntimeError(
+            "API.SH response cannot be checkpointed safely: request ID or exact response body is missing"
+        )
+    _atomic_json(cache_path, payload)
+    response_path = cache_path.parent.parent / "responses" / f"{request_id}.json"
+    _atomic_json(response_path, raw_response)
     meta = {
         "schema_version": CACHE_SCHEMA, "provider": PROVIDER, "kind": kind,
         "key": str(key), "mapping_commit": MAPPING_COMMIT,
-        "payload_sha256": _sha256(cache_path), "saved_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "payload_sha256": _sha256(cache_path),
+        "raw_response_path": response_path.relative_to(cache_path.parent.parent).as_posix(),
+        "raw_response_sha256": _sha256(response_path),
+        "saved_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         **client.last_meta,
     }
     _atomic_json(cache_path.with_suffix(".meta"), meta)
