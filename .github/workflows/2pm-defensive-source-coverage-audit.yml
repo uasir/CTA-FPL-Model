@@ -56,7 +56,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install point-in-time audit and Dastan dependencies
-        run: python -m pip install numpy pandas pyarrow scipy==1.13.1 scikit-learn==1.6.1 jeke-understat-scrapper==1.0.2
+        run: python -m pip install numpy pandas pyarrow scipy==1.13.1 scikit-learn==1.6.1
       - name: Audit only source coverage fields (never load total_points)
         env:
           COMMIT_2025_26: 8c97b2adb123863c3dd581e730f1360e89815ac2
@@ -140,13 +140,23 @@ jobs:
           key: 2pm-defensive-pit-v1-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-${{ github.run_id }}
           restore-keys: |
             2pm-defensive-pit-v1-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-
-      - name: Diagnose Understat API before expensive candidate build
+      - name: Enforce Understat robots policy before source preparation
         id: understat-diagnostic
         run: |
-          python canonical_candidate/engineering_workbench/scripts/diagnose_2pm_understat_access.py \
-            --output "${RUNNER_TEMP}/understat-access-diagnostic.json" \
-            --player-id 76 --player-id 87 --player-id 181 \
-            --team-season 2024 --team-season 2025
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = {
+              "status": "UNDERSTAT_AUTOMATED_ACCESS_DISABLED",
+              "provider": "Understat",
+              "policy": "robots.txt disallows automated agents; no live requests will be made",
+              "decision": "USE_PINNED_AND_PREVIOUSLY_CACHED_DATA_ONLY",
+              "network_requests_made": 0,
+          }
+          path = Path(os.environ["RUNNER_TEMP"]) / "understat-access-diagnostic.json"
+          path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(report, indent=2))
+          PY
       - name: Prepare and validate point-in-time source downloads
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -162,6 +172,7 @@ jobs:
             --target 2026-27:8 \
             --workers 4 \
             --prepare-sources-only \
+            --pinned-sources-only \
             > "${RUNNER_TEMP}/point-in-time-source-preparation.log"
       # Save the raw source checkpoint before candidate reconstruction. The
       # always() condition preserves partial downloads if source preparation fails.
@@ -173,6 +184,32 @@ jobs:
             ${{ runner.temp }}/point-in-time-raw
             ${{ runner.temp }}/point-in-time-fplcache
           key: 2pm-defensive-pit-v1-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-7ca01d3821a68ced454cd1f2195be40ed697629b-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-5f428bfbadc4223fe574e029a5e7ede90f6f7ddb-dastan-758db9247e8b3a9a870c991064f74d8339d61cd0-${{ github.run_id }}
+      - name: Gate candidate reconstruction on complete pinned histories
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path(os.environ["RUNNER_TEMP"]) / "point-in-time-candidates" / "point_in_time_target_candidate_batch.json"
+          if not path.is_file():
+              raise SystemExit("Source preparation batch report is missing")
+          report = json.loads(path.read_text(encoding="utf-8"))
+          failures = []
+          for item in report.get("reports", []):
+              audit = item.get("understat_fallback_audit") or {}
+              players = audit.get("unresolved_player_ids", [])
+              teams = audit.get("unresolved_team_seasons", [])
+              if item.get("understat_history_complete") is not True:
+                  failures.append({
+                      "target": f"{item.get('season')}:{item.get('gameweek')}",
+                      "unresolved_player_count": len(players),
+                      "unresolved_team_seasons": teams,
+                      "sample_player_ids": players[:20],
+                  })
+          if failures:
+              print(json.dumps(failures, indent=2))
+              raise SystemExit("Pinned Understat history coverage is incomplete; candidate reconstruction is prohibited")
+          print("All required Understat histories are available from pinned or previously cached sources.")
+          PY
       - name: Build point-in-time candidate smoke tests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
