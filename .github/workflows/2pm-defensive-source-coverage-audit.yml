@@ -482,8 +482,11 @@ jobs:
                   lines.append(
                       f"- {probe.get('kind')} {probe.get('id', probe.get('season', ''))}: "
                       f"status={probe.get('status')}, HTTP={http.get('status_code', 'not captured')}, "
-                      f"type={http.get('content_type', 'not reported')}"
+                      f"type={http.get('content_type', 'not reported')}, "
+                      f"classification={http.get('response_classification', 'not reported')}"
                   )
+                  if http.get("html_visible_text"):
+                      lines.append(f"  - HTML response text: {http['html_visible_text'][:500]}")
           Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines) + "\n")
           PY
       - name: Upload source coverage audit
