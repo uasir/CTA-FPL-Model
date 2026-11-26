@@ -212,7 +212,7 @@ jobs:
                   "robots_error": str(exc)[:1000],
               })
           output = Path(os.environ["RUNNER_TEMP"]) / "understat-access-diagnostic.json"
-          output.write_text(json.dumps(report, indent=2) + "\\n", encoding="utf-8")
+          output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
           print(json.dumps(report, indent=2))
           PY
       - name: Prepare and validate point-in-time source downloads
