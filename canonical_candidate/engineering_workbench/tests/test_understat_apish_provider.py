@@ -11,6 +11,7 @@ from understat_apish_provider import (
     _valid_meta, _persist_response, _log_records, _record_params, _record_route,
     recover_remote_histories, _remaining_credits, _season_team_names,
     _team_cache_filename, _write_complete_team_season, download_missing_histories,
+    _apply_call_budget,
 )
 
 
@@ -215,6 +216,20 @@ class TestApiShUnderstatProvider(unittest.TestCase):
             self.assertEqual(report["unresolved_team_member_count"], 0)
             aggregate = raw / "understat" / "teams" / "2025-26.json"
             self.assertEqual(len(__import__("json").loads(aggregate.read_text())), 20)
+
+    def test_call_budget_caps_player_and_team_requests_without_dropping_remainder(self):
+        players = [10, 20, 30]
+        teams = [("2024-25", "Arsenal"), ("2024-25", "Chelsea"), ("2025-26", "Arsenal")]
+        selected_players, selected_teams = _apply_call_budget(players, teams, 4)
+        self.assertEqual(selected_players, [10, 20, 30])
+        self.assertEqual(selected_teams, [("2024-25", "Arsenal")])
+        self.assertEqual(players[len(selected_players):], [])
+        self.assertEqual(teams[len(selected_teams):], [("2024-25", "Chelsea"), ("2025-26", "Arsenal")])
+
+    def test_call_budget_rejects_zero_and_negative_limits(self):
+        for limit in (0, -1):
+            with self.subTest(limit=limit), self.assertRaisesRegex(ValueError, "at least 1"):
+                _apply_call_budget([1], [], limit)
 
     def test_account_balance_uses_response_header_when_present(self):
         self.assertEqual(_remaining_credits({"free_credits": 100}, "875"), 875)
