@@ -25,6 +25,8 @@ RESULTS_URL = "https://api.api.sh/v1/results"
 PROVIDER = "api.sh/understat"
 CACHE_SCHEMA = 1
 MAPPING_COMMIT = "758db9247e8b3a9a870c991064f74d8339d61cd0"
+# Histories not required by this experiment; do not let provider outages block it.
+EXCLUDED_PLAYER_HISTORY_IDS = {76, 87}
 
 
 def _atomic_json(path: Path, payload: Any) -> None:
@@ -577,6 +579,7 @@ def download_missing_histories(
     team_dir.mkdir(parents=True, exist_ok=True)
 
     restored_players, restored_team_members = [], []
+    excluded_player_ids = []
     missing_player_ids = []
     for player_id in sorted(set(map(int, missing_players))):
         cache = player_cache / f"{player_id}.json"
@@ -588,6 +591,8 @@ def download_missing_histories(
         elif _valid_meta(destination, kind="player", key=str(player_id)):
             _copy_checkpoint(destination, cache)
             restored_players.append(player_id)
+        elif player_id in EXCLUDED_PLAYER_HISTORY_IDS:
+            excluded_player_ids.append(player_id)
         else:
             missing_player_ids.append(player_id)
 
@@ -750,6 +755,7 @@ def download_missing_histories(
         "max_calls_this_run": max_calls_this_run,
         "required_calls_before_acquisition": required_calls, "planned_calls_this_run": planned_calls,
         "restored_player_histories": restored_players,
+        "excluded_player_history_ids": excluded_player_ids,
         "restored_team_members": [{"season": s, "team": t} for s, t in restored_team_members],
         "restored_team_seasons": sorted({s for s, _ in restored_team_members}),
         "remote_recovered_player_histories": recovered_players,
