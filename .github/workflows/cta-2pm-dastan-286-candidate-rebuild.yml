@@ -53,7 +53,7 @@ jobs:
         if: inputs.rebuild_candidate != true
         run: |
           if [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/player_matches_with_availability.parquet" ] || [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json" ]; then
-            echo "::error::No reusable four-season candidate cache was restored. Refusing to rebuild because rebuild_candidate is false."
+            echo "::error::No reusable six-season candidate cache was restored. Refusing to rebuild because rebuild_candidate is false."
             exit 1
           fi
           echo "Reusable candidate cache restored; downstream audit only. No six-season rebuild will run."
@@ -81,7 +81,7 @@ jobs:
         with:
           path: ${{ runner.temp }}/2pm-dastan-candidate
           key: 2pm-dastan-candidate-v3-2020-21-through-2025-26-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_predeadline_market_snapshot.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}
-      - name: Audit defensive source coverage from cached four-season data
+      - name: Audit defensive source coverage from cached six-season data
         working-directory: canonical_candidate/engineering_workbench
         env:
           PYTHONPATH: scripts
