@@ -39,7 +39,9 @@ class TestApiShUnderstatProvider(unittest.TestCase):
 
     def test_client_uses_individual_team_endpoint_with_team_and_season_params(self):
         class FakeResponse:
+            status_code = 200
             headers = {"x-request-id": "team-req", "x-credits-used": "1"}
+            text = ""
             def raise_for_status(self):
                 pass
             def json(self):
@@ -57,6 +59,33 @@ class TestApiShUnderstatProvider(unittest.TestCase):
         self.assertEqual(result["title"], "Arsenal")
         self.assertTrue(session.calls[0][0].endswith("/understat/v1/team"))
         self.assertEqual(session.calls[0][1], {"team": "Arsenal", "season": 2024, "raw": "true"})
+
+
+    def test_client_preserves_api_sh_error_diagnostics_before_raising(self):
+        class FakeResponse:
+            status_code = 503
+            headers = {
+                "x-request-id": "req-503-abc",
+                "Retry-After": "30",
+                "x-credits-used": "0",
+                "x-credits-remaining": "1000",
+            }
+            text = "upstream source unavailable"
+            def raise_for_status(self):
+                raise RuntimeError("503 Service Unavailable")
+        class FakeSession:
+            def __init__(self):
+                self.headers = {}
+            def get(self, url, params, timeout):
+                return FakeResponse()
+        client = ApiShUnderstatClient(api_key="test-key", session=FakeSession())
+        with self.assertRaisesRegex(RuntimeError, "503"):
+            client._request("https://api.api.sh/understat/v1/player", {"id": "181"})
+        self.assertEqual(client.last_error_meta["status_code"], 503)
+        self.assertEqual(client.last_error_meta["request_id"], "req-503-abc")
+        self.assertEqual(client.last_error_meta["retry_after"], "30")
+        self.assertEqual(client.last_error_meta["credits_remaining"], "1000")
+        self.assertEqual(client.last_error_meta["response_body_excerpt"], "upstream source unavailable")
 
     def test_one_team_history_normalizes_venue_and_preserves_null_metrics(self):
         team = normalize_one_team(team_response(), "Arsenal", "2025-26")
