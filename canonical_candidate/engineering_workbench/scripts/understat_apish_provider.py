@@ -349,7 +349,7 @@ def download_missing_histories(
             cache = player_cache / f"{player_id}.json"
             _persist_response(cache, payload, kind="player", key=str(player_id), client=client)
             _copy_checkpoint(cache, player_dir / cache.name)
-            _copy_checkpoint(cache.with_suffix(".json.meta.json"), (player_dir / cache.name).with_suffix(".json.meta.json"))
+            _copy_checkpoint(cache.with_suffix(".meta"), (player_dir / cache.name).with_suffix(".meta"))
             fetched_players.append(player_id)
             print(f"API.SH checkpointed player {player_id}", flush=True)
         for season in remaining_teams:
@@ -357,7 +357,7 @@ def download_missing_histories(
             cache = team_cache / f"{season}.json"
             _persist_response(cache, payload, kind="team", key=season, client=client)
             _copy_checkpoint(cache, team_dir / cache.name)
-            _copy_checkpoint(cache.with_suffix(".json.meta.json"), (team_dir / cache.name).with_suffix(".json.meta.json"))
+            _copy_checkpoint(cache.with_suffix(".meta"), (team_dir / cache.name).with_suffix(".meta"))
             fetched_teams.append(season)
             print(f"API.SH checkpointed team season {season}", flush=True)
 
