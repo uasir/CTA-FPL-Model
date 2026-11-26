@@ -9,6 +9,9 @@ from understat_apish_provider import (
     normalize_team_histories,
     _valid_meta,
     _persist_response,
+    _log_records,
+    _record_params,
+    _record_route,
 )
 
 
@@ -28,7 +31,10 @@ class TestApiShUnderstatProvider(unittest.TestCase):
     def test_team_histories_normalize_venue_and_require_twenty_teams(self):
         payload = {"raw": {"teams": {
             f"id-{i}": {"title": f"Team {i}", "history": [{
-                "date": "2025-08-15 15:00:00", "is_home": True, "xG": 1.2,
+                "date": "2025-08-15 15:00:00", "is_home": True,
+                "scored": "1", "missed": "0", "xG": "1.2", "xGA": "0.4",
+                "deep": "5", "deep_allowed": "2", "ppda": "9.0",
+                "ppda_allowed": "14.0", "pts": "3",
             }]} for i in range(20)
         }}}
         teams = normalize_team_histories(payload, "2025-26")
@@ -40,6 +46,21 @@ class TestApiShUnderstatProvider(unittest.TestCase):
             normalize_team_histories({"raw": {"teams": {
                 "1": {"title": "Arsenal", "history": [{"date": "2025-08-15"}]}
             }}}, "2025-26")
+
+
+    def test_account_log_parsing_extracts_request_route_and_params(self):
+        records = _log_records([{
+            "request_id": "abc-123",
+            "route": "/understat/v1/player",
+            "url": "https://api.api.sh/understat/v1/player?id=181",
+        }])
+        self.assertEqual(records[0]["request_id"], "abc-123")
+        self.assertEqual(_record_route(records[0]), "/understat/v1/player")
+        self.assertEqual(_record_params(records[0])["id"], "181")
+
+    def test_account_log_params_accept_json_and_query_string(self):
+        self.assertEqual(_record_params({"params": {"season": 2025}})["season"], 2025)
+        self.assertEqual(_record_params({"query": "league=EPL&season=2025"})["season"], "2025")
 
     def test_provider_cache_requires_matching_provenance_and_checksum(self):
         with tempfile.TemporaryDirectory() as directory:
