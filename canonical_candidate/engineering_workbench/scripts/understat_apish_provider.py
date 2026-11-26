@@ -552,6 +552,18 @@ def _write_complete_team_season(team_cache: Path, raw_team_dir: Path, season: st
     return True
 
 
+def _apply_call_budget(
+    player_ids: list[int], team_requests: list[tuple[str, str]], max_calls: int | None,
+) -> tuple[list[int], list[tuple[str, str]]]:
+    if max_calls is None:
+        return list(player_ids), list(team_requests)
+    if max_calls < 1:
+        raise ValueError("max_calls_this_run must be at least 1")
+    selected_players = list(player_ids[:max_calls])
+    team_budget = max(0, max_calls - len(selected_players))
+    return selected_players, list(team_requests[:team_budget])
+
+
 def download_missing_histories(
     raw_dir: Path, missing_players: list[int], missing_team_seasons: list[str],
     *, cache_root: Path, probe_only: bool = False, max_calls_this_run: int | None = None,
@@ -632,13 +644,10 @@ def download_missing_histories(
     probe_already_done = probe_only and probe_marker.is_file()
     player_requests = missing_player_ids[:1] if probe_only and not probe_already_done else ([] if probe_only else missing_player_ids)
     team_requests = missing_team_requests[:1] if probe_only and not probe_already_done else ([] if probe_only else missing_team_requests)
-    if not probe_only and max_calls_this_run is not None:
-        if max_calls_this_run < 1:
-            raise ValueError("max_calls_this_run must be at least 1")
-        player_budget = min(len(player_requests), max_calls_this_run)
-        player_requests = player_requests[:player_budget]
-        team_budget = max(0, max_calls_this_run - player_budget)
-        team_requests = team_requests[:team_budget]
+    if not probe_only:
+        player_requests, team_requests = _apply_call_budget(
+            player_requests, team_requests, max_calls_this_run
+        )
     planned_calls = len(player_requests) + len(team_requests)
     print(
         f"API.SH pre-acquisition check: {credits_remaining} credits remaining; "
