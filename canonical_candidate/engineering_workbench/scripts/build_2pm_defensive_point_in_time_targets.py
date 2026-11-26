@@ -232,6 +232,7 @@ def build_point_in_time_target_candidate(
     season: str,
     gameweek: int,
     workers: int = 12,
+    prepare_sources_only: bool = False,
 ) -> dict[str, Any]:
     MERGED_GW_SCHEMA_NORMALIZATION_LOG.clear()
     season_report = vintage_report["seasons"][season]
@@ -279,8 +280,10 @@ def build_point_in_time_target_candidate(
         flush=True,
     )
     sources.download_sources(raw_dir, all_seasons, workers=workers, force=False)
-    player_matches, team_matches, _ = sources.build_canonical_matches(raw_dir, all_seasons)
 
+    # Resolve and persist the exact pre-deadline FPL snapshot before expensive
+    # feature reconstruction. This makes both Vaastav/Understat and FPL-cache
+    # downloads checkpointable as a separate workflow stage.
     index = fplcache.load_index(raw_dir)
     selected_snapshot = fplcache.pick_snapshot(index, deadline)
     if selected_snapshot is None:
@@ -294,6 +297,28 @@ def build_point_in_time_target_candidate(
     payload = fplcache.fetch_snapshot(raw_dir, snapshot_path)
     if not fplcache._accepted_event(payload, int(gameweek), deadline):
         raise RuntimeError("Selected FPL snapshot fails the target is_next/deadline check")
+
+    if prepare_sources_only:
+        preparation = {
+            "status": "POINT_IN_TIME_SOURCE_PREPARATION_COMPLETE",
+            "season": season,
+            "gameweek": int(gameweek),
+            "history_seasons": all_seasons,
+            "vaastav_source_commit": source_commit,
+            "fplcache_commit": fplcache_commit,
+            "target_snapshot_at": captured_at.isoformat(),
+            "target_snapshot_path": snapshot_path,
+            "download_manifest": str(raw_dir / "downloads.json"),
+            "candidate_reconstruction_started": False,
+            "labels_loaded": False,
+            "target_points_loaded": False,
+        }
+        (output_dir / "source_preparation_report.json").write_text(
+            json.dumps(preparation, indent=2) + "\\n", encoding="utf-8"
+        )
+        return preparation
+
+    player_matches, team_matches, _ = sources.build_canonical_matches(raw_dir, all_seasons)
 
     print("Building pre-deadline FPL artifacts", flush=True)
     fplcache.build_predeadline_artifacts(raw_dir, output_dir, all_seasons)
@@ -525,6 +550,10 @@ def main() -> None:
     parser.add_argument("--vintage-report", type=Path, required=True)
     parser.add_argument("--target", action="append", required=True, help="Target in SEASON:GW form")
     parser.add_argument("--workers", type=int, default=12)
+    parser.add_argument(
+        "--prepare-sources-only", action="store_true",
+        help="Download and validate pinned raw inputs, then exit before candidate reconstruction",
+    )
     args = parser.parse_args()
 
     vintage_report = json.loads(args.vintage_report.read_text(encoding="utf-8"))
@@ -551,11 +580,16 @@ def main() -> None:
             season=season,
             gameweek=gameweek,
             workers=args.workers,
+            prepare_sources_only=args.prepare_sources_only,
         )
         reports.append(report)
 
     manifest = {
-        "status": "POINT_IN_TIME_TARGET_CANDIDATE_BATCH_COMPLETE",
+        "status": (
+            "POINT_IN_TIME_SOURCE_PREPARATION_BATCH_COMPLETE"
+            if args.prepare_sources_only
+            else "POINT_IN_TIME_TARGET_CANDIDATE_BATCH_COMPLETE"
+        ),
         "training_authorized": False,
         "targets_requested": args.target,
         "targets_built": [
