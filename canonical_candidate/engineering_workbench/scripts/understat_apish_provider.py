@@ -407,10 +407,22 @@ def recover_remote_histories(
     return recovered_players, recovered_teams, unrecoverable
 
 def _valid_meta(path: Path, *, kind: str, key: str) -> bool:
+    """Validate both normalized checkpoint and the exact provider response it came from."""
     meta_path = path.with_suffix(".meta")
     try:
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         payload = json.loads(path.read_text(encoding="utf-8"))
+        cache_root = path.parent.parent
+        raw_relative = meta.get("raw_response_path")
+        if not isinstance(raw_relative, str) or not raw_relative:
+            return False
+        raw_path = (cache_root / raw_relative).resolve()
+        if cache_root.resolve() not in raw_path.parents:
+            return False
+        if not raw_path.is_file() or meta.get("raw_response_sha256") != _sha256(raw_path):
+            return False
+        # A response checkpoint must remain parseable JSON, not merely match a stale hash.
+        json.loads(raw_path.read_text(encoding="utf-8"))
         return (
             meta.get("schema_version") == CACHE_SCHEMA
             and meta.get("provider") == PROVIDER
@@ -421,7 +433,7 @@ def _valid_meta(path: Path, *, kind: str, key: str) -> bool:
             and bool(payload)
             and (normalize_player_matches(payload, int(key)) if kind == "player" else normalize_one_team(payload, key.split("|", 1)[1], key.split("|", 1)[0]))
         )
-    except (OSError, ValueError, TypeError):
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
         return False
 
 
