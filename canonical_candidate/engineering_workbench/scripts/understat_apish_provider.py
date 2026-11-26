@@ -666,7 +666,39 @@ def download_missing_histories(
         )
 
     fetched_players, fetched_team_members, probe_errors = [], [], []
+    acquisition_errors: list[str] = []
+    consecutive_503_failures = 0
+    provider_unavailable = False
+
+    def record_acquisition_failure(label: str, exc: Exception) -> None:
+        nonlocal consecutive_503_failures, provider_unavailable
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        message = f"{label}: {type(exc).__name__}: {exc}"
+        if probe_only:
+            probe_errors.append(message)
+            print(f"API.SH probe request failed (no automatic retry): {message}", flush=True)
+            return
+        if status == 503:
+            acquisition_errors.append(message)
+            consecutive_503_failures += 1
+            print(
+                f"API.SH temporary 503 for {label}; preserving checkpoints and continuing "
+                f"to one independent request ({consecutive_503_failures}/2 consecutive 503s).",
+                flush=True,
+            )
+            if consecutive_503_failures >= 2:
+                provider_unavailable = True
+                print(
+                    "API.SH circuit breaker opened after two consecutive 503 responses; "
+                    "remaining histories stay unresolved for a later resumed run.",
+                    flush=True,
+                )
+            return
+        raise exc
+
     for player_id in player_requests:
+        if provider_unavailable:
+            break
         try:
             payload = client.player_history(player_id)
             cache = player_cache / f"{player_id}.json"
@@ -674,15 +706,14 @@ def download_missing_histories(
             _copy_checkpoint(cache, player_dir / cache.name)
             _copy_checkpoint(cache.with_suffix(".meta"), (player_dir / cache.name).with_suffix(".meta"))
             fetched_players.append(player_id)
+            consecutive_503_failures = 0
             print(f"API.SH checkpointed player {player_id}", flush=True)
         except Exception as exc:
-            if not probe_only:
-                raise
-            message = f"player {player_id}: {type(exc).__name__}: {exc}"
-            probe_errors.append(message)
-            print(f"API.SH probe request failed (no automatic retry): {message}", flush=True)
+            record_acquisition_failure(f"player {player_id}", exc)
 
     for season, team in team_requests:
+        if provider_unavailable:
+            break
         try:
             payload = client.team_history(team, season)
             key = f"{season}|{team}"
@@ -691,13 +722,10 @@ def download_missing_histories(
             _copy_checkpoint(cache, team_dir / cache.name)
             _copy_checkpoint(cache.with_suffix(".meta"), (team_dir / cache.name).with_suffix(".meta"))
             fetched_team_members.append((season, team))
+            consecutive_503_failures = 0
             print(f"API.SH checkpointed team {team} {season}", flush=True)
         except Exception as exc:
-            if not probe_only:
-                raise
-            message = f"team {team} {season}: {type(exc).__name__}: {exc}"
-            probe_errors.append(message)
-            print(f"API.SH probe request failed (no automatic retry): {message}", flush=True)
+            record_acquisition_failure(f"team {team} {season}", exc)
 
     if probe_only and not probe_already_done and (not missing_player_ids or fetched_players) and (not missing_team_requests or fetched_team_members):
         _atomic_json(probe_marker, {
@@ -730,6 +758,8 @@ def download_missing_histories(
         "fetched_team_members": [{"season": s, "team": t} for s, t in fetched_team_members],
         "fetched_team_seasons": complete_team_seasons,
         "probe_errors": probe_errors,
+        "acquisition_errors": acquisition_errors,
+        "provider_unavailable_circuit_breaker_open": provider_unavailable,
         "unresolved_player_ids": unresolved_players,
         "unresolved_team_seasons": unresolved_team_seasons,
         "unresolved_team_requests": [
