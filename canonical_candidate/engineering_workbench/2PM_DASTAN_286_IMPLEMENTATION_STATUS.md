@@ -307,3 +307,15 @@ The next modelling implementation task, after the six-season data and tensor aud
 The pinned Dastan source commit `758db9247e8b3a9a870c991064f74d8339d61cd0` declares all six historical seasons as completed and release seasons in `data/season_registry.json`. Its registry reports 163,072 expected release rows across the six seasons and 380 fixtures in each season (2022/23 has 37 Gameweeks but still 380 fixtures). Per-season declared rows are: 2020/21 24,365; 2021/22 25,447; 2022/23 26,505; 2023/24 29,725; 2024/25 27,283; 2025/26 29,747. The pinned Vaastav and fplcache commits are recorded in `data/source_pins.json` (`8c97b2adb123863c3dd581e730f1360e89815ac2` and `6c364bfbd9914649dc5dec016e544be3ae4fe767`).
 
 This verifies that the pinned source release declares the six-season scope and its expected row/fixture coverage. It does **not** verify that the current branch has downloaded or rebuilt those rows, that every feature is point-in-time admissible, or that the 2PM sequence builder emits valid six-season tensors. The only completed tensor artifact previously inspected remains the four-season run 80 on another branch. The current six-season rebuild workflow has not yet been run.
+
+### Independent-branch CI verification (2026-11-26)
+
+The previously branch-filtered contract workflows have been enabled for this independent development branch. The following GitHub Actions runs completed successfully:
+
+- Poisson-mixture model contract: 8 tests passed (`45879306741`).
+- Dastan 286 reconstruction and grouped sequence contract: 88 tests passed (`45879391367`).
+- Candidate tensor-preparation contract: 2 tests passed (`45879395917`).
+- Target-query tensor contract: 4 tests passed (`45879401719`).
+- Active-season query and post-match inference contract: 7 tests passed (`45879406061`).
+
+These are focused unit/contract checks only. They do not constitute the six-season rebuild, full dataset/tensor audit, feature admission, model training, or OOT evaluation.
