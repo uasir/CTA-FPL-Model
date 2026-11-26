@@ -88,11 +88,11 @@ def main() -> int:
                 try:
                     payload = client.player(player=player_id).get_match_data()
                     item.update({
-                        "status": "ok" if payload is not None else "empty",
-                        "record_count": len(payload) if payload is not None else 0,
+                        "status": "ok" if payload else "empty",
+                        "record_count": len(payload) if payload else 0,
                         "payload_type": type(payload).__name__,
                     })
-                    if payload is None:
+                    if not payload:
                         failures += 1
                 except Exception as exc:
                     failures += 1
