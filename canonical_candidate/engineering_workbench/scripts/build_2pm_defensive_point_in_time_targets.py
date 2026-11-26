@@ -396,6 +396,12 @@ def build_point_in_time_target_candidate(
     if (pinned_sources_only or apish_understat) and download_manifest.is_file():
         manifest_payload = json.loads(download_manifest.read_text(encoding="utf-8"))
         manifest_payload["understat_fallback_policy"] = understat_fallback_audit
+        if apish_understat:
+            understat_source = manifest_payload.setdefault("sources", {}).setdefault("understat", {})
+            understat_source["repository_cache"] = "Vaastav pinned histories where available"
+            understat_source["live_fallback"] = "API.SH authenticated Understat JSON provider; no direct Understat requests"
+            understat_source["provider"] = "api.sh/understat"
+            understat_source["mapping_commit"] = "758db9247e8b3a9a870c991064f74d8339d61cd0"
         download_manifest.write_text(
             json.dumps(manifest_payload, indent=2) + "\n", encoding="utf-8"
         )
