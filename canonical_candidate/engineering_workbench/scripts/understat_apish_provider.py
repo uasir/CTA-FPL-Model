@@ -738,6 +738,7 @@ def download_missing_histories(
             "fetched_team_members": [],
             "fetched_team_seasons": [],
             "probe_errors": [], "acquisition_errors": [],
+            "recent_understat_error_logs": recent_understat_error_logs,
             "provider_unavailable_circuit_breaker_open": RUN_CIRCUIT_BREAKER_OPEN,
             "unresolved_player_ids": missing_player_ids,
             "unresolved_team_seasons": unresolved_seasons,
