@@ -11,7 +11,7 @@ on:
         type: boolean
         default: false
       apish_probe_only:
-        description: "Probe only: fetch at most one player history and one individual team history across both target vintages (leave disabled for full acquisition)"
+        description: "Zero-spend preflight: calculate filtered player/team requests and check live credits; do not acquire paid histories"
         required: false
         type: boolean
         default: false
