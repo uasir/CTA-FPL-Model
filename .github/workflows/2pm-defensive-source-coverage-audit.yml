@@ -152,16 +152,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PYTHONPATH: canonical_candidate/engineering_workbench/scripts
         run: |
-          python canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py \\
-            --dastan-root dastan-source \\
-            --raw-root "${RUNNER_TEMP}/point-in-time-raw" \\
-            --output-root "${RUNNER_TEMP}/point-in-time-candidates" \\
-            --shared-fplcache-root "${RUNNER_TEMP}/point-in-time-fplcache" \\
-            --vintage-report "${RUNNER_TEMP}/point-in-time-source-vintages.json" \\
-            --target 2025-26:6 \\
-            --target 2026-27:8 \\
-            --workers 4 \\
-            --prepare-sources-only \\
+          python canonical_candidate/engineering_workbench/scripts/build_2pm_defensive_point_in_time_targets.py \
+            --dastan-root dastan-source \
+            --raw-root "${RUNNER_TEMP}/point-in-time-raw" \
+            --output-root "${RUNNER_TEMP}/point-in-time-candidates" \
+            --shared-fplcache-root "${RUNNER_TEMP}/point-in-time-fplcache" \
+            --vintage-report "${RUNNER_TEMP}/point-in-time-source-vintages.json" \
+            --target 2025-26:6 \
+            --target 2026-27:8 \
+            --workers 4 \
+            --prepare-sources-only \
             > "${RUNNER_TEMP}/point-in-time-source-preparation.log"
       # Save the raw source checkpoint before candidate reconstruction. The
       # always() condition preserves partial downloads if source preparation fails.
