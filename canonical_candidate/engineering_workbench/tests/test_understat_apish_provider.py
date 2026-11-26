@@ -3,13 +3,14 @@ import csv
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from understat_apish_provider import (
     normalize_player_matches, normalize_one_team, normalize_team_histories,
     _valid_meta, _persist_response, _log_records, _record_params, _record_route,
     recover_remote_histories, _remaining_credits, _season_team_names,
-    _team_cache_filename, _write_complete_team_season,
+    _team_cache_filename, _write_complete_team_season, download_missing_histories,
 )
 
 
@@ -145,6 +146,54 @@ class TestApiShUnderstatProvider(unittest.TestCase):
                               kind="team", key=f"2025-26|{name}", client=fake)
             self.assertTrue(_write_complete_team_season(cache, output, "2025-26", names))
             self.assertEqual(len(__import__("json").loads((output / "2025-26.json").read_text())), 20)
+
+    def test_downloader_restores_nineteen_team_checkpoints_and_requests_only_the_missing_team(self):
+        class FakeClient:
+            def __init__(self):
+                self.last_meta, self.last_payload = {}, None
+                self.requested = []
+            def account(self):
+                return {}, 1
+            def account_logs(self):
+                return []
+            def team_history(self, team, season):
+                self.requested.append((season, team))
+                self.last_payload = team_response(team)
+                self.last_meta = {"request_id": "last-team-request", "credits_used": 1}
+                return normalize_one_team(self.last_payload, team, season)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw = root / "raw"
+            teams_dir = raw / "vaastav" / "2025-26"
+            teams_dir.mkdir(parents=True)
+            names = [f"Team {i}" for i in range(20)]
+            with (teams_dir / "teams.csv").open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["id", "name"])
+                writer.writeheader()
+                for i, name in enumerate(names, 1):
+                    writer.writerow({"id": i, "name": name})
+            cache = root / "shared" / "teams"
+            for name in names[:-1]:
+                path = cache / _team_cache_filename("2025-26", name)
+                normalized = normalize_one_team(team_response(name), name, "2025-26")
+                fake = type("PersistClient", (), {
+                    "last_meta": {"request_id": f"cached-{name}", "credits_used": 1},
+                    "last_payload": team_response(name),
+                })()
+                _persist_response(path, normalized, kind="team",
+                                  key=f"2025-26|{name}", client=fake)
+            fake_client = FakeClient()
+            with patch("understat_apish_provider.ApiShUnderstatClient", return_value=fake_client):
+                report = download_missing_histories(
+                    raw, [], ["2025-26"], cache_root=root / "shared", probe_only=False
+                )
+            self.assertEqual(fake_client.requested, [("2025-26", names[-1])])
+            self.assertEqual(report["fetched_team_seasons"], ["2025-26"])
+            self.assertEqual(report["unresolved_team_seasons"], [])
+            self.assertEqual(report["unresolved_team_member_count"], 0)
+            aggregate = raw / "understat" / "teams" / "2025-26.json"
+            self.assertEqual(len(__import__("json").loads(aggregate.read_text())), 20)
 
     def test_account_balance_uses_response_header_when_present(self):
         self.assertEqual(_remaining_credits({"free_credits": 100}, "875"), 875)
