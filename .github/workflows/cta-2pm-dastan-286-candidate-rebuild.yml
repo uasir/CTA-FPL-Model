@@ -149,6 +149,27 @@ jobs:
             --seasons 2020-21,2021-22,2022-23,2023-24,2024-25,2025-26 \
             --output "$RUNNER_TEMP/2pm-dastan-candidate/understat_source_inventory.json" \
             --detail-output "$RUNNER_TEMP/2pm-dastan-candidate/understat_source_inventory.csv"
+      - name: Restore resumable Understat Git revision audit cache
+        id: understat-history-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/2pm-understat-git-history-cache
+          key: 2pm-understat-git-history-v1-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_git_history.py') }}-${{ github.run_id }}
+          restore-keys: |
+            2pm-understat-git-history-v1-${{ hashFiles('dastan-source/data/source_pins.json') }}-
+      - name: Smoke-test pinned Understat Git revision history
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/audit_2pm_understat_git_history.py \
+            --inventory "$RUNNER_TEMP/2pm-dastan-candidate/understat_source_inventory.json" \
+            --pinned-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" \
+            --cache-dir "$RUNNER_TEMP/2pm-understat-git-history-cache" \
+            --limit-player-files 1 \
+            --limit-team-files 1 \
+            --max-commits-per-file 25 \
+            --output "$RUNNER_TEMP/2pm-dastan-candidate/understat_git_history_smoke_audit.json"
       - name: Audit six-season FPL source vintages at each Gameweek deadline
         working-directory: canonical_candidate/engineering_workbench
         env:
@@ -213,6 +234,7 @@ jobs:
           TENSOR_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/postmatch-grouped-dataset/postmatch_grouped_dataset_report.json
           TENSOR_AUDIT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/postmatch-grouped-dataset/tensor_artifact_integrity_audit.json
           VINTAGE_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/point_in_time_source_vintage_audit.json
+          UNDERSTAT_HISTORY_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/understat_git_history_smoke_audit.json
           SUMMARY_PATH: ${{ runner.temp }}/2pm-dastan-step-summary.md
         run: |
           python - <<'PY'
@@ -329,6 +351,19 @@ jobs:
                           f"{', '.join(sorted(changed_fields)) or 'none detected'}"
                       )
                   lines.append("- Source commit timestamps are repository-lineage evidence, not proof of first public publication; feature admission remains a separate review.")
+              history_path = Path(os.environ["UNDERSTAT_HISTORY_REPORT_PATH"])
+              if history_path.exists():
+                  history = json.loads(history_path.read_text())
+                  lines.append("- Pinned Understat Git revision smoke audit (one player and one team file; at most 25 commits each):")
+                  for item in history.get("results", []):
+                      commit_rows = item.get("commit_rows", [])
+                      error_count = len(item.get("errors", [])) + int(bool(item.get("error")))
+                      lines.append(
+                          f"  - {item.get('source_kind')}: {item.get('source_path')}; "
+                          f"{len(commit_rows)} revisions parsed; {len(item.get('row_history', {}))} row keys; "
+                          f"{error_count} errors; history_truncated={item.get('history_truncated')}"
+                      )
+                  lines.append("- Git commit timestamps remain repository-lineage evidence only; original Understat publication vintage is UNKNOWN and no features are admitted.")
               tensor_audit_path = Path(os.environ["TENSOR_AUDIT_PATH"])
               if tensor_audit_path.exists():
                   tensor_audit = json.loads(tensor_audit_path.read_text())
@@ -357,6 +392,7 @@ jobs:
             ${{ runner.temp }}/2pm-dastan-candidate/point_in_time_source_vintage_audit.csv
             ${{ runner.temp }}/2pm-dastan-candidate/understat_source_inventory.json
             ${{ runner.temp }}/2pm-dastan-candidate/understat_source_inventory.csv
+            ${{ runner.temp }}/2pm-dastan-candidate/understat_git_history_smoke_audit.json
             ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json
             ${{ runner.temp }}/2pm-dastan-step-summary.md
           if-no-files-found: warn
@@ -368,6 +404,12 @@ jobs:
         with:
           path: ${{ runner.temp }}/2pm-dastan-candidate/postmatch-grouped-dataset
           key: 2pm-dastan-grouped-tensors-v1-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_grouped_dataset.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_player_gameweek_sequence_tensors.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_state_vectors.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/augment_2pm_candidate_observation_sidecars.py', 'canonical_candidate/engineering_workbench/scripts/two_pm_feature_masks.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'canonical_candidate/engineering_workbench/config/2pm_feature_group_manifest.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}-${{ github.run_id }}
+      - name: Save resumable Understat Git revision audit cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/2pm-understat-git-history-cache
+          key: 2pm-understat-git-history-v1-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_git_history.py') }}-${{ github.run_id }}
       - name: Save pinned Dastan raw-source cache
         if: always() && steps.raw-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
