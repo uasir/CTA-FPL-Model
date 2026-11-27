@@ -8,6 +8,11 @@ import numpy as np
 UNAVAILABLE = np.uint8(0)
 AVAILABLE = np.uint8(1)
 UNKNOWN = np.uint8(2)
+OBSERVED_PREFIX = "__observed__"
+
+
+def observed_column_names(feature_order: Sequence[str]) -> list[str]:
+    return [f"{OBSERVED_PREFIX}{name}" for name in feature_order]
 
 
 def build_feature_availability_state(
@@ -55,6 +60,7 @@ def build_observed_value_mask(
     feature_order: Sequence[str],
     manifest: dict[str, Any],
     availability_state: np.ndarray | None = None,
+    source_observed_mask: np.ndarray | None = None,
 ) -> np.ndarray:
     """Mark actual finite, non-sentinel observations, excluding structural absence."""
     array = np.asarray(values)
@@ -70,6 +76,17 @@ def build_observed_value_mask(
     if sentinel_features:
         sentinel_indices = [i for i, name in enumerate(feature_order) if name in sentinel_features]
         observed[..., sentinel_indices] &= array[..., sentinel_indices] != -1.0
+    if source_observed_mask is None:
+        if manifest.get("require_source_observed_sidecars", False):
+            raise ValueError("This manifest requires raw-source observation sidecars")
+    else:
+        source_mask = np.asarray(source_observed_mask)
+        if source_mask.shape != array.shape:
+            raise ValueError("source_observed_mask must match feature values")
+        if not np.isin(source_mask, [0, 1, False, True]).all():
+            raise ValueError("source_observed_mask must contain only 0/1")
+        observed &= source_mask.astype(bool)
+
     if availability_state is not None:
         state = np.asarray(availability_state, dtype=np.uint8)
         if state.shape == (len(feature_order),):
@@ -85,9 +102,12 @@ def build_feature_masks(
     season: str,
     feature_order: Sequence[str],
     manifest: dict[str, Any],
+    source_observed_mask: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Build aligned source-availability-state and observed-value masks."""
     state_vector = build_feature_availability_state(season, feature_order, manifest)
     state = np.broadcast_to(state_vector, np.asarray(values).shape).copy()
-    observed = build_observed_value_mask(values, feature_order, manifest, state)
+    observed = build_observed_value_mask(
+        values, feature_order, manifest, state, source_observed_mask
+    )
     return state, observed
