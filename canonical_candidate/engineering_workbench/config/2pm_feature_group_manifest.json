@@ -371,13 +371,14 @@
     "evidence_url": "https://www.premierleague.com/en/news/4373187",
     "current_season_confirmation_url": "https://www.premierleague.com/en/news/4361991/whats-new-in-202526-fantasy-defensive-contributions"
   },
-  "source_availability_note": "The pinned Vaastav merged_gw.csv files lack the four defensive source columns in 2020/21–2024/25 and contain them in 2025/26. This is source-specific evidence, not a universal claim that historical defensive actions cannot be reconstructed from another source. Keep structural availability masks source-vintage-driven and do not hard-code this season profile as a timeless feature truth. The official rules continuing in 2026/27 do not establish the vintage/availability of the 2026/27 engineered input fields; that source state remains UNKNOWN.",
+  "source_availability_note": "The pinned Vaastav merged_gw.csv files lack the four defensive source columns in 2020/21–2024/25 and contain them in 2025/26. This is source-specific evidence, not a universal claim that historical defensive actions cannot be reconstructed from another source. Keep structural availability masks source-vintage-driven and do not hard-code this season profile as a timeless feature truth. The official rules continuing in 2026/27 do not establish the vintage/availability of the 2026/27 engineered input fields; that source state remains UNKNOWN. The pinned Dastan feature builder zero-fills some raw player/team statistics before emitting rolling values; 2PM therefore requires pre-fill observation sidecars and must not infer observation from finite values alone.",
   "policy": [
     "All feature groups remain HOLD until independent feature-level admission.",
     "Manifest membership is not an admission decision.",
     "Do not impute structural absence as observed zero.",
     "Do not infer feature availability from numeric zero/nonzero values.",
-    "Do not use this manifest as an XGBoost design or masking policy."
+    "Do not use this manifest as an XGBoost design or masking policy.",
+    "Observed-value masks must be sourced from raw-input coverage sidecars produced before upstream zero-fill; final finite tensor values alone are insufficient."
   ],
   "snapshot_missing_sentinel_features": [
     "ar_ep_next",
@@ -1092,5 +1093,6 @@
       "Feature-family membership does not establish source availability, point-in-time validity, leakage safety, or model admission.",
       "Feature-family and reconstruction-treatment partitions are orthogonal to the common/defensive-regime split."
     ]
-  }
+  },
+  "require_source_observed_sidecars": true
 }
