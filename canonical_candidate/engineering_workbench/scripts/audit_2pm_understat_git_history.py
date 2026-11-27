@@ -7,6 +7,7 @@ availability. Live fallback JSONs have no historical revision chain here.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import html
 import io
@@ -197,6 +198,74 @@ def _get_cached_text(session: requests.Session, url: str, repository: str,
             }, separators=(",", ":")).encode("utf-8"))
     return payload
 
+
+def _canonical_value(value: Any) -> Any:
+    """Canonicalize structured CSV cells such as Understat's PPDA dictionaries."""
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.startswith(("{", "[", "(")):
+            try:
+                parsed = ast.literal_eval(stripped)
+            except (ValueError, SyntaxError):
+                return value
+            if isinstance(parsed, (dict, list, tuple)):
+                return _canonical_value(parsed)
+        return value
+    if isinstance(value, dict):
+        return {
+            str(key): _canonical_value(item)
+            for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+        }
+    if isinstance(value, (list, tuple)):
+        return [_canonical_value(item) for item in value]
+    if hasattr(value, "item") and callable(value.item):
+        try:
+            value = value.item()
+        except (ValueError, TypeError):
+            pass
+    return str(value)
+
+
+def _row_signature(row: dict[str, Any]) -> str:
+    normalized = {str(key): _canonical_value(value) for key, value in row.items()}
+    return json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+
+
+def find_date_correction_candidates(row_history: dict[str, dict[str, Any]]) -> list[dict[str, str]]:
+    """Find one-to-one removed/current rows whose values match except for date."""
+    removed: dict[str, list[tuple[str, str]]] = {}
+    current: dict[str, list[tuple[str, str]]] = {}
+    for row_key, history in row_history.items():
+        signature = history.get("latest_value_signature")
+        if not signature:
+            continue
+        try:
+            row = json.loads(signature)
+        except (TypeError, ValueError):
+            continue
+        date_value = str(row.get("date", ""))
+        row.pop("date", None)
+        content_key = json.dumps(row, sort_keys=True, separators=(",", ":"))
+        target = current if history.get("present_in_latest_revision") else removed
+        target.setdefault(content_key, []).append((row_key, date_value))
+    candidates = []
+    for content_key, old_rows in removed.items():
+        new_rows = current.get(content_key, [])
+        if len(old_rows) != 1 or len(new_rows) != 1:
+            continue
+        old_key, old_date = old_rows[0]
+        new_key, new_date = new_rows[0]
+        if old_date and new_date and old_date != new_date:
+            candidates.append({
+                "old_row_key": old_key,
+                "new_row_key": new_key,
+                "old_date": old_date,
+                "new_date": new_date,
+                "evidence": "exact_non_date_value_match",
+                "status": "POTENTIAL_DATE_CORRECTION_REQUIRES_FIXTURE_RECONCILIATION",
+            })
+    return sorted(candidates, key=lambda item: (item["old_date"], item["new_date"]))
+
 def audit_file(session: requests.Session, repository: str, pinned_commit: str,
                source_path: str, kind: str, max_commits: int, player_id: int | None = None,
                cache_dir: Path | None = None) -> dict[str, Any]:
@@ -237,8 +306,7 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
                 if not key.strip("|"):
                     continue
                 # Exclude volatile row index; compare all source fields as serialized values.
-                signature = json.dumps({str(k): str(v) for k, v in row.items()},
-                                       sort_keys=True, separators=(",", ":"))
+                signature = _row_signature(row)
                 if key in current:
                     duplicate_keys.add(key)
                 current[key] = signature
@@ -303,6 +371,7 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
         "pinned_commit": pinned_commit, "commit_count_returned": len(commits),
         "history_truncated": len(commits) >= max_commits,
         "commit_rows": commit_rows, "row_history": row_history, "errors": errors,
+        "possible_date_corrections": find_date_correction_candidates(row_history),
         "historical_publication_vintage": "UNKNOWN",
     }
 
