@@ -21,7 +21,10 @@ except ImportError:  # Keep non-model engineering tools usable without PyTorch.
 
 
 MODEL_NAME = "2PM-PoissonMixture-Transformer"
-MODEL_ARCHITECTURE_VERSION = "0.2.0"
+MODEL_ARCHITECTURE_VERSION = "0.3.0"
+AVAILABILITY_STATE_COUNT = 3
+SCORING_REGIME_COUNT = 2
+MODEL_INPUT_CHANNEL_MULTIPLIER = 5
 
 
 if nn is not None:
@@ -56,7 +59,8 @@ if nn is not None:
     class PaperTwoComponentPoissonTransformer(nn.Module):
         """Encoder-only Transformer with a two-component Poisson-mixture output.
 
-        Input:  [batch, sequence_length, feature_count]
+        Inputs: feature values, binary observation masks, 0/1/2 availability states,
+                and one 0/1 scoring-regime code per sample.
         Output: mixture probability p and positive Poisson rates lambda1/lambda2.
 
         The final token is the target-fixture query token in the current Dastan
@@ -97,7 +101,11 @@ if nn is not None:
             self.epsilon = float(epsilon)
             self.support_shift = int(support_shift)
 
-            self.input_embedding = nn.Linear(self.feature_count, self.d_model)
+            # Per-feature blocks: value, observed flag, and three one-hot source-availability states.
+            # The scoring regime is represented by a separate learned embedding.
+            self.input_channel_count = self.feature_count * MODEL_INPUT_CHANNEL_MULTIPLIER
+            self.input_embedding = nn.Linear(self.input_channel_count, self.d_model)
+            self.scoring_regime_embedding = nn.Embedding(SCORING_REGIME_COUNT, self.d_model)
             self.position_encoding = SinusoidalPositionEncoding(
                 self.d_model, self.sequence_length
             )
@@ -118,7 +126,13 @@ if nn is not None:
             self.output_norm = nn.LayerNorm(self.d_model)
             self.mixture_head = nn.Linear(self.d_model, 3)
 
-        def forward(self, sequence: torch.Tensor) -> dict[str, torch.Tensor]:
+        def forward(
+            self,
+            sequence: torch.Tensor,
+            observed_mask: torch.Tensor,
+            availability_state: torch.Tensor,
+            scoring_regime: torch.Tensor,
+        ) -> dict[str, torch.Tensor]:
             if sequence.ndim != 3:
                 raise ValueError("sequence must have [batch, sequence, features] shape")
             if sequence.shape[1] != self.sequence_length:
@@ -132,7 +146,37 @@ if nn is not None:
             if not torch.isfinite(sequence).all():
                 raise ValueError("model input contains NaN or infinite values")
 
-            embedded = self.input_embedding(sequence)
+            expected_shape = sequence.shape
+            observed = torch.as_tensor(observed_mask, device=sequence.device)
+            availability = torch.as_tensor(availability_state, device=sequence.device)
+            regime = torch.as_tensor(scoring_regime, device=sequence.device)
+            if observed.shape != expected_shape:
+                raise ValueError("observed_mask must match [batch, sequence, features]")
+            if not torch.isin(observed, torch.tensor([0, 1], device=sequence.device)).all():
+                raise ValueError("observed_mask must contain only 0/1")
+            if availability.shape != expected_shape:
+                raise ValueError("availability_state must match [batch, sequence, features]")
+            if not torch.isin(availability, torch.tensor([0, 1, 2], device=sequence.device)).all():
+                raise ValueError("availability_state must contain only UNAVAILABLE/AVAILABLE/UNKNOWN codes")
+            observed = observed.bool()
+            availability = availability.long()
+            if (observed & availability.eq(0)).any():
+                raise ValueError("structurally UNAVAILABLE features cannot be marked observed")
+            if regime.shape != (sequence.shape[0],):
+                raise ValueError("scoring_regime must have one code per batch sample")
+            if not torch.isin(regime, torch.tensor([0, 1], device=sequence.device)).all():
+                raise ValueError("scoring_regime code must be 0 (legacy) or 1 (defensive contribution)")
+            regime = regime.long()
+
+            observed_channels = observed.to(dtype=sequence.dtype)
+            availability_channels = F.one_hot(
+                availability, num_classes=AVAILABILITY_STATE_COUNT
+            ).to(dtype=sequence.dtype).flatten(start_dim=-2)
+            model_inputs = torch.cat(
+                [sequence, observed_channels, availability_channels], dim=-1
+            )
+            embedded = self.input_embedding(model_inputs)
+            embedded = embedded + self.scoring_regime_embedding(regime).unsqueeze(1)
             encoded = self.encoder(self.position_encoding(embedded))
             target_context = self.output_norm(encoded[:, -1, :])
             raw = self.mixture_head(target_context)
