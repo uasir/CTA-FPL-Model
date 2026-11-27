@@ -329,6 +329,21 @@ def _field_counts(frame: pd.DataFrame, fields: tuple[str, ...]) -> dict[str, Any
     return report
 
 
+def _match_rows_to_canonical_prior(
+    historical: pd.DataFrame, final_prior: pd.DataFrame
+) -> pd.DataFrame:
+    """Select historical-vintage values for the canonical final-source prior keys."""
+    keys = list(SOURCE_KEY_COLUMNS)
+    if final_prior.duplicated(keys).any():
+        raise ValueError("Pinned final source has duplicate fixture/player keys")
+    return historical.merge(
+        final_prior[keys],
+        on=keys,
+        how="inner",
+        validate="one_to_one",
+    )
+
+
 def _field_parity(
     historical: pd.DataFrame,
     final: pd.DataFrame,
@@ -404,23 +419,16 @@ def _audit_one_deadline(
         with urllib.request.urlopen(request, timeout=120) as response:
             raw_cache[sha] = _read_source_frame(response.read())
     historical, present = raw_cache[sha]
-    prior = historical.loc[historical["match_available_at"].lt(pd.Timestamp(deadline))].copy()
-    played = prior.loc[prior["minutes"].gt(0)].copy()
-
-    final_key_frame = final_prior[list(SOURCE_KEY_COLUMNS)].drop_duplicates()
-    if final_prior.duplicated(list(SOURCE_KEY_COLUMNS)).any():
-        raise ValueError(
-            f"{season} GW{gameweek}: pinned final source has duplicate fixture/player keys"
-        )
     # Use one canonical final-source match-availability boundary for both
     # vintages. Historical kickoff corrections must not change which rows are
     # compared; historical values are selected by the final prior-match keys.
-    prior = historical.merge(
-        final_key_frame,
-        on=list(SOURCE_KEY_COLUMNS),
-        how="inner",
-        validate="one_to_one",
-    )
+    try:
+        prior = _match_rows_to_canonical_prior(historical, final_prior)
+    except ValueError as exc:
+        raise ValueError(f"{season} GW{gameweek}: {exc}") from exc
+    played = prior.loc[prior["minutes"].gt(0)].copy()
+
+    final_key_frame = final_prior[list(SOURCE_KEY_COLUMNS)].drop_duplicates()
     final_keys = set(map(tuple, final_key_frame.itertuples(index=False, name=None)))
     source_keys = set(zip(prior["fixture"], prior["element"]))
     common = final_keys & source_keys
