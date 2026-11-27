@@ -564,6 +564,98 @@ def expected_reconstruction_feature_map(features_module) -> dict[str, tuple[str,
     }
 
 
+
+def expected_reconstruction_source_map(features_module) -> dict[str, str]:
+    """Map every schema name to its raw field or explicit derived calculation."""
+    result = {}
+    windows = tuple(features_module.WINDOWS)
+    for source, feature in features_module.PLAYER_FEATURES.items():
+        for window in windows:
+            result[f"player_{feature}_{window}"] = (
+                f"player_matches.{source}; mean of last {window} eligible player fixtures"
+            )
+    for window in windows:
+        result[f"player_relevant_fpl_points_{window}"] = (
+            f"player_matches.total_points; same-venue mean of last {window} eligible fixtures"
+        )
+    for prefix, expression in {
+        "p_any": "player_matches.minutes > 0",
+        "p60": "player_matches.minutes >= 60",
+        "e_minutes": "player_matches.minutes",
+    }.items():
+        for window in (3, 5, 10):
+            result[f"{prefix}_{window}"] = (
+                f"{expression}; season-scoped mean of last {window} eligible player fixtures"
+            )
+    defensive_sources = {
+        "defensive_contribution": "player_matches.defensive_contribution",
+        "cbit": "player_matches.clearances_blocks_interceptions or player_matches.cbit",
+        "recoveries": "player_matches.recoveries",
+        "tackles": "player_matches.tackles",
+    }
+    for feature, source in defensive_sources.items():
+        for window in (3, 5, 10, 38):
+            result[f"ar_{feature}_{window}"] = (
+                f"{source}; mean of last {window} eligible player fixtures"
+            )
+    for window in (3, 5, 10):
+        result[f"ar_dc_hit_rate_{window}"] = (
+            "player_matches.defensive_contribution + position-specific DC_THRESHOLD; "
+            f"hit rate over last {window} eligible player fixtures"
+        )
+        result[f"ar_dc_near_rate_{window}"] = (
+            "player_matches.defensive_contribution + position-specific DC_THRESHOLD; "
+            f"near-threshold rate over last {window} eligible player fixtures"
+        )
+        result[f"ar_starts_{window}"] = (
+            f"player_matches.starts; mean of last {window} eligible player fixtures"
+        )
+    result["ar_dc_ppg_5"] = "2 * ar_dc_hit_rate_5"
+    for source, feature in features_module.TEAM_FEATURES.items():
+        for window in windows:
+            result[f"team_{feature}_{window}"] = (
+                f"team_matches.{source}; mean of last {window} eligible team matches"
+            )
+            result[f"opp_{feature}_{window}"] = (
+                f"opponent team_matches.{source}; mean of last {window} eligible opponent matches"
+            )
+    result["status_league_rank"] = (
+        "team_matches.scored/missed/pts; deadline standings rank by points, goal difference, goals scored"
+    )
+    result["opp_status_league_rank"] = (
+        "opponent team_matches.scored/missed/pts; same deadline standings calculation"
+    )
+    result.update({
+        "ar_rest_days": (
+            "player_matches.kickoff_time and match_available_at; latest strictly available prior fixture"
+        ),
+        "ar_team_matches_14d": (
+            "known team fixture schedule; count in [target kickoff - 14 days, target kickoff]"
+        ),
+        "ar_opp_dc_allowed_3": (
+            "player_matches.defensive_contribution; opponent-conceded fixture totals, last 3"
+        ),
+        "ar_opp_dc_allowed_5": (
+            "player_matches.defensive_contribution; opponent-conceded fixture totals, last 5"
+        ),
+        "ar_opp_dc_allowed_10": (
+            "player_matches.defensive_contribution; opponent-conceded fixture totals, last 10"
+        ),
+        "ar_opp_tackles_allowed_5": (
+            "player_matches.tackles; opponent-conceded fixture totals, last 5"
+        ),
+        "is_home_num": "player_matches.is_home",
+        "value": "pre_deadline_market.now_cost",
+        "selected": "pre_deadline_market.selected_by_percent",
+        "transfers_balance": "pre_deadline_market.transfers_in_event - transfers_out_event",
+        "ar_ep_next": "pre_deadline_ep_next.ep_next",
+        "sig_status_risk": "pre_deadline_signals.status",
+        "sig_chance_playing": "pre_deadline_signals.chance_of_playing",
+        "sig_has_news": "pre_deadline_signals.news/has_news",
+    })
+    return result
+
+
 def validate_reconstruction_coverage(
     ordered_features: list[str],
     player_report: dict,
@@ -630,6 +722,13 @@ def validate_reconstruction_coverage(
         for family, names in feature_map.items()
         for feature in names
     }
+    source_field_by_feature = expected_reconstruction_source_map(features_module)
+    if set(source_field_by_feature) != feature_set:
+        raise RuntimeError(
+            "Raw-source/calculation mapping does not cover the exact schema: "
+            f"missing={sorted(feature_set - set(source_field_by_feature))}; "
+            f"extra={sorted(set(source_field_by_feature) - feature_set)}"
+        )
     return {
         "status": "ALL_286_EXACT_FEATURE_NAMES_AND_OBSERVATION_MASKS_RECONCILED",
         "schema_feature_count": len(ordered_features),
@@ -641,6 +740,7 @@ def validate_reconstruction_coverage(
         "reconstruction_path_counts": expected_counts,
         "reconstruction_path_total": len(flattened),
         "feature_source_family_by_name": source_family_by_feature,
+        "feature_source_field_or_calculation_by_name": source_field_by_feature,
         "admission_status": "NOT_ADMITTED_SOURCE_VINTAGE_AND_PARITY_REMAIN_OPEN",
     }
 
