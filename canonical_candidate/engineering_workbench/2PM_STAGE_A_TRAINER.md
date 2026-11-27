@@ -6,18 +6,25 @@ existing player-Gameweek adapter and exact independent-fixture mixture NLL.
 
 ## Scope and safeguards
 
-- Loads the Run 83 grouped tensor shards; it does not reconstruct or download source data.
+- Loads the corrected six-season grouped tensor artifact (Run 85 or a later audited replacement); it does not reconstruct or download source data. Run 83 is prohibited.
 - Uses the 259 `common_candidate` features only. The 27 scoring-regime-dependent
   defensive features are excluded from Stage A.
-- All common-feature source-availability states are explicitly encoded as
-  `UNKNOWN` (2). This does not confer source-vintage admission.
+- Common-feature source-availability states may remain `UNKNOWN` (2); this does not confer source-vintage admission.
+- The training loader re-enforces the current manifest's `HOLD` / `FORCE_UNOBSERVED`
+  policies even when an older tensor sidecar says a value is observed. Manifest 1.7.0
+  holds all 152 Understat-derived features (30 player-history, 120 own/opponent
+  rolling, and two direct rank fields) unobserved pending row-level vintage proof.
+- The remaining 107 common features are still provisional: FPL-native historical
+  source vintages and some market-field semantics remain unresolved. A successful
+  Stage-A run would be research-only, not evidence of source admission; keep training
+  paused until those remaining checks are completed or a separate research decision is recorded.
 - Missing numeric values are imputed from training-fold medians only; scaling
   statistics are also fitted on training data only.
 - Uses expanding-season folds: train 2020/21, validate 2021/22; then add each
   completed historical season through the 2024/25 validation fold.
 - 2025/26 is reserved for the separate defensive-scoring Stage-B adaptation.
   2026/27 remains sealed OOT and is never loaded by this trainer.
-- The grouped-label support shift is fixed at 20, because Run 83 stores
+- The grouped-label support shift is fixed at 20, because the grouped tensor artifact stores
   player-Gameweek labels rather than fixture-level labels for fitting a
   fixture-level support floor. Every validation label is checked against the
   corresponding aggregate support.
@@ -26,7 +33,7 @@ existing player-Gameweek adapter and exact independent-fixture mixture NLL.
 
 ## Run
 
-Extract the Run 83 artifact so that the extracted directory contains
+Extract the corrected Run 85 artifact (or a later audited replacement) so that the extracted directory contains
 `postmatch-grouped-dataset/player_gameweek_tensors`, then run from the
 engineering workbench directory:
 
