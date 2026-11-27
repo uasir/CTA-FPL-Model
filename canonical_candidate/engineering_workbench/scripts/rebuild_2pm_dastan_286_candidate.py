@@ -670,9 +670,9 @@ def expected_reconstruction_source_map(features_module) -> dict[str, str]:
         "selected": "pre_deadline_market.selected_by_percent",
         "transfers_balance": "pre_deadline_market.transfers_in_event - transfers_out_event",
         "ar_ep_next": "pre_deadline_ep_next.ep_next",
-        "sig_status_risk": "FPL bootstrap-static.elements[].status -> STATUS_RISK encoding",
-        "sig_chance_playing": "FPL bootstrap-static.elements[].chance_of_playing_next_round -> -1 if null else float",
-        "sig_has_news": "FPL bootstrap-static.elements[].news -> 1 if non-empty else 0",
+        "sig_status_risk": "pre_deadline_signals.sig_status_risk; FPL status mapped a=0,d=1,s=2,i=3,u/n=4",
+        "sig_chance_playing": "pre_deadline_signals.sig_chance_playing; FPL chance_of_playing_next_round as float, -1 if null",
+        "sig_has_news": "pre_deadline_signals.sig_has_news; FPL news non-empty -> 1.0, empty -> 0.0",
     })
     return result
 
