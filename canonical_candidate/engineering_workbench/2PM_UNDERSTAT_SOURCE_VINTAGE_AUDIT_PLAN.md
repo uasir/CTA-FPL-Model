@@ -139,3 +139,19 @@ The first run of the new duplicate-key test failed because its byte fixture enco
 Engineering CI run [46049971385](https://github.com/uasir/CTA-FPL-Model/actions/runs/46049971385), for commit `3c7dfa25633f8151eedbd4bb404d4201997c4699`, completed successfully: **622 passed, 5 skipped, 18 warnings, and 3 subtests passed**. The job's JS contract tests, canonical Python feature-core tests, engineering pytest suite, and all four identity crosswalk validations passed.
 
 **Execution boundary remains unchanged:** the tracer has not yet been run against actual pinned Vaastav player/team file histories. The candidate workflow has not been dispatched to generate the new six-season source inventory artifact, and the existing Run 86 artifact predates that inventory step. The tracer remains outside the candidate rebuild workflow until a bounded real-source smoke test and runtime/rate-limit assessment are completed. All 152 Understat features remain HOLD; no feature admission or training authorization changes.
+
+
+### Real pinned-source schema correction: team row identity
+
+A bounded read-only inspection of the pinned Vaastav Git tree and actual historical CSV revisions exposed a source-schema mismatch in the first tracer implementation. The team CSV schema contains `h_a`, `date`, and metrics such as xG/xGA; it does **not** contain home-team and away-team name columns. Each CSV is already team-specific (for example, `data/2024-25/understat/understat_Arsenal.csv`). The pinned Dastan loader derives `understat_team` from that filename and retains the full parsed match date.
+
+The tracer's team row key has therefore been corrected to use the exact source contract: `season | filename-derived understat_team | full date | h_a`. It now rejects a team row when the source path, date, or `h_a` identity is missing, rather than collapsing rows on absent opponent-name columns. Player row keys remain `understat_id | date_only`, matching the pinned Dastan uniqueness check.
+
+The read-only source inspection confirmed:
+- The pinned Vaastav tree is complete (not truncated) and contains 25,924 tree entries.
+- The mapped Mohamed Salah Understat ID is 1250; Dastan's latest-path rule selects `data/2024-25/understat/Mohamed_Salah_1250.csv`.
+- That player file has 29 path-specific commits through the pinned source commit. The earliest returned revision is dated 2024-08-15 and the latest 2025-04-11.
+- The Arsenal team file `data/2024-25/understat/understat_Arsenal.csv` has 31 path-specific commits over the same first/last commit dates.
+- Actual player and team CSV revisions were inspected at the oldest and newest returned commits; their headers confirmed the distinct player and team schemas.
+
+This was a source-contract inspection, not a completed execution of the Python tracer or a deadline-eligibility decision. The new team-key regression test covers filename-derived identity, full timestamp, `h_a`, and rejection when team source identity is missing. CI for the new implementation/test commits must pass before proceeding to a real bounded tracer run. No feature admission or training authorization changes.
