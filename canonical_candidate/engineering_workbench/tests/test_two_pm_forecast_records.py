@@ -5,6 +5,14 @@ from two_component_poisson_transformer import PaperTwoComponentPoissonTransforme
 from two_pm_forecast_records import build_forecast_records
 
 
+
+def run_model(model, values):
+    observed = torch.ones_like(values, dtype=torch.bool)
+    availability = torch.ones_like(values, dtype=torch.long)
+    regime = torch.ones(values.shape[0], dtype=torch.long)
+    return model(values, observed, availability, regime)
+
+
 def test_forecast_record_preserves_distribution_and_provenance_without_decision_logic():
     model = PaperTwoComponentPoissonTransformer(
         feature_count=8,
@@ -16,7 +24,7 @@ def test_forecast_record_preserves_distribution_and_provenance_without_decision_
         dropout=0.0,
         support_shift=20,
     )
-    output = model(torch.randn(2, 6, 8))
+    output = run_model(model, torch.randn(2, 6, 8))
     records = build_forecast_records(
         output,
         player_ids=[1001, 1002],
@@ -58,7 +66,7 @@ def test_forecast_record_rejects_post_forecast_training_cutoff_and_bad_batch():
         nhead=4,
         dim_feedforward=32,
     )
-    output = model(torch.randn(1, 6, 4))
+    output = run_model(model, torch.randn(1, 6, 4))
     common = dict(
         output=output,
         player_ids=[1001],
