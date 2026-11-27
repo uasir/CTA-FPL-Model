@@ -204,7 +204,13 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
                 session, raw_url, repository, source_path, sha, cache_dir
             )
             digest = hashlib.sha256(payload).hexdigest()
-            frame = pd.read_csv(io.BytesIO(payload), low_memory=False).fillna("")
+            # A zero-byte committed file is a real empty revision (e.g. a source
+            # reset), not a CSV parser failure. Preserve it as an empty snapshot so
+            # all previously known rows transition to missing in this revision.
+            if payload.strip():
+                frame = pd.read_csv(io.BytesIO(payload), low_memory=False).fillna("")
+            else:
+                frame = pd.DataFrame()
             current: dict[str, str] = {}
             duplicate_keys: set[str] = set()
             for row in frame.to_dict("records"):
