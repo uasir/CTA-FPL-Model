@@ -102,3 +102,17 @@ def test_integrity_audit_rejects_observed_nonfinite_feature(tmp_path):
     np.save(shard / "X_player_gw_000.npy", x)
     with pytest.raises(ValueError, match="non-finite value as observed"):
         audit.audit_dataset(tmp_path)
+
+
+def test_integrity_audit_rejects_missing_snapshot_sentinel_marked_observed(tmp_path):
+    _write_dataset(tmp_path)
+    report_path = tmp_path / "postmatch_grouped_dataset_report.json"
+    report = json.loads(report_path.read_text())
+    report["snapshot_missing_sentinel_features"] = ["feature_0"]
+    report_path.write_text(json.dumps(report))
+    shard = tmp_path / "player_gameweek_tensors" / "2024-25" / "gw_1"
+    x = np.load(shard / "X_player_gw_000.npy")
+    x[..., 0] = -1.0
+    np.save(shard / "X_player_gw_000.npy", x)
+    with pytest.raises(ValueError, match="Missing-snapshot sentinel marked observed"):
+        audit.audit_dataset(tmp_path)
