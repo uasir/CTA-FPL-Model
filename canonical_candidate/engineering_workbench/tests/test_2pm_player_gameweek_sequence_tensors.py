@@ -344,9 +344,8 @@ def test_tensor_builder_emits_structural_absence_separately_from_numeric_zero(tm
     tensor = np.load(tmp_path / "tensors" / "X_player_gw_00000.npy")
     availability = np.load(tmp_path / "tensors" / "source_availability_state_00000.npy")
     observed = np.load(tmp_path / "tensors" / "observed_value_mask_00000.npy")
-    # The fixture contains finite numeric values, but the pinned source policy
-    # says this feature was structurally unavailable in 2024/25.
-    assert np.isfinite(tensor[..., 0]).all()
+    # Candidate values may be finite, but structural absence masks them to NaN in X.
+    assert np.isnan(tensor[..., 0]).all()
     assert np.all(availability[..., 0] == 0)
     assert np.all(observed[..., 0] == 0)
     assert np.all(availability[..., 1:] == 2)
