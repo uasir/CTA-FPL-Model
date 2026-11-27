@@ -849,3 +849,18 @@ Scope and current status:
 - Run 86 remains NOT_ADMITTED; all 286 features remain HOLD; training remains unauthorized.
 
 Next: execute the configured six-season audit through the candidate workflow, review the per-Gameweek source-commit coverage and FPL-native field revision matrix, then decide feature-by-feature and season-by-season whether each field is ADMIT, EXCLUDE, or HOLD. Keep the 2020/21 market snapshot gap and the 152 Understat features as separate investigations.
+
+### FPL-native vintage audit hardening (2026-11-27)
+
+A second code review identified two comparison/operational weaknesses before the six-season audit is executed. Both have been corrected:
+
+1. **Raw-cache miss recovery.** The audit now restores each season's pinned final Vaastav `merged_gw.csv` from the exact source commit (`8c97b2adb123863c3dd581e730f1360e89815ac2`) when the raw cache does not contain it. This avoids treating a cache miss as a data-coverage failure. Historical per-deadline versions continue to be fetched by their selected commit SHA and cached by SHA.
+2. **Canonical prior-match key comparison.** Both historical and pinned-final values are now compared on the same fixture/player keys selected by the pinned final source's conservative kickoff-plus-24-hour availability boundary. A later kickoff correction in the historical file can no longer change the membership of the comparison set. Duplicate fixture/player keys fail explicitly; source-value differences remain visible in the per-field parity report.
+
+A regression test specifically covers a historical kickoff timestamp moved beyond the deadline while the canonical final source establishes the fixture as a prior match. The test verifies that the historical value remains included in the same canonical key set.
+
+The candidate workflow now passes the explicit pinned Vaastav commit to the audit. Engineering CI passed at commit `1f10670ddc81269893e39ea50c5700692c31ce4d`: **614 passed, 5 skipped, 18 warnings, 3 subtests passed** (run [46042160500](https://github.com/uasir/CTA-FPL-Model/actions/runs/46042160500)). The subsequent workflow pin update is in commit `abe8d8f9272bc4a2f848ce0735f5d42f880b87de`; it only supplies the explicit source commit to the already-tested script interface.
+
+**Execution remains pending.** The six-season candidate workflow is manual-dispatch only. This environment exposes no GitHub workflow-dispatch action, so the audit has not been executed and no per-season results are claimed. The code and workflow are ready for a dispatch with the existing reusable candidate cache. If that run restores the cache, it does not need to rebuild the 286-feature candidate. The workflow input `rebuild_candidate` should remain false for this audit-only run.
+
+No feature admission status changes: all 286 features remain HOLD, candidate NOT_ADMITTED, and training unauthorized.
