@@ -68,11 +68,14 @@ def list_path_commits(session: requests.Session, repository: str, path: str,
 
 def _row_key(row: dict[str, Any], kind: str, player_id: int | None = None) -> str:
     date = str(row.get("date", "")).strip()
-    match_id = str(row.get("id", row.get("match_id", ""))).strip()
     if kind == "player":
-        return "|".join((str(player_id if player_id is not None else row.get("understat_id", "")).strip(), date, match_id))
-    return "|".join((date, match_id, str(row.get("h", row.get("h_team", ""))).strip(),
-                     str(row.get("a", row.get("a_team", ""))).strip()))
+        # Pinned Dastan loader enforces uniqueness on (understat_id, date_only).
+        identity = player_id if player_id is not None else row.get("understat_id", "")
+        return "|".join((str(identity).strip(), date[:10]))
+    # Team files are per-team; date + fixture home/away names identify the match.
+    home = str(row.get("h_team", row.get("h", ""))).strip()
+    away = str(row.get("a_team", row.get("a", ""))).strip()
+    return "|".join((date[:10], home, away))
 
 
 def audit_file(session: requests.Session, repository: str, pinned_commit: str,
