@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_versioned_manifest_partitions_all_286_schema_features_in_order():
     schema, manifest, groups = load_feature_group_manifest(ROOT)
-    assert manifest["manifest_version"] == "1.2.0"
+    assert manifest["manifest_version"] == "1.3.0"
     assert len(groups["common_candidate"]) == 259
     assert len(groups["defensive_regime_dependent"]) == 27
     assert groups["defensive_regime_dependent"] == EXPECTED_DEFENSIVE_COLUMNS
