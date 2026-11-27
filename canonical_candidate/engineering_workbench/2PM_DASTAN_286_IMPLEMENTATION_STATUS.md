@@ -798,3 +798,15 @@ Remaining feature-source gates:
 Admission decision after Run 86: **all 286 features remain HOLD; candidate remains NOT_ADMITTED; training remains unauthorized.** No feature is promoted solely because it is finite, has a nonzero mask in one season, or passes tensor integrity.
 
 Next admission work: build a source-vintage evidence matrix by source family and season, beginning with FPL-native match-history rows and FPL-cache snapshot publication timing; separately close the Understat row-vintage feasibility and defensive-stat row-vintage checks. Only after those audits should feature-level ADMIT/EXCLUDE/HOLD statuses be changed in the authoritative register.
+
+### 2020/21 pre-deadline market archive coverage — repository-tree verification (2026-11-27)
+
+The 2020/21 market-snapshot limitation was checked independently against the pinned FPL-cache repository tree, rather than inferred only from the candidate's market join. The source pin is `Randdalf/fplcache@6c364bfbd9914649dc5dec016e544be3ae4fe767` (tree `ce1e0f44706516569789fb383a8252592676feff`). Its recursive tree contains no `cache/2020/` snapshot directory. The first 2020/21-season archive entries begin on 2021-04-18; the April–May 2021 portion contains 172 timestamped snapshot files across 44 dates, ending 2021-05-31. The 2020/21 candidate audit independently resolves accepted pre-deadline market coverage for only 6 of the season's 38 Gameweeks, consistent with the final six Gameweeks being represented and the first 32 lacking archived snapshots.
+
+Interpretation and handling:
+- This is a **market-snapshot archive gap**, not a gap in the full 2020/21 FPL player-match history or target labels. The candidate still contains the season's player-fixture observations; the missing market snapshots must not be backfilled from retrospective merged-GW fields or current bootstrap values and called pre-deadline observations.
+- For 2020/21, `value`, `selected`, and `transfers_balance` can only be observed for player-Gameweek rows covered by an accepted archived snapshot. The other 32 Gameweeks must remain unobserved/unavailable for these snapshot-derived fields unless an independently timestamped historical snapshot source is recovered.
+- The six covered Gameweeks do not by themselves prove file-publication time or exact semantic parity. The pinned tree establishes the archived capture timestamps and the coverage boundary; per-file publication/vintage and like-for-like field semantics remain separate gates.
+- Do not discard 2020/21 from the model pool because of this market-only gap. Keep market fields feature/season scoped, preserve missingness explicitly, and evaluate whether their sparse 2020/21 coverage is useful before admission. Do not impute retrospectively or globally promote them based on the other five seasons.
+
+This verification does not change the admission register: all 286 features remain HOLD, Run 86 remains NOT_ADMITTED, and training remains unauthorized. Next work is a six-season FPL-native match-history source-vintage audit, followed by the separate per-deadline FPL-cache publication-time and market-field semantic checks.
