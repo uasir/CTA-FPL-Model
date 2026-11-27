@@ -61,3 +61,19 @@ def test_manifest_fails_closed_when_schema_order_changes():
     )
     with pytest.raises(ValueError, match="Common feature order"):
         validate_feature_group_manifest(broken_schema, manifest)
+
+
+def test_manifest_keeps_unverified_2026_27_availability_unknown():
+    schema, manifest, _ = load_feature_group_manifest(ROOT)
+    policy = manifest["feature_source_availability"]
+    assert policy["default_state"] == "UNKNOWN"
+    assert policy["groups"]["defensive_regime_dependent"]["2025-26"] == "AVAILABLE"
+    assert policy["groups"]["defensive_regime_dependent"].get("2026-27", "UNKNOWN") == "UNKNOWN"
+
+
+def test_manifest_rejects_promoting_unverified_current_season_to_available():
+    schema, manifest, _ = load_feature_group_manifest(ROOT)
+    broken = json.loads(json.dumps(manifest))
+    broken["feature_source_availability"]["groups"]["defensive_regime_dependent"]["2026-27"] = "AVAILABLE"
+    with pytest.raises(ValueError, match="2026/27 defensive source availability"):
+        validate_feature_group_manifest(schema, broken)
