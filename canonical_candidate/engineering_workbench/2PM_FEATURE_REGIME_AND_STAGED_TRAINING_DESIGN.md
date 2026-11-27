@@ -43,7 +43,7 @@ The schema inventory contains 27 such columns. The implementation-status counts 
 - The implementation status's **26 defensive/player-history engineered features** counts the 23 columns above plus the three `ar_starts_{3,5,10}` columns. Those starts-rate columns are player-history features, but they are not specific to the defensive-contribution scoring regime.
 - The implementation status's **six fixture-context features** comprise two schedule features (`ar_rest_days`, `ar_team_matches_14d`) plus the four opponent-context columns above.
 
-Therefore, the 27 schema-level defensive-regime-dependent columns are **23 player-history + four opponent-context**. The 26 and six implementation counts are overlapping reconstruction-family counts, not disjoint subsets to be added together. The apparent discrepancy is resolved; retain all three counts with their definitions.
+Therefore, the 27 schema-level defensive-regime-dependent columns are **23 player-history + four opponent-context**. The 26 player-history and six fixture-context reconstruction families are disjoint from each other (32 columns in total). The 27-column defensive-regime group cuts across those families: 23 of the 26 player-history columns and four of the six fixture-context columns are regime-dependent. The apparent discrepancy is resolved; retain all three counts with their definitions.
 
 The four upstream FPL defensive source fields (`defensive_contribution`, `clearances_blocks_interceptions`, `recoveries`, `tackles`) are provenance/source fields, not additional columns in the current 286 input schema. Their mapping into engineered features must be documented and tested. Do not count them twice in the 286-feature group manifest.
 
