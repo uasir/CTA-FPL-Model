@@ -335,7 +335,10 @@ def rebuild_player_history_features(
     )
     out = pd.concat(
         [
-            out.drop(columns=feature_frame.columns, errors="ignore"),
+            out.drop(
+                columns=[*feature_frame.columns, *observed_frame.columns],
+                errors="ignore",
+            ),
             feature_frame,
             observed_frame,
         ],
@@ -599,6 +602,13 @@ def rebuild_deadline_team_context(
         *opponent_frame.columns,
         "status_league_rank",
         "opp_status_league_rank",
+        *[f"{OBSERVED_PREFIX}{name}" for name in own_observed_frame.columns],
+        *[
+            f"{OBSERVED_PREFIX}{name.replace('team_', 'opp_', 1)}"
+            for name in opponent_observed_frame.columns
+        ],
+        f"{OBSERVED_PREFIX}status_league_rank",
+        f"{OBSERVED_PREFIX}opp_status_league_rank",
         "_team_us",
         "_opponent_us",
     ]
