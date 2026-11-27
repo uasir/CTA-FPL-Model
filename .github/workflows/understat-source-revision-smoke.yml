@@ -34,7 +34,7 @@ jobs:
         run: python -m pip install pandas requests
 
       - name: Restore resumable pinned-source revision cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/understat-revision-cache
           key: understat-revision-v2-8c97b2adb123863c3dd581e730f1360e89815ac2-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_git_history.py') }}-${{ github.run_id }}
