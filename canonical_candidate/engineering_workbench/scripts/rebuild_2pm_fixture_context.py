@@ -379,6 +379,7 @@ def rebuild_player_history_features(
         "rolling_window_semantics": "previous player fixture rows before deadline; player rolling features include non-appearance rows, while sequence tokens separately require minutes > 0",
         "availability_semantics": "previous season-scoped FPL player fixture rows before deadline; position-specific base rates when no history",
         "defensive_history_semantics": "previous player_uid fixture rows before deadline; NaN source values are ignored by rolling means",
+        "schedule_source_vintage_status": "UNVERIFIED_FINAL_FIXTURE_CALENDAR; ar_team_matches_14d observation mask forced to 0 until deadline-versioned schedule evidence is available",
         "admission_status": "NOT_ADMITTED",
     }
     return out, report
@@ -916,7 +917,10 @@ def rebuild_fixture_context(
     out[f"{OBSERVED_PREFIX}ar_rest_days"] = (
         rest_join["prior_kickoff_time"].notna().to_numpy(dtype=np.uint8)
     )
-    out[f"{OBSERVED_PREFIX}ar_team_matches_14d"] = np.ones(len(out), dtype=np.uint8)
+    # The pinned source is a retrospective final fixture calendar, not a
+    # deadline-versioned schedule archive. Keep values for audit, but do not
+    # present them as point-in-time observations until schedule vintages exist.
+    out[f"{OBSERVED_PREFIX}ar_team_matches_14d"] = np.zeros(len(out), dtype=np.uint8)
 
     multi_fixture_groups = (
         out.groupby(["season", "gameweek", "fpl_code"], sort=False)["fixture"]
@@ -932,7 +936,7 @@ def rebuild_fixture_context(
         },
         "source_rule": {
             "rest": "latest player fixture whose conservative/observed match availability is strictly before target deadline; kickoff-to-target-kickoff days clipped to [1,14], default 14",
-            "team_congestion": "known team fixture schedule in [target kickoff - 14 days, target kickoff], inclusive",
+            "team_congestion": "retrospective final team fixture calendar in [target kickoff - 14 days, target kickoff], inclusive; source vintage is not deadline-verified and observation mask is forced to 0",
             "opponent_allowance": "rolling mean of the previous 3/5/10 opponent-conceded fixture DC totals and previous 5 tackle totals, with every source fixture available strictly before target deadline",
         },
         "admission_status": "NOT_ADMITTED",
