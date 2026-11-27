@@ -810,3 +810,20 @@ Interpretation and handling:
 - Do not discard 2020/21 from the model pool because of this market-only gap. Keep market fields feature/season scoped, preserve missingness explicitly, and evaluate whether their sparse 2020/21 coverage is useful before admission. Do not impute retrospectively or globally promote them based on the other five seasons.
 
 This verification does not change the admission register: all 286 features remain HOLD, Run 86 remains NOT_ADMITTED, and training remains unauthorized. Next work is a six-season FPL-native match-history source-vintage audit, followed by the separate per-deadline FPL-cache publication-time and market-field semantic checks.
+
+### FPL-native historical match-history repository lineage — preliminary six-season pass (2026-11-27)
+
+The pinned Vaastav repository tree at `vaastav/Fantasy-Premier-League@8c97b2adb123863c3dd581e730f1360e89815ac2` contains the season-level `gws/merged_gw.csv` source for all six training seasons (2020/21–2025/26). GitHub path history is available for every file. The history endpoints returned the following commit counts and date bounds:
+
+| Season | Commits in path history | Earliest recorded commit | Latest recorded commit |
+|---|---:|---|---|
+| 2020/21 | 40 | 2020-09-15 | 2021-06-20 |
+| 2021/22 | 39 | 2021-08-16 | 2022-08-02 |
+| 2022/23 | 38 | 2022-08-08 | 2023-06-15 |
+| 2023/24 | 38 | 2023-08-16 | 2024-05-27 |
+| 2024/25 | 37 | 2024-08-20 | 2026-01-02 |
+| 2025/26 | 12 | 2025-08-20 | 2026-06-17 |
+
+This confirms that version history exists for the FPL-native match-history files across the full six-season pool; it does **not** establish that each individual row was publicly available before its corresponding historical deadline or match-history cutoff. In particular, the latest file commit for a season is not a valid vintage for earlier deadlines. The next required audit is to select the latest file commit strictly before each official Gameweek deadline (with the existing five-minute buffer), load that exact file version, and compare its eligible player-fixture keys and values with the candidate's source rows. Where exact deadline history cannot be established, the affected fields remain HOLD; commit timestamps alone are not publication proof.
+
+The current `audit_2pm_point_in_time_source_vintages.py` does not perform this six-season pass: it is hard-coded to 2025/26 and 2026/27 and specifically audits defensive columns. It must be generalized or supplemented before its output can be described as a six-season FPL-native match-history admission audit. No feature status changes follow from this preliminary lineage check.
