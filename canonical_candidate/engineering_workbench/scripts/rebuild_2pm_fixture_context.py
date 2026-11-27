@@ -440,9 +440,52 @@ def rebuild_deadline_team_context(
         raise ValueError("Understat team matches contain invalid dates")
     teams["match_available_at"] = teams["date"] + pd.Timedelta(hours=24)
 
-    # Rank values attached to each historical match are the standings immediately
-    # before that match, matching the pinned Dastan feature definition.
-    ranks_at_match = features_module.compute_league_ranks(teams)
+    # Historical ranks must use only results whose conservative availability
+    # bound is strictly before the match kickoff. Calendar-date ordering alone
+    # can leak a previous day's result into a match played less than 24 hours later.
+    ranks_at_match = {}
+    rank_observed = pd.Series(False, index=teams.index, dtype=bool)
+    for season, season_group in teams.groupby("season", sort=False):
+        season_team_order = list(
+            season_group["understat_team"].dropna().astype(str).unique()
+        )
+        for kickoff, matches_at_kickoff in season_group.groupby("date", sort=True):
+            prior = season_group[season_group["match_available_at"].lt(kickoff)]
+            table = pd.DataFrame(index=season_team_order)
+            if len(prior):
+                totals = prior.groupby("understat_team").agg(
+                    points=("pts", "sum"),
+                    goals_for=("scored", "sum"),
+                    goals_against=("missed", "sum"),
+                )
+                table = table.join(totals, how="left")
+            for column in ("points", "goals_for", "goals_against"):
+                if column not in table:
+                    table[column] = 0.0
+                table[column] = table[column].fillna(0.0)
+            table["goal_difference"] = table["goals_for"] - table["goals_against"]
+            table = table.sort_values(
+                ["points", "goal_difference", "goals_for"],
+                ascending=[False, False, False],
+                kind="mergesort",
+            )
+            positions = {
+                team: rank for rank, team in enumerate(table.index.astype(str), 1)
+            }
+            date_string = pd.Timestamp(kickoff).strftime("%Y-%m-%d %H:%M")
+            for team in season_team_order:
+                ranks_at_match[(str(team), str(season), date_string)] = positions.get(
+                    str(team), 10
+                )
+            # Fallback ranks before any safely available result are not observed.
+            # If any prior rank input is incomplete, the entire table is unknown.
+            complete_prior_table = bool(
+                len(prior) > 0
+                and prior[["__obs_scored", "__obs_missed", "__obs_pts"]]
+                .to_numpy(dtype=bool).all()
+            )
+            rank_observed.loc[matches_at_kickoff.index] = complete_prior_table
+
     date_strings = teams["date"].dt.strftime("%Y-%m-%d %H:%M")
     teams["league_rank"] = [
         ranks_at_match.get((str(team), str(season), str(date)), 10)
@@ -460,24 +503,6 @@ def rebuild_deadline_team_context(
             teams["opponent"], teams["season"], date_strings
         )
     ]
-    rank_observed = pd.Series(False, index=teams.index, dtype=bool)
-    for season, season_group in teams.groupby("season", sort=False):
-        prior_inputs_complete = True
-        prior_match_count = 0
-        for date, day in season_group.sort_values("date", kind="mergesort").groupby(
-            "date", sort=True
-        ):
-            # A fallback rank before the first completed league match is not an
-            # observation. Only expose historical ranks after at least one prior
-            # match exists and every prior rank input is complete.
-            rank_observed.loc[day.index] = (
-                prior_match_count > 0 and prior_inputs_complete
-            )
-            current_complete = bool(
-                day[["__obs_scored", "__obs_missed", "__obs_pts"]].to_numpy(dtype=bool).all()
-            )
-            prior_inputs_complete = prior_inputs_complete and current_complete
-            prior_match_count += int(len(day))
     teams["__obs_league_rank"] = rank_observed
     teams["__obs_opp_league_rank"] = rank_observed & teams["opponent"].notna()
 
