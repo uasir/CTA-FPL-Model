@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
-from audit_2pm_understat_git_history import _get_text, _row_key, audit_file
+from audit_2pm_understat_git_history import _get_text, _row_key, audit_file, list_path_commits
 
 
 class UnderstatGitHistoryTests(unittest.TestCase):
@@ -94,6 +96,46 @@ class UnderstatGitHistoryTests(unittest.TestCase):
         self.assertEqual(row["latest_commit"], "a")
         self.assertEqual(row["value_revision_count"], 0)
         self.assertEqual(row["last_seen_commit"], "a")
+
+
+    def test_commit_page_cache_avoids_repeating_github_api_request(self):
+        commits = [{"sha": "a", "commit": {"committer": {"date": "2024-01-01T00:00:00Z"}}}]
+        with tempfile.TemporaryDirectory() as directory:
+            with patch("audit_2pm_understat_git_history._get_json",
+                       return_value=commits) as get_json:
+                first = list_path_commits(
+                    object(), "vaastav/Fantasy-Premier-League", "data/player.csv",
+                    "pinned", 25, Path(directory),
+                )
+                second = list_path_commits(
+                    object(), "vaastav/Fantasy-Premier-League", "data/player.csv",
+                    "pinned", 25, Path(directory),
+                )
+        self.assertEqual(first, commits)
+        self.assertEqual(second, commits)
+        self.assertEqual(get_json.call_count, 1)
+
+    def test_raw_revision_cache_reuses_verified_exact_bytes(self):
+        commits = [{"sha": "a", "commit": {"committer": {"date": "2024-01-01T00:00:00Z"}}}]
+        payload = b"date,season,xG\\n2024-01-01,2023,0.2\\n"
+        url = "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/a/data/player_987.csv"
+        with tempfile.TemporaryDirectory() as directory:
+            with patch("audit_2pm_understat_git_history.list_path_commits",
+                       return_value=commits):
+                with patch("audit_2pm_understat_git_history._get_text",
+                           return_value=payload) as get_text:
+                    first = audit_file(
+                        object(), "vaastav/Fantasy-Premier-League", "a",
+                        "data/player_987.csv", "player", 10, 987, Path(directory),
+                    )
+                    second = audit_file(
+                        object(), "vaastav/Fantasy-Premier-League", "a",
+                        "data/player_987.csv", "player", 10, 987, Path(directory),
+                    )
+        self.assertEqual(first["errors"], [])
+        self.assertEqual(second["errors"], [])
+        self.assertEqual(get_text.call_count, 1)
+        self.assertEqual(first["commit_rows"], second["commit_rows"])
 
     def test_team_row_key_matches_pinned_dastan_team_file_contract(self):
         source_path = "data/2024-25/understat/understat_Arsenal.csv"
