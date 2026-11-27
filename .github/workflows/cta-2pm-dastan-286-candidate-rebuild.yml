@@ -140,6 +140,34 @@ jobs:
           key: 2pm-dastan-grouped-tensors-v1-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_grouped_dataset.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_player_gameweek_sequence_tensors.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_state_vectors.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/augment_2pm_candidate_observation_sidecars.py', 'canonical_candidate/engineering_workbench/scripts/two_pm_feature_masks.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'canonical_candidate/engineering_workbench/config/2pm_feature_group_manifest.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}-${{ github.run_id }}
           restore-keys: |
             2pm-dastan-grouped-tensors-v1-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_grouped_dataset.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_player_gameweek_sequence_tensors.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_state_vectors.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/augment_2pm_candidate_observation_sidecars.py', 'canonical_candidate/engineering_workbench/scripts/two_pm_feature_masks.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'canonical_candidate/engineering_workbench/config/2pm_feature_group_manifest.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}-
+      - name: Audit six-season FPL source vintages at each Gameweek deadline
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          raw_root = Path(os.environ["RUNNER_TEMP"]) / "2pm-dastan-raw"
+          seasons = ["2020-21", "2021-22", "2022-23", "2023-24", "2024-25", "2025-26"]
+          config = {
+              season: {
+                  "max_gameweek": 38,
+                  "source_path": str(raw_root / "vaastav" / season / "merged_gw.csv"),
+              }
+              for season in seasons
+          }
+          path = Path(os.environ["RUNNER_TEMP"]) / "2pm-fpl-vintage-season-config.json"
+          path.write_text(json.dumps(config, indent=2) + "\\n")
+          PY
+          python scripts/audit_2pm_point_in_time_source_vintages.py \\
+            --season-config "$RUNNER_TEMP/2pm-fpl-vintage-season-config.json" \\
+            --fplcache-root "$RUNNER_TEMP/2pm-dastan-raw/fplcache" \\
+            --fplcache-commit "6c364bfbd9914649dc5dec016e544be3ae4fe767" \\
+            --output "$RUNNER_TEMP/2pm-dastan-candidate/point_in_time_source_vintage_audit.json" \\
+            --detail-output "$RUNNER_TEMP/2pm-dastan-candidate/point_in_time_source_vintage_audit.csv"
       - name: Enforce official-deadline snapshot safety on candidate features
         working-directory: canonical_candidate/engineering_workbench
         run: |
@@ -174,6 +202,7 @@ jobs:
           SNAPSHOT_SANITIZATION_PATH: ${{ runner.temp }}/2pm-dastan-candidate/snapshot_provenance_sanitization.json
           TENSOR_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/postmatch-grouped-dataset/postmatch_grouped_dataset_report.json
           TENSOR_AUDIT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/postmatch-grouped-dataset/tensor_artifact_integrity_audit.json
+          VINTAGE_REPORT_PATH: ${{ runner.temp }}/2pm-dastan-candidate/point_in_time_source_vintage_audit.json
           SUMMARY_PATH: ${{ runner.temp }}/2pm-dastan-step-summary.md
         run: |
           python - <<'PY'
@@ -250,6 +279,30 @@ jobs:
                       "- Tensors use five post-match played-fixture states plus one pre-deadline query per target fixture.",
                       "- Candidate sequences are not admitted for model training."
                   ])
+              vintage_path = Path(os.environ["VINTAGE_REPORT_PATH"])
+              if vintage_path.exists():
+                  vintage = json.loads(vintage_path.read_text())
+                  lines.append("- Six-season FPL-native defensive source-vintage audit (per Gameweek deadline):")
+                  for season, values in vintage.get("seasons", {}).items():
+                      weeks = values.get("gameweeks", {})
+                      selected = sum(
+                          1 for item in weeks.values()
+                          if item.get("source", {}).get("source_status") == "selected_pre_deadline_commit"
+                      )
+                      no_commit = sum(
+                          1 for item in weeks.values()
+                          if item.get("source", {}).get("source_status") == "no_commit_before_deadline"
+                      )
+                      no_snapshot = sum(
+                          1 for item in weeks.values()
+                          if item.get("snapshot", {}).get("status") == "no_pre_deadline_snapshot"
+                      )
+                      lines.append(
+                          f"  - {season}: {selected} deadlines with selected source commits; "
+                          f"{no_commit} without pre-deadline source commits; "
+                          f"{no_snapshot} without same-season pre-deadline snapshots"
+                      )
+                  lines.append("- Source commit timestamps are repository-lineage evidence, not proof of first public publication; feature admission remains a separate review.")
               tensor_audit_path = Path(os.environ["TENSOR_AUDIT_PATH"])
               if tensor_audit_path.exists():
                   tensor_audit = json.loads(tensor_audit_path.read_text())
@@ -274,6 +327,8 @@ jobs:
             ${{ runner.temp }}/2pm-dastan-candidate/postmatch-grouped-dataset/
             ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_structural_audit.json
             ${{ runner.temp }}/2pm-dastan-candidate/snapshot_provenance_sanitization.json
+            ${{ runner.temp }}/2pm-dastan-candidate/point_in_time_source_vintage_audit.json
+            ${{ runner.temp }}/2pm-dastan-candidate/point_in_time_source_vintage_audit.csv
             ${{ runner.temp }}/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json
             ${{ runner.temp }}/2pm-dastan-step-summary.md
           if-no-files-found: warn
