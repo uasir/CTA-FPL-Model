@@ -70,13 +70,13 @@ def _row_key(row: dict[str, Any], kind: str) -> str:
     date = str(row.get("date", "")).strip()
     match_id = str(row.get("id", row.get("match_id", ""))).strip()
     if kind == "player":
-        return "|".join((str(row.get("understat_id", "")).strip(), date, match_id))
+        return "|".join((str(player_id if player_id is not None else row.get("understat_id", "")).strip(), date, match_id))
     return "|".join((date, match_id, str(row.get("h", row.get("h_team", ""))).strip(),
                      str(row.get("a", row.get("a_team", ""))).strip()))
 
 
 def audit_file(session: requests.Session, repository: str, pinned_commit: str,
-               source_path: str, kind: str, max_commits: int) -> dict[str, Any]:
+               source_path: str, kind: str, max_commits: int, player_id: int | None = None) -> dict[str, Any]:
     commits = list_path_commits(session, repository, source_path, pinned_commit, max_commits)
     # API returns newest first; process oldest to newest so first-seen and revisions are explicit.
     commits = list(reversed(commits))
@@ -93,7 +93,7 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
             frame = pd.read_csv(pd.io.common.BytesIO(payload), low_memory=False).fillna("")
             current: dict[str, str] = {}
             for row in frame.to_dict("records"):
-                key = _row_key(row, kind)
+                key = _row_key(row, kind, player_id)
                 if not key.strip("|"):
                     continue
                 # Exclude volatile row index; compare all source fields as serialized values.
@@ -143,19 +143,19 @@ def main() -> None:
     sources = []
     for row in inventory["players"]:
         if row["source_kind"] == "pinned_player_csv" and row.get("selected_pinned_tree_path"):
-            sources.append(("player", row["selected_pinned_tree_path"]))
+            sources.append(("player", row["selected_pinned_tree_path"], int(row["understat_id"])))
     for row in inventory["teams"]:
         if row["source_kind"] == "pinned_team_csv" and row.get("source_path"):
-            sources.append(("team", row["source_path"]))
+            sources.append(("team", row["source_path"], None))
     if args.limit_files:
         sources = sources[:args.limit_files]
     session = requests.Session()
     results = []
-    for number, (kind, path) in enumerate(sources, 1):
+    for number, (kind, path, player_id) in enumerate(sources, 1):
         print(f"[{number}/{len(sources)}] {kind} {path}", flush=True)
         try:
             results.append(audit_file(session, args.repository, args.pinned_commit,
-                                      path, kind, args.max_commits_per_file))
+                                      path, kind, args.max_commits_per_file, player_id))
         except Exception as exc:
             results.append({"source_path": path, "source_kind": f"pinned_{kind}_csv",
                             "error": str(exc), "historical_publication_vintage": "UNKNOWN"})
