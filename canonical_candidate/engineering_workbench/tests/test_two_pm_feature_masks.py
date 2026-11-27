@@ -26,6 +26,9 @@ def load():
 def test_defensive_source_availability_is_explicit_and_unknown_is_not_available():
     features, manifest = load()
     defensive = set(manifest["feature_groups"]["defensive_regime_dependent"]["feature_order"])
+    understat_player = set(
+        manifest["source_availability_groups"]["understat_player_history"]["feature_order"]
+    )
     state_old = build_feature_availability_state("2024-25", features, manifest)
     state_new = build_feature_availability_state("2025-26", features, manifest)
     state_current_unverified = build_feature_availability_state("2026-27", features, manifest)
@@ -33,6 +36,10 @@ def test_defensive_source_availability_is_explicit_and_unknown_is_not_available(
         if name in defensive:
             assert state_old[i] == UNAVAILABLE
             assert state_new[i] == AVAILABLE
+            assert state_current_unverified[i] == UNKNOWN
+        elif name in understat_player:
+            assert state_old[i] == UNKNOWN
+            assert state_new[i] == UNKNOWN
             assert state_current_unverified[i] == UNKNOWN
         else:
             assert state_old[i] == UNKNOWN
