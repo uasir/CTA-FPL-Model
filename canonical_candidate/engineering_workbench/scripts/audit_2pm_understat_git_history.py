@@ -42,7 +42,8 @@ def _get_json(session: requests.Session, url: str, params: dict[str, Any] | None
 
 
 def _get_text(session: requests.Session, url: str) -> bytes:
-    response = session.get(url, headers=_headers(), timeout=45)
+    # Raw-content host is separate from api.github.com; never forward the API token.
+    response = session.get(url, headers={"Accept": "text/plain"}, timeout=45)
     response.raise_for_status()
     return response.content
 
@@ -107,6 +108,14 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
                 if key in current:
                     duplicate_keys.add(key)
                 current[key] = signature
+            # Validate the whole revision before mutating history. A duplicate-key
+            # revision is excluded atomically rather than partially changing row state.
+            if duplicate_keys:
+                raise ValueError(
+                    f"{len(duplicate_keys)} duplicate row keys in {source_path} at {sha}; "
+                    f"sample={sorted(duplicate_keys)[:5]}"
+                )
+            for key, signature in current.items():
                 previous = row_history.get(key)
                 if previous is None:
                     row_history[key] = {
@@ -132,11 +141,6 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
                 if key not in current:
                     previous["missing_revision_count"] += 1
                     previous["present_in_latest_revision"] = False
-            if duplicate_keys:
-                raise ValueError(
-                    f"{len(duplicate_keys)} duplicate row keys in {source_path} at {sha}; "
-                    f"sample={sorted(duplicate_keys)[:5]}"
-                )
             commit_rows.append({
                 "commit": sha, "committed_at": committed_at,
                 "file_sha256": digest, "rows": len(frame),
