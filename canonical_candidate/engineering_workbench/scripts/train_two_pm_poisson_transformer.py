@@ -56,6 +56,36 @@ def load_grouped_dataset(root: Path, schema_path: Path, manifest_path: Path):
         raise ValueError("Feature manifest does not partition the schema")
     indices = np.asarray([feature_order.index(name) for name in common], dtype=np.int64)
 
+    # Enforce manifest-level source-vintage HOLD policies again at load time.
+    # This protects already-built artifacts when a policy is tightened later;
+    # a stale observed-value sidecar cannot override a current HOLD decision.
+    policy_features: set[str] = set()
+    for policy_name, policy in manifest.get("source_vintage_policies", {}).items():
+        names = policy.get("feature_order", [])
+        if not isinstance(names, list) or len(names) != len(set(names)):
+            raise ValueError(f"Invalid or duplicate source-vintage feature list: {policy_name}")
+        declared_count = policy.get("feature_count")
+        if declared_count is not None and declared_count != len(names):
+            raise ValueError(f"Source-vintage feature count mismatch: {policy_name}")
+        unknown = set(names) - set(feature_order)
+        if unknown:
+            raise ValueError(f"Source-vintage policy references features outside schema: {sorted(unknown)}")
+        overlap = policy_features.intersection(names)
+        if overlap:
+            raise ValueError(f"Overlapping source-vintage policies: {sorted(overlap)}")
+        status = policy.get("status")
+        action = policy.get("mask_action")
+        if status != "HOLD" or action != "FORCE_UNOBSERVED":
+            raise ValueError(
+                f"Unsupported source-vintage policy {policy_name}: {status}/{action}; "
+                "training loader only accepts HOLD/FORCE_UNOBSERVED until row-level masks are implemented."
+            )
+        policy_features.update(names)
+    vintage_indices = np.asarray(
+        [i for i, name in enumerate(feature_order) if name in policy_features],
+        dtype=np.int64,
+    )
+
     tensor_root = root / "postmatch-grouped-dataset" / "player_gameweek_tensors"
     samples: list[tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]] = []
     for metadata_path in sorted(tensor_root.glob("*_gw*/metadata_player_gw_*.csv")):
@@ -89,6 +119,8 @@ def load_grouped_dataset(root: Path, schema_path: Path, manifest_path: Path):
             raise ValueError(f"Structurally unavailable values marked observed in {metadata_path}")
         if np.any((observed_full == 1) & ~np.isfinite(x)):
             raise ValueError(f"Non-finite values marked observed in {metadata_path}")
+        if vintage_indices.size:
+            observed_full[..., vintage_indices] = 0
         if x.shape != (len(metadata), fixture_mask.shape[1], 6, 286):
             raise ValueError(f"Unexpected X shape in {x_path}: {x.shape}")
         if len(metadata) != len(y) or fixture_mask.shape[0] != len(y):
@@ -338,6 +370,13 @@ def main():
         raise SystemExit("epochs, patience and batch-size must be positive")
     seed_everything(args.seed)
     samples, feature_order = load_grouped_dataset(args.artifact_root, args.schema, args.manifest)
+    manifest = json.loads(args.manifest.read_text())
+    held_features = sorted({
+        name
+        for policy in manifest.get("source_vintage_policies", {}).values()
+        if policy.get("status") == "HOLD" and policy.get("mask_action") == "FORCE_UNOBSERVED"
+        for name in policy.get("feature_order", [])
+    })
     seasons = np.asarray([s[3]["season"] for s in samples])
     results = []
     for validation_season in VALIDATION_SEASONS:
@@ -352,7 +391,12 @@ def main():
         "status": "EXPERIMENTAL_STAGE_A_OOF_COMPLETE",
         "admission_status": "NOT_ADMITTED",
         "production_eligible": False,
-        "feature_policy": "259 common candidate features; all source availability marked UNKNOWN; explicit provisional opt-in",
+        "feature_policy": "259 common candidate features; manifest HOLD policies are enforced as unobserved at load time; remaining common features are provisional and source-vintage unresolved",
+        "source_vintage_hold": {
+            "forced_unobserved_feature_count": len(held_features),
+            "forced_unobserved_feature_names": held_features,
+            "enforcement": "applied by the training loader even when a stored tensor sidecar incorrectly marks a HOLD feature observed",
+        },
         "excluded": {"2025-26": "reserved for separate scoring-regime Stage-B adaptation", "2026-27": "sealed OOT"},
         "folds": results,
         "seed": args.seed,
