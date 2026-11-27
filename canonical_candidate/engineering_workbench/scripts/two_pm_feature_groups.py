@@ -194,11 +194,19 @@ def validate_feature_group_manifest(
         raise ValueError("Understat structural-availability groups must partition all 100 Understat features")
     availability_policy = manifest.get("feature_source_availability", {})
     availability_groups_policy = availability_policy.get("groups", {})
+    player_availability = availability_groups_policy.get("understat_player_history", {})
+    team_availability = availability_groups_policy.get("understat_team_context", {})
     if (
-        availability_groups_policy.get("understat_player_history", {}).get("2020-21") != "UNAVAILABLE"
-        or availability_groups_policy.get("understat_team_context", {}).get("2020-21") != "UNKNOWN"
+        player_availability.get("2020-21") != "UNAVAILABLE"
+        or team_availability.get("2020-21") != "UNKNOWN"
+        or any(player_availability.get(season) != "UNKNOWN" for season in (
+            "2021-22", "2022-23", "2023-24", "2024-25", "2025-26", "2026-27"
+        ))
+        or any(team_availability.get(season) != "UNKNOWN" for season in (
+            "2021-22", "2022-23", "2023-24", "2024-25", "2025-26", "2026-27"
+        ))
     ):
-        raise ValueError("2020/21 Understat player/team structural-availability states are incorrect")
+        raise ValueError("Understat player/team structural-availability states are incorrect");
     pins = manifest.get("source_pins", {})
     for source_name in ("dastan", "vaastav", "fplcache"):
         pin = pins.get(source_name, {})
