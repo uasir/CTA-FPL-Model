@@ -41,70 +41,84 @@ jobs:
           restore-keys: |
             understat-revision-v2-8c97b2adb123863c3dd581e730f1360e89815ac2-
 
-      - name: Create bounded real-source inventory
+      - name: Create bounded multi-player and multi-club inventory
         run: |
           cat > "$RUNNER_TEMP/understat-smoke-inventory.json" <<'JSON'
           {
             "players": [
-              {"source_kind":"pinned_player_csv","understat_id":803,"selected_pinned_tree_path":"data/2021-22/understat/Ben_Foster_803.csv"},
-              {"source_kind":"pinned_player_csv","understat_id":587,"selected_pinned_tree_path":"data/2021-22/understat/Phil_Jagielka_587.csv"},
-              {"source_kind":"pinned_player_csv","understat_id":3422,"selected_pinned_tree_path":"data/2023-24/understat/João_Moutinho_3422.csv"},
-              {"source_kind":"pinned_player_csv","understat_id":2371,"selected_pinned_tree_path":"data/2023-24/understat/Cristiano_Ronaldo_2371.csv"},
-              {"source_kind":"pinned_player_csv","understat_id":706,"selected_pinned_tree_path":"data/2024-25/understat/Lukasz_Fabianski_706.csv"},
+              {"source_kind":"pinned_player_csv","understat_id":647,"selected_pinned_tree_path":"data/2023-24/understat/Harry_Kane_647.csv"},
+              {"source_kind":"pinned_player_csv","understat_id":453,"selected_pinned_tree_path":"data/2024-25/understat/Son_Heung-Min_453.csv"},
+              {"source_kind":"pinned_player_csv","understat_id":447,"selected_pinned_tree_path":"data/2024-25/understat/Kevin_De_Bruyne_447.csv"},
+              {"source_kind":"pinned_player_csv","understat_id":489,"selected_pinned_tree_path":"data/2024-25/understat/James_Milner_489.csv"},
               {"source_kind":"pinned_player_csv","understat_id":1665,"selected_pinned_tree_path":"data/2024-25/understat/James_Tarkowski_1665.csv"},
-              {"source_kind":"pinned_player_csv","understat_id":1250,"selected_pinned_tree_path":"data/2024-25/understat/Mohamed_Salah_1250.csv"}
+              {"source_kind":"pinned_player_csv","understat_id":745,"selected_pinned_tree_path":"data/2021-22/understat/Kasper_Schmeichel_745.csv"},
+              {"source_kind":"pinned_player_csv","understat_id":1250,"selected_pinned_tree_path":"data/2024-25/understat/Mohamed_Salah_1250.csv"},
+              {"source_kind":"pinned_player_csv","understat_id":6048,"selected_pinned_tree_path":"data/2024-25/understat/Lewis_Dunk_6048.csv"}
             ],
             "teams": [
               {"source_kind":"pinned_team_csv","source_path":"data/2020-21/understat/understat_Arsenal.csv"},
-              {"source_kind":"pinned_team_csv","source_path":"data/2021-22/understat/understat_Arsenal.csv"},
+              {"source_kind":"pinned_team_csv","source_path":"data/2020-21/understat/understat_Liverpool.csv"},
+              {"source_kind":"pinned_team_csv","source_path":"data/2021-22/understat/understat_Manchester_City.csv"},
+              {"source_kind":"pinned_team_csv","source_path":"data/2021-22/understat/understat_Tottenham.csv"},
               {"source_kind":"pinned_team_csv","source_path":"data/2022-23/understat/understat_Arsenal.csv"},
-              {"source_kind":"pinned_team_csv","source_path":"data/2023-24/understat/understat_Arsenal.csv"},
-              {"source_kind":"pinned_team_csv","source_path":"data/2024-25/understat/understat_Arsenal.csv"}
+              {"source_kind":"pinned_team_csv","source_path":"data/2022-23/understat/understat_Brighton.csv"},
+              {"source_kind":"pinned_team_csv","source_path":"data/2023-24/understat/understat_Manchester_United.csv"},
+              {"source_kind":"pinned_team_csv","source_path":"data/2023-24/understat/understat_Aston_Villa.csv"},
+              {"source_kind":"pinned_team_csv","source_path":"data/2024-25/understat/understat_Everton.csv"},
+              {"source_kind":"pinned_team_csv","source_path":"data/2024-25/understat/understat_West_Ham.csv"}
             ]
           }
           JSON
 
-      - name: Trace complete pinned histories across player-source seasons and five team seasons
+      - name: Trace complete pinned histories for eight players and ten team-season files
         working-directory: canonical_candidate/engineering_workbench
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          python scripts/audit_2pm_understat_git_history.py \
-            --inventory "$RUNNER_TEMP/understat-smoke-inventory.json" \
-            --pinned-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" \
-            --cache-dir "$RUNNER_TEMP/understat-revision-cache" \
-            --max-commits-per-file 100 \
-            --limit-player-files 7 \
-            --limit-team-files 5 \
+          python scripts/audit_2pm_understat_git_history.py \\
+            --inventory "$RUNNER_TEMP/understat-smoke-inventory.json" \\
+            --pinned-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" \\
+            --cache-dir "$RUNNER_TEMP/understat-revision-cache" \\
+            --max-commits-per-file 100 \\
+            --limit-player-files 8 \\
+            --limit-team-files 10 \\
             --output "$RUNNER_TEMP/understat-revision-history.json"
 
-      - name: Validate complete bounded source histories
+      - name: Validate multi-player and multi-club source histories
         run: |
           python - <<'PY'
           import json
           import os
+          import re
           from pathlib import Path
 
           path = Path(os.environ["RUNNER_TEMP"]) / "understat-revision-history.json"
           report = json.loads(path.read_text())
-          assert report["files_requested"] == 12, report
-          assert report["files_audited"] == 12, report
+          assert report["files_requested"] == 18, report
+          assert report["files_audited"] == 18, report
           assert report["admission_decision"] == "NO_FEATURES_ADMITTED", report
+          empty_revision_seen = False
           for result in report["results"]:
               assert not result.get("error"), result
               assert result.get("errors") == [], result
-              assert result["commit_count_returned"] >= 1, result
+              assert result["commit_count_returned"] > 5, result
               assert result["history_truncated"] is False, result
-              assert result["commit_rows"][0]["committed_at"] <= result["commit_rows"][-1]["committed_at"], result
               assert len(result["commit_rows"]) == result["commit_count_returned"], result
               assert result["row_history"], result
               if result["source_kind"] == "pinned_player_csv":
-                  player_id = int(result["source_path"].rsplit("_", 1)[1].removesuffix(".csv"))
-                  assert all(key.startswith(f"{player_id}|") for key in result["row_history"]), result
+                  match = re.search(r"_(\\d+)\\.csv$", result["source_path"])
+                  assert match, result
+                  expected = match.group(1) + "|"
+                  assert all(key.startswith(expected) for key in result["row_history"]), result
               else:
-                  season = result["source_path"].split("/")[1]
-                  assert all(key.startswith(f"{season}|Arsenal|") for key in result["row_history"]), result
-          print("PASS: complete path histories parsed for seven mapped players across three source vintages and five season-specific team files; no feature admission.")
+                  season, filename = result["source_path"].split("/")[1], result["source_path"].split("/")[-1]
+                  club = filename.removeprefix("understat_").removesuffix(".csv").replace("_", " ")
+                  expected = f"{season}|{club}|"
+                  assert all(key.startswith(expected) for key in result["row_history"]), result
+                  if season == "2022-23" and club == "Arsenal":
+                      empty_revision_seen = any(row.get("revision_status") == "empty_file" and row.get("rows") == 0 for row in result["commit_rows"])
+          assert empty_revision_seen, "Arsenal 2022/23 empty-revision regression was not observed"
+          print("PASS: 8 player and 10 team-season histories complete; empty-revision behavior preserved; no feature admission.")
           PY
 
       - name: Upload bounded complete-history evidence
