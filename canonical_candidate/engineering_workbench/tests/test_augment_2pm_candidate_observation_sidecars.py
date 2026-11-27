@@ -148,3 +148,9 @@ def test_candidate_migration_requires_exact_dastan_vaastav_and_fplcache_pins(tmp
         augmenter.validate_candidate_source_pins(
             report, manifest, "dastan-sha", raw_manifest
         )
+    report["source_pins"]["fplcache"]["commit"] = "cache-sha"
+    report["source_manifest_sha256"] = "wrong-hash"
+    with pytest.raises(ValueError, match="raw download manifest hash"):
+        augmenter.validate_candidate_source_pins(
+            report, manifest, "dastan-sha", raw_manifest
+        )
