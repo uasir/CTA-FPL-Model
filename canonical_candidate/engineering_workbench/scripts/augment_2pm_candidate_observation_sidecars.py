@@ -243,12 +243,11 @@ def augment_candidate_directory(
     if any(name.startswith(OBSERVED_PREFIX) for name in candidate.columns):
         result = _validate_existing_sidecars(candidate, feature_order)
         result["candidate_sha256"] = _sha256(candidate_path)
-        candidate_report = json.loads(report_path.read_text(encoding="utf-8"))
         candidate_report["candidate_sha256"] = result["candidate_sha256"]
         candidate_report["raw_source_observation_sidecar_count"] = result["sidecar_count"]
         candidate_report["source_observation_sidecar_status"] = result["status"]
         candidate_report["source_observation_sidecar_report"] = result
-    candidate_report["raw_download_manifest_sha256_verified"] = raw_manifest_hash
+        candidate_report["raw_download_manifest_sha256_verified"] = raw_manifest_hash
         report_path.write_text(
             json.dumps(candidate_report, indent=2) + "\n", encoding="utf-8"
         )
@@ -275,6 +274,7 @@ def augment_candidate_directory(
     candidate_report["raw_source_observation_sidecar_count"] = result["sidecar_count"]
     candidate_report["source_observation_sidecar_status"] = result["status"]
     candidate_report["source_observation_sidecar_report"] = result
+    candidate_report["raw_download_manifest_sha256_verified"] = raw_manifest_hash
     report_path.write_text(json.dumps(candidate_report, indent=2) + "\n", encoding="utf-8")
     result["candidate_sha256"] = candidate_report["candidate_sha256"]
     return result
