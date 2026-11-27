@@ -130,3 +130,28 @@ def test_team_context_sidecar_detects_missing_source_before_upstream_zero_fill()
     assert result.loc[0, "__observed__team_xg_3"] == 0
     assert result.loc[0, "__observed__opp_xg_1"] == 1
     assert result.loc[0, "__observed__status_league_rank"] == 1
+
+
+
+def test_historical_rank_does_not_use_previous_match_inside_24_hour_availability_bound():
+    team_matches = pd.DataFrame([
+        match("2025-26", "2026-01-01 20:00", "T", "O", 2, 0),
+        match("2025-26", "2026-01-01 20:00", "O", "T", 0, 2),
+        # This kickoff is before the previous match's conservative +24h availability.
+        match("2025-26", "2026-01-02 15:00", "T", "Q", 1, 0),
+        match("2025-26", "2026-01-02 15:00", "Q", "T", 0, 1),
+    ])
+    target = pd.DataFrame([{
+        "season": "2025-26",
+        "deadline_time": pd.Timestamp("2026-01-04", tz="UTC"),
+        "team_name": "T",
+        "opponent_team_name": "O",
+    }])
+
+    result, _ = rebuild_deadline_team_context(target, team_matches, fake_features())
+
+    # The target deadline has completed-match evidence, but the historical rank
+    # attached to the Jan 2 match cannot use the Jan 1 result (available Jan 2 20:00).
+    assert result.loc[0, "__observed__status_league_rank"] == 1
+    assert pd.notna(result.loc[0, "team_league_rank_3"])
+    assert result.loc[0, "__observed__team_league_rank_3"] == 0
