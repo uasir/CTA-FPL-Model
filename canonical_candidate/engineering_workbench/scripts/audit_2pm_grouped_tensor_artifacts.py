@@ -35,14 +35,18 @@ def audit_dataset(dataset_dir: Path) -> dict:
         suffix = x_path.stem.removeprefix("X_player_gw_")
         folder = x_path.parent
         mask_path = folder / f"fixture_mask_{suffix}.npy"
+        availability_path = folder / f"source_availability_state_{suffix}.npy"
+        observed_path = folder / f"observed_value_mask_{suffix}.npy"
         y_path = folder / f"y_player_gw_{suffix}.npy"
         metadata_path = folder / f"metadata_player_gw_{suffix}.csv"
-        for required in (mask_path, y_path, metadata_path):
+        for required in (mask_path, availability_path, observed_path, y_path, metadata_path):
             if not required.is_file():
                 raise FileNotFoundError(f"Missing shard companion: {required}")
 
         x = np.load(x_path, allow_pickle=False)
         mask = np.load(mask_path, allow_pickle=False)
+        availability = np.load(availability_path, allow_pickle=False)
+        observed = np.load(observed_path, allow_pickle=False)
         y = np.load(y_path, allow_pickle=False).reshape(-1)
         metadata = pd.read_csv(metadata_path)
 
@@ -124,6 +128,8 @@ def audit_dataset(dataset_dir: Path) -> dict:
         "unique_player_gameweek_keys": len(seen),
         "valid_fixture_queries": valid_fixtures,
         "fixture_slots": fixture_slots,
+        "availability_state_counts": {str(code): int((availability == code).sum()) for code in (0, 1, 2)},
+        "observed_value_count": int(observed.sum()),
         "fixture_count_histogram": fixture_count_histogram,
         "season_sample_counts": season_counts,
         "feature_count": 286,
@@ -137,7 +143,9 @@ def audit_dataset(dataset_dir: Path) -> dict:
         "build_report_counts": expected,
         "checks": [
             "all tensor shards have [samples, fixtures, 6, 286] shape",
-            "tensor, fixture-mask and metadata sample counts agree",
+            "tensor, fixture-mask, source-availability mask, observed-value mask and metadata sample counts agree",
+            "source availability uses 0=unavailable, 1=available, 2=unknown",
+            "observed-value mask excludes non-finite values and structurally unavailable features",
             "player-Gameweek keys are unique across all shards",
             "fixture masks match per-sample fixture counts",
             "five historical states are strictly before the target deadline",
