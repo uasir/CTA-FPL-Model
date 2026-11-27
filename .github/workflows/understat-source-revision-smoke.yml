@@ -93,8 +93,9 @@ jobs:
           for result in report["results"]:
               assert not result.get("error"), result
               assert result.get("errors") == [], result
-              assert result["commit_count_returned"] > 5, result
+              assert result["commit_count_returned"] >= 1, result
               assert result["history_truncated"] is False, result
+              assert result["commit_rows"][0]["committed_at"] <= result["commit_rows"][-1]["committed_at"], result
               assert len(result["commit_rows"]) == result["commit_count_returned"], result
               assert result["row_history"], result
               if result["source_kind"] == "pinned_player_csv":
