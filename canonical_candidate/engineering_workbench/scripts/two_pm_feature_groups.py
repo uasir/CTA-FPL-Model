@@ -156,18 +156,16 @@ def validate_feature_group_manifest(
     if manifest.get("require_source_observed_sidecars") is not True:
         raise ValueError("Production 2PM masks must require pre-fill source observation sidecars")
     pins = manifest.get("source_pins", {})
-    for source_name, schema_field in (
-        ("dastan", None),
-        ("vaastav", "upstream_commit"),
-        ("fplcache", None),
-    ):
+    for source_name in ("dastan", "vaastav", "fplcache"):
         pin = pins.get(source_name, {})
         if not pin.get("repository") or not pin.get("commit"):
             raise ValueError(f"Missing pinned source provenance for {source_name}")
-        if schema_field and pin.get("commit") != schema.get(schema_field):
-            raise ValueError(f"{source_name} pin does not match the pinned feature schema")
-        if source_name == "vaastav" and pin.get("repository") != schema.get("upstream_repository"):
-            raise ValueError("Vaastav repository pin does not match the pinned feature schema")
+    dastan_pin = pins["dastan"]
+    if (
+        dastan_pin.get("commit") != schema.get("upstream_commit")
+        or dastan_pin.get("repository") != schema.get("upstream_repository")
+    ):
+        raise ValueError("Dastan pin does not match the pinned feature schema")
 
     return {
         "common_candidate": common,
