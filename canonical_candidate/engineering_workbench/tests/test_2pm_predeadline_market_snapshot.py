@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
@@ -12,6 +13,8 @@ from rebuild_2pm_dastan_286_candidate import (
     audit_market_value_parity,
     validate_reconstruction_coverage,
 )
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def accepted_fplcache():
