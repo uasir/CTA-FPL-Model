@@ -347,12 +347,50 @@ def _latest_state_before_deadline(
     return eligible[-1] if eligible else None
 
 
+def _state_visibility(
+    item: dict[str, Any], deadline: datetime, state: dict[str, Any] | None
+) -> dict[str, Any]:
+    kickoff = pd.to_datetime(item["kickoff_time"], utc=True).to_pydatetime()
+    match_available_at = kickoff + timedelta(hours=MATCH_AVAILABILITY_HOURS)
+    if state is None:
+        return {
+            "status": "not_yet_in_repository", "source_commit_at": None,
+            "source_commit": None, "source_row_key": None,
+            "value_matches_final": None, "source_date": None,
+        }
+    signature = state["value_signature"]
+    source_date = None
+    if signature:
+        try:
+            source_date = json.loads(signature).get("date")
+        except (TypeError, ValueError):
+            source_date = None
+    value_matches_final = (
+        state["metric_signature"] == item["final_metric_signature"]
+        if state["status"] == "present" and state["metric_signature"] is not None
+        and item["final_metric_signature"] is not None else None
+    )
+    if state["status"] != "present":
+        visibility = "source_row_missing"
+    elif match_available_at >= deadline:
+        visibility = "match_not_yet_available"
+    else:
+        visibility = "repository_proven_prior_row"
+    return {
+        "status": visibility,
+        "source_commit_at": state["committed_at"],
+        "source_commit": state["commit"],
+        "source_row_key": state["source_row_key"],
+        "value_matches_final": value_matches_final,
+        "source_date": source_date,
+    }
+
+
 def _evaluate_deadline(
     item: dict[str, Any],
     deadline_row: dict[str, Any],
 ) -> dict[str, Any]:
     deadline = deadline_row["deadline"]
-    cutoff = deadline - SAFETY_BUFFER
     kickoff = pd.to_datetime(item["kickoff_time"], utc=True).to_pydatetime()
     match_available_at = kickoff + timedelta(hours=MATCH_AVAILABILITY_HOURS)
     base = {
@@ -374,42 +412,37 @@ def _evaluate_deadline(
         "value_revision_events": item["value_revision_events"],
         "source_row_keys": ";".join(sorted(set(item["source_row_keys"]))),
     }
-    if not deadline_row["deadline_verified"]:
-        return base | {"visibility_status": "deadline_unverified", "source_commit_at": None,
-                       "source_commit": None, "source_row_key": None,
-                       "value_matches_final": None, "source_date": None}
     state = _latest_state_before_deadline(item["events"], deadline)
-    if state is None:
-        return base | {"visibility_status": "not_yet_in_repository", "source_commit_at": None,
-                       "source_commit": None, "source_row_key": None,
-                       "value_matches_final": None, "source_date": None}
-    signature = state["value_signature"]
-    source_date = None
-    if signature:
-        try:
-            source_date = json.loads(signature).get("date")
-        except (TypeError, ValueError):
-            source_date = None
-    value_matches_final = (
-        state["metric_signature"] == item["final_metric_signature"]
-        if state["status"] == "present" and state["metric_signature"] is not None
-        and item["final_metric_signature"] is not None else None
-    )
-    if state["status"] != "present":
-        visibility = "source_row_missing"
-    elif match_available_at >= deadline:
-        visibility = "match_not_yet_available"
-    else:
-        visibility = "repository_proven_prior_row"
+    details = _state_visibility(item, deadline, state)
+    if not deadline_row["deadline_verified"]:
+        return base | {
+            "visibility_status": "deadline_unverified",
+            "source_commit_at": None,
+            "source_commit": None,
+            "source_row_key": None,
+            "value_matches_final": None,
+            "source_date": None,
+            "provisional_visibility_status": details["status"],
+            "provisional_source_commit_at": details["source_commit_at"],
+            "provisional_source_commit": details["source_commit"],
+            "provisional_source_row_key": details["source_row_key"],
+            "provisional_value_matches_final": details["value_matches_final"],
+            "provisional_source_date": details["source_date"],
+        }
     return base | {
-        "visibility_status": visibility,
-        "source_commit_at": state["committed_at"],
-        "source_commit": state["commit"],
-        "source_row_key": state["source_row_key"],
-        "value_matches_final": value_matches_final,
-        "source_date": source_date,
+        "visibility_status": details["status"],
+        "source_commit_at": details["source_commit_at"],
+        "source_commit": details["source_commit"],
+        "source_row_key": details["source_row_key"],
+        "value_matches_final": details["value_matches_final"],
+        "source_date": details["source_date"],
+        "provisional_visibility_status": None,
+        "provisional_source_commit_at": None,
+        "provisional_source_commit": None,
+        "provisional_source_row_key": None,
+        "provisional_value_matches_final": None,
+        "provisional_source_date": None,
     }
-
 
 def audit_deadline_visibility(
     history_report: dict[str, Any],
