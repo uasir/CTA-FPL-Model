@@ -344,7 +344,7 @@ def run_fold(samples, feature_order, train_idx, valid_idx, args, fold_dir):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--artifact-root", type=Path, required=True,
-                        help="Extracted 2pm-dastan-candidate directory from Run 83")
+                        help="Extracted corrected six-season 2pm-dastan-candidate directory; Run 83 artifacts are prohibited")
     parser.add_argument("--schema", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
