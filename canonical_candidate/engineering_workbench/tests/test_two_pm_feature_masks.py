@@ -153,3 +153,12 @@ def test_2020_21_understat_player_history_is_unavailable_but_team_context_is_unk
     assert state[index["team_xg_1"]] == UNKNOWN
     next_season = build_feature_availability_state("2021-22", features, manifest)
     assert next_season[index["player_xg_1"]] == UNKNOWN
+
+
+def test_scoring_regime_code_is_season_specific_and_fail_closed():
+    _, manifest = load()
+    assert build_scoring_regime_code("2024-25", manifest) == 0
+    assert build_scoring_regime_code("2025-26", manifest) == 1
+    assert build_scoring_regime_code("2026-27", manifest) == 1
+    with pytest.raises(ValueError, match="exactly one"):
+        build_scoring_regime_code("2027-28", manifest)
