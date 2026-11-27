@@ -87,7 +87,7 @@ The audit should produce a versioned understat_point_in_time_manifest keyed by (
 - row_present, vintage_verified, and a reason code;
 - audit method/version and content hashes.
 
-The player-history and team-context builders must consume this manifest before producing __observed__{feature} sidecars. Understat-derived sidecars must be zero when source vintage is unverified or after the token cutoff, even if the current CSV contains a finite value. The original feature value may remain in the diagnostic candidate, but it must not be presented to the model as observed.
+The player-history and team-context builders must consume this manifest before producing __observed__{feature} sidecars. Understat-derived observed-value masks must be zero when source vintage is unverified or after the token cutoff, even if the current CSV contains a finite value. The raw-source sidecar may record that a value exists in the current file; the source-vintage policy must still suppress it. The original feature value may remain in the diagnostic candidate, but it must not be presented to the model as observed.
 
 Add regression tests for:
 - a row committed before versus after the token cutoff;
