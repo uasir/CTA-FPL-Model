@@ -96,14 +96,18 @@ def build_dataset(
                 cached_report = json.loads(report_path.read_text(encoding="utf-8"))
                 declared_shards = cached_report.get("shards", [])
                 core_shard_files = ("tensor", "fixture_mask", "labels", "metadata")
-                shards_valid = bool(declared_shards) and all(
+                shards_valid = (
                     all(
-                        shard.get(field)
-                        and (shard_dir / shard[field]).is_file()
-                        and (shard_dir / shard[field]).stat().st_size > 0
-                        for field in core_shard_files
+                        all(
+                            shard.get(field)
+                            and (shard_dir / shard[field]).is_file()
+                            and (shard_dir / shard[field]).stat().st_size > 0
+                            for field in core_shard_files
+                        )
+                        for shard in declared_shards
                     )
-                    for shard in declared_shards
+                    if declared_shards
+                    else int(cached_report.get("counts", {}).get("emitted", -1)) == 0
                 )
                 report_valid = (
                     cached_report.get("status") == "PLAYER_GAMEWEEK_SEQUENCE_TENSORS_BUILT"
@@ -113,6 +117,13 @@ def build_dataset(
                     and shards_valid
                 )
                 if report_valid:
+                    cached_report["feature_order"] = features
+                    cached_report["snapshot_missing_sentinel_features"] = feature_manifest.get(
+                        "snapshot_missing_sentinel_features", []
+                    )
+                    cached_report["feature_availability_state_codes"] = {
+                        "UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2
+                    }
                     # Backfill masks on reusable tensors without reacquiring sources
                     # or repeating post-match feature reconstruction.
                     for shard in declared_shards:
@@ -185,6 +196,13 @@ def build_dataset(
         "admission_status": "NOT_ADMITTED",
         "training_authorized": False,
         "feature_count": len(features),
+        "feature_order": features,
+        "snapshot_missing_sentinel_features": feature_manifest.get(
+            "snapshot_missing_sentinel_features", []
+        ),
+        "feature_availability_state_codes": {
+            "UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2
+        },
         "feature_order_sha256": feature_hash,
         "sequence_definition": "five_same_season_postmatch_played_fixture_states_plus_one_prematch_query_per_target_fixture",
         "sample_grain": "player_gameweek",
