@@ -37,6 +37,42 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def validate_candidate_source_pins(
+    candidate_report: dict[str, Any],
+    manifest: dict[str, Any],
+    dastan_commit: str,
+    raw_download_manifest: Path,
+) -> str:
+    """Require the cached raw match tables to match all pinned source releases."""
+    pins = manifest.get("source_pins", {})
+    if dastan_commit != pins.get("dastan", {}).get("commit"):
+        raise ValueError("Checked-out Dastan commit does not match the 2PM manifest pin")
+    if candidate_report.get("upstream_commit") != dastan_commit:
+        raise ValueError("Candidate report Dastan commit does not match the checked-out source")
+    report_pins = candidate_report.get("source_pins", {})
+    for source_name in ("vaastav", "fplcache"):
+        expected = pins.get(source_name, {})
+        actual = report_pins.get(source_name, {})
+        if (
+            actual.get("repository") != expected.get("repository")
+            or actual.get("commit") != expected.get("commit")
+        ):
+            raise ValueError(
+                f"Candidate {source_name} source pin does not match the 2PM manifest"
+            )
+    if not raw_download_manifest.is_file():
+        raise FileNotFoundError(
+            f"Pinned raw download manifest is missing: {raw_download_manifest}"
+        )
+    actual_manifest_hash = _sha256(raw_download_manifest)
+    if candidate_report.get("source_manifest_sha256") != actual_manifest_hash:
+        raise ValueError(
+            "Cached raw download manifest hash does not match the candidate report; "
+            "rerun with rebuild_candidate=true."
+        )
+    return actual_manifest_hash
+
+
 def _validate_existing_sidecars(
     frame: pd.DataFrame, feature_order: list[str]
 ) -> dict[str, Any]:
@@ -172,6 +208,7 @@ def augment_candidate_directory(
     dastan_root: Path,
     schema_path: Path,
     manifest_path: Path,
+    raw_dir: Path,
 ) -> dict[str, Any]:
     candidate_path = candidate_dir / "features_286_candidate.parquet"
     player_path = candidate_dir / "player_matches_with_availability.parquet"
@@ -188,10 +225,6 @@ def augment_candidate_directory(
         ["git", "-C", str(dastan_root), "rev-parse", "HEAD"],
         check=True, capture_output=True, text=True,
     ).stdout.strip()
-    if actual_commit != PINNED_DASTAN_COMMIT:
-        raise RuntimeError(
-            f"Dastan pin mismatch: expected {PINNED_DASTAN_COMMIT}, got {actual_commit}"
-        )
 
     sys.path.insert(0, str(dastan_root))
     from dastan.rebuild import features as features_module  # noqa: E402
@@ -199,6 +232,13 @@ def augment_candidate_directory(
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     feature_order = schema["feature_order"]
+    candidate_report = json.loads(report_path.read_text(encoding="utf-8"))
+    raw_manifest_hash = validate_candidate_source_pins(
+        candidate_report,
+        manifest,
+        actual_commit,
+        raw_dir / "downloads.json",
+    )
     candidate = pd.read_parquet(candidate_path)
     if any(name.startswith(OBSERVED_PREFIX) for name in candidate.columns):
         result = _validate_existing_sidecars(candidate, feature_order)
@@ -208,6 +248,7 @@ def augment_candidate_directory(
         candidate_report["raw_source_observation_sidecar_count"] = result["sidecar_count"]
         candidate_report["source_observation_sidecar_status"] = result["status"]
         candidate_report["source_observation_sidecar_report"] = result
+    candidate_report["raw_download_manifest_sha256_verified"] = raw_manifest_hash
         report_path.write_text(
             json.dumps(candidate_report, indent=2) + "\n", encoding="utf-8"
         )
@@ -230,7 +271,6 @@ def augment_candidate_directory(
     augmented.to_parquet(temporary_path, index=False)
     os.replace(temporary_path, candidate_path)
 
-    candidate_report = json.loads(report_path.read_text(encoding="utf-8"))
     candidate_report["candidate_sha256"] = _sha256(candidate_path)
     candidate_report["raw_source_observation_sidecar_count"] = result["sidecar_count"]
     candidate_report["source_observation_sidecar_status"] = result["status"]
@@ -244,6 +284,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidate-dir", type=Path, required=True)
     parser.add_argument("--dastan-root", type=Path, required=True)
+    parser.add_argument("--raw-dir", type=Path, required=True)
     parser.add_argument(
         "--schema",
         type=Path,
@@ -256,7 +297,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     result = augment_candidate_directory(
-        args.candidate_dir, args.dastan_root, args.schema, args.manifest
+        args.candidate_dir, args.dastan_root, args.schema, args.manifest, args.raw_dir
     )
     print(json.dumps(result, indent=2))
 
