@@ -646,3 +646,10 @@ The grouped player-Gameweek forward adapter was also updated to flatten and pass
 Added \`two_pm_fold_preprocessing.py\` with training-partition-only feature medians and a separate frozen transform. It fails closed when a training fold has no observed value for a feature, rejects invalid observed masks/nonfinite observed values, and records its feature order and observed counts. For the grouped player-Gameweek tensor, shared five-match history tokens are counted once per player-Gameweek while every target-fixture query is retained; padded fixture slots are zeroed after transformation.
 
 The helper is tested but is not yet called by a chronological trainer. Scaling remains unresolved and is not silently added. CI at the tested code revision: **595 passed, 4 skipped, 3 subtests passed** in the repository engineering suite; the focused 2PM sequence contract reported **130 passed** and the Poisson-mixture model contract **11 passed**. No training was run.
+
+
+### Deterministic Stage B replay-plan helper (2026-11-27)
+
+Added \`two_pm_staged_replay.py\`. It accepts only caller-supplied eligible training indices, requires the historical pool to be 2020/21–2024/25 with regime code 0 and the adaptation pool to be 2025/26 with regime code 1, samples the requested replay count with a recorded seed, and emits shuffled sample indices plus per-season/per-regime counts. It fails closed on overlapping pools, invalid seasons/regimes, and insufficient replay rows unless replacement is explicitly enabled.
+
+The replay ratio remains **unselected**; no value was inferred or hard-coded. The helper is tested but not integrated into a trainer. Validation/OOT isolation still depends on the future trainer passing only the pre-registered training partitions. No training was run.
