@@ -562,3 +562,14 @@ The first finite-value-only mask implementation is superseded. The production ma
 - The previous tensor-only backfill path has been removed. Legacy tensors cannot safely recover erased raw missingness.
 
 The pinned raw source-download cache remains eligible for reuse. The derived Run 83 candidate and tensor artifacts do not contain the sidecars and must be regenerated before training. The sidecar implementation and new tests have not yet completed CI; the earlier 569/108 and 571/108 results validate prior revisions only. No rebuild or training has been run.
+
+
+### Pre-fill sidecar implementation CI passed (2026-11-27)
+
+The production sidecar implementation and manifest 1.2.0 passed both CI workflows on commit `54d76e5dd3f02f2df95ed364553054e753e35ae2`:
+- **CTA FPL engineering CI** run `45961116448`: 577 passed, 4 skipped, 3 subtests passed.
+- **2PM Dastan 286 sequence contract** run `45961116358`: 114 passed.
+
+These runs include tests for raw FPL zero-fill detection, Understat any-valid rolling coverage, team/opponent source coverage before zero-fill, fixture-context sidecars, candidate/post-match sidecar requirements, sequence tensor consumption, production-manifest fail-closed behavior, and legacy cache rejection.
+
+This closes the code-level sidecar contract. It does not validate the unmodified Run 83 artifact: no candidate rebuild or tensor regeneration has been run. The old candidate cache must be regenerated to include 286 sidecars, and old tensor shards without masks must be rebuilt from the sidecar-bearing states. The pinned raw source-download cache remains reusable. All 286 features remain HOLD; no training is authorized.
