@@ -94,6 +94,7 @@ def select_commit(commits: list[dict[str, Any]], deadline: datetime) -> dict[str
 
 
 FPLCACHE_REPOSITORY = "Randdalf/fplcache"
+VAASTAV_REPOSITORY = "vaastav/Fantasy-Premier-League"
 
 
 def _snapshot_index(
@@ -152,6 +153,36 @@ def _read_snapshot(
         temporary.write_bytes(payload)
         temporary.replace(path)
     return json.loads(lzma.decompress(path.read_bytes()).decode("utf-8"))
+
+def _ensure_pinned_vaastav_file(
+    path: Path, season: str, commit: str, token: str | None
+) -> Path:
+    """Restore one pinned final-source file when the raw cache is incomplete."""
+    if path.exists() and path.stat().st_size:
+        return path
+    source_path = f"data/{season}/gws/merged_gw.csv"
+    url = (
+        f"https://raw.githubusercontent.com/{VAASTAV_REPOSITORY}/"
+        f"{commit}/{source_path}"
+    )
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "CTA-FPL-2PM-source-vintage-audit/1.0",
+            "Accept": "text/csv",
+        },
+    )
+    if token:
+        request.add_header("Authorization", f"Bearer {token}")
+    with urllib.request.urlopen(request, timeout=120) as response:
+        payload = response.read()
+    if not payload:
+        raise RuntimeError(f"Pinned Vaastav source file is empty: {source_path}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_bytes(payload)
+    temporary.replace(path)
+    return path
 
 
 def _season_label(events: list[dict[str, Any]]) -> str:
@@ -376,11 +407,25 @@ def _audit_one_deadline(
     prior = historical.loc[historical["match_available_at"].lt(pd.Timestamp(deadline))].copy()
     played = prior.loc[prior["minutes"].gt(0)].copy()
 
-    final_keys = set(zip(final_prior["fixture"], final_prior["element"]))
+    final_key_frame = final_prior[list(SOURCE_KEY_COLUMNS)].drop_duplicates()
+    if final_prior.duplicated(list(SOURCE_KEY_COLUMNS)).any():
+        raise ValueError(
+            f"{season} GW{gameweek}: pinned final source has duplicate fixture/player keys"
+        )
+    # Use one canonical final-source match-availability boundary for both
+    # vintages. Historical kickoff corrections must not change which rows are
+    # compared; historical values are selected by the final prior-match keys.
+    prior = historical.merge(
+        final_key_frame,
+        on=list(SOURCE_KEY_COLUMNS),
+        how="inner",
+        validate="one_to_one",
+    )
+    final_keys = set(map(tuple, final_key_frame.itertuples(index=False, name=None)))
     source_keys = set(zip(prior["fixture"], prior["element"]))
     common = final_keys & source_keys
-    latest_match = prior["match_available_at"].max() if len(prior) else pd.NaT
-    latest_final_match = final_prior["match_available_at"].max() if len(final_prior) else pd.NaT
+    latest_match = final_prior["match_available_at"].max() if len(final_prior) else pd.NaT
+    latest_final_match = latest_match
     age_hours = (deadline - selected["committed_at"]).total_seconds() / 3600.0
     return {
         "season": season,
@@ -443,8 +488,12 @@ def audit_season(
     final_source_path: Path,
     fplcache_root: Path,
     fplcache_commit: str,
+    vaastav_commit: str,
     token: str | None,
 ) -> dict[str, Any]:
+    final_source_path = _ensure_pinned_vaastav_file(
+        final_source_path, season, vaastav_commit, token
+    )
     index = _snapshot_index(fplcache_root, fplcache_commit, token)
     snapshot_root = fplcache_root / "snapshots"
     probe_at, probe_path, probe_payload = _probe_payload(
@@ -503,6 +552,7 @@ def main() -> None:
     )
     parser.add_argument("--fplcache-root", type=Path, required=True)
     parser.add_argument("--fplcache-commit", required=True)
+    parser.add_argument("--vaastav-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--detail-output", type=Path, required=True)
     args = parser.parse_args()
@@ -520,7 +570,7 @@ def main() -> None:
             raise ValueError(f"Invalid max_gameweek for {season}: {max_gameweek}")
         reports[season] = audit_season(
             season, max_gameweek, source_path, args.fplcache_root,
-            args.fplcache_commit, token,
+            args.fplcache_commit, args.vaastav_commit, token,
         )
     report = {
         "status": "POINT_IN_TIME_SOURCE_VINTAGE_AUDIT_COMPLETE",
