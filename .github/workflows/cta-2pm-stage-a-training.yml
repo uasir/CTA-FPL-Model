@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       artifact_run_id:
-        description: "Run ID containing the validated six-season tensor artifact"
+        description: "Run ID containing the corrected, mask-validated six-season tensor artifact; Run 83 is prohibited"
         required: true
-        default: "45936066859"
+        
       artifact_name:
-        description: "Exact tensor artifact name"
+        description: "Exact artifact name from the corrected migration run; do not use Run 83"
         required: true
-        default: "2pm-six-season-tensor-candidate-run-83"
+        
       epochs:
         description: "Maximum epochs per chronological fold"
         required: true
@@ -50,7 +50,7 @@ jobs:
           python -m pip install numpy pytest
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Download the existing Run 83 tensor artifact
+      - name: Download the corrected provenance-masked tensor artifact
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.artifact_name }}
@@ -64,8 +64,46 @@ jobs:
           set -euo pipefail
           ROOT="$RUNNER_TEMP/2pm-dastan-candidate"
           find "$ROOT" -maxdepth 4 -type d | sort | head -100
-          test -d "$ROOT/postmatch-grouped-dataset/player_gameweek_tensors"
+          TENSOR="$ROOT/postmatch-grouped-dataset/player_gameweek_tensors"
+          test -d "$TENSOR"
           test -f "$ROOT/postmatch-grouped-dataset/tensor_artifact_integrity_audit.json"
+          python - "$TENSOR" <<'PY'
+          import csv, sys
+          from pathlib import Path
+          import numpy as np
+          root = Path(sys.argv[1])
+          metadata_files = sorted(root.glob("*_gw*/metadata_player_gw_*.csv"))
+          if not metadata_files:
+              raise SystemExit("No grouped metadata shards found")
+          checked = 0
+          for meta in metadata_files:
+              stem = meta.name.replace("metadata_player_gw_", "")
+              paths = {
+                  "x": meta.with_name("X_player_gw_" + stem.replace(".csv", ".npy")),
+                  "fixture": meta.with_name("fixture_mask_" + stem.replace(".csv", ".npy")),
+                  "observed": meta.with_name("observed_value_mask_" + stem.replace(".csv", ".npy")),
+                  "availability": meta.with_name("source_availability_state_" + stem.replace(".csv", ".npy")),
+                  "y": meta.with_name("y_player_gw_" + stem.replace(".csv", ".npy")),
+              }
+              missing = [str(p) for p in paths.values() if not p.is_file()]
+              if missing:
+                  raise SystemExit(f"Shard missing required arrays: {missing}")
+              x, fm, obs, avail, y = [np.load(paths[k], mmap_mode="r", allow_pickle=False) for k in ("x","fixture","observed","availability","y")]
+              with meta.open(newline="") as f:
+                  n = sum(1 for _ in csv.DictReader(f))
+              if x.shape != (n, fm.shape[1], 6, 286) or obs.shape != x.shape or avail.shape != x.shape:
+                  raise SystemExit(f"Shape mismatch: {meta}")
+              if len(y) != n or fm.shape[0] != n:
+                  raise SystemExit(f"Row-count mismatch: {meta}")
+              if not np.isin(obs, [0,1]).all() or not np.isin(avail, [0,1,2]).all():
+                  raise SystemExit(f"Invalid mask codes: {meta}")
+              if np.any((obs == 1) & (avail == 0)):
+                  raise SystemExit(f"Unavailable source marked observed: {meta}")
+              if np.any((obs == 1) & ~np.isfinite(x)):
+                  raise SystemExit(f"Non-finite value marked observed: {meta}")
+              checked += 1
+          print(f"PROVENANCE_PREFLIGHT_PASS: {checked} shards; both masks present and aligned")
+          PY
 
       - name: Run 2PM model and preprocessing contracts
         working-directory: canonical_candidate/engineering_workbench
