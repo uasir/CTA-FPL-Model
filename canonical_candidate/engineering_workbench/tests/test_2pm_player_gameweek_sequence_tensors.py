@@ -389,9 +389,12 @@ def test_sequence_tensor_uses_raw_source_observation_sidecars(tmp_path):
     )
     assert report["counts"]["emitted"] == 1
     observed = np.load(tmp_path / "tensors" / "observed_value_mask_00000.npy")
+    values = np.load(tmp_path / "tensors" / "X_00000.npy")
     assert observed.shape == (1, 2, 6, 286)
     assert np.all(observed[0, :, :5, 0] == 0)
     assert np.all(observed[0, :, 5, 0] == 1)
+    assert np.isnan(values[0, :, :5, 0]).all()
+    assert np.isfinite(values[0, :, 5, 0]).all()
 
 
 def test_production_sequence_builder_rejects_missing_raw_source_sidecars(tmp_path):
