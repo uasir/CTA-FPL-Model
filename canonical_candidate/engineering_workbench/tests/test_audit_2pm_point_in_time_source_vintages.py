@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from audit_2pm_point_in_time_source_vintages import (
     _field_parity,
+    _match_rows_to_canonical_prior,
     _probe_payload,
     _snapshot_for_deadline,
     _season_capture_bounds,
@@ -75,6 +76,34 @@ class PointInTimeSourceVintageTests(unittest.TestCase):
                 datetime(2021, 7, 30, 10, 0, tzinfo=timezone.utc),
             )
         self.assertEqual(result["status"], "no_pre_deadline_snapshot")
+
+    def test_historical_kickoff_revision_does_not_change_canonical_prior_keys(self):
+        import pandas as pd
+
+        deadline = pd.Timestamp("2021-09-01T12:00:00Z")
+        historical = pd.DataFrame({
+            "fixture": ["101", "102"],
+            "element": [1, 1],
+            "minutes": [90, 0],
+            "kickoff_time": [
+                pd.Timestamp("2021-09-01T13:00:00Z"),
+                pd.Timestamp("2021-08-01T12:00:00Z"),
+            ],
+        })
+        # Fixture 101 was moved after the deadline in the historical file,
+        # but canonical final-source availability establishes it as a prior
+        # match. Fixture 102 is also a canonical prior key.
+        final_prior = pd.DataFrame({
+            "fixture": ["101", "102"],
+            "element": [1, 1],
+            "match_available_at": [
+                deadline - pd.Timedelta(days=1),
+                deadline - pd.Timedelta(days=2),
+            ],
+        })
+        matched = _match_rows_to_canonical_prior(historical, final_prior)
+        self.assertEqual(set(matched["fixture"]), {"101", "102"})
+        self.assertEqual(int(matched["minutes"].gt(0).sum()), 1)
 
     def test_prior_match_field_parity_detects_source_revisions(self):
         historical = __import__("pandas").DataFrame({
