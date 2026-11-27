@@ -115,6 +115,6 @@ def test_feature_family_register_rejects_missing_or_duplicated_feature():
 def test_manifest_source_pins_must_match_the_feature_schema():
     schema, manifest, _ = load_feature_group_manifest(ROOT)
     broken = json.loads(json.dumps(manifest))
-    broken["source_pins"]["vaastav"]["commit"] = "wrong-commit"
-    with pytest.raises(ValueError, match="vaastav pin"):
+    broken["source_pins"]["dastan"]["commit"] = "wrong-commit"
+    with pytest.raises(ValueError, match="Dastan pin"):
         validate_feature_group_manifest(schema, broken)
