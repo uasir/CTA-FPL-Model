@@ -347,7 +347,7 @@
     },
     "fixture_context": {
       "count": 6,
-      "description": "Two schedule-context columns plus four opponent defensive-allowance columns. Overlaps defensive_player_history only in the sense that it is a separate reconstruction-family partition; the four opponent columns are included in defensive_regime_dependent.",
+      "description": "Two schedule-context columns plus four opponent defensive-allowance columns. This reconstruction family is disjoint from defensive_player_history; four of its six columns also belong to defensive_regime_dependent.",
       "feature_order": [
         "ar_rest_days",
         "ar_team_matches_14d",
