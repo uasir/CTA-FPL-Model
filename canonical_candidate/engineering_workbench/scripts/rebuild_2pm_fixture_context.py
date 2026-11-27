@@ -499,6 +499,7 @@ def rebuild_deadline_team_context(
         for window in windows
     ]
     history_cache = {}
+    observed_history_cache = {}
     required_teams = set()
     for row in out[["season", "deadline_time", "_team_us", "_opponent_us"]].itertuples(
         index=False, name=None
@@ -513,17 +514,30 @@ def rebuild_deadline_team_context(
             history_cache[(season, deadline, team)] = {
                 name: np.nan for name in team_feature_names
             }
+            observed_history_cache[(season, deadline, team)] = {
+                name: 0 for name in team_feature_names
+            }
             continue
         eligible = group[group["match_available_at"].lt(deadline)].tail(max(windows))
         result = {}
+        observed_result = {}
         for source, feature in source_map.items():
             values = pd.to_numeric(eligible[source], errors="coerce")
+            observed_column = (
+                "__obs_league_rank" if source == "league_rank"
+                else "__obs_opp_league_rank" if source == "opp_league_rank"
+                else f"__obs_{source}"
+            )
             for window in windows:
                 sample = values.tail(window)
-                result[f"team_{feature}_{window}"] = (
-                    float(sample.mean()) if len(sample) else np.nan
+                sample_observed = eligible[observed_column].tail(window).astype(bool)
+                name = f"team_{feature}_{window}"
+                result[name] = float(sample.mean()) if len(sample) else np.nan
+                observed_result[name] = int(
+                    len(sample) > 0 and bool(sample_observed.all())
                 )
         history_cache[(season, deadline, team)] = result
+        observed_history_cache[(season, deadline, team)] = observed_result
 
     own_records = []
     opponent_records = []
