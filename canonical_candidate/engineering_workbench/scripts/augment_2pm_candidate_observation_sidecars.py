@@ -135,7 +135,8 @@ def augment_candidate_frame(
             "Raw-source sidecar reconstruction changed cached feature values; "
             "refusing to migrate this candidate. "
             f"mismatch_cells={int(mismatch.sum())}, "
-            f"features={dict(list(mismatch_counts.items())[:20])}"
+            f"features={dict(list(mismatch_counts.items())[:20])}. "
+            "Rerun the workflow with rebuild_candidate=true for a full candidate rebuild."
         )
 
     sidecars = working[expected_columns].apply(pd.to_numeric, errors="coerce")
@@ -179,7 +180,8 @@ def augment_candidate_directory(
     for path in (candidate_path, player_path, team_path, report_path):
         if not path.is_file():
             raise FileNotFoundError(
-                f"Cannot augment cached candidate without required artifact: {path}"
+                f"Cannot augment cached candidate without required artifact: {path}. "
+                "If the cached raw match tables are unavailable, rerun with rebuild_candidate=true."
             )
 
     actual_commit = subprocess.run(
@@ -201,6 +203,14 @@ def augment_candidate_directory(
     if any(name.startswith(OBSERVED_PREFIX) for name in candidate.columns):
         result = _validate_existing_sidecars(candidate, feature_order)
         result["candidate_sha256"] = _sha256(candidate_path)
+        candidate_report = json.loads(report_path.read_text(encoding="utf-8"))
+        candidate_report["candidate_sha256"] = result["candidate_sha256"]
+        candidate_report["raw_source_observation_sidecar_count"] = result["sidecar_count"]
+        candidate_report["source_observation_sidecar_status"] = result["status"]
+        candidate_report["source_observation_sidecar_report"] = result
+        report_path.write_text(
+            json.dumps(candidate_report, indent=2) + "\n", encoding="utf-8"
+        )
         return result
 
     player_matches = pd.read_parquet(player_path)
