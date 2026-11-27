@@ -77,3 +77,33 @@ def test_manifest_rejects_promoting_unverified_current_season_to_available():
     broken["feature_source_availability"]["groups"]["defensive_regime_dependent"]["2026-27"] = "AVAILABLE"
     with pytest.raises(ValueError, match="2026/27 defensive source availability"):
         validate_feature_group_manifest(schema, broken)
+
+
+def test_feature_family_and_reconstruction_treatment_registers_cover_286_once():
+    schema, manifest, _ = load_feature_group_manifest(ROOT)
+    family = manifest["feature_family_register"]
+    assert {name: item["count"] for name, item in family["families"].items()} == {
+        "Player rolling": 115,
+        "Own-team rolling": 60,
+        "Opponent rolling": 60,
+        "Flat context": 6,
+        "Availability history": 9,
+        "Dastan engineered/context": 33,
+        "Pre-deadline availability": 3,
+    }
+    assert sum(item["count"] for item in family["reconstruction_treatments"].values()) == 286
+    assert family["admission_status_counts"] == {"HOLD": 286}
+    features = [
+        feature for item in family["families"].values()
+        for feature in item["feature_order"]
+    ]
+    assert len(features) == 286
+    assert set(features) == set(schema["feature_order"])
+
+
+def test_feature_family_register_rejects_missing_or_duplicated_feature():
+    schema, manifest, _ = load_feature_group_manifest(ROOT)
+    broken = json.loads(json.dumps(manifest))
+    broken["feature_family_register"]["families"]["Player rolling"]["feature_order"].pop()
+    with pytest.raises(ValueError, match="partition all 286 schema columns"):
+        validate_feature_group_manifest(schema, broken)
