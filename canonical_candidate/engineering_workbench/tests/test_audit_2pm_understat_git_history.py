@@ -142,13 +142,19 @@ class UnderstatGitHistoryTests(unittest.TestCase):
         self.assertEqual(
             _row_key({"date": "2024-08-17 14:00:00", "h_a": "h",
                       "xG": 1.6, "xGA": 0.5}, "team", source_path=source_path),
-            "2024-25|Arsenal|2024-08-17 14:00:00|h",
+            "2024-25|Arsenal|2024-08-17 14:00:00",
         )
-        # The same kickoff date in another team's file remains a different row.
+        # Home/away is not part of the identity; a duplicate cannot evade detection.
+        self.assertEqual(
+            _row_key({"date": "2024-08-17 14:00:00", "h_a": "a"},
+                     "team", source_path=source_path),
+            "2024-25|Arsenal|2024-08-17 14:00:00",
+        )
+        # The same kickoff in another team's source file remains a different row.
         self.assertNotEqual(
             _row_key({"date": "2024-08-17 14:00:00", "h_a": "a"},
                      "team", source_path="data/2024-25/understat/understat_Chelsea.csv"),
-            "2024-25|Arsenal|2024-08-17 14:00:00|h",
+            "2024-25|Arsenal|2024-08-17 14:00:00",
         )
 
 
@@ -162,12 +168,12 @@ class UnderstatGitHistoryTests(unittest.TestCase):
         self.assertEqual(
             _row_key({"date": "2024-07-01 00:00:00", "h_a": "h"},
                      "team", source_path=source_path),
-            "2024-25|Arsenal|2024-07-01 00:00:00|h",
+            "2024-25|Arsenal|2024-07-01 00:00:00",
         )
         self.assertEqual(
             _row_key({"date": "2025-06-30 23:59:59", "h_a": "a"},
                      "team", source_path=source_path),
-            "2024-25|Arsenal|2025-06-30 23:59:59|a",
+            "2024-25|Arsenal|2025-06-30 23:59:59",
         )
         self.assertEqual(
             _row_key({"date": "2025-07-01 00:00:00", "h_a": "a"},
