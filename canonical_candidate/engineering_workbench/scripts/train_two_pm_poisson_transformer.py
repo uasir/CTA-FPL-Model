@@ -102,8 +102,8 @@ def load_grouped_dataset(root: Path, schema_path: Path, manifest_path: Path):
             values = x[i, :, :, :][:, :, indices].astype(np.float32, copy=True)
             # Use the builder's raw-source and source-vintage masks. Never infer
             # observation from finiteness: upstream pipelines may zero-fill.
-            observed = observed_full[i, :, :, indices].astype(bool, copy=True)
-            availability = availability_full[i, :, :, indices].astype(np.int64, copy=True)
+            observed = observed_full[i][:, :, indices].astype(bool, copy=True)
+            availability = availability_full[i][:, :, indices].astype(np.int64, copy=True)
             if np.any(observed & (availability == 0)):
                 raise ValueError(f"Observed mask conflicts with unavailable source in {metadata_path}")
             # Padded fixture slots are not real queries and carry no observations.
