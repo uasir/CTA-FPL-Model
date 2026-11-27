@@ -1,8 +1,10 @@
-"""Audit point-in-time source vintages for the defensive 2PM experiment.
+"""Audit point-in-time vintages of FPL-native match history and defensive fields.
 
-For each historical target deadline, this selects the latest Vaastav merged-GW
-commit strictly before the deadline and the latest archived FPL bootstrap snapshot
-before the five-minute safety buffer. It reads no target_points or total_points.
+For each historical target deadline, select the latest Vaastav merged-GW commit
+strictly before the deadline minus five minutes. Compare prior-match FPL-native
+source values and keys against the pinned final source. Historical total_points
+is treated only as a prior-match input after the strict match-availability filter;
+target labels are not used by the audit.
 """
 from __future__ import annotations
 
@@ -21,6 +23,25 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+FPL_NATIVE_FIELDS = (
+    "total_points",
+    "minutes",
+    "influence",
+    "creativity",
+    "threat",
+    "goals_scored",
+    "penalties_missed",
+    "assists",
+    "goals_conceded",
+    "own_goals",
+    "saves",
+    "penalties_saved",
+    "yellow_cards",
+    "red_cards",
+    "bps",
+    "bonus",
+)
+OPTIONAL_FPL_FIELDS = ("starts",)
 DEFENSIVE_FIELDS = (
     "defensive_contribution",
     "clearances_blocks_interceptions",
@@ -28,6 +49,7 @@ DEFENSIVE_FIELDS = (
     "tackles",
 )
 SOURCE_ID_COLUMNS = ("fixture", "element", "kickoff_time", "minutes")
+SOURCE_KEY_COLUMNS = ("fixture", "element")
 FIXTURE_SAFETY_BUFFER = timedelta(minutes=5)
 SNAPSHOT_PATH = re.compile(r"^cache/(\d{4})/(\d{1,2})/(\d{1,2})/(\d{2})(\d{2})\.json\.xz$")
 
@@ -238,10 +260,15 @@ def _read_source_frame(payload: bytes | Path) -> tuple[pd.DataFrame, list[str]]:
     else:
         header = pd.read_csv(io.BytesIO(payload), nrows=0).columns.tolist()
         reader_source = io.BytesIO(payload)
-    present = [field for field in DEFENSIVE_FIELDS if field in header]
-    columns = [field for field in SOURCE_ID_COLUMNS if field in header] + present
+    audited_fields = list(dict.fromkeys(
+        FPL_NATIVE_FIELDS + OPTIONAL_FPL_FIELDS + DEFENSIVE_FIELDS
+    ))
+    present = [field for field in audited_fields if field in header]
+    columns = list(dict.fromkeys(
+        [field for field in SOURCE_ID_COLUMNS if field in header] + present
+    ))
     frame = pd.read_csv(reader_source, usecols=columns, low_memory=False)
-    for field in DEFENSIVE_FIELDS:
+    for field in audited_fields:
         if field not in frame:
             frame[field] = np.nan
     for required in SOURCE_ID_COLUMNS:
@@ -257,9 +284,9 @@ def _read_source_frame(payload: bytes | Path) -> tuple[pd.DataFrame, list[str]]:
     return frame, present
 
 
-def _field_counts(frame: pd.DataFrame) -> dict[str, Any]:
+def _field_counts(frame: pd.DataFrame, fields: tuple[str, ...]) -> dict[str, Any]:
     report = {}
-    for field in DEFENSIVE_FIELDS:
+    for field in fields:
         values = pd.to_numeric(frame[field], errors="coerce")
         finite = values[np.isfinite(values)]
         report[field] = {
@@ -267,6 +294,37 @@ def _field_counts(frame: pd.DataFrame) -> dict[str, Any]:
             "missing": int(values.isna().sum()),
             "zero": int(finite.eq(0).sum()),
             "nonzero": int(finite.ne(0).sum()),
+        }
+    return report
+
+
+def _field_parity(
+    historical: pd.DataFrame,
+    final: pd.DataFrame,
+    fields: tuple[str, ...],
+) -> dict[str, Any]:
+    """Compare historical-vintage prior-match values with pinned final source values."""
+    joined = historical[list(SOURCE_KEY_COLUMNS) + list(fields)].merge(
+        final[list(SOURCE_KEY_COLUMNS) + list(fields)],
+        on=list(SOURCE_KEY_COLUMNS),
+        how="inner",
+        suffixes=("_historical", "_final"),
+        validate="one_to_one",
+    )
+    report = {"common_prior_keys": int(len(joined)), "fields": {}}
+    for field in fields:
+        left = pd.to_numeric(joined[f"{field}_historical"], errors="coerce")
+        right = pd.to_numeric(joined[f"{field}_final"], errors="coerce")
+        valid = left.notna() & right.notna()
+        equal = np.isclose(left[valid], right[valid], atol=1e-6, rtol=0.0)
+        difference = (left[valid] - right[valid]).abs()
+        report["fields"][field] = {
+            "valid_pairs": int(valid.sum()),
+            "exact_match_rows": int(equal.sum()),
+            "changed_rows": int((~equal).sum()),
+            "exact_match_rate": float(equal.mean()) if len(equal) else None,
+            "mean_absolute_difference": float(difference.mean()) if len(difference) else None,
+            "p95_absolute_difference": float(difference.quantile(0.95)) if len(difference) else None,
         }
     return report
 
@@ -292,9 +350,18 @@ def _audit_one_deadline(
             "final_prior_played_rows": int(final_prior["minutes"].gt(0).sum()),
             "missing_final_prior_keys": int(len(final_prior)),
             "source_coverage_of_final_prior_keys": 0.0 if len(final_prior) else None,
+            "fpl_native_columns_present": [],
+            "fpl_native_columns_missing": list(FPL_NATIVE_FIELDS),
+            "optional_fpl_columns_present": [],
             "defensive_columns_present": [],
-            "field_counts_all_prior_rows": {},
-            "field_counts_prior_played_rows": {},
+            "source_status": "no_commit_before_deadline",
+            "defensive_status": "no_commit_before_deadline",
+            "fpl_native_field_counts_all_prior_rows": {},
+            "fpl_native_field_counts_prior_played_rows": {},
+            "fpl_native_prior_value_parity": {},
+            "defensive_field_counts_all_prior_rows": {},
+            "defensive_field_counts_prior_played_rows": {},
+            "defensive_prior_value_parity": {},
         }
 
     sha = selected["sha"]
@@ -321,9 +388,18 @@ def _audit_one_deadline(
         "gameweek": gameweek,
         "deadline": deadline.isoformat(),
         "source_status": (
-            "defensive_columns_absent"
-            if not set(DEFENSIVE_FIELDS).issubset(present)
+            "fpl_native_columns_incomplete"
+            if not set(FPL_NATIVE_FIELDS).issubset(present)
             else "selected_pre_deadline_commit"
+        ),
+        "fpl_native_columns_present": [field for field in FPL_NATIVE_FIELDS if field in present],
+        "fpl_native_columns_missing": sorted(set(FPL_NATIVE_FIELDS) - set(present)),
+        "optional_fpl_columns_present": [field for field in OPTIONAL_FPL_FIELDS if field in present],
+        "defensive_columns_present": [field for field in DEFENSIVE_FIELDS if field in present],
+        "defensive_status": (
+            "all_defensive_columns_present"
+            if set(DEFENSIVE_FIELDS).issubset(present)
+            else "one_or_more_defensive_columns_absent"
         ),
         "source_commit": sha,
         "source_commit_url": selected["url"],
@@ -350,8 +426,12 @@ def _audit_one_deadline(
             round((deadline - latest_match).total_seconds() / 3600.0, 3)
             if pd.notna(latest_match) else None
         ),
-        "field_counts_all_prior_rows": _field_counts(prior),
-        "field_counts_prior_played_rows": _field_counts(played),
+        "fpl_native_field_counts_all_prior_rows": _field_counts(prior, FPL_NATIVE_FIELDS),
+        "fpl_native_field_counts_prior_played_rows": _field_counts(played, FPL_NATIVE_FIELDS),
+        "fpl_native_prior_value_parity": _field_parity(prior, final_prior, FPL_NATIVE_FIELDS),
+        "defensive_field_counts_all_prior_rows": _field_counts(prior, DEFENSIVE_FIELDS),
+        "defensive_field_counts_prior_played_rows": _field_counts(played, DEFENSIVE_FIELDS),
+        "defensive_prior_value_parity": _field_parity(prior, final_prior, DEFENSIVE_FIELDS),
     }
 
 
@@ -447,9 +527,8 @@ def main() -> None:
         "season_snapshot_scoping": "snapshot index restricted to capture dates from June 1 of the season start year through June 30 of the following year; payload season label verified",
         "match_availability_rule": "fixture kickoff + 24 hours; strict availability < target deadline",
         "fplcache_snapshot_rule": "latest archived bootstrap snapshot from the same season at least five minutes before deadline; no cross-season snapshot fallback",
-        "labels_read": False,
-        "target_points_loaded": False,
-        "total_points_loaded": False,
+        "target_labels_used": False,
+        "historical_total_points_audited_only_after_match_availability_filter": True,
         "seasons": reports,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
