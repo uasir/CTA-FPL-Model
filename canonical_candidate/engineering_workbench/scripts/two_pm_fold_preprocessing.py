@@ -85,20 +85,17 @@ def fit_fold_median_imputer(
     )
     medians: list[float] = []
     counts: list[int] = []
-    missing_features: list[str] = []
+    zero_coverage_features: list[str] = []
     for index, name in enumerate(feature_order):
         values = x[..., index][selected[..., index]]
         counts.append(int(values.size))
         if values.size == 0:
-            missing_features.append(str(name))
-            medians.append(float("nan"))
+            # Neutralize absent features without fabricating observations:
+            # the observed mask remains false in every partition.
+            zero_coverage_features.append(str(name))
+            medians.append(0.0)
         else:
             medians.append(float(np.median(values)))
-    if missing_features:
-        raise ValueError(
-            "training fold has no observed values for features: "
-            + ", ".join(missing_features[:20])
-        )
     return {
         "imputer_version": IMPUTER_VERSION,
         "method": "training_fold_feature_median",
@@ -106,6 +103,7 @@ def fit_fold_median_imputer(
         "feature_count": len(feature_order),
         "medians": medians,
         "observed_counts": counts,
+        "zero_coverage_features": zero_coverage_features,
         "training_sample_count": int(x.shape[0]),
         "shared_history_deduplicated": deduplicated,
         "history_token_count": int(history_token_count) if deduplicated else None,
