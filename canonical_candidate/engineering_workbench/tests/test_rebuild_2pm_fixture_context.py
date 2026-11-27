@@ -1,6 +1,7 @@
 import pandas as pd
+from types import SimpleNamespace
 
-from rebuild_2pm_fixture_context import rebuild_fixture_context
+from rebuild_2pm_fixture_context import rebuild_deadline_team_context, rebuild_fixture_context
 
 
 def row(season, fixture, code, team, opponent, kickoff, available, dc, tackles):
@@ -136,3 +137,69 @@ def test_missing_defensive_stats_do_not_become_zero_or_partial_opponent_totals()
     assert result.loc[0, "__observed__ar_opp_tackles_allowed_5"] == 1
     assert result.loc[0, "__observed__ar_rest_days"] == 1
     assert result.loc[0, "__observed__ar_team_matches_14d"] == 1
+
+
+
+def test_league_rank_fallbacks_are_unobserved_until_prior_completed_matches_exist():
+    def prepare_team_matches(frame):
+        return frame.copy()
+
+    def build_opponent_lookup(frame):
+        return frame.copy()
+
+    def compute_league_ranks(frame):
+        ranks = {}
+        for date, day in frame.groupby("date", sort=True):
+            for team in day["understat_team"].astype(str):
+                ranks[(team, str(day.iloc[0]["season"]), date.strftime("%Y-%m-%d %H:%M"))] = 1
+        return ranks
+
+    features = SimpleNamespace(
+        WINDOWS=[1],
+        TEAM_FEATURES={
+            "scored": "goals_scored",
+            "missed": "goals_conceded",
+            "league_rank": "league_rank",
+            "opp_league_rank": "opponent_league_rank",
+        },
+        fpl_to_understat={"T": "UT", "O": "UO"},
+        _prepare_team_matches=prepare_team_matches,
+        build_opponent_lookup=build_opponent_lookup,
+        compute_league_ranks=compute_league_ranks,
+    )
+    team_matches = pd.DataFrame([
+        {
+            "season": "2025-26", "understat_team": "UT", "opponent": "UO",
+            "date": pd.Timestamp("2026-01-01", tz="UTC"),
+            "scored": 1, "missed": 0, "pts": 3,
+        },
+        {
+            "season": "2025-26", "understat_team": "UO", "opponent": "UT",
+            "date": pd.Timestamp("2026-01-01", tz="UTC"),
+            "scored": 0, "missed": 1, "pts": 0,
+        },
+    ])
+    targets = pd.DataFrame([
+        {
+            "season": "2025-26", "fixture": "early", "fpl_code": 10,
+            "deadline_time": pd.Timestamp("2026-01-01 12:00", tz="UTC"),
+            "team_name": "T", "opponent_team_name": "O",
+        },
+        {
+            "season": "2025-26", "fixture": "later", "fpl_code": 10,
+            "deadline_time": pd.Timestamp("2026-01-03", tz="UTC"),
+            "team_name": "T", "opponent_team_name": "O",
+        },
+    ])
+
+    result, _ = rebuild_deadline_team_context(targets, team_matches, features)
+
+    # No completed match by the first deadline: fallback direct ranks are not observations.
+    assert result.loc[0, "status_league_rank"] == 10
+    assert result.loc[0, "__observed__status_league_rank"] == 0
+    assert result.loc[0, "__observed__opp_status_league_rank"] == 0
+    # The first completed match's pre-match rank also had no prior table behind it.
+    assert result.loc[1, "team_league_rank_1"] == 10
+    assert result.loc[1, "__observed__team_league_rank_1"] == 0
+    # The direct deadline rank is now based on completed league results.
+    assert result.loc[1, "__observed__status_league_rank"] == 1
