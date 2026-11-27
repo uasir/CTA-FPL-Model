@@ -330,7 +330,9 @@ def rebuild_player_history_features(
             for source in ("p_any", "p60", "e_minutes"):
                 if not len(availability_eligible):
                     values[f"{source}_{window}"][row_position] = defaults[source]
-                    observed_values[f"{source}_{window}"][row_position] = 1
+                    # Position base rates are deterministic fallback priors, not
+                    # observations from historical player match records.
+                    observed_values[f"{source}_{window}"][row_position] = 0
                 else:
                     array = availability_arrays[
                         {"p_any": "played", "p60": "played60", "e_minutes": "minutes"}[source]
