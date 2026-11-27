@@ -140,6 +140,15 @@ jobs:
           key: 2pm-dastan-grouped-tensors-v1-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_grouped_dataset.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_player_gameweek_sequence_tensors.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_state_vectors.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/augment_2pm_candidate_observation_sidecars.py', 'canonical_candidate/engineering_workbench/scripts/two_pm_feature_masks.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'canonical_candidate/engineering_workbench/config/2pm_feature_group_manifest.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}-${{ github.run_id }}
           restore-keys: |
             2pm-dastan-grouped-tensors-v1-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_grouped_dataset.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_player_gameweek_sequence_tensors.py', 'canonical_candidate/engineering_workbench/scripts/build_2pm_postmatch_state_vectors.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_fixture_context.py', 'canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py', 'canonical_candidate/engineering_workbench/scripts/augment_2pm_candidate_observation_sidecars.py', 'canonical_candidate/engineering_workbench/scripts/two_pm_feature_masks.py', 'canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json', 'canonical_candidate/engineering_workbench/config/2pm_feature_group_manifest.json', 'dastan-source/data/source_pins.json', 'dastan-source/data/mappings/fpl_understat_training_snapshot.csv', 'dastan-source/data/mappings/fpl_understat_players.csv', 'dastan-source/data/mappings/fpl_understat_current.csv') }}-
+      - name: Inventory exact Understat player and team source files
+        working-directory: canonical_candidate/engineering_workbench
+        run: |
+          python scripts/inventory_2pm_understat_sources.py \
+            --raw-dir "$RUNNER_TEMP/2pm-dastan-raw" \
+            --dastan-root "$GITHUB_WORKSPACE/dastan-source" \
+            --seasons 2020-21,2021-22,2022-23,2023-24,2024-25,2025-26 \
+            --output "$RUNNER_TEMP/2pm-dastan-candidate/understat_source_inventory.json" \
+            --detail-output "$RUNNER_TEMP/2pm-dastan-candidate/understat_source_inventory.csv"
       - name: Audit six-season FPL source vintages at each Gameweek deadline
         working-directory: canonical_candidate/engineering_workbench
         env:
