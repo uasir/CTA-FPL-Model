@@ -66,7 +66,7 @@ def list_path_commits(session: requests.Session, repository: str, path: str,
     return commits[:max_commits]
 
 
-def _row_key(row: dict[str, Any], kind: str) -> str:
+def _row_key(row: dict[str, Any], kind: str, player_id: int | None = None) -> str:
     date = str(row.get("date", "")).strip()
     match_id = str(row.get("id", row.get("match_id", ""))).strip()
     if kind == "player":
