@@ -136,3 +136,13 @@ def test_verified_understat_policy_requires_row_level_vintage_mask():
         build_observed_value_mask(
             values, features, broken, source_observed_mask=source_mask
         )
+
+
+def test_2020_21_understat_player_history_is_unavailable_but_team_context_is_unknown():
+    features, manifest = load()
+    index = {name: i for i, name in enumerate(features)}
+    state = build_feature_availability_state("2020-21", features, manifest)
+    assert state[index["player_xg_1"]] == UNAVAILABLE
+    assert state[index["team_xg_1"]] == UNKNOWN
+    next_season = build_feature_availability_state("2021-22", features, manifest)
+    assert next_season[index["player_xg_1"]] == UNKNOWN
