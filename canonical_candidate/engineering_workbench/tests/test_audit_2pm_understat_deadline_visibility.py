@@ -129,8 +129,8 @@ class UnderstatDeadlineVisibilityTests(unittest.TestCase):
             "value_revision_events": 0, "source_row_keys": ["old"],
             "events": [{"commit": "a", "committed_at": "2020-09-22T07:05:27Z",
                         "status": "present", "value_signature": "{}", 
-                        "metric_signature": "{}", "source_row_key": "old"}],
-            "final_metric_signature": "{}",
+                        "metric_signature": "old", "source_row_key": "old"}],
+            "final_metric_signature": "final",
         }
         result = _evaluate_deadline(item, {
             "gameweek": 3,
@@ -140,6 +140,8 @@ class UnderstatDeadlineVisibilityTests(unittest.TestCase):
         })
         self.assertEqual(result["visibility_status"], "deadline_unverified")
         self.assertFalse(result["deadline_verified"])
+        self.assertEqual(result["provisional_visibility_status"], "repository_proven_prior_row")
+        self.assertFalse(result["provisional_value_matches_final"])
 
 
 if __name__ == "__main__":
