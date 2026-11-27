@@ -952,7 +952,7 @@ def rebuild_fixture_context(
         },
         "source_rule": {
             "rest": "latest player fixture whose conservative/observed match availability is strictly before target deadline; kickoff-to-target-kickoff days clipped to [1,14], default 14",
-            "team_congestion": "retrospective final team fixture calendar in [target kickoff - 14 days, target kickoff], inclusive; source vintage is not deadline-verified and observation mask is forced to 0",
+            "team_congestion": "retrospective final team fixture calendar; count prior kickoffs in [target kickoff - 14 days, target kickoff), excluding the target fixture; source vintage is not deadline-verified and observation mask is forced to 0",
             "opponent_allowance": "rolling mean of the previous 3/5/10 opponent-conceded fixture DC totals and previous 5 tackle totals, with every source fixture available strictly before target deadline",
         },
         "schedule_source_vintage_status": "UNVERIFIED_FINAL_FIXTURE_CALENDAR; ar_team_matches_14d observation mask forced to 0 until deadline-versioned schedule evidence is available",
