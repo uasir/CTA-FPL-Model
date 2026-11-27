@@ -744,3 +744,25 @@ Implementation commits:
 - Source-map semantics: `701a67084a921f29f717023bb5658af1b6c6e87d`
 
 Engineering and focused 2PM CI are being rerun against the completed change set. These are reconstruction/mask corrections only: Run 85 remains unchanged, no fresh candidate rebuild has run, candidate admission remains NOT_ADMITTED, and no training has started.
+
+
+### Fixture-context and fallback semantics audit (2026-11-27, follow-up)
+
+The remaining fixture-context producer was compared directly with the pinned Dastan `features.py` implementation. This found that the initial 2PM `ar_team_matches_14d` reconstruction included the target fixture itself. Pinned Dastan counts only earlier team fixtures in the 14-day lookback. The 2PM calculation now uses the half-open interval `[target kickoff - 14 days, target kickoff)`, excluding the target fixture. The final retrospective fixture calendar still lacks deadline-versioned schedule evidence, so the value is retained for audit but its observed mask remains 0.
+
+Additional producer safeguards:
+- Position-based availability priors are retained numerically but marked unobserved when no player history is available.
+- The 14-day `ar_rest_days` fallback is marked unobserved; a real prior fixture available strictly before the deadline is required for mask 1.
+- `ar_team_matches_14d` is forced unobserved until historical deadline-versioned fixture schedules are available.
+- `is_home` is parsed strictly as a boolean; missing or ambiguous values fail closed. This avoids Python truthiness treating the string `"False"` as true.
+- Unknown or missing positions no longer receive a fabricated defensive-contribution threshold of 99. The derived DC hit/near-rate values remain missing and unobserved unless the position has a known threshold.
+
+The 286-feature source map and fixture-context report now describe the actual interval, fallback behavior, and source-vintage hold. Regression coverage includes no-history priors, rest fallback, schedule-vintage mask, target-fixture exclusion, string venue flags, and unknown defensive positions.
+
+Final green verification on the implementation set:
+- Engineering CI [46011392614](https://github.com/uasir/CTA-FPL-Model/actions/runs/46011392614): **609 passed, 5 skipped, 18 warnings, 3 subtests passed**.
+- Focused 2PM Dastan 286 sequence contract [46011392404](https://github.com/uasir/CTA-FPL-Model/actions/runs/46011392404): **137 passed, 18 warnings**.
+
+Key implementation commits: `a520b55c`, `792a4d93`, `35a639f9`, `b35568e8`, `db71852c`, `49bcf84b`, `e4816178`; regression-test corrections are included through `1288ef28`.
+
+These results validate reconstruction code and synthetic contracts, not six-season source-value parity. Run 85 remains unchanged; no fresh candidate rebuild has run; source-vintage and feature-value admission remain open; candidate admission remains NOT_ADMITTED; no model training has started.
