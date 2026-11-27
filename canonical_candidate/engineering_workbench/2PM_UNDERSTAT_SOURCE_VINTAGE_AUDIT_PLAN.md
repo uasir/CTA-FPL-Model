@@ -117,3 +117,6 @@ Inspection of the pinned Dastan loader clarified the exact join identities:
 - The tracer now fails the affected file revision closed if duplicate row keys are found, rather than silently overwriting a duplicate in its in-memory map.
 
 The first corrected helper/test CI run passed: `46048025031`, with **619 passed, 5 skipped, 18 warnings, and 3 subtests passed**. Subsequent row-key alignment and duplicate-key guard commits have triggered fresh CI runs; their final status must be checked before treating the latest branch state as green. The earlier failure was a test exposing a missed helper-signature edit; that was corrected and the next run passed.
+
+
+The revision tracer additionally records each row's last-seen revision, missing-revision count, reappearance count, and whether it remains present in the latest inspected revision. This avoids treating a row deleted and later reintroduced as continuously present. A mocked three-revision regression test exercises first appearance, deletion, reappearance, and value change; CI for the implementation commit `39b8369cf9533f0c93fb34a5353cb5dbc97da54a` passed (619 passed, 5 skipped, 18 warnings, 3 subtests).
