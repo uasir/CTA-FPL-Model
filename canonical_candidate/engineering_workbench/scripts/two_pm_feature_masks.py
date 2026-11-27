@@ -61,6 +61,7 @@ def build_observed_value_mask(
     manifest: dict[str, Any],
     availability_state: np.ndarray | None = None,
     source_observed_mask: np.ndarray | None = None,
+    source_vintage_observed_mask: np.ndarray | None = None,
 ) -> np.ndarray:
     """Mark actual finite, non-sentinel observations, excluding structural absence."""
     array = np.asarray(values)
@@ -87,6 +88,38 @@ def build_observed_value_mask(
             raise ValueError("source_observed_mask must contain only 0/1")
         observed &= source_mask.astype(bool)
 
+    vintage_policies = manifest.get("source_vintage_policies", {})
+    vintage_features: set[str] = set()
+    for policy_name, vintage_policy in vintage_policies.items():
+        policy_features = set(vintage_policy.get("feature_order", []))
+        if not policy_features.issubset(set(feature_order)):
+            raise ValueError(
+                f"Source-vintage policy {policy_name} contains features outside schema"
+            )
+        if vintage_features.intersection(policy_features):
+            raise ValueError("Source-vintage policies must not overlap")
+        vintage_features.update(policy_features)
+        action = vintage_policy.get("mask_action")
+        status = vintage_policy.get("status")
+        indices = [i for i, name in enumerate(feature_order) if name in policy_features]
+        if status == "HOLD" and action == "FORCE_UNOBSERVED":
+            observed[..., indices] = False
+        elif status == "VERIFIED" and action == "APPLY_ROW_LEVEL_MASK":
+            if source_vintage_observed_mask is None:
+                raise ValueError(
+                    f"Verified source-vintage policy {policy_name} requires a row-level vintage mask"
+                )
+            vintage_mask = np.asarray(source_vintage_observed_mask)
+            if vintage_mask.shape != array.shape:
+                raise ValueError("source_vintage_observed_mask must match feature values")
+            if not np.isin(vintage_mask, [0, 1, False, True]).all():
+                raise ValueError("source_vintage_observed_mask must contain only 0/1")
+            observed[..., indices] &= vintage_mask[..., indices].astype(bool)
+        else:
+            raise ValueError(
+                f"Unsupported source-vintage policy state/action: {policy_name}/{status}/{action}"
+            )
+
     if availability_state is not None:
         state = np.asarray(availability_state, dtype=np.uint8)
         if state.shape == (len(feature_order),):
@@ -103,11 +136,17 @@ def build_feature_masks(
     feature_order: Sequence[str],
     manifest: dict[str, Any],
     source_observed_mask: np.ndarray | None = None,
+    source_vintage_observed_mask: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Build aligned source-availability-state and observed-value masks."""
     state_vector = build_feature_availability_state(season, feature_order, manifest)
     state = np.broadcast_to(state_vector, np.asarray(values).shape).copy()
     observed = build_observed_value_mask(
-        values, feature_order, manifest, state, source_observed_mask
+        values,
+        feature_order,
+        manifest,
+        state,
+        source_observed_mask,
+        source_vintage_observed_mask,
     )
     return state, observed
