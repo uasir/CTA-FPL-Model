@@ -26,6 +26,7 @@ import pandas as pd
 
 from build_2pm_predeadline_market_snapshot import build_market_artifact
 from rebuild_2pm_fixture_context import (
+    CONTEXT_COLUMNS,
     rebuild_deadline_team_context,
     rebuild_fixture_context,
     rebuild_player_history_features,
@@ -514,81 +515,132 @@ def audit_understat_player_coverage(player_matches: pd.DataFrame) -> dict:
     }
 
 
+def expected_reconstruction_feature_map(features_module) -> dict[str, tuple[str, ...]]:
+    """Return the exact schema names emitted by each independent builder path.
+
+    The upstream feature maps define the rolling column names. This explicit
+    map is compared with the pinned 286-column schema, not merely counted.
+    """
+    windows = tuple(features_module.WINDOWS)
+    player = tuple(
+        f"player_{feature}_{window}"
+        for feature in features_module.PLAYER_FEATURES.values()
+        for window in windows
+    ) + tuple(f"player_relevant_fpl_points_{window}" for window in windows)
+    availability = tuple(
+        f"{prefix}_{window}"
+        for prefix in ("p_any", "p60", "e_minutes")
+        for window in (3, 5, 10)
+    )
+    defensive_player = tuple(
+        f"ar_{feature}_{window}"
+        for feature in ("defensive_contribution", "cbit", "recoveries", "tackles")
+        for window in (3, 5, 10, 38)
+    ) + tuple(
+        f"ar_{kind}_{window}"
+        for kind in ("dc_hit_rate", "dc_near_rate", "starts")
+        for window in (3, 5, 10)
+    ) + ("ar_dc_ppg_5",)
+    team = tuple(
+        f"team_{feature}_{window}"
+        for feature in features_module.TEAM_FEATURES.values()
+        for window in windows
+    )
+    opponent = tuple(name.replace("team_", "opp_", 1) for name in team)
+    return {
+        "player_rolling": player,
+        "availability_history": availability,
+        "defensive_player_history": defensive_player,
+        "own_team_rolling": team,
+        "opponent_rolling": opponent,
+        "direct_ranks": ("status_league_rank", "opp_status_league_rank"),
+        "fixture_context": tuple(CONTEXT_COLUMNS),
+        "home_context": ("is_home_num",),
+        "market_snapshot": tuple(MARKET_FIELDS),
+        "expected_points_snapshot": ("ar_ep_next",),
+        "pre_deadline_signals": (
+            "sig_status_risk", "sig_chance_playing", "sig_has_news",
+        ),
+    }
+
+
 def validate_reconstruction_coverage(
     ordered_features: list[str],
     player_report: dict,
     team_report: dict,
     fixture_report: dict,
     frame: pd.DataFrame,
+    features_module,
 ) -> dict:
-    """Fail closed unless all 286 schema columns have a reconstruction path."""
+    """Fail closed on exact feature-name, builder-path and mask alignment."""
+    if len(ordered_features) != 286 or len(set(ordered_features)) != 286:
+        raise RuntimeError("Pinned 2PM schema must contain 286 unique ordered feature names")
     feature_set = set(ordered_features)
-    actual = {
-        "player": sum(column.startswith("player_") for column in ordered_features),
-        "team": sum(column.startswith("team_") for column in ordered_features),
-        "opponent": sum(column.startswith("opp_") for column in ordered_features),
-        "availability": sum(
-            column.startswith(("p_any_", "p60_", "e_minutes_"))
-            for column in ordered_features
-        ),
-        "ar_engineered": sum(
-            column.startswith("ar_") and column != "ar_ep_next"
-            for column in ordered_features
-        ),
-        "ar_ep_next": int("ar_ep_next" in feature_set),
-        "flat_context": sum(
-            column in feature_set
-            for column in (
-                "is_home_num", "status_league_rank", "value",
-                "selected", "transfers_balance",
-            )
-        ),
-        "signals": sum(column.startswith("sig_") for column in ordered_features),
-    }
-    expected = {
-        "player": 115,
-        "team": 60,
-        "opponent": 61,
-        "availability": 9,
-        "ar_engineered": 32,
-        "ar_ep_next": 1,
-        "flat_context": 5,
-        "signals": 3,
-    }
-    if actual != expected:
+    feature_map = expected_reconstruction_feature_map(features_module)
+    flattened = [name for names in feature_map.values() for name in names]
+    duplicates = sorted({name for name in flattened if flattened.count(name) > 1})
+    if duplicates:
+        raise RuntimeError(f"Feature builders assign the same schema name more than once: {duplicates}")
+    expected_set = set(flattened)
+    missing_from_builders = sorted(feature_set - expected_set)
+    unexpected_from_builders = sorted(expected_set - feature_set)
+    if missing_from_builders or unexpected_from_builders:
         raise RuntimeError(
-            f"286 feature schema family mismatch: expected {expected}, got {actual}"
+            "Exact reconstruction/schema feature-name mismatch: "
+            f"schema_without_builder={missing_from_builders}; "
+            f"builder_without_schema={unexpected_from_builders}"
         )
+
     missing_columns = [column for column in ordered_features if column not in frame]
     if missing_columns:
         raise RuntimeError(f"Reconstructed frame missing schema columns: {missing_columns}")
+    observed_columns = [f"{OBSERVED_PREFIX}{column}" for column in ordered_features]
+    missing_masks = [column for column in observed_columns if column not in frame]
+    if missing_masks:
+        raise RuntimeError(f"Reconstruction paths missing exact observation-mask columns: {missing_masks}")
+    invalid_masks = {}
+    for feature, mask_column in zip(ordered_features, observed_columns):
+        mask = pd.to_numeric(frame[mask_column], errors="coerce")
+        if mask.isna().any() or not mask.isin([0, 1]).all():
+            invalid_masks[feature] = mask_column
+    if invalid_masks:
+        raise RuntimeError(f"Observation masks must be complete binary columns: {invalid_masks}")
 
-    implemented = {
+    expected_counts = {name: len(names) for name, names in feature_map.items()}
+    reported_counts = {
         "player_rolling": int(player_report.get("player_rolling_feature_count", 0)),
-        "availability": int(player_report.get("availability_feature_count", 0)),
-        "defensive_player_history": int(
-            player_report.get("defensive_player_history_feature_count", 0)
-        ),
-        "team_rolling": int(team_report.get("team_feature_count", 0)),
+        "availability_history": int(player_report.get("availability_feature_count", 0)),
+        "defensive_player_history": int(player_report.get("defensive_player_history_feature_count", 0)),
+        "own_team_rolling": int(team_report.get("team_feature_count", 0)),
         "opponent_rolling": int(team_report.get("opponent_feature_count", 0)),
         "direct_ranks": len(team_report.get("direct_rank_columns", [])),
         "fixture_context": len(fixture_report.get("fixture_context_columns", [])),
-        "ar_ep_next": 1,
-        "signals": 3,
-        "market_fields": len(MARKET_FIELDS),
         "home_context": 1,
+        "market_snapshot": len(MARKET_FIELDS),
+        "expected_points_snapshot": 1,
+        "pre_deadline_signals": 3,
     }
-    reconstructed_total = sum(implemented.values())
-    if reconstructed_total != 286:
+    if reported_counts != expected_counts:
         raise RuntimeError(
-            f"Independent reconstruction paths cover {reconstructed_total}/286 features: {implemented}"
+            f"Builder-reported family counts disagree with exact name map: "
+            f"expected={expected_counts}, reported={reported_counts}"
         )
+    source_family_by_feature = {
+        feature: family
+        for family, names in feature_map.items()
+        for feature in names
+    }
     return {
-        "status": "ALL_286_FEATURE_FAMILIES_HAVE_RECONSTRUCTION_PATHS",
-        "schema_family_counts": actual,
-        "expected_schema_family_counts": expected,
-        "reconstruction_path_counts": implemented,
-        "reconstruction_path_total": reconstructed_total,
+        "status": "ALL_286_EXACT_FEATURE_NAMES_AND_OBSERVATION_MASKS_RECONCILED",
+        "schema_feature_count": len(ordered_features),
+        "exact_name_match": True,
+        "feature_names_without_builder": [],
+        "builder_names_outside_schema": [],
+        "observation_mask_name_match": True,
+        "observation_mask_values_binary": True,
+        "reconstruction_path_counts": expected_counts,
+        "reconstruction_path_total": len(flattened),
+        "feature_source_family_by_name": source_family_by_feature,
         "admission_status": "NOT_ADMITTED_SOURCE_VINTAGE_AND_PARITY_REMAIN_OPEN",
     }
 
@@ -797,6 +849,7 @@ def build_candidate(
         team_context_report,
         fixture_context_report,
         loaded,
+        features,
     )
     # Rehash after adding fixture calendars so the manifest covers every input.
     sources.write_download_manifest(raw_dir, seasons)
