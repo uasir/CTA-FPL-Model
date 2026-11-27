@@ -44,8 +44,18 @@ def match(season, date, team, opponent, scored, missed, xg=1.0):
 
 
 def fake_features():
+    def prepare_team_matches(frame):
+        out = frame.copy()
+        for column in (
+            "scored", "missed", "xG", "xGA", "deep", "deep_allowed",
+            "ppda_att", "ppda_def", "ppda_allowed_att", "ppda_allowed_def",
+        ):
+            if column in out:
+                out[column] = pd.to_numeric(out[column], errors="coerce").fillna(0.0)
+        return out
+
     return SimpleNamespace(
-        _prepare_team_matches=lambda frame: frame.copy(),
+        _prepare_team_matches=prepare_team_matches,
         build_opponent_lookup=lambda frame: frame.copy(),
         compute_league_ranks=lambda frame: {
             (str(row.understat_team), str(row.season), row.date.strftime("%Y-%m-%d %H:%M")): 5
@@ -97,3 +107,26 @@ def test_deadline_team_context_uses_only_completed_matches_and_target_opponent()
     assert first["opp_status_league_rank"] != second["opp_status_league_rank"]
     assert report["team_feature_count"] == 60
     assert report["opponent_feature_count"] == 60
+
+
+def test_team_context_sidecar_detects_missing_source_before_upstream_zero_fill():
+    team_matches = pd.DataFrame([
+        match("2025-26", "2026-01-01", "T", "O", 2, 0, 2.0),
+        match("2025-26", "2026-01-05", "T", "O", 0, 0, float("nan")),
+        match("2025-26", "2026-01-01", "O", "T", 1, 1, 1.0),
+    ])
+    target = pd.DataFrame([{
+        "season": "2025-26",
+        "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+        "team_name": "T",
+        "opponent_team_name": "O",
+    }])
+
+    result, _ = rebuild_deadline_team_context(target, team_matches, fake_features())
+
+    # The upstream preparation step turns missing xG into a finite zero.
+    assert result.loc[0, "team_xg_3"] == 1.0
+    # The sidecar still records that the rolling window was not fully observed.
+    assert result.loc[0, "__observed__team_xg_3"] == 0
+    assert result.loc[0, "__observed__opp_xg_1"] == 1
+    assert result.loc[0, "__observed__status_league_rank"] == 1
