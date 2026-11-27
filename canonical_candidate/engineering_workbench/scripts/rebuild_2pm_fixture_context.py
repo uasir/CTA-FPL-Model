@@ -541,20 +541,41 @@ def rebuild_deadline_team_context(
 
     own_records = []
     opponent_records = []
+    own_observed_records = []
+    opponent_observed_records = []
     own_ranks = []
     opponent_ranks = []
+    rank_observed_records = []
     for row in out[[
         "season", "deadline_time", "_team_us", "_opponent_us"
     ]].itertuples(index=False, name=None):
         season, deadline, own, opponent = row
         own_records.append(history_cache[(str(season), deadline, str(own))])
         opponent_records.append(history_cache[(str(season), deadline, str(opponent))])
+        own_observed_records.append(
+            observed_history_cache[(str(season), deadline, str(own))]
+        )
+        opponent_observed_records.append(
+            observed_history_cache[(str(season), deadline, str(opponent))]
+        )
         ranks = deadline_ranks[(str(season), deadline)]
         own_ranks.append(ranks.get(str(own), 10))
         opponent_ranks.append(ranks.get(str(opponent), 10))
+        season_rows = teams[
+            teams["season"].astype(str).eq(str(season))
+            & teams["match_available_at"].lt(deadline)
+        ]
+        rank_observed_records.append(
+            bool(
+                season_rows[["__obs_scored", "__obs_missed", "__obs_pts"]]
+                .to_numpy(dtype=bool).all()
+            )
+        )
 
     own_frame = pd.DataFrame(own_records, index=out.index)
     opponent_frame = pd.DataFrame(opponent_records, index=out.index)
+    own_observed_frame = pd.DataFrame(own_observed_records, index=out.index)
+    opponent_observed_frame = pd.DataFrame(opponent_observed_records, index=out.index)
     opponent_frame.columns = [
         column.replace("team_", "opp_", 1) for column in opponent_frame.columns
     ]
@@ -564,6 +585,14 @@ def rebuild_deadline_team_context(
             "opp_status_league_rank": opponent_ranks,
         },
         index=out.index,
+    )
+    rank_observed_frame = pd.DataFrame(
+        {
+            f"{OBSERVED_PREFIX}status_league_rank": rank_observed_records,
+            f"{OBSERVED_PREFIX}opp_status_league_rank": rank_observed_records,
+        },
+        index=out.index,
+        dtype=np.uint8,
     )
     replaced_columns = [
         *own_frame.columns,
@@ -579,6 +608,21 @@ def rebuild_deadline_team_context(
             own_frame,
             opponent_frame,
             rank_frame,
+            pd.DataFrame(
+                {
+                    f"{OBSERVED_PREFIX}{name}": own_observed_frame[name].to_numpy(dtype=np.uint8)
+                    for name in own_observed_frame.columns
+                },
+                index=out.index,
+            ),
+            pd.DataFrame(
+                {
+                    f"{OBSERVED_PREFIX}{name.replace('team_', 'opp_', 1)}": opponent_observed_frame[name].to_numpy(dtype=np.uint8)
+                    for name in opponent_observed_frame.columns
+                },
+                index=out.index,
+            ),
+            rank_observed_frame,
         ],
         axis=1,
     )
