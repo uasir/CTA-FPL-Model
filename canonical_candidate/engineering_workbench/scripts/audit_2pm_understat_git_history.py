@@ -246,14 +246,14 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
                     previous["last_seen_commit"] = sha
                     previous["last_seen_at"] = committed_at
                     previous["present_in_latest_revision"] = True
-                    if was_missing or previous["latest_value_signature"] != signature:
-                        if not was_missing:
-                            previous["value_revision_count"] += 1
+                    value_changed = previous["latest_value_signature"] != signature
+                    if was_missing or value_changed:
                         previous["state_events"].append({
                             "commit": sha, "committed_at": committed_at,
                             "status": "present", "value_signature": signature,
                         })
-                    if previous["latest_value_signature"] != signature:
+                    if value_changed:
+                        previous["value_revision_count"] += 1
                         previous["latest_value_signature"] = signature
                         previous["latest_commit"] = sha
                         previous["latest_at"] = committed_at
