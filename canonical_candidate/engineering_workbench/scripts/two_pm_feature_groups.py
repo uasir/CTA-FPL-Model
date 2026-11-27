@@ -118,6 +118,42 @@ def validate_feature_group_manifest(
     if sentinel_features != expected_sentinels or not sentinel_features.issubset(schema_order):
         raise ValueError("Missing-snapshot sentinel feature inventory changed")
 
+    family_register = manifest.get("feature_family_register", {})
+    if family_register.get("source_schema_version") != schema.get("schema_version"):
+        raise ValueError("Feature-family register is pinned to a different schema version")
+    if family_register.get("status") != "ALL_HOLD":
+        raise ValueError("Feature-family register must preserve ALL_HOLD admission status")
+    family_groups = family_register.get("families", {})
+    family_features = [
+        feature for entry in family_groups.values()
+        for feature in entry.get("feature_order", [])
+    ]
+    if (
+        len(family_features) != 286
+        or len(set(family_features)) != 286
+        or set(family_features) != set(schema_order)
+    ):
+        raise ValueError("Feature-family register must partition all 286 schema columns exactly once")
+    for family_name, entry in family_groups.items():
+        if entry.get("count") != len(entry.get("feature_order", [])):
+            raise ValueError(f"Incorrect feature count in family {family_name}")
+    treatment_groups = family_register.get("reconstruction_treatments", {})
+    treatment_features = [
+        feature for entry in treatment_groups.values()
+        for feature in entry.get("feature_order", [])
+    ]
+    if (
+        len(treatment_features) != 286
+        or len(set(treatment_features)) != 286
+        or set(treatment_features) != set(schema_order)
+    ):
+        raise ValueError("Reconstruction-treatment register must partition all 286 columns exactly once")
+    for treatment_name, entry in treatment_groups.items():
+        if entry.get("count") != len(entry.get("feature_order", [])):
+            raise ValueError(f"Incorrect feature count in treatment {treatment_name}")
+    if family_register.get("admission_status_counts") != {"HOLD": 286}:
+        raise ValueError("Every feature must remain HOLD in the admission register")
+
     return {
         "common_candidate": common,
         "defensive_regime_dependent": defensive,
