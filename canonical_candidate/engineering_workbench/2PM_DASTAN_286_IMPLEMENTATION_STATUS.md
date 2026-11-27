@@ -422,3 +422,20 @@ The existing `audit_2pm_point_in_time_source_vintages.py` is not a six-season, 2
 A separate source-history check found GitHub commit histories for the six pinned Vaastav `data/{season}/gws/merged_gw.csv` paths, with 40, 39, 38, 38, 37 and 12 commits respectively for 2020/21 through 2025/26. This establishes that a deadline-specific FPL-file vintage audit is feasible in principle, but commit counts alone do not establish that every target deadline has an eligible prior commit or that the downloaded file contains all required rows. The next audit should select the latest file commit strictly before each official deadline (respecting the five-minute safety cutoff), cache each unique commit once, and compare only the FPL-origin feature inputs and their prior-match availability. It must keep Understat player/team metric vintages as a separate evidence problem; a pinned current Understat extract is not automatically a historical deadline snapshot.
 
 No broad source download or six-season rebuild was started for this scope check. Candidate and tensor artifacts remain unchanged, all features remain HOLD, and training remains unauthorized.
+
+
+### Archived FPL snapshot coverage boundary (2026-11-27)
+
+The pinned Randdalf/fplcache archive used for the historical snapshot review is commit `6c364bfbd9914649dc5dec016e544be3ae4fe767`. Its Git tree contains 9,740 `cache/YYYY/M/D/HHMM.json.xz` snapshots; the earliest path is `cache/2021/10/1/0113.json.xz` and the latest is `cache/2026/8/8/1302.json.xz`.
+
+Consequences for the six-season 2PM history:
+- The archive cannot provide any 2020/21 pre-deadline bootstrap snapshots: that season ended before the archive's first capture.
+- It cannot provide pre-deadline bootstrap snapshots for the opening portion of 2021/22 before 2021-10-01.
+- Later 2021/22 through 2025/26 deadlines may be auditable only where an archived snapshot exists at least five minutes before the exact official deadline, names the target Gameweek as `is_next`, and reports the matching deadline.
+- The archive's existence and date range do not prove coverage of every Gameweek after 2021-10-01. The deadline-by-deadline resolver must report missing, stale, mismatched and accepted snapshots separately.
+
+This is a **source-availability limitation**, not permission to backfill missing historical values from final `merged_gw.csv` rows or season-end player data. For rows without a verified snapshot, `value`, ownership percentage, net transfers, `ar_ep_next` and the three `sig_*` features must remain missing/unsupported under the existing missingness contract; they must not be assigned retrospective values or interpreted as observed zero. The 142,173 accepted market snapshot rows in Run 83 are an aggregate count and do not by themselves establish which six-season Gameweeks or feature families are covered. A season/Gameweek coverage matrix is still required.
+
+The 2020/21 deadline calendar also needs an independent source because this archive cannot supply the season probe used by the current `fplcache.season_deadlines()` implementation. Do not silently infer exact FPL deadlines from kickoff times. Until a defensible official deadline source is pinned for that season, the source-vintage audit must mark those deadlines unavailable rather than claim a pass.
+
+No candidate/tensor values were changed. No source was substituted, no new data were acquired, all 286 feature admissions remain HOLD, and training remains unauthorized.
