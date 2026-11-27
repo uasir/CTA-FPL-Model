@@ -379,7 +379,6 @@ def rebuild_player_history_features(
         "rolling_window_semantics": "previous player fixture rows before deadline; player rolling features include non-appearance rows, while sequence tokens separately require minutes > 0",
         "availability_semantics": "previous season-scoped FPL player fixture rows before deadline; position-specific base rates when no history",
         "defensive_history_semantics": "previous player_uid fixture rows before deadline; NaN source values are ignored by rolling means",
-        "schedule_source_vintage_status": "UNVERIFIED_FINAL_FIXTURE_CALENDAR; ar_team_matches_14d observation mask forced to 0 until deadline-versioned schedule evidence is available",
         "admission_status": "NOT_ADMITTED",
     }
     return out, report
@@ -939,6 +938,7 @@ def rebuild_fixture_context(
             "team_congestion": "retrospective final team fixture calendar in [target kickoff - 14 days, target kickoff], inclusive; source vintage is not deadline-verified and observation mask is forced to 0",
             "opponent_allowance": "rolling mean of the previous 3/5/10 opponent-conceded fixture DC totals and previous 5 tackle totals, with every source fixture available strictly before target deadline",
         },
+        "schedule_source_vintage_status": "UNVERIFIED_FINAL_FIXTURE_CALENDAR; ar_team_matches_14d observation mask forced to 0 until deadline-versioned schedule evidence is available",
         "admission_status": "NOT_ADMITTED",
     }
     return out, report
