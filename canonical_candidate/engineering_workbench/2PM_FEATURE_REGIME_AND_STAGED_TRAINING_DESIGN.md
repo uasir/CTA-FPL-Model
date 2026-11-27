@@ -75,16 +75,18 @@ The source-availability state is derived from source/season provenance, not from
 
 - Train on eligible historical samples from 2020/21–2024/25 after season/GW and feature-level source-vintage admission.
 - Use the common features; mark defensive-regime-dependent channels structurally unavailable.
-- Use the legacy scoring-regime indicator because those target labels were produced under the historical scoring rules.
-- Fit all preprocessing, target-support decisions, and mixture-head initialization on the training partition only.
-- Select architecture and hyperparameters using expanding chronological validation. Do not use 2026/27.
+- Use legacy scoring-regime code 0 because those target labels were produced under the historical scoring rules.
+- Select architecture and hyperparameters with expanding-season walk-forward folds whose validation seasons are 2021/22, 2022/23, 2023/24 and 2024/25. Each fold trains only on earlier eligible seasons.
+- After Stage A configuration selection, fit the Stage A initialization on all eligible 2020/21–2024/25 samples. This checkpoint is the starting point for Stage B adaptation.
+- Fit all preprocessing, target-support decisions, and mixture-head initialization on each fold's training partition only. Do not use 2026/27.
 
 ### Stage B — new-regime adaptation with historical replay
 
-- Initialize from the selected Stage A checkpoint.
-- Fine-tune using eligible 2025/26 samples with the defensive-contribution features and the new scoring-regime indicator.
-- Mix in replay samples from eligible Stage A historical training data. Replay retains its legacy regime indicator and its structural-unavailability masks; it must not be relabelled as new-regime data.
-- Use a documented, pre-registered replay ratio/sampling policy and report per-season/per-regime sample counts and loss contributions. Tune that ratio only inside chronological validation.
+- Initialize from the Stage A checkpoint fitted on eligible 2020/21–2024/25 data.
+- Use a contiguous, chronological within-2025/26 split: earlier Gameweeks are the adaptation-training block and later Gameweeks are the validation block. The exact boundary must be selected and pre-registered after the 2025/26 labelled-Gameweek coverage audit, before inspecting validation scores. No random player-Gameweek split is permitted.
+- Fine-tune using only the earlier 2025/26 adaptation block with defensive-contribution features and scoring-regime code 1.
+- Mix in replay samples from eligible 2020/21–2024/25 Stage A training data. Replay retains its legacy regime code 0 and structural-unavailability masks; it must not be relabelled as new-regime data.
+- Use a documented, pre-registered replay ratio/sampling policy and report per-season/per-regime sample counts and loss contributions. Tune that ratio only against the later 2025/26 chronological validation block.
 - Keep the same shared Transformer backbone and two-component Poisson output family. Do not create two unrelated models and average their predictions.
 - Compare controlled alternatives (frozen vs partially trainable shared layers, learning-rate schedule, replay ratio) only within the historical validation protocol. Do not choose them using 2026/27 OOT results.
 
@@ -93,7 +95,7 @@ This stage lets the model learn the new scoring relationship while retaining his
 ### Stage C — final fit and 2026/27 inference
 
 After feature admission and historical validation:
-- refit the selected staged procedure using all eligible historical samples through 2025/26;
+- refit Stage A on all eligible 2020/21–2024/25 samples, then refit Stage B using all eligible 2025/26 samples plus the pre-registered historical replay policy;
 - retain season-specific scoring-regime labels and feature-observation masks;
 - construct 2026/27 inference tokens with the expanded feature set and current scoring regime;
 - keep 2026/27 labels sealed until the pre-registered OOT evaluation;
@@ -113,7 +115,7 @@ Before training is authorized, implement and test:
 3. Tests proving that an observed zero has mask 1, a structurally unavailable historical value has availability mask 0, and a sporadic missing value is not converted into an observed zero.
 4. Fixed-width tensor contract and schema/order/hash validation for values, observation masks, and regime identifiers.
 5. Fold-only preprocessing; no validation or OOT fit leakage.
-6. Stage A initialization and Stage B checkpoint loading, replay sampling, and regime-preserving labels.
+6. Stage A initialization and Stage B checkpoint loading, the pre-registered within-2025/26 chronological split, replay sampling, and regime-preserving labels.
 7. Deterministic replay sampling with recorded seed and per-season/per-regime sample counts.
 8. Tests proving that old-regime replay examples remain tagged legacy and 2025/26 examples remain tagged defensive-contribution scoring.
 9. OOT isolation: no 2026/27 labels, preprocessing statistics, early stopping, or model selection enter training.
@@ -122,14 +124,14 @@ Before training is authorized, implement and test:
 ## 7. Open decisions (not silently assumed)
 
 - The Premier League's official FPL announcement states that defensive-contribution points were introduced for the 2025/26 season: defenders earn two points at 10 combined clearances, blocks, interceptions and tackles (CBIT); midfielders and forwards earn two points at 12 combined CBIT plus ball recoveries (CBIRT). This establishes the target-scoring regime boundary at the start of 2025/26. The source-field extraction semantics and historical source-vintage availability still require separate verification.
-- Whether all 26 engineered features are truly unavailable before 2025/26 or whether some can be reconstructed consistently from an independent historical event source. Until proven, preserve the current structural-missingness classification.
+- Whether any of the 27 defensive-regime-dependent engineered features can be reconstructed consistently from an independent historical event source. Until proven, preserve the current structural-missingness classification.
 - Exact replay ratio and whether any backbone layers should be frozen during early Stage B steps.
-- Whether the regime indicator should be a learned embedding or a simple numeric/categorical channel; choose by chronological validation, not OOT.
+- Exact 2025/26 Stage B adaptation/validation Gameweek boundary; select only after the labelled-Gameweek coverage audit and pre-register before evaluating validation performance.
 - Final season eligibility after the six-season FPL and Understat source-vintage audits. The proposed schedule does not override those admission gates.
 
 ## 8. Current status
 
-This is a proposed design only. It does not modify the existing candidate/tensor artifacts, does not admit any of the 286 features, does not settle the open decisions, and does not authorize model training. The current 286-feature candidate remains `NOT_ADMITTED`; 2026/27 remains sealed as the out-of-time evaluation season.
+This remains a proposed training protocol; it does not modify the existing candidate/tensor artifacts, admit any of the 286 features, settle the remaining replay/split decisions, or authorize model training. The feature masks, scoring-regime contract, model input interface and fold-only imputer helper have been implemented and tested, but the dedicated chronological trainer and final tensor migration/rebuild remain outstanding. The current 286-feature candidate remains `NOT_ADMITTED`; 2026/27 remains sealed as the out-of-time evaluation season.
 
 ### 2.4 Provenance-aware feature masks (implemented as a candidate contract, 2026-11-27)
 
