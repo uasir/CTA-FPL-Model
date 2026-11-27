@@ -21,6 +21,37 @@ from build_2pm_postmatch_state_vectors import build_postmatch_state_vectors
 from rebuild_2pm_dastan_286_candidate import load_dastan_package
 
 
+def backfill_cached_shard_masks(
+    shard_dir: Path,
+    declared_shards: list[dict],
+    season: str,
+    features: list[str],
+    feature_manifest: dict,
+) -> list[dict]:
+    """Add current mask artifacts to reusable tensors without rebuilding features."""
+    for shard in declared_shards:
+        tensor_path = shard_dir / shard["tensor"]
+        fixture_mask_path = shard_dir / shard["fixture_mask"]
+        x = np.load(tensor_path, allow_pickle=False)
+        fixture_mask = np.load(fixture_mask_path, allow_pickle=False)
+        if x.ndim != 4 or x.shape[2:] != (6, len(features)):
+            raise ValueError(f"Cached tensor shape mismatch: {tensor_path}")
+        if fixture_mask.shape != x.shape[:2]:
+            raise ValueError(f"Cached fixture mask shape mismatch: {fixture_mask_path}")
+        availability, observed = build_feature_masks(x, season, features, feature_manifest)
+        padded = ~fixture_mask.astype(bool)
+        availability[padded, :, :] = 0
+        observed[padded, :, :] = 0
+        suffix = Path(shard["tensor"]).stem.removeprefix("X_player_gw_")
+        availability_name = shard.get("source_availability_state") or f"source_availability_state_{suffix}.npy"
+        observed_name = shard.get("observed_value_mask") or f"observed_value_mask_{suffix}.npy"
+        np.save(shard_dir / availability_name, availability)
+        np.save(shard_dir / observed_name, observed)
+        shard["source_availability_state"] = availability_name
+        shard["observed_value_mask"] = observed_name
+    return declared_shards
+
+
 def build_dataset(
     dastan_root: Path,
     candidate_path: Path,
@@ -126,28 +157,9 @@ def build_dataset(
                     }
                     # Backfill masks on reusable tensors without reacquiring sources
                     # or repeating post-match feature reconstruction.
-                    for shard in declared_shards:
-                        tensor_path = shard_dir / shard["tensor"]
-                        fixture_mask_path = shard_dir / shard["fixture_mask"]
-                        x = np.load(tensor_path, allow_pickle=False)
-                        fixture_mask = np.load(fixture_mask_path, allow_pickle=False)
-                        if x.ndim != 4 or x.shape[2:] != (6, len(features)):
-                            raise ValueError(f"Cached tensor shape mismatch: {tensor_path}")
-                        if fixture_mask.shape != x.shape[:2]:
-                            raise ValueError(f"Cached fixture mask shape mismatch: {fixture_mask_path}")
-                        availability, observed = build_feature_masks(
-                            x, season, features, feature_manifest
-                        )
-                        padded = ~fixture_mask.astype(bool)
-                        availability[padded, :, :] = 0
-                        observed[padded, :, :] = 0
-                        suffix = Path(shard["tensor"]).stem.removeprefix("X_player_gw_")
-                        availability_name = shard.get("source_availability_state") or f"source_availability_state_{suffix}.npy"
-                        observed_name = shard.get("observed_value_mask") or f"observed_value_mask_{suffix}.npy"
-                        np.save(shard_dir / availability_name, availability)
-                        np.save(shard_dir / observed_name, observed)
-                        shard["source_availability_state"] = availability_name
-                        shard["observed_value_mask"] = observed_name
+                    backfill_cached_shard_masks(
+                        shard_dir, declared_shards, season, features, feature_manifest
+                    )
                     report_path.write_text(
                         json.dumps(cached_report, indent=2) + "\n", encoding="utf-8"
                     )
