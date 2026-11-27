@@ -41,6 +41,7 @@ def make_candidate():
         "market_snapshot_at": kickoff - pd.Timedelta(hours=3),
     }
     row.update({feature: 1.0 for feature in FEATURES})
+    row.update({f"__observed__{feature}": 1 for feature in FEATURES})
     row.update({
         "ar_rest_days": 5.0,
         "ar_team_matches_14d": 2.0,
