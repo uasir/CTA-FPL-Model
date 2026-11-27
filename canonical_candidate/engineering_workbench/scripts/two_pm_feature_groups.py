@@ -83,6 +83,43 @@ def validate_feature_group_manifest(
     if not {"ar_rest_days", "ar_team_matches_14d"}.issubset(fixture_context):
         raise ValueError("Fixture-context accounting must include schedule columns")
 
+    scoring = manifest.get("scoring_regime_contract", {})
+    expected_regimes = {
+        "legacy_no_defensive_contribution_points": [
+            "2020-21", "2021-22", "2022-23", "2023-24", "2024-25"
+        ],
+        "defensive_contribution_v1": ["2025-26", "2026-27"],
+    }
+    if scoring.get("version") != "1.0.0" or scoring.get("regime_by_season") != expected_regimes:
+        raise ValueError("Scoring-regime season boundary does not match official FPL rules")
+    regimes = scoring.get("regimes", {})
+    legacy = regimes.get("legacy_no_defensive_contribution_points", {})
+    current = regimes.get("defensive_contribution_v1", {})
+    if legacy.get("code") != 0 or legacy.get("defensive_contribution_fpl_points") is not False:
+        raise ValueError("Legacy scoring-regime encoding is invalid")
+    if current.get("code") != 1 or current.get("defensive_contribution_fpl_points") is not True:
+        raise ValueError("Defensive-contribution scoring-regime encoding is invalid")
+    expected_actions = {
+        "defender": (["clearances_blocks_interceptions", "tackles"], 10),
+        "midfielder_forward": (
+            ["clearances_blocks_interceptions", "tackles", "recoveries"], 12
+        ),
+    }
+    for role, (fields, threshold) in expected_actions.items():
+        rule = current.get(role, {})
+        if (
+            rule.get("action_fields") != fields
+            or rule.get("threshold") != threshold
+            or rule.get("award_points") != 2
+            or rule.get("maximum_award_points_per_match") != 2
+        ):
+            raise ValueError(f"Official defensive-contribution scoring rule changed: {role}")
+    award = current.get("reported_award_field", {})
+    if (
+        award.get("source_field") != "defensive_contribution"
+        or "not an action-count component" not in award.get("role", "")
+    ):
+        raise ValueError("Defensive-contribution award field semantics are ambiguous")
     availability = manifest.get("feature_source_availability", {})
     if availability.get("state_codes") != {"UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2}:
         raise ValueError("Feature availability state codes must be 0/1/2")
