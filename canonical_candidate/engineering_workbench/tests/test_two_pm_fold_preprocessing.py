@@ -58,11 +58,17 @@ def test_double_gameweek_shared_history_is_counted_once_but_each_query_is_kept()
     assert np.all(transformed[1, 1] == 0.0)
 
 
-def test_fold_imputer_fails_closed_for_a_feature_missing_from_training():
+def test_fold_imputer_neutralizes_feature_missing_from_training():
     values = np.array([[[1.0, np.nan]], [[3.0, np.nan]]])
     observed = np.array([[[1, 0]], [[1, 0]]], dtype=np.uint8)
-    with pytest.raises(ValueError, match="no observed values"):
-        fit_fold_median_imputer(values, observed, ["available", "missing"])
+    imputer = fit_fold_median_imputer(values, observed, ["available", "missing"])
+    assert imputer["medians"] == [2.0, 0.0]
+    assert imputer["observed_counts"] == [2, 0]
+    assert imputer["zero_coverage_features"] == ["missing"]
+    transformed = apply_fold_median_imputer(
+        values, observed, imputer, ["available", "missing"]
+    )
+    assert transformed[..., 1].tolist() == [[0.0], [0.0]]
 
 
 def test_fold_imputer_rejects_nonfinite_observed_values_and_invalid_masks():
