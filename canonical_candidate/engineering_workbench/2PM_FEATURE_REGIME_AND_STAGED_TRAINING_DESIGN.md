@@ -185,3 +185,20 @@ Pinned-source inspection shows that current Understat player histories are selec
 Manifest **1.4.0** adds an orthogonal source-vintage policy for exactly 100 Understat-derived player/team rolling columns. Until the row-level Git-commit vintage audit passes, the observed-value mask forces all 100 to zero. The sequence builder now writes NaN into every feature value whose observed-value mask is zero, so a finite retrospective value cannot leak into X while the audit is pending. The grouped tensor integrity audit now enforces this invariant.
 
 This is an Understat-feature exclusion, not a season exclusion. 2020/21 FPL-native player features and separately audited team-context sources remain eligible for future admission; 2020/21 player Understat histories are not. No feature is admitted and no training is authorized.
+
+
+## 2.8 Explicit scoring-regime contract (official boundary verified)
+
+The feature manifest now carries a machine-validated scoring-regime contract, separate from source availability:
+
+- **2020/21–2024/25:** legacy FPL target scoring without defensive-contribution points.
+- **2025/26 onward:** defensive-contribution scoring; the same regime is confirmed to remain in force for 2026/27.
+- **Defenders:** 10 combined clearances, blocks, interceptions and tackles (CBIT) in one match earns two FPL points, capped at two points per match.
+- **Midfielders and forwards:** the same CBIT actions plus ball recoveries (CBIRT) require 12 total actions for two FPL points, also capped at two points per match.
+- The \`defensive_contribution\` source field is recorded as the award/outcome field, not another action to add to the CBIT/CBIRT count.
+
+The official Premier League announcement dated 10 August 2025 establishes the introduction and thresholds; its 20 July 2026 explainer explicitly says the rules remain for 2026/27 and confirms the same thresholds. Sources:
+- https://www.premierleague.com/en/news/4373187
+- https://www.premierleague.com/en/news/4361991/whats-new-in-202526-fantasy-defensive-contributions
+
+**Important distinction:** knowing the scoring regime for 2026/27 does not prove that the 2026/27 feature source is point-in-time verified. The defensive feature-source availability state therefore remains UNKNOWN until its separate source-vintage audit passes. Do not use the scoring-regime code to promote feature availability.
