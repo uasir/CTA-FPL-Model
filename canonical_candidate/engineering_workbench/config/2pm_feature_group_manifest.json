@@ -367,10 +367,11 @@
   "scoring_regime_boundary": {
     "legacy": "2020/21 through 2024/25 official FPL target scoring",
     "defensive_contribution": "2025/26 onward official FPL target scoring",
-    "evidence": "Premier League official FPL 2025/26 rules announcement, 19 July 2025; defenders: 10 CBIT for 2 points; midfielders/forwards: 12 CBIRT for 2 points.",
-    "evidence_url": "https://www.premierleague.com/en/news/4362211"
+    "evidence": "Premier League official FPL 2025/26 changes announcement, 10 August 2025; defenders: 10 CBIT for 2 points; midfielders/forwards: 12 CBIRT for 2 points. The Premier League's 20 July 2026 2026/27 explainer confirms the defensive-contribution rules remain in force.",
+    "evidence_url": "https://www.premierleague.com/en/news/4373187",
+    "current_season_confirmation_url": "https://www.premierleague.com/en/news/4361991/whats-new-in-202526-fantasy-defensive-contributions"
   },
-  "source_availability_note": "The pinned Vaastav merged_gw.csv files lack the four defensive source columns in 2020/21–2024/25 and contain them in 2025/26. This is source-specific evidence, not a universal claim that historical defensive actions cannot be reconstructed from another source. Keep structural availability masks source-vintage-driven and do not hard-code this season profile as a timeless feature truth.",
+  "source_availability_note": "The pinned Vaastav merged_gw.csv files lack the four defensive source columns in 2020/21–2024/25 and contain them in 2025/26. This is source-specific evidence, not a universal claim that historical defensive actions cannot be reconstructed from another source. Keep structural availability masks source-vintage-driven and do not hard-code this season profile as a timeless feature truth. The official rules continuing in 2026/27 do not establish the vintage/availability of the 2026/27 engineered input fields; that source state remains UNKNOWN.",
   "policy": [
     "All feature groups remain HOLD until independent feature-level admission.",
     "Manifest membership is not an admission decision.",
