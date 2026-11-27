@@ -656,3 +656,10 @@ The replay ratio remains **unselected**; no value was inferred or hard-coded. Th
 
 
 Stage B replay helper tests are included in the latest repository CI revision: **599 passed, 4 skipped, 3 subtests passed**. Focused contracts: **130 passed** (2PM sequence/feature contract) and **11 passed** (Poisson-mixture model contract). These are engineering tests only; no model training or candidate admission occurred.
+
+
+### Run 85 source-vintage audit correction and Stage-A load safeguards (2026-11-27)
+
+The completed six-season candidate rebuild is Run 85 (workflow run [45979402481](https://github.com/uasir/CTA-FPL-Model/actions/runs/45979402481)); its tensor integrity audit passes, but candidate admission remains NOT_ADMITTED and no model training has run. Inspection of the actual Run 85 tensor masks found that the manifest's previous 100-feature Understat HOLD did not cover 52 additional Understat-derived inputs: player xGChain/xGBuildup (10), team/opponent goals and rolling-rank context (40), and the two direct deadline ranks. The team context builder explicitly reconstructs those fields from Understat team-match histories. Those 52 fields were marked observed in the stored tensors despite unresolved source vintage.
+
+Manifest 1.7.0 expands the Understat HOLD inventory to 152 features and updates structural-availability groups to 30 player-history and 122 team/opponent context fields. The Stage-A loader now reapplies current manifest HOLD policies and reconciles resolved structural availability states when reading existing tensor artifacts, so Run 85 can be reused without rebuilding. The remaining 107 Stage-A common features are still provisional; FPL-native historical source vintages and market-field semantics remain unresolved. Stage-A training remains paused. The follow-up engineering CI initially exposed stale tests that hard-coded the old 100-feature inventory; those contracts are being updated before the candidate is considered safe for research training.
