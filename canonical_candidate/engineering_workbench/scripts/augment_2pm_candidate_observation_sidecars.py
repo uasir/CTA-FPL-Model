@@ -49,6 +49,8 @@ def validate_candidate_source_pins(
         raise ValueError("Checked-out Dastan commit does not match the 2PM manifest pin")
     if candidate_report.get("upstream_commit") != dastan_commit:
         raise ValueError("Candidate report Dastan commit does not match the checked-out source")
+    if candidate_report.get("upstream_repository") != pins.get("dastan", {}).get("repository"):
+        raise ValueError("Candidate report Dastan repository does not match the 2PM manifest")
     report_pins = candidate_report.get("source_pins", {})
     for source_name in ("vaastav", "fplcache"):
         expected = pins.get(source_name, {})
