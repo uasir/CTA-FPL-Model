@@ -222,7 +222,7 @@ The grouped player-Gameweek forward adapter now carries the same masks and targe
 
 The \`two_pm_fold_preprocessing.py\` helper now fits per-feature medians only from the supplied training partition and applies the frozen medians to later partitions. For \`[sample, fixture, sequence, feature]\` grouped tensors, it deduplicates the shared five historical tokens across target fixtures while retaining each target query. A feature with no observed training values causes a hard failure. This helper does not fit on validation/test/OOT data and does not introduce feature scaling.
 
-CI at the tested code revision: repository suite 595 passed, 4 skipped, 3 subtests passed; 2PM sequence contract 130 passed; Poisson-mixture model contract 11 passed. The chronological trainer is still absent, so this helper is not yet integrated into a training run.
+CI at the tested code revision: repository suite 599 passed, 4 skipped, 3 subtests passed; 2PM sequence contract 130 passed; Poisson-mixture model contract 11 passed. The chronological trainer is still absent, so this helper is not yet integrated into a training run.
 
 
 ### Deterministic Stage B replay-plan helper (implemented, not trainer-integrated)
@@ -230,3 +230,6 @@ CI at the tested code revision: repository suite 595 passed, 4 skipped, 3 subtes
 The \`two_pm_staged_replay.py\` helper creates a reproducible replay plan from explicit caller-supplied training indices. It preserves legacy code 0 for 2020/21–2024/25 replay and code 1 for 2025/26 adaptation, records the seed and sample counts by season/regime, and rejects overlapping pools or invalid season/regime labels. Replacement is opt-in and fails closed by default if the requested replay count exceeds the eligible legacy pool.
 
 The replay ratio remains unselected and must be tuned only inside the pre-registered 2025/26 chronological validation block. The helper does not decide the split or inspect validation/OOT data; a future trainer must provide training-only indices. No training is authorized.
+
+
+The deterministic replay helper's test suite now passes in the latest repository CI revision: 599 passed, 4 skipped, 3 subtests passed; 2PM sequence/feature contract 130 passed; Poisson-mixture model contract 11 passed. These results validate helper contracts, not model quality or readiness to train.
