@@ -9,6 +9,7 @@ from two_pm_feature_masks import (
     AVAILABLE,
     UNAVAILABLE,
     UNKNOWN,
+    apply_manifest_feature_policies,
     build_feature_availability_state,
     build_feature_masks,
     build_observed_value_mask,
@@ -168,6 +169,41 @@ def test_2020_21_understat_player_history_is_unavailable_but_team_context_is_unk
     assert state[index["status_league_rank"]] == UNKNOWN
     next_season = build_feature_availability_state("2021-22", features, manifest)
     assert next_season[index["player_xg_1"]] == UNKNOWN
+
+
+def test_manifest_mask_reconciliation_overrides_stale_understat_tensor_masks():
+    features, manifest = load()
+    observed = np.ones((1, len(features)), dtype=np.uint8)
+    availability = np.full((1, len(features)), UNKNOWN, dtype=np.uint8)
+
+    observed, availability = apply_manifest_feature_policies(
+        observed, availability, "2020-21", features, manifest
+    )
+    index = {name: i for i, name in enumerate(features)}
+
+    # The expanded HOLD wins over stale finite/observed values, while the
+    # current manifest also restores the known 2020/21 player-source absence.
+    assert observed[0, index["player_xgbuildup_1"]] == 0
+    assert availability[0, index["player_xgbuildup_1"]] == UNAVAILABLE
+    assert observed[0, index["team_goals_scored_1"]] == 0
+    assert availability[0, index["team_goals_scored_1"]] == UNKNOWN
+    assert observed[0, index["status_league_rank"]] == 0
+    assert observed[0, index["player_fpl_points_1"]] == 1
+    assert availability[0, index["player_fpl_points_1"]] == UNKNOWN
+
+
+def test_manifest_mask_reconciliation_fails_closed_on_unimplemented_vintage_action():
+    features, manifest = load()
+    broken = json.loads(json.dumps(manifest))
+    broken["source_vintage_policies"]["understat"]["status"] = "VERIFIED"
+    broken["source_vintage_policies"]["understat"]["mask_action"] = "APPLY_ROW_LEVEL_MASK"
+    observed = np.ones((1, len(features)), dtype=np.uint8)
+    availability = np.full((1, len(features)), UNKNOWN, dtype=np.uint8)
+
+    with pytest.raises(ValueError, match="Unsupported source-vintage policy"):
+        apply_manifest_feature_policies(
+            observed, availability, "2024-25", features, broken
+        )
 
 
 def test_scoring_regime_code_is_season_specific_and_fail_closed():
