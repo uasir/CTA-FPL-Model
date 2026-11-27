@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 
 from build_2pm_dastan_sequence_dataset import load_schema
-from two_pm_feature_masks import build_feature_masks
+from two_pm_feature_masks import build_feature_masks, observed_column_names
 
 GROUP_KEYS = ["season", "gameweek", "fpl_code"]
 HISTORY_LENGTH = 5
@@ -94,12 +94,31 @@ def build_player_gameweek_sequence_tensors(
     if not manifest_path.is_file():
         raise FileNotFoundError(f"Missing 2PM feature-group manifest: {manifest_path}")
     feature_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    observed_columns = observed_column_names(features)
     history, history_missingness = _prepare_features(
         _read_parquet(postmatch_states_path), features, "Post-match state frame"
     )
     targets, target_missingness = _prepare_features(
         _read_parquet(target_frame_path), features, "Target frame"
     )
+    has_history_sidecars = set(observed_columns).issubset(history.columns)
+    has_target_sidecars = set(observed_columns).issubset(targets.columns)
+    require_sidecars = bool(feature_manifest.get("require_source_observed_sidecars", False))
+    if require_sidecars and not (has_history_sidecars and has_target_sidecars):
+        missing_history_sidecars = sorted(set(observed_columns) - set(history.columns))
+        missing_target_sidecars = sorted(set(observed_columns) - set(targets.columns))
+        raise ValueError(
+            "Production 2PM sequence construction requires pre-fill observation sidecars; "
+            f"history_missing={missing_history_sidecars[:10]}, "
+            f"target_missing={missing_target_sidecars[:10]}"
+        )
+    use_sidecars = has_history_sidecars and has_target_sidecars
+    if use_sidecars:
+        for frame, label in ((history, "history"), (targets, "target")):
+            sidecars = frame[observed_columns].apply(pd.to_numeric, errors="coerce")
+            if sidecars.isna().any().any() or not sidecars.isin([0, 1]).all().all():
+                raise ValueError(f"{label} source-observation sidecars must contain only 0/1")
+            frame.loc[:, observed_columns] = sidecars.astype(np.uint8)
 
     required_history = {
         *GROUP_KEYS, "fixture", "kickoff_time", "minutes",
@@ -380,6 +399,18 @@ def build_player_gameweek_sequence_tensors(
 
         sample_index = in_shard
         history_values = eligible[features].to_numpy(dtype=np.float32)
+        history_observed_values = (
+            eligible[observed_columns].to_numpy(dtype=np.uint8)
+            if use_sidecars else None
+        )
+        target_observed_values = (
+            group[observed_columns].to_numpy(dtype=np.uint8)
+            if use_sidecars else None
+        )
+        source_observed_tensor = (
+            np.zeros((len(group), HISTORY_LENGTH + 1, len(features)), dtype=np.uint8)
+            if use_sidecars else None
+        )
         fixture_ids = []
         for fixture_index, target in enumerate(group.itertuples(index=False)):
             tensor_buffer[sample_index, fixture_index, :HISTORY_LENGTH, :] = history_values
@@ -387,9 +418,18 @@ def build_player_gameweek_sequence_tensors(
                 [getattr(target, feature) for feature in features], dtype=np.float32
             )
             mask_buffer[sample_index, fixture_index] = 1
+            if use_sidecars:
+                source_observed_tensor[fixture_index, :HISTORY_LENGTH, :] = history_observed_values
+                source_observed_tensor[fixture_index, HISTORY_LENGTH, :] = target_observed_values[fixture_index]
             fixture_ids.append(str(target.fixture))
         sample_availability, sample_observed = build_feature_masks(
-            tensor_buffer[sample_index, :len(group), :, :], str(season), features, feature_manifest
+            tensor_buffer[sample_index, :len(group), :, :],
+            str(season),
+            features,
+            feature_manifest,
+            source_observed_mask=(
+                source_observed_tensor if use_sidecars else None
+            ),
         )
         availability_buffer[sample_index, :len(group), :, :] = sample_availability
         observed_buffer[sample_index, :len(group), :, :] = sample_observed
