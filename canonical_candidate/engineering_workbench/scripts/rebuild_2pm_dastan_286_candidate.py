@@ -34,6 +34,7 @@ from rebuild_2pm_fixture_context import (
 PINNED_DASTAN_COMMIT = "758db9247e8b3a9a870c991064f74d8339d61cd0"
 KEY = ["season", "gameweek", "fpl_code"]
 MARKET_FIELDS = ["value", "selected", "transfers_balance"]
+OBSERVED_PREFIX = "__observed__"
 FRAME_KEY = ["season", "gameweek", "fixture", "fpl_code"]
 
 
@@ -767,6 +768,29 @@ def build_candidate(
     loaded, fixture_context_report = rebuild_fixture_context(
         loaded, history_matches
     )
+    # The rebuilders emit raw-source observation sidecars for rolling features.
+    # Retained context/snapshot columns are classified here, before candidate export.
+    retained_observed_features = [
+        "is_home_num", "value", "selected", "transfers_balance",
+        "ar_ep_next", "sig_status_risk", "sig_chance_playing", "sig_has_news",
+    ]
+    for feature in retained_observed_features:
+        if feature not in loaded:
+            raise ValueError(f"Retained feature missing before observation-mask build: {feature}")
+        numeric = pd.to_numeric(loaded[feature], errors="coerce")
+        observed = np.isfinite(numeric.to_numpy(dtype=float))
+        if feature != "is_home_num":
+            observed &= numeric.to_numpy(dtype=float) != -1.0
+        loaded[f"{OBSERVED_PREFIX}{feature}"] = observed.astype(np.uint8)
+    observed_columns = [f"{OBSERVED_PREFIX}{feature}" for feature in ordered_features]
+    missing_observation_columns = [
+        column for column in observed_columns if column not in loaded
+    ]
+    if missing_observation_columns:
+        raise ValueError(
+            "Raw-source observation reconstruction did not cover all 286 features: "
+            f"{missing_observation_columns[:20]}"
+        )
     reconstruction_coverage = validate_reconstruction_coverage(
         ordered_features,
         player_history_report,
@@ -801,7 +825,7 @@ def build_candidate(
     absent = [column for column in metadata if column not in loaded.columns]
     if absent:
         raise RuntimeError(f"Candidate output is missing metadata columns: {absent}")
-    candidate = loaded[metadata + ordered_features].copy()
+    candidate = loaded[metadata + ordered_features + observed_columns].copy()
     # The pinned Dastan contract is one player-fixture row and target_points is
     # the points scored in that fixture. The 2PM dataset later sums these once
     # to obtain the single player-Gameweek training label.
@@ -830,6 +854,7 @@ def build_candidate(
         "seasons": seasons,
         "candidate_rows": len(candidate),
         "candidate_feature_count": len(ordered_features),
+        "raw_source_observation_sidecar_count": len(observed_columns),
         "target_label_grain": "player_fixture",
         "target_points_semantics": "FPL_POINTS_SCORED_IN_THIS_FIXTURE",
         "feature_order_sha256": hashlib.sha256(
