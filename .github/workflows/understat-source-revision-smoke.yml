@@ -7,6 +7,8 @@ on:
     paths:
       - canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_git_history.py
       - canonical_candidate/engineering_workbench/tests/test_audit_2pm_understat_git_history.py
+      - canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_deadline_visibility.py
+      - canonical_candidate/engineering_workbench/tests/test_audit_2pm_understat_deadline_visibility.py
       - .github/workflows/understat-source-revision-smoke.yml
   workflow_dispatch:
 
@@ -114,12 +116,58 @@ jobs:
           print("PASS: 8 player and 10 team-season histories complete; empty-revision behavior preserved; no feature admission.")
           PY
 
-      - name: Upload bounded complete-history evidence
+      - name: Reconcile source rows to FPL fixtures and historical deadlines
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/audit_2pm_understat_deadline_visibility.py --history-report "$RUNNER_TEMP/understat-revision-history.json" --seasons "2020-21,2021-22,2022-23,2023-24,2024-25" --vaastav-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" --fplcache-commit "6c364bfbd9914649dc5dec016e544be3ae4fe767" --fixture-cache-root "$RUNNER_TEMP/understat-revision-cache/vaastav-fixtures-8c97b2adb123863c3dd581e730f1360e89815ac2" --fplcache-root "$RUNNER_TEMP/understat-revision-cache/fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767" --output "$RUNNER_TEMP/understat-deadline-visibility-audit.json" --detail-output "$RUNNER_TEMP/understat-deadline-visibility-audit.csv"
+
+      - name: Validate Arsenal fixture date correction at GW26 deadline
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pandas as pd
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"])
+          report = json.loads((root / "understat-deadline-visibility-audit.json").read_text())
+          assert report["admission_decision"] == "NO_FEATURES_ADMITTED", report
+          candidates = [
+              row for row in report["date_correction_reconciliations"]
+              if row["source_path"] == "data/2022-23/understat/understat_Arsenal.csv"
+              and row["old_date"] == "2023-03-02 20:00:00"
+              and row["new_date"] == "2023-03-01 20:00:00"
+          ]
+          assert len(candidates) == 1, candidates
+          correction = candidates[0]
+          assert correction["fixture_mapping_status"] == "same_canonical_fixture", correction
+          assert correction["fixture_id"] == 61 and correction["fixture_event"] == 25, correction
+          assert correction["fixture_kickoff_time"].startswith("2023-03-01T19:45:00"), correction
+          detail = pd.read_csv(root / "understat-deadline-visibility-audit.csv")
+          gw26 = detail.loc[
+              detail["source_path"].eq("data/2022-23/understat/understat_Arsenal.csv")
+              & detail["fixture_id"].eq(61)
+              & detail["gameweek"].eq(26)
+          ]
+          assert len(gw26) == 1, gw26.to_dict("records")
+          row = gw26.iloc[0]
+          assert bool(row["deadline_verified"]), row.to_dict()
+          assert row["visibility_status"] == "repository_proven_prior_row", row.to_dict()
+          assert bool(row["value_matches_final"]), row.to_dict()
+          print("PASS: corrected Arsenal row maps to FPL fixture 61 and its unchanged metrics were repository-visible before the GW26 deadline; no feature admission.")
+          PY
+
+      - name: Upload bounded source-history and deadline evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: understat-complete-path-history-smoke
-          path: ${{ runner.temp }}/understat-revision-history.json
+          name: understat-source-history-and-deadline-smoke
+          path: |
+            ${{ runner.temp }}/understat-revision-history.json
+            ${{ runner.temp }}/understat-deadline-visibility-audit.json
+            ${{ runner.temp }}/understat-deadline-visibility-audit.csv
           if-no-files-found: error
           retention-days: 14
 
