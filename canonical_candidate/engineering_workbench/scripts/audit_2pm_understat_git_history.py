@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import io
 import json
 import os
@@ -68,16 +69,28 @@ def list_path_commits(session: requests.Session, repository: str, path: str,
     return commits[:max_commits]
 
 
-def _row_key(row: dict[str, Any], kind: str, player_id: int | None = None) -> str:
+def _row_key(row: dict[str, Any], kind: str, player_id: int | None = None,
+             source_path: str | None = None) -> str:
     date = str(row.get("date", "")).strip()
     if kind == "player":
         # Pinned Dastan loader enforces uniqueness on (understat_id, date_only).
         identity = player_id if player_id is not None else row.get("understat_id", "")
         return "|".join((str(identity).strip(), date[:10]))
-    # Team files are per-team; date + fixture home/away names identify the match.
-    home = str(row.get("h_team", row.get("h", ""))).strip()
-    away = str(row.get("a_team", row.get("a", ""))).strip()
-    return "|".join((date[:10], home, away))
+    # Pinned team CSVs are one file per team. They carry h_a, not opponent names;
+    # Dastan derives understat_team from the filename and retains the full kickoff.
+    if not source_path:
+        raise ValueError("team row identity requires its pinned source path")
+    parts = source_path.split("/")
+    if len(parts) < 4 or not parts[1].startswith("20"):
+        raise ValueError(f"cannot derive season/team identity from {source_path}")
+    season = parts[1]
+    team = html.unescape(
+        parts[-1].removesuffix(".csv").removeprefix("understat_").replace("_", " ")
+    )
+    home_away = str(row.get("h_a", "")).strip().lower()
+    if not date or not team or home_away not in {"h", "a"}:
+        raise ValueError(f"team row lacks date, filename team, or valid h_a: {source_path}")
+    return "|".join((season, team, date, home_away))
 
 
 def audit_file(session: requests.Session, repository: str, pinned_commit: str,
@@ -99,7 +112,7 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
             current: dict[str, str] = {}
             duplicate_keys: set[str] = set()
             for row in frame.to_dict("records"):
-                key = _row_key(row, kind, player_id)
+                key = _row_key(row, kind, player_id, source_path)
                 if not key.strip("|"):
                     continue
                 # Exclude volatile row index; compare all source fields as serialized values.
