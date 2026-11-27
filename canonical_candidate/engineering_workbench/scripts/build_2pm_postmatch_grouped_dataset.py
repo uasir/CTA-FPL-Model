@@ -91,7 +91,7 @@ def build_dataset(
             try:
                 cached_report = json.loads(report_path.read_text(encoding="utf-8"))
                 declared_shards = cached_report.get("shards", [])
-                required_shard_files = ("tensor", "fixture_mask", "labels", "metadata")
+                required_shard_files = ("tensor", "fixture_mask", "source_availability_state", "observed_value_mask", "labels", "metadata")
                 shards_valid = all(
                     all(
                         shard.get(field)
