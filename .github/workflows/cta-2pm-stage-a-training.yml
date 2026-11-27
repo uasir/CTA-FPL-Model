@@ -112,7 +112,7 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_two_pm_fold_preprocessing.py \
-            tests/test_two_component_poisson_transformer.py
+            tests/test_two_component_poisson_transformer.py \\\n            tests/test_two_pm_stage_a_provenance_loader.py
 
       - name: Train provisional Stage A with the user's explicit authorization
         working-directory: canonical_candidate/engineering_workbench
