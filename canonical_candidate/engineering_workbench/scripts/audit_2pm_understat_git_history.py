@@ -75,9 +75,19 @@ def _row_key(row: dict[str, Any], kind: str, player_id: int | None = None,
     team = html.unescape(
         parts[-1].removesuffix(".csv").removeprefix("understat_").replace("_", " ")
     )
+    if not date or not team:
+        raise ValueError(f"team row lacks date or filename team: {source_path}")
+    match_date = pd.to_datetime(date, errors="coerce")
+    if pd.isna(match_date):
+        raise ValueError(f"team row has an invalid date: {date!r} in {source_path}")
+    start_year = int(season.split("-")[0])
+    # Match Dastan _load_vaastav_team_file: team files may temporarily contain
+    # the previous season, which is excluded from this season's reconstruction.
+    if match_date < pd.Timestamp(start_year, 7, 1) or match_date >= pd.Timestamp(start_year + 1, 7, 1):
+        return ""
     home_away = str(row.get("h_a", "")).strip().lower()
-    if not date or not team or home_away not in {"h", "a"}:
-        raise ValueError(f"team row lacks date, filename team, or valid h_a: {source_path}")
+    if home_away not in {"h", "a"}:
+        raise ValueError(f"team row lacks a valid h_a: {source_path}")
     return "|".join((season, team, date, home_away))
 
 
