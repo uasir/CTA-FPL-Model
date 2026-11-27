@@ -463,14 +463,21 @@ def rebuild_deadline_team_context(
     rank_observed = pd.Series(False, index=teams.index, dtype=bool)
     for season, season_group in teams.groupby("season", sort=False):
         prior_inputs_complete = True
+        prior_match_count = 0
         for date, day in season_group.sort_values("date", kind="mergesort").groupby(
             "date", sort=True
         ):
-            rank_observed.loc[day.index] = prior_inputs_complete
+            # A fallback rank before the first completed league match is not an
+            # observation. Only expose historical ranks after at least one prior
+            # match exists and every prior rank input is complete.
+            rank_observed.loc[day.index] = (
+                prior_match_count > 0 and prior_inputs_complete
+            )
             current_complete = bool(
                 day[["__obs_scored", "__obs_missed", "__obs_pts"]].to_numpy(dtype=bool).all()
             )
             prior_inputs_complete = prior_inputs_complete and current_complete
+            prior_match_count += int(len(day))
     teams["__obs_league_rank"] = rank_observed
     teams["__obs_opp_league_rank"] = rank_observed & teams["opponent"].notna()
 
@@ -598,7 +605,8 @@ def rebuild_deadline_team_context(
         ]
         rank_observed_records.append(
             bool(
-                season_rows[["__obs_scored", "__obs_missed", "__obs_pts"]]
+                len(season_rows) > 0
+                and season_rows[["__obs_scored", "__obs_missed", "__obs_pts"]]
                 .to_numpy(dtype=bool).all()
             )
         )
