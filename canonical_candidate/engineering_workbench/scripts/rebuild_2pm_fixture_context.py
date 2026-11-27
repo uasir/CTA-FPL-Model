@@ -831,6 +831,9 @@ def rebuild_fixture_context(
                     )
     for column, array in values.items():
         out[column] = array
+        out[f"{OBSERVED_PREFIX}{column}"] = np.isfinite(array).astype(np.uint8)
+    out[f"{OBSERVED_PREFIX}ar_rest_days"] = np.ones(len(out), dtype=np.uint8)
+    out[f"{OBSERVED_PREFIX}ar_team_matches_14d"] = np.ones(len(out), dtype=np.uint8)
 
     multi_fixture_groups = (
         out.groupby(["season", "gameweek", "fpl_code"], sort=False)["fixture"]
