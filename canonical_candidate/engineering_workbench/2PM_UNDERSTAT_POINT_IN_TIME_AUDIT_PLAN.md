@@ -118,3 +118,13 @@ Git commit author/committer timestamps are not the same as the time a commit bec
 - If the public push time cannot be recovered from a contemporaneous archive or other reliable evidence, keep the row unverified and its Understat observed-value mask at zero.
 
 This is deliberately conservative. The audit may prove some rows unavailable, but it must not claim historical availability from commit dates alone.
+
+
+## 8. Evidence pointers
+
+- Pinned Dastan acquisition logic: https://github.com/qazybekb/smartplayfpl-dastan/blob/758db9247e8b3a9a870c991064f74d8339d61cd0/dastan/rebuild/sources.py
+- Pinned Vaastav 2020/21 Understat directory: https://github.com/vaastav/Fantasy-Premier-League/tree/8c97b2adb123863c3dd581e730f1360e89815ac2/data/2020-21/understat
+- 2020/21 aggregate player table: https://github.com/vaastav/Fantasy-Premier-League/blob/8c97b2adb123863c3dd581e730f1360e89815ac2/data/2020-21/understat/understat_player.csv
+- 2020/21 Arsenal match-level team file: https://github.com/vaastav/Fantasy-Premier-League/blob/8c97b2adb123863c3dd581e730f1360e89815ac2/data/2020-21/understat/understat_Arsenal.csv
+- 2021/22 Bruno Fernandes multi-season player file: https://github.com/vaastav/Fantasy-Premier-League/blob/8c97b2adb123863c3dd581e730f1360e89815ac2/data/2021-22/understat/Bruno_Fernandes_1228.csv
+- Bruno file history: https://api.github.com/repos/vaastav/Fantasy-Premier-League/commits?path=data%2F2021-22%2Funderstat%2FBruno_Fernandes_1228.csv&per_page=100
