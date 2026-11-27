@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from pathlib import Path
 
 import pandas as pd
@@ -80,17 +81,53 @@ def build_dataset(
             postmatch["season"].astype(str).eq(season)
             & pd.to_numeric(postmatch["fpl_code"], errors="raise").astype("int64").isin(player_codes)
         ].copy()
-        report = build_player_gameweek_sequence_tensors(
-            history_subset,
-            target_subset,
-            schema_path,
-            shard_dir,
-            report_path,
-            target_season=season,
-            target_gameweek=gameweek,
-            target_mode="historical",
-            label_grain="player_fixture",
-        )
+        # Completed Gameweeks are reusable across interrupted workflow runs.
+        # A report is the completion marker: every declared shard must exist and
+        # be non-empty before the Gameweek can be skipped. Incomplete directories
+        # are discarded and rebuilt so partial shard writes cannot be mistaken
+        # for a completed sample set.
+        report = None
+        if report_path.exists():
+            try:
+                cached_report = json.loads(report_path.read_text(encoding="utf-8"))
+                declared_shards = cached_report.get("shards", [])
+                shards_valid = all(
+                    (shard_dir / name).is_file() and (shard_dir / name).stat().st_size > 0
+                    for shard in declared_shards
+                    for name in (
+                        shard.get("tensor"),
+                        shard.get("fixture_mask"),
+                        shard.get("labels"),
+                        shard.get("metadata"),
+                    )
+                    if name
+                )
+                report_valid = (
+                    cached_report.get("status") == "PLAYER_GAMEWEEK_SEQUENCE_TENSORS_BUILT"
+                    and cached_report.get("target_mode") == "historical"
+                    and cached_report.get("target_season") == season
+                    and int(cached_report.get("target_gameweek", -1)) == gameweek
+                    and shards_valid
+                )
+                if report_valid:
+                    report = cached_report
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                report = None
+        if report is None:
+            if shard_dir.exists():
+                shutil.rmtree(shard_dir)
+            report_path.unlink(missing_ok=True)
+            report = build_player_gameweek_sequence_tensors(
+                history_subset,
+                target_subset,
+                schema_path,
+                shard_dir,
+                report_path,
+                target_season=season,
+                target_gameweek=gameweek,
+                target_mode="historical",
+                label_grain="player_fixture",
+            )
         counts = report["counts"]
         total_emitted += int(counts["emitted"])
         total_player_gameweek_groups += int(counts["player_gameweek_groups"])
