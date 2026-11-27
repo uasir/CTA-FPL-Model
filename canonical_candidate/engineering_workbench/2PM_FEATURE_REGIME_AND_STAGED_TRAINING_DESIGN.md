@@ -164,3 +164,12 @@ The candidate now carries one `__observed__{feature}` uint8 sidecar for each of 
 The sequence builder now requires these sidecars under the production manifest and combines them with finite-value, sentinel and structural-availability checks. Legacy Run 83 candidate/tensor artifacts do not contain the new pre-fill sidecars and cannot be safely repaired from final tensor values. They are rejected for reuse. The candidate must be regenerated from the pinned raw-source cache, and grouped tensor shards must be rebuilt from the resulting sidecar-bearing states. This invalidates only the derived candidate/tensor artifacts, not the reusable raw downloads.
 
 This sidecar extension is under implementation and test; the earlier CI results above predate it. Do not train or admit features until the focused CI passes and the regenerated tensor artifact audit verifies the sidecars end to end.
+
+
+### 2.6 Pre-fill sidecar implementation and verification
+
+The 286 pre-fill sidecars are now emitted by player-history, team/opponent-context, fixture-context and retained snapshot reconstruction. The candidate builder fails closed unless all 286 are present. Post-match states validate and preserve them. The sequence builder requires them under manifest 1.2.0 and combines them with the tri-state availability, finite-value and sentinel checks.
+
+Window policy is explicit: FPL rolling fields that retain zero-fill semantics require complete raw-source coverage across the contributing window; Understat rolling fields use any-valid coverage because the custom 2PM calculation ignores missing Understat rows; defensive/rate rolling fields use any-valid source coverage; team/opponent rolling fields require complete raw-source coverage; ranks require complete prior score/conceded/points inputs; deterministic schedule context is marked available; snapshots retain their sentinel contract.
+
+CI now passes with this sidecar contract. This verifies code and tests, not the contents of the still-unrebuilt Run 83 artifact. Candidate/tensor regeneration and artifact-level mask audit remain outstanding before training.
