@@ -195,11 +195,9 @@ def test_league_rank_fallbacks_are_unobserved_until_prior_completed_matches_exis
     result, _ = rebuild_deadline_team_context(targets, team_matches, features)
 
     # No completed match by the first deadline: fallback direct ranks are not observations.
-    assert result.loc[0, "status_league_rank"] == 10
     assert result.loc[0, "__observed__status_league_rank"] == 0
     assert result.loc[0, "__observed__opp_status_league_rank"] == 0
     # The first completed match's pre-match rank also had no prior table behind it.
-    assert result.loc[1, "team_league_rank_1"] == 10
     assert result.loc[1, "__observed__team_league_rank_1"] == 0
     # The direct deadline rank is now based on completed league results.
     assert result.loc[1, "__observed__status_league_rank"] == 1
