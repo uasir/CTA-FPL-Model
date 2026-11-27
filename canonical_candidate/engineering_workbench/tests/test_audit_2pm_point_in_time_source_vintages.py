@@ -8,6 +8,7 @@ from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 from audit_2pm_point_in_time_source_vintages import (
+    _field_parity,
     _probe_payload,
     _snapshot_for_deadline,
     _season_capture_bounds,
@@ -74,6 +75,23 @@ class PointInTimeSourceVintageTests(unittest.TestCase):
                 datetime(2021, 7, 30, 10, 0, tzinfo=timezone.utc),
             )
         self.assertEqual(result["status"], "no_pre_deadline_snapshot")
+
+    def test_prior_match_field_parity_detects_source_revisions(self):
+        historical = __import__("pandas").DataFrame({
+            "fixture": ["101", "102"],
+            "element": [1, 1],
+            "total_points": [4, 2],
+        })
+        final = __import__("pandas").DataFrame({
+            "fixture": ["101", "102"],
+            "element": [1, 1],
+            "total_points": [4, 3],
+        })
+        report = _field_parity(historical, final, ("total_points",))
+        self.assertEqual(report["common_prior_keys"], 2)
+        self.assertEqual(report["fields"]["total_points"]["exact_match_rows"], 1)
+        self.assertEqual(report["fields"]["total_points"]["changed_rows"], 1)
+        self.assertEqual(report["fields"]["total_points"]["exact_match_rate"], 0.5)
 
 
 if __name__ == "__main__":
