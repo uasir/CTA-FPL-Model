@@ -93,12 +93,23 @@ class UnderstatGitHistoryTests(unittest.TestCase):
         self.assertEqual(row["value_revision_count"], 0)
         self.assertEqual(row["last_seen_commit"], "a")
 
-    def test_team_row_key_uses_date_match_and_home_away_identity(self):
+    def test_team_row_key_matches_pinned_dastan_team_file_contract(self):
+        source_path = "data/2024-25/understat/understat_Arsenal.csv"
         self.assertEqual(
-            _row_key({"date": "2024-01-01", "id": 1234, "h": "Arsenal", "a": "Chelsea"},
-                     "team"),
-            "2024-01-01|Arsenal|Chelsea",
+            _row_key({"date": "2024-08-17 14:00:00", "h_a": "h",
+                      "xG": 1.6, "xGA": 0.5}, "team", source_path=source_path),
+            "2024-25|Arsenal|2024-08-17 14:00:00|h",
         )
+        # The same kickoff date in another team's file remains a different row.
+        self.assertNotEqual(
+            _row_key({"date": "2024-08-17 14:00:00", "h_a": "a"},
+                     "team", source_path="data/2024-25/understat/understat_Chelsea.csv"),
+            "2024-25|Arsenal|2024-08-17 14:00:00|h",
+        )
+
+    def test_team_row_key_rejects_missing_team_source_identity(self):
+        with self.assertRaises(ValueError):
+            _row_key({"date": "2024-08-17 14:00:00", "h_a": "h"}, "team")
 
 
 if __name__ == "__main__":
