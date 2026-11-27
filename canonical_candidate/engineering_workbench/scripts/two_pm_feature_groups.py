@@ -1,0 +1,101 @@
+"""Validated, versioned feature-group contract for the independent 2PM model."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+EXPECTED_DEFENSIVE_COLUMNS = (
+    "ar_defensive_contribution_3", "ar_defensive_contribution_5",
+    "ar_defensive_contribution_10", "ar_defensive_contribution_38",
+    "ar_cbit_3", "ar_cbit_5", "ar_cbit_10", "ar_cbit_38",
+    "ar_recoveries_3", "ar_recoveries_5", "ar_recoveries_10", "ar_recoveries_38",
+    "ar_tackles_3", "ar_tackles_5", "ar_tackles_10", "ar_tackles_38",
+    "ar_dc_hit_rate_3", "ar_dc_hit_rate_5", "ar_dc_hit_rate_10",
+    "ar_dc_near_rate_3", "ar_dc_near_rate_5", "ar_dc_near_rate_10",
+    "ar_dc_ppg_5",
+    "ar_opp_dc_allowed_3", "ar_opp_dc_allowed_5", "ar_opp_dc_allowed_10",
+    "ar_opp_tackles_allowed_5",
+)
+
+
+def validate_feature_group_manifest(
+    schema: dict[str, Any], manifest: dict[str, Any]
+) -> dict[str, tuple[str, ...]]:
+    """Fail closed unless groups exactly partition the pinned ordered schema."""
+    schema_order = tuple(schema.get("feature_order", ()))
+    if schema.get("feature_count") != 286 or len(schema_order) != 286:
+        raise ValueError("Expected the pinned 286-feature schema")
+    if len(set(schema_order)) != len(schema_order):
+        raise ValueError("Schema feature order contains duplicate names")
+    if manifest.get("status") != "CANDIDATE_NOT_FROZEN":
+        raise ValueError("Feature-group manifest must remain explicitly un-frozen")
+    source = manifest.get("source_schema", {})
+    if (
+        source.get("version") != schema.get("schema_version")
+        or source.get("upstream_commit") != schema.get("upstream_commit")
+        or source.get("feature_count") != len(schema_order)
+    ):
+        raise ValueError("Feature-group manifest is pinned to a different source schema")
+
+    groups = manifest.get("feature_groups", {})
+    common = tuple(groups.get("common_candidate", {}).get("feature_order", ()))
+    defensive = tuple(groups.get("defensive_regime_dependent", {}).get("feature_order", ()))
+    if len(common) != 259 or len(defensive) != 27:
+        raise ValueError("Expected 259 common and 27 defensive-regime-dependent features")
+    if defensive != EXPECTED_DEFENSIVE_COLUMNS:
+        raise ValueError("Defensive-regime-dependent feature inventory/order changed")
+    if len(set(common)) != len(common) or len(set(defensive)) != len(defensive):
+        raise ValueError("Feature group contains duplicate names")
+    if set(common).intersection(defensive):
+        raise ValueError("Feature groups must be disjoint")
+    if set(common).union(defensive) != set(schema_order):
+        missing = sorted(set(schema_order) - set(common) - set(defensive))
+        extra = sorted((set(common) | set(defensive)) - set(schema_order))
+        raise ValueError(f"Feature groups do not partition schema; missing={missing}, extra={extra}")
+    expected_common = tuple(name for name in schema_order if name not in set(defensive))
+    if common != expected_common:
+        raise ValueError("Common feature order does not preserve pinned schema order")
+
+    for group_name, expected_count in (
+        ("common_candidate", 259), ("defensive_regime_dependent", 27)
+    ):
+        if groups[group_name].get("count") != expected_count:
+            raise ValueError(f"Incorrect declared count for {group_name}")
+
+    accounting = manifest.get("reconstruction_family_accounting", {})
+    player_history = tuple(accounting.get("defensive_player_history", {}).get("feature_order", ()))
+    fixture_context = tuple(accounting.get("fixture_context", {}).get("feature_order", ()))
+    if len(player_history) != 26 or len(set(player_history)) != 26:
+        raise ValueError("Expected 26 distinct defensive/player-history reconstruction columns")
+    if len(fixture_context) != 6 or len(set(fixture_context)) != 6:
+        raise ValueError("Expected six distinct fixture-context reconstruction columns")
+    if not set(player_history).issubset(schema_order) or not set(fixture_context).issubset(schema_order):
+        raise ValueError("Reconstruction-family accounting contains columns outside schema")
+    if not set(EXPECTED_DEFENSIVE_COLUMNS[:23]).issubset(player_history):
+        raise ValueError("Player-history accounting omits defensive rolling/rate columns")
+    if not set(EXPECTED_DEFENSIVE_COLUMNS[23:]).issubset(fixture_context):
+        raise ValueError("Fixture-context accounting omits opponent allowance columns")
+    if not {"ar_starts_3", "ar_starts_5", "ar_starts_10"}.issubset(player_history):
+        raise ValueError("Player-history accounting must include starts-rate columns")
+    if not {"ar_rest_days", "ar_team_matches_14d"}.issubset(fixture_context):
+        raise ValueError("Fixture-context accounting must include schedule columns")
+
+    return {
+        "common_candidate": common,
+        "defensive_regime_dependent": defensive,
+        "defensive_player_history": player_history,
+        "fixture_context": fixture_context,
+    }
+
+
+def load_feature_group_manifest(
+    workbench_root: Path | None = None,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, tuple[str, ...]]]:
+    """Load and validate the manifest beside the pinned schema config."""
+    root = workbench_root or Path(__file__).resolve().parents[1]
+    config = root / "config"
+    schema = json.loads((config / "2pm_dastan_286_schema.json").read_text(encoding="utf-8"))
+    manifest = json.loads((config / "2pm_feature_group_manifest.json").read_text(encoding="utf-8"))
+    groups = validate_feature_group_manifest(schema, manifest)
+    return schema, manifest, groups
