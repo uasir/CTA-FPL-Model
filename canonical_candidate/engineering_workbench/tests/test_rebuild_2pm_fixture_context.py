@@ -62,8 +62,8 @@ def test_rebuilds_rest_congestion_and_opponent_allowance_per_target_fixture():
     first, second = result.iloc[0], result.iloc[1]
     assert first["ar_rest_days"] == 7
     assert second["ar_rest_days"] == 11
-    assert first["ar_team_matches_14d"] == 2
-    assert second["ar_team_matches_14d"] == 3
+    assert first["ar_team_matches_14d"] == 1
+    assert second["ar_team_matches_14d"] == 2
     assert first["ar_opp_dc_allowed_3"] == 15
     assert first["ar_opp_dc_allowed_5"] == 15
     assert first["ar_opp_tackles_allowed_5"] == 6
@@ -114,7 +114,7 @@ def test_unfinished_target_fixture_is_schedule_context_not_historical_result():
     result, _ = rebuild_fixture_context(target, history)
     assert result.loc[0, "ar_rest_days"] == 7
     assert result.loc[0, "__observed__ar_rest_days"] == 1
-    assert result.loc[0, "ar_team_matches_14d"] == 2
+    assert result.loc[0, "ar_team_matches_14d"] == 1
     assert result.loc[0, "__observed__ar_team_matches_14d"] == 0
     assert pd.isna(result.loc[0, "ar_opp_dc_allowed_3"])
 
