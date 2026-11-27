@@ -132,6 +132,7 @@ def test_candidate_migration_requires_exact_dastan_vaastav_and_fplcache_pins(tmp
     }
     report = {
         "upstream_commit": "dastan-sha",
+        "upstream_repository": "dastan/repo",
         "source_pins": {
             "vaastav": {"repository": "vaastav/repo", "commit": "vaastav-sha"},
             "fplcache": {"repository": "fplcache/repo", "commit": "cache-sha"},
