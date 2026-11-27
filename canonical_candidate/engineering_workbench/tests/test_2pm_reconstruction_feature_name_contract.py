@@ -83,6 +83,10 @@ def test_exact_reconstruction_names_partition_the_pinned_286_schema():
     assert "opponent team_matches.scored" in source_map["opp_goals_scored_1"]
     assert "selected_by_percent" in source_map["selected"]
     assert "transfers_in_event - transfers_out_event" in source_map["transfers_balance"]
+    assert "elements[].status" in source_map["sig_status_risk"]
+    assert "chance_of_playing_next_round" in source_map["sig_chance_playing"]
+    assert "elements[].news" in source_map["sig_has_news"]
+    assert "pre_deadline_signals.status" not in source_map["sig_status_risk"]
 
 
 def test_exact_name_validator_rejects_a_builder_schema_name_mismatch():
