@@ -13,6 +13,14 @@ from two_component_poisson_transformer import (
 )
 
 
+
+def run_model(model, values):
+    observed = torch.ones_like(values, dtype=torch.bool)
+    availability = torch.ones_like(values, dtype=torch.long)
+    regime = torch.ones(values.shape[0], dtype=torch.long)
+    return model(values, observed, availability, regime)
+
+
 def test_training_fold_support_shift_preserves_negative_points():
     assert select_training_support_shift([-3, 0, 2, 8]) == 20
     assert select_training_support_shift([-22, 0, 2], safety_margin=5) == 27
@@ -32,7 +40,7 @@ def test_shifted_model_expected_points_variance_and_signed_nll():
         dropout=0.0,
         support_shift=20,
     )
-    output = model(torch.randn(3, 6, 4))
+    output = run_model(model, torch.randn(3, 6, 4))
     count_mean = output["p"] * output["lambda_1"] + (
         1.0 - output["p"]
     ) * output["lambda_2"]
@@ -87,7 +95,7 @@ def test_shifted_tail_probability_uses_points_plus_support_shift():
         dropout=0.0,
         support_shift=20,
     )
-    output = model(torch.randn(2, 6, 2))
+    output = run_model(model, torch.randn(2, 6, 2))
     tail = poisson_mixture_tail_probability(output, 6)
     threshold = 26
     support = torch.arange(threshold, dtype=output["lambda_1"].dtype)
@@ -191,7 +199,12 @@ def test_grouped_player_gameweek_forward_flattens_queries_and_returns_one_loss()
     inputs = torch.randn(2, 2, 6, 4)
     mask = torch.tensor([[True, True], [True, False]])
     targets = torch.tensor([-4.0, 5.0])
-    result = forward_player_gameweek_batch(model, inputs, mask, targets)
+    observed = torch.ones_like(inputs, dtype=torch.bool)
+    availability = torch.ones_like(inputs, dtype=torch.long)
+    regime = torch.ones(inputs.shape[0], dtype=torch.long)
+    result = forward_player_gameweek_batch(
+        model, inputs, mask, observed, availability, regime, targets
+    )
     assert result["fixture_output"]["p"].shape == (2, 2)
     assert result["expected_points"].shape == (2,)
     assert result["nll_per_player_gameweek"].shape == (2,)
