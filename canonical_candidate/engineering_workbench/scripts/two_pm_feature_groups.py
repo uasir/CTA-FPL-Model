@@ -199,36 +199,36 @@ def validate_feature_group_manifest(
     understat_features = tuple(understat_policy.get("feature_order", ()))
     expected_understat = tuple(
         name for name in schema_order
-        if name.startswith(("player_xg_", "player_xa_", "player_shots_", "player_key_passes_"))
-        or name.startswith((
-            "team_xg_", "team_xga_", "team_deep_", "team_deep_allowed_",
-            "team_ppda_", "opp_xg_", "opp_xga_", "opp_deep_",
-            "opp_deep_allowed_", "opp_ppda_",
+        if name.startswith((
+            "player_xg_", "player_xa_", "player_shots_", "player_key_passes_",
+            "player_xgbuildup_", "player_xgchain_",
         ))
+        or name.startswith(("team_", "opp_"))
+        or name == "status_league_rank"
     )
     if (
         understat_policy.get("status") != "HOLD"
         or understat_policy.get("mask_action") != "FORCE_UNOBSERVED"
-        or understat_policy.get("feature_count") != 100
+        or understat_policy.get("feature_count") != 152
         or understat_features != expected_understat
     ):
-        raise ValueError("Understat source-vintage HOLD policy must cover the exact 100-feature inventory")
+        raise ValueError("Understat source-vintage HOLD policy must cover the exact 152-feature inventory")
     availability_groups = manifest.get("source_availability_groups", {})
     player_understat = tuple(availability_groups.get("understat_player_history", {}).get("feature_order", ()))
     team_understat = tuple(availability_groups.get("understat_team_context", {}).get("feature_order", ()))
     expected_player_understat = tuple(name for name in understat_features if name.startswith("player_"))
     expected_team_understat = tuple(name for name in understat_features if not name.startswith("player_"))
     if (
-        len(player_understat) != 20
-        or len(team_understat) != 80
-        or availability_groups.get("understat_player_history", {}).get("count") != 20
-        or availability_groups.get("understat_team_context", {}).get("count") != 80
+        len(player_understat) != 30
+        or len(team_understat) != 122
+        or availability_groups.get("understat_player_history", {}).get("count") != 30
+        or availability_groups.get("understat_team_context", {}).get("count") != 122
         or player_understat != expected_player_understat
         or team_understat != expected_team_understat
         or set(player_understat).intersection(team_understat)
         or set(player_understat).union(team_understat) != set(understat_features)
     ):
-        raise ValueError("Understat structural-availability groups must partition all 100 Understat features")
+        raise ValueError("Understat structural-availability groups must partition all 152 Understat features")
     availability_policy = manifest.get("feature_source_availability", {})
     availability_groups_policy = availability_policy.get("groups", {})
     player_availability = availability_groups_policy.get("understat_player_history", {})
