@@ -612,3 +612,14 @@ Pinned Vaastav tree inspection established:
 Added manifest 1.5.0 source-vintage HOLD for exactly 100 Understat-derived rolling features. The mask builder forces their observed-value mask to zero until a row-level vintage manifest is verified. A separate structural-availability profile marks the 20 player Understat columns UNAVAILABLE in 2020/21 and the 80 team Understat columns UNKNOWN until their independent audit. The sequence tensor builder converts every unobserved feature value to NaN before persistence; the grouped integrity audit rejects finite values marked unobserved. This avoids leaking current-file retrospective Understat rows while preserving the other historical feature families.
 
 The Understat row-level audit plan is in 2PM_UNDERSTAT_POINT_IN_TIME_AUDIT_PLAN.md. It distinguishes 2020/21 player Understat unavailability from the separately auditable team files; it does not recommend discarding the whole 2020/21 season. No vintage audit manifest has been generated, no candidate/tensor rebuild has been run, and no training has started.
+
+
+### Official FPL scoring regime contract (2026-11-27)
+
+Feature-group manifest 1.6.0 now encodes and validates the target-scoring regime by season:
+- 2020/21–2024/25: legacy scoring without defensive-contribution points.
+- 2025/26 and 2026/27: defensive-contribution scoring.
+- Defender: CBIT = clearances + blocks + interceptions + tackles; 10 in one match awards two points, capped at two.
+- Midfielder/forward: CBIRT = CBIT + recoveries; 12 in one match awards two points, capped at two.
+
+The Premier League's 10 August 2025 announcement establishes the new scoring and thresholds. Its 20 July 2026 explainer confirms the rules remain for 2026/27. This scoring-regime label is separate from raw feature availability: 2026/27 defensive source availability remains UNKNOWN pending its own point-in-time source audit. See 2PM_FEATURE_REGIME_AND_STAGED_TRAINING_DESIGN.md.
