@@ -39,7 +39,10 @@ def build_feature_availability_state(
     if len(index) != len(feature_order):
         raise ValueError("Feature order contains duplicate names")
     for group_name, season_policy in policy.get("groups", {}).items():
-        group = manifest.get("feature_groups", {}).get(group_name)
+        group = (
+            manifest.get("feature_groups", {}).get(group_name)
+            or manifest.get("source_availability_groups", {}).get(group_name)
+        )
         if group is None:
             raise ValueError(f"Availability policy references unknown group: {group_name}")
         state_name = season_policy.get(str(season), default_name)
