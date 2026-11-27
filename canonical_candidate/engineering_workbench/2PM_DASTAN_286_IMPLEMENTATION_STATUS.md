@@ -566,10 +566,23 @@ The pinned raw source-download cache remains eligible for reuse. The derived Run
 
 ### Pre-fill sidecar implementation CI passed (2026-11-27)
 
-The production sidecar implementation and manifest 1.2.0 passed both CI workflows on commit `54d76e5dd3f02f2df95ed364553054e753e35ae2`:
+The production sidecar implementation and manifest 1.3.0 passed both CI workflows on commit `54d76e5dd3f02f2df95ed364553054e753e35ae2`:
 - **CTA FPL engineering CI** run `45961116448`: 577 passed, 4 skipped, 3 subtests passed.
 - **2PM Dastan 286 sequence contract** run `45961116358`: 114 passed.
 
 These runs include tests for raw FPL zero-fill detection, Understat any-valid rolling coverage, team/opponent source coverage before zero-fill, fixture-context sidecars, candidate/post-match sidecar requirements, sequence tensor consumption, production-manifest fail-closed behavior, and legacy cache rejection.
 
 This closes the code-level sidecar contract. It does not validate the unmodified Run 83 artifact: no candidate rebuild or tensor regeneration has been run. The old candidate cache must be regenerated to include 286 sidecars, and old tensor shards without masks must be rebuilt from the sidecar-bearing states. The pinned raw source-download cache remains reusable. All 286 features remain HOLD; no training is authorized.
+
+
+### Parity-checked cached-candidate migration (2026-11-27)
+
+Added \`scripts/augment_2pm_candidate_observation_sidecars.py\`. The candidate workflow now attempts to migrate a restored candidate from its cached raw player/team match tables before considering a full rebuild:
+- Verifies the checked-out Dastan repository/commit against the manifest.
+- Verifies the candidate report's Vaastav and fplcache pins against the manifest.
+- Verifies the raw \`downloads.json\` hash against the candidate report.
+- Reconstructs all feature families and compares every one of the 286 candidate feature columns at \`rtol=1e-8\`, \`atol=1e-8\`.
+- Appends only the 286 binary sidecars if the full feature-value parity check passes; the original feature values are preserved.
+- If raw match tables are unavailable, source pins differ, or any feature value changes, migration fails closed and the workflow directs the operator to use \`rebuild_candidate=true\`.
+
+Candidate cache keys now include the migration script, manifest validator and manifest. Grouped tensor cache keys include all source-sidecar reconstruction scripts and mask policy. This permits the Run 83 candidate to be migrated without repeating source acquisition if its cached raw tables and download manifest are intact; the old tensor shards still require regeneration because they do not contain the new masks. The migration has not yet been executed against Run 83.
