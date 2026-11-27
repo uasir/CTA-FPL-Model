@@ -7,7 +7,9 @@ on:
       - canonical_candidate/engineering_workbench/config/2pm_dastan_286_schema.json
       - canonical_candidate/engineering_workbench/config/2pm_feature_group_manifest.json
       - canonical_candidate/engineering_workbench/scripts/two_pm_feature_groups.py
+      - canonical_candidate/engineering_workbench/scripts/two_pm_feature_masks.py
       - canonical_candidate/engineering_workbench/tests/test_two_pm_feature_groups.py
+      - canonical_candidate/engineering_workbench/tests/test_two_pm_feature_masks.py
       - canonical_candidate/engineering_workbench/config/2pm_poisson_transformer_candidate.json
       - canonical_candidate/engineering_workbench/scripts/build_2pm_dastan_sequence_dataset.py
       - canonical_candidate/engineering_workbench/scripts/rebuild_2pm_dastan_286_candidate.py
@@ -72,6 +74,7 @@ jobs:
           python -m py_compile scripts/build_2pm_player_gameweek_sequence_tensors.py
           python -m py_compile scripts/audit_2pm_grouped_tensor_artifacts.py
           python -m py_compile scripts/two_pm_feature_groups.py
+          python -m py_compile scripts/two_pm_feature_masks.py
           python -m py_compile scripts/two_component_poisson_transformer.py
           python -m py_compile scripts/two_pm_forecast_records.py
           python -m py_compile scripts/two_pm_gameweek_aggregation.py
@@ -82,6 +85,7 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_two_pm_feature_groups.py \
+            tests/test_two_pm_feature_masks.py \
             tests/test_2pm_dastan_sequence_dataset.py \
             tests/test_2pm_dastan_candidate_rebuild.py \
             tests/test_audit_2pm_dastan_286_candidate.py \
