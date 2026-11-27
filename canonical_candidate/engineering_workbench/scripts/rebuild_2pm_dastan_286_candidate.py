@@ -648,10 +648,10 @@ def expected_reconstruction_source_map(features_module) -> dict[str, str]:
     )
     result.update({
         "ar_rest_days": (
-            "player_matches.kickoff_time and match_available_at; latest strictly available prior fixture"
+            "player_matches.kickoff_time and match_available_at; latest strictly available prior fixture; fallback 14 days when none, with fallback observation mask 0"
         ),
         "ar_team_matches_14d": (
-            "known team fixture schedule; count in [target kickoff - 14 days, target kickoff]"
+            "pinned retrospective final fixture calendar; count in [target kickoff - 14 days, target kickoff]; schedule vintage unverified and observation mask forced 0"
         ),
         "ar_opp_dc_allowed_3": (
             "player_matches.defensive_contribution; opponent-conceded fixture totals, last 3"
