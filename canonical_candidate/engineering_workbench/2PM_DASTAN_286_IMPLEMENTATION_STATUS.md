@@ -547,3 +547,18 @@ Final verification on commit `b99d9bcd2b5b703423ffbee15f5837631c7763cb`:
 - **2PM Dastan 286 sequence contract** run `45959909666`: 108 passed.
 
 No six-season tensor rebuild or cached-artifact augmentation has been run. The existing Run 83 artifact is unchanged. The current code now rejects legacy candidate caches without all 286 pre-fill sidecars and rejects tensor shards without both provenance masks. A new candidate build must reconstruct sidecars from the pinned raw source data; source-download cache reuse remains possible. All 286 features remain HOLD; no training is authorized.
+
+
+### Upstream zero-fill discovery and sidecar correction (2026-11-27)
+
+Source inspection of pinned Dastan `features.py` found that numeric player/team fields are converted to numeric and `fillna(0.0)` before rolling feature output. A finite zero in the final 286 tensor therefore cannot, by itself, prove that the underlying source value was observed.
+
+The first finite-value-only mask implementation is superseded. The production manifest now requires raw-source observation sidecars. Code changes in progress:
+- Player-history reconstruction emits per-feature coverage sidecars before its FPL zero-fill semantics; Understat rolling masks use any-valid coverage because the custom 2PM calculation ignores missing Understat rows.
+- Team/opponent reconstruction captures source presence before Dastan's `_prepare_team_matches` zero-fill and carries window completeness through the rolling features.
+- Fixture-context reconstruction emits masks for schedule and opponent-defensive features.
+- Candidate export requires all 286 sidecars; post-match states require and preserve them; the sequence tensor builder consumes them.
+- Candidate-cache validation rejects a cached candidate without 286 valid sidecars unless an explicit candidate rebuild is approved. Tensor-cache validation rejects shards without both provenance masks.
+- The previous tensor-only backfill path has been removed. Legacy tensors cannot safely recover erased raw missingness.
+
+The pinned raw source-download cache remains eligible for reuse. The derived Run 83 candidate and tensor artifacts do not contain the sidecars and must be regenerated before training. The sidecar implementation and new tests have not yet completed CI; the earlier 569/108 and 571/108 results validate prior revisions only. No rebuild or training has been run.
