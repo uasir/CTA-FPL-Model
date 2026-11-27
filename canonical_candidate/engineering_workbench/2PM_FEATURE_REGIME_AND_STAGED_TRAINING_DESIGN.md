@@ -129,3 +129,18 @@ Before training is authorized, implement and test:
 ## 8. Current status
 
 This is a proposed design only. It does not modify the existing candidate/tensor artifacts, does not admit any of the 286 features, does not settle the open decisions, and does not authorize model training. The current 286-feature candidate remains `NOT_ADMITTED`; 2026/27 remains sealed as the out-of-time evaluation season.
+
+### 2.4 Provenance-aware feature masks (implemented as a candidate contract, 2026-11-27)
+
+The tensor contract now carries two aligned feature-level arrays with the same shape as the feature tensor `[samples, fixtures, 6, 286]`:
+
+1. `source_availability_state` (uint8): `0=UNAVAILABLE`, `1=AVAILABLE`, `2=UNKNOWN`. This is a three-state source-provenance classification, not a binary mask. UNKNOWN must never be silently promoted to AVAILABLE.
+2. `observed_value_mask` (uint8): `1` only when the raw tensor cell is finite, is not a declared missing-snapshot sentinel, and is not structurally unavailable; otherwise `0`.
+
+The explicit missing-snapshot sentinel features are `ar_ep_next`, `sig_status_risk`, `sig_chance_playing`, `sig_has_news`, `value`, `selected`, and `transfers_balance`. For these columns, `-1.0` means missing snapshot, not an observed numeric value. A genuine observed zero remains observed. Other NaNs remain missing and are preserved for later fold-only preprocessing.
+
+The pinned source policy currently marks the 27 defensive-regime-dependent features structurally unavailable for 2020/21–2024/25 and available in the pinned 2025/26 source vintage. Their 2026/27 source state remains UNKNOWN until the live inference-source vintage is pinned and audited. The other 259 features remain UNKNOWN pending their own feature-level source-vintage review. This is intentionally conservative: a numeric value may be observed while its source vintage remains UNKNOWN, and UNKNOWN is not training admission.
+
+New tensor shards save both arrays. The grouped-dataset integrity audit checks shape, legal state codes, binary observation values, non-finite/sentinel exclusion, structural-absence exclusion, and zero observations in padded fixture slots. Existing cached tensor shards can be augmented with these masks from their stored feature tensors and season metadata; this avoids repeating expensive acquisition and post-match reconstruction. Cache reuse still requires valid tensor, fixture-mask, label and metadata files.
+
+These masks are a provenance/missingness contract only. They do not admit features, decide imputation, or authorize training. Fold-only preprocessing must use the observed mask, while unresolved source availability remains a separate feature-admission gate.
