@@ -623,3 +623,16 @@ Feature-group manifest 1.6.0 now encodes and validates the target-scoring regime
 - Midfielder/forward: CBIRT = CBIT + recoveries; 12 in one match awards two points, capped at two.
 
 The Premier League's 10 August 2025 announcement establishes the new scoring and thresholds. Its 20 July 2026 explainer confirms the rules remain for 2026/27. This scoring-regime label is separate from raw feature availability: 2026/27 defensive source availability remains UNKNOWN pending its own point-in-time source audit. See 2PM_FEATURE_REGIME_AND_STAGED_TRAINING_DESIGN.md.
+
+
+### Provenance-aware Transformer input contract (2026-11-27)
+
+The independent PaperTwoComponentPoissonTransformer is now architecture version **0.3.0**. Its forward interface requires:
+- 286 preprocessed feature-value channels;
+- 286 binary observed-value indicators;
+- 858 one-hot source-availability channels (three states per feature: UNAVAILABLE, AVAILABLE, UNKNOWN);
+- one season-derived scoring-regime code per sample, represented by a learned embedding.
+
+The numeric input projection is therefore 1,430 channels (5 × 286); the two scoring regimes use a separate embedding. The model rejects invalid masks/codes and rejects a feature marked observed when its source is structurally UNAVAILABLE. The season-to-regime helper maps 2020/21–2024/25 to legacy code 0 and 2025/26–2026/27 to defensive-contribution code 1.
+
+This does **not** complete the training pipeline. Fold-only imputation/scaling, a dedicated expanding-season trainer/evaluator, validation, final refit, and a rebuild/migration of the six-season tensor artifact remain outstanding. The existing Run 83 tensors predate the source-vintage masking changes and do not contain the new mask contract. No training or candidate admission is authorized.
