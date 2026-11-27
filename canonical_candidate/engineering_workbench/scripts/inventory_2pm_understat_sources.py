@@ -50,9 +50,9 @@ def team_paths(tree_paths: list[str], season: str) -> list[str]:
     )
 
 
-def _file_record(path: Path, source_kind: str, source_path: str | None,
+def _file_record(path: Path, raw_root: Path, source_kind: str, source_path: str | None,
                  source_commit: str, manifest: dict[str, Any]) -> dict[str, Any]:
-    relative = path.as_posix()
+    relative = path.relative_to(raw_root).as_posix()
     entry = manifest.get("files", {}).get(relative, {})
     return {
         "source_kind": source_kind,
@@ -96,13 +96,13 @@ def build_inventory(raw_dir: Path, dastan_root: Path, seasons: list[str]) -> dic
         pinned_path = raw_dir / "vaastav" / "understat" / "players" / f"{player_id}.csv"
         fallback_path = raw_dir / "understat" / "players" / f"{player_id}.json"
         if fallback_path.is_file():
-            record = _file_record(fallback_path, "live_player_fallback", None,
+            record = _file_record(fallback_path, raw_dir, "live_player_fallback", None,
                                   pins["vaastav"]["commit"], manifest)
         elif pinned_path.is_file():
-            record = _file_record(pinned_path, "pinned_player_csv", selected.get(player_id),
+            record = _file_record(pinned_path, raw_dir, "pinned_player_csv", selected.get(player_id),
                                   pins["vaastav"]["commit"], manifest)
         else:
-            record = _file_record(pinned_path, "missing_player_source", selected.get(player_id),
+            record = _file_record(pinned_path, raw_dir, "missing_player_source", selected.get(player_id),
                                   pins["vaastav"]["commit"], manifest)
         record.update({"understat_id": player_id,
                        "selected_pinned_tree_path": selected.get(player_id)})
@@ -115,14 +115,14 @@ def build_inventory(raw_dir: Path, dastan_root: Path, seasons: list[str]) -> dic
         local_files = sorted(local_dir.glob("*.csv"))
         fallback = raw_dir / "understat" / "teams" / f"{season}.json"
         if fallback.is_file():
-            teams.append(_file_record(fallback, "live_team_fallback", None,
+            teams.append(_file_record(fallback, raw_dir, "live_team_fallback", None,
                                       pins["vaastav"]["commit"], manifest) |
                          {"season": season})
         elif local_files:
             for path in local_files:
                 source_name = path.name
                 source_path = next((p for p in pinned_sources if p.endswith("/" + source_name)), None)
-                teams.append(_file_record(path, "pinned_team_csv", source_path,
+                teams.append(_file_record(path, raw_dir, "pinned_team_csv", source_path,
                                           pins["vaastav"]["commit"], manifest) |
                              {"season": season})
         else:
