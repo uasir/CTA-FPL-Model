@@ -53,10 +53,11 @@ jobs:
               }
             ],
             "teams": [
-              {
-                "source_kind": "pinned_team_csv",
-                "source_path": "data/2024-25/understat/understat_Arsenal.csv"
-              }
+              {"source_kind": "pinned_team_csv", "source_path": "data/2020-21/understat/understat_Arsenal.csv"},
+              {"source_kind": "pinned_team_csv", "source_path": "data/2021-22/understat/understat_Arsenal.csv"},
+              {"source_kind": "pinned_team_csv", "source_path": "data/2022-23/understat/understat_Arsenal.csv"},
+              {"source_kind": "pinned_team_csv", "source_path": "data/2023-24/understat/understat_Arsenal.csv"},
+              {"source_kind": "pinned_team_csv", "source_path": "data/2024-25/understat/understat_Arsenal.csv"}
             ]
           }
           JSON
@@ -72,7 +73,7 @@ jobs:
             --cache-dir "$RUNNER_TEMP/understat-revision-cache" \
             --max-commits-per-file 100 \
             --limit-player-files 1 \
-            --limit-team-files 1 \
+            --limit-team-files 5 \
             --output "$RUNNER_TEMP/understat-revision-history.json"
 
       - name: Validate complete bounded source histories
@@ -84,8 +85,8 @@ jobs:
 
           path = Path(os.environ["RUNNER_TEMP"]) / "understat-revision-history.json"
           report = json.loads(path.read_text())
-          assert report["files_requested"] == 2, report
-          assert report["files_audited"] == 2, report
+          assert report["files_requested"] == 6, report
+          assert report["files_audited"] == 6, report
           assert report["admission_decision"] == "NO_FEATURES_ADMITTED", report
           for result in report["results"]:
               assert not result.get("error"), result
@@ -97,8 +98,9 @@ jobs:
               if result["source_kind"] == "pinned_player_csv":
                   assert all(key.startswith("1250|") for key in result["row_history"]), result
               else:
-                  assert all(key.startswith("2024-25|Arsenal|") for key in result["row_history"]), result
-          print("PASS: complete path histories parsed for one pinned player and one pinned team; no feature admission.")
+                  season = result["source_path"].split("/")[1]
+                  assert all(key.startswith(f"{season}|Arsenal|") for key in result["row_history"]), result
+          print("PASS: complete path histories parsed for one pinned player and five season-specific team files; no feature admission.")
           PY
 
       - name: Upload bounded complete-history evidence
