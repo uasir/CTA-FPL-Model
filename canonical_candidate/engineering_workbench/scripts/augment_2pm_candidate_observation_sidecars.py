@@ -158,10 +158,10 @@ def augment_candidate_frame(
             "rtol": 1e-8,
             "atol": 1e-8,
         },
-        "reconstruction_reports": {
-            "player_history": player_report,
-            "team_context": team_report,
-            "fixture_context": fixture_report,
+        "reconstruction_status": {
+            "player_history": str(player_report.get("status", "UNKNOWN")),
+            "team_context": str(team_report.get("status", "UNKNOWN")),
+            "fixture_context": str(fixture_report.get("status", "UNKNOWN")),
         },
     }
     return augmented, report
