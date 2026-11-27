@@ -211,3 +211,6 @@ Architecture version 0.3.0 now requires four aligned inputs: feature values, bin
 The model rejects malformed masks, invalid availability/regime codes, and any feature marked observed while structurally UNAVAILABLE. The manifest helper maps the target season to the official scoring-regime code and fails closed for unmapped seasons.
 
 This is an architecture/input-contract implementation only. It does not implement fold-only imputation, a chronological trainer, walk-forward validation, model selection, or final refit. The six-season tensor artifact predates the new source-vintage masks and scoring-regime input contract; it must be rebuilt or explicitly migrated only after the feature/source admission gates are settled. No training is authorized.
+
+
+The grouped player-Gameweek forward adapter now carries the same masks and target-season scoring-regime code through its fixture-query flattening. It still aggregates fixture distributions to one player-Gameweek prediction and one likelihood; the independent-fixture assumption is unchanged.
