@@ -153,3 +153,23 @@ def build_feature_masks(
         source_vintage_observed_mask,
     )
     return state, observed
+
+
+def build_scoring_regime_code(season: str, manifest: dict[str, Any]) -> np.uint8:
+    """Return the validated official FPL target-scoring regime code for a season."""
+    contract = manifest.get("scoring_regime_contract", {})
+    regime_by_season = contract.get("regime_by_season", {})
+    regimes = contract.get("regimes", {})
+    matches = [
+        name for name, seasons in regime_by_season.items()
+        if str(season) in [str(value) for value in seasons]
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            f"Season {season!r} must map to exactly one official scoring regime"
+        )
+    regime = regimes.get(matches[0], {})
+    code = regime.get("code")
+    if code not in (0, 1):
+        raise ValueError(f"Scoring regime {matches[0]} has an invalid code")
+    return np.uint8(code)
