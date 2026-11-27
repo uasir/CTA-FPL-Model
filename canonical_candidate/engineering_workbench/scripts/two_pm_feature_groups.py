@@ -174,6 +174,23 @@ def validate_feature_group_manifest(
         or understat_features != expected_understat
     ):
         raise ValueError("Understat source-vintage HOLD policy must cover the exact 100-feature inventory")
+    availability_groups = manifest.get("source_availability_groups", {})
+    player_understat = tuple(availability_groups.get("understat_player_history", {}).get("feature_order", ()))
+    team_understat = tuple(availability_groups.get("understat_team_context", {}).get("feature_order", ()))
+    if (
+        len(player_understat) != 20
+        or len(team_understat) != 80
+        or set(player_understat).intersection(team_understat)
+        or set(player_understat).union(team_understat) != set(understat_features)
+    ):
+        raise ValueError("Understat structural-availability groups must partition all 100 Understat features")
+    availability_policy = manifest.get("feature_source_availability", {})
+    availability_groups_policy = availability_policy.get("groups", {})
+    if (
+        availability_groups_policy.get("understat_player_history", {}).get("2020-21") != "UNAVAILABLE"
+        or availability_groups_policy.get("understat_team_context", {}).get("2020-21") != "UNKNOWN"
+    ):
+        raise ValueError("2020/21 Understat player/team structural-availability states are incorrect")
     pins = manifest.get("source_pins", {})
     for source_name in ("dastan", "vaastav", "fplcache"):
         pin = pins.get(source_name, {})
