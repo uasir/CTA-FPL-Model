@@ -1,0 +1,100 @@
+name: Understat pinned-source revision smoke test
+
+on:
+  push:
+    branches:
+      - feat/2pm-defensive-2025-26-train-2026-27-oot
+    paths:
+      - canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_git_history.py
+      - canonical_candidate/engineering_workbench/tests/test_audit_2pm_understat_git_history.py
+      - .github/workflows/understat-source-revision-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: understat-source-revision-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install audit dependencies
+        run: python -m pip install pandas requests
+
+      - name: Create bounded pinned-source inventory
+        run: |
+          cat > "$RUNNER_TEMP/understat-smoke-inventory.json" <<'JSON'
+          {
+            "players": [
+              {
+                "source_kind": "pinned_player_csv",
+                "understat_id": 1250,
+                "selected_pinned_tree_path": "data/2024-25/understat/Mohamed_Salah_1250.csv"
+              }
+            ],
+            "teams": [
+              {
+                "source_kind": "pinned_team_csv",
+                "source_path": "data/2024-25/understat/understat_Arsenal.csv"
+              }
+            ]
+          }
+          JSON
+
+      - name: Trace five latest revisions for one player and one team
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/audit_2pm_understat_git_history.py \
+            --inventory "$RUNNER_TEMP/understat-smoke-inventory.json" \
+            --pinned-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" \
+            --max-commits-per-file 5 \
+            --limit-files 2 \
+            --output "$RUNNER_TEMP/understat-revision-smoke.json"
+
+      - name: Validate smoke-test output
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "understat-revision-smoke.json"
+          report = json.loads(path.read_text())
+          assert report["files_requested"] == 2, report
+          assert report["files_audited"] == 2, report
+          assert report["admission_decision"] == "NO_FEATURES_ADMITTED", report
+          for result in report["results"]:
+              assert not result.get("error"), result
+              assert result.get("errors") == [], result
+              assert result["commit_count_returned"] == 5, result
+              assert result["history_truncated"] is True, result
+              assert result["commit_rows"], result
+              assert result["row_history"], result
+              if result["source_kind"] == "pinned_player_csv":
+                  assert all(key.startswith("1250|") for key in result["row_history"]), result
+              else:
+                  assert all(key.startswith("2024-25|Arsenal|") for key in result["row_history"]), result
+          print("PASS: five real revisions parsed for each pinned player/team source; no feature admission.")
+          PY
+
+      - name: Upload bounded source-history evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: understat-source-revision-smoke
+          path: ${{ runner.temp }}/understat-revision-smoke.json
+          if-no-files-found: error
+          retention-days: 14
