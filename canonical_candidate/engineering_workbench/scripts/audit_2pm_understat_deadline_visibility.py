@@ -336,6 +336,17 @@ def _build_canonical_rows(
     return grouped, mapping_stats
 
 
+def _latest_state_before_deadline(
+    events: list[dict[str, Any]], deadline: datetime
+) -> dict[str, Any] | None:
+    cutoff = deadline - SAFETY_BUFFER
+    eligible = [
+        event for event in events
+        if pd.to_datetime(event["committed_at"], utc=True).to_pydatetime() < cutoff
+    ]
+    return eligible[-1] if eligible else None
+
+
 def _evaluate_deadline(
     item: dict[str, Any],
     deadline_row: dict[str, Any],
@@ -367,15 +378,11 @@ def _evaluate_deadline(
         return base | {"visibility_status": "deadline_unverified", "source_commit_at": None,
                        "source_commit": None, "source_row_key": None,
                        "value_matches_final": None, "source_date": None}
-    eligible_events = [
-        event for event in item["events"]
-        if pd.to_datetime(event["committed_at"], utc=True).to_pydatetime() < cutoff
-    ]
-    if not eligible_events:
+    state = _latest_state_before_deadline(item["events"], deadline)
+    if state is None:
         return base | {"visibility_status": "not_yet_in_repository", "source_commit_at": None,
                        "source_commit": None, "source_row_key": None,
                        "value_matches_final": None, "source_date": None}
-    state = eligible_events[-1]
     signature = state["value_signature"]
     source_date = None
     if signature:
