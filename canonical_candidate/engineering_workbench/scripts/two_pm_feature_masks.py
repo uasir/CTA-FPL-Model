@@ -58,6 +58,69 @@ def build_feature_availability_state(
     return states
 
 
+def apply_manifest_feature_policies(
+    observed_value_mask: np.ndarray,
+    source_availability_state: np.ndarray,
+    season: str,
+    feature_order: Sequence[str],
+    manifest: dict[str, Any],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Apply current manifest vintage HOLDs and resolved availability to stored masks.
+
+    This is intentionally usable by the trainer when reading an older tensor
+    artifact: current HOLD policies override stale observed sidecars, and
+    resolved structural states override stale UNKNOWN channels. UNKNOWN keeps
+    the artifact's state; it is never promoted to AVAILABLE.
+    """
+    observed = np.asarray(observed_value_mask).copy()
+    availability = np.asarray(source_availability_state).copy()
+    if observed.shape != availability.shape:
+        raise ValueError("Observed-value and source-availability masks must have identical shapes")
+    if observed.ndim < 1 or observed.shape[-1] != len(feature_order):
+        raise ValueError("Mask final axis must match feature_order")
+    if not np.isin(observed, [0, 1, False, True]).all():
+        raise ValueError("Observed-value mask must contain only 0/1")
+    if not np.isin(availability, [0, 1, 2]).all():
+        raise ValueError("Source availability must use 0/1/2 states")
+    if len(set(feature_order)) != len(feature_order):
+        raise ValueError("Feature order contains duplicate names")
+
+    if manifest.get("feature_source_availability"):
+        current_state = build_feature_availability_state(season, feature_order, manifest)
+        resolved = current_state != UNKNOWN
+        availability[..., resolved] = current_state[resolved]
+
+    policy_features: set[str] = set()
+    feature_index = {name: i for i, name in enumerate(feature_order)}
+    for policy_name, policy in manifest.get("source_vintage_policies", {}).items():
+        names = policy.get("feature_order", [])
+        if not isinstance(names, list) or len(names) != len(set(names)):
+            raise ValueError(f"Invalid or duplicate source-vintage feature list: {policy_name}")
+        declared_count = policy.get("feature_count")
+        if declared_count is not None and declared_count != len(names):
+            raise ValueError(f"Source-vintage feature count mismatch: {policy_name}")
+        unknown = set(names) - set(feature_index)
+        if unknown:
+            raise ValueError(f"Source-vintage policy references features outside schema: {sorted(unknown)}")
+        overlap = policy_features.intersection(names)
+        if overlap:
+            raise ValueError(f"Overlapping source-vintage policies: {sorted(overlap)}")
+        status = policy.get("status")
+        action = policy.get("mask_action")
+        if status != "HOLD" or action != "FORCE_UNOBSERVED":
+            raise ValueError(
+                f"Unsupported source-vintage policy {policy_name}: {status}/{action}; "
+                "row-level vintage masks are not implemented in this loader."
+            )
+        policy_features.update(names)
+        indices = [feature_index[name] for name in names]
+        if indices:
+            observed[..., indices] = 0
+
+    observed &= availability != UNAVAILABLE
+    return observed.astype(np.uint8), availability.astype(np.uint8)
+
+
 def build_observed_value_mask(
     values: np.ndarray,
     feature_order: Sequence[str],
