@@ -35,6 +35,8 @@ class UnderstatGitHistoryTests(unittest.TestCase):
                     object(), "vaastav/Fantasy-Premier-League", "c",
                     "data/player_987.csv", "player", 10, 987,
                 )
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(len(result["commit_rows"]), 3)
         row = result["row_history"]["987|2024-01-01"]
         self.assertEqual(row["missing_revision_count"], 1)
         self.assertEqual(row["reappearance_count"], 1)
