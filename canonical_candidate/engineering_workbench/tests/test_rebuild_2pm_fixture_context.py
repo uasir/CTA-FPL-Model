@@ -1,7 +1,7 @@
 import pandas as pd
 from types import SimpleNamespace
 
-from rebuild_2pm_fixture_context import rebuild_deadline_team_context, rebuild_fixture_context
+from rebuild_2pm_fixture_context import (\n    rebuild_deadline_team_context,\n    rebuild_fixture_context,\n    rebuild_player_history_features,\n)
 
 
 def row(season, fixture, code, team, opponent, kickoff, available, dc, tackles):
@@ -201,3 +201,31 @@ def test_league_rank_fallbacks_are_unobserved_until_prior_completed_matches_exis
     assert result.loc[1, "__observed__team_league_rank_1"] == 0
     # The direct deadline rank is now based on completed league results.
     assert result.loc[1, "__observed__status_league_rank"] == 1
+
+
+def test_position_base_rate_fallbacks_are_not_marked_as_player_observations():
+    features = SimpleNamespace(
+        WINDOWS=[1],
+        PLAYER_FEATURES={"total_points": "fpl_points"},
+        DC_THRESHOLD={"MID": 10},
+        POSITION_BASE_RATES={"MID": {"p_any": 0.72, "p60": 0.61, "e_minutes": 58.0}},
+    )
+    player_matches = pd.DataFrame([{
+        "season": "2025-26", "fixture": "target", "fpl_code": 10,
+        "element": 10, "understat_id": 100, "position": "MID", "is_home": True,
+        "kickoff_time": pd.Timestamp("2026-01-10", tz="UTC"),
+        "match_available_at": pd.NaT, "minutes": 0, "total_points": 0,
+    }])
+    target = pd.DataFrame([{
+        "season": "2025-26", "fixture": "target", "fpl_code": 10,
+        "element": 10, "understat_id": 100, "position": "MID", "is_home": True,
+        "kickoff_time": pd.Timestamp("2026-01-10", tz="UTC"),
+        "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+    }])
+    result, report = rebuild_player_history_features(target, player_matches, features)
+    for prefix, expected in {"p_any": 0.72, "p60": 0.61, "e_minutes": 58.0}.items():
+        for window in (3, 5, 10):
+            feature = f"{prefix}_{window}"
+            assert result.loc[0, feature] == expected
+            assert result.loc[0, f"__observed__{feature}"] == 0
+    assert "position-specific base rates" in report["availability_semantics"]
