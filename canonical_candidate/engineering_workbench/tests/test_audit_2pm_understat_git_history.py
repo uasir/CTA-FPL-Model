@@ -74,9 +74,9 @@ class UnderstatGitHistoryTests(unittest.TestCase):
         ]
         payloads = {
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/a/data/player_987.csv":
-                b"date,season,xG\\n2024-01-01,2023,0.2\\n",
+                b"date,season,xG\n2024-01-01,2023,0.2\n",
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/b/data/player_987.csv":
-                b"date,season,xG\\n2024-01-01,2023,0.3\\n2024-01-01,2023,0.4\\n",
+                b"date,season,xG\n2024-01-01,2023,0.3\n2024-01-01,2023,0.4\n",
         }
         with patch("audit_2pm_understat_git_history.list_path_commits", return_value=commits):
             with patch("audit_2pm_understat_git_history._get_text",
