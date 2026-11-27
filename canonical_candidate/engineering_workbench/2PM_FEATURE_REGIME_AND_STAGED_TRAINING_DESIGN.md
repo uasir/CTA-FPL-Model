@@ -36,11 +36,20 @@ The common group is the 286-column schema minus the 27 defensive-regime-dependen
 - `ar_opp_dc_allowed_{3,5,10}`
 - `ar_opp_tackles_allowed_5`
 
-The schema inventory contains 27 such columns. The implementation status separately describes 26 defensive/player-history engineered features plus six fixture-specific context features; that accounting uses a different feature-family partition and must be reconciled against this explicit schema-level list before implementation. Do not silently force the two counts to agree.\n\nThe four upstream FPL defensive source fields (`defensive_contribution`, `clearances_blocks_interceptions`, `recoveries`, `tackles`) are provenance/source fields, not additional columns in the current 286 input schema. Their mapping into engineered features must be documented and tested. Do not count them twice in the 286-feature group manifest.
+The schema inventory contains 27 such columns. The implementation-status counts can now be reconciled from the reconstruction code and the 286-column register:
+
+- **23 player-history columns** are scoring-regime-dependent: 16 rolling source-stat columns (four metrics × four windows), six hit/near-rate columns (two rates × three windows), and `ar_dc_ppg_5`.
+- **Four opponent-context columns** are also scoring-regime-dependent: `ar_opp_dc_allowed_{3,5,10}` and `ar_opp_tackles_allowed_5`.
+- The implementation status's **26 defensive/player-history engineered features** counts the 23 columns above plus the three `ar_starts_{3,5,10}` columns. Those starts-rate columns are player-history features, but they are not specific to the defensive-contribution scoring regime.
+- The implementation status's **six fixture-context features** comprise two schedule features (`ar_rest_days`, `ar_team_matches_14d`) plus the four opponent-context columns above.
+
+Therefore, the 27 schema-level defensive-regime-dependent columns are **23 player-history + four opponent-context**. The 26 and six implementation counts are overlapping reconstruction-family counts, not disjoint subsets to be added together. The apparent discrepancy is resolved; retain all three counts with their definitions.
+
+The four upstream FPL defensive source fields (`defensive_contribution`, `clearances_blocks_interceptions`, `recoveries`, `tackles`) are provenance/source fields, not additional columns in the current 286 input schema. Their mapping into engineered features must be documented and tested. Do not count them twice in the 286-feature group manifest.
 
 ### 2.3 Other structural and row-level missingness
 
-Do not assume the 26 listed features are the only missing values. Preserve a per-cell observed/missing indicator for all 286 features after source-vintage admission. A separate feature-regime availability mask identifies structural unavailability by season/source regime. The observed mask distinguishes a real zero from a missing value within an otherwise available feature family.
+Do not assume the 27 regime-dependent features are the only missing values. Preserve a per-cell observed/missing indicator for all 286 features after source-vintage admission. A separate feature-regime availability mask identifies structural unavailability by season/source regime. The observed mask distinguishes a real zero from a missing value within an otherwise available feature family.
 
 ## 3. Fixed-width model input
 
@@ -111,7 +120,7 @@ Before training is authorized, implement and test:
 
 ## 7. Open decisions (not silently assumed)
 
-- Exact authoritative scoring-regime boundary and the official definitions/source fields for the four defensive source columns.
+- The Premier League's official FPL announcement states that defensive-contribution points were introduced for the 2025/26 season: defenders earn two points at 10 combined clearances, blocks, interceptions and tackles (CBIT); midfielders and forwards earn two points at 12 combined CBIT plus ball recoveries (CBIRT). This establishes the target-scoring regime boundary at the start of 2025/26. The source-field extraction semantics and historical source-vintage availability still require separate verification.
 - Whether all 26 engineered features are truly unavailable before 2025/26 or whether some can be reconstructed consistently from an independent historical event source. Until proven, preserve the current structural-missingness classification.
 - Exact replay ratio and whether any backbone layers should be frozen during early Stage B steps.
 - Whether the regime indicator should be a learned embedding or a simple numeric/categorical channel; choose by chronological validation, not OOT.
