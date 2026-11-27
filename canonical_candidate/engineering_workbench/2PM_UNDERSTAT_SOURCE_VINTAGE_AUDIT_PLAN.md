@@ -145,7 +145,7 @@ Engineering CI run [46049971385](https://github.com/uasir/CTA-FPL-Model/actions/
 
 A bounded read-only inspection of the pinned Vaastav Git tree and actual historical CSV revisions exposed a source-schema mismatch in the first tracer implementation. The team CSV schema contains `h_a`, `date`, and metrics such as xG/xGA; it does **not** contain home-team and away-team name columns. Each CSV is already team-specific (for example, `data/2024-25/understat/understat_Arsenal.csv`). The pinned Dastan loader derives `understat_team` from that filename and retains the full parsed match date.
 
-The tracer's team row key has therefore been corrected to use the exact source contract: `season | filename-derived understat_team | full date | h_a`. It now rejects a team row when the source path, date, or `h_a` identity is missing, rather than collapsing rows on absent opponent-name columns. Player row keys remain `understat_id | date_only`, matching the pinned Dastan uniqueness check.
+The tracer's team row key has therefore been corrected to match the exact Dastan uniqueness contract: `season | filename-derived understat_team | parsed kickoff timestamp`. The `h_a` field is retained in the full row-value signature but is not part of row identity; otherwise a duplicate could evade detection by changing home/away. The key function also applies Dastan's season-directory date window (July 1 inclusive through the following July 1 exclusive). Player row keys are normalized to `understat_id | date_only`, matching the pinned Dastan uniqueness check.
 
 The read-only source inspection confirmed:
 - The pinned Vaastav tree is complete (not truncated) and contains 25,924 tree entries.
@@ -154,7 +154,7 @@ The read-only source inspection confirmed:
 - The Arsenal team file `data/2024-25/understat/understat_Arsenal.csv` has 31 path-specific commits over the same first/last commit dates.
 - Actual player and team CSV revisions were inspected at the oldest and newest returned commits; their headers confirmed the distinct player and team schemas.
 
-This was a source-contract inspection, not a completed execution of the Python tracer or a deadline-eligibility decision. The new team-key regression test covers filename-derived identity, full timestamp, `h_a`, and rejection when team source identity is missing. CI for the new implementation/test commits must pass before proceeding to a real bounded tracer run. No feature admission or training authorization changes.
+This was a source-contract inspection, not a completed execution of the Python tracer or a deadline-eligibility decision. The team-key regression tests cover filename-derived identity, full timestamp, exclusion of `h_a` from identity, season-window boundaries, and rejection when team source identity is missing. No feature admission or training authorization changes.
 
 
 The corrected team-key implementation and regression suite passed engineering CI run [46050270380](https://github.com/uasir/CTA-FPL-Model/actions/runs/46050270380), commit `828d1fbf7ef242075d68feaf3fa74a4a26d11e64`: **623 passed, 5 skipped, 18 warnings, and 3 subtests passed**. All JS contract, Python feature-core, engineering, and four identity-crosswalk validation steps completed successfully.
@@ -166,9 +166,26 @@ The bounded read-only source inspection sampled five revisions each from the pin
 
 The team file's first sampled revision (2024-08-15) contained 38 rows dated in 2023/24; the later sampled revisions contained 2024/25 rows as that season progressed. This directly confirmed that the tracer must mirror Dastan's _load_vaastav_team_file season filter. The team row-key function now:
 - derives season and understat_team from the exact pinned path;
-- parses the full match timestamp and retains the source h_a flag; and
-- excludes rows before July 1 of the path season or on/after July 1 of the following year, exactly matching Dastan's season-window filter.
+- normalizes the parsed kickoff timestamp used by Dastan's team uniqueness check;
+- excludes rows before July 1 of the path season or on/after July 1 of the following year, exactly matching Dastan's season-window filter; and
+- leaves h_a in the row's value signature but not in its identity, so duplicate team/date rows cannot evade the duplicate-key guard by changing home/away.
 
 Regression tests cover both July boundaries, exclusion of a previous-season row, source-path identity, and missing h_a/path failures. CI for commit 64bbecc90cb391d383120aa08e5cbb01e5a5dbe1 passed in run https://github.com/uasir/CTA-FPL-Model/actions/runs/46050586879: **626 passed, 5 skipped, 18 warnings, and 3 subtests passed**.
 
 **Scope:** these five-revision samples validate source schema and row-key assumptions; they do not replace the Python tracer's full path-history execution, exhaustive row-level vintage adjudication, or FPL fixture reconciliation. The tracer has not yet been run end-to-end against a generated six-season inventory artifact. No feature admission or training authorization changes.
+
+### Resumable revision cache and workflow smoke-test integration (2026-11-27)
+
+The Python Git-history tracer now has resumable, source-pinned caches:
+- Path-specific GitHub commit-list pages are cached by repository, pinned commit, source path, page, and page size.
+- Raw CSV revision bytes are cached by repository, source path, and commit SHA, with a SHA-256 sidecar checked before reuse.
+- Cache files are written atomically. Missing, malformed, or hash-mismatched cache entries are fetched again; already cached pages/revisions survive interrupted runs.
+- CLI limits can independently select a bounded number of pinned player files and team files.
+
+The candidate-rebuild workflow now restores a cache scoped to the pinned Vaastav source and tracer implementation, then performs a bounded smoke audit of one pinned player file and one pinned team file, with at most 25 path revisions per file. The cache is saved even if later workflow steps fail, and the smoke report is included in the workflow artifact and job summary. This is a schema/runtime smoke test only; a 25-revision cap is deliberately reported as potentially truncated and cannot establish a row's first-ever appearance.
+
+Engineering CI for the latest team-identity and season-window tests completed successfully in run [46050701031](https://github.com/uasir/CTA-FPL-Model/actions/runs/46050701031): **626 passed, 5 skipped, 18 warnings, and 3 subtests passed**. The cache implementation and cache-reuse tests were also included in the passing run.
+
+**Execution boundary:** the newly integrated candidate workflow has not yet been manually dispatched, so no generated six-season inventory or Python tracer smoke report exists yet. The current GitHub integration does not expose a workflow-dispatch action in this session. When manually dispatching the workflow, keep `rebuild_candidate=false` to reuse the completed candidate cache and avoid rebuilding the six-season candidate. The run must confirm the reusable raw-source/candidate caches are present; if not, it will fail closed rather than rebuild implicitly.
+
+The audit still distinguishes Git repository commit history from original Understat publication time. Publication vintage remains UNKNOWN, all 152 Understat features remain HOLD, and no model training is authorized.
