@@ -64,6 +64,11 @@ def audit_dataset(dataset_dir: Path) -> dict:
             raise ValueError(f"Observed-value mask contains values outside 0/1: {observed_path}")
         if np.any((observed == 1) & ~np.isfinite(x)):
             raise ValueError(f"Observed-value mask marks a non-finite value as observed: {observed_path}")
+        valid_slot_mask = mask.astype(bool)[..., None, None]
+        if np.any((observed == 0) & np.isfinite(x) & valid_slot_mask):
+            raise ValueError(
+                f"Unobserved feature values must be NaN in valid fixture slots: {observed_path}"
+            )
         if np.any((availability == 0) & (observed == 1)):
             raise ValueError(f"Structurally unavailable feature marked observed: {observed_path}")
         padded_slots = ~mask.astype(bool)
@@ -176,6 +181,7 @@ def audit_dataset(dataset_dir: Path) -> dict:
             "tensor, fixture-mask, source-availability mask, observed-value mask and metadata sample counts agree",
             "source availability uses 0=unavailable, 1=available, 2=unknown",
             "observed-value mask excludes non-finite values and structurally unavailable features",
+            "all unobserved feature values are NaN in valid fixture slots",
             "player-Gameweek keys are unique across all shards",
             "fixture masks match per-sample fixture counts",
             "five historical states are strictly before the target deadline",
