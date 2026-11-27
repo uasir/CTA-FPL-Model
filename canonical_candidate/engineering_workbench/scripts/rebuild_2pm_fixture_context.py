@@ -31,6 +31,20 @@ def _utc_ns(series: pd.Series) -> pd.Series:
     """Normalize timestamps to nanosecond UTC so int64 comparisons share units."""
     return pd.to_datetime(series, utc=True, errors="coerce").astype("datetime64[ns, UTC]")
 
+def _strict_bool_series(series: pd.Series, name: str) -> pd.Series:
+    """Parse booleans without Python truthiness (e.g. bool("False") is True)."""
+    if series.isna().any():
+        raise ValueError(f"{name} contains missing boolean values")
+    if pd.api.types.is_bool_dtype(series):
+        return series.astype(bool)
+    normalized = series.astype(str).str.strip().str.lower()
+    mapping = {"true": True, "false": False, "1": True, "0": False}
+    parsed = normalized.map(mapping)
+    if parsed.isna().any():
+        invalid = sorted(normalized[parsed.isna()].unique().tolist())
+        raise ValueError(f"{name} contains invalid boolean values: {invalid[:10]}")
+    return parsed.astype(bool)
+
 
 
 def rebuild_player_history_features(
@@ -53,6 +67,7 @@ def rebuild_player_history_features(
         frame["season"] = frame["season"].astype(str)
         frame["fixture"] = frame["fixture"].astype(str)
         frame["kickoff_time"] = _utc_ns(frame["kickoff_time"])
+    hist["is_home"] = _strict_bool_series(hist["is_home"], "player history is_home")
     out["deadline_time"] = _utc_ns(out["deadline_time"])
     hist["match_available_at"] = _utc_ns(hist["match_available_at"])
     if out["deadline_time"].isna().any() or hist["kickoff_time"].isna().any():
@@ -202,13 +217,14 @@ def rebuild_player_history_features(
         dc = defensive_arrays["defensive_contribution"]
         positions = group["position"].astype(str).to_numpy()
         thresholds = np.array(
-            [features_module.DC_THRESHOLD.get(position, 99) for position in positions],
+            [features_module.DC_THRESHOLD.get(position, np.nan) for position in positions],
             dtype=float,
         )
         hit = (dc >= thresholds).astype(float)
         near = ((dc >= thresholds - 3) & (dc < thresholds)).astype(float)
-        hit[~np.isfinite(dc)] = np.nan
-        near[~np.isfinite(dc)] = np.nan
+        invalid_threshold = ~np.isfinite(thresholds)
+        hit[~np.isfinite(dc) | invalid_threshold] = np.nan
+        near[~np.isfinite(dc) | invalid_threshold] = np.nan
         starts = (
             pd.to_numeric(group["starts"], errors="coerce").to_numpy(dtype=float)
             if "starts" in group else np.full(len(group), np.nan)
