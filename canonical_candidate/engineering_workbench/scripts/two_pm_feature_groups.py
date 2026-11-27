@@ -72,6 +72,8 @@ def validate_feature_group_manifest(
         raise ValueError("Expected six distinct fixture-context reconstruction columns")
     if not set(player_history).issubset(schema_order) or not set(fixture_context).issubset(schema_order):
         raise ValueError("Reconstruction-family accounting contains columns outside schema")
+    if set(player_history).intersection(fixture_context):
+        raise ValueError("Player-history and fixture-context reconstruction families must be disjoint")
     if not set(EXPECTED_DEFENSIVE_COLUMNS[:23]).issubset(player_history):
         raise ValueError("Player-history accounting omits defensive rolling/rate columns")
     if not set(EXPECTED_DEFENSIVE_COLUMNS[23:]).issubset(fixture_context):
