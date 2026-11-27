@@ -379,3 +379,18 @@ The candidate-level admission blockers remain:
 - The structural audit records 10,442,140 non-finite candidate cells. Missingness is preserved and preprocessing must be fitted within each chronological fold.
 
 The grouped tensor artifact-integrity audit is complete. The next work is now **feature/data admission**, not another rebuild and not model training. Resolve each blocker with targeted source/code analysis and row-level tests; do not regenerate the historical foundation unless a specific corrected source or reconstruction rule requires it. After admission, implement the dedicated chronological trainer for `PaperTwoComponentPoissonTransformer`. The 2026/27 OOT season remains sealed.
+
+
+### Venue-conditioned rolling-feature audit correction (2026-11-27)
+
+The Run 83 same-player/Gameweek diagnostic reported 2,793 groups with differences in five columns: `player_relevant_fpl_points_{1,3,5,10,38}`. A source-level review of `rebuild_2pm_fixture_context.py` established that these are not ordinary player-history features expected to be constant across a Gameweek. They are **venue-conditioned rolling FPL-points features**: for each target fixture, the reconstruction selects the player's previous FPL points from matches at the same venue (home or away) as that target fixture, using only matches whose availability is strictly before the shared Gameweek deadline. Therefore, a home and away fixture for the same player in one Gameweek can legitimately have different values in these five columns.
+
+The previous diagnostic incorrectly classified these five columns as deadline-invariant simply because they have the `player_` prefix. The 2,793 groups are consequently **not evidence of an anchor/reconstruction defect**. The candidate values are not being changed by this correction; only the audit classification is corrected.
+
+The structural audit now:
+- excludes `player_relevant_fpl_points_{1,3,5,10,38}` from the same-player/Gameweek invariant-history check;
+- reports them separately in `venue_conditioned_player_history_check`, including the number of multi-fixture groups with differences and the affected columns;
+- records their explicit same-venue rolling semantics in the report;
+- adds a regression test proving that different home/away values are classified as venue-conditioned rather than as deadline-anchor violations.
+
+This removes one previously reported admission blocker, subject to the focused test passing in CI and the remaining independent feature/source-vintage admission checks. It does **not** establish full point-in-time admission of these or other reconstructed features. No candidate values, tensors, or training authorization are changed by this audit-only correction.
