@@ -945,3 +945,16 @@ The dedicated pinned-source history smoke has now expanded from six files to 18 
 The next work is canonical FPL fixture reconciliation, not broader model training or feature admission. It must use pinned Dastan season/player assignment intervals and pinned Vaastav fixture/player/team sources; resolve player rows by player identity plus fixture teams/date and team rows by club/venue/date; and report unmatched/ambiguous/out-of-season rows explicitly. Potential date-correction pairs must be tested against fixture IDs. Row first-seen/value-event timestamps can then be compared with official target deadlines, while preserving the limitation that Git commit timestamps are not proof of Understat publication or public visibility.
 
 This work remains provenance research only. All 152 Understat features remain HOLD, the six-season candidate remains NOT_ADMITTED, and 2PM training remains unauthorized.
+
+
+### Understat fixture/deadline audit update (2026-11-27)
+
+The bounded 18-path Understat revision audit now includes canonical FPL fixture reconciliation and per-Gameweek deadline visibility. Workflow run [46055230995](https://github.com/uasir/CTA-FPL-Model/actions/runs/46055230995) passed at `a6fe43e49d922cb256796270735c3eb56580f88a`; artifact [15225973846](https://github.com/uasir/CTA-FPL-Model/actions/runs/46055230995/artifacts/15225973846). Engineering CI run [46055202949](https://github.com/uasir/CTA-FPL-Model/actions/runs/46055202949) passed 638 tests, 5 skipped, 18 warnings, and 3 subtests.
+
+The audit reconciled 1,447 canonical source-row/fixture records and 54,986 row/deadline checks. There were 1,448 mapped source row keys, 1,401 unmatched (mostly player history outside the selected five seasons), and zero ambiguous or invalid fixture mappings. All 38 FPL deadlines are archived/verified for 2021/22–2024/25; only GW33–GW38 are archived/verified for 2020/21. The early 2020/21 deadline results remain explicitly provisional and do not become eligibility claims.
+
+A Liverpool 2020/21 team row (FPL fixture 11) has a value revision: first committed 22 September 2020, corrected 10 November 2020. Probe-calendar timing places the original values in GW3–GW8 and the corrected values by GW9; six GW3–GW8 row/deadline checks differ from the final source values. Since early 2020/21 deadlines lack contemporaneous FPL-cache snapshots, this is a revision-vintage lookahead risk requiring independent deadline corroboration, not an admitted leak finding.
+
+An Arsenal 2022/23 date correction maps old and new row keys to FPL fixture 61 (event 25, Arsenal–Everton, 1 March 2023). The original row and unchanged metrics were repository-visible before the verified GW26 deadline; the date key was corrected later, before GW29. This sampled correction does not introduce a late metric value.
+
+The implementation is row-level visibility, not yet an as-of-deadline reconstruction of every rolling feature. All 152 Understat features remain HOLD; candidate NOT_ADMITTED; training unauthorized. See `2PM_UNDERSTAT_SOURCE_VINTAGE_AUDIT_PLAN.md` for the detailed findings, audit counts, and next steps.
