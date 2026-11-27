@@ -179,9 +179,15 @@ def validate_feature_group_manifest(
     availability_groups = manifest.get("source_availability_groups", {})
     player_understat = tuple(availability_groups.get("understat_player_history", {}).get("feature_order", ()))
     team_understat = tuple(availability_groups.get("understat_team_context", {}).get("feature_order", ()))
+    expected_player_understat = tuple(name for name in understat_features if name.startswith("player_"))
+    expected_team_understat = tuple(name for name in understat_features if not name.startswith("player_"))
     if (
         len(player_understat) != 20
         or len(team_understat) != 80
+        or availability_groups.get("understat_player_history", {}).get("count") != 20
+        or availability_groups.get("understat_team_context", {}).get("count") != 80
+        or player_understat != expected_player_understat
+        or team_understat != expected_team_understat
         or set(player_understat).intersection(team_understat)
         or set(player_understat).union(team_understat) != set(understat_features)
     ):
