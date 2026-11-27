@@ -134,7 +134,12 @@ def fit_scaler(train_x: np.ndarray, train_observed: np.ndarray, fixture_mask: np
     for j in range(values.shape[-1]):
         col = values[..., j][selected[..., j]]
         if not col.size:
-            raise ValueError(f"Feature {j} has no observed training values")
+            # No evidence in this fold: keep the feature neutral (mean 0,
+            # scale 1). Its observed-value channel remains false, so the model
+            # can distinguish unavailable input from a measured zero.
+            means.append(0.0)
+            scales.append(1.0)
+            continue
         means.append(float(col.mean()))
         scale = float(col.std())
         scales.append(scale if scale > 1e-8 else 1.0)
@@ -255,6 +260,7 @@ def run_fold(samples, feature_order, train_idx, valid_idx, args, fold_dir):
         "scaler_mean": means.tolist(), "scaler_scale": scales.tolist(),
         "support_shift": support_shift, "initialization": init,
         "availability_policy": "UNKNOWN for all common candidate features; no feature source-vintage admission implied",
+        "zero_coverage_features": imputer.get("zero_coverage_features", []),
     }, indent=2))
     with (fold_dir / "training_history.json").open("w") as f:
         json.dump(history, f, indent=2)
