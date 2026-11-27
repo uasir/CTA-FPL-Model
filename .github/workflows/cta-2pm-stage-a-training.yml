@@ -1,0 +1,107 @@
+name: 2PM Stage-A provisional chronological training
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_run_id:
+        description: "Run ID containing the validated six-season tensor artifact"
+        required: true
+        default: "45936066859"
+      artifact_name:
+        description: "Exact tensor artifact name"
+        required: true
+        default: "2pm-six-season-tensor-candidate-run-83"
+      epochs:
+        description: "Maximum epochs per chronological fold"
+        required: true
+        default: "20"
+      batch_size:
+        description: "Player-Gameweek batch size"
+        required: true
+        default: "32"
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: 2pm-stage-a-provisional-training
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Check out the authorized model branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install training dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pytest
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Download the existing Run 83 tensor artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          run-id: ${{ inputs.artifact_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/2pm-dastan-candidate
+
+      - name: Locate and validate grouped tensor layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/2pm-dastan-candidate"
+          find "$ROOT" -maxdepth 4 -type d | sort | head -100
+          test -d "$ROOT/postmatch-grouped-dataset/player_gameweek_tensors"
+          test -f "$ROOT/postmatch-grouped-dataset/tensor_artifact_integrity_audit.json"
+
+      - name: Run 2PM model and preprocessing contracts
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+        run: |
+          python -m pytest -q \
+            tests/test_two_pm_fold_preprocessing.py \
+            tests/test_two_component_poisson_transformer.py
+
+      - name: Train provisional Stage A with the user's explicit authorization
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          PYTHONPATH: scripts:src
+          OMP_NUM_THREADS: "2"
+          MKL_NUM_THREADS: "2"
+        run: |
+          python scripts/train_two_pm_poisson_transformer.py \
+            --artifact-root "$RUNNER_TEMP/2pm-dastan-candidate" \
+            --schema config/2pm_dastan_286_schema.json \
+            --manifest config/2pm_feature_group_manifest.json \
+            --output "$RUNNER_TEMP/2pm-stage-a-output" \
+            --allow-provisional-common-features \
+            --epochs "${{ inputs.epochs }}" \
+            --batch-size "${{ inputs.batch_size }}" \
+            --device cpu \
+            | tee "$RUNNER_TEMP/2pm-stage-a-training.log"
+
+      - name: Upload experimental checkpoints, OOF predictions, and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2pm-stage-a-provisional-results-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/2pm-stage-a-output/
+            ${{ runner.temp }}/2pm-stage-a-training.log
+          if-no-files-found: warn
+          retention-days: 30
+          compression-level: 1
