@@ -154,7 +154,7 @@ The read-only source inspection confirmed:
 - The Arsenal team file `data/2024-25/understat/understat_Arsenal.csv` has 31 path-specific commits over the same first/last commit dates.
 - Actual player and team CSV revisions were inspected at the oldest and newest returned commits; their headers confirmed the distinct player and team schemas.
 
-This was a source-contract inspection, not a completed execution of the Python tracer or a deadline-eligibility decision. The team-key regression tests cover filename-derived identity, full timestamp, exclusion of `h_a` from identity, season-window boundaries, and rejection when team source identity is missing. No feature admission or training authorization changes.
+This source-contract inspection preceded the dedicated bounded Python-tracer smoke run recorded below; neither activity is a deadline-eligibility decision. The team-key regression tests cover filename-derived identity, full timestamp, exclusion of `h_a` from identity, season-window boundaries, and rejection when team source identity is missing. No feature admission or training authorization changes.
 
 
 The corrected team-key implementation and regression suite passed engineering CI run [46050270380](https://github.com/uasir/CTA-FPL-Model/actions/runs/46050270380), commit `828d1fbf7ef242075d68feaf3fa74a4a26d11e64`: **623 passed, 5 skipped, 18 warnings, and 3 subtests passed**. All JS contract, Python feature-core, engineering, and four identity-crosswalk validation steps completed successfully.
@@ -189,3 +189,14 @@ Engineering CI for the latest team-identity and season-window tests completed su
 **Execution boundary:** the newly integrated candidate workflow has not yet been manually dispatched, so no generated six-season inventory or Python tracer smoke report exists yet. The current GitHub integration does not expose a workflow-dispatch action in this session. When manually dispatching the workflow, keep `rebuild_candidate=false` to reuse the completed candidate cache and avoid rebuilding the six-season candidate. The run must confirm the reusable raw-source/candidate caches are present; if not, it will fail closed rather than rebuild implicitly.
 
 The audit still distinguishes Git repository commit history from original Understat publication time. Publication vintage remains UNKNOWN, all 152 Understat features remain HOLD, and no model training is authorized.
+
+
+### Dedicated Python tracer smoke result (2026-11-27)
+
+The new focused workflow [46050872902](https://github.com/uasir/CTA-FPL-Model/actions/runs/46050872902) completed successfully against the pinned Vaastav commit. It ran the actual Python tracer on:
+- Mohamed Salah player history, Understat ID 1250: five latest path revisions parsed, 365 distinct row keys in the latest revision.
+- Arsenal team history: five latest path revisions parsed, 31 distinct season/team/kickoff row keys in the latest revision.
+
+Both files returned **zero parser/duplicate-key errors**. Across the five sampled revisions, no row-value changes, disappearances, or reappearances were detected in these two files. The report marks both histories **truncated** because only five of 29 player revisions and five of 31 team revisions were requested; the sample therefore cannot establish first-ever row appearance or prove the absence of earlier revisions/corrections. The report keeps historical publication vintage UNKNOWN and admission_decision NO_FEATURES_ADMITTED.
+
+The evidence artifact is workflow artifact `understat-source-revision-smoke` (ID `15224282557`). This is a real-source parser/row-identity smoke test using a minimal two-file inventory. It is separate from the candidate-rebuild workflow's six-season inventory and its 25-revision-per-file cached smoke audit, which still requires its own manual dispatch. No Understat features are admitted and no training authorization changes.
