@@ -107,3 +107,13 @@ Regression tests cover player keys using the mapped Understat ID (the source CSV
 **Important implementation boundary:** this is a research tracer, not yet the full six-season deadline adjudicator. Its row keys still require reconciliation to FPL fixture IDs; it does not yet produce deadline-level eligibility, does not include live fallback JSON revision histories, and must be performance-tested before running against every file. GitHub API calls scale with file count and revision count, so a bounded sample/smoke run and cost/rate-limit assessment are required before full execution. It is deliberately not wired into the candidate rebuild workflow yet.
 
 Engineering CI was triggered by push for commit `216e63a99b41e31e6e2ebddc6649f9aa87bca186`; the run was pending at the time of this update. Earlier inventory regression tests passed in CI run `46047545444` (commit `2e9185051ad992cfc3f012206211dd555790c24b`). No Understat features are admitted and no training authorization changes.
+
+
+### Row-key correction and regression result
+
+Inspection of the pinned Dastan loader clarified the exact join identities:
+- Player history is validated for uniqueness on `(understat_id, date_only)`; the tracer now uses the mapped Understat ID plus the first ten characters of the source date, matching that contract.
+- Team history is per-team and uses date plus home/away team names as the fixture identity.
+- The tracer now fails the affected file revision closed if duplicate row keys are found, rather than silently overwriting a duplicate in its in-memory map.
+
+The first corrected helper/test CI run passed: `46048025031`, with **619 passed, 5 skipped, 18 warnings, and 3 subtests passed**. Subsequent row-key alignment and duplicate-key guard commits have triggered fresh CI runs; their final status must be checked before treating the latest branch state as green. The earlier failure was a test exposing a missed helper-signature edit; that was corrected and the next run passed.
