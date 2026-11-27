@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 
 from build_2pm_dastan_sequence_dataset import load_schema
+from two_pm_feature_masks import build_feature_masks
 
 GROUP_KEYS = ["season", "gameweek", "fpl_code"]
 HISTORY_LENGTH = 5
@@ -81,6 +82,7 @@ def build_player_gameweek_sequence_tensors(
     target_mode: str,
     label_grain: str | None = None,
     shard_size: int = 10000,
+    feature_group_manifest_path: Path | None = None,
 ) -> dict[str, Any]:
     """Create fixture-query tensors grouped into one player-Gameweek sample."""
     if target_mode not in {"historical", "inference"}:
@@ -88,6 +90,10 @@ def build_player_gameweek_sequence_tensors(
     if shard_size <= 0:
         raise ValueError("shard_size must be positive")
     features, feature_hash = load_schema(schema_path)
+    manifest_path = feature_group_manifest_path or (Path(__file__).resolve().parents[1] / "config" / "2pm_feature_group_manifest.json")
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"Missing 2PM feature-group manifest: {manifest_path}")
+    feature_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     history, history_missingness = _prepare_features(
         _read_parquet(postmatch_states_path), features, "Post-match state frame"
     )
@@ -282,6 +288,8 @@ def build_player_gameweek_sequence_tensors(
         dtype=np.float32,
     )
     mask_buffer = np.zeros((shard_size, max_fixtures), dtype=np.uint8)
+    availability_buffer = np.zeros((shard_size, max_fixtures, HISTORY_LENGTH + 1, len(features)), dtype=np.uint8)
+    observed_buffer = np.zeros_like(availability_buffer, dtype=np.uint8)
     label_buffer = np.full(shard_size, np.nan, dtype=np.float32)
     metadata_rows: list[dict[str, Any]] = []
     shards: list[dict[str, Any]] = []
@@ -302,8 +310,12 @@ def build_player_gameweek_sequence_tensors(
         tensor_name = f"X_player_gw_{shard_index:05d}.npy"
         mask_name = f"fixture_mask_{shard_index:05d}.npy"
         metadata_name = f"metadata_player_gw_{shard_index:05d}.csv"
+        availability_name = f"source_availability_state_{shard_index:05d}.npy"
+        observed_name = f"observed_value_mask_{shard_index:05d}.npy"
         np.save(output_dir / tensor_name, tensor_buffer[:in_shard])
         np.save(output_dir / mask_name, mask_buffer[:in_shard])
+        np.save(output_dir / availability_name, availability_buffer[:in_shard])
+        np.save(output_dir / observed_name, observed_buffer[:in_shard])
         label_name = None
         if target_mode == "historical":
             label_name = f"y_player_gw_{shard_index:05d}.npy"
@@ -312,6 +324,8 @@ def build_player_gameweek_sequence_tensors(
         shards.append({
             "tensor": tensor_name,
             "fixture_mask": mask_name,
+            "source_availability_state": availability_name,
+            "observed_value_mask": observed_name,
             "labels": label_name,
             "metadata": metadata_name,
             "samples": in_shard,
@@ -320,6 +334,8 @@ def build_player_gameweek_sequence_tensors(
         in_shard = 0
         tensor_buffer.fill(0.0)
         mask_buffer.fill(0)
+        availability_buffer.fill(0)
+        observed_buffer.fill(0)
         label_buffer.fill(np.nan)
         metadata_rows = []
 
@@ -372,6 +388,11 @@ def build_player_gameweek_sequence_tensors(
             )
             mask_buffer[sample_index, fixture_index] = 1
             fixture_ids.append(str(target.fixture))
+        sample_availability, sample_observed = build_feature_masks(
+            tensor_buffer[sample_index, :len(group), :, :], str(season), features, feature_manifest
+        )
+        availability_buffer[sample_index, :len(group), :, :] = sample_availability
+        observed_buffer[sample_index, :len(group), :, :] = sample_observed
         if target_mode == "historical":
             label_buffer[sample_index] = _label_for_group(
                 group, label_column, label_grain
@@ -419,6 +440,10 @@ def build_player_gameweek_sequence_tensors(
         "tensor_shape_per_sample": [max_fixtures, HISTORY_LENGTH + 1, len(features)],
         "tensor_dtype": "float32",
         "fixture_mask_shape_per_sample": [max_fixtures],
+        "source_availability_state_shape_per_sample": [max_fixtures, HISTORY_LENGTH + 1, len(features)],
+        "observed_value_mask_shape_per_sample": [max_fixtures, HISTORY_LENGTH + 1, len(features)],
+        "feature_availability_state_codes": {"UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2},
+        "feature_group_manifest": str(manifest_path),
         "feature_order_sha256": feature_hash,
         "label_grain": label_grain,
         "double_gameweek_rule": "one player-Gameweek sample; one query per target fixture; one GW label, never duplicated per fixture",
