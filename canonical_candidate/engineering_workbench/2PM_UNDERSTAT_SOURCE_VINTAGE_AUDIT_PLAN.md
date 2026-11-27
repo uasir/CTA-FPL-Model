@@ -90,3 +90,20 @@ The workflow runs this inventory after source restoration and publishes:
 Unit tests cover latest-player-path selection, team-file selection (excluding the aggregate player CSV), and pinned-versus-live fallback classification.
 
 **Execution status:** code and workflow integration are committed, but the workflow has not yet been dispatched and the inventory has not yet run against the six-season restored source cache. This first-stage inventory does not inspect Git history row-by-row and cannot establish historical deadline eligibility. The next implementation stage must add commit-history/value-revision tracing for each player/team match key. No feature admission or training authorization changes.
+
+
+## Second-stage implementation: pinned Git row-revision tracer
+
+A first implementation is now present at `scripts/audit_2pm_understat_git_history.py`. It:
+- queries the pinned Vaastav repository's path-specific commit history;
+- fetches each returned file revision in chronological order;
+- records commit timestamps and file SHA-256 values;
+- builds per-row first-seen and value-change histories;
+- separates player and team row keys; and
+- marks publication vintage UNKNOWN, with explicit limits for truncated history and missing revisions.
+
+Regression tests cover player keys using the mapped Understat ID (the source CSV itself does not carry that mapping ID) and team keys using date, match ID, and home/away identity.
+
+**Important implementation boundary:** this is a research tracer, not yet the full six-season deadline adjudicator. Its row keys still require reconciliation to FPL fixture IDs; it does not yet produce deadline-level eligibility, does not include live fallback JSON revision histories, and must be performance-tested before running against every file. GitHub API calls scale with file count and revision count, so a bounded sample/smoke run and cost/rate-limit assessment are required before full execution. It is deliberately not wired into the candidate rebuild workflow yet.
+
+Engineering CI was triggered by push for commit `216e63a99b41e31e6e2ebddc6649f9aa87bca186`; the run was pending at the time of this update. Earlier inventory regression tests passed in CI run `46047545444` (commit `2e9185051ad992cfc3f012206211dd555790c24b`). No Understat features are admitted and no training authorization changes.
