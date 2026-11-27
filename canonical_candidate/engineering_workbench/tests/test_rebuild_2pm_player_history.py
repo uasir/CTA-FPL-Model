@@ -198,3 +198,35 @@ def test_availability_uses_position_base_rates_when_no_prior_rows():
     assert result.loc[0, "p60_3"] == 0.38
     assert result.loc[0, "e_minutes_3"] == 38.0
     assert np.isnan(result.loc[0, "ar_defensive_contribution_3"])
+
+
+def test_player_history_sidecars_preserve_missing_fpl_and_understat_source_values():
+    features = fake_features()
+    features.PLAYER_FEATURES = {
+        "total_points": "fpl_points",
+        "goals_scored": "goals_scored",
+        "us_xG": "xg",
+    }
+    history = pd.DataFrame([
+        player_row("f1", "2026-01-01", "2026-01-02", points=10, goals=2, minutes=90, home=True, dc=12, cbit=5, recoveries=3, tackles=2, starts=1),
+        player_row("f2", "2026-01-05", "2026-01-06", points=0, goals=0, minutes=90, home=False, dc=8, cbit=1, recoveries=1, tackles=0, starts=1),
+        player_row("target", "2026-01-10", "2026-01-11", points=0, goals=0, minutes=0, home=True, dc=np.nan, cbit=np.nan, recoveries=np.nan, tackles=np.nan, starts=np.nan),
+    ])
+    history["us_xG"] = [0.4, np.nan, np.nan]
+    history.loc[history["fixture"].eq("f2"), "goals_scored"] = np.nan
+    history.loc[history["fixture"].eq("target"), "match_available_at"] = pd.NaT
+    target = pd.DataFrame([{
+        "season": "2025-26", "fixture": "target", "fpl_code": 100,
+        "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+        "kickoff_time": pd.Timestamp("2026-01-10", tz="UTC"),
+    }])
+
+    result, _ = rebuild_player_history_features(target, history, features)
+
+    # FPL value semantics retain zero-fill, but the sidecar flags the missing raw row.
+    assert result.loc[0, "player_goals_scored_3"] == 1.0
+    assert result.loc[0, "__observed__player_goals_scored_3"] == 0
+    # Understat rolling means ignore missing rows; one real source row is enough.
+    assert result.loc[0, "player_xg_3"] == 0.4
+    assert result.loc[0, "__observed__player_xg_3"] == 1
+    assert result.loc[0, "__observed__player_relevant_fpl_points_3"] == 1
