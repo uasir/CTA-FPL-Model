@@ -379,7 +379,30 @@ def rebuild_deadline_team_context(
     if out["deadline_time"].isna().any():
         raise ValueError("Target team context contains invalid deadlines")
 
-    teams = features_module._prepare_team_matches(team_matches)
+    source_map = dict(features_module.TEAM_FEATURES)
+    team_input = team_matches.copy()
+    for source in source_map:
+        if source in {"league_rank", "opp_league_rank"}:
+            continue
+        if source in team_input:
+            raw = pd.to_numeric(team_input[source], errors="coerce")
+            team_input[f"__obs_{source}"] = np.isfinite(raw.to_numpy(dtype=float))
+        else:
+            team_input[f"__obs_{source}"] = False
+    for source in ("scored", "missed"):
+        if source not in team_input:
+            raise ValueError(f"Team source is missing rank input {source}")
+        raw = pd.to_numeric(team_input[source], errors="coerce")
+        team_input[f"__obs_{source}"] = np.isfinite(raw.to_numpy(dtype=float))
+    if "pts" in team_input:
+        raw_pts = pd.to_numeric(team_input["pts"], errors="coerce")
+        team_input["__obs_pts"] = np.isfinite(raw_pts.to_numpy(dtype=float))
+    else:
+        team_input["__obs_pts"] = (
+            team_input["__obs_scored"] & team_input["__obs_missed"]
+        )
+
+    teams = features_module._prepare_team_matches(team_input)
     teams = features_module.build_opponent_lookup(teams)
     teams["date"] = _utc_ns(teams["date"])
     if teams["date"].isna().any():
@@ -406,6 +429,19 @@ def rebuild_deadline_team_context(
             teams["opponent"], teams["season"], date_strings
         )
     ]
+    rank_observed = pd.Series(False, index=teams.index, dtype=bool)
+    for season, season_group in teams.groupby("season", sort=False):
+        prior_inputs_complete = True
+        for date, day in season_group.sort_values("date", kind="mergesort").groupby(
+            "date", sort=True
+        ):
+            rank_observed.loc[day.index] = prior_inputs_complete
+            current_complete = bool(
+                day[["__obs_scored", "__obs_missed", "__obs_pts"]].to_numpy(dtype=bool).all()
+            )
+            prior_inputs_complete = prior_inputs_complete and current_complete
+    teams["__obs_league_rank"] = rank_observed
+    teams["__obs_opp_league_rank"] = rank_observed & teams["opponent"].notna()
 
     team_order = {
         season: list(group["understat_team"].dropna().astype(str).unique())
@@ -457,7 +493,6 @@ def rebuild_deadline_team_context(
         }
 
     windows = list(features_module.WINDOWS)
-    source_map = dict(features_module.TEAM_FEATURES)
     team_feature_names = [
         f"team_{feature}_{window}"
         for feature in source_map.values()
