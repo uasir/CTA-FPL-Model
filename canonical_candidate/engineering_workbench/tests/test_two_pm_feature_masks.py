@@ -130,6 +130,15 @@ def test_understat_features_are_forced_unobserved_until_vintage_audit_passes():
     understat = manifest["source_vintage_policies"]["understat"]["feature_order"]
     index = {name: i for i, name in enumerate(features)}
     assert all(observed[:, index[name]].tolist() == [0, 0] for name in understat)
+    # Understat source-vintage HOLD also covers the previously omitted player
+    # xGChain/xGBuildup and team goals/rank context features.
+    newly_held = (
+        "player_xgbuildup_1", "player_xgchain_1",
+        "team_goals_scored_1", "team_league_rank_1",
+        "opp_goals_conceded_1", "opp_league_rank_1",
+        "status_league_rank", "opp_status_league_rank",
+    )
+    assert all(observed[:, index[name]].tolist() == [0, 0] for name in newly_held)
     assert observed[:, index["player_fpl_points_1"]].tolist() == [1, 1]
 
 
@@ -151,7 +160,12 @@ def test_2020_21_understat_player_history_is_unavailable_but_team_context_is_unk
     index = {name: i for i, name in enumerate(features)}
     state = build_feature_availability_state("2020-21", features, manifest)
     assert state[index["player_xg_1"]] == UNAVAILABLE
+    assert state[index["player_xgbuildup_1"]] == UNAVAILABLE
+    assert state[index["player_xgchain_1"]] == UNAVAILABLE
     assert state[index["team_xg_1"]] == UNKNOWN
+    assert state[index["team_goals_scored_1"]] == UNKNOWN
+    assert state[index["team_league_rank_1"]] == UNKNOWN
+    assert state[index["status_league_rank"]] == UNKNOWN
     next_season = build_feature_availability_state("2021-22", features, manifest)
     assert next_season[index["player_xg_1"]] == UNKNOWN
 
