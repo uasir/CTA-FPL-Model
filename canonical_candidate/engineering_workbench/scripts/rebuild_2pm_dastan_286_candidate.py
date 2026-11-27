@@ -612,12 +612,33 @@ def expected_reconstruction_source_map(features_module) -> dict[str, str]:
         )
     result["ar_dc_ppg_5"] = "2 * ar_dc_hit_rate_5"
     for source, feature in features_module.TEAM_FEATURES.items():
+        if source == "league_rank":
+            own_source = (
+                "compute_league_ranks(team_matches.scored/missed/pts); "
+                "own-team standings rank immediately before each historical match"
+            )
+            opponent_source = (
+                "compute_league_ranks(team_matches.scored/missed/pts); "
+                "historical opponent standings rank immediately before each match"
+            )
+        elif source == "opp_league_rank":
+            own_source = (
+                "compute_league_ranks(team_matches.scored/missed/pts); "
+                "historical opponent-of-team standings rank immediately before each match"
+            )
+            opponent_source = (
+                "compute_league_ranks(team_matches.scored/missed/pts); "
+                "historical opponent-of-opponent (target-team) standings rank immediately before each match"
+            )
+        else:
+            own_source = f"team_matches.{source}"
+            opponent_source = f"opponent team_matches.{source}"
         for window in windows:
             result[f"team_{feature}_{window}"] = (
-                f"team_matches.{source}; mean of last {window} eligible team matches"
+                f"{own_source}; mean of last {window} eligible team matches"
             )
             result[f"opp_{feature}_{window}"] = (
-                f"opponent team_matches.{source}; mean of last {window} eligible opponent matches"
+                f"{opponent_source}; mean of last {window} eligible opponent matches"
             )
     result["status_league_rank"] = (
         "team_matches.scored/missed/pts; deadline standings rank by points, goal difference, goals scored"
