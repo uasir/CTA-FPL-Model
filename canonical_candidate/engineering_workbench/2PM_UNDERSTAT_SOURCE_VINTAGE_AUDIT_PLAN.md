@@ -234,3 +234,11 @@ These timestamps remain repository commit timestamps, not proof of public push t
 A cache-action correction followed: the dedicated workflow now uses `actions/cache/restore@v4` with a separate explicit save step, avoiding duplicate automatic/post-job cache saves. The repeat run [46051409807](https://github.com/uasir/CTA-FPL-Model/actions/runs/46051409807) completed successfully and reused/saved the resumable cache without the earlier duplicate-save warning. The candidate-rebuild workflow's Understat cache restore step was corrected the same way.
 
 No feature admission or training authorization changes.
+
+### Season distribution of the complete Salah player-history file
+
+A follow-up inspection of the 365 tracked player rows by Understat's `season` field shows why latest-season player files cannot be treated as contemporaneous archives. In the pinned 2024/25 Salah CSV, all rows from Understat seasons 2014 through 2023 first appear together in the repository's first path revision on **2024-08-15 17:16:49 UTC**. This includes 37 rows tagged 2020, 35 tagged 2021, 38 tagged 2022, and 32 tagged 2023. The 31 rows tagged 2024 (2024/25) were appended over later revisions from 2024-08-20 through 2025-04-11.
+
+For this player/file, repository lineage therefore provides no pre-deadline evidence for the 2020/21–2023/24 player-match rows; it only shows that they were present in the pinned repository by August 2024. This does not prove that Understat had not published the same values earlier through another channel, but the pinned Vaastav path cannot establish that earlier availability. The 2024/25 appended rows need a separate exact comparison against their next target Gameweek deadlines, with the repository-commit-versus-publication limitation retained.
+
+This is one mapped player, not a population-wide conclusion. It reinforces the need for player-row vintage admission by row and season rather than assuming that a multi-season latest player file is a contemporaneous archive.
