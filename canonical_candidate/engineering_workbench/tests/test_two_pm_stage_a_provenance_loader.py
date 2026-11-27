@@ -69,6 +69,46 @@ def test_loader_preserves_feature_axis_and_observed_zero_semantics(tmp_path):
     assert fixture_mask.tolist() == [True]
 
 
+def test_loader_enforces_manifest_source_vintage_hold_over_stored_mask(tmp_path):
+    root, schema, manifest, _ = build_artifact(tmp_path)
+    payload = json.loads(manifest.read_text())
+    payload["source_vintage_policies"] = {
+        "understat": {
+            "status": "HOLD",
+            "mask_action": "FORCE_UNOBSERVED",
+            "feature_count": 1,
+            "feature_order": ["feature_3"],
+        }
+    }
+    manifest.write_text(json.dumps(payload))
+
+    samples, _ = trainer.load_grouped_dataset(root, schema, manifest)
+    values, _, observed, metadata = samples[0]
+
+    # The stale artifact says this finite value is observed; the current
+    # manifest HOLD decision must win without rebuilding the tensor artifact.
+    assert values[0, 0, 3] == 123.0
+    assert not observed[0, 0, 3]
+    assert metadata["availability"][0, 0, 3] == 2
+
+
+def test_loader_fails_closed_on_unsupported_source_vintage_policy(tmp_path):
+    root, schema, manifest, _ = build_artifact(tmp_path)
+    payload = json.loads(manifest.read_text())
+    payload["source_vintage_policies"] = {
+        "understat": {
+            "status": "VERIFIED",
+            "mask_action": "APPLY_ROW_LEVEL_MASK",
+            "feature_count": 1,
+            "feature_order": ["feature_3"],
+        }
+    }
+    manifest.write_text(json.dumps(payload))
+
+    with pytest.raises(ValueError, match="Unsupported source-vintage policy"):
+        trainer.load_grouped_dataset(root, schema, manifest)
+
+
 def test_loader_rejects_observed_value_from_unavailable_source(tmp_path):
     root, schema, manifest, tensor_dir = build_artifact(tmp_path)
     availability = np.load(tensor_dir / "source_availability_state_00000.npy")
