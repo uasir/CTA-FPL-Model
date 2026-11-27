@@ -24,15 +24,16 @@ class UnderstatGitHistoryTests(unittest.TestCase):
             {"sha": "b", "commit": {"committer": {"date": "2024-01-02T00:00:00Z"}}},
             {"sha": "a", "commit": {"committer": {"date": "2024-01-01T00:00:00Z"}}},
         ]
+        nl = bytes([10])
         payloads = {
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/a/data/player_987.csv":
-                b"date,season,xG\\n2024-01-01,2023,0.2\\n",
+                b"date,season,xG" + nl + b"2024-01-01,2023,0.2" + nl,
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/b/data/player_987.csv":
-                b"date,season,xG\\n",
+                b"date,season,xG" + nl,
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/c/data/player_987.csv":
-                b"date,season,xG\\n2024-01-01,2023,0.3\\n",
+                b"date,season,xG" + nl + b"2024-01-01,2023,0.3" + nl,
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/d/data/player_987.csv":
-                b"date,season,xG\\n2024-01-01,2023,0.4\\n",
+                b"date,season,xG" + nl + b"2024-01-01,2023,0.4" + nl,
         }
         with patch("audit_2pm_understat_git_history.list_path_commits", return_value=commits):
             with patch("audit_2pm_understat_git_history._get_text",
@@ -125,7 +126,7 @@ class UnderstatGitHistoryTests(unittest.TestCase):
 
     def test_raw_revision_cache_reuses_verified_exact_bytes(self):
         commits = [{"sha": "a", "commit": {"committer": {"date": "2024-01-01T00:00:00Z"}}}]
-        payload = b"date,season,xG\\n2024-01-01,2023,0.2\\n"
+        payload = b"date,season,xG" + bytes([10]) + b"2024-01-01,2023,0.2" + bytes([10])
         url = "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/a/data/player_987.csv"
         with tempfile.TemporaryDirectory() as directory:
             with patch("audit_2pm_understat_git_history.list_path_commits",
@@ -144,6 +145,7 @@ class UnderstatGitHistoryTests(unittest.TestCase):
         self.assertEqual(second["errors"], [])
         self.assertEqual(get_text.call_count, 1)
         self.assertEqual(first["commit_rows"], second["commit_rows"])
+        self.assertEqual(first["row_history"]["987|2024-01-01"]["state_events"][0]["status"], "present")
 
     def test_team_row_key_matches_pinned_dastan_team_file_contract(self):
         source_path = "data/2024-25/understat/understat_Arsenal.csv"
