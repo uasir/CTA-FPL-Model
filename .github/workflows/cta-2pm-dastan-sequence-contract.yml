@@ -1,4 +1,5 @@
 name: 2PM Dastan 286 sequence contract
+# Contract includes feature-group, tri-state source-availability, and observation-mask checks.
 
 on:
   push:
