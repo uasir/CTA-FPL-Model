@@ -120,3 +120,8 @@ The first corrected helper/test CI run passed: `46048025031`, with **619 passed,
 
 
 The revision tracer additionally records each row's last-seen revision, missing-revision count, reappearance count, and whether it remains present in the latest inspected revision. This avoids treating a row deleted and later reintroduced as continuously present. A mocked three-revision regression test exercises first appearance, deletion, reappearance, and value change; CI for the implementation commit `39b8369cf9533f0c93fb34a5353cb5dbc97da54a` passed (619 passed, 5 skipped, 18 warnings, 3 subtests).
+
+
+### Latest regression-test hardening
+
+A further lifecycle test now exercises a player row appearing, disappearing, reappearing, and changing value across three mocked revisions. The first run exposed a missing `io` import in the CSV byte-reader path (the audit function had caught that exception and returned an empty history, which the test had not previously asserted against). The import is fixed, and the regression now explicitly requires all three revisions to parse without errors. CI for commit `9227fec2f4dc97321da933cb707e261676d7ac21` is in progress; do not treat this latest change as green until that run completes.
