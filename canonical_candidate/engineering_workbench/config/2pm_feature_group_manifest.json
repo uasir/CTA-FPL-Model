@@ -412,5 +412,20 @@
       "All common_candidate features remain UNKNOWN pending their own feature-level source-vintage audit.",
       "UNKNOWN is not equivalent to AVAILABLE and must not be silently promoted during training."
     ]
+  },
+  "snapshot_missing_sentinel_sources": {
+    "dastan_availability_and_projection": {
+      "repository": "qazybekb/smartplayfpl-dastan",
+      "commit": "758db9247e8b3a9a870c991064f74d8339d61cd0",
+      "file": "dastan/data.py",
+      "lines": "87-140",
+      "semantics": "Missing joined availability signal and ep_next snapshots are filled with -1.0; the source explicitly distinguishes this from genuine zero."
+    },
+    "market_snapshot": {
+      "repository": "uasir/CTA-FPL-Model",
+      "branch": "feat/2pm-defensive-2025-26-train-2026-27-oot",
+      "file": "canonical_candidate/engineering_workbench/scripts/sanitize_2pm_candidate_snapshot_provenance.py",
+      "semantics": "Missing, invalid or unsafe market snapshot provenance sentinelizes value, selected and transfers_balance to -1.0."
+    }
   }
 }
