@@ -251,3 +251,27 @@ def test_rest_days_default_is_unobserved_when_player_has_no_available_prior_fixt
     result, _ = rebuild_fixture_context(target, history)
     assert result.loc[0, "ar_rest_days"] == 14
     assert result.loc[0, "__observed__ar_rest_days"] == 0
+
+
+def test_string_venue_flags_are_parsed_strictly_and_unknown_positions_are_unobserved():
+    features = SimpleNamespace(
+        WINDOWS=[1],
+        PLAYER_FEATURES={"total_points": "fpl_points"},
+        DC_THRESHOLD={"MID": 10},
+        POSITION_BASE_RATES={"MID": {"p_any": 0.7, "p60": 0.6, "e_minutes": 55.0}},
+    )
+    player_matches = pd.DataFrame([
+        {"season": "2025-26", "fixture": "home", "fpl_code": 10, "element": 10, "understat_id": 100, "position": "UNKNOWN", "is_home": "True", "kickoff_time": pd.Timestamp("2026-01-01", tz="UTC"), "match_available_at": pd.Timestamp("2026-01-02", tz="UTC"), "minutes": 90, "total_points": 10, "defensive_contribution": 12},
+        {"season": "2025-26", "fixture": "away", "fpl_code": 10, "element": 10, "understat_id": 100, "position": "UNKNOWN", "is_home": "False", "kickoff_time": pd.Timestamp("2026-01-03", tz="UTC"), "match_available_at": pd.Timestamp("2026-01-04", tz="UTC"), "minutes": 90, "total_points": 4, "defensive_contribution": 12},
+        {"season": "2025-26", "fixture": "target", "fpl_code": 10, "element": 10, "understat_id": 100, "position": "UNKNOWN", "is_home": "False", "kickoff_time": pd.Timestamp("2026-01-10", tz="UTC"), "match_available_at": pd.NaT, "minutes": 0, "total_points": 0, "defensive_contribution": 0},
+    ])
+    target = pd.DataFrame([{
+        "season": "2025-26", "fixture": "target", "fpl_code": 10, "element": 10,
+        "understat_id": 100, "position": "UNKNOWN", "is_home": "False",
+        "kickoff_time": pd.Timestamp("2026-01-10", tz="UTC"),
+        "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+    }])
+    result, _ = rebuild_player_history_features(target, player_matches, features)
+    assert result.loc[0, "player_relevant_fpl_points_1"] == 4.0
+    assert result.loc[0, "ar_dc_hit_rate_1"] != result.loc[0, "ar_dc_hit_rate_1"]
+    assert result.loc[0, "__observed__ar_dc_hit_rate_1"] == 0
