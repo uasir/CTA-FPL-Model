@@ -50,6 +50,32 @@ def test_candidate_audit_checks_schema_snapshots_and_only_claims_selected_anchor
     assert report["admission_status"] == "NOT_ADMITTED"
 
 
+
+def test_venue_conditioned_relevant_points_are_not_flagged_as_anchor_differences():
+    home = make_candidate_row(5001)
+    away = make_candidate_row(5002)
+    home["is_home_num"] = 1.0
+    away["is_home_num"] = 0.0
+    relevant = [
+        column for column in FEATURES
+        if column.startswith("player_relevant_fpl_points_")
+    ]
+    assert len(relevant) == 5
+    for index, column in enumerate(relevant, start=1):
+        home[column] = float(index)
+        away[column] = float(index + 10)
+
+    report = audit_frame(pd.DataFrame([home, away]), FEATURES)
+    anchor = report["same_player_gameweek_upstream_anchor_check"]
+    venue = report["venue_conditioned_player_history_check"]
+    assert anchor["groups_with_differences"] == 0
+    assert all(column not in anchor["columns_with_differences"] for column in relevant)
+    assert venue["groups_with_multiple_fixtures"] == 1
+    assert venue["groups_with_differences"] == 1
+    assert venue["columns_with_differences"] == relevant
+    assert "same venue as the target fixture" in venue["semantics"]
+
+
 def test_candidate_audit_rejects_duplicate_player_fixture_keys():
     row = make_candidate_row(5001)
     with pytest.raises(ValueError, match="duplicate"):
