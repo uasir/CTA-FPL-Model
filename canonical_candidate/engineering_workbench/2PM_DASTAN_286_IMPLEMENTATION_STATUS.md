@@ -958,3 +958,14 @@ A Liverpool 2020/21 team row (FPL fixture 11) has a value revision: first commit
 An Arsenal 2022/23 date correction maps old and new row keys to FPL fixture 61 (event 25, Arsenal–Everton, 1 March 2023). The original row and unchanged metrics were repository-visible before the verified GW26 deadline; the date key was corrected later, before GW29. This sampled correction does not introduce a late metric value.
 
 The implementation is row-level visibility, not yet an as-of-deadline reconstruction of every rolling feature. All 152 Understat features remain HOLD; candidate NOT_ADMITTED; training unauthorized. See `2PM_UNDERSTAT_SOURCE_VINTAGE_AUDIT_PLAN.md` for the detailed findings, audit counts, and next steps.
+
+
+### Strict Understat player-to-FPL fixture membership check (2026-11-27)
+
+A gap was identified in the existing bounded deadline audit: player source rows were associated with fixtures by match date and home/away teams, but the audit did not verify that the mapped Understat ID belonged to an FPL player row in the corresponding fixture under Dastan's season/Gameweek assignment interval.
+
+Added `scripts/audit_2pm_understat_player_fixture_membership.py` and regression tests. The helper uses the exact pinned Dastan assignments CSV and mirrors the Dastan player-row contract: `merged_gw.csv` position rows, `players_raw.csv` stable FPL code mapping, season/Gameweek-specific Understat ID assignments, and player-fixture deduplication. A match is accepted only on an exact UTC kickoff date and with exactly one FPL player-fixture row. One-day date shifts are candidates only; missing and ambiguous identities remain explicit.
+
+Engineering CI run [46055883425](https://github.com/uasir/CTA-FPL-Model/actions/runs/46055883425) passed with the new helper/tests. The source-revision smoke workflow now runs the player-membership audit and uploads its JSON/CSV report; run [46055962308](https://github.com/uasir/CTA-FPL-Model/actions/runs/46055962308) was pending at the time of this update. No actual-source membership counts are claimed until that run completes.
+
+The audit does not prove Understat's original public publication time and does not change any model data. All 152 Understat features remain HOLD; the candidate remains NOT_ADMITTED; training remains unauthorized. Detailed contract and test coverage are recorded in `2PM_UNDERSTAT_SOURCE_VINTAGE_AUDIT_PLAN.md`.
