@@ -91,16 +91,15 @@ def build_dataset(
             try:
                 cached_report = json.loads(report_path.read_text(encoding="utf-8"))
                 declared_shards = cached_report.get("shards", [])
+                required_shard_files = ("tensor", "fixture_mask", "labels", "metadata")
                 shards_valid = all(
-                    (shard_dir / name).is_file() and (shard_dir / name).stat().st_size > 0
-                    for shard in declared_shards
-                    for name in (
-                        shard.get("tensor"),
-                        shard.get("fixture_mask"),
-                        shard.get("labels"),
-                        shard.get("metadata"),
+                    all(
+                        shard.get(field)
+                        and (shard_dir / shard[field]).is_file()
+                        and (shard_dir / shard[field]).stat().st_size > 0
+                        for field in required_shard_files
                     )
-                    if name
+                    for shard in declared_shards
                 )
                 report_valid = (
                     cached_report.get("status") == "PLAYER_GAMEWEEK_SEQUENCE_TENSORS_BUILT"
