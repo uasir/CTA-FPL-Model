@@ -668,3 +668,16 @@ Manifest 1.7.0 expands the Understat HOLD inventory to 152 features and updates 
 ### Understat mask correction verification (2026-11-27)
 
 The expanded 152-feature Understat HOLD and load-time reconciliation are now covered by the shared mask helper and regression tests. The engineering CI run [46002094814](https://github.com/uasir/CTA-FPL-Model/actions/runs/46002094814) passed: **601 passed, 5 skipped, 18 warnings, 3 subtests passed**. The focused 2PM sequence contract [46002094856](https://github.com/uasir/CTA-FPL-Model/actions/runs/46002094856) passed: **132 passed, 18 warnings**. The optional PyTorch-specific Stage-A loader integration module remains skipped by general CI when PyTorch is not installed; its dedicated workflow has not been run. No Stage-A training was started.
+
+
+### Exact feature-name and source-field contract audit (2026-11-27)
+
+The prior 286-feature coverage gate checked family counts and column presence, but did not prove that each generating expression emitted the exact schema name or that every observation sidecar used the corresponding name. This has been tightened. The rebuild now derives the exact output-name inventory from the pinned Dastan `PLAYER_FEATURES` and `TEAM_FEATURES` maps, plus the explicit availability, defensive-history, direct-rank, fixture-context, market, expected-points and signal builders. It fails on duplicate output assignments, schema names without a builder, builder names outside the schema, missing `__observed__{feature}` columns, non-binary masks, and disagreements between builder-reported counts and the exact inventory.
+
+A second 286-entry map records each output feature's raw source field or explicit calculation. Player/team source-field presence and defensive-source resolution are now reported by the rebuild. The audit also corrected its own signal-source descriptions: the actual FPL payload inputs are `elements[].status`, `elements[].chance_of_playing_next_round`, and `elements[].news`, transformed into `sig_status_risk`, `sig_chance_playing`, and `sig_has_news`. The candidate-generation path already used those correct `sig_*` output fields; the mismatch was in the newly authored audit description, not a discovered misassignment in Run 85's signal values.
+
+Regression verification on the branch:
+- Engineering CI [46005712197](https://github.com/uasir/CTA-FPL-Model/actions/runs/46005712197): **604 passed, 5 skipped, 18 warnings, 3 subtests passed**.
+- 2PM sequence contract [46005712058](https://github.com/uasir/CTA-FPL-Model/actions/runs/46005712058): **132 passed, 18 warnings**.
+
+These tests validate the exact name-generation contract against the pinned schema and test intentional name/mask mismatches. They do not constitute a new rebuild, source-vintage admission, or training authorization. Run 85 remains the existing candidate; no rebuild or training was started.
