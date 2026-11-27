@@ -12,6 +12,7 @@ from two_pm_feature_masks import (
     build_feature_availability_state,
     build_feature_masks,
     build_observed_value_mask,
+    build_scoring_regime_code,
 )
 
 
