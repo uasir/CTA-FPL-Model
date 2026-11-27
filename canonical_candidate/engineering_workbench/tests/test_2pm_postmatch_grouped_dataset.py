@@ -93,46 +93,22 @@ def test_grouped_dataset_builds_one_scoped_player_gameweek_at_a_time(tmp_path, m
     assert (tmp_path / "out" / "postmatch_grouped_dataset_report.json").exists()
 
 
-def test_cached_tensor_mask_backfill_avoids_rebuilding_and_masks_padding(tmp_path):
-    features = [f"feature_{i:03d}" for i in range(286)]
+def test_legacy_cached_shards_without_source_masks_are_not_reusable(tmp_path):
     shard_dir = tmp_path / "cached_gw"
     shard_dir.mkdir()
-    x = np.zeros((1, 2, 6, 286), dtype=np.float32)
-    fixture_mask = np.asarray([[1, 0]], dtype=np.uint8)
-    np.save(shard_dir / "X_player_gw_00000.npy", x)
-    np.save(shard_dir / "fixture_mask_00000.npy", fixture_mask)
-    shards = [{
-        "tensor": "X_player_gw_00000.npy",
-        "fixture_mask": "fixture_mask_00000.npy",
-        "labels": "y_player_gw_00000.npy",
-        "metadata": "metadata_player_gw_00000.csv",
-        "samples": 1,
-    }]
-    manifest = {
-        "feature_source_availability": {
-            "state_codes": {"UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2},
-            "default_state": "UNKNOWN",
-            "groups": {"defensive_regime_dependent": {"2024-25": "UNAVAILABLE"}},
-        },
-        "feature_groups": {
-            "defensive_regime_dependent": {"feature_order": ["feature_000"]}
-        },
-        "snapshot_missing_sentinel_features": [],
+    shard = {
+        "tensor": "X.npy",
+        "fixture_mask": "fixture_mask.npy",
+        "source_availability_state": "availability.npy",
+        "observed_value_mask": "observed.npy",
+        "labels": "y.npy",
+        "metadata": "metadata.csv",
     }
+    for key in ("tensor", "fixture_mask", "labels", "metadata"):
+        (shard_dir / shard[key]).write_bytes(b"legacy")
+    assert not grouped.cached_shards_complete(shard_dir, [shard])
 
-    updated = grouped.backfill_cached_shard_masks(
-        shard_dir, shards, "2024-25", features, manifest
-    )
-
-    assert updated[0]["source_availability_state"] == "source_availability_state_00000.npy"
-    assert updated[0]["observed_value_mask"] == "observed_value_mask_00000.npy"
-    availability = np.load(shard_dir / updated[0]["source_availability_state"])
-    observed = np.load(shard_dir / updated[0]["observed_value_mask"])
-    assert availability.shape == x.shape
-    assert observed.shape == x.shape
-    assert np.all(availability[0, 0, :, 0] == 0)
-    assert np.all(observed[0, 0, :, 0] == 0)
-    assert np.all(availability[0, 0, :, 1:] == 2)
-    assert np.all(observed[0, 0, :, 1:] == 1)
-    assert np.all(availability[0, 1] == 0)
-    assert np.all(observed[0, 1] == 0)
+    # The cache becomes reusable only when both masks are present and non-empty.
+    (shard_dir / shard["source_availability_state"]).write_bytes(b"state")
+    (shard_dir / shard["observed_value_mask"]).write_bytes(b"observed")
+    assert grouped.cached_shards_complete(shard_dir, [shard])
