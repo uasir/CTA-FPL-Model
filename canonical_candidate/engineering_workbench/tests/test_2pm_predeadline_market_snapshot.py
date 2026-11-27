@@ -148,18 +148,33 @@ def test_market_value_parity_audit_detects_native_price_unit_mismatch(tmp_path):
 
 
 
-def test_286_feature_family_coverage_requires_every_reconstruction_path():
-    features = (
-        [f"player_feature_{i}" for i in range(115)]
-        + [f"team_feature_{i}" for i in range(60)]
-        + [f"opp_feature_{i}" for i in range(60)]
-        + ["opp_status_league_rank"]
-        + [f"p_any_{i}" for i in range(3)]
-        + [f"p60_{i}" for i in range(3)]
-        + [f"e_minutes_{i}" for i in range(3)]
-        + [f"ar_feature_{i}" for i in range(32)]
-        + ["ar_ep_next", "is_home_num", "status_league_rank", "value", "selected", "transfers_balance"]
-        + ["sig_status_risk", "sig_chance_playing", "sig_has_news"]
+def test_286_feature_family_coverage_requires_exact_reconstruction_names_and_masks():
+    from types import SimpleNamespace
+    import json
+
+    schema = json.loads(
+        (ROOT / "config" / "2pm_dastan_286_schema.json").read_text()
+    )["feature_order"]
+    definitions = SimpleNamespace(
+        WINDOWS=[1, 3, 5, 10, 38],
+        PLAYER_FEATURES={
+            "total_points": "fpl_points", "minutes": "minutes_played",
+            "influence": "influence", "creativity": "creativity", "threat": "threat",
+            "goals_scored": "goals_scored", "penalties_missed": "penalties_missed",
+            "assists": "assists", "goals_conceded": "goals_conceded",
+            "own_goals": "own_goals", "saves": "saves", "penalties_saved": "penalties_saved",
+            "yellow_cards": "yellow_cards", "red_cards": "red_cards", "bps": "bps",
+            "bonus": "fpl_bonus_points", "us_shots": "shots", "us_xG": "xg",
+            "us_xGChain": "xgchain", "us_xGBuildup": "xgbuildup",
+            "us_key_passes": "key_passes", "us_xA": "xa",
+        },
+        TEAM_FEATURES={
+            "scored": "goals_scored", "missed": "goals_conceded",
+            "league_rank": "league_rank", "opp_league_rank": "opponent_league_rank",
+            "xG": "xg", "deep_allowed": "deep_allowed",
+            "ppda_allowed_att": "ppda_allowed_att", "ppda_allowed_def": "ppda_allowed_def",
+            "xGA": "xga", "deep": "deep", "ppda_att": "ppda_att", "ppda_def": "ppda_def",
+        },
     )
     player_report = {
         "player_rolling_feature_count": 115,
@@ -171,22 +186,36 @@ def test_286_feature_family_coverage_requires_every_reconstruction_path():
         "opponent_feature_count": 60,
         "direct_rank_columns": ["status_league_rank", "opp_status_league_rank"],
     }
-    fixture_report = {"fixture_context_columns": [f"context_{i}" for i in range(6)]}
+    fixture_report = {
+        "fixture_context_columns": [
+            "ar_rest_days", "ar_team_matches_14d", "ar_opp_dc_allowed_3",
+            "ar_opp_dc_allowed_5", "ar_opp_dc_allowed_10", "ar_opp_tackles_allowed_5",
+        ]
+    }
+    frame = pd.DataFrame({
+        **{name: [0.0] for name in schema},
+        **{f"__observed__{name}": [0] for name in schema},
+    })
     report = validate_reconstruction_coverage(
-        features,
-        player_report,
-        team_report,
-        fixture_report,
-        pd.DataFrame(columns=features),
+        schema, player_report, team_report, fixture_report, frame, definitions,
     )
-    assert len(features) == 286
     assert report["reconstruction_path_total"] == 286
-    team_report["team_feature_count"] = 59
-    with pytest.raises(RuntimeError, match="cover 285/286"):
+    assert report["exact_name_match"] is True
+    assert report["observation_mask_name_match"] is True
+
+    broken = SimpleNamespace(
+        WINDOWS=definitions.WINDOWS,
+        PLAYER_FEATURES=definitions.PLAYER_FEATURES,
+        TEAM_FEATURES={**definitions.TEAM_FEATURES, "scored": "goals_for"},
+    )
+    with pytest.raises(RuntimeError, match="Exact reconstruction/schema feature-name mismatch"):
         validate_reconstruction_coverage(
-            features,
-            player_report,
-            team_report,
-            fixture_report,
-            pd.DataFrame(columns=features),
+            schema, player_report, team_report, fixture_report, frame, broken,
+        )
+
+    with pytest.raises(RuntimeError, match="binary columns"):
+        bad_mask = frame.copy()
+        bad_mask["__observed__team_xg_1"] = 2
+        validate_reconstruction_coverage(
+            schema, player_report, team_report, fixture_report, bad_mask, definitions,
         )
