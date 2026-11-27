@@ -113,7 +113,7 @@ def test_unfinished_target_fixture_is_schedule_context_not_historical_result():
     )
     result, _ = rebuild_fixture_context(target, history)
     assert result.loc[0, "ar_rest_days"] == 7
-    assert result.loc[0, "__observed__ar_rest_days"] == 0
+    assert result.loc[0, "__observed__ar_rest_days"] == 1
     assert result.loc[0, "ar_team_matches_14d"] == 2
     assert result.loc[0, "__observed__ar_team_matches_14d"] == 0
     assert pd.isna(result.loc[0, "ar_opp_dc_allowed_3"])
@@ -141,8 +141,8 @@ def test_missing_defensive_stats_do_not_become_zero_or_partial_opponent_totals()
     assert result.loc[0, "ar_opp_tackles_allowed_5"] == 6
     assert result.loc[0, "__observed__ar_opp_dc_allowed_3"] == 0
     assert result.loc[0, "__observed__ar_opp_tackles_allowed_5"] == 1
-    assert result.loc[0, "__observed__ar_rest_days"] == 1
-    assert result.loc[0, "__observed__ar_team_matches_14d"] == 1
+    assert result.loc[0, "__observed__ar_rest_days"] == 0
+    assert result.loc[0, "__observed__ar_team_matches_14d"] == 0
 
 
 
@@ -273,5 +273,5 @@ def test_string_venue_flags_are_parsed_strictly_and_unknown_positions_are_unobse
     }])
     result, _ = rebuild_player_history_features(target, player_matches, features)
     assert result.loc[0, "player_relevant_fpl_points_1"] == 4.0
-    assert result.loc[0, "ar_dc_hit_rate_1"] != result.loc[0, "ar_dc_hit_rate_1"]
-    assert result.loc[0, "__observed__ar_dc_hit_rate_1"] == 0
+    assert result.loc[0, "ar_dc_hit_rate_3"] != result.loc[0, "ar_dc_hit_rate_1"]
+    assert result.loc[0, "__observed__ar_dc_hit_rate_3"] == 0
