@@ -651,7 +651,7 @@ def expected_reconstruction_source_map(features_module) -> dict[str, str]:
             "player_matches.kickoff_time and match_available_at; latest strictly available prior fixture; fallback 14 days when none, with fallback observation mask 0"
         ),
         "ar_team_matches_14d": (
-            "pinned retrospective final fixture calendar; count in [target kickoff - 14 days, target kickoff]; schedule vintage unverified and observation mask forced 0"
+            "pinned retrospective final fixture calendar; count prior kickoffs in [target kickoff - 14 days, target kickoff); matches pinned Dastan semantics; schedule vintage unverified and observation mask forced 0"
         ),
         "ar_opp_dc_allowed_3": (
             "player_matches.defensive_contribution; opponent-conceded fixture totals, last 3"
