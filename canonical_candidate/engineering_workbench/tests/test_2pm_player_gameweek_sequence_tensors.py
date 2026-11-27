@@ -418,3 +418,51 @@ def test_production_sequence_builder_rejects_missing_raw_source_sidecars(tmp_pat
             label_grain="player_fixture",
             feature_group_manifest_path=manifest_path,
         )
+
+
+def test_sequence_tensor_masks_source_vintage_hold_and_nanifies_values(tmp_path):
+    history = make_history()
+    targets = make_targets(points=(3.0, 4.0))
+    history_sidecars = pd.DataFrame(
+        {f"__observed__{feature}": np.ones(len(history), dtype=np.uint8) for feature in FEATURES},
+        index=history.index,
+    )
+    target_sidecars = pd.DataFrame(
+        {f"__observed__{feature}": np.ones(len(targets), dtype=np.uint8) for feature in FEATURES},
+        index=targets.index,
+    )
+    history = pd.concat([history, history_sidecars], axis=1)
+    targets = pd.concat([targets, target_sidecars], axis=1)
+    history_path, targets_path, schema_path, manifest_path = write_inputs(
+        tmp_path, history, targets
+    )
+    manifest = json.loads(manifest_path.read_text())
+    manifest["require_source_observed_sidecars"] = True
+    manifest["source_vintage_policies"] = {
+        "test_understat": {
+            "status": "HOLD",
+            "mask_action": "FORCE_UNOBSERVED",
+            "feature_order": ["feature_000"],
+        }
+    }
+    manifest_path.write_text(json.dumps(manifest))
+
+    report = build_player_gameweek_sequence_tensors(
+        history_path,
+        targets_path,
+        schema_path,
+        tmp_path / "tensors",
+        tmp_path / "report.json",
+        target_season="2026-27",
+        target_gameweek=6,
+        target_mode="historical",
+        label_grain="player_fixture",
+        feature_group_manifest_path=manifest_path,
+    )
+    assert report["counts"]["emitted"] == 1
+    observed = np.load(tmp_path / "tensors" / "observed_value_mask_00000.npy")
+    values = np.load(tmp_path / "tensors" / "X_player_gw_00000.npy")
+    assert np.all(observed[..., 0] == 0)
+    assert np.isnan(values[..., 0]).all()
+    assert np.all(observed[..., 1] == 1)
+    assert np.isfinite(values[..., 1]).all()
