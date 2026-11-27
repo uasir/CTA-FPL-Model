@@ -44,7 +44,7 @@
   },
   "input_preprocessing": {
     "residual_nan_imputation": "TRAINING_FOLD_ONLY_FEATURE_MEDIAN",
-    "residual_nan_imputation_status": "REQUIRES_IMPLEMENTATION_IN_CHRONOLOGICAL_TRAINER",
+    "residual_nan_imputation_status": "IMPLEMENTED_FOLD_ONLY_HELPER_NOT_YET_INTEGRATED_WITH_CHRONOLOGICAL_TRAINER",
     "all_missing_feature_in_training_fold": "FAIL_CLOSED; FEATURE_REQUIRES_ADMISSION_REVIEW",
     "snapshot_missing_sentinel": -1,
     "pre_imputation_missingness_audit_required": true,
@@ -52,7 +52,14 @@
     "feature_scaling_status": "MUST_BE_FIT_ON_TRAINING_FOLD_ONLY; NO_GLOBAL_OR_VALIDATION_FIT",
     "observed_value_mask": "required; binary per feature; distinguishes measured values from fold-imputed values",
     "source_availability_state": "required; one of UNAVAILABLE/AVAILABLE/UNKNOWN per feature and token; UNKNOWN remains distinct from AVAILABLE",
-    "scoring_regime": "required; one code per sample, derived from target season using validated feature-group manifest"
+    "scoring_regime": "required; one code per sample, derived from target season using validated feature-group manifest",
+    "residual_nan_imputation_implementation": {
+      "module": "two_pm_fold_preprocessing.py",
+      "fit_function": "fit_fold_median_imputer",
+      "transform_function": "apply_fold_median_imputer",
+      "double_gameweek_policy": "deduplicate_shared_five_history_tokens_per_player_gameweek; retain every target-fixture query",
+      "all_missing_training_feature": "FAIL_CLOSED"
+    }
   },
   "output_distribution": {
     "type": "shifted_two_component_poisson_mixture",
