@@ -107,3 +107,11 @@ def test_feature_family_register_rejects_missing_or_duplicated_feature():
     broken["feature_family_register"]["families"]["Player rolling"]["feature_order"].pop()
     with pytest.raises(ValueError, match="partition all 286 schema columns"):
         validate_feature_group_manifest(schema, broken)
+
+
+def test_manifest_source_pins_must_match_the_feature_schema():
+    schema, manifest, _ = load_feature_group_manifest(ROOT)
+    broken = json.loads(json.dumps(manifest))
+    broken["source_pins"]["vaastav"]["commit"] = "wrong-commit"
+    with pytest.raises(ValueError, match="vaastav pin"):
+        validate_feature_group_manifest(schema, broken)
