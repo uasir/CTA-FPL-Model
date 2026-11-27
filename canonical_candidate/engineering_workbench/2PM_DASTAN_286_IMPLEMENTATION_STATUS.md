@@ -827,3 +827,25 @@ The pinned Vaastav repository tree at `vaastav/Fantasy-Premier-League@8c97b2adb1
 This confirms that version history exists for the FPL-native match-history files across the full six-season pool; it does **not** establish that each individual row was publicly available before its corresponding historical deadline or match-history cutoff. In particular, the latest file commit for a season is not a valid vintage for earlier deadlines. The next required audit is to select the latest file commit strictly before each official Gameweek deadline (with the existing five-minute buffer), load that exact file version, and compare its eligible player-fixture keys and values with the candidate's source rows. Where exact deadline history cannot be established, the affected fields remain HOLD; commit timestamps alone are not publication proof.
 
 The current `audit_2pm_point_in_time_source_vintages.py` does not perform this six-season pass: it is hard-coded to 2025/26 and 2026/27 and specifically audits defensive columns. It must be generalized or supplemented before its output can be described as a six-season FPL-native match-history admission audit. No feature status changes follow from this preliminary lineage check.
+
+### Six-season FPL-native prior-match vintage audit implementation (2026-11-27)
+
+The previous defensive point-in-time audit was hard-coded to 2025/26 and 2026/27 and could select a snapshot from a different season when no same-season snapshot existed. The audit has now been generalized and integrated into the six-season candidate workflow.
+
+Implementation:
+- The audit accepts a season configuration and runs across 2020/21–2025/26, selecting the latest `merged_gw.csv` repository commit strictly before each Gameweek deadline minus five minutes.
+- Snapshot selection is season-scoped. The archive index is filtered to the relevant season capture window and the payload's event calendar must independently resolve to the same season. A prior-season snapshot can no longer satisfy a new-season Gameweek with the same event ID.
+- The audit reads the 16 FPL-native historical player fields used by the rolling player feature family (`total_points`, minutes, influence, creativity, threat, goals, assists, cards, saves, BPS, bonus, etc.), plus optional `starts` and `was_home`, and the four defensive fields. It compares historical-vintage prior-match values with the pinned final source on common fixture/player keys, reporting key coverage, missing columns, per-field exact-match rates, changed-row counts, and absolute-difference summaries.
+- Historical `total_points` is treated as a prior-match feature source only after the strict match-availability filter; target labels are not used by the audit. The 24-hour post-kickoff availability bound remains a conservative proxy, not proof of exact match completion or first-publication time.
+- FPL-cache tree metadata is reused from the pinned raw-source cache; only snapshot files needed for the per-deadline checks are downloaded and cached. The entire archive is not downloaded.
+- The candidate rebuild workflow now writes a JSON report and per-Gameweek CSV into the candidate artifact and adds a season-level summary. This is an audit step only; it does not alter feature admission or start training.
+
+Regression coverage includes season-window selection, 2020/21 probe resolution, rejection of a previous-season snapshot for a 2021/22 deadline, and detection of revised historical FPL field values. Engineering CI passed at commit `145e3708491e376bc20d9932de65d1453032134e`: **613 passed, 5 skipped, 18 warnings, 3 subtests passed** (run [46041614455](https://github.com/uasir/CTA-FPL-Model/actions/runs/46041614455)).
+
+Scope and current status:
+- The six-season audit has been implemented and wired into the candidate workflow, but it has **not yet been executed** against the raw six-season files. No per-season parity or admission conclusions should be inferred until its artifact is produced and reviewed.
+- This audit covers FPL-native player-match history and defensive source fields. It does not admit Understat's 152 features, the market snapshot fields, team-context/rank features, or all 286 features. Those remain separate source-vintage and semantic gates.
+- A Git commit before a deadline is repository-lineage evidence, not conclusive proof that the file or each row was publicly available at that time. Even a 100% match to the pinned final source is not by itself proof of point-in-time availability.
+- Run 86 remains NOT_ADMITTED; all 286 features remain HOLD; training remains unauthorized.
+
+Next: execute the configured six-season audit through the candidate workflow, review the per-Gameweek source-commit coverage and FPL-native field revision matrix, then decide feature-by-feature and season-by-season whether each field is ADMIT, EXCLUDE, or HOLD. Keep the 2020/21 market snapshot gap and the 152 Understat features as separate investigations.
