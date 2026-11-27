@@ -317,3 +317,23 @@ All eight sampled player files had no value changes, removals, or reappearances 
 **Next implementation gate: canonical fixture reconciliation.** Use the exact pinned Dastan player-season assignment intervals and the pinned Vaastav `merged_gw.csv`, `players_raw.csv`, and `teams.csv` files to map each player row to FPL player/fixture identity and each team row to FPL fixture/team/venue identity. Preserve unmatched, ambiguous, duplicate-date, and out-of-season rows as explicit statuses. Reconcile potential date-correction pairs by fixture ID, not by date-only or non-date signature alone. Then compare each row's first-seen and value-event timestamps with the relevant official target Gameweek deadline. Do not infer original Understat publication from repository timestamps.
 
 This smoke is a tracer/source-history validation, not a feature admission audit. All 152 Understat features remain HOLD; candidate remains NOT_ADMITTED; training remains unauthorized.
+
+
+### Canonical FPL fixture-reconciliation contract (next implementation)
+
+The next audit stage must use the pinned Dastan assignment table at `data/mappings/fpl_understat_training_assignments.csv` and the exact pinned Vaastav season inputs: `data/<season>/gws/merged_gw.csv`, `players_raw.csv`, and `teams.csv`. It must not infer player identity from names or map a source row to a fixture by date alone.
+
+**Player rows**
+- Derive the Understat player ID from the exact pinned source path and the football season from the row's own Understat `season` field (not the path's latest-file season).
+- Resolve the FPL player through the pinned season/gameweek assignment interval (`understat_id`, `fpl_code`, first/last GW), then through that season's `players_raw.csv` stable `code` to FPL `element`.
+- Candidate fixture identity requires the same player, UTC kickoff date, and both normalized home/away team identities. Preserve multiple candidates as ambiguous.
+
+**Team rows**
+- Derive team identity from the pinned filename and home/away side from `h_a`; resolve the FPL team through the exact Dastan FPL-to-Understat aliases and the season's `teams.csv`.
+- Match the Understat date, team, and venue side to the canonical FPL fixture. Where a unique same-team/same-venue fixture exists on another date, report a date-mismatch candidate; do not silently accept it as a correction.
+
+**Required statuses** include exact unique match, ambiguous exact match, unique same-team-pair date mismatch, date match with team mismatch, no fixture match, and invalid source date/season/venue. Retain all source row lifecycle and value-event metadata in the output. Where FPL fixture scores are available, compare them with the Understat team-row goals as a secondary identity check, not as a substitute for fixture identity.
+
+**Date corrections** must be adjudicated by fixture ID. A potential old/new row pair is confirmed as a date correction only if both keys independently resolve to the same unique FPL fixture; otherwise it remains unresolved or is rejected. The July 2020 team rows found in 2020/21 paths must be reported as outside that season's actual fixture set, not treated as 2020/21 observations simply because they fall inside the path's July-to-June file filter.
+
+A small offline prototype of the matching rules has passed three synthetic regression tests: player matching by player + date + both teams, team matching by team + venue + date, and explicit handling of a date mismatch without silently admitting it. This is test scaffolding only; the pinned real-source fixture index has not yet been joined, and no row-level fixture-reconciliation result is claimed. The next code change should add the reusable reconciler and its tests, then run it on the existing 18-file artifact using the exact pinned season sources. Only after this step should deadline comparison be implemented.
