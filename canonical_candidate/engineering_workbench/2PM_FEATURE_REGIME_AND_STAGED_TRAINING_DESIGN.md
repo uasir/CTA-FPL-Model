@@ -49,16 +49,17 @@ The four upstream FPL defensive source fields (`defensive_contribution`, `cleara
 
 ### 2.3 Other structural and row-level missingness
 
-Do not assume the 27 regime-dependent features are the only missing values. Preserve a per-cell observed/missing indicator for all 286 features after source-vintage admission. A separate feature-regime availability mask identifies structural unavailability by season/source regime. The observed mask distinguishes a real zero from a missing value within an otherwise available feature family.
+Do not assume the 27 regime-dependent features are the only missing values. Preserve a per-cell observed/missing indicator for all 286 features after source-vintage admission. A separate three-state source-availability classification identifies verified structural absence (UNAVAILABLE), verified source presence (AVAILABLE), and unresolved provenance (UNKNOWN) by season/source vintage. UNKNOWN is not equivalent to AVAILABLE and cannot be silently promoted. The observed mask distinguishes a real zero from a missing value; it excludes both declared sentinels and structurally unavailable cells.
 
 ## 3. Fixed-width model input
 
 Keep the ordered 286 value channels. For each token, construct:
 1. 286 fold-preprocessed feature values;
 2. 286 per-feature observation indicators;
-3. a scoring-regime embedding/indicator.
+3. three one-hot source-availability channels per feature (UNAVAILABLE, AVAILABLE, UNKNOWN; 858 channels total);
+4. a scoring-regime embedding/indicator.
 
-The value and observation channels retain fixed order and are validated against the same schema hash. The model's input projection therefore expands from 286 to 572 numeric channels plus a separately encoded regime indicator (or an equivalently documented appended regime channel). Do not silently change the source schema or feature order.
+The value, observation and availability channels retain fixed feature order and are validated against the same schema hash. Under this explicit one-hot proposal, the numeric input projection expands from 286 to 1,430 channels (286 values + 286 observation indicators + 858 availability-state indicators), plus a separately encoded scoring-regime indicator. This is a proposed input encoding, not yet implemented or frozen. Do not silently change the source schema or feature order.
 
 The regime indicator is:
 - `legacy_fpl_scoring`: historical scoring seasons before 2025/26;
@@ -66,7 +67,7 @@ The regime indicator is:
 
 Regime is a known season-level target-scoring policy, not a feature inferred from the target points. For a prediction in 2026/27, set the current defensive-contribution regime.
 
-The feature-availability mask is derived from source/season provenance, not from whether a numeric value happens to be zero. The observation mask is generated before imputation. Fit imputation and scaling only on each training fold; apply those fitted transforms to validation/test data. The masks themselves are never imputed or scaled.
+The source-availability state is derived from source/season provenance, not from whether a numeric value happens to be zero. UNKNOWN features remain outside feature admission until their provenance is resolved. The observation mask is generated before imputation. Fit imputation and scaling only on each training fold; apply those fitted transforms to validation/test data. The masks themselves are never imputed or scaled.
 
 ## 4. Staged training schedule
 
