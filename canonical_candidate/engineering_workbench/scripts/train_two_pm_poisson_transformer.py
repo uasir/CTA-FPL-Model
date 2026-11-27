@@ -64,12 +64,31 @@ def load_grouped_dataset(root: Path, schema_path: Path, manifest_path: Path):
         stem = metadata_path.name.replace("metadata_player_gw_", "")
         x_path = metadata_path.with_name("X_player_gw_" + stem.replace(".csv", ".npy"))
         mask_path = metadata_path.with_name("fixture_mask_" + stem.replace(".csv", ".npy"))
+        observed_path = metadata_path.with_name("observed_value_mask_" + stem.replace(".csv", ".npy"))
+        availability_path = metadata_path.with_name("source_availability_state_" + stem.replace(".csv", ".npy"))
         y_path = metadata_path.with_name("y_player_gw_" + stem.replace(".csv", ".npy"))
-        if not (x_path.exists() and mask_path.exists() and y_path.exists()):
-            raise FileNotFoundError(f"Incomplete tensor shard beside {metadata_path}")
+        required_paths = (x_path, mask_path, observed_path, availability_path, y_path)
+        missing_paths = [str(path) for path in required_paths if not path.exists()]
+        if missing_paths:
+            raise FileNotFoundError(
+                "Training is blocked: shard lacks required provenance arrays: "
+                + ", ".join(missing_paths)
+            )
         x = np.load(x_path, allow_pickle=False)
         fixture_mask = np.load(mask_path, allow_pickle=False).astype(bool)
+        observed_full = np.load(observed_path, allow_pickle=False)
+        availability_full = np.load(availability_path, allow_pickle=False)
         y = np.load(y_path, allow_pickle=False).astype(np.float32).reshape(-1)
+        if observed_full.shape != x.shape or availability_full.shape != x.shape:
+            raise ValueError(f"Provenance-mask shape mismatch in {metadata_path}")
+        if not np.isin(observed_full, [0, 1]).all():
+            raise ValueError(f"Observed-value mask must be binary in {observed_path}")
+        if not np.isin(availability_full, [0, 1, 2]).all():
+            raise ValueError(f"Source availability must use 0/1/2 states in {availability_path}")
+        if np.any((observed_full == 1) & (availability_full == 0)):
+            raise ValueError(f"Structurally unavailable values marked observed in {metadata_path}")
+        if np.any((observed_full == 1) & ~np.isfinite(x)):
+            raise ValueError(f"Non-finite values marked observed in {metadata_path}")
         if x.shape != (len(metadata), fixture_mask.shape[1], 6, 286):
             raise ValueError(f"Unexpected X shape in {x_path}: {x.shape}")
         if len(metadata) != len(y) or fixture_mask.shape[0] != len(y):
@@ -81,10 +100,12 @@ def load_grouped_dataset(root: Path, schema_path: Path, manifest_path: Path):
             # The first five tokens are historical post-match states. The last
             # token is the target fixture query. Values are kept as stored.
             values = x[i, :, :, :][:, :, indices].astype(np.float32, copy=True)
-            observed = np.isfinite(values)
-            # No historical common feature family has yet passed full source-
-            # vintage admission. UNKNOWN is therefore explicit for every input.
-            availability = np.full(values.shape, 2, dtype=np.int64)
+            # Use the builder's raw-source and source-vintage masks. Never infer
+            # observation from finiteness: upstream pipelines may zero-fill.
+            observed = observed_full[i, :, :, indices].astype(bool, copy=True)
+            availability = availability_full[i, :, :, indices].astype(np.int64, copy=True)
+            if np.any(observed & (availability == 0)):
+                raise ValueError(f"Observed mask conflicts with unavailable source in {metadata_path}")
             # Padded fixture slots are not real queries and carry no observations.
             values[~fixture_mask[i]] = np.nan
             observed[~fixture_mask[i]] = False
