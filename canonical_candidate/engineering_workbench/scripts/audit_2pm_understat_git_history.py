@@ -234,21 +234,37 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
                         "last_seen_commit": sha, "last_seen_at": committed_at,
                         "value_revision_count": 0, "missing_revision_count": 0,
                         "reappearance_count": 0, "present_in_latest_revision": True,
+                        "state_events": [{
+                            "commit": sha, "committed_at": committed_at,
+                            "status": "present", "value_signature": signature,
+                        }],
                     }
                 else:
-                    if not previous["present_in_latest_revision"]:
+                    was_missing = not previous["present_in_latest_revision"]
+                    if was_missing:
                         previous["reappearance_count"] += 1
                     previous["last_seen_commit"] = sha
                     previous["last_seen_at"] = committed_at
                     previous["present_in_latest_revision"] = True
+                    if was_missing or previous["latest_value_signature"] != signature:
+                        if not was_missing:
+                            previous["value_revision_count"] += 1
+                        previous["state_events"].append({
+                            "commit": sha, "committed_at": committed_at,
+                            "status": "present", "value_signature": signature,
+                        })
                     if previous["latest_value_signature"] != signature:
-                        previous["value_revision_count"] += 1
                         previous["latest_value_signature"] = signature
                         previous["latest_commit"] = sha
                         previous["latest_at"] = committed_at
             for key, previous in row_history.items():
                 if key not in current:
                     previous["missing_revision_count"] += 1
+                    if previous["present_in_latest_revision"]:
+                        previous["state_events"].append({
+                            "commit": sha, "committed_at": committed_at,
+                            "status": "missing", "value_signature": None,
+                        })
                     previous["present_in_latest_revision"] = False
             commit_rows.append({
                 "commit": sha, "committed_at": committed_at,
