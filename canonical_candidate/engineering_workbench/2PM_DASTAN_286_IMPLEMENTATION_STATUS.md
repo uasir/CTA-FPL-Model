@@ -599,3 +599,16 @@ Latest CI on commit `e08b9aadce1be35ec76dce7f5d49a6967dd7f5b3`:
 This validates the candidate sidecar migration tests, source-pin checks, feature-value parity gate, sidecar builders, mask integration and legacy tensor cache rejection. It does not execute the migration against Run 83. The manual candidate workflow has not been dispatched; no candidate or tensor rebuild has occurred and no training has started.
 
 The next data operation is to run the candidate workflow with its default `rebuild_candidate=false`: it will attempt parity-checked migration from the cached raw player/team match tables and source manifest, preserving the existing 286 feature values. If those files are absent or parity fails, rerun with `rebuild_candidate=true` for a full rebuild. The grouped tensor cache is version-invalidated and will be regenerated from sidecar-bearing states either way.
+
+
+### Understat point-in-time findings and conservative mask (2026-11-27)
+
+Pinned Vaastav tree inspection established:
+- 2020/21 Understat player data in the season directory is an aggregate table without match dates; there are no individual player match-history files in that season directory.
+- 2020/21 team files are match-level and have weekly file histories; they require a separate row-level commit audit.
+- 2021/22 individual player files contain earlier seasons' rows and are updated weekly. Example Bruno Fernandes file first commit: 2021-08-24 20:21:52 UTC; the current file includes season values 2021, 2020, 2019, 2016, 2015 and 2014.
+- Pinned Dastan selects the latest player file and only checks date coverage; it does not prove first-publication time. Live fallback is a current provider response, not a historical snapshot.
+
+Added manifest 1.4.0 source-vintage HOLD for exactly 100 Understat-derived rolling features. The mask builder forces their observed-value mask to zero until a row-level vintage manifest is verified. The sequence tensor builder converts every unobserved feature value to NaN before persistence; the grouped integrity audit rejects finite values marked unobserved. This avoids leaking current-file retrospective Understat rows while preserving the other historical feature families.
+
+The Understat row-level audit plan is in 2PM_UNDERSTAT_POINT_IN_TIME_AUDIT_PLAN.md. It distinguishes 2020/21 player Understat unavailability from the separately auditable team files; it does not recommend discarding the whole 2020/21 season. No vintage audit manifest has been generated, no candidate/tensor rebuild has been run, and no training has started.
