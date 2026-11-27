@@ -125,3 +125,17 @@ The revision tracer additionally records each row's last-seen revision, missing-
 ### Latest regression-test hardening
 
 A further lifecycle test now exercises a player row appearing, disappearing, reappearing, and changing value across three mocked revisions. The first run exposed a missing `io` import in the CSV byte-reader path (the audit function had caught that exception and returned an empty history, which the test had not previously asserted against). The import is fixed, and the regression now explicitly requires all three revisions to parse without errors. CI for commit `9227fec2f4dc97321da933cb707e261676d7ac21` is in progress; do not treat this latest change as green until that run completes.
+
+
+### API isolation, atomic revision validation, and latest CI
+
+The revision tracer was further hardened:
+- GitHub API authorization is now sent only to `api.github.com`; raw source-file requests to `raw.githubusercontent.com` receive no API token.
+- Each CSV revision is fully parsed and checked for duplicate row keys before any row-history state is mutated. A duplicate-key revision is rejected atomically, preserving the last accepted revision state.
+- Regression tests now assert GitHub's newest-first commit-list ordering is reversed into chronological processing, check first/latest revision identities and value signatures, verify raw-host token isolation, and prove a duplicate revision cannot partially mutate accepted history.
+
+The first run of the new duplicate-key test failed because its byte fixture encoded literal backslash-n text instead of actual CSV line breaks. The fixture was corrected; this was a test-data defect, not a production audit failure.
+
+Engineering CI run [46049971385](https://github.com/uasir/CTA-FPL-Model/actions/runs/46049971385), for commit `3c7dfa25633f8151eedbd4bb404d4201997c4699`, completed successfully: **622 passed, 5 skipped, 18 warnings, and 3 subtests passed**. The job's JS contract tests, canonical Python feature-core tests, engineering pytest suite, and all four identity crosswalk validations passed.
+
+**Execution boundary remains unchanged:** the tracer has not yet been run against actual pinned Vaastav player/team file histories. The candidate workflow has not been dispatched to generate the new six-season source inventory artifact, and the existing Run 86 artifact predates that inventory step. The tracer remains outside the candidate rebuild workflow until a bounded real-source smoke test and runtime/rate-limit assessment are completed. All 152 Understat features remain HOLD; no feature admission or training authorization changes.
