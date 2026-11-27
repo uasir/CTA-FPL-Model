@@ -84,7 +84,18 @@
     "early_stopping_patience": 5,
     "early_stopping_min_delta": 0.0001,
     "loss": "shifted_two_component_poisson_mixture_nll_for_single_fixtures; exact_2_to_fixture_count_aggregate_nll_for_player_gameweek_samples",
-    "rate_initialization": "training_only_quantile_seeded_two_poisson_em_mle_candidate_exact_author_initialization_unresolved"
+    "rate_initialization": "training_only_quantile_seeded_two_poisson_em_mle_candidate_exact_author_initialization_unresolved",
+    "stage_b_replay": {
+      "implementation_module": "two_pm_staged_replay.py",
+      "implementation_function": "build_stage_b_replay_plan",
+      "replay_ratio_legacy_per_adaptation_sample": null,
+      "replay_ratio_status": "UNSELECTED_PENDING_2025_26_CHRONOLOGICAL_VALIDATION",
+      "default_sampling": "uniform_without_replacement_from_eligible_legacy_training_pool",
+      "replacement_allowed_only_when_explicit": true,
+      "seed_required_and_recorded": true,
+      "regime_preservation": "legacy replay remains code 0; 2025-26 adaptation remains code 1",
+      "trainer_integration_status": "NOT_INTEGRATED"
+    }
   },
   "paper_unspecified_or_open": [
     "selected_transformer_layer_count",
