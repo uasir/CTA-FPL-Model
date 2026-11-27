@@ -145,3 +145,22 @@ The pinned source policy currently marks the 27 defensive-regime-dependent featu
 New tensor shards save both arrays. The grouped-dataset integrity audit checks shape, legal state codes, binary observation values, non-finite/sentinel exclusion, structural-absence exclusion, and zero masks in padded fixture slots. The pinned Dastan builder zero-fills some raw player/team fields before producing rolling features; finite tensor values alone therefore cannot recover whether a zero was genuine. The observed-value mask must be derived from pre-fill source-observation sidecars. Legacy tensor shards without those sidecars are not safe to backfill and must be regenerated from candidate/post-match states carrying the sidecars. The raw source-download cache can still be reused; the candidate/tensor cache must be invalidated when the sidecar contract changes.
 
 These masks are a provenance/missingness contract only. They do not admit features, decide imputation, or authorize training. Fold-only preprocessing must use the observed mask, while unresolved source availability remains a separate feature-admission gate.
+
+
+### 2.5 Pre-fill observation provenance (required before training)
+
+The pinned Dastan implementation (`qazybekb/smartplayfpl-dastan`, commit `758db9247e8b3a9a870c991064f74d8339d61cd0`) zero-fills numeric player and team source columns in `dastan/rebuild/features.py` before producing some rolling features. The 2PM pipeline therefore cannot infer observation from `isfinite(final_tensor_value)` alone.
+
+The candidate now carries one `__observed__{feature}` uint8 sidecar for each of the 286 input columns. Sidecars are generated at the raw-source/reconstruction boundary:
+- Player FPL rolling features: require every source value contributing to the rolling window to be present, because the existing value calculation retains zero-fill semantics.
+- Player Understat rolling features: require at least one valid source value in the window, because the 2PM rolling reconstruction explicitly ignores missing Understat rows rather than treating them as zero.
+- Defensive/rate rolling features: require at least one valid source value in the window; structural regime availability remains a separate three-state mask.
+- Availability history: marks the documented position-prior fallback as an available engineered value when no history exists; otherwise requires the contributing minutes observations.
+- Team/opponent rolling features: capture raw source presence before Dastan's team preparation zero-fill; require complete raw coverage across the contributing window.
+- League ranks: require complete prior score/conceded/points inputs for the rank state; opponent rank also requires a resolved opponent.
+- Fixture-context schedule features are deterministic from the fixture calendar; opponent defensive-allowance masks follow the finite reconstructed source values.
+- Retained fixture and pre-deadline snapshot features use their source value/sentinel contract.
+
+The sequence builder now requires these sidecars under the production manifest and combines them with finite-value, sentinel and structural-availability checks. Legacy Run 83 candidate/tensor artifacts do not contain the new pre-fill sidecars and cannot be safely repaired from final tensor values. They are rejected for reuse. The candidate must be regenerated from the pinned raw-source cache, and grouped tensor shards must be rebuilt from the resulting sidecar-bearing states. This invalidates only the derived candidate/tensor artifacts, not the reusable raw downloads.
+
+This sidecar extension is under implementation and test; the earlier CI results above predate it. Do not train or admit features until the focused CI passes and the regenerated tensor artifact audit verifies the sidecars end to end.
