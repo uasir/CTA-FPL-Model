@@ -156,7 +156,25 @@ jobs:
           assert bool(row["deadline_verified"]), row.to_dict()
           assert row["visibility_status"] == "repository_proven_prior_row", row.to_dict()
           assert bool(row["value_matches_final"]), row.to_dict()
-          print("PASS: corrected Arsenal row maps to FPL fixture 61 and its unchanged metrics were repository-visible before the GW26 deadline; no feature admission.")
+
+          # 2020/21's early FPL-cache deadline snapshots are absent. Keep these
+          # rows explicitly unverified, but expose provisional final-calendar
+          # timing to identify a source-value revision window without admitting it.
+          liverpool = detail.loc[
+              detail["source_path"].eq("data/2020-21/understat/understat_Liverpool.csv")
+              & detail["fixture_id"].eq(11)
+          ]
+          early = liverpool.loc[liverpool["gameweek"].between(3, 8)]
+          assert len(early) == 6, early.to_dict("records")
+          assert early["deadline_status"].eq("no_pre_deadline_snapshot").all(), early.to_dict("records")
+          assert early["visibility_status"].eq("deadline_unverified").all(), early.to_dict("records")
+          assert early["provisional_visibility_status"].eq("repository_proven_prior_row").all(), early.to_dict("records")
+          assert (~early["provisional_value_matches_final"].astype(bool)).all(), early.to_dict("records")
+          gw9 = liverpool.loc[liverpool["gameweek"].eq(9)]
+          assert len(gw9) == 1, gw9.to_dict("records")
+          assert gw9.iloc[0]["visibility_status"] == "deadline_unverified", gw9.to_dict("records")
+          assert bool(gw9.iloc[0]["provisional_value_matches_final"]), gw9.to_dict("records")
+          print("PASS: Arsenal date correction is fixture-confirmed and value-safe by GW26; Liverpool's early 2020/21 value-revision window is surfaced as PROVISIONAL ONLY because those deadlines lack archived snapshots; no feature admission.")
           PY
 
       - name: Upload bounded source-history and deadline evidence
