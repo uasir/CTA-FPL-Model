@@ -72,11 +72,13 @@ class UnderstatGitHistoryTests(unittest.TestCase):
             {"sha": "b", "commit": {"committer": {"date": "2024-01-02T00:00:00Z"}}},
             {"sha": "a", "commit": {"committer": {"date": "2024-01-01T00:00:00Z"}}},
         ]
+        nl = bytes([10])
         payloads = {
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/a/data/player_987.csv":
-                b"date,season,xG\n2024-01-01,2023,0.2\n",
+                b"date,season,xG" + nl + b"2024-01-01,2023,0.2" + nl,
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/b/data/player_987.csv":
-                b"date,season,xG\n2024-01-01,2023,0.3\n2024-01-01,2023,0.4\n",
+                b"date,season,xG" + nl + b"2024-01-01,2023,0.3" + nl
+                + b"2024-01-01,2023,0.4" + nl,
         }
         with patch("audit_2pm_understat_git_history.list_path_commits", return_value=commits):
             with patch("audit_2pm_understat_git_history._get_text",
