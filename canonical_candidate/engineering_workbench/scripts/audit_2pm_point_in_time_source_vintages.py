@@ -71,18 +71,64 @@ def select_commit(commits: list[dict[str, Any]], deadline: datetime) -> dict[str
     return max(eligible, key=lambda item: item["committed_at"]) if eligible else None
 
 
-def _snapshot_index(root: Path) -> list[tuple[datetime, Path]]:
+FPLCACHE_REPOSITORY = "Randdalf/fplcache"
+
+
+def _snapshot_index(
+    root: Path, commit: str, token: str | None
+) -> list[tuple[datetime, Path]]:
+    """Index the pinned archive tree without downloading every historical snapshot."""
+    root.mkdir(parents=True, exist_ok=True)
+    tree_path = root / "tree.json"
+    if not tree_path.exists():
+        url = (
+            f"https://api.github.com/repos/{FPLCACHE_REPOSITORY}/git/trees/"
+            f"{commit}?recursive=1"
+        )
+        payload = _github_json(url, token)
+        if payload.get("truncated"):
+            raise RuntimeError("Pinned FPL-cache Git tree is truncated")
+        temporary = tree_path.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(payload), encoding="utf-8")
+        temporary.replace(tree_path)
+    tree = json.loads(tree_path.read_text(encoding="utf-8"))
+    if tree.get("truncated"):
+        raise RuntimeError("Pinned FPL-cache Git tree is truncated")
+    snapshot_root = root / "snapshots"
     rows = []
-    for path in (root / "cache").glob("*/*/*/*.json.xz"):
-        match = SNAPSHOT_PATH.match(path.relative_to(root).as_posix())
-        if not match:
+    for entry in tree.get("tree", []):
+        source_path = entry.get("path", "")
+        match = SNAPSHOT_PATH.match(source_path)
+        if entry.get("type") != "blob" or not match:
             continue
         year, month, day, hour, minute = map(int, match.groups())
-        rows.append((datetime(year, month, day, hour, minute, tzinfo=timezone.utc), path))
+        captured = datetime(
+            year, month, day, hour, minute, tzinfo=timezone.utc
+        )
+        rows.append((captured, snapshot_root / source_path))
     return sorted(rows, key=lambda row: row[0])
 
 
-def _read_snapshot(path: Path) -> dict[str, Any]:
+def _read_snapshot(
+    path: Path, snapshot_root: Path | None = None, commit: str | None = None
+) -> dict[str, Any]:
+    if not path.exists():
+        if snapshot_root is None or commit is None:
+            raise FileNotFoundError(path)
+        source_path = path.relative_to(snapshot_root).as_posix()
+        url = (
+            f"https://raw.githubusercontent.com/{FPLCACHE_REPOSITORY}/"
+            f"{commit}/{source_path}"
+        )
+        request = urllib.request.Request(
+            url, headers={"User-Agent": "CTA-FPL-2PM-source-vintage-audit/1.0"}
+        )
+        with urllib.request.urlopen(request, timeout=120) as response:
+            payload = response.read()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(f".{path.name}.tmp")
+        temporary.write_bytes(payload)
+        temporary.replace(path)
     return json.loads(lzma.decompress(path.read_bytes()).decode("utf-8"))
 
 
@@ -117,11 +163,14 @@ def _season_index(
 
 
 def _probe_payload(
-    index: list[tuple[datetime, Path]], season: str
+    index: list[tuple[datetime, Path]],
+    season: str,
+    snapshot_root: Path | None = None,
+    commit: str | None = None,
 ) -> tuple[datetime, Path, dict[str, Any]]:
     candidates = _season_index(index, season)
     for captured, path in reversed(candidates):
-        payload = _read_snapshot(path)
+        payload = _read_snapshot(path, snapshot_root, commit)
         if _season_label(payload.get("events", [])) == season:
             return captured, path, payload
     raise ValueError(
@@ -134,6 +183,8 @@ def _snapshot_for_deadline(
     season: str,
     gameweek: int,
     initial_deadline: datetime,
+    snapshot_root: Path | None = None,
+    commit: str | None = None,
 ) -> dict[str, Any]:
     deadline = initial_deadline
     same_season_index = _season_index(index, season)
@@ -147,7 +198,9 @@ def _snapshot_for_deadline(
         if not eligible:
             return {"status": "no_pre_deadline_snapshot", "deadline": deadline}
         captured, path = eligible[-1]
-        payload = _read_snapshot(path)
+        payload = _read_snapshot(path, snapshot_root, commit)
+        if _season_label(payload.get("events", [])) != season:
+            return {"status": "snapshot_season_mismatch", "deadline": deadline}
         event = next(
             (item for item in payload.get("events", []) if int(item.get("id", -1)) == gameweek),
             None,
@@ -310,8 +363,11 @@ def audit_season(
     fplcache_commit: str,
     token: str | None,
 ) -> dict[str, Any]:
-    index = _snapshot_index(fplcache_root)
-    probe_at, probe_path, probe_payload = _probe_payload(index, season)
+    index = _snapshot_index(fplcache_root, fplcache_commit, token)
+    snapshot_root = fplcache_root / "snapshots"
+    probe_at, probe_path, probe_payload = _probe_payload(
+        index, season, snapshot_root, fplcache_commit
+    )
     deadlines = {
         int(event["id"]): _parse_time(event["deadline_time"])
         for event in probe_payload.get("events", [])
@@ -325,7 +381,9 @@ def audit_season(
         if gw not in deadlines:
             gameweeks[str(gw)] = {"status": "deadline_missing_from_fplcache"}
             continue
-        snapshot = _snapshot_for_deadline(index, season, gw, deadlines[gw])
+        snapshot = _snapshot_for_deadline(
+            index, season, gw, deadlines[gw], snapshot_root, fplcache_commit
+        )
         if snapshot["status"] != "selected":
             gameweeks[str(gw)] = {
                 "snapshot": snapshot,
