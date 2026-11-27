@@ -531,3 +531,19 @@ The manifest now includes a feature-family and reconstruction-treatment inventor
 The separate reconstruction-treatment partition also covers all 286 columns: 141 player-history rebuild, 60 own-team post-match rebuild, 64 opponent post-match rebuild, 1 fixture-context retained, 2 rank post-match rebuild, 7 historical pre-match snapshot retained, 9 availability-history rebuild, and 2 pre-match fixture-context retained.
 
 These are two orthogonal inventories: semantic feature family and reconstruction treatment. Neither implies point-in-time source availability or admission. The feature-group validator now checks that both partitions cover the schema exactly once and that the register remains ALL_HOLD.
+
+
+### Manifest 1.1.0 and final CI verification (2026-11-27)
+
+The feature manifest is now version **1.1.0**. It contains:
+- the 259/27 scoring-regime partition;
+- the independent 26/6 reconstruction-family accounting;
+- all 286 feature-family assignments and all 286 reconstruction-treatment assignments, each an exact non-overlapping partition;
+- the seven explicit missing-snapshot sentinel columns and pinned source references;
+- three-state, season/source-specific availability policy.
+
+Final verification on commit `b99d9bcd2b5b703423ffbee15f5837631c7763cb`:
+- **CTA FPL engineering CI** run `45959909648`: 571 passed, 4 skipped, 3 subtests passed.
+- **2PM Dastan 286 sequence contract** run `45959909666`: 108 passed.
+
+No six-season tensor rebuild or cached-artifact augmentation has been run. The existing Run 83 artifact is unchanged. The new cache-backfill path is ready for the next candidate build, which can add mask files from cached tensors without repeating expensive source acquisition or post-match reconstruction. All 286 features remain HOLD; no training is authorized.
