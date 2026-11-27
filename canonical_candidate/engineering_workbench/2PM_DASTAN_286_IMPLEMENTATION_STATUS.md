@@ -502,3 +502,12 @@ The full CTA FPL engineering CI completed successfully on commit `07843aae55e136
 The focused 2PM sequence-contract workflow for the subsequent manifest evidence commit `3410a79f64825ceb0538d255187960d657dc6609` is queued behind the preceding run at the time of this update. Its result is not yet claimed.
 
 No six-season candidate rebuild or tensor-artifact augmentation has been executed. The cached Run 83 artifact remains unchanged; the next approved candidate build can add the masks by augmenting cached tensor shards, without reacquiring or reconstructing the underlying features. Candidate admission remains NOT_ADMITTED and training remains unauthorized.
+
+
+### Final mask-contract CI result (2026-11-27)
+
+The focused **2PM Dastan 286 sequence-contract workflow passed** on commit `6da7c2a73f67e873eb8d7dbd89a9774dbde0c814` (run `45959674518`): **106 passed**. This includes the new feature-group manifest validation, tri-state source-availability policy, observed-value mask semantics, tensor mask emission, cached-shard backfill, and grouped tensor integrity tests.
+
+The full CTA FPL engineering CI also passed on `07843aae55e1363ea913c3bc8a18e927c59ba6d6` (run `45959619546`): **569 passed, 4 skipped, 3 subtests passed**.
+
+The subsequent manifest-only commit `3410a79f64825ceb0538d255187960d657dc6609` adds exact pinned-source references for the seven missing-snapshot sentinel fields; it does not change executable behavior. No candidate rebuild, tensor augmentation, feature admission, or model training has been performed.
