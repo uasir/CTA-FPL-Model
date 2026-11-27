@@ -493,3 +493,12 @@ Implemented the first mask contract for the independent 2PM tensors:
 - Focused unit and integration tests cover the three-state policy, observed zero vs NaN vs -1 sentinel, structural absence despite a finite numeric fill, tensor emission, and mask integrity.
 
 The new workflow checks are still running/queued at the time of this status update; no test result is claimed here. The candidate remains NOT_ADMITTED, no training is authorized, and no existing six-season tensor artifact has yet been rewritten with the new masks.
+
+
+### CI verification update (2026-11-27)
+
+The full CTA FPL engineering CI completed successfully on commit `07843aae55e1363ea913c3bc8a18e927c59ba6d6` (workflow run `45959619546`): **569 passed, 4 skipped, 3 subtests passed**. This run includes the feature-group/availability validator, tri-state mask helpers, sequence tensor mask emission, cached-shard mask backfill, and associated tests.
+
+The focused 2PM sequence-contract workflow for the subsequent manifest evidence commit `3410a79f64825ceb0538d255187960d657dc6609` is queued behind the preceding run at the time of this update. Its result is not yet claimed.
+
+No six-season candidate rebuild or tensor-artifact augmentation has been executed. The cached Run 83 artifact remains unchanged; the next approved candidate build can add the masks by augmenting cached tensor shards, without reacquiring or reconstructing the underlying features. Candidate admission remains NOT_ADMITTED and training remains unauthorized.
