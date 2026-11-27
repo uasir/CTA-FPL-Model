@@ -200,3 +200,15 @@ The new focused workflow [46050872902](https://github.com/uasir/CTA-FPL-Model/ac
 Both files returned **zero parser/duplicate-key errors**. Across the five sampled revisions, no row-value changes, disappearances, or reappearances were detected in these two files. The report marks both histories **truncated** because only five of 29 player revisions and five of 31 team revisions were requested; the sample therefore cannot establish first-ever row appearance or prove the absence of earlier revisions/corrections. The report keeps historical publication vintage UNKNOWN and admission_decision NO_FEATURES_ADMITTED.
 
 The evidence artifact is workflow artifact `understat-source-revision-smoke` (ID `15224282557`). This is a real-source parser/row-identity smoke test using a minimal two-file inventory. It is separate from the candidate-rebuild workflow's six-season inventory and its 25-revision-per-file cached smoke audit, which still requires its own manual dispatch. No Understat features are admitted and no training authorization changes.
+
+### First real pinned-source tracer smoke result (2026-11-27)
+
+A dedicated GitHub Actions smoke run [46050872902](https://github.com/uasir/CTA-FPL-Model/actions/runs/46050872902) completed successfully on commit `a82a0478f6b2c105e45ce4e5ff358357093a3b6f`. It used a two-entry smoke inventory (one real pinned player file and one real pinned team file), requested the latest five path-specific revisions per file, and uploaded artifact [15224282557](https://github.com/uasir/CTA-FPL-Model/actions/runs/46050872902/artifacts/15224282557).
+
+Observed results:
+- **Mohamed Salah player history** `data/2024-25/understat/Mohamed_Salah_1250.csv`: all five revisions parsed, zero errors, no duplicate row keys. Row counts/unique keys increased 361 → 362 → 363 → 364 → 365. The four new rows first appeared in the successive sampled commits dated 2025-03-05, 2025-03-11, 2025-04-05, and 2025-04-11. No existing row value revisions, disappearances, or reappearances were detected in this five-revision window.
+- **Arsenal team history** `data/2024-25/understat/understat_Arsenal.csv`: all five revisions parsed, zero errors, no duplicate row keys. Row counts/unique keys increased 27 → 28 → 29 → 30 → 31. The four new rows first appeared in the successive sampled commits dated 2025-03-11, 2025-03-24, 2025-04-05, and 2025-04-11. No existing row value revisions, disappearances, or reappearances were detected in this five-revision window.
+
+Both results reported `history_truncated=true` because only five of 29 player-file commits and five of 31 team-file commits were requested. These are the latest five revisions, not the files' first revisions. The run validates live GitHub API access, CSV parsing, source-specific row identity, and revision-state tracking; it does **not** establish first appearance of historical rows, original Understat publication time, or deadline eligibility.
+
+The candidate-rebuild workflow's generated six-season inventory and 25-revision resumable smoke step remain a separate, not-yet-dispatched workflow. No feature admission or training authorization changes.
