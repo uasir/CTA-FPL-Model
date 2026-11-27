@@ -278,3 +278,9 @@ A semantic signature correction was also added. Understat's `ppda` and `ppda_all
 Engineering CI run [46053323143](https://github.com/uasir/CTA-FPL-Model/actions/runs/46053323143) passed: **631 passed, 5 skipped, 18 warnings, and 3 subtests passed**.
 
 **Next required analysis:** reconcile the potential 2022/23 date correction and the row lifecycle events to canonical FPL fixture IDs, official target deadlines, and the exact player/team rolling windows. Repository commit timestamps remain lineage evidence only; they are not proof of Understat publication or public visibility. This is still a 7-player/one-team sample, not population-wide admission. All 152 Understat features remain HOLD.
+
+### Manual FPL fixture confirmation for the 2022/23 Arsenal date correction
+
+The potential correction was reconciled against the pinned Vaastav 2022/23 FPL fixture table. It maps uniquely to **FPL fixture 61, Gameweek 25: Arsenal 4–0 Everton, kickoff 2023-03-01 19:45 UTC** (Arsenal home). The Understat team row's old date was 2023-03-02 20:00; its replacement is 2023-03-01 20:00, with every non-date field identical. This confirms that the row migration is a date correction for the Arsenal–Everton fixture, not a different match.
+
+The row first appeared in the repository on 2023-03-02 12:40:22 UTC; the corrected-date row first appeared on 2023-03-27 11:00:02 UTC. This establishes repository lineage for the old and corrected representations. It does **not** by itself establish the effect on model features: the row is the fixture's own match record, which should not enter that fixture's pre-deadline history, and both dates precede later Arsenal fixtures. The next check must compare the row's as-of state with the exact target Gameweek deadlines and the Dastan rolling/anchor rules before classifying any downstream feature as affected.
