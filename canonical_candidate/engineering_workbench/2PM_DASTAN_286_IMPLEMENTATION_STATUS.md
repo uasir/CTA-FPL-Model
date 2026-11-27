@@ -439,3 +439,25 @@ This is a **source-availability limitation**, not permission to backfill missing
 The 2020/21 deadline calendar also needs an independent source because this archive cannot supply the season probe used by the current `fplcache.season_deadlines()` implementation. Do not silently infer exact FPL deadlines from kickoff times. Until a defensible official deadline source is pinned for that season, the source-vintage audit must mark those deadlines unavailable rather than claim a pass.
 
 No candidate/tensor values were changed. No source was substituted, no new data were acquired, all 286 feature admissions remain HOLD, and training remains unauthorized.
+
+
+### Understat source-vintage review (2026-11-27)
+
+A further source review confirms that the six-season Dastan acquisition is not uniformly backed by season-pinned Understat files:
+
+- The pinned Vaastav tree at `8c97b2adb123863c3dd581e730f1360e89815ac2` contains 24 Understat source files for 2020/21, and substantial player/team Understat archives for 2021/22 through 2024/25.
+- The same pinned tree contains **no** `data/2025-26/understat/` paths.
+- At the pinned Dastan source commit, `dastan/rebuild/sources.py` explicitly calls the live `understatapi` client for missing player histories and missing team-season histories. A live player fallback supersedes a partial pinned CSV for that player; a live team fallback fills a missing team-season.
+- The download manifest records the distinction between Vaastav-pinned files and live Understat fallbacks, but a manifest/hash of the current response proves which bytes were used, not that those bytes were the version available at each historical FPL deadline.
+
+This means the 2025/26 Understat feature coverage in Run 83 cannot be described as a historical deadline-vintage archive on the evidence currently available. For 2020/21–2024/25, the presence of per-season Understat files and per-file commit histories makes a source-vintage reconstruction possible in principle, but the latest season-level file is not itself proof that every row/value was available before each target deadline. The live fallback can also contain retrospective corrections to older match records.
+
+The current match-availability adapter assigns a conservative `kickoff_time + 24 hours` availability bound from the FPL fixture calendar. This is an explicit modelling assumption, not a recorded Understat publication timestamp. FPL match-stat availability and Understat metric availability must therefore be audited separately; a 24-hour bound cannot be treated as proof that Understat xG/xA/xGChain/shot/key-pass/team metrics had already been published.
+
+Required next steps:
+1. Build a per-season/per-deadline Understat vintage manifest from Vaastav file commit histories for 2020/21–2024/25, separately for player and team sources.
+2. Determine which player histories are supplied by pinned Vaastav files versus live fallback in the Run 83 download manifest; do not let a live fallback silently replace a historical pinned version for admission purposes.
+3. For 2025/26, retain the current Understat-derived features on HOLD unless a lawful, stable, timestamped historical source archive can be established. Otherwise evaluate an explicit missingness/feature-exclusion policy for this source family without altering the 286-column schema until the decision is reviewed.
+4. Establish evidence for Understat publication/availability lag after each match. Until then, the FPL-derived 24-hour completion bound does not independently admit Understat fields.
+
+No model input, candidate or tensor was modified. The finding adds a source-vintage admission requirement; it does not authorize replacing the six-season training pool, mask features by analogy with XGBoost, or start training.
