@@ -9,6 +9,8 @@ on:
       - canonical_candidate/engineering_workbench/tests/test_audit_2pm_understat_git_history.py
       - canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_deadline_visibility.py
       - canonical_candidate/engineering_workbench/tests/test_audit_2pm_understat_deadline_visibility.py
+      - canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_player_fixture_membership.py
+      - canonical_candidate/engineering_workbench/tests/test_audit_2pm_understat_player_fixture_membership.py
       - .github/workflows/understat-source-revision-smoke.yml
   workflow_dispatch:
 
@@ -217,6 +219,42 @@ jobs:
           print("PASS: Arsenal date correction is fixture-confirmed and value-safe by GW26; Liverpool's early 2020/21 value-revision window is surfaced as PROVISIONAL ONLY because those deadlines lack archived snapshots; no feature admission.")
           PY
 
+      - name: Verify player rows against pinned Dastan assignments and FPL fixture rows
+        working-directory: canonical_candidate/engineering_workbench
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/audit_2pm_understat_player_fixture_membership.py --history-report "$RUNNER_TEMP/understat-revision-history.json" --seasons "2020-21,2021-22,2022-23,2023-24,2024-25" --vaastav-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" --dastan-commit "758db9247e8b3a9a870c991064f74d8339d61cd0" --fixture-cache-root "$RUNNER_TEMP/understat-revision-cache/vaastav-fixtures-8c97b2adb123863c3dd581e730f1360e89815ac2" --player-cache-root "$RUNNER_TEMP/understat-revision-cache/fpl-player-membership" --output "$RUNNER_TEMP/understat-player-fixture-membership.json" --detail-output "$RUNNER_TEMP/understat-player-fixture-membership.csv"
+
+      - name: Validate player fixture membership report
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"])
+          history = json.loads((root / "understat-revision-history.json").read_text())
+          report = json.loads((root / "understat-player-fixture-membership.json").read_text())
+          expected = sum(
+              len(item.get("row_history", {}))
+              for item in history.get("results", [])
+              if item.get("source_kind") == "pinned_player_csv"
+          )
+          assert report["player_rows_reconciled"] == expected, (report, expected)
+          assert report["admission_decision"] == "NO_FEATURES_ADMITTED", report
+          assert report["training_authorized"] is False, report
+          allowed = {
+              "MATCHED_PLAYER_FIXTURE", "PLAYER_DATE_TOLERANCE_CANDIDATE",
+              "PLAYER_NOT_IN_FPL_FIXTURE_ROWS", "AMBIGUOUS_PLAYER_ASSIGNMENT",
+              "AMBIGUOUS_FIXTURE", "NO_CANONICAL_FIXTURE",
+              "INVALID_SOURCE_SEASON", "OUTSIDE_AUDITED_SEASONS",
+          }
+          assert set(report["status_counts"]).issubset(allowed), report["status_counts"]
+          print("PASS: every pinned player row has an explicit FPL fixture/identity status; no feature admission.")
+          print(json.dumps(report["status_counts"], sort_keys=True))
+          PY
+
       - name: Upload bounded source-history and deadline evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -226,6 +264,8 @@ jobs:
             ${{ runner.temp }}/understat-revision-history.json
             ${{ runner.temp }}/understat-deadline-visibility-audit.json
             ${{ runner.temp }}/understat-deadline-visibility-audit.csv
+            ${{ runner.temp }}/understat-player-fixture-membership.json
+            ${{ runner.temp }}/understat-player-fixture-membership.csv
           if-no-files-found: error
           retention-days: 14
 
