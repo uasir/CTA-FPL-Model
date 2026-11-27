@@ -65,7 +65,7 @@ def test_loader_preserves_feature_axis_and_observed_zero_semantics(tmp_path):
     assert values.shape == (1, 6, 259)
     assert values[0, 0, 3] == 123.0
     assert observed[0, 0, 3]
-    assert metadata["availability"][0, 0, 3] == 2
+    assert metadata["availability"][0, 0, 3] == 0
     assert fixture_mask.tolist() == [True]
 
 
@@ -79,6 +79,19 @@ def test_loader_enforces_manifest_source_vintage_hold_over_stored_mask(tmp_path)
             "feature_count": 1,
             "feature_order": ["feature_3"],
         }
+    }
+    payload["source_availability_groups"] = {
+        "understat_player_history": {
+            "count": 1,
+            "feature_order": ["feature_3"],
+        }
+    }
+    payload["feature_source_availability"] = {
+        "state_codes": {"UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2},
+        "default_state": "UNKNOWN",
+        "groups": {
+            "understat_player_history": {"2024-25": "UNAVAILABLE"}
+        },
     }
     manifest.write_text(json.dumps(payload))
 
