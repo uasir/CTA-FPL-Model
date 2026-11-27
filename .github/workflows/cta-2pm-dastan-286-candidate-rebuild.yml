@@ -52,7 +52,7 @@ jobs:
       - name: Require reusable six-season candidate unless rebuild is explicitly approved
         if: inputs.rebuild_candidate != true
         run: |
-          if [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/player_matches_with_availability.parquet" ] || [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json" ] || [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/features_286_candidate.parquet" ]; then
+          if [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/player_matches_with_availability.parquet" ] || [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/team_matches.parquet" ] || [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json" ] || [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/features_286_candidate.parquet" ]; then
             echo "::error::No reusable six-season candidate cache was restored. Refusing to rebuild because rebuild_candidate is false."
             exit 1
           fi
