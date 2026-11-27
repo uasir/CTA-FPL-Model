@@ -1,7 +1,11 @@
 import pandas as pd
 from types import SimpleNamespace
 
-from rebuild_2pm_fixture_context import (\n    rebuild_deadline_team_context,\n    rebuild_fixture_context,\n    rebuild_player_history_features,\n)
+from rebuild_2pm_fixture_context import (
+    rebuild_deadline_team_context,
+    rebuild_fixture_context,
+    rebuild_player_history_features,
+)
 
 
 def row(season, fixture, code, team, opponent, kickoff, available, dc, tackles):
