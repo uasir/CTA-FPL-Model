@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 KEY = ["season", "fixture", "fpl_code"]
+OBSERVED_PREFIX = "__observed__"
 CONTEXT_COLUMNS = [
     "ar_rest_days",
     "ar_team_matches_14d",
@@ -133,6 +134,7 @@ def rebuild_player_history_features(
         + ["ar_dc_ppg_5"] + availability_columns
     )
     values = {column: np.full(len(out), np.nan, dtype=float) for column in history_columns}
+    observed_values = {column: np.zeros(len(out), dtype=np.uint8) for column in history_columns}
 
     # Keep raw per-player arrays in kickoff order. At each target query we
     # explicitly select only rows whose availability is strictly pre-deadline;
@@ -143,27 +145,30 @@ def rebuild_player_history_features(
         available_ns = group["match_available_at"].astype("int64").to_numpy(copy=True)
         available_ns[group["match_available_at"].isna().to_numpy()] = np.iinfo(np.int64).max
         player_arrays = {}
+        player_observed_arrays = {}
         for source in player_map:
             series = (
                 pd.to_numeric(group[source], errors="coerce")
-                if source in group else pd.Series(0.0, index=group.index)
+                if source in group else pd.Series(np.nan, index=group.index)
             )
-            # Missing Understat match rows are not zero performance. Preserve them
-            # so the training-fold imputer can distinguish missing history from a
-            # genuine zero; FPL-sourced fields retain their documented zero fill.
+            player_observed_arrays[source] = np.isfinite(series.to_numpy(dtype=float))
+            # Understat missing match rows are ignored by the rolling mean. FPL
+            # fields retain zero-fill value semantics, but raw presence is carried
+            # separately so a filled zero is never mistaken for an observation.
             if source.startswith("us_"):
                 player_arrays[source] = series.to_numpy(dtype=float)
             else:
                 player_arrays[source] = series.fillna(0.0).to_numpy(dtype=float)
 
-        total_points = pd.to_numeric(
-            group["total_points"], errors="coerce"
-        ).fillna(0.0).to_numpy(dtype=float)
+        total_points_raw = pd.to_numeric(group["total_points"], errors="coerce")
+        total_points_observed = np.isfinite(total_points_raw.to_numpy(dtype=float))
+        total_points = total_points_raw.fillna(0.0).to_numpy(dtype=float)
         home_values = group["is_home"].astype(bool).to_numpy()
         venue = {
             home: (
                 available_ns[home_values == home],
                 total_points[home_values == home],
+                total_points_observed[home_values == home],
             )
             for home in (False, True)
         }
@@ -196,6 +201,7 @@ def rebuild_player_history_features(
         history_groups[str(uid)] = {
             "available_ns": available_ns,
             "player_arrays": player_arrays,
+            "player_observed_arrays": player_observed_arrays,
             "venue_arrays": venue,
             "defensive_arrays": defensive_arrays,
             "rate_arrays": {
@@ -219,6 +225,7 @@ def rebuild_player_history_features(
             "played": minutes.gt(0).astype(float).to_numpy(),
             "played60": minutes.ge(60).astype(float).to_numpy(),
             "minutes": minutes.fillna(0.0).to_numpy(dtype=float),
+            "minutes_observed": np.isfinite(minutes.to_numpy(dtype=float)),
         }
 
     base_rates = features_module.POSITION_BASE_RATES
@@ -242,31 +249,57 @@ def rebuild_player_history_features(
 
         for source, feature in player_map.items():
             array = history["player_arrays"][source]
+            source_observed = history["player_observed_arrays"][source]
             for window in windows:
+                sample_indices = eligible[-window:]
                 values[f"player_{feature}_{window}"][row_position] = tail_mean(
                     array, eligible, window, ignore_nan=source.startswith("us_")
                 )
+                if len(sample_indices):
+                    observed_values[f"player_{feature}_{window}"][row_position] = int(
+                        source_observed[sample_indices].any()
+                        if source.startswith("us_")
+                        else source_observed[sample_indices].all()
+                    )
 
-        venue_available, venue_values = history["venue_arrays"][bool(is_home)]
+        venue_available, venue_values, venue_observed = history["venue_arrays"][bool(is_home)]
         venue_eligible = np.flatnonzero(venue_available < deadline_ns)
         for window in windows:
+            sample_indices = venue_eligible[-window:]
             values[f"player_relevant_fpl_points_{window}"][row_position] = tail_mean(
                 venue_values, venue_eligible, window
             )
+            if len(sample_indices):
+                observed_values[f"player_relevant_fpl_points_{window}"][row_position] = int(
+                    venue_observed[sample_indices].all()
+                )
 
         for feature, array in history["defensive_arrays"].items():
             for window in (3, 5, 10, 38):
+                sample_indices = eligible[-window:]
                 values[f"ar_{feature}_{window}"][row_position] = tail_mean(
                     array, eligible, window, ignore_nan=True
                 )
+                if len(sample_indices):
+                    observed_values[f"ar_{feature}_{window}"][row_position] = int(
+                        np.isfinite(array[sample_indices]).any()
+                    )
         for feature, array in history["rate_arrays"].items():
             for window in (3, 5, 10):
+                sample_indices = eligible[-window:]
                 values[f"ar_{feature}_{window}"][row_position] = tail_mean(
                     array, eligible, window, ignore_nan=True
                 )
+                if len(sample_indices):
+                    observed_values[f"ar_{feature}_{window}"][row_position] = int(
+                        np.isfinite(array[sample_indices]).any()
+                    )
         values["ar_dc_ppg_5"][row_position] = (
             2.0 * values["ar_dc_hit_rate_5"][row_position]
         )
+        observed_values["ar_dc_ppg_5"][row_position] = observed_values[
+            "ar_dc_hit_rate_5"
+        ][row_position]
 
         availability = availability_groups.get((str(season), int(code)))
         defaults = base_rates.get(str(position), base_rates.get("MID"))
@@ -282,16 +315,32 @@ def rebuild_player_history_features(
             for source in ("p_any", "p60", "e_minutes"):
                 if not len(availability_eligible):
                     values[f"{source}_{window}"][row_position] = defaults[source]
+                    observed_values[f"{source}_{window}"][row_position] = 1
                 else:
                     array = availability_arrays[
                         {"p_any": "played", "p60": "played60", "e_minutes": "minutes"}[source]
                     ]
+                    sample_indices = availability_eligible[-window:]
                     values[f"{source}_{window}"][row_position] = tail_mean(
                         array, availability_eligible, window
                     )
+                    observed_values[f"{source}_{window}"][row_position] = int(
+                        availability_arrays["minutes_observed"][sample_indices].all()
+                    )
 
     feature_frame = pd.DataFrame(values, index=out.index)
-    out = pd.concat([out.drop(columns=feature_frame.columns, errors="ignore"), feature_frame], axis=1)
+    observed_frame = pd.DataFrame(
+        {f"{OBSERVED_PREFIX}{name}": mask for name, mask in observed_values.items()},
+        index=out.index,
+    )
+    out = pd.concat(
+        [
+            out.drop(columns=feature_frame.columns, errors="ignore"),
+            feature_frame,
+            observed_frame,
+        ],
+        axis=1,
+    )
     report = {
         "status": "PLAYER_HISTORY_REBUILT",
         "target_rows": int(len(out)),
