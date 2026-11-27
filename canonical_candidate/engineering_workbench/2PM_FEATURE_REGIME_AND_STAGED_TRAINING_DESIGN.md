@@ -216,3 +216,10 @@ This is an architecture/input-contract implementation only. It does not implemen
 
 
 The grouped player-Gameweek forward adapter now carries the same masks and target-season scoring-regime code through its fixture-query flattening. It still aggregates fixture distributions to one player-Gameweek prediction and one likelihood; the independent-fixture assumption is unchanged.
+
+
+### Fold-only imputation helper (implemented, not trainer-integrated)
+
+The \`two_pm_fold_preprocessing.py\` helper now fits per-feature medians only from the supplied training partition and applies the frozen medians to later partitions. For \`[sample, fixture, sequence, feature]\` grouped tensors, it deduplicates the shared five historical tokens across target fixtures while retaining each target query. A feature with no observed training values causes a hard failure. This helper does not fit on validation/test/OOT data and does not introduce feature scaling.
+
+CI at the tested code revision: repository suite 595 passed, 4 skipped, 3 subtests passed; 2PM sequence contract 130 passed; Poisson-mixture model contract 11 passed. The chronological trainer is still absent, so this helper is not yet integrated into a training run.
