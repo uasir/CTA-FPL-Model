@@ -715,7 +715,7 @@ def rebuild_deadline_team_context(
         "team_deadline_snapshots_built": int(len(history_cache)),
         "availability_rule": "Understat match date plus 24 hours, strictly before official FPL deadline",
         "rolling_rule": "mean of the last 1/3/5/10/38 eligible completed team matches",
-        "rank_rule": "standings from all team matches with conservative availability strictly before the deadline; points, goal difference, goals scored; stable source team order for unresolved ties",
+        "rank_rule": "historical rolling ranks use only team matches with conservative availability strictly before each historical kickoff; direct deadline ranks use only team matches with conservative availability strictly before the target deadline; both order by points, goal difference, goals scored, then stable source team order for unresolved ties",
         "admission_status": "NOT_ADMITTED",
     }
     return out, report
