@@ -444,6 +444,8 @@ def build_player_gameweek_sequence_tensors(
         "observed_value_mask_shape_per_sample": [max_fixtures, HISTORY_LENGTH + 1, len(features)],
         "feature_availability_state_codes": {"UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2},
         "feature_group_manifest": str(manifest_path),
+        "feature_order": features,
+        "snapshot_missing_sentinel_features": feature_manifest.get("snapshot_missing_sentinel_features", []),
         "feature_order_sha256": feature_hash,
         "label_grain": label_grain,
         "double_gameweek_rule": "one player-Gameweek sample; one query per target fixture; one GW label, never duplicated per fixture",
