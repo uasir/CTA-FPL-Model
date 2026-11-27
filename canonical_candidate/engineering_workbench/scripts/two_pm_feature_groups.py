@@ -153,6 +153,8 @@ def validate_feature_group_manifest(
             raise ValueError(f"Incorrect feature count in treatment {treatment_name}")
     if family_register.get("admission_status_counts") != {"HOLD": 286}:
         raise ValueError("Every feature must remain HOLD in the admission register")
+    if manifest.get("require_source_observed_sidecars") is not True:
+        raise ValueError("Production 2PM masks must require pre-fill source observation sidecars")
 
     return {
         "common_candidate": common,
