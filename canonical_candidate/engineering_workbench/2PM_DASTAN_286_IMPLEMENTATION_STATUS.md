@@ -766,3 +766,35 @@ Final green verification on the implementation set:
 Key implementation commits: `a520b55c`, `792a4d93`, `35a639f9`, `b35568e8`, `db71852c`, `49bcf84b`, `e4816178`; regression-test corrections are included through `1288ef28`.
 
 These results validate reconstruction code and synthetic contracts, not six-season source-value parity. Run 85 remains unchanged; no fresh candidate rebuild has run; source-vintage and feature-value admission remain open; candidate admission remains NOT_ADMITTED; no model training has started.
+
+### Run 86 candidate admission review — first evidence pass (2026-11-27)
+
+Fresh candidate rebuild: [Run 86](https://github.com/uasir/CTA-FPL-Model/actions/runs/46012063739), artifact `2pm-six-season-tensor-candidate-run-86` (artifact ID `15214847853`), source branch commit `046fc492c9cf56040a59da8831a83cb251cb4d30`.
+
+Candidate identity:
+- Candidate rows: 163,072; 286 ordered features; six seasons 2020/21–2025/26.
+- Candidate SHA-256: `b2c808004141186d0ce68f5db63053ddadcc22a7662360e7a84e076ceaba3d68`.
+- Feature-order SHA-256: `9360ada967a808c1a43444a596c9e043970b505fb48a73589c7a533fe3335c0d`.
+- Structural duplicate player-fixture keys: 0; tensor integrity audit: PASS; training authorization: false.
+- This artifact contains grouped tensors and reports, not the full raw candidate frame or raw source archive. It supports mask/structure audits, not a complete independent raw-value reconstruction.
+
+Independent mask verification on valid fixture slots (padding excluded):
+- The 152 Understat-derived features have **zero observed-mask entries in every season**. Their source-availability states are UNAVAILABLE (0) for 2020/21 where the pinned source lacks the player match-history form, and UNKNOWN (2) for the remaining seasons. No Understat feature is admitted. The 152-feature HOLD is correctly enforced in the Run 86 tensor artifact.
+- The 27 defensive-regime-dependent features are UNAVAILABLE (0) across 2020/21–2024/25 and have zero observed entries there. In 2025/26 they are AVAILABLE (1) and observed in all valid fixture-token positions in this artifact. This is source-column/coverage evidence only; historical publication vintage and row-level source parity remain separate admission gates. The 2025/26 defensive group therefore remains HOLD pending that evidence.
+- `ar_team_matches_14d` has zero observed entries across all six seasons, consistent with the unverified retrospective schedule-vintage hold.
+
+Snapshot and market evidence:
+- Pre-deadline market snapshots contribute 142,173 candidate rows, but 2020/21 coverage resolves only 6 of 38 Gameweeks (the archive predates the first 32). Therefore market fields are not season-complete across the six-season pool.
+- The market snapshot fields are explicitly `now_cost`, `selected_by_percent`, and `transfers_in_event - transfers_out_event`. The 100% exact `value` parity is a useful units/value check. The 0% exact `selected` parity is expected to be non-comparable if the retrospective field is a selected-player count rather than a percentage; it is not evidence that the snapshot field is wrong. Transfers balance also has different semantics/timing from the retrospective field and needs a like-for-like definition before parity can be judged.
+- The FPL-cache archive path timestamp and pinned repository snapshot establish captured-time metadata, but this audit has not yet established the first public-availability time of every archived file. Treat this as provenance evidence, not final historical-vintage admission.
+- Signals have no observed values in 2020/21; later-season coverage is high but `sig_chance_playing` is naturally missing for many players. `ep_next` and signals remain HOLD until archived-file publication vintage and exact field semantics are cleared.
+
+Remaining feature-source gates:
+- The existing 207-column same-player/Gameweek anchor check is not a full 286-column parity proof; venue-conditioned `player_relevant_fpl_points_*` features are intentionally fixture-specific.
+- FPL-native player history, availability priors, ranks, and reconstructed fixture-context values still require source-vintage and value-parity evidence. A +24-hour match-availability convention is not proof that the exact source row was publicly available at that time.
+- Understat's current 152-feature policy remains correct. The Understat audit plan explicitly distinguishes commit timestamps from verified public-publication timestamps; a pre-deadline commit alone is not sufficient evidence.
+- The defensive point-in-time audit currently focuses on defensive columns and two recent seasons; it is not a six-season, 286-feature vintage audit.
+
+Admission decision after Run 86: **all 286 features remain HOLD; candidate remains NOT_ADMITTED; training remains unauthorized.** No feature is promoted solely because it is finite, has a nonzero mask in one season, or passes tensor integrity.
+
+Next admission work: build a source-vintage evidence matrix by source family and season, beginning with FPL-native match-history rows and FPL-cache snapshot publication timing; separately close the Understat row-vintage feasibility and defensive-stat row-vintage checks. Only after those audits should feature-level ADMIT/EXCLUDE/HOLD statuses be changed in the authoritative register.
