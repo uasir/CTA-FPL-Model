@@ -89,7 +89,9 @@ def validate_feature_group_manifest(
     if availability.get("default_state") != "UNKNOWN":
         raise ValueError("Unspecified feature availability must remain UNKNOWN")
     availability_groups = availability.get("groups", {})
-    if set(availability_groups) - set(groups):
+    source_availability_groups = manifest.get("source_availability_groups", {})
+    known_availability_groups = set(groups) | set(source_availability_groups)
+    if set(availability_groups) - known_availability_groups:
         raise ValueError("Availability policy references an unknown feature group")
     for group_name, season_policy in availability_groups.items():
         valid_states = {"UNAVAILABLE", "AVAILABLE", "UNKNOWN"}
