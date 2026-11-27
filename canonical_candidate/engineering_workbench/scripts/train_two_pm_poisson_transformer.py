@@ -23,7 +23,6 @@ from two_component_poisson_transformer import (
     build_model,
     forward_player_gameweek_batch,
     initialize_mixture_head_from_training_targets,
-    select_training_support_shift,
 )
 from two_pm_fold_preprocessing import (
     fit_fold_median_imputer,
@@ -177,10 +176,10 @@ def run_fold(samples, feature_order, train_idx, valid_idx, args, fold_dir):
     tr_x = apply_scaler(tr_x, means, scales, tr_mask)
     va_x = apply_scaler(va_x, means, scales, va_mask)
 
-    # The Stage-A fixture support floor is selected from training-fold
-    # player-Gameweek totals; it is intentionally conservative and checked
-    # against every validation target before training.
-    support_shift = max(20, int(math.ceil(-float(tr_y.min()))) + 5)
+    # Only player-Gameweek labels are available in this artifact. The model
+    # contract therefore prescribes the fixed conservative shift of 20;
+    # do not estimate a fixture-level minimum from aggregated GW labels.
+    support_shift = 20
     if (va_y < -support_shift * va_mask.sum(axis=1)).any():
         raise ValueError("Validation target falls below the training-only aggregate support")
     model = build_model(
