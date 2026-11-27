@@ -69,6 +69,8 @@ def audit_dataset(dataset_dir: Path) -> dict:
         padded_slots = ~mask.astype(bool)
         if np.any(observed[padded_slots] != 0):
             raise ValueError(f"Padded fixture slots contain observed values: {observed_path}")
+        if np.any(availability[padded_slots] != 0):
+            raise ValueError(f"Padded fixture slots contain nonzero availability states: {availability_path}")
         feature_order = build_report.get("feature_order", [])
         sentinel_features = set(build_report.get("snapshot_missing_sentinel_features", []))
         if len(feature_order) != x.shape[-1]:
