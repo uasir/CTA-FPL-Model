@@ -9,7 +9,7 @@ existing player-Gameweek adapter and exact independent-fixture mixture NLL.
 - Loads the corrected six-season grouped tensor artifact (Run 85 or a later audited replacement); it does not reconstruct or download source data. Run 83 is prohibited.
 - Uses the 259 `common_candidate` features only. The 27 scoring-regime-dependent
   defensive features are excluded from Stage A.
-- Common-feature source-availability states may remain `UNKNOWN` (2); this does not confer source-vintage admission.
+- The loader reconciles resolved structural availability states from the current manifest. The 30 Understat player-history features are `UNAVAILABLE` in 2020/21; the 122 Understat team/opponent context features remain `UNKNOWN` pending their source-vintage audit. Other unresolved common features also remain `UNKNOWN`; none of these states confers source-vintage admission.
 - The training loader re-enforces the current manifest's `HOLD` / `FORCE_UNOBSERVED`
   policies even when an older tensor sidecar says a value is observed. Manifest 1.7.0
   holds all 152 Understat-derived features (30 player-history, 120 own/opponent
