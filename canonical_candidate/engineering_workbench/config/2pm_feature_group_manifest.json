@@ -377,5 +377,39 @@
     "Do not impute structural absence as observed zero.",
     "Do not infer feature availability from numeric zero/nonzero values.",
     "Do not use this manifest as an XGBoost design or masking policy."
-  ]
+  ],
+  "snapshot_missing_sentinel_features": [
+    "ar_ep_next",
+    "sig_status_risk",
+    "sig_chance_playing",
+    "sig_has_news",
+    "value",
+    "selected",
+    "transfers_balance"
+  ],
+  "feature_source_availability": {
+    "state_codes": {
+      "UNAVAILABLE": 0,
+      "AVAILABLE": 1,
+      "UNKNOWN": 2
+    },
+    "default_state": "UNKNOWN",
+    "groups": {
+      "defensive_regime_dependent": {
+        "2020-21": "UNAVAILABLE",
+        "2021-22": "UNAVAILABLE",
+        "2022-23": "UNAVAILABLE",
+        "2023-24": "UNAVAILABLE",
+        "2024-25": "UNAVAILABLE",
+        "2025-26": "AVAILABLE"
+      }
+    },
+    "notes": [
+      "Season states describe availability in the pinned source vintage, not general football-data availability.",
+      "The four defensive source fields are absent from pinned Vaastav merged_gw.csv for 2020/21-2024/25 and present in 2025/26.",
+      "The 2026/27 defensive feature state remains UNKNOWN until the inference source-vintage contract is independently pinned and audited.",
+      "All common_candidate features remain UNKNOWN pending their own feature-level source-vintage audit.",
+      "UNKNOWN is not equivalent to AVAILABLE and must not be silently promoted during training."
+    ]
+  }
 }
