@@ -461,3 +461,20 @@ Required next steps:
 4. Establish evidence for Understat publication/availability lag after each match. Until then, the FPL-derived 24-hour completion bound does not independently admit Understat fields.
 
 No model input, candidate or tensor was modified. The finding adds a source-vintage admission requirement; it does not authorize replacing the six-season training pool, mask features by analogy with XGBoost, or start training.
+
+
+### Defensive-regime feature-group reconciliation and manifest (2026-11-27)
+
+The apparent defensive-feature count discrepancy has been resolved against the pinned 286-column schema, `rebuild_2pm_fixture_context.py`, and the feature admission register:
+
+- The schema-level defensive-regime-dependent group contains **27 columns**: **23 player-history** columns (16 rolling source-stat columns, six hit/near-rate columns, and `ar_dc_ppg_5`) plus **four opponent-context** columns (`ar_opp_dc_allowed_{3,5,10}`, `ar_opp_tackles_allowed_5`).
+- The implementation's **26 defensive/player-history** reconstruction count is those 23 player-history columns plus `ar_starts_{3,5,10}`. Starts are history features but are not specific to the defensive-contribution scoring regime.
+- The implementation's **six fixture-context** count is `ar_rest_days`, `ar_team_matches_14d`, and the four opponent-context columns. The four opponent columns are therefore included in both a reconstruction-family accounting and the defensive-regime group; the 26 and six counts are not disjoint and must not be summed.
+
+Added `config/2pm_feature_group_manifest.json` (manifest version 1.0.0), which explicitly partitions the pinned schema into 259 common candidate features and 27 defensive-regime-dependent features. It separately records the 26-column defensive/player-history and six-column fixture-context reconstruction families, source-schema pins, and scoring-regime/source-availability notes. All feature groups remain `HOLD`; manifest membership is not feature admission.
+
+Added `scripts/two_pm_feature_groups.py` to validate the manifest fail-closed against the exact 286-column schema, defensive inventory, group partition, order, and reconstruction-family accounting. Added focused tests for the partition, 27/26/6 count relationship, missing defensive columns, and schema-order drift; wired the test into the focused sequence-contract workflow. The workflow/check status for the latest commit has not yet been confirmed, so these tests must not yet be described as passing.
+
+The official Premier League FPL rules announcement dated 19 July 2025 confirms that defensive-contribution scoring began in 2025/26: defenders earn two points at 10 combined clearances, blocks, interceptions and tackles (CBIT); midfielders and forwards earn two points at 12 combined CBIT plus ball recoveries (CBIRT). This verifies the target-scoring regime boundary. It does not by itself prove the historical point-in-time availability or exact extraction semantics of the four source fields.
+
+No candidate or tensor rebuild was run. No features were admitted, no training was started, and 2026/27 remains sealed as the out-of-time evaluation season.
