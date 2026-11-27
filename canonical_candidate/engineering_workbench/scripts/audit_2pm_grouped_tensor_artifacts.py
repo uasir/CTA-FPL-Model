@@ -27,6 +27,8 @@ def audit_dataset(dataset_dir: Path) -> dict:
     seen: set[tuple[str, int, int]] = set()
     samples = fixture_slots = valid_fixtures = nan_values = feature_values = 0
     inf_values = negative_labels = 0
+    availability_state_counts = {"0": 0, "1": 0, "2": 0}
+    observed_value_count = 0
     fixture_count_histogram: dict[str, int] = {}
     season_counts: dict[str, int] = {}
     max_gap = 0.0
@@ -110,6 +112,9 @@ def audit_dataset(dataset_dir: Path) -> dict:
         feature_values += int(x.size)
         inf_values += int(np.isinf(x).sum())
         negative_labels += int((y < 0).sum())
+        for code in (0, 1, 2):
+            availability_state_counts[str(code)] += int((availability == code).sum())
+        observed_value_count += int(observed.sum())
 
     expected = {
         "postmatch_state_rows": int(build_report.get("postmatch_state_rows", -1)),
@@ -128,8 +133,8 @@ def audit_dataset(dataset_dir: Path) -> dict:
         "unique_player_gameweek_keys": len(seen),
         "valid_fixture_queries": valid_fixtures,
         "fixture_slots": fixture_slots,
-        "availability_state_counts": {str(code): int((availability == code).sum()) for code in (0, 1, 2)},
-        "observed_value_count": int(observed.sum()),
+        "availability_state_counts": availability_state_counts,
+        "observed_value_count": observed_value_count,
         "fixture_count_histogram": fixture_count_histogram,
         "season_sample_counts": season_counts,
         "feature_count": 286,
