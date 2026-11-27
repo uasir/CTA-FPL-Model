@@ -849,7 +849,8 @@ def rebuild_fixture_context(
             raise ValueError(f"No fixture schedule for team {team!r} in season {season}")
         row_positions = np.asarray(list(indices), dtype=int)
         target_ns = out.loc[row_positions, "kickoff_time"].astype("int64").to_numpy()
-        right = np.searchsorted(schedule, target_ns, side="right")
+        # Match the pinned Dastan semantics: count prior fixtures only; exclude target kickoff.
+        right = np.searchsorted(schedule, target_ns, side="left")
         left = np.searchsorted(
             schedule, target_ns - 14 * 86_400_000_000_000, side="left"
         )
