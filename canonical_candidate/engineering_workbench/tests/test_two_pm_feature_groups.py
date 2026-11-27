@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_versioned_manifest_partitions_all_286_schema_features_in_order():
     schema, manifest, groups = load_feature_group_manifest(ROOT)
-    assert manifest["manifest_version"] == "1.5.0"
+    assert manifest["manifest_version"] == "1.6.0"
     assert manifest["source_pins"]["dastan"]["commit"] == "758db9247e8b3a9a870c991064f74d8339d61cd0"
     assert manifest["source_pins"]["vaastav"]["commit"] == "8c97b2adb123863c3dd581e730f1360e89815ac2"
     assert manifest["source_pins"]["fplcache"]["commit"] == "6c364bfbd9914649dc5dec016e544be3ae4fe767"
@@ -122,4 +122,34 @@ def test_manifest_source_pins_must_match_the_feature_schema():
     broken = json.loads(json.dumps(manifest))
     broken["source_pins"]["dastan"]["commit"] = "wrong-commit"
     with pytest.raises(ValueError, match="Dastan pin"):
+        validate_feature_group_manifest(schema, broken)
+
+
+def test_scoring_regime_contract_encodes_the_official_2025_26_boundary_and_2026_27_continuation():
+    _, manifest, _ = load_feature_group_manifest(ROOT)
+    scoring = manifest["scoring_regime_contract"]
+    assert scoring["regime_by_season"]["legacy_no_defensive_contribution_points"] == [
+        "2020-21", "2021-22", "2022-23", "2023-24", "2024-25"
+    ]
+    assert scoring["regime_by_season"]["defensive_contribution_v1"] == ["2025-26", "2026-27"]
+    current = scoring["regimes"]["defensive_contribution_v1"]
+    assert current["defender"]["action_fields"] == [
+        "clearances_blocks_interceptions", "tackles"
+    ]
+    assert current["defender"]["threshold"] == 10
+    assert current["midfielder_forward"]["action_fields"] == [
+        "clearances_blocks_interceptions", "tackles", "recoveries"
+    ]
+    assert current["midfielder_forward"]["threshold"] == 12
+    assert current["defender"]["award_points"] == 2
+    assert current["defender"]["maximum_award_points_per_match"] == 2
+
+
+def test_scoring_regime_contract_rejects_wrong_midfielder_threshold():
+    schema, manifest, _ = load_feature_group_manifest(ROOT)
+    broken = json.loads(json.dumps(manifest))
+    broken["scoring_regime_contract"]["regimes"]["defensive_contribution_v1"][
+        "midfielder_forward"
+    ]["threshold"] = 10
+    with pytest.raises(ValueError, match="midfielder_forward"):
         validate_feature_group_manifest(schema, broken)
