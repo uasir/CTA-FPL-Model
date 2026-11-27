@@ -52,10 +52,29 @@ jobs:
       - name: Require reusable six-season candidate unless rebuild is explicitly approved
         if: inputs.rebuild_candidate != true
         run: |
-          if [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/player_matches_with_availability.parquet" ] || [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json" ]; then
+          if [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/player_matches_with_availability.parquet" ] || [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/2pm_dastan_286_candidate_report.json" ] || [ ! -f "$RUNNER_TEMP/2pm-dastan-candidate/features_286_candidate.parquet" ]; then
             echo "::error::No reusable six-season candidate cache was restored. Refusing to rebuild because rebuild_candidate is false."
             exit 1
           fi
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          import pyarrow.parquet as pq
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "2pm-dastan-candidate" / "features_286_candidate.parquet"
+          parquet = pq.ParquetFile(path)
+          sidecars = [name for name in parquet.schema.names if name.startswith("__observed__")]
+          if len(sidecars) != 286:
+              raise SystemExit(
+                  f"Cached candidate has {len(sidecars)} raw-source observation sidecars; expected 286. "
+                  "Set rebuild_candidate=true to regenerate them from raw sources."
+              )
+          for batch in parquet.iter_batches(batch_size=65536, columns=sidecars):
+              values = batch.to_pandas()
+              if values.isna().any().any() or not values.isin([0, 1]).all().all():
+                  raise SystemExit("Cached candidate contains invalid raw-source observation sidecars.")
+          print("Validated all 286 raw-source observation sidecars in reusable candidate cache.")
+          PY
           echo "Reusable candidate cache restored; downstream audit only. No six-season rebuild will run."
       - name: Install tensor and reconstruction dependencies
         run: |
