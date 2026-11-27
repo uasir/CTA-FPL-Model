@@ -355,9 +355,16 @@ def test_tensor_builder_emits_structural_absence_separately_from_numeric_zero(tm
 def test_sequence_tensor_uses_raw_source_observation_sidecars(tmp_path):
     history = make_history()
     targets = make_targets(points=(3.0, 4.0))
-    for feature in FEATURES:
-        history[f"__observed__{feature}"] = 1
-        targets[f"__observed__{feature}"] = 1
+    history_sidecars = pd.DataFrame(
+        {f"__observed__{feature}": np.ones(len(history), dtype=np.uint8) for feature in FEATURES},
+        index=history.index,
+    )
+    target_sidecars = pd.DataFrame(
+        {f"__observed__{feature}": np.ones(len(targets), dtype=np.uint8) for feature in FEATURES},
+        index=targets.index,
+    )
+    history = pd.concat([history, history_sidecars], axis=1)
+    targets = pd.concat([targets, target_sidecars], axis=1)
     # Finite values were produced from missing raw source data for this feature.
     history["__observed__feature_000"] = 0
 
