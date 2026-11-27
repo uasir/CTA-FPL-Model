@@ -71,7 +71,7 @@ def write_inputs(tmp_path, history, targets):
     }))
     manifest_path = tmp_path / "feature_group_manifest.json"
     manifest_path.write_text(json.dumps({
-        "feature_source_availability": {"state_codes": {"UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2}, "default_state": "UNKNOWN", "groups": {"defensive_regime_dependent": {"feature_order": ["feature_000"]}}},
+        "feature_source_availability": {"state_codes": {"UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2}, "default_state": "UNKNOWN", "groups": {"defensive_regime_dependent": {"2024-25": "UNAVAILABLE"}}},
         "snapshot_missing_sentinel_features": [],
         "feature_groups": {"defensive_regime_dependent": {"feature_order": ["feature_000"]}},
     }))
