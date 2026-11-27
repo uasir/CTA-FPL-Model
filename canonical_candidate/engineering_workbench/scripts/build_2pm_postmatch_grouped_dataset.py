@@ -124,7 +124,7 @@ def build_dataset(
                     and shards_valid
                 )
                 if report_valid:
-                report = cached_report
+                    report = cached_report
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 report = None
         if report is None:
