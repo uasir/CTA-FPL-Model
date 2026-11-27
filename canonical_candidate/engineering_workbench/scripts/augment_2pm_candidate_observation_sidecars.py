@@ -19,6 +19,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from two_pm_feature_groups import validate_feature_group_manifest
 from rebuild_2pm_fixture_context import (
     rebuild_deadline_team_context,
     rebuild_fixture_context,
@@ -233,6 +234,7 @@ def augment_candidate_directory(
 
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    validate_feature_group_manifest(schema, manifest)
     feature_order = schema["feature_order"]
     candidate_report = json.loads(report_path.read_text(encoding="utf-8"))
     raw_manifest_hash = validate_candidate_source_pins(
