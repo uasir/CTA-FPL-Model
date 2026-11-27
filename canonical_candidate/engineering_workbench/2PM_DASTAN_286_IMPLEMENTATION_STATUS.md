@@ -639,3 +639,10 @@ This does **not** complete the training pipeline. Fold-only imputation/scaling, 
 
 
 The grouped player-Gameweek forward adapter was also updated to flatten and pass the value, observed-mask, availability-state, and regime inputs together for each target-fixture query. Double-Gameweek aggregation and the single player-Gameweek likelihood remain unchanged.
+
+
+### Fold-only preprocessing helper (2026-11-27)
+
+Added \`two_pm_fold_preprocessing.py\` with training-partition-only feature medians and a separate frozen transform. It fails closed when a training fold has no observed value for a feature, rejects invalid observed masks/nonfinite observed values, and records its feature order and observed counts. For the grouped player-Gameweek tensor, shared five-match history tokens are counted once per player-Gameweek while every target-fixture query is retained; padded fixture slots are zeroed after transformation.
+
+The helper is tested but is not yet called by a chronological trainer. Scaling remains unresolved and is not silently added. CI at the tested code revision: **595 passed, 4 skipped, 3 subtests passed** in the repository engineering suite; the focused 2PM sequence contract reported **130 passed** and the Poisson-mixture model contract **11 passed**. No training was run.
