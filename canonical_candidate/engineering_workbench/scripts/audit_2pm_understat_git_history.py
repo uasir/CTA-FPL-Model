@@ -90,7 +90,7 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
         try:
             payload = _get_text(session, raw_url)
             digest = hashlib.sha256(payload).hexdigest()
-            frame = pd.read_csv(pd.io.common.BytesIO(payload), low_memory=False).fillna("")
+            frame = pd.read_csv(io.BytesIO(payload), low_memory=False).fillna("")
             current: dict[str, str] = {}
             for row in frame.to_dict("records"):
                 key = _row_key(row, kind, player_id)
