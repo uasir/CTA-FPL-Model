@@ -681,3 +681,16 @@ Regression verification on the branch:
 - 2PM sequence contract [46005712058](https://github.com/uasir/CTA-FPL-Model/actions/runs/46005712058): **132 passed, 18 warnings**.
 
 These tests validate the exact name-generation contract against the pinned schema and test intentional name/mask mismatches. They do not constitute a new rebuild, source-vintage admission, or training authorization. Run 85 remains the existing candidate; no rebuild or training was started.
+
+
+### Follow-up source-lineage and stored-tensor audit (2026-11-27)
+
+The Run 85 artifact `run85_tensor_candidate.zip` was downloaded and inspected without rebuilding or training. Across all 193 tensor shards (40,872 player-Gameweek samples), valid fixture-history slots were selected using the fixture mask. Across 256,122 valid slots and 286 feature positions, the count of finite tensor values was exactly equal to the count of observed-value-mask entries: 39,099,471 each, with zero finite/mask disagreements. This verifies stored tensor/mask consistency, not raw-source correctness or source-vintage admission.
+
+The pinned upstream Dastan code was traced further. Its `TEAM_FEATURES` includes `league_rank` and `opp_league_rank`, but the 2PM reconstruction does not read these as raw team-match columns: it derives historical ranks with `compute_league_ranks` from team-match scored/missed/points inputs, then uses the opponent mapping for the paired rank. The exact source map has been corrected to describe these calculations and regression assertions cover own-team, opponent and opponent-of-opponent rank direction.
+
+The three FPL availability signals are joined by pinned Dastan `data.load(candidates=("availability",))` from `pre_deadline_signals.parquet`; they are not recomputed from a current bootstrap response. The pinned fplcache extractor maps status `a/d/s/i/u/n` to `0/1/2/3/4`, chance-of-playing null to `-1`, and non-empty news to `1.0`. The source map now records the actual snapshot fields and transformations. `ar_ep_next` is joined from the pre-deadline `ep_next` snapshot. The candidate builder also joins the snapshot capture timestamps for audit metadata.
+
+Regression CI after these source-map corrections: [Engineering CI 46008201423](https://github.com/uasir/CTA-FPL-Model/actions/runs/46008201423) passed **604 tests, 5 skipped, 18 warnings, and 3 subtests**. The sequence contract workflow [46008151832](https://github.com/uasir/CTA-FPL-Model/actions/runs/46008151832) passed **132 tests** on the preceding implementation commit; the subsequent change only corrected source-map assertions/descriptions.
+
+Remaining limitation: Run 85 did not contain the original `features_286_candidate.parquet` output table, so the exact producer-to-output value parity cannot be retrospectively re-run against that artifact. The stricter reconstruction validator now runs during candidate generation and will fail closed on any missing/extra schema name, duplicate builder assignment, absent observation sidecar, or non-binary sidecar. A candidate rebuild is still required to exercise that gate on a fresh full reconstruction and emit its per-feature source-field presence report. Admission remains `NOT_ADMITTED`; training remains unauthorized.
