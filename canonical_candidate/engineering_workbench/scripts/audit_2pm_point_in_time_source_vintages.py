@@ -41,7 +41,7 @@ FPL_NATIVE_FIELDS = (
     "bps",
     "bonus",
 )
-OPTIONAL_FPL_FIELDS = ("starts",)
+OPTIONAL_FPL_FIELDS = ("starts", "was_home")
 DEFENSIVE_FIELDS = (
     "defensive_contribution",
     "clearances_blocks_interceptions",
