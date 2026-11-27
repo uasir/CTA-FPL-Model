@@ -212,3 +212,25 @@ Observed results:
 Both results reported `history_truncated=true` because only five of 29 player-file commits and five of 31 team-file commits were requested. These are the latest five revisions, not the files' first revisions. The run validates live GitHub API access, CSV parsing, source-specific row identity, and revision-state tracking; it does **not** establish first appearance of historical rows, original Understat publication time, or deadline eligibility.
 
 The candidate-rebuild workflow's generated six-season inventory and 25-revision resumable smoke step remain a separate, not-yet-dispatched workflow. No feature admission or training authorization changes.
+
+### Complete pinned history for the two real-source smoke files (2026-11-27)
+
+The expanded run [46051261448](https://github.com/uasir/CTA-FPL-Model/actions/runs/46051261448), commit `5302d4803602bdf5be5b1003c1404ad0bd57f96b`, completed the full path-specific histories through the pinned Vaastav commit for both smoke files. It returned 29/29 Salah player-file commits and 31/31 Arsenal team-file commits, with `history_truncated=false`, zero revision errors, and zero duplicate row keys. The report is artifact [15223928423](https://github.com/uasir/CTA-FPL-Model/actions/runs/46051261448/artifacts/15223928423).
+
+**Salah player file**
+- History spans 2024-08-15 17:16:49 UTC to 2025-04-11 12:32:01 UTC.
+- The first revision contains 334 rows; the final revision contains 365. The 31 additional player-match rows were appended over the season.
+- Across all 29 revisions, no existing row changed value, disappeared, or reappeared.
+
+**Arsenal team file**
+- History spans the same first and last commit timestamps.
+- The first revision contains 38 raw rows, all from the prior season and therefore excluded by Dastan's 2024/25 July-to-June season filter. The first 2024/25 row appears in the 2024-08-20 revision; the final file has 31 eligible 2024/25 team-match rows.
+- Across all 31 revisions, no eligible existing row changed value, disappeared, or reappeared.
+
+This confirms the row lifecycle and revision parser over the complete repository history for these two files. It also illustrates why the team season filter matters: raw historical rows in a season-named file are not automatically rows for that season. The Salah file's initial 334-row snapshot was first present in the repository on 2024-08-15; therefore its repository lineage cannot substantiate availability of those rows at 2020/21–2023/24 deadlines. The later 2024/25 match rows were appended as the season progressed. For Arsenal, eligible 2024/25 team rows likewise first appear after the corresponding matches, beginning 2024-08-20.
+
+These timestamps remain repository commit timestamps, not proof of public push time or Understat's original publication. We have not yet reconciled each row to official FPL fixture IDs and target Gameweek deadlines, so no row-level deadline admission is inferred. This audit covers only one player and one team's pinned files, not the full mapped population or all six seasons.
+
+A cache-action correction followed: the dedicated workflow now uses `actions/cache/restore@v4` with a separate explicit save step, avoiding duplicate automatic/post-job cache saves. The repeat run [46051409807](https://github.com/uasir/CTA-FPL-Model/actions/runs/46051409807) completed successfully and reused/saved the resumable cache without the earlier duplicate-save warning. The candidate-rebuild workflow's Understat cache restore step was corrected the same way.
+
+No feature admission or training authorization changes.
