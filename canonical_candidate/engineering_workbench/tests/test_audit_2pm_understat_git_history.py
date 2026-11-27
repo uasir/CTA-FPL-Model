@@ -61,6 +61,36 @@ class UnderstatGitHistoryTests(unittest.TestCase):
         self.assertIn('"xG":"0.3"', row["state_events"][2]["value_signature"])
         self.assertIn('"xG":"0.4"', row["state_events"][3]["value_signature"])
 
+    def test_zero_byte_revision_is_recorded_as_empty_snapshot(self):
+        commits = [
+            {"sha": "b", "commit": {"committer": {"date": "2024-01-02T00:00:00Z"}}},
+            {"sha": "a", "commit": {"committer": {"date": "2024-01-01T00:00:00Z"}}},
+        ]
+        payloads = {
+            "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/a/data/player_987.csv":
+                b"date,season,xG" + bytes([10]) + b"2024-01-01,2023,0.2" + bytes([10]),
+            "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/b/data/player_987.csv":
+                b"",
+        }
+        with patch("audit_2pm_understat_git_history.list_path_commits", return_value=commits):
+            with patch("audit_2pm_understat_git_history._get_text",
+                       side_effect=lambda session, url: payloads[url]):
+                result = audit_file(
+                    object(), "vaastav/Fantasy-Premier-League", "b",
+                    "data/player_987.csv", "player", 10, 987,
+                )
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(len(result["commit_rows"]), 2)
+        self.assertEqual(result["commit_rows"][-1]["rows"], 0)
+        self.assertEqual(result["commit_rows"][-1]["distinct_row_keys"], 0)
+        row = result["row_history"]["987|2024-01-01"]
+        self.assertFalse(row["present_in_latest_revision"])
+        self.assertEqual(row["missing_revision_count"], 1)
+        self.assertEqual(
+            [(event["commit"], event["status"]) for event in row["state_events"]],
+            [("a", "present"), ("b", "missing")],
+        )
+
     def test_raw_content_request_never_receives_github_api_token(self):
         class Response:
             content = b"ok"
