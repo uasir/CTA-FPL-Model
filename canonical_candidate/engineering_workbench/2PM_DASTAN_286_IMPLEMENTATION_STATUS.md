@@ -586,3 +586,16 @@ Added \`scripts/augment_2pm_candidate_observation_sidecars.py\`. The candidate w
 - If raw match tables are unavailable, source pins differ, or any feature value changes, migration fails closed and the workflow directs the operator to use \`rebuild_candidate=true\`.
 
 Candidate cache keys now include the migration script, manifest validator and manifest. Grouped tensor cache keys include all source-sidecar reconstruction scripts and mask policy. This permits the Run 83 candidate to be migrated without repeating source acquisition if its cached raw tables and download manifest are intact; the old tensor shards still require regeneration because they do not contain the new masks. The migration has not yet been executed against Run 83.
+
+
+### Manifest 1.3.0 and candidate-migration CI passed (2026-11-27)
+
+Manifest 1.3.0 pins Dastan, Vaastav and fplcache separately; the Dastan pin is checked against the pinned feature schema, while the candidate migration verifies the candidate report's Vaastav/fplcache pins and exact raw `downloads.json` hash.
+
+Latest CI on commit `e08b9aadce1be35ec76dce7f5d49a6967dd7f5b3`:
+- **CTA FPL engineering CI** run `45962494382`: 582 passed, 4 skipped, 18 warnings, 3 subtests passed.
+- **2PM Dastan 286 sequence contract** run `45962494399`: 119 passed.
+
+This validates the candidate sidecar migration tests, source-pin checks, feature-value parity gate, sidecar builders, mask integration and legacy tensor cache rejection. It does not execute the migration against Run 83. The manual candidate workflow has not been dispatched; no candidate or tensor rebuild has occurred and no training has started.
+
+The next data operation is to run the candidate workflow with its default `rebuild_candidate=false`: it will attempt parity-checked migration from the cached raw player/team match tables and source manifest, preserving the existing 286 feature values. If those files are absent or parity fails, rerun with `rebuild_candidate=true` for a full rebuild. The grouped tensor cache is version-invalidated and will be regenerated from sidecar-bearing states either way.
