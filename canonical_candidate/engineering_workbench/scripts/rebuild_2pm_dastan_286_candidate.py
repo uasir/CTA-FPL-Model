@@ -614,20 +614,20 @@ def expected_reconstruction_source_map(features_module) -> dict[str, str]:
     for source, feature in features_module.TEAM_FEATURES.items():
         if source == "league_rank":
             own_source = (
-                "compute_league_ranks(team_matches.scored/missed/pts); "
+                "team_matches.scored/missed/pts; standings using only matches with match_available_at strictly before historical kickoff; "
                 "own-team standings rank immediately before each historical match"
             )
             opponent_source = (
-                "compute_league_ranks(team_matches.scored/missed/pts); "
+                "team_matches.scored/missed/pts; standings using only matches with match_available_at strictly before historical kickoff; "
                 "historical opponent standings rank immediately before each match"
             )
         elif source == "opp_league_rank":
             own_source = (
-                "compute_league_ranks(team_matches.scored/missed/pts); "
+                "team_matches.scored/missed/pts; standings using only matches with match_available_at strictly before historical kickoff; "
                 "historical opponent-of-team standings rank immediately before each match"
             )
             opponent_source = (
-                "compute_league_ranks(team_matches.scored/missed/pts); "
+                "team_matches.scored/missed/pts; standings using only matches with match_available_at strictly before historical kickoff; "
                 "historical opponent-of-opponent (target-team) standings rank immediately before each match"
             )
         else:
@@ -641,10 +641,10 @@ def expected_reconstruction_source_map(features_module) -> dict[str, str]:
                 f"{opponent_source}; mean of last {window} eligible opponent matches"
             )
     result["status_league_rank"] = (
-        "team_matches.scored/missed/pts; deadline standings rank by points, goal difference, goals scored"
+        "team_matches.scored/missed/pts; deadline standings rank using only matches with match_available_at strictly before deadline, ordered by points, goal difference, goals scored"
     )
     result["opp_status_league_rank"] = (
-        "opponent team_matches.scored/missed/pts; same deadline standings calculation"
+        "opponent team_matches.scored/missed/pts; same deadline standings calculation using match_available_at strictly before deadline"
     )
     result.update({
         "ar_rest_days": (
