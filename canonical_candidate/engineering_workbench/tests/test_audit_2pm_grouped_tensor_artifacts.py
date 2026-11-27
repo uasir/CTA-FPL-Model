@@ -116,3 +116,13 @@ def test_integrity_audit_rejects_missing_snapshot_sentinel_marked_observed(tmp_p
     np.save(shard / "X_player_gw_000.npy", x)
     with pytest.raises(ValueError, match="Missing-snapshot sentinel marked observed"):
         audit.audit_dataset(tmp_path)
+
+
+def test_integrity_audit_rejects_unobserved_finite_feature(tmp_path):
+    _write_dataset(tmp_path)
+    shard = tmp_path / "player_gameweek_tensors" / "2024-25" / "gw_1"
+    observed = np.load(shard / "observed_value_mask_000.npy")
+    observed[..., 0] = 0
+    np.save(shard / "observed_value_mask_000.npy", observed)
+    with pytest.raises(ValueError, match="Unobserved feature values must be NaN"):
+        audit.audit_dataset(tmp_path)
