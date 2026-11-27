@@ -151,7 +151,7 @@ jobs:
             --detail-output "$RUNNER_TEMP/2pm-dastan-candidate/understat_source_inventory.csv"
       - name: Restore resumable Understat Git revision audit cache
         id: understat-history-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/2pm-understat-git-history-cache
           key: 2pm-understat-git-history-v1-${{ hashFiles('dastan-source/data/source_pins.json') }}-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_git_history.py') }}-${{ github.run_id }}
