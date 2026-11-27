@@ -478,3 +478,18 @@ Added `scripts/two_pm_feature_groups.py` to validate the manifest fail-closed ag
 The official Premier League FPL rules announcement dated 19 July 2025 confirms that defensive-contribution scoring began in 2025/26: defenders earn two points at 10 combined clearances, blocks, interceptions and tackles (CBIT); midfielders and forwards earn two points at 12 combined CBIT plus ball recoveries (CBIRT). This verifies the target-scoring regime boundary. It does not by itself prove the historical point-in-time availability or exact extraction semantics of the four source fields.
 
 No candidate or tensor rebuild was run. No features were admitted, no training was started, and 2026/27 remains sealed as the out-of-time evaluation season.
+
+
+
+### Provenance-aware feature masks (2026-11-27)
+
+Implemented the first mask contract for the independent 2PM tensors:
+
+- `source_availability_state` is a three-state uint8 array: 0=UNAVAILABLE, 1=AVAILABLE, 2=UNKNOWN. UNKNOWN is deliberately not treated as AVAILABLE.
+- `observed_value_mask` is a binary uint8 array. It excludes NaN/Inf, declared missing-snapshot sentinels, and structurally unavailable cells. Genuine observed zero remains observed.
+- Explicit `-1.0` missing-snapshot sentinel columns are `ar_ep_next`, `sig_status_risk`, `sig_chance_playing`, `sig_has_news`, `value`, `selected`, and `transfers_balance`.
+- The pinned defensive source policy marks the 27 defensive-regime-dependent features unavailable in 2020/21–2024/25 and available in 2025/26. The 2026/27 state remains UNKNOWN pending inference-source vintage validation. The other 259 features remain UNKNOWN pending feature-level source-vintage review.
+- The sequence tensor builder emits both masks; the grouped integrity audit validates their shapes, values, missing-sentinel semantics, structural-absence behavior and padded slots. Cached Run 83 tensor shards can be augmented with masks without repeating acquisition or post-match reconstruction.
+- Focused unit and integration tests cover the three-state policy, observed zero vs NaN vs -1 sentinel, structural absence despite a finite numeric fill, tensor emission, and mask integrity.
+
+The new workflow checks are still running/queued at the time of this status update; no test result is claimed here. The candidate remains NOT_ADMITTED, no training is authorized, and no existing six-season tensor artifact has yet been rewritten with the new masks.
