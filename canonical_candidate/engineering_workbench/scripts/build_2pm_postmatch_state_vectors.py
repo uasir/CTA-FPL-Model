@@ -51,7 +51,11 @@ def build_postmatch_state_vectors(
     """
     if len(feature_order) != 286 or len(set(feature_order)) != 286:
         raise ValueError("The post-match state contract requires 286 unique ordered features")
-    missing = sorted((REQUIRED_STATE_COLUMNS | set(feature_order)) - set(candidate_frame.columns))
+    observed_columns = [f"__observed__{feature}" for feature in feature_order]
+    missing = sorted(
+        (REQUIRED_STATE_COLUMNS | set(feature_order) | set(observed_columns))
+        - set(candidate_frame.columns)
+    )
     if missing:
         raise ValueError(f"Candidate frame is missing required columns: {missing[:25]}")
 
@@ -186,6 +190,12 @@ def build_postmatch_state_vectors(
     for column in feature_order:
         if column not in fixture_state:
             raise ValueError(f"Post-match state is missing feature {column}")
+    for column in observed_columns:
+        if column not in fixture_state:
+            raise ValueError(f"Post-match state is missing source-observation sidecar {column}")
+        sidecar = pd.to_numeric(fixture_state[column], errors="coerce")
+        if sidecar.isna().any() or not sidecar.isin([0, 1]).all():
+            raise ValueError(f"Invalid source-observation sidecar values in {column}")
 
     result = fixture_state.copy()
     result["deadline_time"] = out["original_fixture_deadline_time"]
