@@ -345,3 +345,6 @@ The exact 286-column order below is read from the pinned schema artifact. **Ever
 - PREMATCH_FIXTURE_CONTEXT_RETAINED, FIXTURE_CONTEXT_RETAINED and HISTORICAL_PREMATCH_SNAPSHOT_RETAINED are known-at-historical-fixture-context inputs. They are not post-match outcomes and must not be overwritten with future information.
 - Market fields, ep_next, signals, venue, rest/congestion and defensive history retain their distinct provenance/semantic gates described row by row above.
 - No feature is admitted; no training or production promotion is authorized.
+
+
+**Scoring-regime contract (manifest 1.6.0):** The official target-scoring boundary is now explicit and validator-enforced: legacy through 2024/25; defensive contribution from 2025/26, continuing in 2026/27. Defender threshold = 10 CBIT for +2 points; midfielder/forward threshold = 12 CBIRT for +2 points; award capped at +2 per match. This does not promote 2026/27 defensive source availability, which remains UNKNOWN.
