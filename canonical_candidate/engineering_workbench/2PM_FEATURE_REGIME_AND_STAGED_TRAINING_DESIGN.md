@@ -176,3 +176,12 @@ CI now passes with this sidecar contract. This verifies code and tests, not the 
 
 
 The current production contract is manifest **1.3.0**. Its source pins distinguish the Dastan feature-schema repository from the upstream Vaastav and fplcache datasets. The candidate migration verifies all three against the cached candidate report and verifies the raw download-manifest hash before deriving sidecars. Code and focused CI are passing; the cached Run 83 candidate migration itself remains unexecuted.
+
+
+### 2.7 Understat vintage HOLD is now enforced in the tensor path
+
+Pinned-source inspection shows that current Understat player histories are selected from the latest season-path and may contain earlier-season rows; live fallback JSON can supersede partial pinned data. 2020/21 has only aggregate player totals (no match dates) in the pinned season directory, while its team files are match-level and have weekly commit histories. The detailed audit is recorded in 2PM_UNDERSTAT_POINT_IN_TIME_AUDIT_PLAN.md.
+
+Manifest **1.4.0** adds an orthogonal source-vintage policy for exactly 100 Understat-derived player/team rolling columns. Until the row-level Git-commit vintage audit passes, the observed-value mask forces all 100 to zero. The sequence builder now writes NaN into every feature value whose observed-value mask is zero, so a finite retrospective value cannot leak into X while the audit is pending. The grouped tensor integrity audit now enforces this invariant.
+
+This is an Understat-feature exclusion, not a season exclusion. 2020/21 FPL-native player features and separately audited team-context sources remain eligible for future admission; 2020/21 player Understat histories are not. No feature is admitted and no training is authorized.
