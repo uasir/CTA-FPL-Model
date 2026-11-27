@@ -9,12 +9,14 @@ import json
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from build_2pm_dastan_sequence_dataset import load_schema
 from build_2pm_player_gameweek_sequence_tensors import (
     build_player_gameweek_sequence_tensors,
 )
+from two_pm_feature_masks import build_feature_masks
 from build_2pm_postmatch_state_vectors import build_postmatch_state_vectors
 from rebuild_2pm_dastan_286_candidate import load_dastan_package
 
@@ -28,6 +30,8 @@ def build_dataset(
     output_dir: Path,
 ) -> dict:
     features, feature_hash = load_schema(schema_path)
+    feature_manifest_path = Path(__file__).resolve().parents[1] / "config" / "2pm_feature_group_manifest.json"
+    feature_manifest = json.loads(feature_manifest_path.read_text(encoding="utf-8"))
     _, _, features_module, _, _ = load_dastan_package(dastan_root)
 
     candidate = pd.read_parquet(candidate_path)
@@ -91,13 +95,13 @@ def build_dataset(
             try:
                 cached_report = json.loads(report_path.read_text(encoding="utf-8"))
                 declared_shards = cached_report.get("shards", [])
-                required_shard_files = ("tensor", "fixture_mask", "source_availability_state", "observed_value_mask", "labels", "metadata")
-                shards_valid = all(
+                core_shard_files = ("tensor", "fixture_mask", "labels", "metadata")
+                shards_valid = bool(declared_shards) and all(
                     all(
                         shard.get(field)
                         and (shard_dir / shard[field]).is_file()
                         and (shard_dir / shard[field]).stat().st_size > 0
-                        for field in required_shard_files
+                        for field in core_shard_files
                     )
                     for shard in declared_shards
                 )
@@ -109,6 +113,33 @@ def build_dataset(
                     and shards_valid
                 )
                 if report_valid:
+                    # Backfill masks on reusable tensors without reacquiring sources
+                    # or repeating post-match feature reconstruction.
+                    for shard in declared_shards:
+                        tensor_path = shard_dir / shard["tensor"]
+                        fixture_mask_path = shard_dir / shard["fixture_mask"]
+                        x = np.load(tensor_path, allow_pickle=False)
+                        fixture_mask = np.load(fixture_mask_path, allow_pickle=False)
+                        if x.ndim != 4 or x.shape[2:] != (6, len(features)):
+                            raise ValueError(f"Cached tensor shape mismatch: {tensor_path}")
+                        if fixture_mask.shape != x.shape[:2]:
+                            raise ValueError(f"Cached fixture mask shape mismatch: {fixture_mask_path}")
+                        availability, observed = build_feature_masks(
+                            x, season, features, feature_manifest
+                        )
+                        padded = ~fixture_mask.astype(bool)
+                        availability[padded, :, :] = 0
+                        observed[padded, :, :] = 0
+                        suffix = Path(shard["tensor"]).stem.removeprefix("X_player_gw_")
+                        availability_name = shard.get("source_availability_state") or f"source_availability_state_{suffix}.npy"
+                        observed_name = shard.get("observed_value_mask") or f"observed_value_mask_{suffix}.npy"
+                        np.save(shard_dir / availability_name, availability)
+                        np.save(shard_dir / observed_name, observed)
+                        shard["source_availability_state"] = availability_name
+                        shard["observed_value_mask"] = observed_name
+                    report_path.write_text(
+                        json.dumps(cached_report, indent=2) + "\n", encoding="utf-8"
+                    )
                     report = cached_report
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 report = None
