@@ -49,14 +49,14 @@ The live fallback is even less suitable for historical training: a JSON response
 For each pinned player and team source file:
 
 1. Enumerate the file's Git history at the pinned Vaastav commit.
-2. Identify the first commit in which each match row appears. Use the commit's committer timestamp as a conservative source-publication timestamp.
-3. Record the repository, pinned commit, file path, row key, first-appearance commit SHA, and source-publication timestamp.
-4. For each player/team history token, admit a row only when both the football match cutoff and the source-publication cutoff are strictly earlier than the token cutoff:
+2. Identify the first commit in which each match row appears. Record the commit's author and committer timestamps as evidence, but do not treat either as a verified public-publication timestamp: a commit can be created locally and pushed later.
+3. Record the repository, pinned commit, file path, row key, first-appearance commit SHA, commit author/committer timestamps, and independently evidenced public-publication timestamp (if available).
+4. For each player/team history token, admit a row only when both the football match cutoff and a verified public-source-availability timestamp are strictly earlier than the token cutoff. The commit timestamp is only a lower bound: if it is after the token cutoff, the row is definitely unavailable; if it is before the cutoff, availability remains unresolved until push/publication timing is independently evidenced:
 
    effective_available_at = max(match_available_at, understat_source_available_at)
 
    A row is eligible only when effective_available_at < token_cutoff.
-5. If a row cannot be assigned a reliable first-appearance timestamp, mark it unavailable. Do not infer publication time from its match date.
+5. If a row cannot be assigned a verified public-availability timestamp, mark it unavailable/unverified. Do not infer publication time from its match date or assume the commit timestamp equals the push time.
 6. Treat a live-fallback row as unavailable for historical point-in-time training unless a separately archived response proves it was captured before the token cutoff.
 7. Preserve the distinction between an observed zero, a missing row, a structurally unavailable season/source, and a row whose first source publication was after the token cutoff.
 
@@ -82,7 +82,7 @@ The audit should produce a versioned understat_point_in_time_manifest keyed by (
 
 - source_kind: pinned CSV, live fallback JSON, or other explicitly named source;
 - source_repository, source_commit, source_path;
-- first_appearance_commit, first_appearance_committer_time;
+- first_appearance_commit, first_appearance_author_time, first_appearance_committer_time, verified_publication_time;
 - match_available_at, effective_available_at;
 - row_present, vintage_verified, and a reason code;
 - audit method/version and content hashes.
@@ -102,7 +102,19 @@ Add regression tests for:
 
 All Understat-derived features remain **HOLD** until one of these is completed:
 
-- the row-level vintage manifest is generated and validated for every relevant season; or
+- the row-level vintage manifest is generated and validated for every relevant season, including verified public-publication timestamps (not commit timestamps alone); or
 - a reviewed exclusion policy explicitly masks unverified Understat source rows/seasons.
 
 No training, validation-fold fitting, or OOT scoring may consume an Understat value solely because it is finite in the latest pinned file or a live fallback response.
+
+
+## 7. Commit-time limitation
+
+Git commit author/committer timestamps are not the same as the time a commit became publicly fetchable. A commit can be created locally and pushed later. Therefore:
+
+- A first-appearance commit timestamp after a target cutoff is sufficient evidence that the row was not in that repository commit history by the cutoff.
+- A first-appearance commit timestamp before a target cutoff is only necessary evidence, not sufficient proof that the row was publicly available by the cutoff.
+- Do not turn a pre-deadline commit timestamp into a verified source-availability timestamp without push/publication evidence. A guessed fixed delay is not proof.
+- If the public push time cannot be recovered from a contemporaneous archive or other reliable evidence, keep the row unverified and its Understat observed-value mask at zero.
+
+This is deliberately conservative. The audit may prove some rows unavailable, but it must not claim historical availability from commit dates alone.
