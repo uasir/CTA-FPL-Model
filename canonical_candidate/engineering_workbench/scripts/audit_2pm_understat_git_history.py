@@ -63,7 +63,10 @@ def _row_key(row: dict[str, Any], kind: str, player_id: int | None = None,
     if kind == "player":
         # Pinned Dastan loader enforces uniqueness on (understat_id, date_only).
         identity = player_id if player_id is not None else row.get("understat_id", "")
-        return "|".join((str(identity).strip(), date[:10]))
+        parsed_date = pd.to_datetime(date, errors="coerce")
+        if pd.isna(parsed_date):
+            raise ValueError(f"player row has an invalid date: {date!r}")
+        return "|".join((str(identity).strip(), parsed_date.date().isoformat()))
     # Pinned team CSVs are one file per team. They carry h_a, not opponent names;
     # Dastan derives understat_team from the filename and retains the full kickoff.
     if not source_path:
@@ -85,10 +88,9 @@ def _row_key(row: dict[str, Any], kind: str, player_id: int | None = None,
     # the previous season, which is excluded from this season's reconstruction.
     if match_date < pd.Timestamp(start_year, 7, 1) or match_date >= pd.Timestamp(start_year + 1, 7, 1):
         return ""
-    home_away = str(row.get("h_a", "")).strip().lower()
-    if home_away not in {"h", "a"}:
-        raise ValueError(f"team row lacks a valid h_a: {source_path}")
-    return "|".join((season, team, date, home_away))
+    # Dastan rejects duplicates on (season, understat_team, parsed date).
+    # h_a is a feature attribute, not part of the source-row identity.
+    return "|".join((season, team, match_date.isoformat(sep=" ")))
 
 
 
