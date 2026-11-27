@@ -636,3 +636,6 @@ The independent PaperTwoComponentPoissonTransformer is now architecture version 
 The numeric input projection is therefore 1,430 channels (5 × 286); the two scoring regimes use a separate embedding. The model rejects invalid masks/codes and rejects a feature marked observed when its source is structurally UNAVAILABLE. The season-to-regime helper maps 2020/21–2024/25 to legacy code 0 and 2025/26–2026/27 to defensive-contribution code 1.
 
 This does **not** complete the training pipeline. Fold-only imputation/scaling, a dedicated expanding-season trainer/evaluator, validation, final refit, and a rebuild/migration of the six-season tensor artifact remain outstanding. The existing Run 83 tensors predate the source-vintage masking changes and do not contain the new mask contract. No training or candidate admission is authorized.
+
+
+The grouped player-Gameweek forward adapter was also updated to flatten and pass the value, observed-mask, availability-state, and regime inputs together for each target-fixture query. Double-Gameweek aggregation and the single player-Gameweek likelihood remain unchanged.
