@@ -130,3 +130,20 @@ This is deliberately conservative. The audit may prove some rows unavailable, bu
 - 2020/21 Arsenal match-level team file: https://github.com/vaastav/Fantasy-Premier-League/blob/8c97b2adb123863c3dd581e730f1360e89815ac2/data/2020-21/understat/understat_Arsenal.csv
 - 2021/22 Bruno Fernandes multi-season player file: https://github.com/vaastav/Fantasy-Premier-League/blob/8c97b2adb123863c3dd581e730f1360e89815ac2/data/2021-22/understat/Bruno_Fernandes_1228.csv
 - Bruno file history: https://api.github.com/repos/vaastav/Fantasy-Premier-League/commits?path=data%2F2021-22%2Funderstat%2FBruno_Fernandes_1228.csv&per_page=100
+
+## 9. Pinned-tree inventory cross-check (2026-11-27)
+
+The pinned Vaastav Git tree at `8c97b2adb123863c3dd581e730f1360e89815ac2` was independently enumerated (recursive tree returned 25,924 entries; not truncated). The six-season Understat CSV inventory is:
+
+| Season | Individual player match-history CSVs | Team match CSVs | Aggregate player file |
+|---|---:|---:|---|
+| 2020/21 | 0 | 23 | Yes |
+| 2021/22 | 712 | 23 | Yes |
+| 2022/23 | 554 | 20 | Yes |
+| 2023/24 | 774 | 23 | Yes |
+| 2024/25 | 765 | 23 | Yes |
+| 2025/26 | 0 | 0 | No |
+
+This confirms the season-specific source structure: 2020/21 player-match Understat features cannot be reconstructed from the pinned season directory's aggregate player file, but team match-level Understat source files do exist; 2021/22–2024/25 have individual player histories and team files; 2025/26 has no pinned Understat CSVs and is dependent on the live fallback path in the pinned Dastan downloader. The live fallback remains unsuitable for historical point-in-time admission without a dated pre-deadline archive.
+
+The inventory does **not** prove row-level publication timing for 2021/22–2024/25, nor does it establish that every player file has complete EPL coverage. It is source-structure evidence only. Player and team feature subfamilies must continue to be audited separately; a player-history exclusion must not automatically remove team-context features for the same season.
