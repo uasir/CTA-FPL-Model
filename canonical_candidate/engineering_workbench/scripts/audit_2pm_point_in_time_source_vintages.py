@@ -345,7 +345,6 @@ def _audit_one_deadline(
     if selected is None:
         return {
             "season": season, "gameweek": gameweek, "deadline": deadline.isoformat(),
-            "source_status": "no_commit_before_deadline",
             "final_prior_rows": int(len(final_prior)),
             "final_prior_played_rows": int(final_prior["minutes"].gt(0).sum()),
             "missing_final_prior_keys": int(len(final_prior)),
@@ -389,11 +388,15 @@ def _audit_one_deadline(
         "deadline": deadline.isoformat(),
         "source_status": (
             "fpl_native_columns_incomplete"
-            if not set(FPL_NATIVE_FIELDS).issubset(present)
+            if (
+                not set(FPL_NATIVE_FIELDS).issubset(present)
+                or not set(FPL_NATIVE_FIELDS).issubset(final_columns)
+            )
             else "selected_pre_deadline_commit"
         ),
         "fpl_native_columns_present": [field for field in FPL_NATIVE_FIELDS if field in present],
         "fpl_native_columns_missing": sorted(set(FPL_NATIVE_FIELDS) - set(present)),
+        "final_fpl_native_columns_missing": sorted(set(FPL_NATIVE_FIELDS) - set(final_columns)),
         "optional_fpl_columns_present": [field for field in OPTIONAL_FPL_FIELDS if field in present],
         "defensive_columns_present": [field for field in DEFENSIVE_FIELDS if field in present],
         "defensive_status": (
@@ -406,7 +409,6 @@ def _audit_one_deadline(
         "source_commit_at": selected["committed_at"].isoformat(),
         "source_commit_age_hours": round(age_hours, 3),
         "source_commit_message": selected["message"],
-        "defensive_columns_present": present,
         "source_prior_rows": int(len(prior)),
         "source_prior_played_rows": int(len(played)),
         "final_prior_rows": int(len(final_prior)),
