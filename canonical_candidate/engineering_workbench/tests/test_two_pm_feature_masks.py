@@ -110,3 +110,29 @@ def test_source_observation_sidecar_can_mask_upstream_zero_fills():
     )
     assert observed[0, index["player_xg_1"]] == 0
     assert observed[0, index["player_fpl_points_1"]] == 1
+
+
+def test_understat_features_are_forced_unobserved_until_vintage_audit_passes():
+    features, manifest = load()
+    values = np.zeros((2, len(features)), dtype=np.float32)
+    source_mask = np.ones_like(values, dtype=np.uint8)
+    observed = build_observed_value_mask(
+        values, features, manifest, source_observed_mask=source_mask
+    )
+    understat = manifest["source_vintage_policies"]["understat"]["feature_order"]
+    index = {name: i for i, name in enumerate(features)}
+    assert all(observed[:, index[name]].tolist() == [0, 0] for name in understat)
+    assert observed[:, index["player_fpl_points_1"]].tolist() == [1, 1]
+
+
+def test_verified_understat_policy_requires_row_level_vintage_mask():
+    features, manifest = load()
+    broken = json.loads(json.dumps(manifest))
+    broken["source_vintage_policies"]["understat"]["status"] = "VERIFIED"
+    broken["source_vintage_policies"]["understat"]["mask_action"] = "APPLY_ROW_LEVEL_MASK"
+    values = np.zeros((1, len(features)), dtype=np.float32)
+    source_mask = np.ones_like(values, dtype=np.uint8)
+    with pytest.raises(ValueError, match="requires a row-level vintage mask"):
+        build_observed_value_mask(
+            values, features, broken, source_observed_mask=source_mask
+        )
