@@ -168,7 +168,7 @@ This sidecar extension is under implementation and test; the earlier CI results 
 
 ### 2.6 Pre-fill sidecar implementation and verification
 
-The 286 pre-fill sidecars are now emitted by player-history, team/opponent-context, fixture-context and retained snapshot reconstruction. The candidate builder fails closed unless all 286 are present. Post-match states validate and preserve them. The sequence builder requires them under manifest 1.2.0 and combines them with the tri-state availability, finite-value and sentinel checks.
+The 286 pre-fill sidecars are now emitted by player-history, team/opponent-context, fixture-context and retained snapshot reconstruction. The candidate builder fails closed unless all 286 are present. Post-match states validate and preserve them. The sequence builder requires them under manifest 1.3.0 and combines them with the tri-state availability, finite-value and sentinel checks.
 
 Window policy is explicit: FPL rolling fields that retain zero-fill semantics require complete raw-source coverage across the contributing window; Understat rolling fields use any-valid coverage because the custom 2PM calculation ignores missing Understat rows; defensive/rate rolling fields use any-valid source coverage; team/opponent rolling fields require complete raw-source coverage; ranks require complete prior score/conceded/points inputs; deterministic schedule context is marked available; snapshots retain their sentinel contract.
 
