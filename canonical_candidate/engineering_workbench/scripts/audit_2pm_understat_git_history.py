@@ -50,23 +50,11 @@ def _get_text(session: requests.Session, url: str) -> bytes:
 
 
 def list_path_commits(session: requests.Session, repository: str, path: str,
-                      pinned_commit: str, max_commits: int) -> list[dict[str, Any]]:
-    url = f"{API}/repos/{repository}/commits"
-    commits: list[dict[str, Any]] = []
-    page = 1
-    while len(commits) < max_commits:
-        batch = _get_json(session, url, {
-            "path": path, "sha": pinned_commit, "per_page": min(100, max_commits-len(commits)),
-            "page": page,
-        })
-        if not batch:
-            break
-        commits.extend(batch)
-        if len(batch) < min(100, max_commits-(len(commits)-len(batch))):
-            break
-        page += 1
-        time.sleep(0.08)
-    return commits[:max_commits]
+                      pinned_commit: str, max_commits: int,
+                      cache_dir: Path | None = None) -> list[dict[str, Any]]:
+    return _cached_path_commits(
+        session, repository, path, pinned_commit, max_commits, cache_dir
+    )
 
 
 def _row_key(row: dict[str, Any], kind: str, player_id: int | None = None,
@@ -93,9 +81,103 @@ def _row_key(row: dict[str, Any], kind: str, player_id: int | None = None,
     return "|".join((season, team, date, home_away))
 
 
+
+def _cache_file(cache_dir: Path | None, namespace: str, *parts: str) -> Path | None:
+    if cache_dir is None:
+        return None
+    key = hashlib.sha256(
+        json.dumps([str(part) for part in parts], separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return cache_dir / namespace / f"{key}"
+
+
+def _atomic_write(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_bytes(payload)
+    temporary.replace(path)
+
+
+def _cached_path_commits(session: requests.Session, repository: str, path: str,
+                          pinned_commit: str, max_commits: int,
+                          cache_dir: Path | None) -> list[dict[str, Any]]:
+    url = f"{API}/repos/{repository}/commits"
+    commits: list[dict[str, Any]] = []
+    page = 1
+    while len(commits) < max_commits:
+        per_page = min(100, max_commits - len(commits))
+        cache_path = _cache_file(
+            cache_dir, "commit-pages", repository, pinned_commit, path,
+            str(page), str(per_page),
+        )
+        batch = None
+        if cache_path is not None and cache_path.is_file():
+            try:
+                cached = json.loads(cache_path.read_text())
+                if (cached.get("repository") == repository
+                        and cached.get("pinned_commit") == pinned_commit
+                        and cached.get("source_path") == path
+                        and cached.get("page") == page
+                        and cached.get("per_page") == per_page
+                        and isinstance(cached.get("commits"), list)):
+                    batch = cached["commits"]
+            except (OSError, ValueError, TypeError):
+                batch = None
+        if batch is None:
+            batch = _get_json(session, url, {
+                "path": path, "sha": pinned_commit, "per_page": per_page, "page": page,
+            })
+            if cache_path is not None:
+                _atomic_write(cache_path, json.dumps({
+                    "repository": repository, "pinned_commit": pinned_commit,
+                    "source_path": path, "page": page, "per_page": per_page,
+                    "commits": batch,
+                }, separators=(",", ":")).encode("utf-8"))
+        if not batch:
+            break
+        commits.extend(batch)
+        if len(batch) < per_page:
+            break
+        page += 1
+        time.sleep(0.08)
+    return commits[:max_commits]
+
+
+def _get_cached_text(session: requests.Session, url: str, repository: str,
+                     source_path: str, commit_sha: str,
+                     cache_dir: Path | None) -> bytes:
+    cache_path = _cache_file(
+        cache_dir, "raw-revisions", repository, source_path, commit_sha,
+    )
+    metadata_path = cache_path.with_suffix(".json") if cache_path is not None else None
+    if cache_path is not None and metadata_path is not None and cache_path.is_file() and metadata_path.is_file():
+        try:
+            metadata = json.loads(metadata_path.read_text())
+            cached_payload = cache_path.read_bytes()
+            digest = hashlib.sha256(cached_payload).hexdigest()
+            if (metadata.get("repository") == repository
+                    and metadata.get("source_path") == source_path
+                    and metadata.get("commit") == commit_sha
+                    and metadata.get("sha256") == digest):
+                return cached_payload
+        except (OSError, ValueError, TypeError):
+            pass
+    payload = _get_text(session, url)
+    if cache_path is not None and metadata_path is not None:
+        digest = hashlib.sha256(payload).hexdigest()
+        _atomic_write(cache_path, payload)
+        _atomic_write(metadata_path, json.dumps({
+            "repository": repository, "source_path": source_path,
+            "commit": commit_sha, "sha256": digest,
+        }, separators=(",", ":")).encode("utf-8"))
+    return payload
+
 def audit_file(session: requests.Session, repository: str, pinned_commit: str,
-               source_path: str, kind: str, max_commits: int, player_id: int | None = None) -> dict[str, Any]:
-    commits = list_path_commits(session, repository, source_path, pinned_commit, max_commits)
+               source_path: str, kind: str, max_commits: int, player_id: int | None = None,
+               cache_dir: Path | None = None) -> dict[str, Any]:
+    commits = list_path_commits(
+        session, repository, source_path, pinned_commit, max_commits, cache_dir
+    )
     # API returns newest first; process oldest to newest so first-seen and revisions are explicit.
     commits = list(reversed(commits))
     row_history: dict[str, dict[str, Any]] = {}
@@ -106,7 +188,9 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
         committed_at = commit["commit"]["committer"]["date"]
         raw_url = f"{RAW}/{repository}/{sha}/{quote(source_path)}"
         try:
-            payload = _get_text(session, raw_url)
+            payload = _get_cached_text(
+                session, raw_url, repository, source_path, sha, cache_dir
+            )
             digest = hashlib.sha256(payload).hexdigest()
             frame = pd.read_csv(io.BytesIO(payload), low_memory=False).fillna("")
             current: dict[str, str] = {}
@@ -177,17 +261,31 @@ def main() -> None:
     parser.add_argument("--pinned-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--max-commits-per-file", type=int, default=1000)
+    parser.add_argument("--cache-dir", type=Path, default=Path(".cache/understat_git_history"),
+                        help="Persistent cache for commit pages and exact raw revision bytes")
     parser.add_argument("--limit-files", type=int, default=0,
-                        help="Optional smoke-test cap; 0 means all pinned CSV files")
+                        help="Optional overall smoke-test cap; 0 means all selected pinned CSV files")
+    parser.add_argument("--limit-player-files", type=int, default=0,
+                        help="Optional player-file cap; 0 means all pinned player CSV files")
+    parser.add_argument("--limit-team-files", type=int, default=0,
+                        help="Optional team-file cap; 0 means all pinned team CSV files")
     args = parser.parse_args()
     inventory = json.loads(args.inventory.read_text())
-    sources = []
-    for row in inventory["players"]:
-        if row["source_kind"] == "pinned_player_csv" and row.get("selected_pinned_tree_path"):
-            sources.append(("player", row["selected_pinned_tree_path"], int(row["understat_id"])))
-    for row in inventory["teams"]:
-        if row["source_kind"] == "pinned_team_csv" and row.get("source_path"):
-            sources.append(("team", row["source_path"], None))
+    player_sources = [
+        ("player", row["selected_pinned_tree_path"], int(row["understat_id"]))
+        for row in inventory["players"]
+        if row["source_kind"] == "pinned_player_csv" and row.get("selected_pinned_tree_path")
+    ]
+    team_sources = [
+        ("team", row["source_path"], None)
+        for row in inventory["teams"]
+        if row["source_kind"] == "pinned_team_csv" and row.get("source_path")
+    ]
+    if args.limit_player_files:
+        player_sources = player_sources[:args.limit_player_files]
+    if args.limit_team_files:
+        team_sources = team_sources[:args.limit_team_files]
+    sources = player_sources + team_sources
     if args.limit_files:
         sources = sources[:args.limit_files]
     session = requests.Session()
@@ -196,7 +294,8 @@ def main() -> None:
         print(f"[{number}/{len(sources)}] {kind} {path}", flush=True)
         try:
             results.append(audit_file(session, args.repository, args.pinned_commit,
-                                      path, kind, args.max_commits_per_file, player_id))
+                                      path, kind, args.max_commits_per_file, player_id,
+                                      args.cache_dir))
         except Exception as exc:
             results.append({"source_path": path, "source_kind": f"pinned_{kind}_csv",
                             "error": str(exc), "historical_publication_vintage": "UNKNOWN"})
@@ -205,6 +304,7 @@ def main() -> None:
         "audit_type": "understat_pinned_git_row_revision_history",
         "repository": args.repository, "pinned_commit": args.pinned_commit,
         "files_requested": len(sources), "files_audited": len(results),
+        "cache_directory": str(args.cache_dir),
         "results": results,
         "limitations": [
             "Git commit timestamps are repository-lineage evidence, not original Understat publication timestamps.",
