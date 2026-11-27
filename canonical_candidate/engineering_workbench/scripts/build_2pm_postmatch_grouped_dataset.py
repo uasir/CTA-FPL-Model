@@ -16,40 +16,25 @@ from build_2pm_dastan_sequence_dataset import load_schema
 from build_2pm_player_gameweek_sequence_tensors import (
     build_player_gameweek_sequence_tensors,
 )
-from two_pm_feature_masks import build_feature_masks
 from build_2pm_postmatch_state_vectors import build_postmatch_state_vectors
 from rebuild_2pm_dastan_286_candidate import load_dastan_package
 
 
-def backfill_cached_shard_masks(
-    shard_dir: Path,
-    declared_shards: list[dict],
-    season: str,
-    features: list[str],
-    feature_manifest: dict,
-) -> list[dict]:
-    """Add current mask artifacts to reusable tensors without rebuilding features."""
-    for shard in declared_shards:
-        tensor_path = shard_dir / shard["tensor"]
-        fixture_mask_path = shard_dir / shard["fixture_mask"]
-        x = np.load(tensor_path, allow_pickle=False)
-        fixture_mask = np.load(fixture_mask_path, allow_pickle=False)
-        if x.ndim != 4 or x.shape[2:] != (6, len(features)):
-            raise ValueError(f"Cached tensor shape mismatch: {tensor_path}")
-        if fixture_mask.shape != x.shape[:2]:
-            raise ValueError(f"Cached fixture mask shape mismatch: {fixture_mask_path}")
-        availability, observed = build_feature_masks(x, season, features, feature_manifest)
-        padded = ~fixture_mask.astype(bool)
-        availability[padded, :, :] = 0
-        observed[padded, :, :] = 0
-        suffix = Path(shard["tensor"]).stem.removeprefix("X_player_gw_")
-        availability_name = shard.get("source_availability_state") or f"source_availability_state_{suffix}.npy"
-        observed_name = shard.get("observed_value_mask") or f"observed_value_mask_{suffix}.npy"
-        np.save(shard_dir / availability_name, availability)
-        np.save(shard_dir / observed_name, observed)
-        shard["source_availability_state"] = availability_name
-        shard["observed_value_mask"] = observed_name
-    return declared_shards
+def cached_shards_complete(shard_dir: Path, declared_shards: list[dict]) -> bool:
+    """Reuse only shards that already carry both provenance-aware feature masks."""
+    required = (
+        "tensor", "fixture_mask", "source_availability_state",
+        "observed_value_mask", "labels", "metadata",
+    )
+    return bool(declared_shards) and all(
+        all(
+            shard.get(field)
+            and (shard_dir / shard[field]).is_file()
+            and (shard_dir / shard[field]).stat().st_size > 0
+            for field in required
+        )
+        for shard in declared_shards
+    )
 
 
 def build_dataset(
@@ -126,17 +111,8 @@ def build_dataset(
             try:
                 cached_report = json.loads(report_path.read_text(encoding="utf-8"))
                 declared_shards = cached_report.get("shards", [])
-                core_shard_files = ("tensor", "fixture_mask", "labels", "metadata")
                 shards_valid = (
-                    all(
-                        all(
-                            shard.get(field)
-                            and (shard_dir / shard[field]).is_file()
-                            and (shard_dir / shard[field]).stat().st_size > 0
-                            for field in core_shard_files
-                        )
-                        for shard in declared_shards
-                    )
+                    cached_shards_complete(shard_dir, declared_shards)
                     if declared_shards
                     else int(cached_report.get("counts", {}).get("emitted", -1)) == 0
                 )
@@ -148,22 +124,7 @@ def build_dataset(
                     and shards_valid
                 )
                 if report_valid:
-                    cached_report["feature_order"] = features
-                    cached_report["snapshot_missing_sentinel_features"] = feature_manifest.get(
-                        "snapshot_missing_sentinel_features", []
-                    )
-                    cached_report["feature_availability_state_codes"] = {
-                        "UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2
-                    }
-                    # Backfill masks on reusable tensors without reacquiring sources
-                    # or repeating post-match feature reconstruction.
-                    backfill_cached_shard_masks(
-                        shard_dir, declared_shards, season, features, feature_manifest
-                    )
-                    report_path.write_text(
-                        json.dumps(cached_report, indent=2) + "\n", encoding="utf-8"
-                    )
-                    report = cached_report
+                report = cached_report
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 report = None
         if report is None:
