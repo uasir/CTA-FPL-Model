@@ -56,6 +56,26 @@ def audit_dataset(dataset_dir: Path) -> dict:
             raise ValueError(f"Unexpected X shape in {x_path}: {x.shape}")
         if mask.shape != x.shape[:2]:
             raise ValueError(f"Fixture mask shape mismatch in {mask_path}: {mask.shape}")
+        if availability.shape != x.shape or observed.shape != x.shape:
+            raise ValueError(f"Feature mask shape mismatch in {folder.name}/{suffix}")
+        if not np.isin(availability, [0, 1, 2]).all():
+            raise ValueError(f"Availability state contains values outside 0/1/2: {availability_path}")
+        if not np.isin(observed, [0, 1]).all():
+            raise ValueError(f"Observed-value mask contains values outside 0/1: {observed_path}")
+        if np.any((observed == 1) & ~np.isfinite(x)):
+            raise ValueError(f"Observed-value mask marks a non-finite value as observed: {observed_path}")
+        if np.any((availability == 0) & (observed == 1)):
+            raise ValueError(f"Structurally unavailable feature marked observed: {observed_path}")
+        padded_slots = ~mask.astype(bool)
+        if np.any(observed[padded_slots] != 0):
+            raise ValueError(f"Padded fixture slots contain observed values: {observed_path}")
+        feature_order = build_report.get("feature_order", [])
+        sentinel_features = set(build_report.get("snapshot_missing_sentinel_features", []))
+        if len(feature_order) != x.shape[-1]:
+            raise ValueError("Build report feature_order does not match tensor feature axis")
+        sentinel_indices = [i for i, name in enumerate(feature_order) if name in sentinel_features]
+        if sentinel_indices and np.any((x[..., sentinel_indices] == -1.0) & (observed[..., sentinel_indices] == 1)):
+            raise ValueError(f"Missing-snapshot sentinel marked observed: {observed_path}")
         if not np.isin(mask, [0, 1, False, True]).all():
             raise ValueError(f"Fixture mask contains values other than 0/1: {mask_path}")
         if len(y) != x.shape[0] or len(metadata) != x.shape[0]:
@@ -112,9 +132,12 @@ def audit_dataset(dataset_dir: Path) -> dict:
         feature_values += int(x.size)
         inf_values += int(np.isinf(x).sum())
         negative_labels += int((y < 0).sum())
+        valid_slot_mask = mask.astype(bool)[..., None, None]
         for code in (0, 1, 2):
-            availability_state_counts[str(code)] += int((availability == code).sum())
-        observed_value_count += int(observed.sum())
+            availability_state_counts[str(code)] += int(
+                ((availability == code) & valid_slot_mask).sum()
+            )
+        observed_value_count += int((observed & valid_slot_mask).sum())
 
     expected = {
         "postmatch_state_rows": int(build_report.get("postmatch_state_rows", -1)),
