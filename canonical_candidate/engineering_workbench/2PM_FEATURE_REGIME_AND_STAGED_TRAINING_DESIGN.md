@@ -202,3 +202,12 @@ The official Premier League announcement dated 10 August 2025 establishes the in
 - https://www.premierleague.com/en/news/4361991/whats-new-in-202526-fantasy-defensive-contributions
 
 **Important distinction:** knowing the scoring regime for 2026/27 does not prove that the 2026/27 feature source is point-in-time verified. The defensive feature-source availability state therefore remains UNKNOWN until its separate source-vintage audit passes. Do not use the scoring-regime code to promote feature availability.
+
+
+### 2.9 Model-interface implementation status
+
+Architecture version 0.3.0 now requires four aligned inputs: feature values, binary observed-value masks, three-state source-availability codes, and one scoring-regime code per sample. It concatenates the 286 values, 286 observation indicators, and 858 one-hot availability channels, then adds the learned scoring-regime embedding to each token before positional encoding.
+
+The model rejects malformed masks, invalid availability/regime codes, and any feature marked observed while structurally UNAVAILABLE. The manifest helper maps the target season to the official scoring-regime code and fails closed for unmapped seasons.
+
+This is an architecture/input-contract implementation only. It does not implement fold-only imputation, a chronological trainer, walk-forward validation, model selection, or final refit. The six-season tensor artifact predates the new source-vintage masks and scoring-regime input contract; it must be rebuilt or explicitly migrated only after the feature/source admission gates are settled. No training is authorized.
