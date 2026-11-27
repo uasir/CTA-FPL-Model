@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: understat-source-revision-smoke
+  group: understat-source-revision-smoke-v2
   cancel-in-progress: true
 
 jobs:
@@ -62,7 +62,7 @@ jobs:
           }
           JSON
 
-      - name: Trace complete pinned history for one player and one team
+      - name: Trace complete pinned history for one player and five season-specific teams
         working-directory: canonical_candidate/engineering_workbench
         env:
           GITHUB_TOKEN: ${{ github.token }}
