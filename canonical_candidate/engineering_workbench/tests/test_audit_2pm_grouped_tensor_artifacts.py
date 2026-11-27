@@ -15,6 +15,8 @@ def _write_dataset(root, *, history_time="2024-08-01T12:00:00Z", target_points=-
     np.save(shard / "X_player_gw_000.npy", x)
     np.save(shard / "fixture_mask_000.npy",
             np.asarray([[1]] if mask is None else mask, dtype=np.uint8))
+    np.save(shard / "source_availability_state_000.npy", np.full(x.shape, 2, dtype=np.uint8))
+    np.save(shard / "observed_value_mask_000.npy", np.ones(x.shape, dtype=np.uint8))
     np.save(shard / "y_player_gw_000.npy", np.asarray([target_points], dtype=np.float32))
     row = {
         "season": "2024-25",
@@ -37,6 +39,8 @@ def _write_dataset(root, *, history_time="2024-08-01T12:00:00Z", target_points=-
         "season_gameweek_groups_processed": 1,
         "player_gameweek_candidate_groups_considered": 1,
         "player_gameweek_samples_emitted": 1,
+        "feature_order": [f"feature_{i}" for i in range(286)],
+        "snapshot_missing_sentinel_features": [],
     }
     (root / "postmatch_grouped_dataset_report.json").write_text(json.dumps(report))
     if duplicate:
@@ -45,6 +49,8 @@ def _write_dataset(root, *, history_time="2024-08-01T12:00:00Z", target_points=-
         second.mkdir(parents=True)
         np.save(second / "X_player_gw_001.npy", x)
         np.save(second / "fixture_mask_001.npy", np.asarray([[1]], dtype=np.uint8))
+        np.save(second / "source_availability_state_001.npy", np.full(x.shape, 2, dtype=np.uint8))
+        np.save(second / "observed_value_mask_001.npy", np.ones(x.shape, dtype=np.uint8))
         np.save(second / "y_player_gw_001.npy", np.asarray([target_points], dtype=np.float32))
         pd.DataFrame([row]).to_csv(second / "metadata_player_gw_001.csv", index=False)
 
@@ -75,4 +81,24 @@ def test_integrity_audit_rejects_fixture_mask_metadata_mismatch(tmp_path):
 def test_integrity_audit_rejects_duplicate_player_gameweek_across_shards(tmp_path):
     _write_dataset(tmp_path, duplicate=True)
     with pytest.raises(ValueError, match="Duplicate player-Gameweek sample"):
+        audit.audit_dataset(tmp_path)
+
+
+def test_integrity_audit_rejects_observed_value_on_structural_absence(tmp_path):
+    _write_dataset(tmp_path)
+    shard = tmp_path / "player_gameweek_tensors" / "2024-25" / "gw_1"
+    state = np.load(shard / "source_availability_state_000.npy")
+    state[..., 0] = 0
+    np.save(shard / "source_availability_state_000.npy", state)
+    with pytest.raises(ValueError, match="Structurally unavailable feature marked observed"):
+        audit.audit_dataset(tmp_path)
+
+
+def test_integrity_audit_rejects_observed_nonfinite_feature(tmp_path):
+    _write_dataset(tmp_path)
+    shard = tmp_path / "player_gameweek_tensors" / "2024-25" / "gw_1"
+    x = np.load(shard / "X_player_gw_000.npy")
+    x[..., 0] = np.nan
+    np.save(shard / "X_player_gw_000.npy", x)
+    with pytest.raises(ValueError, match="non-finite value as observed"):
         audit.audit_dataset(tmp_path)
