@@ -67,7 +67,8 @@ jobs:
         run: |
           python scripts/augment_2pm_candidate_observation_sidecars.py \
             --candidate-dir "$RUNNER_TEMP/2pm-dastan-candidate" \
-            --dastan-root "$GITHUB_WORKSPACE/dastan-source"
+            --dastan-root "$GITHUB_WORKSPACE/dastan-source" \
+            --raw-dir "$RUNNER_TEMP/2pm-dastan-raw"
       - name: Validate reusable candidate raw-source observation sidecars
         if: inputs.rebuild_candidate != true
         run: |
