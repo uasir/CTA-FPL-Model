@@ -166,6 +166,8 @@ def validate_feature_group_manifest(
             raise ValueError(f"Missing pinned source provenance for {source_name}")
         if schema_field and pin.get("commit") != schema.get(schema_field):
             raise ValueError(f"{source_name} pin does not match the pinned feature schema")
+        if source_name == "vaastav" and pin.get("repository") != schema.get("upstream_repository"):
+            raise ValueError("Vaastav repository pin does not match the pinned feature schema")
 
     return {
         "common_candidate": common,
