@@ -158,3 +158,17 @@ This was a source-contract inspection, not a completed execution of the Python t
 
 
 The corrected team-key implementation and regression suite passed engineering CI run [46050270380](https://github.com/uasir/CTA-FPL-Model/actions/runs/46050270380), commit `828d1fbf7ef242075d68feaf3fa74a4a26d11e64`: **623 passed, 5 skipped, 18 warnings, and 3 subtests passed**. All JS contract, Python feature-core, engineering, and four identity-crosswalk validation steps completed successfully.
+
+
+### Season-scoped team-row audit and sampled real revisions
+
+The bounded read-only source inspection sampled five revisions each from the pinned 2024/25 Mohamed Salah player-history file (29 path commits total) and Arsenal team-history file (31 path commits total). Across those sampled revisions, player row counts/unique keys were 334, 341, 348, 356, and 365; team row counts/unique keys were 38, 7, 15, 23, and 31. No duplicate keys were found in the sampled revisions under the corrected player and team key contracts.
+
+The team file's first sampled revision (2024-08-15) contained 38 rows dated in 2023/24; the later sampled revisions contained 2024/25 rows as that season progressed. This directly confirmed that the tracer must mirror Dastan's _load_vaastav_team_file season filter. The team row-key function now:
+- derives season and understat_team from the exact pinned path;
+- parses the full match timestamp and retains the source h_a flag; and
+- excludes rows before July 1 of the path season or on/after July 1 of the following year, exactly matching Dastan's season-window filter.
+
+Regression tests cover both July boundaries, exclusion of a previous-season row, source-path identity, and missing h_a/path failures. CI for commit 64bbecc90cb391d383120aa08e5cbb01e5a5dbe1 passed in run https://github.com/uasir/CTA-FPL-Model/actions/runs/46050586879: **626 passed, 5 skipped, 18 warnings, and 3 subtests passed**.
+
+**Scope:** these five-revision samples validate source schema and row-key assumptions; they do not replace the Python tracer's full path-history execution, exhaustive row-level vintage adjudication, or FPL fixture reconciliation. The tracer has not yet been run end-to-end against a generated six-season inventory artifact. No feature admission or training authorization changes.
