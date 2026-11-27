@@ -95,40 +95,55 @@ def _season_label(events: list[dict[str, Any]]) -> str:
     return f"{start}-{str(start + 1)[-2:]}"
 
 
+def _season_capture_bounds(season: str) -> tuple[datetime, datetime]:
+    try:
+        start_year = int(season.split("-")[0])
+        end_suffix = season.split("-")[1]
+    except (ValueError, IndexError) as exc:
+        raise ValueError(f"Invalid season label: {season}") from exc
+    if len(end_suffix) != 2 or int(end_suffix) != (start_year + 1) % 100:
+        raise ValueError(f"Invalid season label: {season}")
+    return (
+        datetime(start_year, 6, 1, tzinfo=timezone.utc),
+        datetime(start_year + 1, 7, 1, tzinfo=timezone.utc),
+    )
+
+
+def _season_index(
+    index: list[tuple[datetime, Path]], season: str
+) -> list[tuple[datetime, Path]]:
+    start, end = _season_capture_bounds(season)
+    return [(captured, path) for captured, path in index if start <= captured < end]
+
+
 def _probe_payload(
     index: list[tuple[datetime, Path]], season: str
 ) -> tuple[datetime, Path, dict[str, Any]]:
-    if season == "2025-26":
-        probe_date = date(2026, 1, 15)
-        same_day = [(captured, path) for captured, path in index if captured.date() == probe_date]
-        if not same_day:
-            raise ValueError("No FPL cache snapshot on the 2025/26 season probe date 2026-01-15")
-        captured, path = same_day[0]
-    elif season == "2026-27":
-        if not index:
-            raise ValueError("FPL cache snapshot archive is empty")
-        captured, path = index[-1]
-    else:
-        raise ValueError(f"Unsupported season for this experiment: {season}")
-    payload = _read_snapshot(path)
-    if _season_label(payload.get("events", [])) != season:
-        raise ValueError(f"FPL cache probe did not resolve {season}")
-    return captured, path, payload
+    candidates = _season_index(index, season)
+    for captured, path in reversed(candidates):
+        payload = _read_snapshot(path)
+        if _season_label(payload.get("events", [])) == season:
+            return captured, path, payload
+    raise ValueError(
+        f"No archived FPL-cache snapshot for {season} in its season capture window"
+    )
 
 
 def _snapshot_for_deadline(
     index: list[tuple[datetime, Path]],
+    season: str,
     gameweek: int,
     initial_deadline: datetime,
 ) -> dict[str, Any]:
     deadline = initial_deadline
+    same_season_index = _season_index(index, season)
     seen: set[datetime] = set()
     for _ in range(4):
         if deadline in seen:
             return {"status": "deadline_did_not_converge", "deadline": deadline}
         seen.add(deadline)
         cutoff = deadline - FIXTURE_SAFETY_BUFFER
-        eligible = [(captured, path) for captured, path in index if captured <= cutoff]
+        eligible = [(captured, path) for captured, path in same_season_index if captured <= cutoff]
         if not eligible:
             return {"status": "no_pre_deadline_snapshot", "deadline": deadline}
         captured, path = eligible[-1]
@@ -310,7 +325,7 @@ def audit_season(
         if gw not in deadlines:
             gameweeks[str(gw)] = {"status": "deadline_missing_from_fplcache"}
             continue
-        snapshot = _snapshot_for_deadline(index, gw, deadlines[gw])
+        snapshot = _snapshot_for_deadline(index, season, gw, deadlines[gw])
         if snapshot["status"] != "selected":
             gameweeks[str(gw)] = {
                 "snapshot": snapshot,
@@ -342,32 +357,38 @@ def audit_season(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source-2025-26", type=Path, required=True)
-    parser.add_argument("--source-2026-27", type=Path, required=True)
-    parser.add_argument("--fplcache-2025-26", type=Path, required=True)
-    parser.add_argument("--fplcache-2026-27", type=Path, required=True)
-    parser.add_argument("--fplcache-2025-26-commit", required=True)
-    parser.add_argument("--fplcache-2026-27-commit", required=True)
+    parser.add_argument(
+        "--season-config", type=Path, required=True,
+        help="JSON mapping season to {max_gameweek, source_path}.",
+    )
+    parser.add_argument("--fplcache-root", type=Path, required=True)
+    parser.add_argument("--fplcache-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--detail-output", type=Path, required=True)
     args = parser.parse_args()
+    config = json.loads(args.season_config.read_text(encoding="utf-8"))
+    if not isinstance(config, dict) or not config:
+        raise ValueError("Season config must be a non-empty JSON object")
     token = os.environ.get("GITHUB_TOKEN")
-    reports = {
-        "2025-26": audit_season(
-            "2025-26", 38, args.source_2025_26, args.fplcache_2025_26,
-            args.fplcache_2025_26_commit, token,
-        ),
-        "2026-27": audit_season(
-            "2026-27", 10, args.source_2026_27, args.fplcache_2026_27,
-            args.fplcache_2026_27_commit, token,
-        ),
-    }
+    reports = {}
+    for season, settings in config.items():
+        if not isinstance(settings, dict):
+            raise ValueError(f"Invalid season config for {season}")
+        source_path = Path(settings["source_path"])
+        max_gameweek = int(settings["max_gameweek"])
+        if max_gameweek < 1 or max_gameweek > 50:
+            raise ValueError(f"Invalid max_gameweek for {season}: {max_gameweek}")
+        reports[season] = audit_season(
+            season, max_gameweek, source_path, args.fplcache_root,
+            args.fplcache_commit, token,
+        )
     report = {
         "status": "POINT_IN_TIME_SOURCE_VINTAGE_AUDIT_COMPLETE",
         "source_repository": "vaastav/Fantasy-Premier-League",
         "commit_selection_rule": "latest merged_gw.csv commit strictly before official deadline minus five minutes",
+        "season_snapshot_scoping": "snapshot index restricted to capture dates from June 1 of the season start year through June 30 of the following year; payload season label verified",
         "match_availability_rule": "fixture kickoff + 24 hours; strict availability < target deadline",
-        "fplcache_snapshot_rule": "latest archived bootstrap snapshot at least five minutes before deadline",
+        "fplcache_snapshot_rule": "latest archived bootstrap snapshot from the same season at least five minutes before deadline; no cross-season snapshot fallback",
         "labels_read": False,
         "target_points_loaded": False,
         "total_points_loaded": False,
