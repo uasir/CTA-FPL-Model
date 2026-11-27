@@ -151,6 +151,30 @@ class UnderstatGitHistoryTests(unittest.TestCase):
             "2024-25|Arsenal|2024-08-17 14:00:00|h",
         )
 
+
+    def test_team_row_key_excludes_previous_season_rows_like_dastan(self):
+        source_path = "data/2024-25/understat/understat_Arsenal.csv"
+        self.assertEqual(
+            _row_key({"date": "2024-05-19 15:00:00", "h_a": "h"},
+                     "team", source_path=source_path),
+            "",
+        )
+        self.assertEqual(
+            _row_key({"date": "2024-07-01 00:00:00", "h_a": "h"},
+                     "team", source_path=source_path),
+            "2024-25|Arsenal|2024-07-01 00:00:00|h",
+        )
+        self.assertEqual(
+            _row_key({"date": "2025-06-30 23:59:59", "h_a": "a"},
+                     "team", source_path=source_path),
+            "2024-25|Arsenal|2025-06-30 23:59:59|a",
+        )
+        self.assertEqual(
+            _row_key({"date": "2025-07-01 00:00:00", "h_a": "a"},
+                     "team", source_path=source_path),
+            "",
+        )
+
     def test_team_row_key_rejects_missing_team_source_identity(self):
         with self.assertRaises(ValueError):
             _row_key({"date": "2024-08-17 14:00:00", "h_a": "h"}, "team")
