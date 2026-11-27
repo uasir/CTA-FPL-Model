@@ -101,7 +101,11 @@ def validate_feature_group_manifest(
                 "2022-23": "UNAVAILABLE", "2023-24": "UNAVAILABLE",
                 "2024-25": "UNAVAILABLE", "2025-26": "AVAILABLE",
             }
-            if season_policy != expected_legacy:
+            legacy_policy = {
+                season: state for season, state in season_policy.items()
+                if season != "2026-27"
+            }
+            if legacy_policy != expected_legacy:
                 raise ValueError("Defensive source-availability policy does not match pinned vintages")
             if season_policy.get("2026-27", "UNKNOWN") != "UNKNOWN":
                 raise ValueError("2026/27 defensive source availability must remain UNKNOWN")
