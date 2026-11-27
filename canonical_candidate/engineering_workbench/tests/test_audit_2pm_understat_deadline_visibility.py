@@ -56,8 +56,8 @@ class UnderstatDeadlineVisibilityTests(unittest.TestCase):
 
     def test_strict_five_minute_cutoff_excludes_equal_or_later_commit(self):
         events = [
-            {"commit": "a", "committed_at": "2023-03-04T10:55:00Z", "status": "present"},
-            {"commit": "b", "committed_at": "2023-03-04T10:55:01Z", "status": "present"},
+            {"commit": "a", "committed_at": "2023-03-04T10:54:59Z", "status": "present"},
+            {"commit": "b", "committed_at": "2023-03-04T10:55:00Z", "status": "present"},
         ]
         deadline = datetime(2023, 3, 4, 11, 0, tzinfo=timezone.utc)
         state = _latest_state_before_deadline(events, deadline)
