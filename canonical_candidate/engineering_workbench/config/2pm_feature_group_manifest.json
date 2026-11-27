@@ -1,5 +1,5 @@
 {
-  "manifest_version": "1.5.0",
+  "manifest_version": "1.6.0",
   "model": "2PM",
   "status": "CANDIDATE_NOT_FROZEN",
   "description": "Explicit feature grouping for the independent PaperTwoComponentPoissonTransformer. Group membership is not feature admission.",
@@ -1349,5 +1349,67 @@
         "opp_xga_5"
       ]
     }
+  },
+  "scoring_regime_contract": {
+    "version": "1.0.0",
+    "regime_by_season": {
+      "legacy_no_defensive_contribution_points": [
+        "2020-21",
+        "2021-22",
+        "2022-23",
+        "2023-24",
+        "2024-25"
+      ],
+      "defensive_contribution_v1": [
+        "2025-26",
+        "2026-27"
+      ]
+    },
+    "regimes": {
+      "legacy_no_defensive_contribution_points": {
+        "code": 0,
+        "defensive_contribution_fpl_points": false
+      },
+      "defensive_contribution_v1": {
+        "code": 1,
+        "defensive_contribution_fpl_points": true,
+        "defender": {
+          "action_fields": [
+            "clearances_blocks_interceptions",
+            "tackles"
+          ],
+          "threshold": 10,
+          "award_points": 2,
+          "maximum_award_points_per_match": 2
+        },
+        "midfielder_forward": {
+          "action_fields": [
+            "clearances_blocks_interceptions",
+            "tackles",
+            "recoveries"
+          ],
+          "threshold": 12,
+          "award_points": 2,
+          "maximum_award_points_per_match": 2
+        },
+        "reported_award_field": {
+          "source_field": "defensive_contribution",
+          "role": "official defensive-contribution award recorded for the match; outcome field, not an action-count component"
+        }
+      }
+    },
+    "sources": [
+      {
+        "title": "Premier League: What's new for 2025/26",
+        "published": "2025-08-10",
+        "url": "https://www.premierleague.com/en/news/4373187"
+      },
+      {
+        "title": "Premier League: How defensive contribution points work; confirmed for 2026/27",
+        "published": "2026-07-20",
+        "url": "https://www.premierleague.com/en/news/4361991/whats-new-in-202526-fantasy-defensive-contributions"
+      }
+    ],
+    "policy": "The regime identifies the official target-point rules used for each season. It is separate from feature-source availability: a season can have a known scoring regime while its raw feature source remains UNKNOWN."
   }
 }
