@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
 import unittest
@@ -66,9 +67,14 @@ class UnderstatInventoryTests(unittest.TestCase):
             fallback.write_text('[{"date":"2024-01-01","xG":0.1}]')
             team = raw / "vaastav" / "understat" / "teams" / "2024-25" / "understat_Arsenal.csv"
             team.write_text("date,xG\n2024-01-01,1.2\n")
+            pinned_hash = hashlib.sha256(pinned.read_bytes()).hexdigest()
             (raw / "downloads.json").write_text(json.dumps({
                 "created_at": "2026-11-27T00:00:00Z",
-                "files": {}
+                "files": {
+                    "vaastav/understat/players/10.csv": {
+                        "bytes": pinned.stat().st_size, "sha256": pinned_hash
+                    }
+                }
             }))
             report = build_inventory(raw, dastan, ["2024-25"])
             self.assertEqual(
@@ -76,6 +82,7 @@ class UnderstatInventoryTests(unittest.TestCase):
                 {10: "pinned_player_csv", 20: "live_player_fallback"},
             )
             self.assertEqual(report["teams"][0]["source_kind"], "pinned_team_csv")
+            self.assertTrue(report["players"][0]["manifest_hash_matches"])
             self.assertFalse(report["historical_publication_vintage_claim"])
             self.assertEqual(report["admission_decision"], "NO_FEATURES_ADMITTED")
 
