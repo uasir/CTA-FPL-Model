@@ -155,6 +155,25 @@ def validate_feature_group_manifest(
         raise ValueError("Every feature must remain HOLD in the admission register")
     if manifest.get("require_source_observed_sidecars") is not True:
         raise ValueError("Production 2PM masks must require pre-fill source observation sidecars")
+    vintage_policies = manifest.get("source_vintage_policies", {})
+    understat_policy = vintage_policies.get("understat", {})
+    understat_features = tuple(understat_policy.get("feature_order", ()))
+    expected_understat = tuple(
+        name for name in schema_order
+        if name.startswith(("player_xg_", "player_xa_", "player_shots_", "player_key_passes_"))
+        or name.startswith((
+            "team_xg_", "team_xga_", "team_deep_", "team_deep_allowed_",
+            "team_ppda_", "opp_xg_", "opp_xga_", "opp_deep_",
+            "opp_deep_allowed_", "opp_ppda_",
+        ))
+    )
+    if (
+        understat_policy.get("status") != "HOLD"
+        or understat_policy.get("mask_action") != "FORCE_UNOBSERVED"
+        or understat_policy.get("feature_count") != 100
+        or understat_features != expected_understat
+    ):
+        raise ValueError("Understat source-vintage HOLD policy must cover the exact 100-feature inventory")
     pins = manifest.get("source_pins", {})
     for source_name in ("dastan", "vaastav", "fplcache"):
         pin = pins.get(source_name, {})
