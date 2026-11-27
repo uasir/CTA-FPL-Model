@@ -365,3 +365,27 @@ Next work:
 - Audit 2025/26 live Understat fallback sources separately; they have no pinned Vaastav Git history and their historical publication vintage remains UNKNOWN.
 
 No feature is admitted: all 152 Understat features remain HOLD, candidate remains NOT_ADMITTED, and training remains unauthorized.
+
+
+### Strict player-to-FPL fixture membership reconciliation (2026-11-27)
+
+The existing deadline audit mapped player-history rows to FPL fixtures using the Understat match date and home/away teams, but it did not independently prove that the Understat player ID was attached to an FPL player row for that season/Gameweek. A dedicated check is now implemented in `scripts/audit_2pm_understat_player_fixture_membership.py`.
+
+The implementation was checked against the exact pinned Dastan source:
+- Dastan commit: `758db9247e8b3a9a870c991064f74d8339d61cd0`.
+- The player assignment artifact is `data/mappings/fpl_understat_training_assignments.csv`, keyed by season and stable `fpl_code`, with explicit `understat_id`, `first_gameweek`, and `last_gameweek`.
+- The exact eight FPL-to-Understat club aliases are copied from the pinned `dastan/rebuild/features.py` contract already used by the companion fixture audit.
+- The pinned Dastan canonical player-row path uses `merged_gw.csv` position rows, joins `players_raw.csv` `id` to stable `code`, applies the assignment Gameweek interval, and deduplicates by season/fixture/FPL code. The new helper mirrors those rules before validating player membership.
+
+A player row is accepted only when:
+1. Its season and Understat ID resolve to a unique fixture using the pinned FPL calendar, match date, and both team identities.
+2. The Understat date exactly equals the pinned FPL UTC kickoff date. A one-day date-tolerance result is reported as a candidate only, never accepted as a corrected date.
+3. Exactly one FPL player-fixture row carries that Understat ID under the pinned Dastan assignment interval.
+
+Missing FPL player-fixture rows, shared/ambiguous Understat assignments, duplicate fixture candidates, date-tolerance candidates, invalid seasons, and rows outside the audited seasons are reported separately. Team-row mapping and the sampled date-correction comparison remain in `audit_2pm_understat_deadline_visibility.py`; the new helper adds the missing player-identity membership check rather than replacing that audit.
+
+Regression coverage includes exact player/fixture membership, assignment-interval enforcement, missing player rows, shared Understat IDs, double-gameweek fixture selection, duplicate fixture ambiguity, one-day date-tolerance rejection, and out-of-scope seasons. Engineering CI run [46055883425](https://github.com/uasir/CTA-FPL-Model/actions/runs/46055883425) passed for the helper and tests (commit `d3b31dea933e257c117b230b801d987abddb1c77`).
+
+The bounded 18-path smoke workflow now runs this player-membership audit after the existing fixture/deadline audit and uploads its JSON/CSV outputs. The workflow run for commit `d6ebaa6a4a25f7e296fb3eb0670c4df3210196c9` was pending when this note was written; no real-source player-membership counts are claimed yet. The smoke covers the pinned Vaastav seasons 2020/21–2024/25; 2025/26 live Understat fallback remains a separate UNKNOWN-vintage source.
+
+This remains provenance/identity research only. No feature values, masks, tensors, model settings, or training data were changed. All 152 Understat features remain HOLD, candidate NOT_ADMITTED, and training unauthorized.
