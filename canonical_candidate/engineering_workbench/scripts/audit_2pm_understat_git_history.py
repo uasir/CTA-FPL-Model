@@ -112,13 +112,25 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
                         "first_seen_commit": sha, "first_seen_at": committed_at,
                         "first_value_signature": signature, "latest_value_signature": signature,
                         "latest_commit": sha, "latest_at": committed_at,
-                        "value_revision_count": 0,
+                        "last_seen_commit": sha, "last_seen_at": committed_at,
+                        "value_revision_count": 0, "missing_revision_count": 0,
+                        "reappearance_count": 0, "present_in_latest_revision": True,
                     }
-                elif previous["latest_value_signature"] != signature:
-                    previous["value_revision_count"] += 1
-                    previous["latest_value_signature"] = signature
-                    previous["latest_commit"] = sha
-                    previous["latest_at"] = committed_at
+                else:
+                    if not previous["present_in_latest_revision"]:
+                        previous["reappearance_count"] += 1
+                    previous["last_seen_commit"] = sha
+                    previous["last_seen_at"] = committed_at
+                    previous["present_in_latest_revision"] = True
+                    if previous["latest_value_signature"] != signature:
+                        previous["value_revision_count"] += 1
+                        previous["latest_value_signature"] = signature
+                        previous["latest_commit"] = sha
+                        previous["latest_at"] = committed_at
+            for key, previous in row_history.items():
+                if key not in current:
+                    previous["missing_revision_count"] += 1
+                    previous["present_in_latest_revision"] = False
             if duplicate_keys:
                 raise ValueError(
                     f"{len(duplicate_keys)} duplicate row keys in {source_path} at {sha}; "
