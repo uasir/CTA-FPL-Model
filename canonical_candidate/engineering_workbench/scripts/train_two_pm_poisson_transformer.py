@@ -28,7 +28,7 @@ from two_pm_fold_preprocessing import (
     fit_fold_median_imputer,
     apply_fold_median_imputer,
 )
-from two_pm_feature_masks import build_feature_availability_state
+from two_pm_feature_masks import apply_manifest_feature_policies
 
 SEASONS = ("2020-21", "2021-22", "2022-23", "2023-24", "2024-25")
 VALIDATION_SEASONS = SEASONS[1:]
@@ -56,42 +56,6 @@ def load_grouped_dataset(root: Path, schema_path: Path, manifest_path: Path):
     if set(common) & set(defensive) or set(common) | set(defensive) != set(feature_order):
         raise ValueError("Feature manifest does not partition the schema")
     indices = np.asarray([feature_order.index(name) for name in common], dtype=np.int64)
-
-    # Enforce manifest-level source-vintage HOLD policies again at load time.
-    # This protects already-built artifacts when a policy is tightened later;
-    # a stale observed-value sidecar cannot override a current HOLD decision.
-    policy_features: set[str] = set()
-    for policy_name, policy in manifest.get("source_vintage_policies", {}).items():
-        names = policy.get("feature_order", [])
-        if not isinstance(names, list) or len(names) != len(set(names)):
-            raise ValueError(f"Invalid or duplicate source-vintage feature list: {policy_name}")
-        declared_count = policy.get("feature_count")
-        if declared_count is not None and declared_count != len(names):
-            raise ValueError(f"Source-vintage feature count mismatch: {policy_name}")
-        unknown = set(names) - set(feature_order)
-        if unknown:
-            raise ValueError(f"Source-vintage policy references features outside schema: {sorted(unknown)}")
-        overlap = policy_features.intersection(names)
-        if overlap:
-            raise ValueError(f"Overlapping source-vintage policies: {sorted(overlap)}")
-        status = policy.get("status")
-        action = policy.get("mask_action")
-        if status != "HOLD" or action != "FORCE_UNOBSERVED":
-            raise ValueError(
-                f"Unsupported source-vintage policy {policy_name}: {status}/{action}; "
-                "training loader only accepts HOLD/FORCE_UNOBSERVED until row-level masks are implemented."
-            )
-        policy_features.update(names)
-    vintage_indices = np.asarray(
-        [i for i, name in enumerate(feature_order) if name in policy_features],
-        dtype=np.int64,
-    )
-    season_availability = {}
-    if manifest.get("feature_source_availability"):
-        for season in SEASONS:
-            season_availability[season] = build_feature_availability_state(
-                season, feature_order, manifest
-            )
 
     tensor_root = root / "postmatch-grouped-dataset" / "player_gameweek_tensors"
     samples: list[tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]] = []
@@ -126,12 +90,20 @@ def load_grouped_dataset(root: Path, schema_path: Path, manifest_path: Path):
             raise ValueError(f"Structurally unavailable values marked observed in {metadata_path}")
         if np.any((observed_full == 1) & ~np.isfinite(x)):
             raise ValueError(f"Non-finite values marked observed in {metadata_path}")
-        if vintage_indices.size:
-            observed_full[..., vintage_indices] = 0
         if x.shape != (len(metadata), fixture_mask.shape[1], 6, 286):
             raise ValueError(f"Unexpected X shape in {x_path}: {x.shape}")
         if len(metadata) != len(y) or fixture_mask.shape[0] != len(y):
             raise ValueError(f"Shard row counts disagree: {metadata_path}")
+        shard_seasons = {row["season"] for row in metadata}
+        if len(shard_seasons) != 1:
+            raise ValueError(f"Each tensor shard must contain one season only: {metadata_path}")
+        observed_full, availability_full = apply_manifest_feature_policies(
+            observed_full,
+            availability_full,
+            next(iter(shard_seasons)),
+            feature_order,
+            manifest,
+        )
         for i, row in enumerate(metadata):
             season = row["season"]
             if season not in SEASONS:
@@ -143,14 +115,6 @@ def load_grouped_dataset(root: Path, schema_path: Path, manifest_path: Path):
             # observation from finiteness: upstream pipelines may zero-fill.
             observed = observed_full[i][:, :, indices].astype(bool, copy=True)
             availability = availability_full[i][:, :, indices].astype(np.int64, copy=True)
-            # Reconcile resolved structural states from the current manifest.
-            # UNKNOWN leaves the artifact state intact; UNAVAILABLE/AVAILABLE
-            # are authoritative for the pinned source-availability contract.
-            current_state = season_availability.get(season)
-            if current_state is not None:
-                selected_state = current_state[indices]
-                resolved = selected_state != 2
-                availability[:, :, resolved] = selected_state[resolved]
             # Padded fixture slots are not real queries and carry no observations.
             values[~fixture_mask[i]] = np.nan
             observed[~fixture_mask[i]] = False
