@@ -5,10 +5,42 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from audit_2pm_understat_git_history import _get_text, _row_key, audit_file, list_path_commits
+from audit_2pm_understat_git_history import (
+    _get_text, _row_key, _row_signature, audit_file,
+    find_date_correction_candidates, list_path_commits,
+)
 
 
 class UnderstatGitHistoryTests(unittest.TestCase):
+
+    def test_structured_ppda_cells_are_compared_semantically(self):
+        first = _row_signature({"date": "2020-09-19", "ppda": "{'def': 17, 'att': 217}"})
+        reordered = _row_signature({"date": "2020-09-19", "ppda": "{'att': 217, 'def': 17}"})
+        changed = _row_signature({"date": "2020-09-19", "ppda": "{'att': 218, 'def': 17}"})
+        self.assertEqual(first, reordered)
+        self.assertNotEqual(first, changed)
+
+    def test_removed_and_current_rows_matching_except_date_are_flagged(self):
+        old_row = {"date": "2023-03-02 20:00:00", "scored": "4", "missed": "0",
+                   "h_a": "h", "xG": "3.06919", "ppda": "{'att': 130, 'def': 17}"}
+        new_row = {"date": "2023-03-01 20:00:00", "scored": "4", "missed": "0",
+                   "h_a": "h", "xG": "3.06919", "ppda": "{'def': 17, 'att': 130}"}
+        history = {
+            "2022-23|Arsenal|2023-03-02 20:00:00": {
+                "present_in_latest_revision": False,
+                "latest_value_signature": _row_signature(old_row),
+            },
+            "2022-23|Arsenal|2023-03-01 20:00:00": {
+                "present_in_latest_revision": True,
+                "latest_value_signature": _row_signature(new_row),
+            },
+        }
+        candidates = find_date_correction_candidates(history)
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0]["old_date"], "2023-03-02 20:00:00")
+        self.assertEqual(candidates[0]["new_date"], "2023-03-01 20:00:00")
+        self.assertEqual(candidates[0]["evidence"], "exact_non_date_value_match")
+
     def test_player_row_key_uses_mapped_understat_id(self):
         self.assertEqual(
             _row_key({"date": "2024-01-01", "id": 1234}, "player", 987),
