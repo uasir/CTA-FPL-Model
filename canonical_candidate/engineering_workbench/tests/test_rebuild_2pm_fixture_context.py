@@ -132,3 +132,7 @@ def test_missing_defensive_stats_do_not_become_zero_or_partial_opponent_totals()
     assert pd.isna(result.loc[0, "ar_opp_dc_allowed_3"])
     assert not pd.isna(result.loc[0, "ar_opp_tackles_allowed_5"])
     assert result.loc[0, "ar_opp_tackles_allowed_5"] == 6
+    assert result.loc[0, "__observed__ar_opp_dc_allowed_3"] == 0
+    assert result.loc[0, "__observed__ar_opp_tackles_allowed_5"] == 1
+    assert result.loc[0, "__observed__ar_rest_days"] == 1
+    assert result.loc[0, "__observed__ar_team_matches_14d"] == 1
