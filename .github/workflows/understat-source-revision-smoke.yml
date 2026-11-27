@@ -75,13 +75,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          python scripts/audit_2pm_understat_git_history.py \\
-            --inventory "$RUNNER_TEMP/understat-smoke-inventory.json" \\
-            --pinned-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" \\
-            --cache-dir "$RUNNER_TEMP/understat-revision-cache" \\
-            --max-commits-per-file 100 \\
-            --limit-player-files 8 \\
-            --limit-team-files 10 \\
+          python scripts/audit_2pm_understat_git_history.py \
+            --inventory "$RUNNER_TEMP/understat-smoke-inventory.json" \
+            --pinned-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" \
+            --cache-dir "$RUNNER_TEMP/understat-revision-cache" \
+            --max-commits-per-file 100 \
+            --limit-player-files 8 \
+            --limit-team-files 10 \
             --output "$RUNNER_TEMP/understat-revision-history.json"
 
       - name: Validate multi-player and multi-club source histories
@@ -106,7 +106,7 @@ jobs:
               assert len(result["commit_rows"]) == result["commit_count_returned"], result
               assert result["row_history"], result
               if result["source_kind"] == "pinned_player_csv":
-                  match = re.search(r"_(\\d+)\\.csv$", result["source_path"])
+                  match = re.search(r"_(\d+)\.csv$", result["source_path"])
                   assert match, result
                   expected = match.group(1) + "|"
                   assert all(key.startswith(expected) for key in result["row_history"]), result
