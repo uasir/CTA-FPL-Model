@@ -22,9 +22,9 @@ Keep the existing 286-column ordered feature contract as the raw candidate found
 
 ### 2.1 Common candidate features
 
-The common group is the 286-column schema minus the 26 defensive-regime-dependent engineered features listed below. A feature remains subject to its own source-vintage and temporal-admission gate; “common” does not mean “admitted”.
+The common group is the 286-column schema minus the 27 defensive-regime-dependent engineered features listed below. A feature remains subject to its own source-vintage and temporal-admission gate; “common” does not mean “admitted”.
 
-### 2.2 Defensive-regime-dependent engineered features (26)
+### 2.2 Defensive-regime-dependent engineered features (27)
 
 - `ar_defensive_contribution_{3,5,10,38}`
 - `ar_cbit_{3,5,10,38}`
@@ -36,7 +36,7 @@ The common group is the 286-column schema minus the 26 defensive-regime-dependen
 - `ar_opp_dc_allowed_{3,5,10}`
 - `ar_opp_tackles_allowed_5`
 
-The four upstream FPL defensive source fields (`defensive_contribution`, `clearances_blocks_interceptions`, `recoveries`, `tackles`) are provenance/source fields, not additional columns in the current 286 input schema. Their mapping into engineered features must be documented and tested. Do not count them twice in the 286-feature group manifest.
+The schema inventory contains 27 such columns. The implementation status separately describes 26 defensive/player-history engineered features plus six fixture-specific context features; that accounting uses a different feature-family partition and must be reconciled against this explicit schema-level list before implementation. Do not silently force the two counts to agree.\n\nThe four upstream FPL defensive source fields (`defensive_contribution`, `clearances_blocks_interceptions`, `recoveries`, `tackles`) are provenance/source fields, not additional columns in the current 286 input schema. Their mapping into engineered features must be documented and tested. Do not count them twice in the 286-feature group manifest.
 
 ### 2.3 Other structural and row-level missingness
 
@@ -98,7 +98,7 @@ If historical event data is later used to create a counterfactual common-scoring
 ## 6. Required implementation and test gates
 
 Before training is authorized, implement and test:
-1. A versioned 286-feature group manifest with exactly 26 defensive-regime-dependent engineered columns and no duplicate/missing names.
+1. A versioned 286-feature group manifest with exactly 27 defensive-regime-dependent engineered columns and no duplicate/missing names.
 2. Structural feature-availability masks that are season/source-vintage driven and distinct from observed-value masks.
 3. Tests proving that an observed zero has mask 1, a structurally unavailable historical value has availability mask 0, and a sporadic missing value is not converted into an observed zero.
 4. Fixed-width tensor contract and schema/order/hash validation for values, observation masks, and regime identifiers.
