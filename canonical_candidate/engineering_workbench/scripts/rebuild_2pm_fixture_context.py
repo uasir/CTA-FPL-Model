@@ -912,7 +912,10 @@ def rebuild_fixture_context(
     for column, array in values.items():
         out[column] = array
         out[f"{OBSERVED_PREFIX}{column}"] = np.isfinite(array).astype(np.uint8)
-    out[f"{OBSERVED_PREFIX}ar_rest_days"] = np.ones(len(out), dtype=np.uint8)
+    # The 14-day value is a fallback when no prior fixture is safely available.
+    out[f"{OBSERVED_PREFIX}ar_rest_days"] = (
+        rest_join["prior_kickoff_time"].notna().to_numpy(dtype=np.uint8)
+    )
     out[f"{OBSERVED_PREFIX}ar_team_matches_14d"] = np.ones(len(out), dtype=np.uint8)
 
     multi_fixture_groups = (
