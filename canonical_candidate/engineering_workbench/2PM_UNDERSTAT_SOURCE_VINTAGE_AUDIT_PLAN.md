@@ -78,3 +78,15 @@ Summary coverage must be reported by season, deadline, player/team, feature and 
 - Do not alter the 286-feature schema, tensor values, masks, or training configuration as part of the audit.
 - All 152 Understat-derived features remain HOLD until row-level vintage, join integrity, missingness, and field-level value parity are independently reviewed.
 - Candidate remains NOT_ADMITTED and training remains unauthorized.
+
+## Implemented first-stage inventory
+
+The repository now contains `scripts/inventory_2pm_understat_sources.py`. It mirrors the pinned Dastan selection rule for latest player CSV paths, inventories the exact local player and team files, distinguishes pinned CSVs from live fallback JSONs and missing sources, and compares local file hashes with the Dastan `downloads.json` manifest where available.
+
+The workflow runs this inventory after source restoration and publishes:
+- `understat_source_inventory.json`
+- `understat_source_inventory.csv`
+
+Unit tests cover latest-player-path selection, team-file selection (excluding the aggregate player CSV), and pinned-versus-live fallback classification.
+
+**Execution status:** code and workflow integration are committed, but the workflow has not yet been dispatched and the inventory has not yet run against the six-season restored source cache. This first-stage inventory does not inspect Git history row-by-row and cannot establish historical deadline eligibility. The next implementation stage must add commit-history/value-revision tracing for each player/team match key. No feature admission or training authorization changes.
