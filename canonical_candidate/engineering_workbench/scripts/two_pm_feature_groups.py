@@ -83,6 +83,37 @@ def validate_feature_group_manifest(
     if not {"ar_rest_days", "ar_team_matches_14d"}.issubset(fixture_context):
         raise ValueError("Fixture-context accounting must include schedule columns")
 
+    availability = manifest.get("feature_source_availability", {})
+    if availability.get("state_codes") != {"UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2}:
+        raise ValueError("Feature availability state codes must be 0/1/2")
+    if availability.get("default_state") != "UNKNOWN":
+        raise ValueError("Unspecified feature availability must remain UNKNOWN")
+    availability_groups = availability.get("groups", {})
+    if set(availability_groups) - set(groups):
+        raise ValueError("Availability policy references an unknown feature group")
+    for group_name, season_policy in availability_groups.items():
+        valid_states = {"UNAVAILABLE", "AVAILABLE", "UNKNOWN"}
+        if any(value not in valid_states for value in season_policy.values()):
+            raise ValueError(f"Invalid availability state in policy for {group_name}")
+        if group_name == "defensive_regime_dependent":
+            expected_legacy = {
+                "2020-21": "UNAVAILABLE", "2021-22": "UNAVAILABLE",
+                "2022-23": "UNAVAILABLE", "2023-24": "UNAVAILABLE",
+                "2024-25": "UNAVAILABLE", "2025-26": "AVAILABLE",
+            }
+            if season_policy != expected_legacy:
+                raise ValueError("Defensive source-availability policy does not match pinned vintages")
+            if season_policy.get("2026-27", "UNKNOWN") != "UNKNOWN":
+                raise ValueError("2026/27 defensive source availability must remain UNKNOWN")
+
+    sentinel_features = set(manifest.get("snapshot_missing_sentinel_features", []))
+    expected_sentinels = {
+        "ar_ep_next", "sig_status_risk", "sig_chance_playing", "sig_has_news",
+        "value", "selected", "transfers_balance",
+    }
+    if sentinel_features != expected_sentinels or not sentinel_features.issubset(schema_order):
+        raise ValueError("Missing-snapshot sentinel feature inventory changed")
+
     return {
         "common_candidate": common,
         "defensive_regime_dependent": defensive,
