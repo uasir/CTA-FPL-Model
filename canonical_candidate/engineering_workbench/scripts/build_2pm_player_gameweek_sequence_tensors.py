@@ -431,6 +431,10 @@ def build_player_gameweek_sequence_tensors(
                 source_observed_tensor if use_sidecars else None
             ),
         )
+        # Missingness is authoritative: do not leave finite zero-filled or
+        # source-vintage-unverified values in X for the model to consume.
+        sample_tensor = tensor_buffer[sample_index, :len(group), :, :]
+        sample_tensor[sample_observed == 0] = np.nan
         availability_buffer[sample_index, :len(group), :, :] = sample_availability
         observed_buffer[sample_index, :len(group), :, :] = sample_observed
         if target_mode == "historical":
