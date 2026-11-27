@@ -511,3 +511,23 @@ The focused **2PM Dastan 286 sequence-contract workflow passed** on commit `6da7
 The full CTA FPL engineering CI also passed on `07843aae55e1363ea913c3bc8a18e927c59ba6d6` (run `45959619546`): **569 passed, 4 skipped, 3 subtests passed**.
 
 The subsequent manifest-only commit `3410a79f64825ceb0538d255187960d657dc6609` adds exact pinned-source references for the seven missing-snapshot sentinel fields; it does not change executable behavior. No candidate rebuild, tensor augmentation, feature admission, or model training has been performed.
+
+
+### Full 286-column feature-family inventory (2026-11-27)
+
+The manifest now includes a feature-family and reconstruction-treatment inventory extracted from the admission register and checked against the pinned 286-column schema. All 286 feature names appear exactly once in each partition; every feature remains HOLD.
+
+| Feature family | Columns |
+|---|---:|
+| Player rolling | 115 |
+| Own-team rolling | 60 |
+| Opponent rolling | 60 |
+| Flat context | 6 |
+| Availability history | 9 |
+| Dastan engineered/context | 33 |
+| Pre-deadline availability | 3 |
+| **Total** | **286** |
+
+The separate reconstruction-treatment partition also covers all 286 columns: 141 player-history rebuild, 60 own-team post-match rebuild, 64 opponent post-match rebuild, 1 fixture-context retained, 2 rank post-match rebuild, 7 historical pre-match snapshot retained, 9 availability-history rebuild, and 2 pre-match fixture-context retained.
+
+These are two orthogonal inventories: semantic feature family and reconstruction treatment. Neither implies point-in-time source availability or admission. The feature-group validator now checks that both partitions cover the schema exactly once and that the register remains ALL_HOLD.
