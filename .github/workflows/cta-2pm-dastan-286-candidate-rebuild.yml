@@ -166,6 +166,7 @@ jobs:
             --season-config "$RUNNER_TEMP/2pm-fpl-vintage-season-config.json" \
             --fplcache-root "$RUNNER_TEMP/2pm-dastan-raw/fplcache" \
             --fplcache-commit "6c364bfbd9914649dc5dec016e544be3ae4fe767" \
+            --vaastav-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" \
             --output "$RUNNER_TEMP/2pm-dastan-candidate/point_in_time_source_vintage_audit.json" \
             --detail-output "$RUNNER_TEMP/2pm-dastan-candidate/point_in_time_source_vintage_audit.csv"
       - name: Enforce official-deadline snapshot safety on candidate features
@@ -282,7 +283,7 @@ jobs:
               vintage_path = Path(os.environ["VINTAGE_REPORT_PATH"])
               if vintage_path.exists():
                   vintage = json.loads(vintage_path.read_text())
-                  lines.append("- Six-season FPL-native defensive source-vintage audit (per Gameweek deadline):")
+                  lines.append("- Six-season FPL-native and defensive source-vintage audit (per Gameweek deadline):")
                   for season, values in vintage.get("seasons", {}).items():
                       weeks = values.get("gameweeks", {})
                       selected = sum(
