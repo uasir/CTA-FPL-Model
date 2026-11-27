@@ -588,12 +588,16 @@ def forward_player_gameweek_batch(
     model,
     inputs,
     fixture_mask,
+    observed_mask,
+    availability_state,
+    scoring_regime,
     targets=None,
 ) -> dict[str, Any]:
     """Run one Transformer query per fixture and aggregate to player-Gameweek grain.
 
-    inputs: [batch, target_fixture, 6, 286]
+    inputs, observed_mask, availability_state: [batch, target_fixture, 6, features]
     fixture_mask: [batch, target_fixture]
+    scoring_regime: one official scoring-regime code per player-Gameweek [batch]
     targets: optional signed player-Gameweek point totals [batch]
 
     The model is evaluated independently for each fixture query using the same
@@ -614,8 +618,18 @@ def forward_player_gameweek_batch(
     if mask.shape != (batch_size, fixture_count) or not mask.any(dim=1).all():
         raise ValueError("fixture_mask must select at least one fixture per player-Gameweek")
 
+    observed = torch.as_tensor(observed_mask, device=values.device)
+    availability = torch.as_tensor(availability_state, device=values.device)
+    if observed.shape != values.shape or availability.shape != values.shape:
+        raise ValueError("observed_mask and availability_state must match inputs")
+    regime = torch.as_tensor(scoring_regime, device=values.device)
+    if regime.shape != (batch_size,):
+        raise ValueError("scoring_regime must have one code per player-Gameweek")
     flat = values.reshape(batch_size * fixture_count, sequence_length, feature_count)
-    flat_output = model(flat)
+    flat_observed = observed.reshape(batch_size * fixture_count, sequence_length, feature_count)
+    flat_availability = availability.reshape(batch_size * fixture_count, sequence_length, feature_count)
+    flat_regime = regime.unsqueeze(1).expand(batch_size, fixture_count).reshape(-1)
+    flat_output = model(flat, flat_observed, flat_availability, flat_regime)
     fixture_output = {
         "p": flat_output["p"].reshape(batch_size, fixture_count),
         "lambda_1": flat_output["lambda_1"].reshape(batch_size, fixture_count),
