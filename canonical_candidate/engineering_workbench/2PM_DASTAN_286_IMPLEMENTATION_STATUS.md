@@ -178,7 +178,7 @@ This builder is implemented but depends on both the six-season historical candid
 - Keeps raw player-level source data, candidate feature frames and tensor shards on the ephemeral runner; only aggregate candidate status is written to the workflow summary.
 - Does not train the 2PM model or promote data.
 
-The six-season rebuild has **not** been executed on this branch. The previously inspected run 80 produced a four-season artifact on a different branch and is not evidence for 2020/21–2025/26 coverage. The current workflow defaults `rebuild_candidate` to false and deliberately stops if no completed six-season candidate cache is restored. Do not report six-season candidate coverage or feature-build success until a six-season run produces and passes its audits.
+The six-season candidate rebuild has now completed on this branch in Run 82 (workflow run `45896384255`, commit `f657055de8694b8b68fdfd4371d0a735007216aa`). The pinned raw-source cache was restored successfully; the candidate cache was absent, so the corrected-identity six-season reconstruction ran and completed in approximately 1 hour 52 minutes. The candidate frame and its structural/snapshot reports were saved to the candidate cache. The run then reached the grouped tensor build but hit the workflow's 120-minute job timeout before all seasons completed. Its 30-day artifact is `15159367608` (`2pm-six-season-tensor-candidate-run-82`); it contains partial Gameweek tensor shards and audit reports, not a complete grouped dataset. The workflow now has a 360-minute timeout and a resumable per-Gameweek tensor cache. Do not treat the candidate as admitted or the partial tensor artifact as complete.
 
 ## Immediate engineering continuation
 
@@ -306,7 +306,7 @@ The next modelling implementation task, after the six-season data and tensor aud
 
 The pinned Dastan source commit `758db9247e8b3a9a870c991064f74d8339d61cd0` declares all six historical seasons as completed and release seasons in `data/season_registry.json`. Its registry reports 163,072 expected release rows across the six seasons and 380 fixtures in each season (2022/23 has 37 Gameweeks but still 380 fixtures). Per-season declared rows are: 2020/21 24,365; 2021/22 25,447; 2022/23 26,505; 2023/24 29,725; 2024/25 27,283; 2025/26 29,747. The pinned Vaastav and fplcache commits are recorded in `data/source_pins.json` (`8c97b2adb123863c3dd581e730f1360e89815ac2` and `6c364bfbd9914649dc5dec016e544be3ae4fe767`).
 
-This verifies that the pinned source release declares the six-season scope and its expected row/fixture coverage. It does **not** verify that the current branch has downloaded or rebuilt those rows, that every feature is point-in-time admissible, or that the 2PM sequence builder emits valid six-season tensors. The only completed tensor artifact previously inspected remains the four-season run 80 on another branch. The current six-season rebuild workflow has not yet been run.
+This verifies that the pinned source release declares the six-season scope and its expected row/fixture coverage. Run 82 has now independently rebuilt all 163,072 player-fixture rows across 2020/21–2025/26, matching the registry's per-season row counts. It does **not** establish feature admission or complete tensor integrity: the grouped tensor job timed out part-way through its Gameweek loop, and the candidate remains explicitly NOT_ADMITTED.
 
 ### Independent-branch CI verification (2026-11-26)
 
@@ -319,3 +319,34 @@ The previously branch-filtered contract workflows have been enabled for this ind
 - Active-season query and post-match inference contract: 7 tests passed (`45879406061`).
 
 These are focused unit/contract checks only. They do not constitute the six-season rebuild, full dataset/tensor audit, feature admission, model training, or OOT evaluation.
+
+
+### Six-season rebuild and audit findings (2026-11-27)
+
+Run 82 (`45896384255`) checked out the SciPy-patched workflow commit `f657055de8694b8b68fdfd4371d0a735007216aa`. The pinned Dastan raw-source cache was restored. The six-season candidate cache was not present, so the workflow reconstructed the candidate from the cached raw sources, passed the reconstruction step, and saved the completed candidate cache. The candidate report confirms:
+
+- 163,072 player-fixture rows across all six seasons, exactly matching the pinned season-registry row counts.
+- 286 ordered features with the expected feature-order hash; all 286 feature families have an explicit reconstruction path.
+- 4,700 player-fixture rows whose fixtures had already started by the official deadline were excluded as forecast targets, leaving 158,372 deadline-eligible player-fixture targets.
+- No duplicate player-fixture keys.
+- 66,640 mapped played-player Understat rows; 79.14% metric coverage across the mapped Understat metrics.
+- Pre-deadline snapshot timestamp checks found zero post-deadline rows and zero rows inside the five-minute safety buffer.
+
+The run's structural and parity diagnostics also expose unresolved admission gates:
+
+- 78 candidate kickoff timestamps disagree with the pinned Vaastav fixture calendar; the calendar is the authority and these rows require reconciliation.
+- The same-player/Gameweek anchor diagnostic found 2,793 groups with differences, confined to five `player_relevant_fpl_points_{1,3,5,10,38}` rolling columns among the 212 player/team/availability/non-fixture-history columns checked. Root cause and row-level parity must be resolved before admission.
+- The retrospective market-value field `value` matched the accepted deadline snapshot exactly on 142,151 paired rows. The `selected` and `transfers_balance` fields did not: their distributions/scales differ substantially. They must not be normalized or admitted based on correlation alone; source semantics and units need resolution.
+- The structural audit counted 10,442,140 non-finite values across 163,072 × 286 candidate cells. Missingness remains explicit; any imputation/scaling must be fitted inside each chronological training fold only.
+- Defensive source fields are structurally absent in the pinned historical source for 2020/21–2024/25 and present in 2025/26. Missing values must not be recoded as observed zeros.
+- Retrospective provider source-vintage validity, opponent/context value parity, direct-rank tie-break parity, and the fixture-specific feature semantics remain open.
+
+The grouped tensor step began after the candidate cache was saved but the job reached its 120-minute timeout while processing the six-season Gameweek sequence. The uploaded artifact contains 105 per-Gameweek reports and 86 Gameweek directories with emitted tensor shards, progressing through 2022/23 GW30; it does not contain the final aggregate tensor report or integrity audit. The candidate rebuild itself succeeded; the tensor build was incomplete due to the workflow time limit, not a data exception.
+
+To make the expensive work resumable, the branch now:
+- reuses completed Gameweek tensor reports only when every declared tensor, fixture-mask, label and metadata shard exists and is non-empty;
+- discards and rebuilds an incomplete Gameweek directory;
+- restores/saves a versioned grouped-tensor cache with a run-specific cache key, preserving completed Gameweeks after an interrupted run;
+- raises the job timeout to 360 minutes.
+
+The resume logic and cache changes are implementation changes only. They do not admit the candidate or authorize training. The next rebuild should use the already saved six-season candidate cache and resume the grouped tensor build from the latest valid per-Gameweek checkpoint. After completion, run the full tensor integrity audit and separately resolve the admission findings above.
