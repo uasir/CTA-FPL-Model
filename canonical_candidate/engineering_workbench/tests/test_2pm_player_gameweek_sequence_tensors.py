@@ -71,8 +71,9 @@ def write_inputs(tmp_path, history, targets):
     }))
     manifest_path = tmp_path / "feature_group_manifest.json"
     manifest_path.write_text(json.dumps({
-        "feature_source_availability": {"state_codes": {"UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2}, "default_state": "UNKNOWN", "groups": {}},
+        "feature_source_availability": {"state_codes": {"UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2}, "default_state": "UNKNOWN", "groups": {"defensive_regime_dependent": {"feature_order": ["feature_000"]}}},
         "snapshot_missing_sentinel_features": [],
+        "feature_groups": {"defensive_regime_dependent": {"feature_order": ["feature_000"]}},
     }))
     return history_path, targets_path, schema_path, manifest_path
 
@@ -328,3 +329,24 @@ def test_accepts_snapshot_exactly_five_minutes_before_deadline(tmp_path):
         label_grain="player_fixture",
     )
     assert report["counts"]["emitted"] == 1
+
+
+def test_tensor_builder_emits_structural_absence_separately_from_numeric_zero(tmp_path):
+    report = build(
+        tmp_path,
+        make_history(season="2024-25"),
+        make_targets(season="2024-25"),
+        target_season="2024-25",
+        target_mode="historical",
+        label_grain="player_fixture",
+    )
+    assert report["counts"]["emitted"] == 1
+    tensor = np.load(tmp_path / "tensors" / "X_player_gw_00000.npy")
+    availability = np.load(tmp_path / "tensors" / "source_availability_state_00000.npy")
+    observed = np.load(tmp_path / "tensors" / "observed_value_mask_00000.npy")
+    # The fixture contains finite numeric values, but the pinned source policy
+    # says this feature was structurally unavailable in 2024/25.
+    assert np.isfinite(tensor[..., 0]).all()
+    assert np.all(availability[..., 0] == 0)
+    assert np.all(observed[..., 0] == 0)
+    assert np.all(availability[..., 1:] == 2)
