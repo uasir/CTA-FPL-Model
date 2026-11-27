@@ -1,5 +1,5 @@
 {
-  "manifest_version": "1.2.0",
+  "manifest_version": "1.3.0",
   "model": "2PM",
   "status": "CANDIDATE_NOT_FROZEN",
   "description": "Explicit feature grouping for the independent PaperTwoComponentPoissonTransformer. Group membership is not feature admission.",
@@ -1094,5 +1094,19 @@
       "Feature-family and reconstruction-treatment partitions are orthogonal to the common/defensive-regime split."
     ]
   },
-  "require_source_observed_sidecars": true
+  "require_source_observed_sidecars": true,
+  "source_pins": {
+    "dastan": {
+      "repository": "qazybekb/smartplayfpl-dastan",
+      "commit": "758db9247e8b3a9a870c991064f74d8339d61cd0"
+    },
+    "vaastav": {
+      "repository": "vaastav/Fantasy-Premier-League",
+      "commit": "8c97b2adb123863c3dd581e730f1360e89815ac2"
+    },
+    "fplcache": {
+      "repository": "Randdalf/fplcache",
+      "commit": "6c364bfbd9914649dc5dec016e544be3ae4fe767"
+    }
+  }
 }
