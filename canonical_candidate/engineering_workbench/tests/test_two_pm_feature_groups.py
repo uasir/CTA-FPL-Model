@@ -35,6 +35,8 @@ def test_reconstruction_family_counts_are_reconciled_without_double_counting():
     assert len(player) == 26
     assert len(fixture) == 6
     assert len(defensive) == 27
+    assert len(player | fixture) == 32
+    assert not player & fixture
     assert len(defensive & player) == 23
     assert len(defensive & fixture) == 4
     assert {"ar_starts_3", "ar_starts_5", "ar_starts_10"} <= player
