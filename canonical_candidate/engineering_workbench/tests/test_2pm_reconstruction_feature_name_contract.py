@@ -88,10 +88,12 @@ def test_exact_reconstruction_names_partition_the_pinned_286_schema():
     assert "historical opponent-of-opponent" in source_map["opp_opponent_league_rank_1"]
     assert "selected_by_percent" in source_map["selected"]
     assert "transfers_in_event - transfers_out_event" in source_map["transfers_balance"]
-    assert "elements[].status" in source_map["sig_status_risk"]
+    assert "pre_deadline_signals.sig_status_risk" in source_map["sig_status_risk"]
+    assert "a=0,d=1,s=2,i=3,u/n=4" in source_map["sig_status_risk"]
+    assert "pre_deadline_signals.sig_chance_playing" in source_map["sig_chance_playing"]
     assert "chance_of_playing_next_round" in source_map["sig_chance_playing"]
-    assert "elements[].news" in source_map["sig_has_news"]
-    assert "pre_deadline_signals.status" not in source_map["sig_status_risk"]
+    assert "pre_deadline_signals.sig_has_news" in source_map["sig_has_news"]
+    assert "news non-empty -> 1.0" in source_map["sig_has_news"]
 
 
 def test_exact_name_validator_rejects_a_builder_schema_name_mismatch():
