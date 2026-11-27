@@ -233,3 +233,19 @@ def test_position_base_rate_fallbacks_are_not_marked_as_player_observations():
             assert result.loc[0, feature] == expected
             assert result.loc[0, f"__observed__{feature}"] == 0
     assert "position-specific base rates" in report["availability_semantics"]
+
+
+def test_rest_days_default_is_unobserved_when_player_has_no_available_prior_fixture():
+    history = pd.DataFrame([row(
+        "2025-26", "target", 100, "T", "O",
+        "2026-01-10", "2026-01-11", 0, 0,
+    )])
+    target = pd.DataFrame([{
+        "season": "2025-26", "gameweek": 20, "fixture": "target", "fpl_code": 100,
+        "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+        "kickoff_time": pd.Timestamp("2026-01-10", tz="UTC"),
+        "team_name": "T", "opponent_team_name": "O",
+    }])
+    result, _ = rebuild_fixture_context(target, history)
+    assert result.loc[0, "ar_rest_days"] == 14
+    assert result.loc[0, "__observed__ar_rest_days"] == 0
