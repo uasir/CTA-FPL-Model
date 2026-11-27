@@ -170,9 +170,9 @@ The team file's first sampled revision (2024-08-15) contained 38 rows dated in 2
 - excludes rows before July 1 of the path season or on/after July 1 of the following year, exactly matching Dastan's season-window filter; and
 - leaves h_a in the row's value signature but not in its identity, so duplicate team/date rows cannot evade the duplicate-key guard by changing home/away.
 
-Regression tests cover both July boundaries, exclusion of a previous-season row, source-path identity, and missing h_a/path failures. CI for commit 64bbecc90cb391d383120aa08e5cbb01e5a5dbe1 passed in run https://github.com/uasir/CTA-FPL-Model/actions/runs/46050586879: **626 passed, 5 skipped, 18 warnings, and 3 subtests passed**.
+Regression tests cover both July boundaries, exclusion of a previous-season row, source-path identity, and failure when the team source path is missing; h_a remains part of the row-value signature, not the row key. CI for commit 64bbecc90cb391d383120aa08e5cbb01e5a5dbe1 passed in run https://github.com/uasir/CTA-FPL-Model/actions/runs/46050586879: **626 passed, 5 skipped, 18 warnings, and 3 subtests passed**.
 
-**Scope:** these five-revision samples validate source schema and row-key assumptions; they do not replace the Python tracer's full path-history execution, exhaustive row-level vintage adjudication, or FPL fixture reconciliation. The tracer has not yet been run end-to-end against a generated six-season inventory artifact. No feature admission or training authorization changes.
+**Scope:** these five-revision samples validate source schema and row-key assumptions; they do not replace exhaustive row-level vintage adjudication or FPL fixture reconciliation. The dedicated two-file Python tracer smoke has now run successfully (see below), but the tracer has not yet been run against a generated six-season inventory artifact. No feature admission or training authorization changes.
 
 ### Resumable revision cache and workflow smoke-test integration (2026-11-27)
 
