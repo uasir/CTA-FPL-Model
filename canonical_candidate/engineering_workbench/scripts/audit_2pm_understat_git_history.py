@@ -95,6 +95,7 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
             digest = hashlib.sha256(payload).hexdigest()
             frame = pd.read_csv(io.BytesIO(payload), low_memory=False).fillna("")
             current: dict[str, str] = {}
+            duplicate_keys: set[str] = set()
             for row in frame.to_dict("records"):
                 key = _row_key(row, kind, player_id)
                 if not key.strip("|"):
@@ -102,6 +103,8 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
                 # Exclude volatile row index; compare all source fields as serialized values.
                 signature = json.dumps({str(k): str(v) for k, v in row.items()},
                                        sort_keys=True, separators=(",", ":"))
+                if key in current:
+                    duplicate_keys.add(key)
                 current[key] = signature
                 previous = row_history.get(key)
                 if previous is None:
@@ -116,6 +119,11 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
                     previous["latest_value_signature"] = signature
                     previous["latest_commit"] = sha
                     previous["latest_at"] = committed_at
+            if duplicate_keys:
+                raise ValueError(
+                    f"{len(duplicate_keys)} duplicate row keys in {source_path} at {sha}; "
+                    f"sample={sorted(duplicate_keys)[:5]}"
+                )
             commit_rows.append({
                 "commit": sha, "committed_at": committed_at,
                 "file_sha256": digest, "rows": len(frame),
