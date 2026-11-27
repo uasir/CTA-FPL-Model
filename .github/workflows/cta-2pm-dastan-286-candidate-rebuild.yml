@@ -160,13 +160,13 @@ jobs:
               for season in seasons
           }
           path = Path(os.environ["RUNNER_TEMP"]) / "2pm-fpl-vintage-season-config.json"
-          path.write_text(json.dumps(config, indent=2) + "\\n")
+          path.write_text(json.dumps(config, indent=2) + "\n")
           PY
-          python scripts/audit_2pm_point_in_time_source_vintages.py \\
-            --season-config "$RUNNER_TEMP/2pm-fpl-vintage-season-config.json" \\
-            --fplcache-root "$RUNNER_TEMP/2pm-dastan-raw/fplcache" \\
-            --fplcache-commit "6c364bfbd9914649dc5dec016e544be3ae4fe767" \\
-            --output "$RUNNER_TEMP/2pm-dastan-candidate/point_in_time_source_vintage_audit.json" \\
+          python scripts/audit_2pm_point_in_time_source_vintages.py \
+            --season-config "$RUNNER_TEMP/2pm-fpl-vintage-season-config.json" \
+            --fplcache-root "$RUNNER_TEMP/2pm-dastan-raw/fplcache" \
+            --fplcache-commit "6c364bfbd9914649dc5dec016e544be3ae4fe767" \
+            --output "$RUNNER_TEMP/2pm-dastan-candidate/point_in_time_source_vintage_audit.json" \
             --detail-output "$RUNNER_TEMP/2pm-dastan-candidate/point_in_time_source_vintage_audit.csv"
       - name: Enforce official-deadline snapshot safety on candidate features
         working-directory: canonical_candidate/engineering_workbench
