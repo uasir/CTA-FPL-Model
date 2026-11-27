@@ -273,5 +273,5 @@ def test_string_venue_flags_are_parsed_strictly_and_unknown_positions_are_unobse
     }])
     result, _ = rebuild_player_history_features(target, player_matches, features)
     assert result.loc[0, "player_relevant_fpl_points_1"] == 4.0
-    assert result.loc[0, "ar_dc_hit_rate_3"] != result.loc[0, "ar_dc_hit_rate_1"]
+    assert pd.isna(result.loc[0, "ar_dc_hit_rate_3"])
     assert result.loc[0, "__observed__ar_dc_hit_rate_3"] == 0
