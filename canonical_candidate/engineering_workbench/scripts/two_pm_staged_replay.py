@@ -31,7 +31,11 @@ def build_stage_b_replay_plan(
     function never accepts or discovers validation/OOT rows; callers own split
     isolation and pass only eligible training indices.
     """
-    if not math.isfinite(float(replay_ratio)) or replay_ratio < 0:
+    try:
+        ratio = float(replay_ratio)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("replay_ratio must be numeric") from exc
+    if not math.isfinite(ratio) or ratio < 0:
         raise ValueError("replay_ratio must be finite and non-negative")
     if int(seed) != seed or seed < 0:
         raise ValueError("seed must be a non-negative integer")
@@ -70,7 +74,7 @@ def build_stage_b_replay_plan(
     if not np.all(adaptation_season == "2025-26"):
         raise ValueError("Stage B adaptation pool must contain only 2025/26 rows")
 
-    replay_count = int(math.ceil(adaptation.size * float(replay_ratio)))
+    replay_count = int(math.ceil(adaptation.size * ratio))
     if replay_count and not replace and replay_count > legacy.size:
         raise ValueError("requested replay count exceeds legacy pool without replacement")
 
@@ -107,7 +111,7 @@ def build_stage_b_replay_plan(
         "plan_version": REPLAY_PLAN_VERSION,
         "seed": int(seed),
         "bit_generator": "PCG64",
-        "replay_ratio_legacy_per_adaptation_sample": float(replay_ratio),
+        "replay_ratio_legacy_per_adaptation_sample": ratio,
         "replace_legacy_samples": replace,
         "adaptation_sample_count": int(selected_adaptation.size),
         "replay_sample_count": int(selected_legacy.size),
