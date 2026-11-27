@@ -726,3 +726,21 @@ The full engineering and focused sequence workflows are running on this change s
 Engineering CI for the availability-bounded historical-rank implementation [46009573270](https://github.com/uasir/CTA-FPL-Model/actions/runs/46009573270) passed **606 tests, 5 skipped, 18 warnings, and 3 subtests**. The focused 2PM sequence contract [46009572923](https://github.com/uasir/CTA-FPL-Model/actions/runs/46009572923) is still executing its reconstruction-adapter test suite. No rebuild or training has started.
 
 The focused 2PM sequence contract also passed: [46009572923](https://github.com/uasir/CTA-FPL-Model/actions/runs/46009572923), **134 passed, 18 warnings**. The rank availability change is now green in both the full engineering suite and the dedicated 2PM reconstruction/sequence suite. It remains a reconstruction correction only; the Run 85 artifact has not been rebuilt and no training has started.
+
+
+### Fallback-observation and fixture-schedule vintage audit (2026-11-27)
+
+A further review of the player-history and fixture-context producers found three cases where fallback or retrospective values were marked as observed:
+- The nine position-based availability values (`p_any_3/5/10`, `p60_3/5/10`, `e_minutes_3/5/10`) use `POSITION_BASE_RATES` when no safely available player history exists. These are priors, not player observations. Their numeric fallback values are preserved for audit, but their observed masks are now 0.
+- `ar_rest_days` uses a 14-day default when no prior player fixture is safely available. The default value remains 14, but its observed mask is now 0; the mask is 1 only when a prior fixture with availability strictly before the target deadline exists.
+- `ar_team_matches_14d` is calculated from the pinned retrospective final fixture calendar. No deadline-versioned historical schedule archive has yet been demonstrated. Its computed value is retained for audit, but its observed mask is forced to 0 until schedule-vintage evidence is available.
+
+The 286-feature source map now records these fallback and schedule-vintage semantics. Regression tests cover the position priors, no-history rest fallback, and schedule-context hold while retaining a valid observed rest value when prior history exists.
+
+Implementation commits:
+- Availability-prior mask: `a520b55c3b91bec975ce1a6aa5a8d4c503d9ef92`
+- Rest fallback mask: `792a4d930158d132ec0e2c8113075d13a045c7e5`
+- Schedule-vintage hold: `35a639f934ff0e1560b50113db00069b7734b68a`
+- Source-map semantics: `701a67084a921f29f717023bb5658af1b6c6e87d`
+
+Engineering and focused 2PM CI are being rerun against the completed change set. These are reconstruction/mask corrections only: Run 85 remains unchanged, no fresh candidate rebuild has run, candidate admission remains NOT_ADMITTED, and no training has started.
