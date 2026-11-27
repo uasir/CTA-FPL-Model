@@ -1,8 +1,8 @@
 # 2PM — Dastan 286 Implementation Status
 
-**Updated:** 2026-11-23  
-**Branch:** `feat/four-layer-2pm-transformer-evaluation`  
-**State:** Implementation underway; candidate data not admitted; no model training
+**Updated:** 2026-11-27  
+**Branch:** `feat/2pm-defensive-2025-26-train-2026-27-oot`  
+**State:** Six-season grouped tensor dataset built and integrity-audited; candidate data not admitted; no model training
 
 ## Confirmed implementation direction
 
@@ -350,3 +350,32 @@ To make the expensive work resumable, the branch now:
 - raises the job timeout to 360 minutes.
 
 The resume logic and cache changes are implementation changes only. They do not admit the candidate or authorize training. The next rebuild should use the already saved six-season candidate cache and resume the grouped tensor build from the latest valid per-Gameweek checkpoint. After completion, run the full tensor integrity audit and separately resolve the admission findings above.
+
+
+### Six-season grouped tensor completion (2026-11-27)
+
+Run 83 (`45936066859`, commit `b229b2ee55a0ccf4cbe5e5c9a44accbf9bdd8313`) completed successfully using the saved six-season candidate cache and the resumable Gameweek tensor cache. The six-season candidate reconstruction step was skipped because the verified candidate cache was restored. The workflow completed the structural audit, snapshot safety sanitization, grouped tensor build, tensor integrity audit, artifact upload and cache save.
+
+The uploaded artifact is `15170914605` (`2pm-six-season-tensor-candidate-run-83`, 112,413,996 bytes; 30-day retention). Its summary and tensor integrity report confirm:
+
+- Candidate: 163,072 player-fixture rows; six seasons 2020/21–2025/26; 286 ordered features; feature-order SHA-256 `9360ada967a808c1a43444a596c9e043970b505fb48a73589c7a533fe3335c0d`.
+- Grouped tensors: 40,872 unique player-Gameweek samples in 193 shards; 42,687 valid target fixture queries; six-token sequences with 286 features; 49,745 fixture slots.
+- Per-season samples: 2020/21 6,698; 2021/22 6,158; 2022/23 5,832; 2023/24 7,069; 2024/25 7,871; 2025/26 7,244.
+- Fixture-count distribution: 39,068 single-fixture samples, 1,793 double-fixture samples and 11 triple-fixture samples.
+- Tensor integrity audit: **PASS**. It verified shard shapes, matching tensor/mask/metadata counts, unique player-Gameweek keys, fixture masks, strict historical/target timing, five history gaps no greater than 21 days, fixture-label aggregation, preservation of negative labels, and absence of infinite features/non-finite targets.
+- There are 12,469,572 preserved NaN feature values (14.61% of all tensor feature values); these must remain un-imputed until fold-specific preprocessing is fitted.
+- 341 negative target labels were preserved.
+- The sequence builder considered 151,756 candidate player-Gameweek groups. It excluded 81,878 for insufficient prior appearances, 29,004 for a gap over 21 days, and 2 because post-match state was not available by deadline.
+
+**Important:** tensor integrity PASS is not data admission. Both candidate and grouped tensor reports remain `NOT_ADMITTED`; `training_authorized=false`. The 40,872 samples are the output of the currently specified same-season five-appearance/21-day sequence policy, not a claim that every historical player-Gameweek is eligible.
+
+The candidate-level admission blockers remain:
+
+- 78 candidate kickoff timestamps disagree with the pinned Vaastav fixture calendar.
+- 2,793 same-player/Gameweek groups differ in five rolling relevant-FPL-points columns; the underlying aggregation/anchor discrepancy needs a row-level root-cause analysis.
+- Market `value` matches exactly across 142,151 paired rows. `selected` and `transfers_balance` remain semantically unresolved between retrospective fixture rows and deadline-anchored snapshots; high correlation is not proof of equivalence.
+- Defensive source columns are structurally absent in 2020/21–2024/25 and present in 2025/26. This must remain structural missingness, not zero.
+- Historical provider source-vintage, direct-rank tie-break, opponent/context parity and feature-level temporal admission remain open.
+- The structural audit records 10,442,140 non-finite candidate cells. Missingness is preserved and preprocessing must be fitted within each chronological fold.
+
+The grouped tensor artifact-integrity audit is complete. The next work is now **feature/data admission**, not another rebuild and not model training. Resolve each blocker with targeted source/code analysis and row-level tests; do not regenerate the historical foundation unless a specific corrected source or reconstruction rule requires it. After admission, implement the dedicated chronological trainer for `PaperTwoComponentPoissonTransformer`. The 2026/27 OOT season remains sealed.
