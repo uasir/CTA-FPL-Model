@@ -42,9 +42,11 @@ def _get_json(session: requests.Session, url: str, params: dict[str, Any] | None
     return response.json()
 
 
-def _get_text(session: requests.Session, url: str) -> bytes:
+def _get_text(session: requests.Session, url: str) -> bytes | None:
     # Raw-content host is separate from api.github.com; never forward the API token.
     response = session.get(url, headers={"Accept": "text/plain"}, timeout=45)
+    if getattr(response, "status_code", None) == 404:
+        return None  # A path deletion is a valid source-history state.
     response.raise_for_status()
     return response.content
 
@@ -157,31 +159,42 @@ def _cached_path_commits(session: requests.Session, repository: str, path: str,
 
 def _get_cached_text(session: requests.Session, url: str, repository: str,
                      source_path: str, commit_sha: str,
-                     cache_dir: Path | None) -> bytes:
+                     cache_dir: Path | None) -> bytes | None:
     cache_path = _cache_file(
         cache_dir, "raw-revisions", repository, source_path, commit_sha,
     )
     metadata_path = cache_path.with_suffix(".json") if cache_path is not None else None
-    if cache_path is not None and metadata_path is not None and cache_path.is_file() and metadata_path.is_file():
+    if cache_path is not None and metadata_path is not None and metadata_path.is_file():
         try:
             metadata = json.loads(metadata_path.read_text())
-            cached_payload = cache_path.read_bytes()
-            digest = hashlib.sha256(cached_payload).hexdigest()
-            if (metadata.get("repository") == repository
-                    and metadata.get("source_path") == source_path
-                    and metadata.get("commit") == commit_sha
-                    and metadata.get("sha256") == digest):
-                return cached_payload
+            identity_matches = (
+                metadata.get("repository") == repository
+                and metadata.get("source_path") == source_path
+                and metadata.get("commit") == commit_sha
+            )
+            if identity_matches and metadata.get("status") == "missing":
+                return None
+            if identity_matches and metadata.get("status") == "present" and cache_path.is_file():
+                cached_payload = cache_path.read_bytes()
+                digest = hashlib.sha256(cached_payload).hexdigest()
+                if metadata.get("sha256") == digest:
+                    return cached_payload
         except (OSError, ValueError, TypeError):
             pass
     payload = _get_text(session, url)
     if cache_path is not None and metadata_path is not None:
-        digest = hashlib.sha256(payload).hexdigest()
-        _atomic_write(cache_path, payload)
-        _atomic_write(metadata_path, json.dumps({
-            "repository": repository, "source_path": source_path,
-            "commit": commit_sha, "sha256": digest,
-        }, separators=(",", ":")).encode("utf-8"))
+        if payload is None:
+            _atomic_write(metadata_path, json.dumps({
+                "repository": repository, "source_path": source_path,
+                "commit": commit_sha, "status": "missing", "sha256": None,
+            }, separators=(",", ":")).encode("utf-8"))
+        else:
+            digest = hashlib.sha256(payload).hexdigest()
+            _atomic_write(cache_path, payload)
+            _atomic_write(metadata_path, json.dumps({
+                "repository": repository, "source_path": source_path,
+                "commit": commit_sha, "status": "present", "sha256": digest,
+            }, separators=(",", ":")).encode("utf-8"))
     return payload
 
 def audit_file(session: requests.Session, repository: str, pinned_commit: str,
@@ -203,14 +216,20 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
             payload = _get_cached_text(
                 session, raw_url, repository, source_path, sha, cache_dir
             )
-            digest = hashlib.sha256(payload).hexdigest()
-            # A zero-byte committed file is a real empty revision (e.g. a source
-            # reset), not a CSV parser failure. Preserve it as an empty snapshot so
-            # all previously known rows transition to missing in this revision.
-            if payload.strip():
-                frame = pd.read_csv(io.BytesIO(payload), low_memory=False).fillna("")
-            else:
+            if payload is None:
+                digest = None
                 frame = pd.DataFrame()
+                revision_status = "deleted"
+            else:
+                digest = hashlib.sha256(payload).hexdigest()
+                # A zero-byte/whitespace-only committed file is a real empty
+                # revision, not a CSV parser failure. Preserve it as a missing state.
+                if payload.strip():
+                    frame = pd.read_csv(io.BytesIO(payload), low_memory=False).fillna("")
+                    revision_status = "present"
+                else:
+                    frame = pd.DataFrame()
+                    revision_status = "empty_file"
             current: dict[str, str] = {}
             duplicate_keys: set[str] = set()
             for row in frame.to_dict("records"):
@@ -274,8 +293,8 @@ def audit_file(session: requests.Session, repository: str, pinned_commit: str,
                     previous["present_in_latest_revision"] = False
             commit_rows.append({
                 "commit": sha, "committed_at": committed_at,
-                "file_sha256": digest, "rows": len(frame),
-                "distinct_row_keys": len(current),
+                "file_sha256": digest, "revision_status": revision_status,
+                "rows": len(frame), "distinct_row_keys": len(current),
             })
         except Exception as exc:  # retain a visible incomplete result; never imply completeness
             errors.append({"commit": sha, "committed_at": committed_at, "error": str(exc)})
