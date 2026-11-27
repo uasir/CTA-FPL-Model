@@ -1,4 +1,4 @@
-name: Understat pinned-source revision smoke test
+name: Understat pinned-source revision audit
 
 on:
   push:
@@ -20,7 +20,7 @@ concurrency:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -33,7 +33,15 @@ jobs:
       - name: Install audit dependencies
         run: python -m pip install pandas requests
 
-      - name: Create bounded pinned-source inventory
+      - name: Restore resumable pinned-source revision cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/understat-revision-cache
+          key: understat-revision-v2-8c97b2adb123863c3dd581e730f1360e89815ac2-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_git_history.py') }}-${{ github.run_id }}
+          restore-keys: |
+            understat-revision-v2-8c97b2adb123863c3dd581e730f1360e89815ac2-
+
+      - name: Create bounded real-source inventory
         run: |
           cat > "$RUNNER_TEMP/understat-smoke-inventory.json" <<'JSON'
           {
@@ -53,7 +61,7 @@ jobs:
           }
           JSON
 
-      - name: Trace five latest revisions for one player and one team
+      - name: Trace complete pinned history for one player and one team
         working-directory: canonical_candidate/engineering_workbench
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -61,18 +69,20 @@ jobs:
           python scripts/audit_2pm_understat_git_history.py \
             --inventory "$RUNNER_TEMP/understat-smoke-inventory.json" \
             --pinned-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" \
-            --max-commits-per-file 5 \
-            --limit-files 2 \
-            --output "$RUNNER_TEMP/understat-revision-smoke.json"
+            --cache-dir "$RUNNER_TEMP/understat-revision-cache" \
+            --max-commits-per-file 100 \
+            --limit-player-files 1 \
+            --limit-team-files 1 \
+            --output "$RUNNER_TEMP/understat-revision-history.json"
 
-      - name: Validate smoke-test output
+      - name: Validate complete bounded source histories
         run: |
           python - <<'PY'
           import json
           import os
           from pathlib import Path
 
-          path = Path(os.environ["RUNNER_TEMP"]) / "understat-revision-smoke.json"
+          path = Path(os.environ["RUNNER_TEMP"]) / "understat-revision-history.json"
           report = json.loads(path.read_text())
           assert report["files_requested"] == 2, report
           assert report["files_audited"] == 2, report
@@ -80,21 +90,29 @@ jobs:
           for result in report["results"]:
               assert not result.get("error"), result
               assert result.get("errors") == [], result
-              assert result["commit_count_returned"] == 5, result
-              assert result["history_truncated"] is True, result
-              assert result["commit_rows"], result
+              assert result["commit_count_returned"] > 5, result
+              assert result["history_truncated"] is False, result
+              assert len(result["commit_rows"]) == result["commit_count_returned"], result
               assert result["row_history"], result
               if result["source_kind"] == "pinned_player_csv":
                   assert all(key.startswith("1250|") for key in result["row_history"]), result
               else:
                   assert all(key.startswith("2024-25|Arsenal|") for key in result["row_history"]), result
-          print("PASS: five real revisions parsed for each pinned player/team source; no feature admission.")
+          print("PASS: complete path histories parsed for one pinned player and one pinned team; no feature admission.")
           PY
 
-      - name: Upload bounded source-history evidence
+      - name: Upload bounded complete-history evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: understat-source-revision-smoke
-          path: ${{ runner.temp }}/understat-revision-smoke.json
+          name: understat-complete-path-history-smoke
+          path: ${{ runner.temp }}/understat-revision-history.json
           if-no-files-found: error
           retention-days: 14
+
+      - name: Save resumable pinned-source revision cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/understat-revision-cache
+          key: understat-revision-v2-8c97b2adb123863c3dd581e730f1360e89815ac2-${{ hashFiles('canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_git_history.py') }}-${{ github.run_id }}
