@@ -173,3 +173,6 @@ The 286 pre-fill sidecars are now emitted by player-history, team/opponent-conte
 Window policy is explicit: FPL rolling fields that retain zero-fill semantics require complete raw-source coverage across the contributing window; Understat rolling fields use any-valid coverage because the custom 2PM calculation ignores missing Understat rows; defensive/rate rolling fields use any-valid source coverage; team/opponent rolling fields require complete raw-source coverage; ranks require complete prior score/conceded/points inputs; deterministic schedule context is marked available; snapshots retain their sentinel contract.
 
 CI now passes with this sidecar contract. This verifies code and tests, not the contents of the still-unrebuilt Run 83 artifact. Candidate/tensor regeneration and artifact-level mask audit remain outstanding before training.
+
+
+The current production contract is manifest **1.3.0**. Its source pins distinguish the Dastan feature-schema repository from the upstream Vaastav and fplcache datasets. The candidate migration verifies all three against the cached candidate report and verifies the raw download-manifest hash before deriving sidecars. Code and focused CI are passing; the cached Run 83 candidate migration itself remains unexecuted.
