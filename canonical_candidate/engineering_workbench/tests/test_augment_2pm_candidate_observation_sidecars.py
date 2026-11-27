@@ -1,3 +1,5 @@
+import hashlib
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -115,4 +117,33 @@ def test_candidate_sidecar_migration_fails_if_any_feature_sidecar_is_missing(mon
             object(),
             FEATURES,
             ["value", "ar_ep_next", "sig_status_risk"],
+        )
+
+
+def test_candidate_migration_requires_exact_dastan_vaastav_and_fplcache_pins(tmp_path):
+    raw_manifest = tmp_path / "downloads.json"
+    raw_manifest.write_text('{"source": "pinned"}')
+    manifest = {
+        "source_pins": {
+            "dastan": {"repository": "dastan/repo", "commit": "dastan-sha"},
+            "vaastav": {"repository": "vaastav/repo", "commit": "vaastav-sha"},
+            "fplcache": {"repository": "fplcache/repo", "commit": "cache-sha"},
+        }
+    }
+    report = {
+        "upstream_commit": "dastan-sha",
+        "source_pins": {
+            "vaastav": {"repository": "vaastav/repo", "commit": "vaastav-sha"},
+            "fplcache": {"repository": "fplcache/repo", "commit": "cache-sha"},
+        },
+        "source_manifest_sha256": hashlib.sha256(raw_manifest.read_bytes()).hexdigest(),
+    }
+    assert augmenter.validate_candidate_source_pins(
+        report, manifest, "dastan-sha", raw_manifest
+    ) == report["source_manifest_sha256"]
+
+    report["source_pins"]["fplcache"]["commit"] = "wrong"
+    with pytest.raises(ValueError, match="fplcache source pin"):
+        augmenter.validate_candidate_source_pins(
+            report, manifest, "dastan-sha", raw_manifest
         )
