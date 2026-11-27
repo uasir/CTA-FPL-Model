@@ -85,14 +85,14 @@ def build_stage_b_replay_plan(
         np.full(selected_adaptation.size, DEFENSIVE_REGIME_CODE, dtype=np.uint8),
         np.full(selected_legacy.size, LEGACY_REGIME_CODE, dtype=np.uint8),
     ])
-    combined_seasons = np.concatenate([
-        adaptation_season,
-        legacy_season[np.isin(legacy, selected_legacy)] if replace is False else
-        np.asarray([
-            legacy_season[np.flatnonzero(legacy == index)[0]]
-            for index in selected_legacy
-        ], dtype=str),
-    ])
+    legacy_season_by_index = {
+        int(index): str(season) for index, season in zip(legacy, legacy_season)
+    }
+    selected_legacy_seasons = np.asarray(
+        [legacy_season_by_index[int(index)] for index in selected_legacy],
+        dtype=str,
+    )
+    combined_seasons = np.concatenate([adaptation_season, selected_legacy_seasons])
     source = np.concatenate([
         np.full(selected_adaptation.size, "new_regime_adaptation", dtype="U24"),
         np.full(selected_legacy.size, "legacy_replay", dtype="U24"),
