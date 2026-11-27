@@ -69,11 +69,16 @@ def write_inputs(tmp_path, history, targets):
         "feature_count": 286,
         "feature_order": FEATURES,
     }))
-    return history_path, targets_path, schema_path
+    manifest_path = tmp_path / "feature_group_manifest.json"
+    manifest_path.write_text(json.dumps({
+        "feature_source_availability": {"state_codes": {"UNAVAILABLE": 0, "AVAILABLE": 1, "UNKNOWN": 2}, "default_state": "UNKNOWN", "groups": {}},
+        "snapshot_missing_sentinel_features": [],
+    }))
+    return history_path, targets_path, schema_path, manifest_path
 
 
 def build(tmp_path, history, targets, **kwargs):
-    history_path, targets_path, schema_path = write_inputs(tmp_path, history, targets)
+    history_path, targets_path, schema_path, manifest_path = write_inputs(tmp_path, history, targets)
     return build_player_gameweek_sequence_tensors(
         history_path,
         targets_path,
@@ -82,6 +87,7 @@ def build(tmp_path, history, targets, **kwargs):
         tmp_path / "report.json",
         target_season=kwargs.pop("target_season", "2026-27"),
         target_gameweek=6,
+        feature_group_manifest_path=manifest_path,
         **kwargs,
     )
 
@@ -100,8 +106,14 @@ def test_double_gameweek_is_one_player_gameweek_sample_with_two_fixture_queries(
     tensor = np.load(tmp_path / "tensors" / "X_player_gw_00000.npy")
     mask = np.load(tmp_path / "tensors" / "fixture_mask_00000.npy")
     labels = np.load(tmp_path / "tensors" / "y_player_gw_00000.npy")
+    availability = np.load(tmp_path / "tensors" / "source_availability_state_00000.npy")
+    observed = np.load(tmp_path / "tensors" / "observed_value_mask_00000.npy")
     assert tensor.shape == (1, 2, 6, 286)
     assert mask.tolist() == [[1, 1]]
+    assert availability.shape == tensor.shape
+    assert observed.shape == tensor.shape
+    assert np.all(availability == 2)
+    assert np.all(observed == 1)
     assert tensor[0, 0, :5, 0].tolist() == [1, 2, 3, 4, 5]
     assert tensor[0, 1, :5, 0].tolist() == [1, 2, 3, 4, 5]
     assert tensor[0, 0, 5, 0] == 88.0
