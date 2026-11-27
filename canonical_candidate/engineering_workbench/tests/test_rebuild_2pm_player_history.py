@@ -82,6 +82,44 @@ def test_player_history_rebuild_excludes_matches_not_available_by_deadline():
     assert report["availability_feature_count"] == 9
 
 
+
+def test_relevant_fpl_points_are_conditioned_on_each_target_fixtures_venue():
+    history = pd.DataFrame(
+        [
+            player_row("prior_home", "2025-12-01", "2025-12-02", points=10, goals=1, minutes=90, home=True, dc=12, cbit=5, recoveries=3, tackles=2, starts=1),
+            player_row("prior_away", "2025-12-05", "2025-12-06", points=4, goals=0, minutes=90, home=False, dc=8, cbit=1, recoveries=1, tackles=0, starts=1),
+            player_row("target_home", "2026-01-10", "2026-01-11", points=0, goals=0, minutes=0, home=True, dc=np.nan, cbit=np.nan, recoveries=np.nan, tackles=np.nan, starts=np.nan),
+            player_row("target_away", "2026-01-11", "2026-01-12", points=0, goals=0, minutes=0, home=False, dc=np.nan, cbit=np.nan, recoveries=np.nan, tackles=np.nan, starts=np.nan),
+        ]
+    )
+    history.loc[history["fixture"].str.startswith("target"), "match_available_at"] = pd.NaT
+    target = pd.DataFrame(
+        [
+            {
+                "season": "2025-26",
+                "fixture": "target_home",
+                "fpl_code": 100,
+                "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+                "kickoff_time": pd.Timestamp("2026-01-10", tz="UTC"),
+            },
+            {
+                "season": "2025-26",
+                "fixture": "target_away",
+                "fpl_code": 100,
+                "deadline_time": pd.Timestamp("2026-01-09", tz="UTC"),
+                "kickoff_time": pd.Timestamp("2026-01-11", tz="UTC"),
+            },
+        ]
+    )
+
+    result, _ = rebuild_player_history_features(target, history, fake_features())
+    by_fixture = result.set_index("fixture")
+    assert by_fixture.loc["target_home", "player_relevant_fpl_points_1"] == 10.0
+    assert by_fixture.loc["target_away", "player_relevant_fpl_points_1"] == 4.0
+    assert by_fixture.loc["target_home", "player_fpl_points_1"] == 4.0
+    assert by_fixture.loc["target_away", "player_fpl_points_1"] == 4.0
+
+
 def test_rejects_played_history_without_match_availability():
     history = pd.DataFrame([
         player_row(
