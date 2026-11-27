@@ -287,7 +287,15 @@ jobs:
                       weeks = values.get("gameweeks", {})
                       selected = sum(
                           1 for item in weeks.values()
+                          if item.get("source", {}).get("source_commit")
+                      )
+                      complete = sum(
+                          1 for item in weeks.values()
                           if item.get("source", {}).get("source_status") == "selected_pre_deadline_commit"
+                      )
+                      incomplete = sum(
+                          1 for item in weeks.values()
+                          if item.get("source", {}).get("source_status") == "fpl_native_columns_incomplete"
                       )
                       no_commit = sum(
                           1 for item in weeks.values()
@@ -297,10 +305,18 @@ jobs:
                           1 for item in weeks.values()
                           if item.get("snapshot", {}).get("status") == "no_pre_deadline_snapshot"
                       )
+                      changed_fields = set()
+                      for item in weeks.values():
+                          parity = item.get("source", {}).get("fpl_native_prior_value_parity", {})
+                          for field, values in parity.get("fields", {}).items():
+                              if values.get("changed_rows", 0):
+                                  changed_fields.add(field)
                       lines.append(
-                          f"  - {season}: {selected} deadlines with selected source commits; "
-                          f"{no_commit} without pre-deadline source commits; "
-                          f"{no_snapshot} without same-season pre-deadline snapshots"
+                          f"  - {season}: {selected} deadlines with a selected historical file commit "
+                          f"({complete} with complete FPL-native columns; {incomplete} incomplete); "
+                          f"{no_commit} without a pre-deadline commit; {no_snapshot} without a same-season "
+                          f"pre-deadline snapshot; FPL-native fields with any final-source revisions: "
+                          f"{', '.join(sorted(changed_fields)) or 'none detected'}"
                       )
                   lines.append("- Source commit timestamps are repository-lineage evidence, not proof of first public publication; feature admission remains a separate review.")
               tensor_audit_path = Path(os.environ["TENSOR_AUDIT_PATH"])
