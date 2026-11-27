@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       rebuild_candidate:
-        description: "Rebuild the six-season candidate (2020/21–2025/26) from raw sources (normally leave false)"
+        description: "Rebuild the six-season candidate (2020/21–2025/26) with required raw-source observation sidecars; reuse pinned raw downloads where possible"
         required: false
         type: boolean
         default: false
