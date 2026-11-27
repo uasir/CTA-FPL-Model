@@ -238,3 +238,16 @@ The pinned upstream Dastan documentation at `758db9247e8b3a9a870c991064f74d8339d
 - the modelling/evaluation decision grain is player-Gameweek, with Double Gameweek fixture scores summed before scoring.
 
 Accordingly, the 2PM candidate rebuild now stamps `target_label_grain=player_fixture` and `target_points_semantics=FPL_POINTS_SCORED_IN_THIS_FIXTURE`. The grouped sequence builder uses this verified declaration to sum fixture outcomes once into one player-Gameweek target. It rejects a conflicting explicit grain. This resolves the pinned Dastan label-grain question; it does not remove the need to verify row-level target coverage, non-appearance zero labels and fixture completeness in the actual rebuilt parquet.
+
+
+## 7. Additional source-vintage finding (2026-11-27)
+
+The pinned Vaastav source tree contains no `data/2025-26/understat/` directory. The pinned Dastan acquisition code therefore cannot obtain that season's Understat player/team histories from Vaastav at this release. Its documented fallback calls the live Understat API for missing player histories and team-season histories; the live player response supersedes a partial pinned CSV for that player.
+
+For 2020/21–2024/25, per-season Understat player/team files exist and their Git histories can support a deadline-vintage reconstruction. However, the current pinned file is a final/current file version, not a deadline-specific snapshot. For 2025/26, the live API fallback is current-response data rather than a historical deadline archive. The source manifest hashes the downloaded bytes but does not establish historical publication time.
+
+The 2PM adapter's `kickoff_time + 24 hours` availability value is a conservative FPL-fixture bound, not an observed Understat publication timestamp. Therefore:
+- FPL match-stat vintages and Understat player/team metric vintages must be audited independently.
+- Understat metrics remain HOLD until historical file versions and actual/defensible publication lag are evidenced.
+- A live fallback may be retained for reproducibility of the current data package, but it cannot be represented as proof of what was knowable at a historical deadline.
+- No XGBoost feature mask or other forecaster's preprocessing decision is relevant to this admission decision.
