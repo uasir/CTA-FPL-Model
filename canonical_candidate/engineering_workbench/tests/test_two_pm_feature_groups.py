@@ -15,13 +15,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_versioned_manifest_partitions_all_286_schema_features_in_order():
     schema, manifest, groups = load_feature_group_manifest(ROOT)
-    assert manifest["manifest_version"] == "1.4.0"
+    assert manifest["manifest_version"] == "1.5.0"
     assert manifest["source_pins"]["dastan"]["commit"] == "758db9247e8b3a9a870c991064f74d8339d61cd0"
     assert manifest["source_pins"]["vaastav"]["commit"] == "8c97b2adb123863c3dd581e730f1360e89815ac2"
     assert manifest["source_pins"]["fplcache"]["commit"] == "6c364bfbd9914649dc5dec016e544be3ae4fe767"
     assert manifest["source_vintage_policies"]["understat"]["status"] == "HOLD"
     assert manifest["source_vintage_policies"]["understat"]["mask_action"] == "FORCE_UNOBSERVED"
     assert len(manifest["source_vintage_policies"]["understat"]["feature_order"]) == 100
+    assert len(manifest["source_availability_groups"]["understat_player_history"]["feature_order"]) == 20
+    assert len(manifest["source_availability_groups"]["understat_team_context"]["feature_order"]) == 80
     assert len(groups["common_candidate"]) == 259
     assert len(groups["defensive_regime_dependent"]) == 27
     assert groups["defensive_regime_dependent"] == EXPECTED_DEFENSIVE_COLUMNS
