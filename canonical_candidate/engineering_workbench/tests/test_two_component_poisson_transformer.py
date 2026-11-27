@@ -13,6 +13,14 @@ from two_component_poisson_transformer import (
 )
 
 
+
+def run_model(model, values):
+    observed = torch.ones_like(values, dtype=torch.bool)
+    availability = torch.ones_like(values, dtype=torch.long)
+    regime = torch.ones(values.shape[0], dtype=torch.long)
+    return model(values, observed, availability, regime)
+
+
 def test_paper_model_emits_valid_two_component_poisson_parameters():
     model = PaperTwoComponentPoissonTransformer(
         feature_count=286,
@@ -23,7 +31,7 @@ def test_paper_model_emits_valid_two_component_poisson_parameters():
         dim_feedforward=128,
         dropout=0.0,
     )
-    output = model(torch.randn(4, 6, 286))
+    output = run_model(model, torch.randn(4, 6, 286))
     assert output["p"].shape == (4,)
     assert output["lambda_1"].shape == (4,)
     assert output["lambda_2"].shape == (4,)
@@ -48,7 +56,7 @@ def test_mixture_nll_matches_direct_component_logaddexp_and_backpropagates():
     )
     x = torch.randn(5, 6, 3)
     targets = torch.tensor([0, 1, 2, 5, 10], dtype=torch.float32)
-    output = model(x)
+    output = run_model(model, x)
     losses = poisson_mixture_negative_log_likelihood(
         output, targets, reduction="none"
     )
@@ -91,13 +99,13 @@ def test_model_rejects_wrong_shape_nonfinite_input_and_invalid_targets():
         dim_feedforward=32,
     )
     with pytest.raises(ValueError, match="sequence length"):
-        model(torch.randn(2, 5, 4))
+        run_model(model, torch.randn(2, 5, 4))
     bad = torch.randn(2, 6, 4)
     bad[0, 0, 0] = float("nan")
     with pytest.raises(ValueError, match="NaN"):
-        model(bad)
+        run_model(model, bad)
 
-    output = model(torch.randn(2, 6, 4))
+    output = run_model(model, torch.randn(2, 6, 4))
     with pytest.raises(ValueError, match="non-negative"):
         poisson_mixture_negative_log_likelihood(output, [-1, 2])
     with pytest.raises(ValueError, match="integer-valued"):
@@ -122,7 +130,7 @@ def test_mixture_tail_probability_matches_direct_poisson_sum():
         dim_feedforward=32,
         dropout=0.0,
     )
-    output = model(torch.randn(3, 6, 2))
+    output = run_model(model, torch.randn(3, 6, 2))
     for threshold in (6, 8, 10):
         tail = poisson_mixture_tail_probability(output, threshold)
         support = torch.arange(threshold, dtype=output["lambda_1"].dtype)
@@ -161,7 +169,7 @@ def test_training_only_em_mle_initialization_is_valid_and_sets_head_biases():
         dim_feedforward=32,
     )
     report = initialize_mixture_head_from_training_targets(model, training_targets)
-    output = model(torch.zeros(1, 6, 3))
+    output = run_model(model, torch.zeros(1, 6, 3))
     assert report["training_rows"] == len(training_targets)
     assert 0 < output["p"].item() < 1
     assert output["lambda_1"].item() > 0
@@ -173,3 +181,53 @@ def test_training_mle_rejects_validation_style_invalid_values():
         fit_training_poisson_mixture_mle([0, 1, -1])
     with pytest.raises(ValueError, match="non-negative integer"):
         fit_training_poisson_mixture_mle([0, 1.5, 2])
+
+
+def test_model_uses_five_feature_channel_blocks_and_scoring_regime_embedding():
+    model = PaperTwoComponentPoissonTransformer(
+        feature_count=7,
+        sequence_length=6,
+        num_layers=1,
+        d_model=16,
+        nhead=4,
+        dim_feedforward=32,
+    )
+    assert model.input_embedding.in_features == 35
+    assert model.scoring_regime_embedding.num_embeddings == 2
+
+
+def test_model_rejects_observed_values_for_structurally_unavailable_features():
+    model = PaperTwoComponentPoissonTransformer(
+        feature_count=2,
+        sequence_length=6,
+        num_layers=1,
+        d_model=16,
+        nhead=4,
+        dim_feedforward=32,
+    )
+    values = torch.zeros(1, 6, 2)
+    observed = torch.ones_like(values, dtype=torch.bool)
+    availability = torch.ones_like(values, dtype=torch.long)
+    availability[..., 0] = 0
+    with pytest.raises(ValueError, match="UNAVAILABLE"):
+        model(values, observed, availability, torch.tensor([1]))
+
+
+def test_model_rejects_invalid_availability_or_scoring_regime_codes():
+    model = PaperTwoComponentPoissonTransformer(
+        feature_count=2,
+        sequence_length=6,
+        num_layers=1,
+        d_model=16,
+        nhead=4,
+        dim_feedforward=32,
+    )
+    values = torch.zeros(1, 6, 2)
+    observed = torch.ones_like(values, dtype=torch.bool)
+    availability = torch.ones_like(values, dtype=torch.long)
+    availability[..., 0] = 3
+    with pytest.raises(ValueError, match="availability_state"):
+        model(values, observed, availability, torch.tensor([1]))
+    availability.fill_(1)
+    with pytest.raises(ValueError, match="scoring_regime"):
+        model(values, observed, availability, torch.tensor([2]))
