@@ -22,19 +22,19 @@ class UnderstatGitHistoryTests(unittest.TestCase):
         ]
         payloads = {
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/a/data/player_987.csv":
-                b"date,season,xG\\n2024-01-01,2023,0.2\\n",
+                b"date,season,xG\n2024-01-01,2023,0.2\n",
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/b/data/player_987.csv":
-                b"date,season,xG\\n",
+                b"date,season,xG\n",
             "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/c/data/player_987.csv":
-                b"date,season,xG\\n2024-01-01,2023,0.3\\n",
+                b"date,season,xG\n2024-01-01,2023,0.3\n",
         }
-        with patch("audit_2pm_understat_git_history.list_path_commits", return_value=commits), \\
-             patch("audit_2pm_understat_git_history._get_text",
-                   side_effect=lambda session, url: payloads[url]):
-            result = audit_file(
-                object(), "vaastav/Fantasy-Premier-League", "c",
-                "data/player_987.csv", "player", 10, 987,
-            )
+        with patch("audit_2pm_understat_git_history.list_path_commits", return_value=commits):
+            with patch("audit_2pm_understat_git_history._get_text",
+                       side_effect=lambda session, url: payloads[url]):
+                result = audit_file(
+                    object(), "vaastav/Fantasy-Premier-League", "c",
+                    "data/player_987.csv", "player", 10, 987,
+                )
         row = result["row_history"]["987|2024-01-01"]
         self.assertEqual(row["missing_revision_count"], 1)
         self.assertEqual(row["reappearance_count"], 1)
