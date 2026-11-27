@@ -469,7 +469,7 @@ The apparent defensive-feature count discrepancy has been resolved against the p
 
 - The schema-level defensive-regime-dependent group contains **27 columns**: **23 player-history** columns (16 rolling source-stat columns, six hit/near-rate columns, and `ar_dc_ppg_5`) plus **four opponent-context** columns (`ar_opp_dc_allowed_{3,5,10}`, `ar_opp_tackles_allowed_5`).
 - The implementation's **26 defensive/player-history** reconstruction count is those 23 player-history columns plus `ar_starts_{3,5,10}`. Starts are history features but are not specific to the defensive-contribution scoring regime.
-- The implementation's **six fixture-context** count is `ar_rest_days`, `ar_team_matches_14d`, and the four opponent-context columns. The four opponent columns are therefore included in both a reconstruction-family accounting and the defensive-regime group; the 26 and six counts are not disjoint and must not be summed.
+- The implementation's **six fixture-context** count is `ar_rest_days`, `ar_team_matches_14d`, and the four opponent-context columns. The 26 player-history and six fixture-context reconstruction families are disjoint (32 columns total). The 27-column defensive-regime group cuts across them: 23 player-history columns and four fixture-context columns are regime-dependent.
 
 Added `config/2pm_feature_group_manifest.json` (manifest version 1.0.0), which explicitly partitions the pinned schema into 259 common candidate features and 27 defensive-regime-dependent features. It separately records the 26-column defensive/player-history and six-column fixture-context reconstruction families, source-schema pins, and scoring-regime/source-availability notes. All feature groups remain `HOLD`; manifest membership is not feature admission.
 
