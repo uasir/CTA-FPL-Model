@@ -112,7 +112,9 @@
       "2024-25",
       "2025-26"
     ],
-    "reserved_generalisation_seasons": [],
+    "reserved_generalisation_seasons": [
+      "2026-27"
+    ],
     "chronological_split": {
       "method": "expanding_season_walk_forward_within_all_six_historical_seasons",
       "first_validation_season": "2021-22",
@@ -134,7 +136,24 @@
       ],
       "out_of_time_test": [
         "2026-27"
-      ]
+      ],
+      "stage_a_validation_seasons": [
+        "2021-22",
+        "2022-23",
+        "2023-24",
+        "2024-25"
+      ],
+      "stage_a_training_seasons_for_each_validation_fold": "all earlier eligible historical seasons only",
+      "stage_b_adaptation_season": "2025-26",
+      "stage_b_validation_split": {
+        "method": "contiguous_chronological_gameweek_holdout",
+        "boundary_status": "UNSELECTED_PENDING_2025_26_LABELLED_GAMEWEEK_COVERAGE_AUDIT",
+        "boundary_selection_policy": "pre-register after coverage audit and before inspecting validation scores",
+        "training_block": "earlier eligible 2025-26 Gameweeks",
+        "validation_block": "later eligible 2025-26 Gameweeks",
+        "random_player_gameweek_split": false
+      },
+      "validation_seasons_semantics": "2021-22 through 2024-25 are Stage A expanding-season validation folds; 2025-26 is Stage B chronological within-season adaptation validation, not a Stage A season fold"
     },
     "split_policy": "chronological_expanding_season_walk_forward_no_random_player_gameweek_split",
     "preprocessing_fit_scope": "training_partition_only_within_each_fold_then_refit_on_all_six_historical_seasons",
