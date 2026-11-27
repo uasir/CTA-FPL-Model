@@ -99,7 +99,7 @@ def test_forecast_record_rejects_inconsistent_analytic_moments():
         nhead=4,
         dim_feedforward=32,
     )
-    output = model(torch.randn(1, 6, 4))
+    output = run_model(model, torch.randn(1, 6, 4))
     output["expected_points"] = output["expected_points"] + 1.0
     with pytest.raises(ValueError, match="expected_points disagrees"):
         build_forecast_records(
