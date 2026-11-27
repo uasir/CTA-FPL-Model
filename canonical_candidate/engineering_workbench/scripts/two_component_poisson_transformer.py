@@ -152,21 +152,27 @@ if nn is not None:
             regime = torch.as_tensor(scoring_regime, device=sequence.device)
             if observed.shape != expected_shape:
                 raise ValueError("observed_mask must match [batch, sequence, features]")
-            if not torch.isin(observed, torch.tensor([0, 1], device=sequence.device)).all():
+            if not ((observed == 0) | (observed == 1)).all():
                 raise ValueError("observed_mask must contain only 0/1")
             if availability.shape != expected_shape:
                 raise ValueError("availability_state must match [batch, sequence, features]")
-            if not torch.isin(availability, torch.tensor([0, 1, 2], device=sequence.device)).all():
+            availability_codes = availability.long()
+            if not (availability == availability_codes).all() or not (
+                (availability_codes >= 0) & (availability_codes < AVAILABILITY_STATE_COUNT)
+            ).all():
                 raise ValueError("availability_state must contain only UNAVAILABLE/AVAILABLE/UNKNOWN codes")
             observed = observed.bool()
-            availability = availability.long()
+            availability = availability_codes
             if (observed & availability.eq(0)).any():
                 raise ValueError("structurally UNAVAILABLE features cannot be marked observed")
             if regime.shape != (sequence.shape[0],):
                 raise ValueError("scoring_regime must have one code per batch sample")
-            if not torch.isin(regime, torch.tensor([0, 1], device=sequence.device)).all():
+            regime_codes = regime.long()
+            if not (regime == regime_codes).all() or not (
+                (regime_codes >= 0) & (regime_codes < SCORING_REGIME_COUNT)
+            ).all():
                 raise ValueError("scoring_regime code must be 0 (legacy) or 1 (defensive contribution)")
-            regime = regime.long()
+            regime = regime_codes
 
             observed_channels = observed.to(dtype=sequence.dtype)
             availability_channels = F.one_hot(
