@@ -26,6 +26,7 @@ DEFENSIVE_PREFIXES = (
     "ar_dc_", "ar_opp_dc_allowed_", "ar_opp_tackles_allowed_",
 )
 MARKET_FEATURES = ("value", "selected", "transfers_balance")
+VENUE_CONDITIONED_PLAYER_FEATURE_PREFIX = "player_relevant_fpl_points_"
 
 
 def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
@@ -68,9 +69,16 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
             "genuine_zero_values": int(season_values.eq(0.0).sum().sum()),
         }
 
+    venue_conditioned_features = [
+        column for column in features
+        if column.startswith(VENUE_CONDITIONED_PLAYER_FEATURE_PREFIX)
+    ]
     anchor_features = [
         column for column in features
-        if column.startswith(ANCHOR_PREFIXES)
+        if (
+            column.startswith(ANCHOR_PREFIXES)
+            and column not in venue_conditioned_features
+        )
         or column == "status_league_rank"
         or (
             column.startswith("ar_")
@@ -94,6 +102,28 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
             if differing:
                 groups_affected += 1
                 columns_affected.update(differing)
+
+    venue_conditioning = {
+        "groups_with_multiple_fixtures": 0,
+        "groups_with_differences": 0,
+        "columns_with_differences": [],
+        "checked_feature_count": len(venue_conditioned_features),
+        "semantics": "player_relevant_fpl_points_{1,3,5,10,38} are rolling FPL points from the same venue as the target fixture; home and away target fixtures in one player-Gameweek may therefore differ despite sharing a deadline",
+    }
+    if not duplicate_players.empty and venue_conditioned_features:
+        venue_columns_affected: set[str] = set()
+        for _, group in duplicate_players.groupby(
+            ["season", "gameweek", "fpl_code"], sort=False
+        ):
+            venue_conditioning["groups_with_multiple_fixtures"] += 1
+            counts = group[venue_conditioned_features].nunique(dropna=False)
+            differing = counts[counts > 1].index.tolist()
+            if differing:
+                venue_conditioning["groups_with_differences"] += 1
+                venue_columns_affected.update(differing)
+        venue_conditioning["columns_with_differences"] = sorted(
+            venue_columns_affected
+        )
 
     context_flattening = {
         "groups_with_multiple_fixtures": 0,
@@ -177,8 +207,9 @@ def audit_frame(frame: pd.DataFrame, features: list[str]) -> dict[str, Any]:
             "groups_with_differences": groups_affected,
             "columns_with_differences": sorted(columns_affected),
             "checked_feature_count": len(anchor_features),
-            "scope": "player/team/availability history and non-fixture ar_ history only; not a full 286-feature deadline proof",
+            "scope": "deadline-anchored player/team/availability history and non-fixture ar_ history; excludes explicitly venue-conditioned relevant-FPL-points features; not a full 286-feature deadline proof",
         },
+        "venue_conditioned_player_history_check": venue_conditioning,
         "fixture_context_flattening_check": context_flattening,
         "known_unresolved_scopes": {
             "opponent_rolling_features": "reconstructed per target deadline from Understat team-match history with a conservative 24-hour availability bound; source-vintage and value-parity admission remain open",
