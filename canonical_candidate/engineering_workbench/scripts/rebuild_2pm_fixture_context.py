@@ -100,6 +100,22 @@ def rebuild_player_history_features(
 
     windows = list(features_module.WINDOWS)
     player_map = dict(features_module.PLAYER_FEATURES)
+    player_source_presence = {
+        source: bool(source in hist.columns) for source in player_map
+    }
+    defensive_source_resolution = {
+        feature: (
+            source if source in hist.columns
+            else "cbit" if feature == "cbit" and "cbit" in hist.columns
+            else None
+        )
+        for feature, source in {
+            "defensive_contribution": "defensive_contribution",
+            "cbit": "clearances_blocks_interceptions",
+            "recoveries": "recoveries",
+            "tackles": "tackles",
+        }.items()
+    }
     player_columns = [
         f"player_{feature}_{window}"
         for feature in player_map.values()
@@ -175,12 +191,11 @@ def rebuild_player_history_features(
 
         defensive_arrays = {}
         for feature, source in defensive_sources.items():
-            column = source
-            if feature == "cbit" and column not in group and "cbit" in group:
-                column = "cbit"
+            column = defensive_source_resolution[feature]
             series = (
                 pd.to_numeric(group[column], errors="coerce")
-                if column in group else pd.Series(np.nan, index=group.index)
+                if column is not None and column in group
+                else pd.Series(np.nan, index=group.index)
             )
             defensive_arrays[feature] = series.to_numpy(dtype=float)
 
@@ -351,6 +366,14 @@ def rebuild_player_history_features(
         "availability_feature_count": 9,
         "defensive_player_history_feature_count": len(defensive_columns) + len(rate_columns) + 1,
         "history_identity": "Dastan player_uid: Understat ID where mapped, else element_id + season",
+        "player_source_field_presence": player_source_presence,
+        "missing_player_source_fields": sorted(
+            source for source, present in player_source_presence.items() if not present
+        ),
+        "defensive_source_field_resolution": defensive_source_resolution,
+        "missing_defensive_source_fields": sorted(
+            feature for feature, source in defensive_source_resolution.items() if source is None
+        ),
         "rolling_window_semantics": "previous player fixture rows before deadline; player rolling features include non-appearance rows, while sequence tokens separately require minutes > 0",
         "availability_semantics": "previous season-scoped FPL player fixture rows before deadline; position-specific base rates when no history",
         "defensive_history_semantics": "previous player_uid fixture rows before deadline; NaN source values are ignored by rolling means",
@@ -383,6 +406,11 @@ def rebuild_deadline_team_context(
         raise ValueError("Target team context contains invalid deadlines")
 
     source_map = dict(features_module.TEAM_FEATURES)
+    team_source_presence = {
+        source: bool(source in team_matches.columns)
+        for source in source_map
+        if source not in {"league_rank", "opp_league_rank"}
+    }
     team_input = team_matches.copy()
     for source in source_map:
         if source in {"league_rank", "opp_league_rank"}:
@@ -640,6 +668,13 @@ def rebuild_deadline_team_context(
     report = {
         "status": "DEADLINE_TEAM_CONTEXT_REBUILT",
         "target_rows": int(len(out)),
+        "team_source_field_presence": team_source_presence,
+        "missing_team_source_fields": sorted(
+            source for source, present in team_source_presence.items() if not present
+        ),
+        "rank_input_field_presence": {
+            source: bool(source in team_matches.columns) for source in ("scored", "missed", "pts")
+        },
         "team_feature_count": len(team_feature_names),
         "opponent_feature_count": len(team_feature_names),
         "direct_rank_columns": ["status_league_rank", "opp_status_league_rank"],
