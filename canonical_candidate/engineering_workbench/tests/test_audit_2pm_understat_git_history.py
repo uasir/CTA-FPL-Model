@@ -108,6 +108,52 @@ class UnderstatGitHistoryTests(unittest.TestCase):
             self.assertEqual(_get_text(session, "https://raw.githubusercontent.com/o/r/p"), b"ok")
         self.assertNotIn("Authorization", session.kwargs["headers"])
 
+
+    def test_deleted_path_revision_is_a_missing_state_and_can_reappear(self):
+        commits = [
+            {"sha": "c", "commit": {"committer": {"date": "2024-01-03T00:00:00Z"}}},
+            {"sha": "b", "commit": {"committer": {"date": "2024-01-02T00:00:00Z"}}},
+            {"sha": "a", "commit": {"committer": {"date": "2024-01-01T00:00:00Z"}}},
+        ]
+        payload = b"date,season,xG" + bytes([10]) + b"2024-01-01,2023,0.2" + bytes([10])
+        urls = {
+            "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/a/data/player_987.csv": payload,
+            "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/b/data/player_987.csv": None,
+            "https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/c/data/player_987.csv": payload,
+        }
+        with patch("audit_2pm_understat_git_history.list_path_commits", return_value=commits):
+            with patch("audit_2pm_understat_git_history._get_text",
+                       side_effect=lambda session, url: urls[url]):
+                result = audit_file(
+                    object(), "vaastav/Fantasy-Premier-League", "c",
+                    "data/player_987.csv", "player", 10, 987,
+                )
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(
+            [row["revision_status"] for row in result["commit_rows"]],
+            ["present", "deleted", "present"],
+        )
+        row = result["row_history"]["987|2024-01-01"]
+        self.assertEqual(row["missing_revision_count"], 1)
+        self.assertEqual(row["reappearance_count"], 1)
+        self.assertEqual(
+            [(event["commit"], event["status"]) for event in row["state_events"]],
+            [("a", "present"), ("b", "missing"), ("c", "present")],
+        )
+
+    def test_raw_content_404_is_returned_as_deleted_state(self):
+        class Response:
+            status_code = 404
+            content = b""
+            def raise_for_status(self):
+                raise AssertionError("404 must be treated as a deleted path state")
+
+        class Session:
+            def get(self, url, **kwargs):
+                return Response()
+
+        self.assertIsNone(_get_text(Session(), "https://raw.githubusercontent.com/o/r/p"))
+
     def test_duplicate_revision_is_rejected_without_mutating_row_history(self):
         commits = [
             {"sha": "b", "commit": {"committer": {"date": "2024-01-02T00:00:00Z"}}},
