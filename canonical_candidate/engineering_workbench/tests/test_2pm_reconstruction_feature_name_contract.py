@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from rebuild_2pm_dastan_286_candidate import (
     expected_reconstruction_feature_map,
+    expected_reconstruction_source_map,
     validate_reconstruction_coverage,
 )
 
@@ -73,6 +74,15 @@ def test_exact_reconstruction_names_partition_the_pinned_286_schema():
     assert len(flattened) == 286
     assert len(set(flattened)) == 286
     assert set(flattened) == set(schema["feature_order"])
+
+    source_map = expected_reconstruction_source_map(pinned_feature_definitions())
+    assert len(source_map) == 286
+    assert set(source_map) == set(schema["feature_order"])
+    assert "player_matches.us_xG" in source_map["player_xg_1"]
+    assert "team_matches.scored" in source_map["team_goals_scored_1"]
+    assert "opponent team_matches.scored" in source_map["opp_goals_scored_1"]
+    assert "selected_by_percent" in source_map["selected"]
+    assert "transfers_in_event - transfers_out_event" in source_map["transfers_balance"]
 
 
 def test_exact_name_validator_rejects_a_builder_schema_name_mismatch():
