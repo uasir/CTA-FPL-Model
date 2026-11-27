@@ -489,7 +489,7 @@ Implemented the first mask contract for the independent 2PM tensors:
 - `observed_value_mask` is a binary uint8 array. It excludes NaN/Inf, declared missing-snapshot sentinels, and structurally unavailable cells. Genuine observed zero remains observed.
 - Explicit `-1.0` missing-snapshot sentinel columns are `ar_ep_next`, `sig_status_risk`, `sig_chance_playing`, `sig_has_news`, `value`, `selected`, and `transfers_balance`.
 - The pinned defensive source policy marks the 27 defensive-regime-dependent features unavailable in 2020/21–2024/25 and available in 2025/26. The 2026/27 state remains UNKNOWN pending inference-source vintage validation. The other 259 features remain UNKNOWN pending feature-level source-vintage review.
-- The sequence tensor builder emits both masks; the grouped integrity audit validates their shapes, values, missing-sentinel semantics, structural-absence behavior and padded slots. Cached Run 83 tensor shards can be augmented with masks without repeating acquisition or post-match reconstruction.
+- The sequence tensor builder emits both masks; the grouped integrity audit validates their shapes, values, missing-sentinel semantics, structural-absence behavior and padded slots. The observed mask is now required to consume pre-fill raw-source sidecars because Dastan zero-fills some player/team fields before rolling reconstruction.
 - Focused unit and integration tests cover the three-state policy, observed zero vs NaN vs -1 sentinel, structural absence despite a finite numeric fill, tensor emission, and mask integrity.
 
 The new workflow checks are still running/queued at the time of this status update; no test result is claimed here. The candidate remains NOT_ADMITTED, no training is authorized, and no existing six-season tensor artifact has yet been rewritten with the new masks.
@@ -497,7 +497,7 @@ The new workflow checks are still running/queued at the time of this status upda
 
 ### CI verification update (2026-11-27)
 
-The full CTA FPL engineering CI completed successfully on commit `07843aae55e1363ea913c3bc8a18e927c59ba6d6` (workflow run `45959619546`): **569 passed, 4 skipped, 3 subtests passed**. This run includes the feature-group/availability validator, tri-state mask helpers, sequence tensor mask emission, cached-shard mask backfill, and associated tests.
+The full CTA FPL engineering CI completed successfully on commit `07843aae55e1363ea913c3bc8a18e927c59ba6d6` (workflow run `45959619546`): **569 passed, 4 skipped, 3 subtests passed**. This run validated the earlier finite-value mask implementation only; it predates the discovery that upstream zero-fill destroys some raw missingness. It is not evidence that the new pre-fill sidecar extension passes CI.
 
 The focused 2PM sequence-contract workflow for the subsequent manifest evidence commit `3410a79f64825ceb0538d255187960d657dc6609` is queued behind the preceding run at the time of this update. Its result is not yet claimed.
 
@@ -506,7 +506,7 @@ No six-season candidate rebuild or tensor-artifact augmentation has been execute
 
 ### Final mask-contract CI result (2026-11-27)
 
-The focused **2PM Dastan 286 sequence-contract workflow passed** on commit `6da7c2a73f67e873eb8d7dbd89a9774dbde0c814` (run `45959674518`): **106 passed**. This includes the new feature-group manifest validation, tri-state source-availability policy, observed-value mask semantics, tensor mask emission, cached-shard backfill, and grouped tensor integrity tests.
+The focused **2PM Dastan 286 sequence-contract workflow passed** on commit `6da7c2a73f67e873eb8d7dbd89a9774dbde0c814` (run `45959674518`): **106 passed**. This validated the initial mask contract, before pre-fill sidecars were required; it does not validate the current sidecar implementation.
 
 The full CTA FPL engineering CI also passed on `07843aae55e1363ea913c3bc8a18e927c59ba6d6` (run `45959619546`): **569 passed, 4 skipped, 3 subtests passed**.
 
@@ -546,4 +546,4 @@ Final verification on commit `b99d9bcd2b5b703423ffbee15f5837631c7763cb`:
 - **CTA FPL engineering CI** run `45959909648`: 571 passed, 4 skipped, 3 subtests passed.
 - **2PM Dastan 286 sequence contract** run `45959909666`: 108 passed.
 
-No six-season tensor rebuild or cached-artifact augmentation has been run. The existing Run 83 artifact is unchanged. The new cache-backfill path is ready for the next candidate build, which can add mask files from cached tensors without repeating expensive source acquisition or post-match reconstruction. All 286 features remain HOLD; no training is authorized.
+No six-season tensor rebuild or cached-artifact augmentation has been run. The existing Run 83 artifact is unchanged. The current code now rejects legacy candidate caches without all 286 pre-fill sidecars and rejects tensor shards without both provenance masks. A new candidate build must reconstruct sidecars from the pinned raw source data; source-download cache reuse remains possible. All 286 features remain HOLD; no training is authorized.
