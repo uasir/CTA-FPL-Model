@@ -694,3 +694,15 @@ The three FPL availability signals are joined by pinned Dastan `data.load(candid
 Regression CI after these source-map corrections: [Engineering CI 46008201423](https://github.com/uasir/CTA-FPL-Model/actions/runs/46008201423) passed **604 tests, 5 skipped, 18 warnings, and 3 subtests**. The sequence contract workflow [46008151832](https://github.com/uasir/CTA-FPL-Model/actions/runs/46008151832) passed **132 tests** on the preceding implementation commit; the subsequent change only corrected source-map assertions/descriptions.
 
 Remaining limitation: Run 85 did not contain the original `features_286_candidate.parquet` output table, so the exact producer-to-output value parity cannot be retrospectively re-run against that artifact. The stricter reconstruction validator now runs during candidate generation and will fail closed on any missing/extra schema name, duplicate builder assignment, absent observation sidecar, or non-binary sidecar. A candidate rebuild is still required to exercise that gate on a fresh full reconstruction and emit its per-feature source-field presence report. Admission remains `NOT_ADMITTED`; training remains unauthorized.
+
+
+
+### Early-season league-rank observation-mask correction (2026-11-27)
+
+A follow-up review of the actual deadline team-context producer found that rank fallback values could be marked observed when no completed league match existed before the target deadline. The same issue affected the historical rolling-rank sidecar for the first match date: a pre-match fallback rank was treated as observed despite there being no prior table.
+
+The producer now marks a historical match's rank as observed only when at least one earlier match exists and all prior rank inputs are complete. Direct deadline ranks now require at least one completed match before the deadline as well as complete scored, conceded, and points inputs. Fallback numeric ranks remain unchanged; only their observation masks are corrected. This preserves early-season samples without fabricating rank evidence.
+
+Regression coverage was added for both cases: (1) a deadline before the first match has unobserved direct ranks, and (2) the first match's pre-match rolling rank remains unobserved even when that match is available by a later deadline. Code commit: [75419bd](https://github.com/uasir/CTA-FPL-Model/commit/75419bdaa246f5b3bc0277264a7008b606345fd5). Test commit: [61ba353](https://github.com/uasir/CTA-FPL-Model/commit/61ba353c251db32d1b024fda1f71b1140442b2d3).
+
+Engineering CI [46008983449](https://github.com/uasir/CTA-FPL-Model/actions/runs/46008983449) and the focused 2PM sequence contract [46008983457](https://github.com/uasir/CTA-FPL-Model/actions/runs/46008983457) were triggered by the test commit. Their results are pending at the time of this note. No candidate rebuild or model training was started.
