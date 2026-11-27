@@ -22,7 +22,7 @@ concurrency:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -43,11 +43,42 @@ jobs:
           restore-keys: |
             understat-revision-v2-8c97b2adb123863c3dd581e730f1360e89815ac2-
 
-      - name: Create bounded multi-player and multi-club inventory
+      - name: Create eight-player and complete 100-team inventory
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          cat > "$RUNNER_TEMP/understat-smoke-inventory.json" <<'JSON'
-          {
-            "players": [
+          python - <<'PY'
+          import csv
+          import io
+          import json
+          import os
+          from pathlib import Path
+          import requests
+
+          repository = "vaastav/Fantasy-Premier-League"
+          commit = "8c97b2adb123863c3dd581e730f1360e89815ac2"
+          seasons = ["2020-21", "2021-22", "2022-23", "2023-24", "2024-25"]
+          token = os.environ["GITHUB_TOKEN"]
+          headers = {"Accept": "application/vnd.github+json", "Authorization": f"Bearer {token}"}
+          tree_response = requests.get(
+              f"https://api.github.com/repos/{repository}/git/trees/{commit}?recursive=1",
+              headers=headers, timeout=90,
+          )
+          tree_response.raise_for_status()
+          tree = tree_response.json()
+          assert not tree.get("truncated"), "Pinned Vaastav tree is truncated"
+          paths = {item["path"] for item in tree["tree"] if item.get("type") == "blob"}
+          fpl_to_understat = {
+              "Man City": "Manchester City",
+              "Man Utd": "Manchester United",
+              "Newcastle": "Newcastle United",
+              "Nott'm Forest": "Nottingham Forest",
+              "Sheffield Utd": "Sheffield United",
+              "Spurs": "Tottenham",
+              "West Brom": "West Bromwich Albion",
+              "Wolves": "Wolverhampton Wanderers",
+          }
+          players = [
               {"source_kind":"pinned_player_csv","understat_id":647,"selected_pinned_tree_path":"data/2023-24/understat/Harry_Kane_647.csv"},
               {"source_kind":"pinned_player_csv","understat_id":453,"selected_pinned_tree_path":"data/2024-25/understat/Son_Heung-Min_453.csv"},
               {"source_kind":"pinned_player_csv","understat_id":447,"selected_pinned_tree_path":"data/2024-25/understat/Kevin_De_Bruyne_447.csv"},
@@ -55,29 +86,36 @@ jobs:
               {"source_kind":"pinned_player_csv","understat_id":1665,"selected_pinned_tree_path":"data/2024-25/understat/James_Tarkowski_1665.csv"},
               {"source_kind":"pinned_player_csv","understat_id":745,"selected_pinned_tree_path":"data/2021-22/understat/Kasper_Schmeichel_745.csv"},
               {"source_kind":"pinned_player_csv","understat_id":1250,"selected_pinned_tree_path":"data/2024-25/understat/Mohamed_Salah_1250.csv"},
-              {"source_kind":"pinned_player_csv","understat_id":6048,"selected_pinned_tree_path":"data/2024-25/understat/Lewis_Dunk_6048.csv"}
-            ],
-            "teams": [
-              {"source_kind":"pinned_team_csv","source_path":"data/2020-21/understat/understat_Arsenal.csv"},
-              {"source_kind":"pinned_team_csv","source_path":"data/2020-21/understat/understat_Liverpool.csv"},
-              {"source_kind":"pinned_team_csv","source_path":"data/2021-22/understat/understat_Manchester_City.csv"},
-              {"source_kind":"pinned_team_csv","source_path":"data/2021-22/understat/understat_Tottenham.csv"},
-              {"source_kind":"pinned_team_csv","source_path":"data/2022-23/understat/understat_Arsenal.csv"},
-              {"source_kind":"pinned_team_csv","source_path":"data/2022-23/understat/understat_Brighton.csv"},
-              {"source_kind":"pinned_team_csv","source_path":"data/2023-24/understat/understat_Manchester_United.csv"},
-              {"source_kind":"pinned_team_csv","source_path":"data/2023-24/understat/understat_Aston_Villa.csv"},
-              {"source_kind":"pinned_team_csv","source_path":"data/2024-25/understat/understat_Everton.csv"},
-              {"source_kind":"pinned_team_csv","source_path":"data/2024-25/understat/understat_West_Ham.csv"}
-            ]
-          }
-          JSON
+              {"source_kind":"pinned_player_csv","understat_id":6048,"selected_pinned_tree_path":"data/2024-25/understat/Lewis_Dunk_6048.csv"},
+          ]
+          teams = []
+          missing = []
+          session = requests.Session()
+          for season in seasons:
+              url = f"https://raw.githubusercontent.com/{repository}/{commit}/data/{season}/teams.csv"
+              response = session.get(url, headers={"Accept": "text/csv"}, timeout=60)
+              response.raise_for_status()
+              for team in csv.DictReader(io.StringIO(response.text)):
+                  understat_name = fpl_to_understat.get(team["name"], team["name"])
+                  source_path = f"data/{season}/understat/understat_{understat_name.replace(' ', '_')}.csv"
+                  if source_path not in paths:
+                      missing.append(source_path)
+                      continue
+                  teams.append({"source_kind":"pinned_team_csv","source_path":source_path})
+          assert not missing, {"missing_team_sources": missing}
+          assert len(players) == 8 and len(teams) == 100, (len(players), len(teams))
+          inventory = {"players": players, "teams": teams}
+          target = Path(os.environ["RUNNER_TEMP"]) / "understat-smoke-inventory.json"
+          target.write_text(json.dumps(inventory, indent=2), encoding="utf-8")
+          print(f"Created inventory: {len(players)} player paths, {len(teams)} team-season paths.")
+          PY
 
-      - name: Trace complete pinned histories for eight players and ten team-season files
+      - name: Trace eight player histories and all 100 pinned team-season files
         working-directory: canonical_candidate/engineering_workbench
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          python scripts/audit_2pm_understat_git_history.py --inventory "$RUNNER_TEMP/understat-smoke-inventory.json" --pinned-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" --cache-dir "$RUNNER_TEMP/understat-revision-cache" --max-commits-per-file 100 --limit-player-files 8 --limit-team-files 10 --output "$RUNNER_TEMP/understat-revision-history.json"
+          python scripts/audit_2pm_understat_git_history.py --inventory "$RUNNER_TEMP/understat-smoke-inventory.json" --pinned-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" --cache-dir "$RUNNER_TEMP/understat-revision-cache" --max-commits-per-file 100 --limit-player-files 8 --limit-team-files 0 --output "$RUNNER_TEMP/understat-revision-history.json"
 
       - name: Validate multi-player and multi-club source histories
         run: |
@@ -89,9 +127,11 @@ jobs:
 
           path = Path(os.environ["RUNNER_TEMP"]) / "understat-revision-history.json"
           report = json.loads(path.read_text())
-          assert report["files_requested"] == 18, report
-          assert report["files_audited"] == 18, report
+          assert report["files_requested"] == 108, report
+          assert report["files_audited"] == 108, report
           assert report["admission_decision"] == "NO_FEATURES_ADMITTED", report
+          assert sum(result["source_kind"] == "pinned_player_csv" for result in report["results"]) == 8, report
+          assert sum(result["source_kind"] == "pinned_team_csv" for result in report["results"]) == 100, report
           empty_revision_seen = False
           for result in report["results"]:
               assert not result.get("error"), result
@@ -113,7 +153,7 @@ jobs:
                   if season == "2022-23" and club == "Arsenal":
                       empty_revision_seen = any(row.get("revision_status") == "empty_file" and row.get("rows") == 0 for row in result["commit_rows"])
           assert empty_revision_seen, "Arsenal 2022/23 empty-revision regression was not observed"
-          print("PASS: 8 player and 10 team-season histories complete; empty-revision behavior preserved; no feature admission.")
+          print("PASS: 8 player histories and all 100 pinned team-season histories complete; empty-revision behavior preserved; no feature admission.")
           PY
 
       - name: Reconcile source rows to FPL fixtures and historical deadlines
