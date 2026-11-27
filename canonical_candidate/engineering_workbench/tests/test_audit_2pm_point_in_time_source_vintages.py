@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+import json
+import lzma
+import tempfile
 import unittest
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
-from audit_2pm_point_in_time_source_vintages import select_commit
+from audit_2pm_point_in_time_source_vintages import (
+    _probe_payload,
+    _snapshot_for_deadline,
+    _season_capture_bounds,
+    select_commit,
+)
 
 
 class PointInTimeSourceVintageTests(unittest.TestCase):
@@ -23,6 +32,48 @@ class PointInTimeSourceVintageTests(unittest.TestCase):
             {"sha": "after", "committed_at": deadline + timedelta(hours=1)}
         ]
         self.assertIsNone(select_commit(commits, deadline))
+
+    def test_season_capture_bounds_are_season_scoped(self):
+        start, end = _season_capture_bounds("2021-22")
+        self.assertEqual(start, datetime(2021, 6, 1, tzinfo=timezone.utc))
+        self.assertEqual(end, datetime(2022, 7, 1, tzinfo=timezone.utc))
+
+    def test_probe_finds_2020_21_from_its_archived_capture_window(self):
+        payload = {
+            "events": [
+                {"id": 38, "deadline_time": "2021-05-23T15:00:00Z"}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "snapshot.json.xz"
+            path.write_bytes(lzma.compress(json.dumps(payload).encode("utf-8")))
+            captured = datetime(2021, 5, 23, 12, 0, tzinfo=timezone.utc)
+            selected_at, selected_path, selected_payload = _probe_payload(
+                [(captured, path)], "2020-21"
+            )
+        self.assertEqual(selected_at, captured)
+        self.assertEqual(selected_path, path)
+        self.assertEqual(selected_payload, payload)
+
+    def test_previous_season_snapshot_is_not_used_for_next_seasons_deadline(self):
+        previous_season_payload = {
+            "events": [
+                {"id": 1, "deadline_time": "2020-09-12T10:00:00Z"}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "previous-season.json.xz"
+            path.write_bytes(
+                lzma.compress(json.dumps(previous_season_payload).encode("utf-8"))
+            )
+            captured = datetime(2021, 4, 18, 6, 24, tzinfo=timezone.utc)
+            result = _snapshot_for_deadline(
+                [(captured, path)],
+                "2021-22",
+                1,
+                datetime(2021, 7, 30, 10, 0, tzinfo=timezone.utc),
+            )
+        self.assertEqual(result["status"], "no_pre_deadline_snapshot")
 
 
 if __name__ == "__main__":
