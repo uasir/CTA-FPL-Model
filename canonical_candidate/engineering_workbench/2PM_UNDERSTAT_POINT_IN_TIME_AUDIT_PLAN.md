@@ -100,6 +100,8 @@ Add regression tests for:
 
 ## 6. Admission gate
 
+As of 2026-11-27, manifest 1.7.0 applies this HOLD to **152 Understat-derived features**: 30 player-history features, 120 own/opponent team rolling features, and two direct deadline league-rank fields. This corrects the previous 100-feature mask, which omitted player xGChain/xGBuildup and team/opponent goals/rank context even though those values are reconstructed from Understat histories. The exact ordered inventory is generated from the pinned 286-feature schema and stored in the manifest. The training loader also reapplies this HOLD to older tensor artifacts at load time.
+
 All Understat-derived features remain **HOLD** until one of these is completed:
 
 - the row-level vintage manifest is generated and validated for every relevant season, including verified public-publication timestamps (not commit timestamps alone); or
