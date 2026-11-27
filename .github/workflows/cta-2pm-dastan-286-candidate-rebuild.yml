@@ -92,7 +92,7 @@ jobs:
           print("Validated all 286 raw-source observation sidecars in reusable candidate cache.")
           PY
       - name: Rebuild six-season corrected-identity 286-feature candidate
-        if: steps.candidate-cache.outputs.cache-hit != 'true' && inputs.rebuild_candidate == true
+        if: inputs.rebuild_candidate == true
         working-directory: canonical_candidate/engineering_workbench
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -106,7 +106,7 @@ jobs:
             --allow-missing-understat \
             > "$RUNNER_TEMP/2pm-dastan-rebuild.log"
       - name: Save completed candidate for downstream-only reruns
-        if: success() && steps.candidate-cache.outputs.cache-hit != 'true'
+        if: success() && inputs.rebuild_candidate == true
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/2pm-dastan-candidate
