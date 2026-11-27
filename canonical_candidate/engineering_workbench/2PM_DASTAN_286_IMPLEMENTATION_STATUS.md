@@ -936,3 +936,12 @@ The sample still exposes source lifecycle concerns: seven July 2020 Arsenal rows
 The next step is to reconcile these row lifecycle/date events to FPL fixture IDs, official deadlines, and Dastan rolling windows. This remains a small source sample, not a full six-season admission audit. All 152 Understat features remain HOLD; training is unauthorized.
 
 The 2022/23 Arsenal row-date migration was manually matched to pinned FPL fixture 61, GW25: Arsenal 4–0 Everton, kickoff 2023-03-01 19:45 UTC. The old Understat row date (March 2) and replacement (March 1) have identical non-date values. This confirms the fixture identity, but the impact on deadline-anchored features remains unclassified until the row is evaluated against the target GW deadlines and Dastan's rolling/anchor behavior.
+
+
+### Understat revision-history sample expansion (2026-11-27)
+
+The dedicated pinned-source history smoke has now expanded from six files to 18 files and passed in [workflow run 46053531319](https://github.com/uasir/CTA-FPL-Model/actions/runs/46053531319), artifact [15225556711](https://github.com/uasir/CTA-FPL-Model/actions/runs/46053531319/artifacts/15225556711). It covered eight player files and ten team-season files across multiple clubs and 2020/21–2024/25 team seasons. All 18 histories were complete under the 100-commit cap, with no parse errors or duplicate keys; 510 path revisions and 2,849 row identities were inspected. The audit surfaced 2020/21 out-of-season July rows later removed, 2021/22 team-row disappear/reappear events, one genuine 2020/21 Liverpool team-value revision, and a potential 2022/23 Arsenal date correction. Both populated-to-empty and empty-to-populated file revisions were retained explicitly.
+
+The next work is canonical FPL fixture reconciliation, not broader model training or feature admission. It must use pinned Dastan season/player assignment intervals and pinned Vaastav fixture/player/team sources; resolve player rows by player identity plus fixture teams/date and team rows by club/venue/date; and report unmatched/ambiguous/out-of-season rows explicitly. Potential date-correction pairs must be tested against fixture IDs. Row first-seen/value-event timestamps can then be compared with official target deadlines, while preserving the limitation that Git commit timestamps are not proof of Understat publication or public visibility.
+
+This work remains provenance research only. All 152 Understat features remain HOLD, the six-season candidate remains NOT_ADMITTED, and 2PM training remains unauthorized.
