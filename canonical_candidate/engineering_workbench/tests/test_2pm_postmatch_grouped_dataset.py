@@ -93,7 +93,7 @@ def test_grouped_dataset_builds_one_scoped_player_gameweek_at_a_time(tmp_path, m
     assert (tmp_path / "out" / "postmatch_grouped_dataset_report.json").exists()
 
 
-def test_cached_tensor_mask_backfill_avoids_rebuilding_and_masks_padding(tmp_path, monkeypatch):
+def test_cached_tensor_mask_backfill_avoids_rebuilding_and_masks_padding(tmp_path):
     features = [f"feature_{i:03d}" for i in range(286)]
     shard_dir = tmp_path / "cached_gw"
     shard_dir.mkdir()
