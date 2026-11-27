@@ -21,9 +21,9 @@ def test_versioned_manifest_partitions_all_286_schema_features_in_order():
     assert groups["defensive_regime_dependent"] == EXPECTED_DEFENSIVE_COLUMNS
     assert len(set(groups["common_candidate"]) | set(groups["defensive_regime_dependent"])) == 286
     assert not set(groups["common_candidate"]) & set(groups["defensive_regime_dependent"])
-    assert tuple(schema["feature_order"]) == (
-        groups["common_candidate"] + groups["defensive_regime_dependent"]
-        if False else tuple(schema["feature_order"])
+    defensive = set(groups["defensive_regime_dependent"])
+    assert groups["common_candidate"] == tuple(
+        name for name in schema["feature_order"] if name not in defensive
     )
 
 
