@@ -665,7 +665,7 @@ def expected_reconstruction_source_map(features_module) -> dict[str, str]:
         "ar_opp_tackles_allowed_5": (
             "player_matches.tackles; opponent-conceded fixture totals, last 5"
         ),
-        "is_home_num": "player_matches.is_home",
+        "is_home_num": "player_matches.is_home; strict boolean parsing, rejecting missing or ambiguous values",
         "value": "pre_deadline_market.now_cost",
         "selected": "pre_deadline_market.selected_by_percent",
         "transfers_balance": "pre_deadline_market.transfers_in_event - transfers_out_event",
