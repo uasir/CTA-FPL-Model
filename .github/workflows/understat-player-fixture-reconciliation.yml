@@ -1,0 +1,121 @@
+name: Understat full-population player fixture reconciliation
+on:
+  workflow_dispatch:
+    inputs:
+      revision_run_id:
+        description: "Completed 24-batch source-history run"
+        required: true
+        default: "46089585786"
+        type: string
+      batch_zero_run_id:
+        description: "Completed batch-0 source-history run"
+        required: true
+        default: "46089267184"
+        type: string
+permissions:
+  actions: read
+  contents: read
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/understat-player-fixture-reconciliation
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install audit dependencies
+        run: python -m pip install pandas requests
+      - name: Download batches 1–24
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.revision_run_id }}
+          pattern: understat-player-revision-batch-*
+          path: ${{ runner.temp }}/batches-1-24
+      - name: Download batch 0
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.batch_zero_run_id }}
+          path: ${{ runner.temp }}/batch-0
+      - name: Consolidate and validate all 25 batches
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          batch_files=sorted(root.glob("batches-1-24/**/player-revision-batch.json"))
+          batch_files += sorted(root.glob("batch-0/**/player-revision-batch.json"))
+          inventories=sorted(root.glob("batches-1-24/**/batch-inventory.json"))
+          inventories += sorted(root.glob("batch-0/**/batch-inventory.json"))
+          if len(batch_files)!=25 or len(inventories)!=25:
+              raise SystemExit(f"Expected 25 reports and inventories; got {len(batch_files)} and {len(inventories)}")
+          reports=[json.loads(p.read_text()) for p in batch_files]
+          invs=[json.loads(p.read_text()) for p in inventories]
+          commits={r.get("pinned_commit") for r in reports}
+          if len(commits)!=1 or None in commits:
+              raise SystemExit(f"Mixed or missing Understat pinned commits: {commits}")
+          by_path={}
+          for inv in invs:
+              for item in inv.get("players",[]):
+                  path=item["selected_pinned_tree_path"]
+                  if path in by_path: raise SystemExit(f"Duplicate selected path: {path}")
+                  by_path[path]=item
+          results=[]
+          audited_paths=[]
+          for report in reports:
+              if report.get("files_requested") != report.get("files_audited"):
+                  raise SystemExit("Batch requested/audited count mismatch")
+              for row in report.get("results",[]):
+                  path=row.get("source_path")
+                  if path in audited_paths: raise SystemExit(f"Duplicate audited path: {path}")
+                  audited_paths.append(path)
+                  if row.get("error") or row.get("errors") or row.get("history_truncated") or not row.get("row_history"):
+                      raise SystemExit(f"Incomplete source history: {path}")
+                  results.append(row)
+          if set(audited_paths)!=set(by_path):
+              raise SystemExit(f"Inventory/audit path mismatch: inventory={len(by_path)}, audited={len(audited_paths)}")
+          merged={
+            "schema_version":1,
+            "audit_type":"consolidated_complete_understat_player_source_history",
+            "pinned_commit":next(iter(commits)),
+            "dastan_assignments_commit":"758db9247e8b3a9a870c991064f74d8339d61cd0",
+            "files_requested":len(by_path),"files_audited":len(results),
+            "distinct_player_date_rows":sum(len(r["row_history"]) for r in results),
+            "source_commits_inspected":sum(int(r.get("commit_count_returned",0)) for r in reports),
+            "results":sorted(results,key=lambda x:x["source_path"]),
+            "admission_decision":"NO_FEATURES_ADMITTED",
+            "training_authorized":False
+          }
+          out=root/"understat-player-history-complete.json"
+          out.write_text(json.dumps(merged,indent=2)+"\\n")
+          print(json.dumps({k:v for k,v in merged.items() if k!="results"},indent=2))
+          PY
+      - name: Reconcile all player rows to FPL fixture and identity records
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_player_fixture_membership.py \
+            --history-report "$RUNNER_TEMP/understat-player-history-complete.json" \
+            --vaastav-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" \
+            --dastan-commit "758db9247e8b3a9a870c991064f74d8339d61cd0" \
+            --fixture-cache-root "$RUNNER_TEMP/understat-fixture-cache" \
+            --player-cache-root "$RUNNER_TEMP/understat-player-cache" \
+            --output "$RUNNER_TEMP/player-fixture-reconciliation-summary.json" \
+            --detail-output "$RUNNER_TEMP/player-fixture-reconciliation.csv"
+      - name: Upload consolidated reconciliation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: understat-player-fixture-reconciliation
+          path: |
+            ${{ runner.temp }}/understat-player-history-complete.json
+            ${{ runner.temp }}/player-fixture-reconciliation-summary.json
+            ${{ runner.temp }}/player-fixture-reconciliation.csv
+          if-no-files-found: warn
+          retention-days: 90
