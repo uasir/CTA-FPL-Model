@@ -1,0 +1,75 @@
+name: Understat complete player-population inventory
+on:
+  push:
+    branches:
+      - feat/2pm-defensive-2025-26-train-2026-27-oot
+    paths:
+      - canonical_candidate/engineering_workbench/scripts/inventory_2pm_understat_player_population.py
+      - .github/workflows/understat-player-population-inventory.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: understat-player-population-inventory
+  cancel-in-progress: false
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install inventory dependency
+        run: python -m pip install requests
+      - name: Restore pinned-source inventory cache
+        uses: actions/cache/restore@v4
+        with:
+          path: \${{ runner.temp }}/understat-player-population-cache
+          key: understat-player-population-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-\${{ github.run_id }}
+          restore-keys: |
+            understat-player-population-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-
+      - name: Build complete Dastan-mapped player inventory
+        env:
+          GITHUB_TOKEN: \${{ github.token }}
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/inventory_2pm_understat_player_population.py \
+            --cache-dir "$RUNNER_TEMP/understat-player-population-cache" \
+            --output "$RUNNER_TEMP/understat-player-population.json" \
+            --detail-output "$RUNNER_TEMP/understat-player-population.csv"
+      - name: Validate inventory and preserve HOLD
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p = Path(os.environ["RUNNER_TEMP"]) / "understat-player-population.json"
+          report = json.loads(p.read_text())
+          assert report["assignment_rows"] == 4199, report
+          assert report["unique_understat_ids_across_seasons"] == 1561, report
+          assert report["unique_ids_with_selected_pinned_player_csv"] == 1213, report
+          assert report["unique_ids_without_selected_pinned_player_csv"] == 348, report
+          assert report["admission_decision"] == "NO_FEATURES_ADMITTED", report
+          assert report["training_authorized"] is False, report
+          collisions = report["shared_id_collision_groups"]
+          assert len(collisions) == 2, collisions
+          assert sum(x["identity_status"] == "AMBIGUOUS_OVERLAPPING_ASSIGNMENT" for x in collisions) == 2, collisions
+          print("PASS: full mapped-player inventory; overlapping shared IDs surfaced; no feature admission.")
+          print(json.dumps(report["season_summary"], indent=2))
+          print(json.dumps(collisions, indent=2))
+          PY
+      - name: Upload complete player-population inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: understat-complete-player-population-inventory
+          path: |
+            \${{ runner.temp }}/understat-player-population.json
+            \${{ runner.temp }}/understat-player-population.csv
+          if-no-files-found: error
+          retention-days: 30
+      - name: Save resumable pinned-source inventory cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: \${{ runner.temp }}/understat-player-population-cache
+          key: understat-player-population-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-\${{ github.run_id }}
