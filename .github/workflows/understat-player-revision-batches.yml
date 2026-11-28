@@ -1,5 +1,12 @@
 name: Understat complete player revision history batches
 on:
+  push:
+    branches:
+      - feat/2pm-defensive-2025-26-train-2026-27-oot
+    paths:
+      - .github/workflows/understat-player-revision-batches.yml
+      - canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_git_history.py
+      - canonical_candidate/engineering_workbench/scripts/inventory_2pm_understat_player_population.py
   workflow_dispatch:
     inputs:
       batch_index:
