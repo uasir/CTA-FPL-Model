@@ -42,6 +42,8 @@ jobs:
           restore-keys: |
             understat-player-revisions-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-batch-${{ matrix.batch_index }}-
       - name: Rebuild pinned population inventory
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           python canonical_candidate/engineering_workbench/scripts/inventory_2pm_understat_player_population.py \
             --cache-dir "$RUNNER_TEMP/understat-population-cache" \
