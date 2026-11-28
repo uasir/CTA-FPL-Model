@@ -39,7 +39,7 @@ jobs:
         with:
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.revision_run_id }}
+          run-id: ${{ inputs.revision_run_id || '46089585786' }}
           pattern: understat-player-revision-batch-*
           path: ${{ runner.temp }}/batches-1-24
       - name: Download batch 0
@@ -47,7 +47,7 @@ jobs:
         with:
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.batch_zero_run_id }}
+          run-id: ${{ inputs.batch_zero_run_id || '46089267184' }}
           path: ${{ runner.temp }}/batch-0
       - name: Consolidate and validate all 25 batches
         env:
