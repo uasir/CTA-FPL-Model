@@ -26,13 +26,13 @@ jobs:
       - name: Restore pinned-source inventory cache
         uses: actions/cache/restore@v4
         with:
-          path: \${{ runner.temp }}/understat-player-population-cache
-          key: understat-player-population-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-\${{ github.run_id }}
+          path: ${{ runner.temp }}/understat-player-population-cache
+          key: understat-player-population-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-${{ github.run_id }}
           restore-keys: |
             understat-player-population-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-
       - name: Build complete Dastan-mapped player inventory
         env:
-          GITHUB_TOKEN: \${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           python canonical_candidate/engineering_workbench/scripts/inventory_2pm_understat_player_population.py \
             --cache-dir "$RUNNER_TEMP/understat-player-population-cache" \
@@ -63,13 +63,13 @@ jobs:
         with:
           name: understat-complete-player-population-inventory
           path: |
-            \${{ runner.temp }}/understat-player-population.json
-            \${{ runner.temp }}/understat-player-population.csv
+            ${{ runner.temp }}/understat-player-population.json
+            ${{ runner.temp }}/understat-player-population.csv
           if-no-files-found: error
           retention-days: 30
       - name: Save resumable pinned-source inventory cache
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: \${{ runner.temp }}/understat-player-population-cache
-          key: understat-player-population-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-\${{ github.run_id }}
+          path: ${{ runner.temp }}/understat-player-population-cache
+          key: understat-player-population-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-${{ github.run_id }}
