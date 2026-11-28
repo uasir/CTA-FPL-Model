@@ -389,6 +389,8 @@ def main() -> None:
                         help="Optional overall smoke-test cap; 0 means all selected pinned CSV files")
     parser.add_argument("--limit-player-files", type=int, default=0,
                         help="Optional player-file cap; 0 means all pinned player CSV files")
+    parser.add_argument("--player-offset", type=int, default=0,
+                        help="Skip this many sorted player source files before applying the player-file cap")
     parser.add_argument("--limit-team-files", type=int, default=0,
                         help="Optional team-file cap; 0 means all pinned team CSV files")
     args = parser.parse_args()
@@ -403,6 +405,10 @@ def main() -> None:
         for row in inventory["teams"]
         if row["source_kind"] == "pinned_team_csv" and row.get("source_path")
     ]
+    player_sources = sorted(player_sources, key=lambda item: (item[2], item[1]))
+    if args.player_offset < 0:
+        raise ValueError("--player-offset must be non-negative")
+    player_sources = player_sources[args.player_offset:]
     if args.limit_player_files:
         player_sources = player_sources[:args.limit_player_files]
     if args.limit_team_files:
