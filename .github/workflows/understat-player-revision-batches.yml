@@ -17,7 +17,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: understat-player-revision-batch-\${{ inputs.batch_index }}
+  group: understat-player-revision-batch-${{ inputs.batch_index }}
   cancel-in-progress: false
 jobs:
   audit:
@@ -34,9 +34,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            \${{ runner.temp }}/understat-population-cache
-            \${{ runner.temp }}/understat-revision-cache
-          key: understat-player-revisions-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-\${{ github.run_id }}
+            ${{ runner.temp }}/understat-population-cache
+            ${{ runner.temp }}/understat-revision-cache
+          key: understat-player-revisions-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-${{ github.run_id }}
           restore-keys: |
             understat-player-revisions-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-
       - name: Rebuild pinned population inventory
@@ -47,7 +47,7 @@ jobs:
             --detail-output "$RUNNER_TEMP/player-population.csv"
       - name: Prepare deterministic player-history batch
         env:
-          BATCH_INDEX: \${{ inputs.batch_index }}
+          BATCH_INDEX: ${{ inputs.batch_index || '0' }}
         run: |
           python - <<'PY'
           import csv, json, os
@@ -76,7 +76,7 @@ jobs:
           PY
       - name: Audit all player source revisions in this batch
         env:
-          GITHUB_TOKEN: \${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           python canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_git_history.py \
             --inventory "$RUNNER_TEMP/batch-inventory.json" \
@@ -107,10 +107,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: understat-player-revision-batch-\${{ inputs.batch_index }}
+          name: understat-player-revision-batch-${{ inputs.batch_index }}
           path: |
-            \${{ runner.temp }}/player-revision-batch.json
-            \${{ runner.temp }}/batch-inventory.json
+            ${{ runner.temp }}/player-revision-batch.json
+            ${{ runner.temp }}/batch-inventory.json
           if-no-files-found: warn
           retention-days: 30
       - name: Save resumable source revision cache
@@ -118,6 +118,6 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: |
-            \${{ runner.temp }}/understat-population-cache
-            \${{ runner.temp }}/understat-revision-cache
-          key: understat-player-revisions-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-\${{ github.run_id }}
+            ${{ runner.temp }}/understat-population-cache
+            ${{ runner.temp }}/understat-revision-cache
+          key: understat-player-revisions-v1-8c97b2adb123863c3dd581e730f1360e89815ac2-${{ github.run_id }}
