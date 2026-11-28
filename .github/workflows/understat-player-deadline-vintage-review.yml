@@ -1,0 +1,135 @@
+name: Understat matched-player deadline vintage review
+
+on:
+  push:
+    branches:
+      - audit/understat-player-fixture-reconciliation
+    paths:
+      - .github/workflows/understat-player-deadline-vintage-review.yml
+      - canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_deadline_visibility.py
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: understat-player-deadline-vintage-review
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out audit branch
+        uses: actions/checkout@v4
+
+      - name: Download validated full-population reconciliation artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: understat-player-fixture-reconciliation
+          run-id: 46114909340
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/reconciliation
+
+      - name: Check out pinned FPL cache archive
+        uses: actions/checkout@v4
+        with:
+          repository: Randdalf/fplcache
+          ref: 6c364bfbd9914649dc5dec016e544be3ae4fe767
+          path: fplcache-2025-26
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install audit dependencies
+        run: python -m pip install pandas requests
+
+      - name: Filter to exact, identity-verified player-fixture matches
+        env:
+          INPUT_DIR: ${{ runner.temp }}/reconciliation
+          OUTPUT_DIR: ${{ runner.temp }}/matched-player-input
+        run: |
+          python - <<'PY'
+          import csv, json, os
+          from pathlib import Path
+
+          root = Path(os.environ["INPUT_DIR"])
+          out = Path(os.environ["OUTPUT_DIR"])
+          out.mkdir(parents=True, exist_ok=True)
+          history_path = root / "understat-player-history-complete.json"
+          membership_path = root / "player-fixture-reconciliation.csv"
+          history = json.loads(history_path.read_text(encoding="utf-8"))
+          matched = set()
+          with membership_path.open(newline="", encoding="utf-8") as handle:
+              for row in csv.DictReader(handle):
+                  if row["reconciliation_status"] == "MATCHED_PLAYER_FIXTURE":
+                      matched.add((row["source_path"], row["row_key"]))
+
+          selected_results = []
+          selected_rows = 0
+          for result in history.get("results", []):
+              if result.get("source_kind") != "pinned_player_csv":
+                  continue
+              source_path = result["source_path"]
+              rows = {
+                  key: value for key, value in result.get("row_history", {}).items()
+                  if (source_path, key) in matched
+              }
+              if rows:
+                  selected_rows += len(rows)
+                  selected_results.append({
+                      **result,
+                      "row_history": rows,
+                  })
+
+          if selected_rows != len(matched):
+              raise SystemExit(
+                  f"Matched membership rows ({len(matched)}) != selected source histories ({selected_rows})"
+              )
+          filtered = {
+              **history,
+              "results": selected_results,
+              "files_audited": len(selected_results),
+              "distinct_player_date_rows": selected_rows,
+              "filtered_from_full_population": True,
+              "membership_status": "MATCHED_PLAYER_FIXTURE_ONLY",
+          }
+          target = out / "understat-player-history-matched-only.json"
+          target.write_text(json.dumps(filtered, separators=(",", ":")), encoding="utf-8")
+          print(json.dumps({
+              "matched_rows": len(matched),
+              "selected_source_files": len(selected_results),
+              "filtered_history_bytes": target.stat().st_size,
+          }, indent=2))
+          PY
+
+      - name: Audit matched player rows against historical FPL deadlines
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_deadline_visibility.py \
+            --history-report "${RUNNER_TEMP}/matched-player-input/understat-player-history-matched-only.json" \
+            --seasons 2020-21,2021-22,2022-23,2023-24,2024-25 \
+            --vaastav-commit 8c97b2adb123863c3dd581e730f1360e89815ac2 \
+            --fplcache-commit 6c364bfbd9914649dc5dec016e544be3ae4fe767 \
+            --fixture-cache-root "${RUNNER_TEMP}/understat-fixture-cache" \
+            --fplcache-root fplcache-2025-26 \
+            --output "${RUNNER_TEMP}/understat-player-deadline-vintage-summary.json" \
+            --detail-output "${RUNNER_TEMP}/understat-player-deadline-vintage-detail.csv" \
+            > "${RUNNER_TEMP}/understat-player-deadline-vintage.log"
+
+      - name: Upload deadline-vintage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: understat-player-deadline-vintage-review
+          path: |
+            ${{ runner.temp }}/understat-player-deadline-vintage-summary.json
+            ${{ runner.temp }}/understat-player-deadline-vintage-detail.csv
+            ${{ runner.temp }}/understat-player-deadline-vintage.log
+            ${{ runner.temp }}/matched-player-input/understat-player-history-matched-only.json
+          if-no-files-found: warn
+          retention-days: 30
