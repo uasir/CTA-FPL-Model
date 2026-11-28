@@ -61,6 +61,18 @@ def load_player_fixture_membership(seasons: list[str], vaastav_commit: str,
     assignments["season"] = assignments["season"].astype(str)
     for column in required - {"season"}:
         assignments[column] = pd.to_numeric(assignments[column], errors="raise").astype("int64")
+    # Mark every season/Understat ID with overlapping FPL assignment intervals.
+    # Such IDs remain ambiguous even if only one conflicting FPL code happens to
+    # appear in a particular fixture's merged player rows.
+    assignments["identity_conflict"] = False
+    for (_, understat_id), group in assignments.groupby(["season", "understat_id"]):
+        indices = list(group.index)
+        for i, left_idx in enumerate(indices):
+            left = assignments.loc[left_idx]
+            for right_idx in indices[i + 1:]:
+                right = assignments.loc[right_idx]
+                if left.fpl_code != right.fpl_code and max(left.first_gameweek, right.first_gameweek) <= min(left.last_gameweek, right.last_gameweek):
+                    assignments.loc[[left_idx, right_idx], "identity_conflict"] = True
     if assignments.duplicated(["season", "fpl_code"]).any():
         raise ValueError("Dastan assignments contain duplicate season/fpl_code rows")
 
@@ -97,10 +109,11 @@ def load_player_fixture_membership(seasons: list[str], vaastav_commit: str,
         active = rows.gameweek.between(rows.first_gameweek, rows.last_gameweek)
         rows["understat_id"] = pd.to_numeric(rows.understat_id.where(active), errors="coerce")
         rows = rows.dropna(subset=["understat_id"])
+        rows["identity_conflict"] = rows.identity_conflict.fillna(False).astype(bool)
         rows = rows.drop_duplicates(["season", "fixture_id", "fpl_code"], keep="last")
-        pieces.append(rows[["season", "fixture_id", "gameweek", "fpl_code", "element_id", "understat_id"]])
+        pieces.append(rows[["season", "fixture_id", "gameweek", "fpl_code", "element_id", "understat_id", "identity_conflict"]])
     if not pieces:
-        return pd.DataFrame(columns=["season", "fixture_id", "gameweek", "fpl_code", "element_id", "understat_id"])
+        return pd.DataFrame(columns=["season", "fixture_id", "gameweek", "fpl_code", "element_id", "understat_id", "identity_conflict"])
     result = pd.concat(pieces, ignore_index=True)
     if result.duplicated(["season", "fixture_id", "understat_id", "fpl_code"]).any():
         raise ValueError("Dastan assignment produced duplicate player-fixture links")
@@ -155,7 +168,10 @@ def reconcile_player_rows(history_report: dict[str, Any], calendars: dict[str, p
                             & membership.fixture_id.eq(fixture_id)
                             & membership.understat_id.eq(understat_id)
                         ]
-                        if len(links) == 1:
+                        if len(links) and links.identity_conflict.fillna(False).any():
+                            status = "AMBIGUOUS_PLAYER_ASSIGNMENT"
+                            fixture_id = None
+                        elif len(links) == 1:
                             status = "MATCHED_PLAYER_FIXTURE"
                             fpl_code = int(links.fpl_code.iloc[0])
                             element_id = int(links.element_id.iloc[0])
@@ -194,7 +210,7 @@ def reconcile_player_rows(history_report: dict[str, Any], calendars: dict[str, p
         "schema_version": 1,
         "audit_type": "understat_player_row_to_fpl_fixture_membership",
         "vaastav_commit": history_report.get("pinned_commit"),
-        "dastan_assignments_commit": DASTAN_COMMIT,
+        "dastan_assignments_commit": history_report.get("dastan_assignments_commit", DASTAN_COMMIT),
         "player_rows_reconciled": len(output),
         "status_counts": counts,
         "admission_decision": "NO_FEATURES_ADMITTED",
@@ -224,6 +240,7 @@ def main() -> None:
     history = json.loads(args.history_report.read_text(encoding="utf-8"))
     calendars = load_fixture_calendars(seasons, args.vaastav_commit, args.fixture_cache_root)
     membership = load_player_fixture_membership(seasons, args.vaastav_commit, args.dastan_commit, args.player_cache_root)
+    history["dastan_assignments_commit"] = args.dastan_commit
     report = reconcile_player_rows(history, calendars, membership)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.detail_output.parent.mkdir(parents=True, exist_ok=True)
