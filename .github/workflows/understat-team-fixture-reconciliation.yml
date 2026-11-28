@@ -1,0 +1,124 @@
+name: Understat full-population team fixture reconciliation
+on:
+  push:
+    branches:
+      - audit/understat-player-fixture-reconciliation
+    paths:
+      - .github/workflows/understat-team-fixture-reconciliation.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: understat-team-fixture-reconciliation
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/understat-player-fixture-reconciliation
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install audit dependencies
+        run: python -m pip install --disable-pip-version-check pandas requests
+      - name: Restore resumable team-history archive
+        id: team-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/understat-team-history-cache
+          key: understat-team-history-v1-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-${{ github.run_id }}
+          restore-keys: |
+            understat-team-history-v1-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-
+      - name: Build exact pinned team-file inventory
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os, requests
+          from pathlib import Path
+          commit="8c97b2adb123863c3dd581e730f1360e89815ac2"
+          url=f"https://api.github.com/repos/vaastav/Fantasy-Premier-League/git/trees/{commit}?recursive=1"
+          headers={"Accept":"application/vnd.github+json"}
+          if os.getenv("GITHUB_TOKEN"): headers["Authorization"]="Bearer "+os.environ["GITHUB_TOKEN"]
+          response=requests.get(url,headers=headers,timeout=90); response.raise_for_status()
+          tree=response.json()
+          if tree.get("truncated") is not False: raise SystemExit("Pinned recursive tree is truncated")
+          seasons={"2020-21","2021-22","2022-23","2023-24","2024-25"}
+          teams=[]
+          for item in tree["tree"]:
+              p=item.get("path","")
+              parts=p.split("/")
+              if item.get("type")=="blob" and len(parts)==4 and parts[0]=="data" and parts[1] in seasons and parts[2]=="understat" and parts[3].startswith("understat_") and parts[3]!="understat_team.csv" and parts[3].endswith(".csv"):
+                  teams.append({"source_path":p,"source_kind":"pinned_team_csv"})
+          teams.sort(key=lambda x:x["source_path"])
+          if len(teams)!=117: raise SystemExit(f"Expected 117 season-team files; found {len(teams)}")
+          out=Path(os.environ["RUNNER_TEMP"])/"team-inventory.json"
+          out.write_text(json.dumps({"players":[],"teams":teams},indent=2))
+          print(json.dumps({"pinned_commit":commit,"team_files":len(teams),"season_counts":{s:sum(x["source_path"].split("/")[1]==s for x in teams) for s in sorted(seasons)}},indent=2))
+          PY
+      - name: Audit all team source revisions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_git_history.py \
+            --inventory "$RUNNER_TEMP/team-inventory.json" \
+            --pinned-commit "8c97b2adb123863c3dd581e730f1360e89815ac2" \
+            --max-commits-per-file 1000 \
+            --cache-dir "$RUNNER_TEMP/understat-team-history-cache" \
+            --output "$RUNNER_TEMP/team-history-complete.json"
+      - name: Reconcile team rows to canonical Premier League fixtures
+        run: |
+          python - <<'PY'
+          import csv, json, os, sys
+          from pathlib import Path
+          import pandas as pd
+          script=Path("canonical_candidate/engineering_workbench/scripts")
+          sys.path.insert(0,str(script))
+          from audit_2pm_understat_deadline_visibility import load_fixture_calendars, _fixture_match, _team_from_path
+          root=Path(os.environ["RUNNER_TEMP"])
+          history=json.loads((root/"team-history-complete.json").read_text())
+          seasons=["2020-21","2021-22","2022-23","2023-24","2024-25"]
+          calendars=load_fixture_calendars(seasons,"8c97b2adb123863c3dd581e730f1360e89815ac2",root/"fixture-cache")
+          rows=[]
+          for result in history.get("results",[]):
+              path=result["source_path"]
+              if result.get("error") or result.get("errors") or result.get("history_truncated"):
+                  raise SystemExit(f"Incomplete team history: {path}")
+              for key,h in result.get("row_history",{}).items():
+                  sig=h.get("first_value_signature") or h.get("latest_value_signature")
+                  source=json.loads(sig) if sig else {}
+                  fixture,status=_fixture_match(source,"team",path,calendars)
+                  team=_team_from_path(path)
+                  source_date=pd.to_datetime(source.get("date"),errors="coerce")
+                  if fixture is None: outcome=status.upper()
+                  elif pd.isna(source_date) or source_date.date()!=fixture["kickoff_time"].date(): outcome="DATE_MISMATCH_CANDIDATE"
+                  else: outcome="MATCHED_TEAM_FIXTURE"
+                  rows.append({"source_path":path,"row_key":key,"season":path.split("/")[1],"team":team,"source_date":source.get("date"),"home_away":source.get("h_a"),"reconciliation_status":outcome,"fixture_id":int(fixture["fixture_id"]) if fixture is not None and outcome=="MATCHED_TEAM_FIXTURE" else None,"fixture_home_team":fixture["home_team"] if fixture is not None else None,"fixture_away_team":fixture["away_team"] if fixture is not None else None,"present_in_latest_revision":h.get("present_in_latest_revision"),"first_seen_at":h.get("first_seen_at"),"latest_at":h.get("latest_at"),"value_revision_count":h.get("value_revision_count",0),"missing_revision_count":h.get("missing_revision_count",0),"reappearance_count":h.get("reappearance_count",0)})
+          counts={}
+          for row in rows: counts[row["reconciliation_status"]]=counts.get(row["reconciliation_status"],0)+1
+          summary={"schema_version":1,"audit_type":"understat_team_row_to_fpl_fixture_reconciliation","pinned_commit":history["pinned_commit"],"team_files_requested":history["files_requested"],"team_files_audited":history["files_audited"],"team_rows_reconciled":len(rows),"status_counts":counts,"admission_decision":"NO_FEATURES_ADMITTED","training_authorized":False,"original_understat_publication_proven":False,"limitations":["Team identity is derived from the pinned source filename and normalized against the canonical FPL fixture calendar.","Fixture candidates require season, exact kickoff date, club identity and home/away orientation.","Repository commit timestamps are lineage evidence only, not original Understat publication timestamps."]}
+          (root/"team-fixture-reconciliation-summary.json").write_text(json.dumps(summary,indent=2)+"\n")
+          pd.DataFrame(rows).to_csv(root/"team-fixture-reconciliation.csv",index=False)
+          print(json.dumps(summary,indent=2))
+          PY
+      - name: Upload team reconciliation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: understat-team-fixture-reconciliation
+          path: |
+            ${{ runner.temp }}/team-inventory.json
+            ${{ runner.temp }}/team-history-complete.json
+            ${{ runner.temp }}/team-fixture-reconciliation-summary.json
+            ${{ runner.temp }}/team-fixture-reconciliation.csv
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Save resumable team-history archive
+        if: always() && steps.team-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/understat-team-history-cache
+          key: understat-team-history-v1-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-${{ github.run_id }}
