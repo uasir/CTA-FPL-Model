@@ -1,5 +1,11 @@
 name: Understat full-population player fixture reconciliation
 on:
+  push:
+    branches:
+      - audit/understat-player-fixture-reconciliation
+    paths:
+      - .github/workflows/understat-player-fixture-reconciliation.yml
+      - canonical_candidate/engineering_workbench/scripts/audit_2pm_understat_player_fixture_membership.py
   workflow_dispatch:
     inputs:
       revision_run_id:
