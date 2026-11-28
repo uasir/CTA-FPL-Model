@@ -47,11 +47,15 @@ class UnderstatDeadlineVisibilityTests(unittest.TestCase):
         self.assertEqual(status, "matched")
         self.assertEqual(fixture["fixture_id"], 61)
 
-    def test_date_is_excluded_from_metric_signature_but_values_are_not(self):
-        old = json.dumps({"date": "2023-03-02", "xG": "3.06919", "xGA": "1.604"})
-        corrected_date = json.dumps({"date": "2023-03-01", "xG": "3.06919", "xGA": "1.604"})
-        changed_value = json.dumps({"date": "2023-03-01", "xG": "3.0", "xGA": "1.604"})
-        self.assertEqual(_metric_signature(old), _metric_signature(corrected_date))
+    def test_date_is_excluded_and_numeric_formatting_is_canonicalized(self):
+        old = json.dumps({"date": "2023-03-02", "xG": "3.06919", "xGA": "1.604", "xA": "0"})
+        corrected_date_and_format = json.dumps({
+            "date": "2023-03-01", "xG": "3.069190", "xGA": "1.6040", "xA": "0.0"
+        })
+        changed_value = json.dumps({
+            "date": "2023-03-01", "xG": "3.0", "xGA": "1.604", "xA": "0"
+        })
+        self.assertEqual(_metric_signature(old), _metric_signature(corrected_date_and_format))
         self.assertNotEqual(_metric_signature(old), _metric_signature(changed_value))
 
     def test_strict_five_minute_cutoff_excludes_equal_or_later_commit(self):
