@@ -32,20 +32,22 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ runner.temp }}/reconciliation
 
-      - name: Check out pinned FPL cache archive
-        uses: actions/checkout@v4
-        with:
-          repository: Randdalf/fplcache
-          ref: 6c364bfbd9914649dc5dec016e544be3ae4fe767
-          path: fplcache-2025-26
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install audit dependencies
-        run: python -m pip install pandas requests
+        run: python -m pip install --disable-pip-version-check numpy pandas requests
+
+      - name: Restore resumable pinned deadline archive
+        id: deadline-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/understat-fplcache
+          key: understat-player-deadline-v1-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-${{ github.run_id }}
+          restore-keys: |
+            understat-player-deadline-v1-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-
 
       - name: Filter to exact, identity-verified player-fixture matches
         env:
@@ -92,8 +94,10 @@ jobs:
           filtered = {
               **history,
               "results": selected_results,
+              "files_requested": len(selected_results),
               "files_audited": len(selected_results),
               "distinct_player_date_rows": selected_rows,
+              "source_commits_inspected": sum(int(item.get("commit_count_returned", 0)) for item in selected_results),
               "filtered_from_full_population": True,
               "membership_status": "MATCHED_PLAYER_FIXTURE_ONLY",
           }
@@ -121,6 +125,20 @@ jobs:
             --detail-output "${RUNNER_TEMP}/understat-player-deadline-vintage-detail.csv" \
             > "${RUNNER_TEMP}/understat-player-deadline-vintage.log"
 
+      - name: Compress detailed deadline evidence
+        if: always()
+        run: |
+          if [ -f "${RUNNER_TEMP}/understat-player-deadline-vintage-detail.csv" ]; then
+            gzip -1 "${RUNNER_TEMP}/understat-player-deadline-vintage-detail.csv"
+          fi
+
+      - name: Save resumable pinned deadline archive
+        if: always() && steps.deadline-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/understat-fplcache
+          key: understat-player-deadline-v1-${{ runner.os }}-vaastav-8c97b2adb123863c3dd581e730f1360e89815ac2-fplcache-6c364bfbd9914649dc5dec016e544be3ae4fe767-${{ github.run_id }}
+
       - name: Upload deadline-vintage evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -128,8 +146,8 @@ jobs:
           name: understat-player-deadline-vintage-review
           path: |
             ${{ runner.temp }}/understat-player-deadline-vintage-summary.json
-            ${{ runner.temp }}/understat-player-deadline-vintage-detail.csv
+            ${{ runner.temp }}/understat-player-deadline-vintage-detail.csv.gz
             ${{ runner.temp }}/understat-player-deadline-vintage.log
             ${{ runner.temp }}/matched-player-input/understat-player-history-matched-only.json
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: 90
