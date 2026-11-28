@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import html
 import json
+from decimal import Decimal, InvalidOperation
 import os
 import sys
 from collections import defaultdict
@@ -232,6 +233,13 @@ def _fixture_match(
 
 
 def _metric_signature(signature: str | None) -> str | None:
+    """Compare metric values numerically, not by CSV string formatting.
+
+    Understat histories sometimes serialize the same numeric value as (for
+    example) "0" and "0.0". Keep identity/metadata fields exact, while
+    canonicalizing numeric metric cells so formatting-only revisions do not
+    appear as deadline-vintage value changes.
+    """
     if not signature:
         return None
     try:
@@ -239,6 +247,15 @@ def _metric_signature(signature: str | None) -> str | None:
     except (TypeError, ValueError):
         return None
     row.pop("date", None)
+    for key, value in row.items():
+        if key in {"id", "roster_id", "season"} or not isinstance(value, str):
+            continue
+        try:
+            number = Decimal(value.strip())
+        except (InvalidOperation, ValueError):
+            continue
+        if number.is_finite():
+            row[key] = format(number.normalize(), "f")
     return json.dumps(row, sort_keys=True, separators=(",", ":"))
 
 
