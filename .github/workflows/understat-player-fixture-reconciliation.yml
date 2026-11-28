@@ -101,7 +101,7 @@ jobs:
             "training_authorized":False
           }
           out=root/"understat-player-history-complete.json"
-          out.write_text(json.dumps(merged,indent=2)+"\\n")
+          out.write_text(json.dumps(merged,indent=2)+"\n")
           print(json.dumps({k:v for k,v in merged.items() if k!="results"},indent=2))
           PY
       - name: Reconcile all player rows to FPL fixture and identity records
