@@ -4,7 +4,7 @@ Source-coverage inventory only; no row-vintage or feature-admission claim.
 Selection mirrors Dastan's _latest_player_paths() semantics.
 """
 from __future__ import annotations
-import argparse, csv, json, re, tempfile
+import argparse, csv, json, os, re, tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -27,7 +27,11 @@ def atomic_write(path: Path, payload: bytes) -> None:
 def cached_get(session: requests.Session, url: str, cache: Path) -> bytes:
     if cache.is_file() and cache.stat().st_size:
         return cache.read_bytes()
-    response = session.get(url, headers={"Accept": "application/vnd.github+json"}, timeout=90)
+    headers = {"Accept": "application/vnd.github+json"}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    response = session.get(url, headers=headers, timeout=90)
     response.raise_for_status()
     if not response.content:
         raise RuntimeError(f"Empty response for {url}")
