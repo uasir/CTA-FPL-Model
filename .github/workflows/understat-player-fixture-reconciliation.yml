@@ -95,7 +95,7 @@ jobs:
             "dastan_assignments_commit":"758db9247e8b3a9a870c991064f74d8339d61cd0",
             "files_requested":len(by_path),"files_audited":len(results),
             "distinct_player_date_rows":sum(len(r["row_history"]) for r in results),
-            "source_commits_inspected":sum(int(r.get("commit_count_returned",0)) for r in reports),
+            "source_commits_inspected":sum(int(row.get("commit_count_returned",0)) for row in results),
             "results":sorted(results,key=lambda x:x["source_path"]),
             "admission_decision":"NO_FEATURES_ADMITTED",
             "training_authorized":False
