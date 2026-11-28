@@ -17,7 +17,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: understat-player-revision-batch-${{ inputs.batch_index }}
+  group: understat-player-revision-batch-${{ github.event.inputs.batch_index || '0' }}
   cancel-in-progress: false
 jobs:
   audit:
@@ -47,7 +47,7 @@ jobs:
             --detail-output "$RUNNER_TEMP/player-population.csv"
       - name: Prepare deterministic player-history batch
         env:
-          BATCH_INDEX: ${{ inputs.batch_index || '0' }}
+          BATCH_INDEX: ${{ github.event.inputs.batch_index || '0' }}
         run: |
           python - <<'PY'
           import csv, json, os
@@ -71,7 +71,7 @@ jobs:
           selected = players[start:start+50]
           if not selected:
               raise SystemExit(f"empty batch {batch}; inventory has {len(players)} files")
-          (root / "batch-inventory.json").write_text(json.dumps({"players":selected},indent=2))
+          (root / "batch-inventory.json").write_text(json.dumps({"players":selected,"teams":[]},indent=2))
           print(json.dumps({"batch_index":batch,"total_files":len(players),"offset":start,"batch_files":len(selected),"first":selected[0],"last":selected[-1]},indent=2))
           PY
       - name: Audit all player source revisions in this batch
